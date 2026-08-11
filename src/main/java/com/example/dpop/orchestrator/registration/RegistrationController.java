@@ -45,7 +45,7 @@ public class RegistrationController {
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
         UUID sessionId = sessionService.getOrCreateSession(proof, thumbprint);
 
-        NextStep nextStep = new NextStep("registration", List.of("fsc"));
+        NextStep nextStep = new NextStep("useIdentificationMethod", List.of("fsc"));
         return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, nextStep));
     }
 

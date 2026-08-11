@@ -74,7 +74,7 @@ class SessionControllerIntegrationTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> nextStep = (Map<String, Object>) setupResponse.getBody().get("nextStep");
         assertThat(nextStep).isNotNull();
-        assertThat(nextStep.get("type")).isEqualTo("registration");
+        assertThat(nextStep.get("type")).isEqualTo("useIdentificationMethod");
         @SuppressWarnings("unchecked")
         java.util.List<String> identificationMethods = (java.util.List<String>) nextStep.get("identificationMethods");
         assertThat(identificationMethods).containsExactly("fsc");
