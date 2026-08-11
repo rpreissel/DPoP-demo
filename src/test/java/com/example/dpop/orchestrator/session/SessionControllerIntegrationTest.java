@@ -23,6 +23,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpClientErrorException;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -95,7 +97,7 @@ class SessionControllerIntegrationTest {
         assertThat(identificationMethods).containsExactly("fsc");
 
         Person person = personRepository.findByKvnr("A123456789").orElseThrow();
-        fscCodeRepository.save(new FscCode(person.getId(), "VALIDCODE", Instant.now().plus(1, ChronoUnit.HOURS)));
+        fscCodeRepository.save(new FscCode(person.getId(), "TESTCODE123", Instant.now().plus(1, ChronoUnit.HOURS)));
 
         String identificationUrl = setupUrl + "/" + sessionId + "/identification-methods/fsc";
         String identificationProof = createDpopProof(ecKey, "POST", identificationUrl);
@@ -126,7 +128,7 @@ class SessionControllerIntegrationTest {
         HttpHeaders fscHeaders = new HttpHeaders();
         fscHeaders.set("DPoP", fscProof);
         fscHeaders.set("Content-Type", "application/json");
-        HttpEntity<Map<String, String>> fscEntity = new HttpEntity<>(Map.of("fsc", "VALIDCODE"), fscHeaders);
+        HttpEntity<Map<String, String>> fscEntity = new HttpEntity<>(Map.of("fsc", "TESTCODE123"), fscHeaders);
         ResponseEntity<Map> fscResponse = restTemplate.exchange(
                 fscUrl,
                 HttpMethod.PATCH,
@@ -155,7 +157,56 @@ class SessionControllerIntegrationTest {
         assertThat(statusResponse2.getBody().next()).isNull();
     }
 
+    @Test
+    void rejectsReplayOfSameDpopProof() throws Exception {
+        ECKey ecKey = new ECKeyGenerator(Curve.P_256).generate();
+        String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
+        String sessionsProof = createDpopProof(ecKey, "GET", sessionsUrl);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("DPoP", sessionsProof);
+
+        ResponseEntity<SessionStatusResponse> firstResponse = restTemplate.exchange(
+                sessionsUrl,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                SessionStatusResponse.class);
+
+        assertThat(firstResponse.getStatusCode().value()).isEqualTo(200);
+
+        assertThatThrownBy(() -> restTemplate.exchange(
+                sessionsUrl,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class))
+                .isInstanceOf(HttpClientErrorException.Unauthorized.class)
+                .hasMessageContaining("replay");
+    }
+
+    @Test
+    void rejectsTooOldDpopProof() throws Exception {
+        ECKey ecKey = new ECKeyGenerator(Curve.P_256).generate();
+        String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
+        Instant oldIat = Instant.now().minus(10, ChronoUnit.MINUTES);
+        String sessionsProof = createDpopProof(ecKey, "GET", sessionsUrl, oldIat);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("DPoP", sessionsProof);
+
+        assertThatThrownBy(() -> restTemplate.exchange(
+                sessionsUrl,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class))
+                .isInstanceOf(HttpClientErrorException.Unauthorized.class)
+                .hasMessageContaining("too old");
+    }
+
     private String createDpopProof(ECKey ecKey, String method, String url) throws Exception {
+        return createDpopProof(ecKey, method, url, Instant.now());
+    }
+
+    private String createDpopProof(ECKey ecKey, String method, String url, Instant issuedAt) throws Exception {
         JWK publicJwk = ecKey.toPublicJWK();
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES256)
                 .type(new com.nimbusds.jose.JOSEObjectType("dpop+jwt"))
@@ -164,7 +215,7 @@ class SessionControllerIntegrationTest {
 
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .jwtID(UUID.randomUUID().toString())
-                .issueTime(Date.from(Instant.now().truncatedTo(ChronoUnit.SECONDS)))
+                .issueTime(Date.from(issuedAt.truncatedTo(ChronoUnit.SECONDS)))
                 .claim("htm", method)
                 .claim("htu", url)
                 .build();

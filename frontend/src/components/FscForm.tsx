@@ -5,7 +5,7 @@ interface FscFormProps {
 }
 
 export function FscForm({ onSubmit }: FscFormProps) {
-  const [fsc, setFsc] = useState('')
+  const [fsc, setFsc] = useState('VALIDCODE')
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -15,12 +15,24 @@ export function FscForm({ onSubmit }: FscFormProps) {
   return (
     <div className="card">
       <h2>Freischaltcode</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
-          FSC
-          <input value={fsc} onChange={(e) => setFsc(e.target.value)} required />
-        </label>
-        <button type="submit">Validieren</button>
+      <p>Geben Sie den Ihnen zugesandten Freischaltcode ein.</p>
+      <div className="hint">
+        Testcode vorbelegt: <code>{fsc}</code>
+      </div>
+      <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
+        <div className="form-group">
+          <label htmlFor="fsc">Freischaltcode</label>
+          <input
+            id="fsc"
+            value={fsc}
+            onChange={(e) => setFsc(e.target.value)}
+            placeholder="z.B. VALIDCODE"
+            required
+          />
+        </div>
+        <div className="form-actions">
+          <button type="submit">Freischaltcode validieren</button>
+        </div>
       </form>
     </div>
   )

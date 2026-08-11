@@ -8,10 +8,11 @@ import { IdentificationForm } from './components/IdentificationForm'
 import { SessionStatusView } from './components/SessionStatusView'
 
 function App() {
-  const [message, setMessage] = useState<string>('Loading...')
+  const [message, setMessage] = useState<string>('')
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null)
   const [error, setError] = useState<string>('')
+  const [showDebug, setShowDebug] = useState(false)
 
   useEffect(() => {
     fetch('/orchestrator/process')
@@ -109,33 +110,51 @@ function App() {
 
   return (
     <div className="app">
-      <h1>DPoP Demo</h1>
-      <p>React {React.version} + TypeScript + Spring Boot Modulith</p>
-      <div className="card">
-        <h2>Backend Response</h2>
-        <pre>{message}</pre>
-      </div>
+      <header className="app-header">
+        <h1>DPoP Demo</h1>
+        <p>React {React.version} + TypeScript + Spring Boot Modulith</p>
+      </header>
+
       {error && (
-        <div className="card">
-          <h2>Error</h2>
-          <pre>{error}</pre>
+        <div className="card error-card">
+          <h2>Fehler</h2>
+          <p>{error}</p>
         </div>
       )}
-      {dpop && (
-        <div className="card">
-          <h2>DPoP Public Key (JWK)</h2>
-          <pre>{JSON.stringify(dpop.publicJwk, null, 2)}</pre>
-        </div>
-      )}
+
       {sessionStatus && <SessionStatusView status={sessionStatus} />}
+
       {sessionStatus?.next?.context === 'registration' && sessionStatus?.next?.step === 'useIdentificationMethod' && (
         <IdentificationForm onSubmit={submitIdentification} />
       )}
+
       {sessionStatus?.next?.context === 'fsc' && sessionStatus?.next?.step === 'input' && (
         <FscForm onSubmit={submitFsc} />
       )}
+
       {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'setup' && sessionStatus.next.authenticationMethods && (
         <AuthenticationSetupView methods={sessionStatus.next.authenticationMethods} />
+      )}
+
+      <div className="debug-toggle">
+        <button type="button" className="secondary" onClick={() => setShowDebug((s) => !s)}>
+          {showDebug ? 'Debug-Info ausblenden' : 'Debug-Info anzeigen'}
+        </button>
+      </div>
+
+      {showDebug && (
+        <>
+          <div className="card debug-section">
+            <h2>Backend Response</h2>
+            <pre>{message || 'Loading...'}</pre>
+          </div>
+          {dpop && (
+            <div className="card debug-section">
+              <h2>DPoP Public Key (JWK)</h2>
+              <pre>{JSON.stringify(dpop.publicJwk, null, 2)}</pre>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

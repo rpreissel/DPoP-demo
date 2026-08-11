@@ -99,6 +99,7 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `plz`
   - `ort`
 - Bei Applikationsstart werden Testdaten in die `person`-Tabelle eingespielt.
+- Für die vorhandenen Testpersonen werden gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow im UI direkt durchgespielt werden kann.
 - Registration- und Authorisation-Sessions werden in einer gemeinsamen Tabelle `client_session` persistiert:
   - `jwk_thumbprint` (Primärschlüssel)
   - `type` (`REG` oder `AUTH`)
