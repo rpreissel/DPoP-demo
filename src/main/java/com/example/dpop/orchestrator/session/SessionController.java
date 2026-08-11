@@ -1,12 +1,10 @@
 package com.example.dpop.orchestrator.session;
 
-import com.example.dpop.orchestrator.authorisation.AuthorisationSession;
 import com.example.dpop.orchestrator.authorisation.AuthorisationSessionService;
 import com.example.dpop.orchestrator.dpop.DpopProof;
 import com.example.dpop.orchestrator.dpop.DpopValidationException;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService;
-import com.example.dpop.orchestrator.registration.RegistrationSession;
 import com.example.dpop.orchestrator.registration.RegistrationSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -49,20 +47,20 @@ public class SessionController {
         DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
 
-        Optional<RegistrationSession> registrationSession = registrationSessionService.findByJwkThumbprint(thumbprint);
-        Optional<AuthorisationSession> authorisationSession = authorisationSessionService.findByJwkThumbprint(thumbprint);
+        Optional<ClientSession> registrationSession = registrationSessionService.findByJwkThumbprint(thumbprint);
+        Optional<ClientSession> authorisationSession = authorisationSessionService.findByJwkThumbprint(thumbprint);
 
         if (authorisationSession.isPresent()) {
             return ResponseEntity.ok(new SessionStatusResponse(
                     null,
-                    authorisationSession.map(AuthorisationSession::getId).orElse(null),
+                    authorisationSession.map(ClientSession::getSessionId).orElse(null),
                     null
             ));
         }
 
         if (registrationSession.isPresent()) {
             return ResponseEntity.ok(new SessionStatusResponse(
-                    registrationSession.map(RegistrationSession::getId).orElse(null),
+                    registrationSession.map(ClientSession::getSessionId).orElse(null),
                     null,
                     null
             ));

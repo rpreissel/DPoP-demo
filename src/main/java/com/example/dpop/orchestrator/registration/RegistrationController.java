@@ -7,6 +7,7 @@ import com.example.dpop.orchestrator.dpop.DpopProof;
 import com.example.dpop.orchestrator.dpop.DpopValidationException;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService;
+import com.example.dpop.orchestrator.session.ClientSession;
 import com.example.dpop.orchestrator.session.NextStep;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -54,7 +55,7 @@ public class RegistrationController {
         String requestUrl = buildRequestUrl(request);
         DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
-        UUID sessionId = sessionService.getOrCreateSession(proof, thumbprint);
+        UUID sessionId = sessionService.getOrCreateSession(thumbprint);
 
         NextStep nextStep = new NextStep.UseIdentificationMethodNextStep(List.of("fsc"));
         return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, nextStep));
@@ -95,7 +96,7 @@ public class RegistrationController {
         String requestUrl = buildRequestUrl(request);
         DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
-        RegistrationSession session = sessionService.requireSession(registrationSessionId, thumbprint);
+        ClientSession session = sessionService.requireSession(registrationSessionId, thumbprint);
 
         Long personId = session.getPersonId();
         if (personId == null) {

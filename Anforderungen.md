@@ -99,6 +99,14 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `plz`
   - `ort`
 - Bei Applikationsstart werden Testdaten in die `person`-Tabelle eingespielt.
+- Registration- und Authorisation-Sessions werden in einer gemeinsamen Tabelle `client_session` persistiert:
+  - `jwk_thumbprint` (Primärschlüssel)
+  - `type` (`REG` oder `AUTH`)
+  - `expire_at`
+  - `last_accessed`
+  - `format` (`V1` oder `V2`)
+  - `data` (JSON mit session-spezifischen Daten, z.B. `id`, `personId`)
+  - `version` (Optimistic Locking)
 - Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
 
 ### 3.5 Pflichtenheft
@@ -130,6 +138,10 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F23 | Der Orchestrator prüft die KVNR gegen die Stammdaten und fordert bei Erfolg die FSC-Eingabe an. | Antwort enthält `next: { context: "fsc", step: "input" }` |
 | F24 | Der Freischaltcode wird per PATCH übermittelt und vom FSC-Service validiert. | PATCH `/orchestrator/registration-sessions/{id}/identification-methods/fsc`; Prüfung auf Existenz und Ablauf |
 | F25 | Nach erfolgreicher FSC-Validierung wird der Authentication-Setup-Schritt zurückgegeben. | Antwort enthält `next: { context: "authentication", step: "setup", authenticationMethods: ["sms"] }` |
+| F26 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP 401 abgewiesen |
+| F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
+| F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |
+| F29 | Das DPoP-`iat`-Zeitfenster ist konfigurierbar. | `max-age-seconds` und `max-clock-skew-seconds` werden über `application.yml` gesetzt und im Validator verwendet |
 
 ### 3.6 DPoP- und Session-Ablauf (Beispiel)
 

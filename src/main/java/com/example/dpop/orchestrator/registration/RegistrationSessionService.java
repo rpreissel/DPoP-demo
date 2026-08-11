@@ -1,45 +1,53 @@
 package com.example.dpop.orchestrator.registration;
 
-import com.example.dpop.orchestrator.dpop.DpopProof;
+import com.example.dpop.orchestrator.session.ClientSession;
+import com.example.dpop.orchestrator.session.ClientSessionRepository;
+import com.example.dpop.orchestrator.session.SessionType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class RegistrationSessionService {
 
-    private final RegistrationSessionRepository repository;
+    private final ClientSessionRepository repository;
 
-    public RegistrationSessionService(RegistrationSessionRepository repository) {
+    public RegistrationSessionService(ClientSessionRepository repository) {
         this.repository = repository;
     }
 
     @Transactional(readOnly = true)
-    public Optional<RegistrationSession> findByJwkThumbprint(String jwkThumbprint) {
-        return repository.findByJwkThumbprint(jwkThumbprint);
+    public Optional<ClientSession> findByJwkThumbprint(String jwkThumbprint) {
+        return repository.findByJwkThumbprintAndType(jwkThumbprint, SessionType.REG);
     }
 
     @Transactional
-    public UUID getOrCreateSession(DpopProof proof, String jwkThumbprint) {
-        RegistrationSession session = repository.findByJwkThumbprint(jwkThumbprint)
-                .orElseGet(() -> repository.save(new RegistrationSession(jwkThumbprint)));
+    public UUID getOrCreateSession(String jwkThumbprint) {
+        ClientSession session = repository.findByJwkThumbprintAndType(jwkThumbprint, SessionType.REG)
+                .orElseGet(() -> repository.save(ClientSession.createRegistration(jwkThumbprint, defaultExpireAt())));
         session.touch();
-        return session.getId();
+        return session.getSessionId();
     }
 
     @Transactional(readOnly = true)
-    public RegistrationSession requireSession(UUID sessionId, String jwkThumbprint) {
-        return repository.findById(sessionId)
-                .filter(s -> s.getJwkThumbprint().equals(jwkThumbprint))
+    public ClientSession requireSession(UUID sessionId, String jwkThumbprint) {
+        return repository.findByJwkThumbprintAndType(jwkThumbprint, SessionType.REG)
+                .filter(s -> s.getSessionId().equals(sessionId))
                 .orElseThrow(() -> new RegistrationSessionException("Invalid or unknown registration session"));
     }
 
     @Transactional
     public void setPersonId(UUID sessionId, String jwkThumbprint, Long personId) {
-        RegistrationSession session = requireSession(sessionId, jwkThumbprint);
+        ClientSession session = requireSession(sessionId, jwkThumbprint);
         session.setPersonId(personId);
         session.touch();
+    }
+
+    private Instant defaultExpireAt() {
+        return Instant.now().plus(30, ChronoUnit.MINUTES);
     }
 }
