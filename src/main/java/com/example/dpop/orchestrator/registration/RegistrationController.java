@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.registration;
 
+import com.example.dpop.account.Account;
+import com.example.dpop.account.AccountService;
 import com.example.dpop.ext_stammdaten.Person;
 import com.example.dpop.ext_stammdaten.PersonRepository;
 import com.example.dpop.id_fsc.IdFscService;
@@ -34,17 +36,20 @@ public class RegistrationController {
     private final RegistrationSessionService sessionService;
     private final PersonRepository personRepository;
     private final IdFscService idFscService;
+    private final AccountService accountService;
 
     public RegistrationController(DpopValidator dpopValidator,
                                   JwkThumbprintService jwkThumbprintService,
                                   RegistrationSessionService sessionService,
                                   PersonRepository personRepository,
-                                  IdFscService idFscService) {
+                                  IdFscService idFscService,
+                                  AccountService accountService) {
         this.dpopValidator = dpopValidator;
         this.jwkThumbprintService = jwkThumbprintService;
         this.sessionService = sessionService;
         this.personRepository = personRepository;
         this.idFscService = idFscService;
+        this.accountService = accountService;
     }
 
     @PostMapping
@@ -111,6 +116,18 @@ public class RegistrationController {
         if (!idFscService.validateFsc(personId, fscCode)) {
             throw new RegistrationSessionException("Invalid or expired FSC code");
         }
+
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new RegistrationSessionException("Person not found"));
+
+        Account account = accountService.createAccount(
+                personId,
+                "fsc",
+                "HIGH",
+                registrationSessionId,
+                Map.of("kvnr", person.getKvnr())
+        );
+        sessionService.setAccountId(registrationSessionId, thumbprint, account.getId());
 
         NextStep nextStep = new NextStep.AuthenticationSetupNextStep(List.of("sms"));
         return ResponseEntity.ok(new RegistrationSetupResponse(registrationSessionId, nextStep));

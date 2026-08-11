@@ -47,6 +47,13 @@ public class RegistrationSessionService {
         session.touch();
     }
 
+    @Transactional
+    public void setAccountId(UUID sessionId, String jwkThumbprint, Long accountId) {
+        ClientSession session = requireSession(sessionId, jwkThumbprint);
+        session.setAccountId(accountId);
+        session.touch();
+    }
+
     private Instant defaultExpireAt() {
         return Instant.now().plus(30, ChronoUnit.MINUTES);
     }

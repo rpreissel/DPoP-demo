@@ -117,6 +117,17 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `data` (JSON mit session-spezifischen Daten, z.B. `id`, `personId`)
   - `version` (Optimistic Locking)
 - Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
+- Im Modul `account` existiert eine `Account`-Entität mit folgenden Attributen:
+  - `id` (Primärschlüssel, auto-generiert)
+  - `personId` (Referenz auf die identifizierte Person)
+  - `createdAt` (Zeitpunkt der Erstellung)
+  - `identifications` (JSON-Array mit den durchgeführten Identifikationen)
+- Eine `AccountIdentification` enthält:
+  - `identificationMethod` (z. B. `fsc`)
+  - `identificationQuality` (z. B. `HIGH`)
+  - `identifiedAt` (Zeitpunkt der Identifikation)
+  - `registrationSessionId` (Session, in der die Identifikation stattfand)
+  - `details` (JSON mit weiteren wichtigen Daten, z. B. KVNR)
 
 ### 3.5 Pflichtenheft
 
@@ -147,6 +158,9 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F23 | Der Orchestrator prüft die KVNR gegen die Stammdaten und fordert bei Erfolg die FSC-Eingabe an. | Antwort enthält `next: { context: "fsc", step: "input" }` |
 | F24 | Der Freischaltcode wird per PATCH übermittelt und vom FSC-Service validiert. | PATCH `/orchestrator/registration-sessions/{id}/identification-methods/fsc`; Prüfung auf Existenz und Ablauf |
 | F25 | Nach erfolgreicher FSC-Validierung wird der Authentication-Setup-Schritt zurückgegeben. | Antwort enthält `next: { context: "authentication", step: "setup", authenticationMethods: ["sms"] }` |
+| F25a | Nach erfolgreicher FSC-Validierung wird ein Account erstellt. | Account referenziert die `personId` und speichert mindestens Identifikationsmittel, -qualität, Zeitpunkt und Session-Id |
+| F25b | Der erstellte Account wird in der Registration Session gemerkt. | `ClientSession.data` enthält die `accountId` |
+| F25c | Ein Account kann mehrere Identifikationen speichern. | `identifications` ist ein JSON-Array in der Account-Tabelle |
 | F26 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP 401 abgewiesen |
 | F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
 | F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |

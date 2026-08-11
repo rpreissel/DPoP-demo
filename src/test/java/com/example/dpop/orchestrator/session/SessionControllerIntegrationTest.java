@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.session;
 
+import com.example.dpop.account.Account;
+import com.example.dpop.account.AccountRepository;
 import com.example.dpop.ext_stammdaten.Person;
 import com.example.dpop.ext_stammdaten.PersonRepository;
 import com.example.dpop.id_fsc.FscCode;
@@ -49,6 +51,9 @@ class SessionControllerIntegrationTest {
 
     @Autowired
     private FscCodeRepository fscCodeRepository;
+
+    @Autowired
+    private AccountRepository accountRepository;
 
     private final RestTemplate restTemplate = new RestTemplate(new HttpComponentsClientHttpRequestFactory(HttpClients.createDefault()));
 
@@ -143,6 +148,14 @@ class SessionControllerIntegrationTest {
         @SuppressWarnings("unchecked")
         List<String> authenticationMethods = (List<String>) fscNext.get("authenticationMethods");
         assertThat(authenticationMethods).containsExactly("sms");
+
+        Person identifiedPerson = personRepository.findByKvnr("A123456789").orElseThrow();
+        Account account = accountRepository.findByPersonId(identifiedPerson.getId()).orElseThrow();
+        assertThat(account.getPersonId()).isEqualTo(identifiedPerson.getId());
+        assertThat(account.getIdentifications()).hasSize(1);
+        assertThat(account.getIdentifications().get(0).getIdentificationMethod()).isEqualTo("fsc");
+        assertThat(account.getIdentifications().get(0).getIdentificationQuality()).isEqualTo("HIGH");
+        assertThat(account.getIdentifications().get(0).getIdentifiedAt()).isNotNull();
 
         String sessionsProof2 = createDpopProof(ecKey, "GET", sessionsUrl);
         HttpHeaders getHeaders2 = new HttpHeaders();

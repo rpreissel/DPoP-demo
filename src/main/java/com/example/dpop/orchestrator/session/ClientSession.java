@@ -115,6 +115,15 @@ public class ClientSession {
         data.put("personId", personId);
     }
 
+    public Long getAccountId() {
+        Object accountId = data.get("accountId");
+        return accountId == null ? null : Long.valueOf(accountId.toString());
+    }
+
+    public void setAccountId(Long accountId) {
+        data.put("accountId", accountId);
+    }
+
     public void touch() {
         this.lastAccessed = Instant.now();
     }
