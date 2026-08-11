@@ -143,8 +143,9 @@ Antwort bei noch unbekanntem Client (keine Session vorhanden):
 {
   "registrationSessionId": null,
   "authorisationSessionId": null,
-  "nextStep": {
-    "type": "registration"
+  "next": {
+    "context": "registration",
+    "step": "registration"
   }
 }
 ```
@@ -162,8 +163,9 @@ Antwort:
 ```json
 {
   "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "nextStep": {
-    "type": "useIdentificationMethod",
+  "next": {
+    "context": "registration",
+    "step": "useIdentificationMethod",
     "identificationMethods": ["fsc"]
   }
 }
@@ -198,7 +200,7 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 {
   "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "authorisationSessionId": null,
-  "nextStep": null
+  "next": null
 }
 ```
 
@@ -208,7 +210,7 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 {
   "registrationSessionId": null,
   "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
-  "nextStep": null
+  "next": null
 }
 ```
 

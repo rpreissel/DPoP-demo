@@ -53,9 +53,10 @@ class SessionControllerIntegrationTest {
 
         assertThat(statusResponse.getStatusCode().value()).isEqualTo(200);
         assertThat(statusResponse.getBody()).isNotNull();
-        assertThat(statusResponse.getBody().nextStep()).isNotNull();
-        assertThat(statusResponse.getBody().nextStep().type()).isEqualTo("registration");
-        assertThat(statusResponse.getBody().nextStep().identificationMethods()).isNull();
+        assertThat(statusResponse.getBody().next()).isNotNull();
+        assertThat(statusResponse.getBody().next().context()).isEqualTo("registration");
+        assertThat(statusResponse.getBody().next().step()).isEqualTo("registration");
+        assertThat(statusResponse.getBody().next().identificationMethods()).isNull();
 
         String setupUrl = "http://localhost:" + port + "/orchestrator/registration-sessions";
         String setupProof = createDpopProof(ecKey, "POST", setupUrl);
@@ -72,11 +73,12 @@ class SessionControllerIntegrationTest {
         String sessionId = (String) setupResponse.getBody().get("registrationSessionId");
         assertThat(sessionId).isNotBlank();
         @SuppressWarnings("unchecked")
-        Map<String, Object> nextStep = (Map<String, Object>) setupResponse.getBody().get("nextStep");
-        assertThat(nextStep).isNotNull();
-        assertThat(nextStep.get("type")).isEqualTo("useIdentificationMethod");
+        Map<String, Object> next = (Map<String, Object>) setupResponse.getBody().get("next");
+        assertThat(next).isNotNull();
+        assertThat(next.get("context")).isEqualTo("registration");
+        assertThat(next.get("step")).isEqualTo("useIdentificationMethod");
         @SuppressWarnings("unchecked")
-        java.util.List<String> identificationMethods = (java.util.List<String>) nextStep.get("identificationMethods");
+        java.util.List<String> identificationMethods = (java.util.List<String>) next.get("identificationMethods");
         assertThat(identificationMethods).containsExactly("fsc");
 
         String stepUrl = setupUrl + "/" + sessionId + "/steps";
@@ -103,7 +105,7 @@ class SessionControllerIntegrationTest {
                 SessionStatusResponse.class);
 
         assertThat(statusResponse2.getBody().registrationSessionId()).isEqualTo(UUID.fromString(sessionId));
-        assertThat(statusResponse2.getBody().nextStep()).isNull();
+        assertThat(statusResponse2.getBody().next()).isNull();
     }
 
     private String createDpopProof(ECKey ecKey, String method, String url) throws Exception {

@@ -6,6 +6,6 @@ import java.util.UUID;
 
 public record RegistrationSetupResponse(
         UUID registrationSessionId,
-        NextStep nextStep
+        NextStep next
 ) {
 }

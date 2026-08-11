@@ -5,6 +5,6 @@ import java.util.UUID;
 public record SessionStatusResponse(
         UUID registrationSessionId,
         UUID authorisationSessionId,
-        NextStep nextStep
+        NextStep next
 ) {
 }

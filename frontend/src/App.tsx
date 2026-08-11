@@ -3,19 +3,20 @@ import { createDpopProof, getOrCreateDpopKeyPair, type DpopKeyPair } from './dpo
 import './App.css'
 
 interface NextStep {
-  type: string
+  context: string
+  step: string
   identificationMethods?: string[]
 }
 
 interface SessionStatus {
   registrationSessionId?: string
   authorisationSessionId?: string
-  nextStep?: NextStep
+  next?: NextStep
 }
 
 interface RegistrationSetupResult {
   registrationSessionId: string
-  nextStep: NextStep
+  next: NextStep
 }
 
 function App() {
@@ -54,7 +55,7 @@ function App() {
       if (!active) return
       setSessionStatus(status)
 
-      if (status.nextStep?.type === 'registration') {
+      if (status.next?.context === 'registration') {
         const setupUrl = `${window.location.origin}/orchestrator/registration-sessions`
         const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
         const setupResponse = await fetch('/orchestrator/registration-sessions', {
@@ -70,7 +71,7 @@ function App() {
         if (!active) return
         setSessionStatus({
           registrationSessionId: sessionId,
-          nextStep: setupResult.nextStep,
+          next: setupResult.next,
         })
 
         const stepUrl = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/steps`
