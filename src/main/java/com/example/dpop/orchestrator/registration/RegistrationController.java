@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.dpop.DpopProof;
 import com.example.dpop.orchestrator.dpop.DpopValidationException;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService;
+import com.example.dpop.orchestrator.session.NextStep;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,7 +36,7 @@ public class RegistrationController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> setup(
+    public ResponseEntity<RegistrationSetupResponse> setup(
             @RequestHeader("DPoP") String dpopProof,
             HttpServletRequest request) {
 
@@ -43,7 +45,8 @@ public class RegistrationController {
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
         UUID sessionId = sessionService.getOrCreateSession(proof, thumbprint);
 
-        return ResponseEntity.ok(Map.of("registrationSessionId", sessionId.toString()));
+        NextStep nextStep = new NextStep("registration", List.of("fsc"));
+        return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, nextStep));
     }
 
     @PostMapping("/{registrationSessionId}/steps")

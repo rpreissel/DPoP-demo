@@ -2,11 +2,20 @@ import React, { useEffect, useState } from 'react'
 import { createDpopProof, getOrCreateDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
 
+interface NextStep {
+  type: string
+  identificationMethods?: string[]
+}
+
 interface SessionStatus {
   registrationSessionId?: string
   authorisationSessionId?: string
-  nextStep?: string
-  identificationMeans?: string[]
+  nextStep?: NextStep
+}
+
+interface RegistrationSetupResult {
+  registrationSessionId: string
+  nextStep: NextStep
 }
 
 function App() {
@@ -45,7 +54,7 @@ function App() {
       if (!active) return
       setSessionStatus(status)
 
-      if (status.nextStep === 'registration') {
+      if (status.nextStep?.type === 'registration') {
         const setupUrl = `${window.location.origin}/orchestrator/registration-sessions`
         const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
         const setupResponse = await fetch('/orchestrator/registration-sessions', {
@@ -56,8 +65,13 @@ function App() {
           const body = await setupResponse.text()
           throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
         }
-        const setupResult = await setupResponse.json()
-        const sessionId = setupResult.registrationSessionId as string
+        const setupResult = (await setupResponse.json()) as RegistrationSetupResult
+        const sessionId = setupResult.registrationSessionId
+        if (!active) return
+        setSessionStatus({
+          registrationSessionId: sessionId,
+          nextStep: setupResult.nextStep,
+        })
 
         const stepUrl = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/steps`
         const stepProof = await createDpopProof(keyPair.keyPair, 'POST', stepUrl)
@@ -72,7 +86,6 @@ function App() {
         const stepResult = await stepResponse.json()
         if (!active) return
         setRegistrationStep(stepResult.status as string)
-        setSessionStatus((prev) => (prev ? { ...prev, registrationSessionId: sessionId } : null))
       }
     }
 

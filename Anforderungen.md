@@ -120,7 +120,7 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F15 | Alle Registration-Aufrufe werden mit DPoP abgesichert. | Header `DPoP` enthält valides DPoP-Proof-JWT |
 | F16 | Der Session-Status wird über einen GET-Endpunkt abgefragt. | GET `/orchestrator/sessions` mit DPoP-Proof |
 | F17 | Der Abfrage verwendet den JWK-Thumbprint als Schlüssel. | Suche nach Registration- und Authorisation-Sessions |
-| F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Inklusive Liste der verfügbaren Identifikationsmittel |
+| F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Ohne Identifikationsmethoden; diese folgen beim Setup |
 | F19 | Registration Sessions werden über einen Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/registration-sessions` liefert `registrationSessionId` |
 | F20 | Der Setup-Prozess verwendet den JWK-Thumbprint als Schlüssel. | Session wird anhand des Thumbprints wiederverwendet |
 | F21 | Folgende Registration-Aufrufe enthalten die `registrationSessionId` im Pfad. | z.B. `/orchestrator/registration-sessions/{id}/steps` |
@@ -143,8 +143,9 @@ Antwort bei noch unbekanntem Client (keine Session vorhanden):
 {
   "registrationSessionId": null,
   "authorisationSessionId": null,
-  "nextStep": "registration",
-  "identificationMeans": ["fsc"]
+  "nextStep": {
+    "type": "registration"
+  }
 }
 ```
 
@@ -160,7 +161,11 @@ Antwort:
 
 ```json
 {
-  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "nextStep": {
+    "type": "registration",
+    "identificationMethods": ["fsc"]
+  }
 }
 ```
 
@@ -193,8 +198,7 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 {
   "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "authorisationSessionId": null,
-  "nextStep": null,
-  "identificationMeans": null
+  "nextStep": null
 }
 ```
 
@@ -204,8 +208,7 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 {
   "registrationSessionId": null,
   "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
-  "nextStep": null,
-  "identificationMeans": null
+  "nextStep": null
 }
 ```
 

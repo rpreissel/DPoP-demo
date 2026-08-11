@@ -53,8 +53,9 @@ class SessionControllerIntegrationTest {
 
         assertThat(statusResponse.getStatusCode().value()).isEqualTo(200);
         assertThat(statusResponse.getBody()).isNotNull();
-        assertThat(statusResponse.getBody().nextStep()).isEqualTo("registration");
-        assertThat(statusResponse.getBody().identificationMeans()).containsExactly("fsc");
+        assertThat(statusResponse.getBody().nextStep()).isNotNull();
+        assertThat(statusResponse.getBody().nextStep().type()).isEqualTo("registration");
+        assertThat(statusResponse.getBody().nextStep().identificationMethods()).isNull();
 
         String setupUrl = "http://localhost:" + port + "/orchestrator/registration-sessions";
         String setupProof = createDpopProof(ecKey, "POST", setupUrl);
@@ -70,6 +71,13 @@ class SessionControllerIntegrationTest {
         assertThat(setupResponse.getStatusCode().value()).isEqualTo(200);
         String sessionId = (String) setupResponse.getBody().get("registrationSessionId");
         assertThat(sessionId).isNotBlank();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> nextStep = (Map<String, Object>) setupResponse.getBody().get("nextStep");
+        assertThat(nextStep).isNotNull();
+        assertThat(nextStep.get("type")).isEqualTo("registration");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> identificationMethods = (java.util.List<String>) nextStep.get("identificationMethods");
+        assertThat(identificationMethods).containsExactly("fsc");
 
         String stepUrl = setupUrl + "/" + sessionId + "/steps";
         String stepProof = createDpopProof(ecKey, "POST", stepUrl);

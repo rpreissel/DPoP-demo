@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,7 +56,6 @@ public class SessionController {
             return ResponseEntity.ok(new SessionStatusResponse(
                     null,
                     authorisationSession.map(AuthorisationSession::getId).orElse(null),
-                    null,
                     null
             ));
         }
@@ -66,7 +64,6 @@ public class SessionController {
             return ResponseEntity.ok(new SessionStatusResponse(
                     registrationSession.map(RegistrationSession::getId).orElse(null),
                     null,
-                    null,
                     null
             ));
         }
@@ -74,8 +71,7 @@ public class SessionController {
         return ResponseEntity.ok(new SessionStatusResponse(
                 null,
                 null,
-                "registration",
-                List.of("fsc")
+                new NextStep("registration", null)
         ));
     }
 
