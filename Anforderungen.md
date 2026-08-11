@@ -4,7 +4,12 @@
 
 ### 1.1 Aufgabenstellung
 
-Aufbau einer kompilier- und startfähigen **Spring Boot Modulith**-Applikation zur Demonstration einer modularen Geschäftsanwendung.
+Aufbau einer kompilier- und startfähigen **Spring Boot Modulith**-Applikation zur Demonstration eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
+
+- Ein React/TypeScript-Frontend, das einen DPoP-Proof erzeugt und mit dem Backend kommuniziert.
+- Einen `orchestrator`, der Session-Zustände verwaltet und Identifikation (FSC) sowie Authentifizierung orchestriert.
+- Mehrere fachliche Module (`id_fsc`, `auth_sms`, `account`, `ext_stammdaten`), die über definierte Schnittstellen vom Orchestrator genutzt werden.
+- Persistenz der Session-Daten in einer H2-Datenbank mit Flyway-Migrationen.
 
 ### 1.2 Qualitätsziele
 
@@ -45,6 +50,9 @@ Aufbau einer kompilier- und startfähigen **Spring Boot Modulith**-Applikation z
 - Das Frontend kann **über Spring Boot gehostet** werden, indem der Build-Output nach `src/main/resources/static` kopiert wird.
 - Das Frontend kommuniziert über die REST-API des **Orchestrators** mit dem Backend.
 - Im Entwicklungsmodus leitet der Vite-Dev-Server Requests an `/orchestrator` an `http://localhost:8080` weiter.
+- Das UI bietet ein übersichtliches Layout mit Karten, konsistentem Farbschema und Darkmode-Unterstützung.
+- Formulare zur Identifikation und FSC-Eingabe sind mit Testdaten vorbelegt, um den Registrierungsflow direkt durchspielen zu können.
+- Der aktuelle Session-Status und der nächste Schritt werden übersichtlich dargestellt.
 
 ### 3.2 Übersicht der Module
 
@@ -143,6 +151,8 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
 | F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |
 | F29 | Das DPoP-`iat`-Zeitfenster ist konfigurierbar. | `max-age-seconds` und `max-clock-skew-seconds` werden über `application.yml` gesetzt und im Validator verwendet |
+| F30 | Das Frontend bietet ein benutzerfreundliches Layout mit Vorbelegung. | Formulare sind mit Testdaten vorbelegt und visuell als Karten gestaltet |
+| F31 | FSC-Testdaten stehen beim Start zur Verfügung. | Flyway-Migration legt gültige FSC-Codes für die Testpersonen an |
 
 ### 3.6 DPoP- und Session-Ablauf (Beispiel)
 
@@ -271,7 +281,7 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 }
 ```
 
-Es existiert zu einem Zeitpunkt immer nur entweder eine `RegistrationSession` oder eine `AuthorisationSession` für einen JWK-Thumbprint.
+Es existiert zu einem Zeitpunkt immer nur ein `ClientSession`-Eintrag pro JWK-Thumbprint, entweder mit `type=REG` (Registrierung) oder `type=AUTH` (Anmeldung).
 
 ## 4. Architekturbeschränkungen
 
@@ -319,12 +329,14 @@ Es existiert zu einem Zeitpunkt immer nur entweder eine `RegistrationSession` od
 
 - `./gradlew build` baut Backend und Frontend und führt alle Tests aus.
 - `./gradlew bootRun` startet die Applikation auf Port 8080 (blockierend; für Verifikation lieber Integrationstests verwenden).
-- Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den Endpunkt `/orchestrator/process`.
+- Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den Endpunkt `/orchestrator/process` sowie den vollständigen DPoP-Session-Flow.
 
 ## 8. Abnahmekriterien
 
 - [x] `./gradlew build` läuft erfolgreich durch.
 - [x] `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
 - [x] Der Integrationstest für `/orchestrator/process` liefert eine Antwort aus dem `orchestrator` und enthält Personen-Daten aus `ext_stammdaten`.
+- [x] Der Integrationstest für den Session-Flow durchläuft Registrierung, FSC-Identifikation und Authentication-Setup.
 - [x] Das Frontend ist über Spring Boot (`./gradlew bootRun`) erreichbar.
 - [x] Das Frontend kann autark über `npm run dev` im Verzeichnis `frontend/` betrieben werden.
+- [x] Das Frontend zeigt den Session-Status übersichtlich an und erlaubt das Durchspielen des Registrierungsflows mit vorbelegten Testdaten.
