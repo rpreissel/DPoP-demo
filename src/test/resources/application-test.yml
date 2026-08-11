@@ -6,3 +6,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+
+dpop:
+  proof:
+    max-clock-skew-seconds: 30
+    max-age-seconds: 120

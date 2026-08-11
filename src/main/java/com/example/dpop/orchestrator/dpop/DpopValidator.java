@@ -8,6 +8,7 @@ import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
@@ -23,12 +24,22 @@ public class DpopValidator {
     private static final Set<JWSAlgorithm> SUPPORTED_ALGORITHMS = Set.of(
             JWSAlgorithm.ES256,
             JWSAlgorithm.ES384,
-            JWSAlgorithm.ES512,
-            JWSAlgorithm.RS256,
-            JWSAlgorithm.RS384,
-            JWSAlgorithm.RS512
+            JWSAlgorithm.ES512
     );
-    private static final long MAX_CLOCK_SKEW_SECONDS = 30;
+    private final JwkThumbprintService jwkThumbprintService;
+    private final DpopReplayProtectionService replayProtectionService;
+    private final long maxClockSkewSeconds;
+    private final long maxProofAgeSeconds;
+
+    public DpopValidator(JwkThumbprintService jwkThumbprintService,
+                         DpopReplayProtectionService replayProtectionService,
+                         @Value("${dpop.proof.max-clock-skew-seconds:30}") long maxClockSkewSeconds,
+                         @Value("${dpop.proof.max-age-seconds:120}") long maxProofAgeSeconds) {
+        this.jwkThumbprintService = jwkThumbprintService;
+        this.replayProtectionService = replayProtectionService;
+        this.maxClockSkewSeconds = maxClockSkewSeconds;
+        this.maxProofAgeSeconds = maxProofAgeSeconds;
+    }
 
     public DpopProof validate(String dpopProof, String httpMethod, String httpUrl) {
         if (dpopProof == null || dpopProof.isBlank()) {
@@ -60,6 +71,11 @@ public class DpopValidator {
         validateSignature(signedJWT, jwk, header.getAlgorithm());
         validateClaims(claims, httpMethod, httpUrl);
 
+        String thumbprint = jwkThumbprintService.computeThumbprint(jwk);
+        Instant issuedAt = claims.getIssueTime().toInstant();
+        Instant replayKeyExpiresAt = issuedAt.plus(maxProofAgeSeconds + maxClockSkewSeconds, ChronoUnit.SECONDS);
+        replayProtectionService.validateAndStore(thumbprint, claims.getJWTID(), replayKeyExpiresAt);
+
         try {
             return new DpopProof(
                     dpopProof,
@@ -67,7 +83,7 @@ public class DpopValidator {
                     claims.getJWTID(),
                     claims.getStringClaim("htm"),
                     claims.getStringClaim("htu"),
-                    claims.getIssueTime().toInstant(),
+                    issuedAt,
                     claims.getStringClaim("nonce")
             );
         } catch (ParseException e) {
@@ -76,7 +92,8 @@ public class DpopValidator {
     }
 
     private void validateHeader(JWSHeader header) {
-        if (!DPOP_JWT_TYPE.equalsIgnoreCase(header.getType().getType())) {
+        if (header.getType() == null || header.getType().getType() == null
+                || !DPOP_JWT_TYPE.equalsIgnoreCase(header.getType().getType())) {
             throw new DpopValidationException("DPoP proof must have type 'dpop+jwt'");
         }
         if (!SUPPORTED_ALGORITHMS.contains(header.getAlgorithm())) {
@@ -121,8 +138,11 @@ public class DpopValidator {
             }
             Instant issuedAt = issueTime.toInstant();
             Instant now = Instant.now();
-            if (issuedAt.isAfter(now.plus(MAX_CLOCK_SKEW_SECONDS, ChronoUnit.SECONDS))) {
+            if (issuedAt.isAfter(now.plus(maxClockSkewSeconds, ChronoUnit.SECONDS))) {
                 throw new DpopValidationException("DPoP iat claim is in the future");
+            }
+            if (issuedAt.isBefore(now.minus(maxProofAgeSeconds, ChronoUnit.SECONDS))) {
+                throw new DpopValidationException("DPoP iat claim is too old");
             }
 
             String jti = claims.getJWTID();

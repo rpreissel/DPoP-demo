@@ -47,7 +47,7 @@ export async function generateDpopKeyPair(): Promise<CryptoKeyPair> {
       name: 'ECDSA',
       namedCurve: 'P-256',
     },
-    true,
+    false,
     ['sign', 'verify'],
   )
 }

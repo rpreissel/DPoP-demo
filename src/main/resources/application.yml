@@ -14,3 +14,8 @@ spring:
 
 server:
   port: 8080
+
+dpop:
+  proof:
+    max-clock-skew-seconds: 30
+    max-age-seconds: 120
