@@ -39,8 +39,24 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
+    @Transactional
+    public Account addAuthenticationMethod(Long accountId,
+                                           String method,
+                                           boolean active,
+                                           Map<String, Object> details) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+        account.addAuthenticationMethod(new AuthenticationMethod(method, active, Instant.now(), details));
+        return accountRepository.save(account);
+    }
+
     @Transactional(readOnly = true)
     public Optional<Account> findByPersonId(Long personId) {
         return accountRepository.findByPersonId(personId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Account> findById(Long accountId) {
+        return accountRepository.findById(accountId);
     }
 }

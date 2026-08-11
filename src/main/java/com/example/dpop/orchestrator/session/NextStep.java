@@ -10,7 +10,9 @@ import java.util.List;
         @JsonSubTypes.Type(value = NextStep.RegistrationNextStep.class, name = "registration"),
         @JsonSubTypes.Type(value = NextStep.UseIdentificationMethodNextStep.class, name = "useIdentificationMethod"),
         @JsonSubTypes.Type(value = NextStep.FscInputNextStep.class, name = "input"),
-        @JsonSubTypes.Type(value = NextStep.AuthenticationSetupNextStep.class, name = "setup")
+        @JsonSubTypes.Type(value = NextStep.AuthenticationSetupNextStep.class, name = "setup"),
+        @JsonSubTypes.Type(value = NextStep.SmsTanInputNextStep.class, name = "smsTanInput"),
+        @JsonSubTypes.Type(value = NextStep.RegistrationCompletedNextStep.class, name = "completed")
 })
 public sealed interface NextStep {
 
@@ -47,6 +49,22 @@ public sealed interface NextStep {
     ) implements NextStep {
         public AuthenticationSetupNextStep(List<String> authenticationMethods) {
             this("authentication", "setup", authenticationMethods);
+        }
+    }
+
+    record SmsTanInputNextStep(
+            String context,
+            String step,
+            Long smsSetupId
+    ) implements NextStep {
+        public SmsTanInputNextStep(Long smsSetupId) {
+            this("authentication", "smsTanInput", smsSetupId);
+        }
+    }
+
+    record RegistrationCompletedNextStep(String context, String step) implements NextStep {
+        public RegistrationCompletedNextStep() {
+            this("registration", "completed");
         }
     }
 }

@@ -27,6 +27,9 @@ public class Account {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<AccountIdentification> identifications = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<AuthenticationMethod> authenticationMethods = new ArrayList<>();
+
     protected Account() {
     }
 
@@ -51,7 +54,15 @@ public class Account {
         return identifications;
     }
 
+    public List<AuthenticationMethod> getAuthenticationMethods() {
+        return authenticationMethods;
+    }
+
     public void addIdentification(AccountIdentification identification) {
         identifications.add(identification);
+    }
+
+    public void addAuthenticationMethod(AuthenticationMethod authenticationMethod) {
+        authenticationMethods.add(authenticationMethod);
     }
 }

@@ -3,6 +3,7 @@ export interface NextStep {
   step: string
   identificationMethods?: string[]
   authenticationMethods?: string[]
+  smsSetupId?: number
 }
 
 export interface SessionStatus {

@@ -128,6 +128,17 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `identifiedAt` (Zeitpunkt der Identifikation)
   - `registrationSessionId` (Session, in der die Identifikation stattfand)
   - `details` (JSON mit weiteren wichtigen Daten, z. B. KVNR)
+- Die `Account`-Entitaet speichert zusaetzlich `authenticationMethods` als JSON-Array.
+  - Eine `AuthenticationMethod` enthaelt `method` (z. B. `sms`), `active`, `createdAt` und `details` (JSON, z. B. `smsSetupId`, `phoneNumber`).
+  - Der Account kann mehrere verschiedene Authentifizierungsmethoden halten.
+- Im Modul `auth_sms` existiert eine `AuthSmsSetup`-Entitaet in eigener Tabelle `auth_sms`:
+  - `id` (Primaerschluessel, auto-generiert)
+  - `phoneNumber`
+  - `tan` (waehrend des Setups generierter Verifikationscode)
+  - `validated` (Flag, ob die TAN erfolgreich bestaetigt wurde)
+  - `createdAt`, `updatedAt`
+  - Die Tabelle enthaelt keinen Fremdschluessel auf `account`, `client_session` oder `person`.
+  - Der Verweis auf das SMS-Setup wird ausschliesslich vom Account in den `details` der Authentication-Methode gehalten.
 
 ### 3.5 Pflichtenheft
 
@@ -161,6 +172,13 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F25a | Nach erfolgreicher FSC-Validierung wird ein Account erstellt. | Account referenziert die `personId` und speichert mindestens Identifikationsmittel, -qualität, Zeitpunkt und Session-Id |
 | F25b | Der erstellte Account wird in der Registration Session gemerkt. | `ClientSession.data` enthält die `accountId` |
 | F25c | Ein Account kann mehrere Identifikationen speichern. | `identifications` ist ein JSON-Array in der Account-Tabelle |
+| F32 | Nach erfolgreicher Identifikation wird der SMS-Setup-Schritt angeboten. | Antwort enthält `next: { context: "authentication", step: "setup", authenticationMethods: ["sms"] }` |
+| F33 | Die SMS-Authentifizierung wird in zwei Schritten eingerichtet. | `POST .../authentication-methods/sms` speichert Telefonnummer, generiert TAN und sendet gemockte SMS; `POST .../authentication-methods/sms/verify-tan` validiert die TAN |
+| F34 | Die Telefonnummer wird client- und serverseitig validiert. | Frontend prüft Format; Backend lehnt ungültige Nummern mit HTTP 400 ab |
+| F35 | Der SMS-Versand und die TAN-Validierung werden im `auth_sms`-Modul ausgeführt. | `AuthSmsService` generiert TAN, mockt Versand und validiert TAN gegen die `auth_sms`-Tabelle |
+| F36 | Bei erfolgreicher TAN-Validierung wird das `validated`-Flag in `auth_sms` gesetzt. | `validated` wechselt von `false` auf `true` |
+| F37 | Bei erfolgreicher TAN-Validierung wird die Authentifizierungsmethode im Account gespeichert. | Account enthält `AuthenticationMethod` mit Verweis (`smsSetupId`) auf den Eintrag in `auth_sms` |
+| F38 | Ein Account kann mehrere verschiedene Authentifizierungsmethoden speichern. | `authenticationMethods` ist ein JSON-Array in der Account-Tabelle |
 | F26 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP 401 abgewiesen |
 | F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
 | F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |
@@ -271,7 +289,65 @@ Antwort bei gültigem, nicht abgelaufenem FSC:
 }
 ```
 
-#### Schritt 5: Erneute Session-Abfrage
+#### Schritt 5: SMS-Authentifizierung einrichten
+
+##### 5a: Telefonnummer senden
+
+```http
+POST /orchestrator/registration-sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/authentication-methods/sms HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+
+{
+  "phoneNumber": "+49 170 1234567"
+}
+```
+
+Antwort:
+
+```json
+{
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "next": {
+    "context": "authentication",
+    "step": "smsTanInput",
+    "smsSetupId": 1
+  }
+}
+```
+
+Das Backend validiert die Telefonnummer, speichert sie in der `auth_sms`-Tabelle (`validated: false`) zusammen mit einer generierten TAN und sendet eine gemockte Test-SMS.
+
+##### 5b: TAN bestätigen
+
+```http
+POST /orchestrator/registration-sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/authentication-methods/sms/verify-tan HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+
+{
+  "smsSetupId": 1,
+  "tan": "123456"
+}
+```
+
+Antwort bei korrekter TAN:
+
+```json
+{
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "next": {
+    "context": "registration",
+    "step": "completed"
+  }
+}
+```
+
+Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt und der Account um die `sms`-Authentication-Methode ergaenzt.
+
+#### Schritt 6: Erneute Session-Abfrage
 
 Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zustand:
 
@@ -350,7 +426,7 @@ Es existiert zu einem Zeitpunkt immer nur ein `ClientSession`-Eintrag pro JWK-Th
 - [x] `./gradlew build` läuft erfolgreich durch.
 - [x] `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
 - [x] Der Integrationstest für `/orchestrator/process` liefert eine Antwort aus dem `orchestrator` und enthält Personen-Daten aus `ext_stammdaten`.
-- [x] Der Integrationstest für den Session-Flow durchläuft Registrierung, FSC-Identifikation und Authentication-Setup.
+- [x] Der Integrationstest für den Session-Flow durchläuft Registrierung, FSC-Identifikation, SMS-Setup und TAN-Bestaetigung.
 - [x] Das Frontend ist über Spring Boot (`./gradlew bootRun`) erreichbar.
 - [x] Das Frontend kann autark über `npm run dev` im Verzeichnis `frontend/` betrieben werden.
 - [x] Das Frontend zeigt den Session-Status übersichtlich an und erlaubt das Durchspielen des Registrierungsflows mit vorbelegten Testdaten.

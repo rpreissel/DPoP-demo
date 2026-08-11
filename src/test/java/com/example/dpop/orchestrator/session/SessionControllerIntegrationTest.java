@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator.session;
 
 import com.example.dpop.account.Account;
 import com.example.dpop.account.AccountRepository;
+import com.example.dpop.auth_sms.AuthSmsSetup;
+import com.example.dpop.auth_sms.AuthSmsSetupRepository;
 import com.example.dpop.ext_stammdaten.Person;
 import com.example.dpop.ext_stammdaten.PersonRepository;
 import com.example.dpop.id_fsc.FscCode;
@@ -54,6 +56,9 @@ class SessionControllerIntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private AuthSmsSetupRepository authSmsSetupRepository;
 
     private final RestTemplate restTemplate = new RestTemplate(new HttpComponentsClientHttpRequestFactory(HttpClients.createDefault()));
 
@@ -149,6 +154,56 @@ class SessionControllerIntegrationTest {
         List<String> authenticationMethods = (List<String>) fscNext.get("authenticationMethods");
         assertThat(authenticationMethods).containsExactly("sms");
 
+        String smsSetupUrl = setupUrl + "/" + sessionId + "/authentication-methods/sms";
+        String smsSetupProof = createDpopProof(ecKey, "POST", smsSetupUrl);
+
+        HttpHeaders smsSetupHeaders = new HttpHeaders();
+        smsSetupHeaders.set("DPoP", smsSetupProof);
+        smsSetupHeaders.set("Content-Type", "application/json");
+        HttpEntity<Map<String, String>> smsSetupEntity = new HttpEntity<>(Map.of("phoneNumber", "+49 170 1234567"), smsSetupHeaders);
+        ResponseEntity<Map> smsSetupResponse = restTemplate.exchange(
+                smsSetupUrl,
+                HttpMethod.POST,
+                smsSetupEntity,
+                Map.class);
+
+        assertThat(smsSetupResponse.getStatusCode().value()).isEqualTo(200);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> smsSetupNext = (Map<String, Object>) smsSetupResponse.getBody().get("next");
+        assertThat(smsSetupNext.get("context")).isEqualTo("authentication");
+        assertThat(smsSetupNext.get("step")).isEqualTo("smsTanInput");
+        Number smsSetupIdNumber = (Number) smsSetupNext.get("smsSetupId");
+        Long smsSetupId = smsSetupIdNumber.longValue();
+
+        AuthSmsSetup setup = authSmsSetupRepository.findById(smsSetupId).orElseThrow();
+        assertThat(setup.getPhoneNumber()).isEqualTo("+491701234567");
+        assertThat(setup.isValidated()).isFalse();
+
+        String smsTanUrl = setupUrl + "/" + sessionId + "/authentication-methods/sms/verify-tan";
+        String smsTanProof = createDpopProof(ecKey, "POST", smsTanUrl);
+
+        HttpHeaders smsTanHeaders = new HttpHeaders();
+        smsTanHeaders.set("DPoP", smsTanProof);
+        smsTanHeaders.set("Content-Type", "application/json");
+        HttpEntity<Map<String, Object>> smsTanEntity = new HttpEntity<>(Map.of(
+                "smsSetupId", smsSetupId,
+                "tan", setup.getTan()
+        ), smsTanHeaders);
+        ResponseEntity<Map> smsTanResponse = restTemplate.exchange(
+                smsTanUrl,
+                HttpMethod.POST,
+                smsTanEntity,
+                Map.class);
+
+        assertThat(smsTanResponse.getStatusCode().value()).isEqualTo(200);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> smsTanNext = (Map<String, Object>) smsTanResponse.getBody().get("next");
+        assertThat(smsTanNext.get("context")).isEqualTo("registration");
+        assertThat(smsTanNext.get("step")).isEqualTo("completed");
+
+        AuthSmsSetup validatedSetup = authSmsSetupRepository.findById(smsSetupId).orElseThrow();
+        assertThat(validatedSetup.isValidated()).isTrue();
+
         Person identifiedPerson = personRepository.findByKvnr("A123456789").orElseThrow();
         Account account = accountRepository.findByPersonId(identifiedPerson.getId()).orElseThrow();
         assertThat(account.getPersonId()).isEqualTo(identifiedPerson.getId());
@@ -156,6 +211,10 @@ class SessionControllerIntegrationTest {
         assertThat(account.getIdentifications().get(0).getIdentificationMethod()).isEqualTo("fsc");
         assertThat(account.getIdentifications().get(0).getIdentificationQuality()).isEqualTo("HIGH");
         assertThat(account.getIdentifications().get(0).getIdentifiedAt()).isNotNull();
+        assertThat(account.getAuthenticationMethods()).hasSize(1);
+        assertThat(account.getAuthenticationMethods().get(0).getMethod()).isEqualTo("sms");
+        assertThat(account.getAuthenticationMethods().get(0).isActive()).isTrue();
+        assertThat(account.getAuthenticationMethods().get(0).getDetails()).containsKey("smsSetupId");
 
         String sessionsProof2 = createDpopProof(ecKey, "GET", sessionsUrl);
         HttpHeaders getHeaders2 = new HttpHeaders();

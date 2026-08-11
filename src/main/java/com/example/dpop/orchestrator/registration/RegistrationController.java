@@ -2,6 +2,9 @@ package com.example.dpop.orchestrator.registration;
 
 import com.example.dpop.account.Account;
 import com.example.dpop.account.AccountService;
+import com.example.dpop.auth_sms.AuthSmsService;
+import com.example.dpop.auth_sms.AuthSmsSetup;
+import com.example.dpop.auth_sms.AuthSmsSetupResult;
 import com.example.dpop.ext_stammdaten.Person;
 import com.example.dpop.ext_stammdaten.PersonRepository;
 import com.example.dpop.id_fsc.IdFscService;
@@ -37,19 +40,22 @@ public class RegistrationController {
     private final PersonRepository personRepository;
     private final IdFscService idFscService;
     private final AccountService accountService;
+    private final AuthSmsService authSmsService;
 
     public RegistrationController(DpopValidator dpopValidator,
                                   JwkThumbprintService jwkThumbprintService,
                                   RegistrationSessionService sessionService,
                                   PersonRepository personRepository,
                                   IdFscService idFscService,
-                                  AccountService accountService) {
+                                  AccountService accountService,
+                                  AuthSmsService authSmsService) {
         this.dpopValidator = dpopValidator;
         this.jwkThumbprintService = jwkThumbprintService;
         this.sessionService = sessionService;
         this.personRepository = personRepository;
         this.idFscService = idFscService;
         this.accountService = accountService;
+        this.authSmsService = authSmsService;
     }
 
     @PostMapping
@@ -133,6 +139,54 @@ public class RegistrationController {
         return ResponseEntity.ok(new RegistrationSetupResponse(registrationSessionId, nextStep));
     }
 
+    @PostMapping("/{registrationSessionId}/authentication-methods/sms")
+    public ResponseEntity<RegistrationSetupResponse> setupSms(
+            @PathVariable UUID registrationSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody SmsSetupRequest requestBody,
+            HttpServletRequest request) {
+
+        String requestUrl = buildRequestUrl(request);
+        DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
+        String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
+        sessionService.requireSession(registrationSessionId, thumbprint);
+
+        AuthSmsSetupResult smsResult = authSmsService.setupSms(requestBody.phoneNumber());
+
+        NextStep nextStep = new NextStep.SmsTanInputNextStep(smsResult.smsSetupId());
+        return ResponseEntity.ok(new RegistrationSetupResponse(registrationSessionId, nextStep));
+    }
+
+    @PostMapping("/{registrationSessionId}/authentication-methods/sms/verify-tan")
+    public ResponseEntity<RegistrationSetupResponse> verifySmsTan(
+            @PathVariable UUID registrationSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody SmsTanRequest requestBody,
+            HttpServletRequest request) {
+
+        String requestUrl = buildRequestUrl(request);
+        DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
+        String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
+        ClientSession session = sessionService.requireSession(registrationSessionId, thumbprint);
+
+        Long accountId = session.getAccountId();
+        if (accountId == null) {
+            throw new RegistrationSessionException("No account created for this session");
+        }
+
+        AuthSmsSetup validatedSetup = authSmsService.validateTan(requestBody.smsSetupId(), requestBody.tan());
+
+        accountService.addAuthenticationMethod(
+                accountId,
+                "sms",
+                true,
+                Map.of("smsSetupId", validatedSetup.getId(), "phoneNumber", validatedSetup.getPhoneNumber())
+        );
+
+        NextStep nextStep = new NextStep.RegistrationCompletedNextStep();
+        return ResponseEntity.ok(new RegistrationSetupResponse(registrationSessionId, nextStep));
+    }
+
     @ExceptionHandler(DpopValidationException.class)
     public ResponseEntity<Map<String, String>> handleDpopValidation(DpopValidationException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
@@ -141,6 +195,11 @@ public class RegistrationController {
     @ExceptionHandler(RegistrationSessionException.class)
     public ResponseEntity<Map<String, String>> handleSessionException(RegistrationSessionException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
     }
 
     private String buildRequestUrl(HttpServletRequest request) {

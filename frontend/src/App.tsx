@@ -108,6 +108,52 @@ function App() {
     setSessionStatus({ registrationSessionId: sessionId, next: result.next })
   }
 
+  async function setupSmsStart(phoneNumber: string): Promise<{ smsSetupId: number; tan: string } | undefined> {
+    if (!dpop || !sessionStatus?.registrationSessionId) return undefined
+
+    const sessionId = sessionStatus.registrationSessionId
+    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
+    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ phoneNumber }),
+    })
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`SMS setup failed: ${response.status} ${body}`)
+    }
+    const result = (await response.json()) as RegistrationSetupResult
+    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+
+    return {
+      smsSetupId: result.next.smsSetupId!,
+      // In a real app the TAN would not be exposed to the frontend.
+      // For this mocked demo the backend does not return the TAN, so we use a placeholder
+      // and rely on the visible mock hint in the component for development/testing.
+      tan: '',
+    }
+  }
+
+  async function setupSmsVerify(smsSetupId: number, tan: string): Promise<boolean> {
+    if (!dpop || !sessionStatus?.registrationSessionId) return false
+
+    const sessionId = sessionStatus.registrationSessionId
+    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
+    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ smsSetupId, tan }),
+    })
+    if (!response.ok) {
+      return false
+    }
+    const result = (await response.json()) as RegistrationSetupResult
+    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+    return true
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -133,7 +179,19 @@ function App() {
       )}
 
       {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'setup' && sessionStatus.next.authenticationMethods && (
-        <AuthenticationSetupView methods={sessionStatus.next.authenticationMethods} />
+        <AuthenticationSetupView
+          methods={sessionStatus.next.authenticationMethods}
+          onSetupSmsStart={setupSmsStart}
+          onSetupSmsVerify={setupSmsVerify}
+        />
+      )}
+
+      {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'smsTanInput' && sessionStatus.next.smsSetupId && (
+        <AuthenticationSetupView
+          methods={['sms']}
+          onSetupSmsStart={setupSmsStart}
+          onSetupSmsVerify={setupSmsVerify}
+        />
       )}
 
       <div className="debug-toggle">
