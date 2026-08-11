@@ -1,5 +1,8 @@
 package com.example.dpop.orchestrator.registration;
 
+import com.example.dpop.ext_stammdaten.Person;
+import com.example.dpop.ext_stammdaten.PersonRepository;
+import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.dpop.DpopProof;
 import com.example.dpop.orchestrator.dpop.DpopValidationException;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
@@ -9,8 +12,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,13 +31,19 @@ public class RegistrationController {
     private final DpopValidator dpopValidator;
     private final JwkThumbprintService jwkThumbprintService;
     private final RegistrationSessionService sessionService;
+    private final PersonRepository personRepository;
+    private final IdFscService idFscService;
 
     public RegistrationController(DpopValidator dpopValidator,
                                   JwkThumbprintService jwkThumbprintService,
-                                  RegistrationSessionService sessionService) {
+                                  RegistrationSessionService sessionService,
+                                  PersonRepository personRepository,
+                                  IdFscService idFscService) {
         this.dpopValidator = dpopValidator;
         this.jwkThumbprintService = jwkThumbprintService;
         this.sessionService = sessionService;
+        this.personRepository = personRepository;
+        this.idFscService = idFscService;
     }
 
     @PostMapping
@@ -45,14 +56,15 @@ public class RegistrationController {
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
         UUID sessionId = sessionService.getOrCreateSession(proof, thumbprint);
 
-        NextStep nextStep = new NextStep("registration", "useIdentificationMethod", List.of("fsc"));
+        NextStep nextStep = new NextStep.UseIdentificationMethodNextStep(List.of("fsc"));
         return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, nextStep));
     }
 
-    @PostMapping("/{registrationSessionId}/steps")
-    public ResponseEntity<Map<String, String>> step(
+    @PostMapping("/{registrationSessionId}/identification-methods/fsc")
+    public ResponseEntity<RegistrationSetupResponse> startFscIdentification(
             @PathVariable UUID registrationSessionId,
             @RequestHeader("DPoP") String dpopProof,
+            @RequestBody FscIdentificationRequest requestBody,
             HttpServletRequest request) {
 
         String requestUrl = buildRequestUrl(request);
@@ -60,7 +72,47 @@ public class RegistrationController {
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
         sessionService.requireSession(registrationSessionId, thumbprint);
 
-        return ResponseEntity.ok(Map.of("status", "ok", "registrationSessionId", registrationSessionId.toString()));
+        Person person = personRepository.findByKvnr(requestBody.kvnr())
+                .orElseThrow(() -> new RegistrationSessionException("Person with given KVNR not found"));
+
+        if (!person.getName().equals(requestBody.name()) || !person.getVorname().equals(requestBody.vorname())) {
+            throw new RegistrationSessionException("Person data does not match");
+        }
+
+        sessionService.setPersonId(registrationSessionId, thumbprint, person.getId());
+
+        NextStep nextStep = new NextStep.FscInputNextStep();
+        return ResponseEntity.ok(new RegistrationSetupResponse(registrationSessionId, nextStep));
+    }
+
+    @PatchMapping("/{registrationSessionId}/identification-methods/fsc")
+    public ResponseEntity<RegistrationSetupResponse> submitFsc(
+            @PathVariable UUID registrationSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody FscInputRequest requestBody,
+            HttpServletRequest request) {
+
+        String requestUrl = buildRequestUrl(request);
+        DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
+        String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
+        RegistrationSession session = sessionService.requireSession(registrationSessionId, thumbprint);
+
+        Long personId = session.getPersonId();
+        if (personId == null) {
+            throw new RegistrationSessionException("No person selected for this session");
+        }
+
+        String fscCode = requestBody.fsc();
+        if (fscCode == null || fscCode.isBlank()) {
+            throw new RegistrationSessionException("FSC code is required");
+        }
+
+        if (!idFscService.validateFsc(personId, fscCode)) {
+            throw new RegistrationSessionException("Invalid or expired FSC code");
+        }
+
+        NextStep nextStep = new NextStep.AuthenticationSetupNextStep(List.of("sms"));
+        return ResponseEntity.ok(new RegistrationSetupResponse(registrationSessionId, nextStep));
     }
 
     @ExceptionHandler(DpopValidationException.class)

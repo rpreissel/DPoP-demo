@@ -35,4 +35,11 @@ public class RegistrationSessionService {
                 .filter(s -> s.getJwkThumbprint().equals(jwkThumbprint))
                 .orElseThrow(() -> new RegistrationSessionException("Invalid or unknown registration session"));
     }
+
+    @Transactional
+    public void setPersonId(UUID sessionId, String jwkThumbprint, Long personId) {
+        RegistrationSession session = requireSession(sessionId, jwkThumbprint);
+        session.setPersonId(personId);
+        session.touch();
+    }
 }

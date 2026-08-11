@@ -71,7 +71,7 @@ public class SessionController {
         return ResponseEntity.ok(new SessionStatusResponse(
                 null,
                 null,
-                new NextStep("registration", "registration", null)
+                new NextStep.RegistrationNextStep()
         ));
     }
 

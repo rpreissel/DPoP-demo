@@ -20,6 +20,9 @@ public class RegistrationSession {
     @Column(name = "jwk_thumbprint", nullable = false, unique = true, length = 64)
     private String jwkThumbprint;
 
+    @Column(name = "person_id")
+    private Long personId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -41,6 +44,14 @@ public class RegistrationSession {
 
     public String getJwkThumbprint() {
         return jwkThumbprint;
+    }
+
+    public Long getPersonId() {
+        return personId;
+    }
+
+    public void setPersonId(Long personId) {
+        this.personId = personId;
     }
 
     public Instant getCreatedAt() {

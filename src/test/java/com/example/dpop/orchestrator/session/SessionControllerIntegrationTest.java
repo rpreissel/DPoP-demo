@@ -1,5 +1,9 @@
 package com.example.dpop.orchestrator.session;
 
+import com.example.dpop.ext_stammdaten.Person;
+import com.example.dpop.ext_stammdaten.PersonRepository;
+import com.example.dpop.id_fsc.FscCode;
+import com.example.dpop.id_fsc.FscCodeRepository;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
@@ -10,6 +14,7 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -18,10 +23,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,7 +42,13 @@ class SessionControllerIntegrationTest {
     @LocalServerPort
     private int port;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Autowired
+    private PersonRepository personRepository;
+
+    @Autowired
+    private FscCodeRepository fscCodeRepository;
+
+    private final RestTemplate restTemplate = new RestTemplate(new HttpComponentsClientHttpRequestFactory(HttpClients.createDefault()));
 
     @Test
     void sessionFlowReturnsRegistrationStepAndCreatesSession() throws Exception {
@@ -56,7 +70,6 @@ class SessionControllerIntegrationTest {
         assertThat(statusResponse.getBody().next()).isNotNull();
         assertThat(statusResponse.getBody().next().context()).isEqualTo("registration");
         assertThat(statusResponse.getBody().next().step()).isEqualTo("registration");
-        assertThat(statusResponse.getBody().next().identificationMethods()).isNull();
 
         String setupUrl = "http://localhost:" + port + "/orchestrator/registration-sessions";
         String setupProof = createDpopProof(ecKey, "POST", setupUrl);
@@ -78,22 +91,56 @@ class SessionControllerIntegrationTest {
         assertThat(next.get("context")).isEqualTo("registration");
         assertThat(next.get("step")).isEqualTo("useIdentificationMethod");
         @SuppressWarnings("unchecked")
-        java.util.List<String> identificationMethods = (java.util.List<String>) next.get("identificationMethods");
+        List<String> identificationMethods = (List<String>) next.get("identificationMethods");
         assertThat(identificationMethods).containsExactly("fsc");
 
-        String stepUrl = setupUrl + "/" + sessionId + "/steps";
-        String stepProof = createDpopProof(ecKey, "POST", stepUrl);
+        Person person = personRepository.findByKvnr("A123456789").orElseThrow();
+        fscCodeRepository.save(new FscCode(person.getId(), "VALIDCODE", Instant.now().plus(1, ChronoUnit.HOURS)));
 
-        HttpHeaders stepHeaders = new HttpHeaders();
-        stepHeaders.set("DPoP", stepProof);
-        ResponseEntity<Map> stepResponse = restTemplate.exchange(
-                stepUrl,
+        String identificationUrl = setupUrl + "/" + sessionId + "/identification-methods/fsc";
+        String identificationProof = createDpopProof(ecKey, "POST", identificationUrl);
+
+        HttpHeaders identificationHeaders = new HttpHeaders();
+        identificationHeaders.set("DPoP", identificationProof);
+        identificationHeaders.set("Content-Type", "application/json");
+        HttpEntity<Map<String, String>> identificationEntity = new HttpEntity<>(Map.of(
+                "kvnr", "A123456789",
+                "name", "Muster",
+                "vorname", "Max"
+        ), identificationHeaders);
+        ResponseEntity<Map> identificationResponse = restTemplate.exchange(
+                identificationUrl,
                 HttpMethod.POST,
-                new HttpEntity<>(stepHeaders),
+                identificationEntity,
                 Map.class);
 
-        assertThat(stepResponse.getStatusCode().value()).isEqualTo(200);
-        assertThat(stepResponse.getBody().get("status")).isEqualTo("ok");
+        assertThat(identificationResponse.getStatusCode().value()).isEqualTo(200);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> identificationNext = (Map<String, Object>) identificationResponse.getBody().get("next");
+        assertThat(identificationNext.get("context")).isEqualTo("fsc");
+        assertThat(identificationNext.get("step")).isEqualTo("input");
+
+        String fscUrl = setupUrl + "/" + sessionId + "/identification-methods/fsc";
+        String fscProof = createDpopProof(ecKey, "PATCH", fscUrl);
+
+        HttpHeaders fscHeaders = new HttpHeaders();
+        fscHeaders.set("DPoP", fscProof);
+        fscHeaders.set("Content-Type", "application/json");
+        HttpEntity<Map<String, String>> fscEntity = new HttpEntity<>(Map.of("fsc", "VALIDCODE"), fscHeaders);
+        ResponseEntity<Map> fscResponse = restTemplate.exchange(
+                fscUrl,
+                HttpMethod.PATCH,
+                fscEntity,
+                Map.class);
+
+        assertThat(fscResponse.getStatusCode().value()).isEqualTo(200);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fscNext = (Map<String, Object>) fscResponse.getBody().get("next");
+        assertThat(fscNext.get("context")).isEqualTo("authentication");
+        assertThat(fscNext.get("step")).isEqualTo("setup");
+        @SuppressWarnings("unchecked")
+        List<String> authenticationMethods = (List<String>) fscNext.get("authenticationMethods");
+        assertThat(authenticationMethods).containsExactly("sms");
 
         String sessionsProof2 = createDpopProof(ecKey, "GET", sessionsUrl);
         HttpHeaders getHeaders2 = new HttpHeaders();

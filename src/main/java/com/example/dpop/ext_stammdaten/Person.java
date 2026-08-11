@@ -1,5 +1,6 @@
 package com.example.dpop.ext_stammdaten;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,6 +15,9 @@ public class Person {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "kvnr", unique = true, nullable = false, length = 20)
+    private String kvnr;
+
     private String name;
     private String vorname;
     private String strasse;
@@ -24,7 +28,8 @@ public class Person {
     protected Person() {
     }
 
-    public Person(String name, String vorname, String strasse, String hausnummer, String plz, String ort) {
+    public Person(String kvnr, String name, String vorname, String strasse, String hausnummer, String plz, String ort) {
+        this.kvnr = kvnr;
         this.name = name;
         this.vorname = vorname;
         this.strasse = strasse;
@@ -35,6 +40,10 @@ public class Person {
 
     public Long getId() {
         return id;
+    }
+
+    public String getKvnr() {
+        return kvnr;
     }
 
     public String getName() {

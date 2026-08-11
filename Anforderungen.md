@@ -91,6 +91,7 @@ Die Applikation gliedert sich in fünf fachliche Module:
 - Der Datenbankzugriff erfolgt über **Spring Data JPA**.
 - Im Modul `ext_stammdaten` existiert eine `Person`-Entität mit folgenden Attributen:
   - `id` (Primärschlüssel, auto-generiert)
+  - `kvnr` (Krankenversicherungsnummer, eindeutig)
   - `name`
   - `vorname`
   - `strasse`
@@ -98,6 +99,7 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `plz`
   - `ort`
 - Bei Applikationsstart werden Testdaten in die `person`-Tabelle eingespielt.
+- Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
 
 ### 3.5 Pflichtenheft
 
@@ -123,7 +125,11 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Ohne Identifikationsmethoden; diese folgen beim Setup |
 | F19 | Registration Sessions werden über einen Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/registration-sessions` liefert `registrationSessionId` |
 | F20 | Der Setup-Prozess verwendet den JWK-Thumbprint als Schlüssel. | Session wird anhand des Thumbprints wiederverwendet |
-| F21 | Folgende Registration-Aufrufe enthalten die `registrationSessionId` im Pfad. | z.B. `/orchestrator/registration-sessions/{id}/steps` |
+| F21 | Folgende Registration-Aufrufe enthalten die `registrationSessionId` im Pfad. | z.B. `/orchestrator/registration-sessions/{id}/identification-methods/fsc` |
+| F22 | Die Identifikationsmethode FSC wird über einen dedizierten Endpunkt gestartet. | POST `/orchestrator/registration-sessions/{id}/identification-methods/fsc` mit KVNR, Name und Vorname |
+| F23 | Der Orchestrator prüft die KVNR gegen die Stammdaten und fordert bei Erfolg die FSC-Eingabe an. | Antwort enthält `next: { context: "fsc", step: "input" }` |
+| F24 | Der Freischaltcode wird per PATCH übermittelt und vom FSC-Service validiert. | PATCH `/orchestrator/registration-sessions/{id}/identification-methods/fsc`; Prüfung auf Existenz und Ablauf |
+| F25 | Nach erfolgreicher FSC-Validierung wird der Authentication-Setup-Schritt zurückgegeben. | Antwort enthält `next: { context: "authentication", step: "setup", authenticationMethods: ["sms"] }` |
 
 ### 3.6 DPoP- und Session-Ablauf (Beispiel)
 
@@ -173,24 +179,62 @@ Antwort:
 
 Bei wiederholtem Aufruf mit demselben JWK-Thumbprint wird die bestehende Session wiederverwendet und dieselbe ID zurückgegeben.
 
-#### Schritt 3: Registration-Step aufrufen
+#### Schritt 3: FSC-Identifikation starten
 
 ```http
-POST /orchestrator/registration-sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/steps HTTP/1.1
+POST /orchestrator/registration-sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/identification-methods/fsc HTTP/1.1
 Host: localhost:8080
+Content-Type: application/json
 DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
-```
 
-Antwort:
-
-```json
 {
-  "status": "ok",
-  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+  "kvnr": "A123456789",
+  "name": "Muster",
+  "vorname": "Max"
 }
 ```
 
-#### Schritt 4: Erneute Session-Abfrage
+Antwort bei bekannter KVNR:
+
+```json
+{
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "next": {
+    "context": "fsc",
+    "step": "input"
+  }
+}
+```
+
+Der Orchestrator speichert die zugeordnete `personId` in der Registration Session.
+
+#### Schritt 4: Freischaltcode übermitteln
+
+```http
+PATCH /orchestrator/registration-sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/identification-methods/fsc HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+
+{
+  "fsc": "VALIDCODE"
+}
+```
+
+Antwort bei gültigem, nicht abgelaufenem FSC:
+
+```json
+{
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "next": {
+    "context": "authentication",
+    "step": "setup",
+    "authenticationMethods": ["sms"]
+  }
+}
+```
+
+#### Schritt 5: Erneute Session-Abfrage
 
 Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zustand:
 

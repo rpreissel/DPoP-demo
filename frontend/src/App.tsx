@@ -1,29 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { createDpopProof, getOrCreateDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
-
-interface NextStep {
-  context: string
-  step: string
-  identificationMethods?: string[]
-}
-
-interface SessionStatus {
-  registrationSessionId?: string
-  authorisationSessionId?: string
-  next?: NextStep
-}
-
-interface RegistrationSetupResult {
-  registrationSessionId: string
-  next: NextStep
-}
+import type { SessionStatus, RegistrationSetupResult } from './types'
+import { AuthenticationSetupView } from './components/AuthenticationSetupView'
+import { FscForm } from './components/FscForm'
+import { IdentificationForm } from './components/IdentificationForm'
+import { SessionStatusView } from './components/SessionStatusView'
 
 function App() {
   const [message, setMessage] = useState<string>('Loading...')
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null)
-  const [registrationStep, setRegistrationStep] = useState<string>('')
   const [error, setError] = useState<string>('')
 
   useEffect(() => {
@@ -55,7 +42,7 @@ function App() {
       if (!active) return
       setSessionStatus(status)
 
-      if (status.next?.context === 'registration') {
+      if (status.next?.context === 'registration' && status.next?.step === 'registration') {
         const setupUrl = `${window.location.origin}/orchestrator/registration-sessions`
         const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
         const setupResponse = await fetch('/orchestrator/registration-sessions', {
@@ -67,26 +54,11 @@ function App() {
           throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
         }
         const setupResult = (await setupResponse.json()) as RegistrationSetupResult
-        const sessionId = setupResult.registrationSessionId
         if (!active) return
         setSessionStatus({
-          registrationSessionId: sessionId,
+          registrationSessionId: setupResult.registrationSessionId,
           next: setupResult.next,
         })
-
-        const stepUrl = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/steps`
-        const stepProof = await createDpopProof(keyPair.keyPair, 'POST', stepUrl)
-        const stepResponse = await fetch(`/orchestrator/registration-sessions/${sessionId}/steps`, {
-          method: 'POST',
-          headers: { DPoP: stepProof },
-        })
-        if (!stepResponse.ok) {
-          const body = await stepResponse.text()
-          throw new Error(`Step failed: ${stepResponse.status} ${body}`)
-        }
-        const stepResult = await stepResponse.json()
-        if (!active) return
-        setRegistrationStep(stepResult.status as string)
       }
     }
 
@@ -96,6 +68,44 @@ function App() {
       active = false
     }
   }, [])
+
+  async function submitIdentification(kvnr: string, name: string, vorname: string) {
+    if (!dpop || !sessionStatus?.registrationSessionId) return
+
+    const sessionId = sessionStatus.registrationSessionId
+    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
+    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ kvnr, name, vorname }),
+    })
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`Identification failed: ${response.status} ${body}`)
+    }
+    const result = (await response.json()) as RegistrationSetupResult
+    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+  }
+
+  async function submitFsc(fsc: string) {
+    if (!dpop || !sessionStatus?.registrationSessionId) return
+
+    const sessionId = sessionStatus.registrationSessionId
+    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`
+    const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
+    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ fsc }),
+    })
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`FSC validation failed: ${response.status} ${body}`)
+    }
+    const result = (await response.json()) as RegistrationSetupResult
+    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+  }
 
   return (
     <div className="app">
@@ -117,12 +127,15 @@ function App() {
           <pre>{JSON.stringify(dpop.publicJwk, null, 2)}</pre>
         </div>
       )}
-      {sessionStatus && (
-        <div className="card">
-          <h2>Session Status</h2>
-          <pre>{JSON.stringify(sessionStatus, null, 2)}</pre>
-          {registrationStep && <p>Registration step: {registrationStep}</p>}
-        </div>
+      {sessionStatus && <SessionStatusView status={sessionStatus} />}
+      {sessionStatus?.next?.context === 'registration' && sessionStatus?.next?.step === 'useIdentificationMethod' && (
+        <IdentificationForm onSubmit={submitIdentification} />
+      )}
+      {sessionStatus?.next?.context === 'fsc' && sessionStatus?.next?.step === 'input' && (
+        <FscForm onSubmit={submitFsc} />
+      )}
+      {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'setup' && sessionStatus.next.authenticationMethods && (
+        <AuthenticationSetupView methods={sessionStatus.next.authenticationMethods} />
       )}
     </div>
   )
