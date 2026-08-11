@@ -20,3 +20,4 @@ spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-b
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
 h2 = { module = "com.h2database:h2" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version = "10.2" }

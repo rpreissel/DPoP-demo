@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.modulith.starter.core)
+    implementation(libs.nimbus.jose.jwt)
     runtimeOnly(libs.h2)
 
     testImplementation(libs.spring.boot.starter.test)

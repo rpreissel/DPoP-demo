@@ -117,6 +117,99 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F12 | Im Frontend wird ein DPoP-fähiges Schlüsselpaar erzeugt. | Asymmetrisches Keypair (ECDSA P-256) mit Web Crypto API |
 | F13 | Das DPoP-Keypair wird im Browser persistiert. | Wiederverwendung über Seitenneuladungen hinweg |
 | F14 | Der öffentliche DPoP-Schlüssel ist als JWK im Frontend einsehbar. | Anzeige des `jwk`-Teils im UI |
+| F15 | Alle Registration-Aufrufe werden mit DPoP abgesichert. | Header `DPoP` enthält valides DPoP-Proof-JWT |
+| F16 | Der Session-Status wird über einen GET-Endpunkt abgefragt. | GET `/orchestrator/sessions` mit DPoP-Proof |
+| F17 | Der Abfrage verwendet den JWK-Thumbprint als Schlüssel. | Suche nach Registration- und Authorisation-Sessions |
+| F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Inklusive Liste der verfügbaren Identifikationsmittel |
+| F19 | Registration Sessions werden über einen Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/registration-sessions` liefert `registrationSessionId` |
+| F20 | Der Setup-Prozess verwendet den JWK-Thumbprint als Schlüssel. | Session wird anhand des Thumbprints wiederverwendet |
+| F21 | Folgende Registration-Aufrufe enthalten die `registrationSessionId` im Pfad. | z.B. `/orchestrator/registration-sessions/{id}/steps` |
+
+### 3.6 DPoP- und Session-Ablauf (Beispiel)
+
+Das Frontend erzeugt beim ersten Start ein ECDSA P-256 Schlüsselpaar und persistiert es im Browser (IndexedDB). Der öffentliche Schlüssel wird als JWK in den DPoP-Proofs übertragen. Das Backend leitet daraus einen JWK-Thumbprint (RFC 7638) ab und verwendet ihn als Schlüssel für Sessions.
+
+#### Schritt 1: Session-Status abfragen
+
+```http
+GET /orchestrator/sessions HTTP/1.1
+Host: localhost:8080
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+```
+
+Antwort bei noch unbekanntem Client (keine Session vorhanden):
+
+```json
+{
+  "registrationSessionId": null,
+  "authorisationSessionId": null,
+  "nextStep": "registration",
+  "identificationMeans": ["fsc"]
+}
+```
+
+#### Schritt 2: Registration Session anlegen
+
+```http
+POST /orchestrator/registration-sessions HTTP/1.1
+Host: localhost:8080
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+```
+
+Antwort:
+
+```json
+{
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+Bei wiederholtem Aufruf mit demselben JWK-Thumbprint wird die bestehende Session wiederverwendet und dieselbe ID zurückgegeben.
+
+#### Schritt 3: Registration-Step aufrufen
+
+```http
+POST /orchestrator/registration-sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/steps HTTP/1.1
+Host: localhost:8080
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+```
+
+Antwort:
+
+```json
+{
+  "status": "ok",
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+#### Schritt 4: Erneute Session-Abfrage
+
+Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zustand:
+
+- während der Registration:
+
+```json
+{
+  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "authorisationSessionId": null,
+  "nextStep": null,
+  "identificationMeans": null
+}
+```
+
+- nach Abschluss der Registration (Login-Phase):
+
+```json
+{
+  "registrationSessionId": null,
+  "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "nextStep": null,
+  "identificationMeans": null
+}
+```
+
+Es existiert zu einem Zeitpunkt immer nur entweder eine `RegistrationSession` oder eine `AuthorisationSession` für einen JWK-Thumbprint.
 
 ## 4. Architekturbeschränkungen
 
