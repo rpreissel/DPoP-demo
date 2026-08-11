@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: dpop-demo
+  datasource:
+    url: jdbc:h2:file:./data/dpopdb
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
