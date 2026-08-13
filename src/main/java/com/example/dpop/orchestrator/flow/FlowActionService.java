@@ -1,62 +1,57 @@
 package com.example.dpop.orchestrator.flow;
 
-import com.example.dpop.account.Account;
 import com.example.dpop.account.AccountService;
-import com.example.dpop.auth_sms.AuthSmsService;
-import com.example.dpop.auth_sms.AuthSmsSetup;
-import com.example.dpop.auth_sms.AuthSmsSetupResult;
-import com.example.dpop.ext_stammdaten.Person;
-import com.example.dpop.ext_stammdaten.PersonRepository;
-import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.account.AccountJwkMappingService;
+import com.example.dpop.orchestrator.flow.handler.FscIdentificationHandler;
+import com.example.dpop.orchestrator.flow.handler.SmsAuthenticationHandler;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
 import com.example.dpop.orchestrator.session.ClientFlowSessionService;
 import com.example.dpop.orchestrator.session.ClientSession;
-import com.example.dpop.orchestrator.session.FlowNextStepResolver;
 import com.example.dpop.orchestrator.session.IdentificationMethodProvider;
 import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class FlowActionService {
 
     private final ClientFlowSessionService flowSessionService;
-    private final PersonRepository personRepository;
-    private final IdFscService idFscService;
     private final AccountService accountService;
     private final AccountJwkMappingService accountJwkMappingService;
-    private final AuthSmsService authSmsService;
     private final IdentificationMethodProvider identificationMethodProvider;
     private final AuthenticationMethodProvider authenticationMethodProvider;
-    private final FlowNextStepResolver nextStepResolver;
+    private final Map<String, IdentificationMethodHandler> identificationHandlers;
+    private final Map<String, AuthenticationMethodHandler> authenticationHandlers;
 
     public FlowActionService(ClientFlowSessionService flowSessionService,
-                             PersonRepository personRepository,
-                             IdFscService idFscService,
                              AccountService accountService,
                              AccountJwkMappingService accountJwkMappingService,
-                             AuthSmsService authSmsService,
                              IdentificationMethodProvider identificationMethodProvider,
                              AuthenticationMethodProvider authenticationMethodProvider,
-                             FlowNextStepResolver nextStepResolver) {
+                             List<IdentificationMethodHandler> identificationHandlers,
+                             List<AuthenticationMethodHandler> authenticationHandlers) {
         this.flowSessionService = flowSessionService;
-        this.personRepository = personRepository;
-        this.idFscService = idFscService;
         this.accountService = accountService;
         this.accountJwkMappingService = accountJwkMappingService;
-        this.authSmsService = authSmsService;
         this.identificationMethodProvider = identificationMethodProvider;
         this.authenticationMethodProvider = authenticationMethodProvider;
-        this.nextStepResolver = nextStepResolver;
+        this.identificationHandlers = identificationHandlers.stream()
+                .collect(Collectors.toMap(IdentificationMethodHandler::method, Function.identity()));
+        this.authenticationHandlers = authenticationHandlers.stream()
+                .collect(Collectors.toMap(AuthenticationMethodHandler::method, Function.identity()));
     }
 
+    @Transactional
     public FlowSetupResponse createFlow(String thumbprint) {
         ClientSession session = resolveOrRotateSession(thumbprint);
-        return new FlowSetupResponse(session.getSessionId(), nextStepResolver.resolve(session));
+        return new FlowSetupResponse(session.getSessionId(), resolveInitialNextStep(session));
     }
 
     private ClientSession resolveOrRotateSession(String thumbprint) {
@@ -88,138 +83,88 @@ public class FlowActionService {
         return flowSessionService.getOrCreateByJwkThumbprint(thumbprint);
     }
 
-    public FlowSetupResponse startIdentification(UUID sessionId, String thumbprint, String method, FscIdentificationRequest request) {
-        if (!"fsc".equals(method)) {
-            throw new IllegalArgumentException("Unsupported identification method: " + method);
+    private NextStep resolveInitialNextStep(ClientSession session) {
+        if ("authenticated".equals(session.getPhase())) {
+            return new NextStep.AuthenticationCompletedNextStep();
         }
 
-        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
-
-        Person person = personRepository.findByKvnr(request.kvnr())
-                .orElseThrow(() -> new FlowSessionException("Person with given KVNR not found"));
-
-        if (!person.getName().equals(request.name()) || !person.getVorname().equals(request.vorname())) {
-            throw new FlowSessionException("Person data does not match");
+        if (session.getPendingChallenge() != null) {
+            return challengeNextStep(session);
         }
 
-        session.setPersonId(person.getId());
-        session.setSelectedIdentificationMethod("fsc");
-        flowSessionService.save(session);
-
-        return toResponse(session);
-    }
-
-    public FlowSetupResponse submitIdentification(UUID sessionId, String thumbprint, String method, FscInputRequest request) {
-        if (!"fsc".equals(method)) {
-            throw new IllegalArgumentException("Unsupported identification method: " + method);
+        Long accountId = session.getAccountId();
+        if (accountId != null) {
+            if (accountService.hasActiveAuthenticationMethod(accountId)) {
+                return new NextStep.AuthenticationMethodSelectionNextStep(
+                        authenticationMethodProvider.activeMethods(accountService.findById(accountId).orElseThrow()));
+            }
+            return new NextStep.AuthenticationSetupNextStep(authenticationMethodProvider.availableMethods());
         }
-
-        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
 
         Long personId = session.getPersonId();
-        if (personId == null) {
-            throw new FlowSessionException("No person selected for this session");
+        if (personId != null) {
+            return new NextStep.FscInputNextStep();
         }
 
-        String fscCode = request.fsc();
-        if (fscCode == null || fscCode.isBlank()) {
-            throw new FlowSessionException("FSC code is required");
-        }
-
-        if (!idFscService.validateFsc(personId, fscCode)) {
-            throw new FlowSessionException("Invalid or expired FSC code");
-        }
-
-        Person person = personRepository.findById(personId)
-                .orElseThrow(() -> new FlowSessionException("Person not found"));
-
-        Account account = accountService.identifyAccount(
-                personId,
-                "fsc",
-                "HIGH",
-                sessionId,
-                Map.of("kvnr", person.getKvnr())
-        );
-        session.setAccountId(account.getId());
-        accountJwkMappingService.mapJwkToAccount(thumbprint, account.getId());
-        flowSessionService.save(session);
-
-        return toResponse(session);
+        return new NextStep.UseIdentificationMethodNextStep(identificationMethodProvider.availableMethods());
     }
 
-    public FlowSetupResponse startAuthentication(UUID sessionId, String thumbprint, String method, SmsSetupRequest request) {
-        if (!"sms".equals(method)) {
+    private NextStep challengeNextStep(ClientSession session) {
+        Map<String, Object> pendingChallenge = session.getPendingChallenge();
+        String method = String.valueOf(pendingChallenge.get("method"));
+        Long challengeId = ((Number) pendingChallenge.get("challengeId")).longValue();
+        String tan = String.valueOf(pendingChallenge.get("tan"));
+        if ("sms".equals(method)) {
+            return new NextStep.SmsTanInputNextStep(challengeId, tan);
+        }
+        throw new IllegalStateException("Unsupported pending challenge method: " + method);
+    }
+
+    @Transactional
+    public FlowSetupResponse startIdentification(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+        IdentificationMethodHandler handler = identificationHandlers.get(method);
+        if (handler == null) {
+            throw new IllegalArgumentException("Unsupported identification method: " + method);
+        }
+        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
+        NextStep next = handler.start(session, request);
+        flowSessionService.save(session);
+        return new FlowSetupResponse(next);
+    }
+
+    @Transactional
+    public FlowSetupResponse submitIdentification(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+        IdentificationMethodHandler handler = identificationHandlers.get(method);
+        if (handler == null) {
+            throw new IllegalArgumentException("Unsupported identification method: " + method);
+        }
+        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
+        NextStep next = handler.submit(session, request);
+        flowSessionService.save(session);
+        return new FlowSetupResponse(next);
+    }
+
+    @Transactional
+    public FlowSetupResponse startAuthentication(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+        AuthenticationMethodHandler handler = authenticationHandlers.get(method);
+        if (handler == null) {
             throw new IllegalArgumentException("Unsupported authentication method: " + method);
         }
-
         ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
-        Long accountId = requireAccountId(session);
-
-        String phoneNumber;
-        boolean isChallenge = accountService.hasActiveAuthenticationMethod(accountId);
-        if (isChallenge) {
-            phoneNumber = accountService.findActiveSmsPhoneNumber(accountId)
-                    .orElseThrow(() -> new FlowSessionException("No active sms authentication method configured"));
-        } else {
-            if (request == null || request.phoneNumber() == null || request.phoneNumber().isBlank()) {
-                throw new FlowSessionException("phoneNumber is required for sms setup");
-            }
-            phoneNumber = request.phoneNumber();
-        }
-
-        AuthSmsSetupResult smsResult = authSmsService.setupSms(phoneNumber);
-
-        session.setSelectedAuthenticationMethod("sms");
-        session.setPendingChallenge(Map.of(
-                "method", "sms",
-                "challengeId", smsResult.smsSetupId(),
-                "tan", smsResult.tan()
-        ));
+        NextStep next = handler.start(session, request);
         flowSessionService.save(session);
-
-        return toResponse(session);
+        return new FlowSetupResponse(next);
     }
 
-    public FlowSetupResponse verifyAuthentication(UUID sessionId, String thumbprint, String method, SmsTanRequest request) {
-        if (!"sms".equals(method)) {
+    @Transactional
+    public FlowSetupResponse verifyAuthentication(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+        AuthenticationMethodHandler handler = authenticationHandlers.get(method);
+        if (handler == null) {
             throw new IllegalArgumentException("Unsupported authentication method: " + method);
         }
-
         ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
-        Long accountId = requireAccountId(session);
-
-        AuthSmsSetup validatedSetup = authSmsService.validateTan(request.smsSetupId(), request.tan());
-
-        boolean wasSetup = !accountService.hasActiveAuthenticationMethod(accountId);
-        if (wasSetup) {
-            accountService.addAuthenticationMethod(
-                    accountId,
-                    "sms",
-                    true,
-                    Map.of("smsSetupId", validatedSetup.getId(), "phoneNumber", validatedSetup.getPhoneNumber())
-            );
-        }
-        session.clearPendingChallenge();
-        session.getData().remove("selectedAuthenticationMethod");
-        session.setPhase("authenticated");
+        NextStep next = handler.verify(session, request);
         flowSessionService.save(session);
-
-        return toResponse(session);
-    }
-
-    public FlowSetupResponse verifyAuthentication(UUID sessionId, String thumbprint, String method, SmsVerifyRequest request) {
-        return verifyAuthentication(sessionId, thumbprint, method, new SmsTanRequest(request.smsSetupId(), request.tan()));
-    }
-
-    private Long requireAccountId(ClientSession session) {
-        Long accountId = session.getAccountId();
-        if (accountId == null) {
-            throw new FlowSessionException("No account linked to this session");
-        }
-        return accountId;
-    }
-
-    private FlowSetupResponse toResponse(ClientSession session) {
-        return new FlowSetupResponse(nextStepResolver.resolve(session));
+        return new FlowSetupResponse(next);
     }
 }

@@ -49,7 +49,7 @@ public class FlowController {
             @PathVariable UUID sessionId,
             @PathVariable String method,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody FscIdentificationRequest requestBody,
+            @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
 
         String thumbprint = validateAndExtractThumbprint(dpopProof, request);
@@ -61,7 +61,7 @@ public class FlowController {
             @PathVariable UUID sessionId,
             @PathVariable String method,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody FscInputRequest requestBody,
+            @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
 
         String thumbprint = validateAndExtractThumbprint(dpopProof, request);
@@ -73,7 +73,7 @@ public class FlowController {
             @PathVariable UUID sessionId,
             @PathVariable String method,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody(required = false) SmsSetupRequest requestBody,
+            @RequestBody(required = false) Map<String, Object> requestBody,
             HttpServletRequest request) {
 
         String thumbprint = validateAndExtractThumbprint(dpopProof, request);
@@ -85,7 +85,7 @@ public class FlowController {
             @PathVariable UUID sessionId,
             @PathVariable String method,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody SmsTanRequest requestBody,
+            @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
 
         String thumbprint = validateAndExtractThumbprint(dpopProof, request);
