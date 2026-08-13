@@ -83,7 +83,7 @@ class SessionControllerIntegrationTest {
         assertThat(statusResponse.getBody().next().context()).isEqualTo("registration");
         assertThat(statusResponse.getBody().next().step()).isEqualTo("registration");
 
-        String setupUrl = "http://localhost:" + port + "/orchestrator/registration-sessions";
+        String setupUrl = "http://localhost:" + port + "/orchestrator/sessions";
         String setupProof = createDpopProof(ecKey, "POST", setupUrl);
 
         HttpHeaders setupHeaders = new HttpHeaders();
@@ -95,7 +95,7 @@ class SessionControllerIntegrationTest {
                 Map.class);
 
         assertThat(setupResponse.getStatusCode().value()).isEqualTo(200);
-        String sessionId = (String) setupResponse.getBody().get("registrationSessionId");
+        String sessionId = (String) setupResponse.getBody().get("sessionId");
         assertThat(sessionId).isNotBlank();
         @SuppressWarnings("unchecked")
         Map<String, Object> next = (Map<String, Object>) setupResponse.getBody().get("next");
@@ -179,7 +179,7 @@ class SessionControllerIntegrationTest {
         assertThat(setup.getPhoneNumber()).isEqualTo("+491701234567");
         assertThat(setup.isValidated()).isFalse();
 
-        String smsTanUrl = setupUrl + "/" + sessionId + "/authentication-methods/sms/verify-tan";
+        String smsTanUrl = setupUrl + "/" + sessionId + "/authentication-methods/sms/verify";
         String smsTanProof = createDpopProof(ecKey, "POST", smsTanUrl);
 
         HttpHeaders smsTanHeaders = new HttpHeaders();
@@ -198,11 +198,10 @@ class SessionControllerIntegrationTest {
         assertThat(smsTanResponse.getStatusCode().value()).isEqualTo(200);
         @SuppressWarnings("unchecked")
         Map<String, Object> smsTanNext = (Map<String, Object>) smsTanResponse.getBody().get("next");
-        assertThat(smsTanResponse.getBody().get("registrationSessionId")).isNull();
-        String authorisationSessionId = (String) smsTanResponse.getBody().get("authorisationSessionId");
+        String authorisationSessionId = (String) smsTanResponse.getBody().get("sessionId");
         assertThat(authorisationSessionId).isNotBlank();
         assertThat(smsTanNext.get("context")).isEqualTo("authentication");
-        assertThat(smsTanNext.get("step")).isEqualTo("selectMethod");
+        assertThat(smsTanNext.get("step")).isEqualTo("authenticated");
 
         AuthSmsSetup validatedSetup = authSmsSetupRepository.findById(smsSetupId).orElseThrow();
         assertThat(validatedSetup.isValidated()).isTrue();
@@ -228,14 +227,13 @@ class SessionControllerIntegrationTest {
                 new HttpEntity<>(getHeaders2),
                 SessionStatusResponse.class);
 
-        assertThat(statusResponse2.getBody().registrationSessionId()).isNull();
-        assertThat(statusResponse2.getBody().authorisationSessionId()).isNotNull();
-        assertThat(statusResponse2.getBody().authorisationSessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
+        assertThat(statusResponse2.getBody().sessionId()).isNotNull();
+        assertThat(statusResponse2.getBody().sessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
         assertThat(statusResponse2.getBody().next()).isNotNull();
         assertThat(statusResponse2.getBody().next().step()).isEqualTo("selectMethod");
 
-        UUID rotatedSessionId = statusResponse2.getBody().authorisationSessionId();
-        String challengeUrl2 = "http://localhost:" + port + "/orchestrator/authorisation-sessions/" + rotatedSessionId + "/authentication-methods/sms/challenge";
+        UUID rotatedSessionId = statusResponse2.getBody().sessionId();
+        String challengeUrl2 = "http://localhost:" + port + "/orchestrator/sessions/" + rotatedSessionId + "/authentication-methods/sms";
         String challengeProof2 = createDpopProof(ecKey, "POST", challengeUrl2);
         HttpHeaders challengeHeaders2 = new HttpHeaders();
         challengeHeaders2.set("DPoP", challengeProof2);
@@ -254,7 +252,7 @@ class SessionControllerIntegrationTest {
     void reusesExistingAccountAndSwitchesToAuthorisationSessionAfterFsc() throws Exception {
         ECKey firstKey = new ECKeyGenerator(Curve.P_256).generate();
         String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
-        String setupUrl = "http://localhost:" + port + "/orchestrator/registration-sessions";
+        String setupUrl = "http://localhost:" + port + "/orchestrator/sessions";
 
         Person person = personRepository.findByKvnr("C111111111").orElseThrow();
         fscCodeRepository.save(new FscCode(person.getId(), "REUSE123", Instant.now().plus(1, ChronoUnit.HOURS)));
@@ -268,7 +266,7 @@ class SessionControllerIntegrationTest {
                 new HttpEntity<>(firstSetupHeaders),
                 Map.class);
 
-        String firstRegistrationSessionId = (String) firstSetupResponse.getBody().get("registrationSessionId");
+        String firstRegistrationSessionId = (String) firstSetupResponse.getBody().get("sessionId");
         assertThat(firstRegistrationSessionId).isNotBlank();
 
         String firstIdentificationUrl = setupUrl + "/" + firstRegistrationSessionId + "/identification-methods/fsc";
@@ -312,7 +310,7 @@ class SessionControllerIntegrationTest {
             Long firstSmsSetupId = ((Number) firstSmsNext.get("smsSetupId")).longValue();
             AuthSmsSetup firstSmsSetup = authSmsSetupRepository.findById(firstSmsSetupId).orElseThrow();
 
-            String firstSmsVerifyUrl = setupUrl + "/" + firstRegistrationSessionId + "/authentication-methods/sms/verify-tan";
+            String firstSmsVerifyUrl = setupUrl + "/" + firstRegistrationSessionId + "/authentication-methods/sms/verify";
             String firstSmsVerifyProof = createDpopProof(firstKey, "POST", firstSmsVerifyUrl);
             HttpHeaders firstSmsVerifyHeaders = new HttpHeaders();
             firstSmsVerifyHeaders.set("DPoP", firstSmsVerifyProof);
@@ -350,7 +348,7 @@ class SessionControllerIntegrationTest {
                 HttpMethod.POST,
                 new HttpEntity<>(secondSetupHeaders),
                 Map.class);
-        String secondRegistrationSessionId = (String) secondSetupResponse.getBody().get("registrationSessionId");
+        String secondRegistrationSessionId = (String) secondSetupResponse.getBody().get("sessionId");
         assertThat(secondRegistrationSessionId).isNotBlank();
 
         String secondIdentificationUrl = setupUrl + "/" + secondRegistrationSessionId + "/identification-methods/fsc";
@@ -375,8 +373,7 @@ class SessionControllerIntegrationTest {
                 Map.class);
 
         assertThat(secondFscResponse.getStatusCode().value()).isEqualTo(200);
-        assertThat(secondFscResponse.getBody().get("registrationSessionId")).isNull();
-        String authorisationSessionId = (String) secondFscResponse.getBody().get("authorisationSessionId");
+        String authorisationSessionId = (String) secondFscResponse.getBody().get("sessionId");
         assertThat(authorisationSessionId).isNotBlank();
         @SuppressWarnings("unchecked")
         Map<String, Object> secondFscNext = (Map<String, Object>) secondFscResponse.getBody().get("next");
@@ -394,14 +391,13 @@ class SessionControllerIntegrationTest {
                 HttpMethod.GET,
                 new HttpEntity<>(authSessionsHeaders),
                 SessionStatusResponse.class);
-        assertThat(authSessionsResponse.getBody().authorisationSessionId()).isNotNull();
-        assertThat(authSessionsResponse.getBody().authorisationSessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
-        assertThat(authSessionsResponse.getBody().registrationSessionId()).isNull();
+        assertThat(authSessionsResponse.getBody().sessionId()).isNotNull();
+        assertThat(authSessionsResponse.getBody().sessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
         assertThat(authSessionsResponse.getBody().next()).isNotNull();
         assertThat(authSessionsResponse.getBody().next().step()).isEqualTo("selectMethod");
 
-        UUID refreshedAuthorisationSessionId = authSessionsResponse.getBody().authorisationSessionId();
-        String challengeUrl = "http://localhost:" + port + "/orchestrator/authorisation-sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms/challenge";
+        UUID refreshedAuthorisationSessionId = authSessionsResponse.getBody().sessionId();
+        String challengeUrl = "http://localhost:" + port + "/orchestrator/sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms";
         String challengeProof = createDpopProof(secondKey, "POST", challengeUrl);
         HttpHeaders challengeHeaders = new HttpHeaders();
         challengeHeaders.set("DPoP", challengeProof);
@@ -418,7 +414,7 @@ class SessionControllerIntegrationTest {
         AuthSmsSetup secondSmsSetup = authSmsSetupRepository.findById(secondSmsSetupId).orElseThrow();
         assertThat(secondSmsSetup.getPhoneNumber()).isEqualTo("+491701234567");
 
-        String verifyUrl = "http://localhost:" + port + "/orchestrator/authorisation-sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms/verify-tan";
+        String verifyUrl = "http://localhost:" + port + "/orchestrator/sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms/verify";
         String verifyProof = createDpopProof(secondKey, "POST", verifyUrl);
         HttpHeaders verifyHeaders = new HttpHeaders();
         verifyHeaders.set("DPoP", verifyProof);

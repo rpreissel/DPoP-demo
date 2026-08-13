@@ -23,6 +23,10 @@ public class FlowNextStepResolver {
     }
 
     public NextStep resolve(ClientSession session) {
+        if ("authenticated".equals(session.getPhase())) {
+            return new NextStep.AuthenticationCompletedNextStep();
+        }
+
         Map<String, Object> pendingChallenge = session.getPendingChallenge();
         if (pendingChallenge != null) {
             String method = String.valueOf(pendingChallenge.get("method"));

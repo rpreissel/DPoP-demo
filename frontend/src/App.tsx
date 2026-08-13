@@ -25,18 +25,11 @@ function App() {
     return status.sessionId ?? status.authorisationSessionId ?? status.registrationSessionId
   }
 
-  function isAuthorisationFlow(status: SessionStatus | null): boolean {
-    if (!status) return false
-    if (status.next?.context === 'authentication' && status.next.step !== 'setup') return true
-    return !!status.authorisationSessionId
-  }
-
   function mergeSessionStatus(result: RegistrationSetupResult, fallback: SessionStatus): SessionStatus {
-    const switchedToAuthorisation = !!result.authorisationSessionId
     const sessionId = result.sessionId ?? result.authorisationSessionId ?? result.registrationSessionId
     return {
       sessionId,
-      registrationSessionId: switchedToAuthorisation ? undefined : (result.registrationSessionId ?? fallback.registrationSessionId),
+      registrationSessionId: result.registrationSessionId ?? fallback.registrationSessionId,
       authorisationSessionId: result.authorisationSessionId ?? fallback.authorisationSessionId,
       next: result.next,
     }
@@ -65,9 +58,9 @@ function App() {
       setSessionStatus(status)
 
       if (status.next?.context === 'registration' && status.next?.step === 'registration') {
-        const setupUrl = `${window.location.origin}/orchestrator/registration-sessions`
+        const setupUrl = `${window.location.origin}/orchestrator/sessions`
         const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
-        const setupResponse = await fetch('/orchestrator/registration-sessions', {
+        const setupResponse = await fetch('/orchestrator/sessions', {
           method: 'POST',
           headers: { DPoP: setupProof },
         })
@@ -98,9 +91,9 @@ function App() {
     const sessionId = effectiveSessionId(sessionStatus)
     if (!sessionId) return
 
-    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`
+    const url = `${window.location.origin}/orchestrator/sessions/${sessionId}/identification-methods/fsc`
     const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`, {
+    const response = await fetch(`/orchestrator/sessions/${sessionId}/identification-methods/fsc`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
       body: JSON.stringify({ kvnr, name, vorname }),
@@ -119,9 +112,9 @@ function App() {
     const sessionId = effectiveSessionId(sessionStatus)
     if (!sessionId) return
 
-    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`
+    const url = `${window.location.origin}/orchestrator/sessions/${sessionId}/identification-methods/fsc`
     const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
-    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`, {
+    const response = await fetch(`/orchestrator/sessions/${sessionId}/identification-methods/fsc`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
       body: JSON.stringify({ fsc }),
@@ -140,15 +133,12 @@ function App() {
     const sessionId = effectiveSessionId(sessionStatus)
     if (!sessionId) return undefined
 
-    const isAuthorisation = isAuthorisationFlow(sessionStatus)
-    const baseUrl = isAuthorisation
-      ? `${window.location.origin}/orchestrator/authorisation-sessions/${sessionId}/authentication-methods/sms/challenge`
-      : `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`
+    const baseUrl = `${window.location.origin}/orchestrator/sessions/${sessionId}/authentication-methods/sms`
     const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
     const response = await fetch(baseUrl.replace(window.location.origin, ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify(isAuthorisation ? {} : { phoneNumber }),
+      body: JSON.stringify(phoneNumber ? { phoneNumber } : {}),
     })
     if (!response.ok) {
       const body = await response.text()
@@ -169,10 +159,7 @@ function App() {
     const sessionId = effectiveSessionId(sessionStatus)
     if (!sessionId) return false
 
-    const isAuthorisation = isAuthorisationFlow(sessionStatus)
-    const baseUrl = isAuthorisation
-      ? `${window.location.origin}/orchestrator/authorisation-sessions/${sessionId}/authentication-methods/sms/verify-tan`
-      : `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`
+    const baseUrl = `${window.location.origin}/orchestrator/sessions/${sessionId}/authentication-methods/sms/verify`
     const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
     const response = await fetch(baseUrl.replace(window.location.origin, ''), {
       method: 'POST',
