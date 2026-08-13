@@ -67,6 +67,13 @@ public class AuthorisationController {
 
         AuthSmsSetupResult smsResult = authSmsService.setupSms(phoneNumber);
 
+        sessionService.setSelectedAuthenticationMethod(authorisationSessionId, thumbprint, "sms");
+        sessionService.setPendingChallenge(authorisationSessionId, thumbprint, Map.of(
+                "method", "sms",
+                "challengeId", smsResult.smsSetupId(),
+                "tan", smsResult.tan()
+        ));
+
         NextStep nextStep = new NextStep.SmsTanInputNextStep(smsResult.smsSetupId(), smsResult.tan());
         return ResponseEntity.ok(new AuthorisationSetupResponse(nextStep));
     }
@@ -84,6 +91,7 @@ public class AuthorisationController {
         sessionService.requireSession(authorisationSessionId, thumbprint);
 
         authSmsService.validateTan(requestBody.smsSetupId(), requestBody.tan());
+        sessionService.clearPendingChallenge(authorisationSessionId, thumbprint);
 
         NextStep nextStep = new NextStep.AuthenticationCompletedNextStep();
         return ResponseEntity.ok(new AuthorisationSetupResponse(nextStep));

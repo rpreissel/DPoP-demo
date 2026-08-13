@@ -42,6 +42,27 @@ public class AuthorisationSessionService {
         return flowSessionService.save(session);
     }
 
+    @Transactional
+    public void setPendingChallenge(UUID sessionId, String jwkThumbprint, java.util.Map<String, Object> pendingChallenge) {
+        ClientSession session = requireSession(sessionId, jwkThumbprint);
+        session.setPendingChallenge(pendingChallenge);
+        flowSessionService.touch(session);
+    }
+
+    @Transactional
+    public void clearPendingChallenge(UUID sessionId, String jwkThumbprint) {
+        ClientSession session = requireSession(sessionId, jwkThumbprint);
+        session.clearPendingChallenge();
+        flowSessionService.touch(session);
+    }
+
+    @Transactional
+    public void setSelectedAuthenticationMethod(UUID sessionId, String jwkThumbprint, String method) {
+        ClientSession session = requireSession(sessionId, jwkThumbprint);
+        session.setSelectedAuthenticationMethod(method);
+        flowSessionService.touch(session);
+    }
+
     private Instant defaultExpireAt() {
         return Instant.now().plus(30, ChronoUnit.MINUTES);
     }
