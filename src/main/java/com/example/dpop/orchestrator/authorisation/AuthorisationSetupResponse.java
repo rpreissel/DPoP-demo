@@ -8,9 +8,14 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AuthorisationSetupResponse(
         UUID authorisationSessionId,
+        UUID sessionId,
         NextStep next
 ) {
     public AuthorisationSetupResponse(NextStep next) {
-        this(null, next);
+        this(null, null, next);
+    }
+
+    public AuthorisationSetupResponse(UUID authorisationSessionId, NextStep next) {
+        this(authorisationSessionId, authorisationSessionId, next);
     }
 }

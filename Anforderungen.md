@@ -108,14 +108,16 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `ort`
 - Bei Applikationsstart werden Testdaten in die `person`-Tabelle eingespielt.
 - Für die vorhandenen Testpersonen werden gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow im UI direkt durchgespielt werden kann.
-- Registration- und Authorisation-Sessions werden in einer gemeinsamen Tabelle `client_session` persistiert:
+- Die verfügbaren Identifikations- und Authentifizierungsmethoden werden über Provider-Abstraktionen (`IdentificationMethodProvider`, `AuthenticationMethodProvider`) ermittelt, sodass der Flow unabhängig von konkreten Methoden bleibt.
+- Client-Sessions werden in einer gemeinsamen Tabelle `client_session` persistiert:
   - `jwk_thumbprint` (Primärschlüssel)
-  - `type` (`REG` oder `AUTH`)
+  - `type` immer `FLOW`
   - `expire_at`
   - `last_accessed`
-  - `format` (`V1` oder `V2`)
-  - `data` (JSON mit session-spezifischen Daten, z.B. `id`, `personId`)
+  - `format` (`V1`)
+  - `data` (JSON mit session-spezifischen Daten: `id` der Session, `phase`, `personId`, `accountId`, `selectedIdentificationMethod`, `selectedAuthenticationMethod`, `pendingChallenge`)
   - `version` (Optimistic Locking)
+- Die Session enthält keine separate Registrierungs- oder Authentifizierungssession; stattdessen entscheidet der `FlowNextStepResolver` anhand der Session-Daten und des Accounts, ob Identifikation, Setup einer Authentifizierungsmethode oder eine Authentifizierungs-Challenge erforderlich ist.
 - Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
 - Im Modul `account` existiert eine `Account`-Entität mit folgenden Attributen:
   - `id` (Primärschlüssel, auto-generiert)
@@ -160,11 +162,11 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F14 | Der öffentliche DPoP-Schlüssel ist als JWK im Frontend einsehbar. | Anzeige des `jwk`-Teils im UI |
 | F15 | Alle Registration-Aufrufe werden mit DPoP abgesichert. | Header `DPoP` enthält valides DPoP-Proof-JWT |
 | F16 | Der Session-Status wird über einen GET-Endpunkt abgefragt. | GET `/orchestrator/sessions` mit DPoP-Proof |
-| F17 | Der Abfrage verwendet den JWK-Thumbprint als Schlüssel. | Suche nach Registration- und Authorisation-Sessions |
+| F17 | Der Abfrage verwendet den JWK-Thumbprint als Schlüssel. | Es gibt genau eine `ClientSession` pro JWK-Thumbprint |
 | F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Ohne Identifikationsmethoden; diese folgen beim Setup |
-| F19 | Registration Sessions werden über einen Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/registration-sessions` liefert `registrationSessionId` |
+| F19 | Eine neue Flow-Session wird über den Registration-Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/registration-sessions` liefert `sessionId` |
 | F20 | Der Setup-Prozess verwendet den JWK-Thumbprint als Schlüssel. | Session wird anhand des Thumbprints wiederverwendet |
-| F21 | Folgende Registration-Aufrufe enthalten die `registrationSessionId` im Pfad. | z.B. `/orchestrator/registration-sessions/{id}/identification-methods/fsc` |
+| F21 | Folgende Aufrufe enthalten die `sessionId` im Pfad. | z.B. `/orchestrator/registration-sessions/{id}/identification-methods/fsc` |
 | F22 | Die Identifikationsmethode FSC wird über einen dedizierten Endpunkt gestartet. | POST `/orchestrator/registration-sessions/{id}/identification-methods/fsc` mit KVNR, Name und Vorname |
 | F23 | Der Orchestrator prüft die KVNR gegen die Stammdaten und fordert bei Erfolg die FSC-Eingabe an. | Antwort enthält `next: { context: "fsc", step: "input" }` |
 | F24 | Der Freischaltcode wird per PATCH übermittelt und vom FSC-Service validiert. | PATCH `/orchestrator/registration-sessions/{id}/identification-methods/fsc`; Prüfung auf Existenz und Ablauf |
@@ -182,10 +184,11 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F39 | Nach erfolgreicher FSC-Identifikation wird ein bestehender Account zur Person wiederverwendet. | Der Flow erstellt keinen zweiten Account für dieselbe `personId` |
 | F40 | Auch bei wiederverwendetem Account wird die neue Identifikation gespeichert. | `identifications` enthält für jede erfolgreiche FSC-Identifikation einen weiteren Eintrag |
 | F41 | Der Orchestrator speichert die Zuordnung `jwk_thumbprint -> accountId`. | Persistente Mapping-Tabelle erlaubt mehrere JWKs pro Account |
-| F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang in eine `AUTH`-Session |
-| F43 | Beim Wechsel von Registrierung zur Anmeldung wird die Registration-Session geschlossen und eine neue Authentication-Session erzeugt. | `client_session` wechselt von `type=REG` zu `type=AUTH` für den JWK-Thumbprint |
-| F44 | In der Authentication-Session werden vorhandene Methoden angeboten und die TAN dort bestätigt. | Die SMS-Challenge unter `/orchestrator/authorisation-sessions/.../sms/challenge` verwendet die im Account hinterlegte aktive Telefonnummer; der Client uebergibt keine Telefonnummer mehr |
-| F45 | Session-IDs werden nur in Antworten mitgegeben, in denen der Client die ID neu benoetigt oder ein Session-Wechsel stattfindet. | Folgeschritte innerhalb derselben Session liefern nur `next` ohne redundante Session-ID |
+| F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang zur Authentifizierungs-Auswahl |
+| F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Session erhalten; die Phase wechselt. | `client_session.type` bleibt `FLOW`; `data.phase` und `next.context` leiten den Client weiter |
+| F44 | In der Authentifizierungsphase werden vorhandene Methoden angeboten und die TAN dort bestätigt. | Die SMS-Challenge unter `/orchestrator/authorisation-sessions/.../sms/challenge` verwendet die im Account hinterlegte aktive Telefonnummer; der Client uebergibt keine Telefonnummer mehr |
+| F45 | Jede Antwort kann die aktuelle `sessionId` enthalten; der Client bevorzugt sie gegenüber Legacy-Feldern. | Kompatibilität zu `registrationSessionId` und `authorisationSessionId` bleibt erhalten |
+| F46 | Bei erneutem Frontend-Start wird eine vorhandene Authentifizierungs-Session rotiert. | `GET /orchestrator/sessions` erzeugt bei bekanntem Account mit aktiver Methode eine neue `sessionId` und bietet `selectMethod` an |
 | F26 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP 401 abgewiesen |
 | F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
 | F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |
@@ -209,6 +212,7 @@ Antwort bei noch unbekanntem Client (keine Session vorhanden):
 
 ```json
 {
+  "sessionId": null,
   "registrationSessionId": null,
   "authorisationSessionId": null,
   "next": {
@@ -217,6 +221,8 @@ Antwort bei noch unbekanntem Client (keine Session vorhanden):
   }
 }
 ```
+
+> Hinweis: `sessionId` ist das bevorzugte Feld. `registrationSessionId` und `authorisationSessionId` werden aus Kompatibilitätsgründen weiterhin mitgeliefert.
 
 #### Schritt 2: Registration Session anlegen
 
@@ -230,6 +236,7 @@ Antwort:
 
 ```json
 {
+  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "next": {
     "context": "registration",
@@ -294,10 +301,11 @@ Antwort bei gültigem, nicht abgelaufenem FSC:
 }
 ```
 
-Falls für die identifizierte Person bereits ein Account mit aktiver Authentifizierungsmethode existiert, wird kein neues Setup verlangt. Stattdessen wird die Registration-Session beendet, eine Authorisation-Session erstellt und die vorhandene Methode angeboten:
+Falls für die identifizierte Person bereits ein Account mit aktiver Authentifizierungsmethode existiert, wird kein neues Setup verlangt. Stattdessen wechselt die Flow-Session in die Authentifizierungsphase und bietet die vorhandene Methode an:
 
 ```json
 {
+  "sessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
   "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
   "next": {
     "context": "authentication",
@@ -354,6 +362,7 @@ Antwort bei korrekter TAN:
 
 ```json
 {
+  "sessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
   "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
   "next": {
     "context": "authentication",
@@ -363,11 +372,11 @@ Antwort bei korrekter TAN:
 }
 ```
 
-Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt, der Account um die `sms`-Authentication-Methode ergaenzt und in die Authentication-Session gewechselt.
+Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt, der Account um die `sms`-Authentication-Methode ergaenzt und die Flow-Session in die Authentifizierungsphase ueberfuehrt.
 
-#### Schritt 6: SMS-Challenge in der Authentication-Session
+#### Schritt 6: SMS-Challenge in der Authentifizierungsphase
 
-Nach dem Wechsel in die Authentication-Session (entweder direkt nach Schritt 4 bei bestehender Methode oder nach Schritt 5b) wird die TAN in der Authentication-Session bestaetigt:
+Nach dem Wechsel in die Authentifizierungsphase (entweder direkt nach Schritt 4 bei bestehender Methode oder nach Schritt 5b) wird die TAN in derselben Flow-Session bestaetigt:
 
 ##### 6a: Challenge starten
 
@@ -420,22 +429,24 @@ Antwort bei korrekter TAN:
 
 Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zustand:
 
-- während der Registration:
+- während der Registrierungsphase:
 
 ```json
 {
+  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "authorisationSessionId": null,
   "next": null
 }
 ```
 
-- nach Abschluss der Registration (Login-Phase); bei der naechsten Initialisierung wird diese Auth-Session verworfen und eine neue erzeugt:
+- nach Abschluss der Registrierung (Login-Phase); bei der naechsten Initialisierung wird die Session-ID rotiert und eine neue Authentifizierungs-Challenge erzeugt:
 
 ```json
 {
+  "sessionId": "c3d4e5f6-a7b8-9012-cdef-345678901234",
   "registrationSessionId": null,
-  "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "authorisationSessionId": "c3d4e5f6-a7b8-9012-cdef-345678901234",
   "next": {
     "context": "authentication",
     "step": "selectMethod",
@@ -444,9 +455,9 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 }
 ```
 
-Es existiert zu einem Zeitpunkt immer nur ein `ClientSession`-Eintrag pro JWK-Thumbprint, entweder mit `type=REG` (Registrierung) oder `type=AUTH` (Anmeldung).
+Es existiert zu einem Zeitpunkt immer nur ein `ClientSession`-Eintrag pro JWK-Thumbprint mit `type=FLOW`. Die Phase der Session ergibt sich aus den gespeicherten Daten (`accountId`, `selectedAuthenticationMethod`, `pendingChallenge`) und wird vom `FlowNextStepResolver` in den `next`-Schritt uebersetzt.
 
-Bei jedem neuen Initialisieren des Frontends (`GET /orchestrator/sessions`) wird eine bereits vorhandene Auth-Session verworfen. Ist fuer den JWK-Thumbprint weiterhin ein Account mit mindestens einer aktiven Authentifizierungsmethode bekannt, wird sofort eine neue Auth-Session erzeugt und der Client erhaelt `next.step=selectMethod`. Der Nutzer muss sich so bei jedem erneuten Aufruf erneut authentifizieren.
+Bei jedem neuen Initialisieren des Frontends (`GET /orchestrator/sessions`) wird eine bereits vorhandene Authentifizierungs-Session rotiert. Ist fuer den JWK-Thumbprint weiterhin ein Account mit mindestens einer aktiven Authentifizierungsmethode bekannt, wird sofort eine neue `sessionId` erzeugt und der Client erhaelt `next.step=selectMethod`. Der Nutzer muss sich so bei jedem erneuten Aufruf erneut authentifizieren.
 
 ## 4. Architekturbeschränkungen
 

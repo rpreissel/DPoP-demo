@@ -75,7 +75,7 @@ public class AuthorisationController {
         ));
 
         NextStep nextStep = new NextStep.SmsTanInputNextStep(smsResult.smsSetupId(), smsResult.tan());
-        return ResponseEntity.ok(new AuthorisationSetupResponse(nextStep));
+        return ResponseEntity.ok(new AuthorisationSetupResponse(authorisationSessionId, nextStep));
     }
 
     @PostMapping("/{authorisationSessionId}/authentication-methods/sms/verify-tan")
@@ -94,7 +94,7 @@ public class AuthorisationController {
         sessionService.clearPendingChallenge(authorisationSessionId, thumbprint);
 
         NextStep nextStep = new NextStep.AuthenticationCompletedNextStep();
-        return ResponseEntity.ok(new AuthorisationSetupResponse(nextStep));
+        return ResponseEntity.ok(new AuthorisationSetupResponse(authorisationSessionId, nextStep));
     }
 
     @ExceptionHandler(DpopValidationException.class)
