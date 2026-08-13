@@ -14,7 +14,9 @@ import com.example.dpop.orchestrator.dpop.DpopProof;
 import com.example.dpop.orchestrator.dpop.DpopValidationException;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService;
+import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
 import com.example.dpop.orchestrator.session.ClientSession;
+import com.example.dpop.orchestrator.session.IdentificationMethodProvider;
 import com.example.dpop.orchestrator.session.NextStep;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -45,6 +47,8 @@ public class RegistrationController {
     private final AccountService accountService;
     private final AccountJwkMappingService accountJwkMappingService;
     private final AuthSmsService authSmsService;
+    private final IdentificationMethodProvider identificationMethodProvider;
+    private final AuthenticationMethodProvider authenticationMethodProvider;
 
     public RegistrationController(DpopValidator dpopValidator,
                                   JwkThumbprintService jwkThumbprintService,
@@ -54,7 +58,9 @@ public class RegistrationController {
                                   IdFscService idFscService,
                                   AccountService accountService,
                                   AccountJwkMappingService accountJwkMappingService,
-                                  AuthSmsService authSmsService) {
+                                  AuthSmsService authSmsService,
+                                  IdentificationMethodProvider identificationMethodProvider,
+                                  AuthenticationMethodProvider authenticationMethodProvider) {
         this.dpopValidator = dpopValidator;
         this.jwkThumbprintService = jwkThumbprintService;
         this.sessionService = sessionService;
@@ -64,6 +70,8 @@ public class RegistrationController {
         this.accountService = accountService;
         this.accountJwkMappingService = accountJwkMappingService;
         this.authSmsService = authSmsService;
+        this.identificationMethodProvider = identificationMethodProvider;
+        this.authenticationMethodProvider = authenticationMethodProvider;
     }
 
     @PostMapping
@@ -76,7 +84,7 @@ public class RegistrationController {
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
         UUID sessionId = sessionService.getOrCreateSession(thumbprint);
 
-        NextStep nextStep = new NextStep.UseIdentificationMethodNextStep(List.of("fsc"));
+        NextStep nextStep = new NextStep.UseIdentificationMethodNextStep(identificationMethodProvider.availableMethods());
         return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, nextStep));
     }
 
@@ -100,6 +108,7 @@ public class RegistrationController {
         }
 
         sessionService.setPersonId(registrationSessionId, thumbprint, person.getId());
+        sessionService.setSelectedIdentificationMethod(registrationSessionId, thumbprint, "fsc");
 
         NextStep nextStep = new NextStep.FscInputNextStep();
         return ResponseEntity.ok(new RegistrationSetupResponse(nextStep));
@@ -146,11 +155,11 @@ public class RegistrationController {
 
         if (accountService.hasActiveAuthenticationMethod(account.getId())) {
             ClientSession authorisationSession = authorisationSessionService.createSession(thumbprint, account.getId());
-            NextStep nextStep = new NextStep.AuthenticationMethodSelectionNextStep(List.of("sms"));
+            NextStep nextStep = new NextStep.AuthenticationMethodSelectionNextStep(authenticationMethodProvider.activeMethods(account));
             return ResponseEntity.ok(new RegistrationSetupResponse(null, authorisationSession.getSessionId(), nextStep));
         }
 
-        NextStep nextStep = new NextStep.AuthenticationSetupNextStep(List.of("sms"));
+        NextStep nextStep = new NextStep.AuthenticationSetupNextStep(authenticationMethodProvider.availableMethods());
         return ResponseEntity.ok(new RegistrationSetupResponse(nextStep));
     }
 
@@ -164,9 +173,16 @@ public class RegistrationController {
         String requestUrl = buildRequestUrl(request);
         DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
         String thumbprint = jwkThumbprintService.computeThumbprint(proof.publicKey());
-        sessionService.requireSession(registrationSessionId, thumbprint);
+        ClientSession session = sessionService.requireSession(registrationSessionId, thumbprint);
 
         AuthSmsSetupResult smsResult = authSmsService.setupSms(requestBody.phoneNumber());
+
+        sessionService.setSelectedAuthenticationMethod(registrationSessionId, thumbprint, "sms");
+        sessionService.setPendingChallenge(registrationSessionId, thumbprint, Map.of(
+                "method", "sms",
+                "challengeId", smsResult.smsSetupId(),
+                "tan", smsResult.tan()
+        ));
 
         NextStep nextStep = new NextStep.SmsTanInputNextStep(smsResult.smsSetupId(), smsResult.tan());
         return ResponseEntity.ok(new RegistrationSetupResponse(nextStep));
@@ -197,9 +213,10 @@ public class RegistrationController {
                 true,
                 Map.of("smsSetupId", validatedSetup.getId(), "phoneNumber", validatedSetup.getPhoneNumber())
         );
+        sessionService.clearPendingChallenge(registrationSessionId, thumbprint);
 
         ClientSession authorisationSession = authorisationSessionService.createSession(thumbprint, accountId);
-        NextStep nextStep = new NextStep.AuthenticationMethodSelectionNextStep(List.of("sms"));
+        NextStep nextStep = new NextStep.AuthenticationMethodSelectionNextStep(authenticationMethodProvider.activeMethods(accountService.findById(accountId).orElseThrow()));
         return ResponseEntity.ok(new RegistrationSetupResponse(null, authorisationSession.getSessionId(), nextStep));
     }
 
