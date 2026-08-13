@@ -9,12 +9,6 @@ import com.example.dpop.ext_stammdaten.Person;
 import com.example.dpop.ext_stammdaten.PersonRepository;
 import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.account.AccountJwkMappingService;
-import com.example.dpop.orchestrator.authorisation.SmsVerifyRequest;
-import com.example.dpop.orchestrator.registration.FscIdentificationRequest;
-import com.example.dpop.orchestrator.registration.FscInputRequest;
-import com.example.dpop.orchestrator.registration.RegistrationSessionException;
-import com.example.dpop.orchestrator.registration.SmsSetupRequest;
-import com.example.dpop.orchestrator.registration.SmsTanRequest;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
 import com.example.dpop.orchestrator.session.ClientFlowSessionService;
 import com.example.dpop.orchestrator.session.ClientSession;
@@ -24,6 +18,7 @@ import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -60,8 +55,37 @@ public class FlowActionService {
     }
 
     public FlowSetupResponse createFlow(String thumbprint) {
-        ClientSession session = flowSessionService.getOrCreateByJwkThumbprint(thumbprint);
-        return toResponse(session);
+        ClientSession session = resolveOrRotateSession(thumbprint);
+        return new FlowSetupResponse(session.getSessionId(), nextStepResolver.resolve(session));
+    }
+
+    private ClientSession resolveOrRotateSession(String thumbprint) {
+        Optional<Long> knownAccountId = accountJwkMappingService.findAccountIdByJwkThumbprint(thumbprint);
+        Optional<ClientSession> existingSession = flowSessionService.findByJwkThumbprint(thumbprint);
+
+        if (existingSession.isPresent()) {
+            ClientSession session = existingSession.get();
+            Long accountId = session.getAccountId();
+            boolean accountHasActiveMethod = accountId != null
+                    && accountService.hasActiveAuthenticationMethod(accountId);
+
+            if (accountHasActiveMethod || knownAccountId.filter(accountService::hasActiveAuthenticationMethod).isPresent()) {
+                session = flowSessionService.rotateSessionId(thumbprint);
+                Long effectiveAccountId = accountId != null ? accountId : knownAccountId.orElseThrow();
+                session.setAccountId(effectiveAccountId);
+                return flowSessionService.save(session);
+            }
+
+            return session;
+        }
+
+        if (knownAccountId.isPresent() && accountService.hasActiveAuthenticationMethod(knownAccountId.get())) {
+            ClientSession session = flowSessionService.getOrCreateByJwkThumbprint(thumbprint);
+            session.setAccountId(knownAccountId.get());
+            return flowSessionService.save(session);
+        }
+
+        return flowSessionService.getOrCreateByJwkThumbprint(thumbprint);
     }
 
     public FlowSetupResponse startIdentification(UUID sessionId, String thumbprint, String method, FscIdentificationRequest request) {
@@ -72,10 +96,10 @@ public class FlowActionService {
         ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
 
         Person person = personRepository.findByKvnr(request.kvnr())
-                .orElseThrow(() -> new RegistrationSessionException("Person with given KVNR not found"));
+                .orElseThrow(() -> new FlowSessionException("Person with given KVNR not found"));
 
         if (!person.getName().equals(request.name()) || !person.getVorname().equals(request.vorname())) {
-            throw new RegistrationSessionException("Person data does not match");
+            throw new FlowSessionException("Person data does not match");
         }
 
         session.setPersonId(person.getId());
@@ -94,20 +118,20 @@ public class FlowActionService {
 
         Long personId = session.getPersonId();
         if (personId == null) {
-            throw new RegistrationSessionException("No person selected for this session");
+            throw new FlowSessionException("No person selected for this session");
         }
 
         String fscCode = request.fsc();
         if (fscCode == null || fscCode.isBlank()) {
-            throw new RegistrationSessionException("FSC code is required");
+            throw new FlowSessionException("FSC code is required");
         }
 
         if (!idFscService.validateFsc(personId, fscCode)) {
-            throw new RegistrationSessionException("Invalid or expired FSC code");
+            throw new FlowSessionException("Invalid or expired FSC code");
         }
 
         Person person = personRepository.findById(personId)
-                .orElseThrow(() -> new RegistrationSessionException("Person not found"));
+                .orElseThrow(() -> new FlowSessionException("Person not found"));
 
         Account account = accountService.identifyAccount(
                 personId,
@@ -135,10 +159,10 @@ public class FlowActionService {
         boolean isChallenge = accountService.hasActiveAuthenticationMethod(accountId);
         if (isChallenge) {
             phoneNumber = accountService.findActiveSmsPhoneNumber(accountId)
-                    .orElseThrow(() -> new RegistrationSessionException("No active sms authentication method configured"));
+                    .orElseThrow(() -> new FlowSessionException("No active sms authentication method configured"));
         } else {
             if (request == null || request.phoneNumber() == null || request.phoneNumber().isBlank()) {
-                throw new RegistrationSessionException("phoneNumber is required for sms setup");
+                throw new FlowSessionException("phoneNumber is required for sms setup");
             }
             phoneNumber = request.phoneNumber();
         }
@@ -190,13 +214,12 @@ public class FlowActionService {
     private Long requireAccountId(ClientSession session) {
         Long accountId = session.getAccountId();
         if (accountId == null) {
-            throw new RegistrationSessionException("No account linked to this session");
+            throw new FlowSessionException("No account linked to this session");
         }
         return accountId;
     }
 
     private FlowSetupResponse toResponse(ClientSession session) {
-        NextStep nextStep = nextStepResolver.resolve(session);
-        return new FlowSetupResponse(session.getSessionId(), nextStep);
+        return new FlowSetupResponse(nextStepResolver.resolve(session));
     }
 }

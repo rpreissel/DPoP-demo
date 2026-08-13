@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import com.example.dpop.orchestrator.flow.FlowSetupResponse;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -65,23 +66,6 @@ class SessionControllerIntegrationTest {
     @Test
     void sessionFlowReturnsRegistrationStepAndCreatesSession() throws Exception {
         ECKey ecKey = new ECKeyGenerator(Curve.P_256).generate();
-
-        String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
-        String sessionsProof = createDpopProof(ecKey, "GET", sessionsUrl);
-
-        HttpHeaders getHeaders = new HttpHeaders();
-        getHeaders.set("DPoP", sessionsProof);
-        ResponseEntity<SessionStatusResponse> statusResponse = restTemplate.exchange(
-                sessionsUrl,
-                HttpMethod.GET,
-                new HttpEntity<>(getHeaders),
-                SessionStatusResponse.class);
-
-        assertThat(statusResponse.getStatusCode().value()).isEqualTo(200);
-        assertThat(statusResponse.getBody()).isNotNull();
-        assertThat(statusResponse.getBody().next()).isNotNull();
-        assertThat(statusResponse.getBody().next().context()).isEqualTo("registration");
-        assertThat(statusResponse.getBody().next().step()).isEqualTo("registration");
 
         String setupUrl = "http://localhost:" + port + "/orchestrator/sessions";
         String setupProof = createDpopProof(ecKey, "POST", setupUrl);
@@ -198,8 +182,6 @@ class SessionControllerIntegrationTest {
         assertThat(smsTanResponse.getStatusCode().value()).isEqualTo(200);
         @SuppressWarnings("unchecked")
         Map<String, Object> smsTanNext = (Map<String, Object>) smsTanResponse.getBody().get("next");
-        String authorisationSessionId = (String) smsTanResponse.getBody().get("sessionId");
-        assertThat(authorisationSessionId).isNotBlank();
         assertThat(smsTanNext.get("context")).isEqualTo("authentication");
         assertThat(smsTanNext.get("step")).isEqualTo("authenticated");
 
@@ -218,17 +200,17 @@ class SessionControllerIntegrationTest {
         assertThat(account.getAuthenticationMethods().get(0).isActive()).isTrue();
         assertThat(account.getAuthenticationMethods().get(0).getDetails()).containsKey("smsSetupId");
 
-        String sessionsProof2 = createDpopProof(ecKey, "GET", sessionsUrl);
-        HttpHeaders getHeaders2 = new HttpHeaders();
-        getHeaders2.set("DPoP", sessionsProof2);
-        ResponseEntity<SessionStatusResponse> statusResponse2 = restTemplate.exchange(
-                sessionsUrl,
-                HttpMethod.GET,
-                new HttpEntity<>(getHeaders2),
-                SessionStatusResponse.class);
+        String sessionsProof2 = createDpopProof(ecKey, "POST", setupUrl);
+        HttpHeaders postHeaders2 = new HttpHeaders();
+        postHeaders2.set("DPoP", sessionsProof2);
+        ResponseEntity<FlowSetupResponse> statusResponse2 = restTemplate.exchange(
+                setupUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(postHeaders2),
+                FlowSetupResponse.class);
 
         assertThat(statusResponse2.getBody().sessionId()).isNotNull();
-        assertThat(statusResponse2.getBody().sessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
+        assertThat(statusResponse2.getBody().sessionId()).isNotEqualTo(UUID.fromString(sessionId));
         assertThat(statusResponse2.getBody().next()).isNotNull();
         assertThat(statusResponse2.getBody().next().step()).isEqualTo("selectMethod");
 
@@ -266,10 +248,10 @@ class SessionControllerIntegrationTest {
                 new HttpEntity<>(firstSetupHeaders),
                 Map.class);
 
-        String firstRegistrationSessionId = (String) firstSetupResponse.getBody().get("sessionId");
-        assertThat(firstRegistrationSessionId).isNotBlank();
+        String firstSessionId = (String) firstSetupResponse.getBody().get("sessionId");
+        assertThat(firstSessionId).isNotBlank();
 
-        String firstIdentificationUrl = setupUrl + "/" + firstRegistrationSessionId + "/identification-methods/fsc";
+        String firstIdentificationUrl = setupUrl + "/" + firstSessionId + "/identification-methods/fsc";
         String firstIdentificationProof = createDpopProof(firstKey, "POST", firstIdentificationUrl);
         HttpHeaders firstIdentificationHeaders = new HttpHeaders();
         firstIdentificationHeaders.set("DPoP", firstIdentificationProof);
@@ -294,7 +276,7 @@ class SessionControllerIntegrationTest {
         assertThat(firstFscNext.get("step")).isIn("setup", "selectMethod");
 
         if ("setup".equals(firstFscNext.get("step"))) {
-            String firstSmsSetupUrl = setupUrl + "/" + firstRegistrationSessionId + "/authentication-methods/sms";
+            String firstSmsSetupUrl = setupUrl + "/" + firstSessionId + "/authentication-methods/sms";
             String firstSmsSetupProof = createDpopProof(firstKey, "POST", firstSmsSetupUrl);
             HttpHeaders firstSmsSetupHeaders = new HttpHeaders();
             firstSmsSetupHeaders.set("DPoP", firstSmsSetupProof);
@@ -310,7 +292,7 @@ class SessionControllerIntegrationTest {
             Long firstSmsSetupId = ((Number) firstSmsNext.get("smsSetupId")).longValue();
             AuthSmsSetup firstSmsSetup = authSmsSetupRepository.findById(firstSmsSetupId).orElseThrow();
 
-            String firstSmsVerifyUrl = setupUrl + "/" + firstRegistrationSessionId + "/authentication-methods/sms/verify";
+            String firstSmsVerifyUrl = setupUrl + "/" + firstSessionId + "/authentication-methods/sms/verify";
             String firstSmsVerifyProof = createDpopProof(firstKey, "POST", firstSmsVerifyUrl);
             HttpHeaders firstSmsVerifyHeaders = new HttpHeaders();
             firstSmsVerifyHeaders.set("DPoP", firstSmsVerifyProof);
@@ -328,18 +310,6 @@ class SessionControllerIntegrationTest {
 
         ECKey secondKey = new ECKeyGenerator(Curve.P_256).generate();
 
-        String secondSessionsProof = createDpopProof(secondKey, "GET", sessionsUrl);
-        HttpHeaders secondSessionsHeaders = new HttpHeaders();
-        secondSessionsHeaders.set("DPoP", secondSessionsProof);
-        ResponseEntity<SessionStatusResponse> secondSessionsResponse = restTemplate.exchange(
-                sessionsUrl,
-                HttpMethod.GET,
-                new HttpEntity<>(secondSessionsHeaders),
-                SessionStatusResponse.class);
-        assertThat(secondSessionsResponse.getBody()).isNotNull();
-        assertThat(secondSessionsResponse.getBody().next()).isNotNull();
-        assertThat(secondSessionsResponse.getBody().next().step()).isEqualTo("registration");
-
         String secondSetupProof = createDpopProof(secondKey, "POST", setupUrl);
         HttpHeaders secondSetupHeaders = new HttpHeaders();
         secondSetupHeaders.set("DPoP", secondSetupProof);
@@ -348,10 +318,10 @@ class SessionControllerIntegrationTest {
                 HttpMethod.POST,
                 new HttpEntity<>(secondSetupHeaders),
                 Map.class);
-        String secondRegistrationSessionId = (String) secondSetupResponse.getBody().get("sessionId");
-        assertThat(secondRegistrationSessionId).isNotBlank();
+        String secondSessionId = (String) secondSetupResponse.getBody().get("sessionId");
+        assertThat(secondSessionId).isNotBlank();
 
-        String secondIdentificationUrl = setupUrl + "/" + secondRegistrationSessionId + "/identification-methods/fsc";
+        String secondIdentificationUrl = setupUrl + "/" + secondSessionId + "/identification-methods/fsc";
         String secondIdentificationProof = createDpopProof(secondKey, "POST", secondIdentificationUrl);
         HttpHeaders secondIdentificationHeaders = new HttpHeaders();
         secondIdentificationHeaders.set("DPoP", secondIdentificationProof);
@@ -373,8 +343,6 @@ class SessionControllerIntegrationTest {
                 Map.class);
 
         assertThat(secondFscResponse.getStatusCode().value()).isEqualTo(200);
-        String authorisationSessionId = (String) secondFscResponse.getBody().get("sessionId");
-        assertThat(authorisationSessionId).isNotBlank();
         @SuppressWarnings("unchecked")
         Map<String, Object> secondFscNext = (Map<String, Object>) secondFscResponse.getBody().get("next");
         assertThat(secondFscNext.get("context")).isEqualTo("authentication");
@@ -383,21 +351,21 @@ class SessionControllerIntegrationTest {
         List<String> methods = (List<String>) secondFscNext.get("authenticationMethods");
         assertThat(methods).containsExactly("sms");
 
-        String authSessionsProof = createDpopProof(secondKey, "GET", sessionsUrl);
+        String authSessionsProof = createDpopProof(secondKey, "POST", setupUrl);
         HttpHeaders authSessionsHeaders = new HttpHeaders();
         authSessionsHeaders.set("DPoP", authSessionsProof);
-        ResponseEntity<SessionStatusResponse> authSessionsResponse = restTemplate.exchange(
-                sessionsUrl,
-                HttpMethod.GET,
+        ResponseEntity<FlowSetupResponse> authSessionsResponse = restTemplate.exchange(
+                setupUrl,
+                HttpMethod.POST,
                 new HttpEntity<>(authSessionsHeaders),
-                SessionStatusResponse.class);
+                FlowSetupResponse.class);
         assertThat(authSessionsResponse.getBody().sessionId()).isNotNull();
-        assertThat(authSessionsResponse.getBody().sessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
+        assertThat(authSessionsResponse.getBody().sessionId()).isNotEqualTo(UUID.fromString(secondSessionId));
         assertThat(authSessionsResponse.getBody().next()).isNotNull();
         assertThat(authSessionsResponse.getBody().next().step()).isEqualTo("selectMethod");
 
-        UUID refreshedAuthorisationSessionId = authSessionsResponse.getBody().sessionId();
-        String challengeUrl = "http://localhost:" + port + "/orchestrator/sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms";
+        UUID refreshedSessionId = authSessionsResponse.getBody().sessionId();
+        String challengeUrl = "http://localhost:" + port + "/orchestrator/sessions/" + refreshedSessionId + "/authentication-methods/sms";
         String challengeProof = createDpopProof(secondKey, "POST", challengeUrl);
         HttpHeaders challengeHeaders = new HttpHeaders();
         challengeHeaders.set("DPoP", challengeProof);
@@ -414,7 +382,7 @@ class SessionControllerIntegrationTest {
         AuthSmsSetup secondSmsSetup = authSmsSetupRepository.findById(secondSmsSetupId).orElseThrow();
         assertThat(secondSmsSetup.getPhoneNumber()).isEqualTo("+491701234567");
 
-        String verifyUrl = "http://localhost:" + port + "/orchestrator/sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms/verify";
+        String verifyUrl = "http://localhost:" + port + "/orchestrator/sessions/" + refreshedSessionId + "/authentication-methods/sms/verify";
         String verifyProof = createDpopProof(secondKey, "POST", verifyUrl);
         HttpHeaders verifyHeaders = new HttpHeaders();
         verifyHeaders.set("DPoP", verifyProof);
@@ -439,22 +407,22 @@ class SessionControllerIntegrationTest {
     void rejectsReplayOfSameDpopProof() throws Exception {
         ECKey ecKey = new ECKeyGenerator(Curve.P_256).generate();
         String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
-        String sessionsProof = createDpopProof(ecKey, "GET", sessionsUrl);
+        String sessionsProof = createDpopProof(ecKey, "POST", sessionsUrl);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("DPoP", sessionsProof);
 
-        ResponseEntity<SessionStatusResponse> firstResponse = restTemplate.exchange(
+        ResponseEntity<FlowSetupResponse> firstResponse = restTemplate.exchange(
                 sessionsUrl,
-                HttpMethod.GET,
+                HttpMethod.POST,
                 new HttpEntity<>(headers),
-                SessionStatusResponse.class);
+                FlowSetupResponse.class);
 
         assertThat(firstResponse.getStatusCode().value()).isEqualTo(200);
 
         assertThatThrownBy(() -> restTemplate.exchange(
                 sessionsUrl,
-                HttpMethod.GET,
+                HttpMethod.POST,
                 new HttpEntity<>(headers),
                 String.class))
                 .isInstanceOf(HttpClientErrorException.Unauthorized.class)
@@ -466,14 +434,14 @@ class SessionControllerIntegrationTest {
         ECKey ecKey = new ECKeyGenerator(Curve.P_256).generate();
         String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
         Instant oldIat = Instant.now().minus(10, ChronoUnit.MINUTES);
-        String sessionsProof = createDpopProof(ecKey, "GET", sessionsUrl, oldIat);
+        String sessionsProof = createDpopProof(ecKey, "POST", sessionsUrl, oldIat);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("DPoP", sessionsProof);
 
         assertThatThrownBy(() -> restTemplate.exchange(
                 sessionsUrl,
-                HttpMethod.GET,
+                HttpMethod.POST,
                 new HttpEntity<>(headers),
                 String.class))
                 .isInstanceOf(HttpClientErrorException.Unauthorized.class)

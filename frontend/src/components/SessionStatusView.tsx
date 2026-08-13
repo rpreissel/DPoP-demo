@@ -7,7 +7,7 @@ interface SessionStatusViewProps {
 export function SessionStatusView({ status }: SessionStatusViewProps) {
   const phase = status.next?.context === 'authentication'
     ? 'authentication'
-    : status.next?.context === 'registration' || status.registrationSessionId
+    : status.next?.context === 'registration'
       ? 'registration'
       : 'new'
 
@@ -16,8 +16,6 @@ export function SessionStatusView({ status }: SessionStatusViewProps) {
     registration: 'Registrierung',
     authentication: 'Anmeldung',
   }[phase]
-
-  const sessionId = status.sessionId ?? status.authorisationSessionId ?? status.registrationSessionId
 
   return (
     <div className="card">
@@ -29,10 +27,10 @@ export function SessionStatusView({ status }: SessionStatusViewProps) {
             {phaseLabel}
           </span>
         </li>
-        {sessionId && (
+        {status.sessionId && (
           <li>
             <span className="label">Session</span>
-            <span className="value">{sessionId}</span>
+            <span className="value">{status.sessionId}</span>
           </li>
         )}
         {status.next && (

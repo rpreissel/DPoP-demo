@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session;
 
+import com.example.dpop.orchestrator.flow.FlowSessionException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +35,7 @@ public class ClientFlowSessionService {
     public ClientSession requireSession(UUID sessionId, String jwkThumbprint) {
         return findByJwkThumbprint(jwkThumbprint)
                 .filter(s -> s.getSessionId().equals(sessionId))
-                .orElseThrow(() -> new RegistrationSessionException("Invalid or unknown session"));
+                .orElseThrow(() -> new FlowSessionException("Invalid or unknown session"));
     }
 
     @Transactional

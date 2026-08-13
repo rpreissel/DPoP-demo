@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { createDpopProof, getOrCreateDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
-import type { SessionStatus, RegistrationSetupResult } from './types'
+import type { SessionStatus, FlowSetupResult } from './types'
 import { AuthenticationSetupView } from './components/AuthenticationSetupView'
 import { FscForm } from './components/FscForm'
 import { IdentificationForm } from './components/IdentificationForm'
@@ -21,16 +21,9 @@ function App() {
       .catch((err) => setMessage(`Error: ${err.message}`))
   }, [])
 
-  function effectiveSessionId(status: SessionStatus): string | undefined {
-    return status.sessionId ?? status.authorisationSessionId ?? status.registrationSessionId
-  }
-
-  function mergeSessionStatus(result: RegistrationSetupResult, fallback: SessionStatus): SessionStatus {
-    const sessionId = result.sessionId ?? result.authorisationSessionId ?? result.registrationSessionId
+  function mergeSessionStatus(result: FlowSetupResult, fallback: SessionStatus): SessionStatus {
     return {
-      sessionId,
-      registrationSessionId: result.registrationSessionId ?? fallback.registrationSessionId,
-      authorisationSessionId: result.authorisationSessionId ?? fallback.authorisationSessionId,
+      sessionId: result.sessionId ?? fallback.sessionId,
       next: result.next,
     }
   }
@@ -43,39 +36,22 @@ function App() {
       if (!active) return
       setDpop(keyPair)
 
-      const sessionsUrl = `${window.location.origin}/orchestrator/sessions`
-      const sessionsProof = await createDpopProof(keyPair.keyPair, 'GET', sessionsUrl)
-      const sessionsResponse = await fetch('/orchestrator/sessions', {
-        method: 'GET',
-        headers: { DPoP: sessionsProof },
+      const setupUrl = `${window.location.origin}/orchestrator/sessions`
+      const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
+      const setupResponse = await fetch('/orchestrator/sessions', {
+        method: 'POST',
+        headers: { DPoP: setupProof },
       })
-      if (!sessionsResponse.ok) {
-        const body = await sessionsResponse.text()
-        throw new Error(`Session lookup failed: ${sessionsResponse.status} ${body}`)
+      if (!setupResponse.ok) {
+        const body = await setupResponse.text()
+        throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
       }
-      const status = (await sessionsResponse.json()) as SessionStatus
+      const setupResult = (await setupResponse.json()) as FlowSetupResult
       if (!active) return
-      setSessionStatus(status)
-
-      if (status.next?.context === 'registration' && status.next?.step === 'registration') {
-        const setupUrl = `${window.location.origin}/orchestrator/sessions`
-        const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
-        const setupResponse = await fetch('/orchestrator/sessions', {
-          method: 'POST',
-          headers: { DPoP: setupProof },
-        })
-        if (!setupResponse.ok) {
-          const body = await setupResponse.text()
-          throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
-        }
-        const setupResult = (await setupResponse.json()) as RegistrationSetupResult
-        if (!active) return
-        setSessionStatus({
-          sessionId: setupResult.sessionId ?? setupResult.registrationSessionId,
-          registrationSessionId: setupResult.registrationSessionId,
-          next: setupResult.next,
-        })
-      }
+      setSessionStatus({
+        sessionId: setupResult.sessionId,
+        next: setupResult.next,
+      })
     }
 
     runSessionFlow().catch((err) => setError(`Session flow error: ${err.message}`))
@@ -86,11 +62,9 @@ function App() {
   }, [])
 
   async function submitIdentification(kvnr: string, name: string, vorname: string) {
-    if (!dpop || !sessionStatus) return
+    if (!dpop || !sessionStatus?.sessionId) return
 
-    const sessionId = effectiveSessionId(sessionStatus)
-    if (!sessionId) return
-
+    const sessionId = sessionStatus.sessionId
     const url = `${window.location.origin}/orchestrator/sessions/${sessionId}/identification-methods/fsc`
     const proof = await createDpopProof(dpop.keyPair, 'POST', url)
     const response = await fetch(`/orchestrator/sessions/${sessionId}/identification-methods/fsc`, {
@@ -102,16 +76,14 @@ function App() {
       const body = await response.text()
       throw new Error(`Identification failed: ${response.status} ${body}`)
     }
-    const result = (await response.json()) as RegistrationSetupResult
+    const result = (await response.json()) as FlowSetupResult
     setSessionStatus(mergeSessionStatus(result, sessionStatus))
   }
 
   async function submitFsc(fsc: string) {
-    if (!dpop || !sessionStatus) return
+    if (!dpop || !sessionStatus?.sessionId) return
 
-    const sessionId = effectiveSessionId(sessionStatus)
-    if (!sessionId) return
-
+    const sessionId = sessionStatus.sessionId
     const url = `${window.location.origin}/orchestrator/sessions/${sessionId}/identification-methods/fsc`
     const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
     const response = await fetch(`/orchestrator/sessions/${sessionId}/identification-methods/fsc`, {
@@ -123,16 +95,14 @@ function App() {
       const body = await response.text()
       throw new Error(`FSC validation failed: ${response.status} ${body}`)
     }
-    const result = (await response.json()) as RegistrationSetupResult
+    const result = (await response.json()) as FlowSetupResult
     setSessionStatus(mergeSessionStatus(result, sessionStatus))
   }
 
   async function setupSmsStart(phoneNumber?: string): Promise<{ smsSetupId: number; tan: string } | undefined> {
-    if (!dpop || !sessionStatus) return undefined
+    if (!dpop || !sessionStatus?.sessionId) return undefined
 
-    const sessionId = effectiveSessionId(sessionStatus)
-    if (!sessionId) return undefined
-
+    const sessionId = sessionStatus.sessionId
     const baseUrl = `${window.location.origin}/orchestrator/sessions/${sessionId}/authentication-methods/sms`
     const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
     const response = await fetch(baseUrl.replace(window.location.origin, ''), {
@@ -144,7 +114,7 @@ function App() {
       const body = await response.text()
       throw new Error(`SMS setup failed: ${response.status} ${body}`)
     }
-    const result = (await response.json()) as RegistrationSetupResult
+    const result = (await response.json()) as FlowSetupResult
     setSessionStatus(mergeSessionStatus(result, sessionStatus))
 
     return {
@@ -154,11 +124,9 @@ function App() {
   }
 
   async function setupSmsVerify(smsSetupId: number, tan: string): Promise<boolean> {
-    if (!dpop || !sessionStatus) return false
+    if (!dpop || !sessionStatus?.sessionId) return false
 
-    const sessionId = effectiveSessionId(sessionStatus)
-    if (!sessionId) return false
-
+    const sessionId = sessionStatus.sessionId
     const baseUrl = `${window.location.origin}/orchestrator/sessions/${sessionId}/authentication-methods/sms/verify`
     const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
     const response = await fetch(baseUrl.replace(window.location.origin, ''), {
@@ -169,7 +137,7 @@ function App() {
     if (!response.ok) {
       return false
     }
-    const result = (await response.json()) as RegistrationSetupResult
+    const result = (await response.json()) as FlowSetupResult
     setSessionStatus(mergeSessionStatus(result, sessionStatus))
     return true
   }

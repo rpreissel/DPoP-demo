@@ -8,15 +8,11 @@ export interface NextStep {
 }
 
 export interface SessionStatus {
-  registrationSessionId?: string
-  authorisationSessionId?: string
   sessionId?: string
   next?: NextStep
 }
 
-export interface RegistrationSetupResult {
-  registrationSessionId?: string
-  authorisationSessionId?: string
+export interface FlowSetupResult {
   sessionId?: string
   next: NextStep
 }

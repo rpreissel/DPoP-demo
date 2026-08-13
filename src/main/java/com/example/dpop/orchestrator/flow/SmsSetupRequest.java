@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.registration;
+package com.example.dpop.orchestrator.flow;
 
 public record SmsSetupRequest(
         String phoneNumber

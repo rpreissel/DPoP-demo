@@ -4,11 +4,6 @@ import com.example.dpop.orchestrator.dpop.DpopProof;
 import com.example.dpop.orchestrator.dpop.DpopValidationException;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService;
-import com.example.dpop.orchestrator.registration.FscIdentificationRequest;
-import com.example.dpop.orchestrator.registration.FscInputRequest;
-import com.example.dpop.orchestrator.registration.RegistrationSessionException;
-import com.example.dpop.orchestrator.registration.SmsSetupRequest;
-import com.example.dpop.orchestrator.registration.SmsTanRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -102,8 +97,8 @@ public class FlowController {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
     }
 
-    @ExceptionHandler(RegistrationSessionException.class)
-    public ResponseEntity<Map<String, String>> handleSessionException(RegistrationSessionException e) {
+    @ExceptionHandler(FlowSessionException.class)
+    public ResponseEntity<Map<String, String>> handleSessionException(FlowSessionException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
     }
 

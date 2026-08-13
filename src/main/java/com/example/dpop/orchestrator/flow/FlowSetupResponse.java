@@ -10,4 +10,7 @@ public record FlowSetupResponse(
         UUID sessionId,
         NextStep next
 ) {
+    public FlowSetupResponse(NextStep next) {
+        this(null, next);
+    }
 }
