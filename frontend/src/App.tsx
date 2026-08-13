@@ -21,6 +21,15 @@ function App() {
       .catch((err) => setMessage(`Error: ${err.message}`))
   }, [])
 
+  function mergeSessionStatus(result: RegistrationSetupResult, fallback: SessionStatus): SessionStatus {
+    const switchedToAuthorisation = !!result.authorisationSessionId
+    return {
+      registrationSessionId: switchedToAuthorisation ? undefined : (result.registrationSessionId ?? fallback.registrationSessionId),
+      authorisationSessionId: result.authorisationSessionId ?? fallback.authorisationSessionId,
+      next: result.next,
+    }
+  }
+
   useEffect(() => {
     let active = true
 
@@ -86,7 +95,7 @@ function App() {
       throw new Error(`Identification failed: ${response.status} ${body}`)
     }
     const result = (await response.json()) as RegistrationSetupResult
-    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+    setSessionStatus(mergeSessionStatus(result, sessionStatus))
   }
 
   async function submitFsc(fsc: string) {
@@ -105,43 +114,50 @@ function App() {
       throw new Error(`FSC validation failed: ${response.status} ${body}`)
     }
     const result = (await response.json()) as RegistrationSetupResult
-    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+    setSessionStatus(mergeSessionStatus(result, sessionStatus))
   }
 
-  async function setupSmsStart(phoneNumber: string): Promise<{ smsSetupId: number; tan: string } | undefined> {
-    if (!dpop || !sessionStatus?.registrationSessionId) return undefined
+  async function setupSmsStart(phoneNumber?: string): Promise<{ smsSetupId: number; tan: string } | undefined> {
+    if (!dpop || !sessionStatus) return undefined
 
-    const sessionId = sessionStatus.registrationSessionId
-    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`, {
+    const isAuthorisation = !!sessionStatus.authorisationSessionId
+    const sessionId = sessionStatus.authorisationSessionId ?? sessionStatus.registrationSessionId
+    if (!sessionId) return undefined
+
+    const baseUrl = isAuthorisation
+      ? `${window.location.origin}/orchestrator/authorisation-sessions/${sessionId}/authentication-methods/sms/challenge`
+      : `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
+    const response = await fetch(baseUrl.replace(window.location.origin, ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ phoneNumber }),
+      body: JSON.stringify(isAuthorisation ? {} : { phoneNumber }),
     })
     if (!response.ok) {
       const body = await response.text()
       throw new Error(`SMS setup failed: ${response.status} ${body}`)
     }
     const result = (await response.json()) as RegistrationSetupResult
-    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+    setSessionStatus(mergeSessionStatus(result, sessionStatus))
 
     return {
       smsSetupId: result.next.smsSetupId!,
-      // In a real app the TAN would not be exposed to the frontend.
-      // For this mocked demo the backend does not return the TAN, so we use a placeholder
-      // and rely on the visible mock hint in the component for development/testing.
-      tan: '',
+      tan: result.next.tan ?? '',
     }
   }
 
   async function setupSmsVerify(smsSetupId: number, tan: string): Promise<boolean> {
-    if (!dpop || !sessionStatus?.registrationSessionId) return false
+    if (!dpop || !sessionStatus) return false
 
-    const sessionId = sessionStatus.registrationSessionId
-    const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`, {
+    const isAuthorisation = !!sessionStatus.authorisationSessionId
+    const sessionId = sessionStatus.authorisationSessionId ?? sessionStatus.registrationSessionId
+    if (!sessionId) return false
+
+    const baseUrl = isAuthorisation
+      ? `${window.location.origin}/orchestrator/authorisation-sessions/${sessionId}/authentication-methods/sms/verify-tan`
+      : `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
+    const response = await fetch(baseUrl.replace(window.location.origin, ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
       body: JSON.stringify({ smsSetupId, tan }),
@@ -150,7 +166,7 @@ function App() {
       return false
     }
     const result = (await response.json()) as RegistrationSetupResult
-    setSessionStatus({ registrationSessionId: sessionId, next: result.next })
+    setSessionStatus(mergeSessionStatus(result, sessionStatus))
     return true
   }
 
@@ -178,9 +194,12 @@ function App() {
         <FscForm onSubmit={submitFsc} />
       )}
 
-      {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'setup' && sessionStatus.next.authenticationMethods && (
+      {sessionStatus?.next?.context === 'authentication' &&
+        (sessionStatus?.next?.step === 'setup' || sessionStatus?.next?.step === 'selectMethod') &&
+        sessionStatus.next.authenticationMethods && (
         <AuthenticationSetupView
           methods={sessionStatus.next.authenticationMethods}
+          collectPhoneNumber={sessionStatus.next.step === 'setup'}
           onSetupSmsStart={setupSmsStart}
           onSetupSmsVerify={setupSmsVerify}
         />
@@ -189,9 +208,19 @@ function App() {
       {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'smsTanInput' && sessionStatus.next.smsSetupId && (
         <AuthenticationSetupView
           methods={['sms']}
+          collectPhoneNumber={false}
+          initialSmsSetupId={sessionStatus.next.smsSetupId}
+          initialTan={sessionStatus.next.tan}
           onSetupSmsStart={setupSmsStart}
           onSetupSmsVerify={setupSmsVerify}
         />
+      )}
+
+      {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'authenticated' && (
+        <div className="card">
+          <h2>Anmeldung erfolgreich</h2>
+          <p>Die Authentifizierung wurde erfolgreich abgeschlossen.</p>
+        </div>
       )}
 
       <div className="debug-toggle">

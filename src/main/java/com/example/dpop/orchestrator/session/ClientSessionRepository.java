@@ -8,7 +8,5 @@ import java.util.Optional;
 @Repository
 public interface ClientSessionRepository extends JpaRepository<ClientSession, String> {
 
-    Optional<ClientSession> findByJwkThumbprintAndType(String jwkThumbprint, SessionType type);
-
     Optional<ClientSession> findByJwkThumbprint(String jwkThumbprint);
 }

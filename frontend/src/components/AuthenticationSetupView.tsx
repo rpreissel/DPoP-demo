@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface AuthenticationSetupViewProps {
   methods: string[]
-  onSetupSmsStart: (phoneNumber: string) => Promise<{ smsSetupId: number; tan: string } | undefined>
+  collectPhoneNumber: boolean
+  initialSmsSetupId?: number
+  initialTan?: string
+  onSetupSmsStart: (phoneNumber?: string) => Promise<{ smsSetupId: number; tan: string } | undefined>
   onSetupSmsVerify: (smsSetupId: number, tan: string) => Promise<boolean>
 }
 
@@ -17,30 +20,47 @@ function isValidTan(value: string): boolean {
 
 export function AuthenticationSetupView({
   methods,
+  collectPhoneNumber,
+  initialSmsSetupId,
+  initialTan,
   onSetupSmsStart,
   onSetupSmsVerify,
 }: AuthenticationSetupViewProps) {
   const [phoneNumber, setPhoneNumber] = useState('+49 170 1234567')
-  const [tan, setTan] = useState('')
-  const [smsSetupId, setSmsSetupId] = useState<number | null>(null)
-  const [sentTan, setSentTan] = useState('')
+  const [tan, setTan] = useState(initialTan ?? '')
+  const [smsSetupId, setSmsSetupId] = useState<number | null>(initialSmsSetupId ?? null)
+  const [sentTan, setSentTan] = useState(initialTan ?? '')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    if (initialSmsSetupId != null) {
+      setSmsSetupId(initialSmsSetupId)
+    }
+    if (initialTan != null) {
+      setTan(initialTan)
+      setSentTan(initialTan)
+    }
+  }, [initialSmsSetupId, initialTan])
 
   async function handleStart(event: React.FormEvent) {
     event.preventDefault()
     setError('')
 
-    const normalized = phoneNumber.replace(/\s+/g, '').trim()
-    if (!isValidPhoneNumber(normalized)) {
-      setError('Bitte eine gueltige Telefonnummer eingeben.')
-      return
+    let normalized: string | undefined
+    if (collectPhoneNumber) {
+      normalized = phoneNumber.replace(/\s+/g, '').trim()
+      if (!isValidPhoneNumber(normalized)) {
+        setError('Bitte eine gueltige Telefonnummer eingeben.')
+        return
+      }
     }
 
     const result = await onSetupSmsStart(normalized)
     if (result) {
       setSmsSetupId(result.smsSetupId)
       setSentTan(result.tan)
+      setTan(result.tan)
     }
   }
 
@@ -49,7 +69,7 @@ export function AuthenticationSetupView({
     setError('')
 
     if (smsSetupId == null) {
-      setError('Bitte zuerst die Telefonnummer eingeben.')
+      setError('Bitte zuerst die SMS-Challenge starten.')
       return
     }
 
@@ -86,31 +106,37 @@ export function AuthenticationSetupView({
             <>
               {!smsSetupId ? (
                 <form onSubmit={handleStart} className="form-grid">
-                  <div className="form-group">
-                    <label htmlFor="phoneNumber">Telefonnummer</label>
-                    <input
-                      id="phoneNumber"
-                      value={phoneNumber}
-                      onChange={(e) => {
-                        setPhoneNumber(e.target.value)
-                        setError('')
-                      }}
-                      placeholder="z.B. +49 170 1234567"
-                      required
-                    />
-                    <div className="hint">
-                      Testnummer vorbelegt: <code>{phoneNumber}</code>
+                  {collectPhoneNumber ? (
+                    <div className="form-group">
+                      <label htmlFor="phoneNumber">Telefonnummer</label>
+                      <input
+                        id="phoneNumber"
+                        value={phoneNumber}
+                        onChange={(e) => {
+                          setPhoneNumber(e.target.value)
+                          setError('')
+                        }}
+                        placeholder="z.B. +49 170 1234567"
+                        required
+                      />
+                      <div className="hint">
+                        Testnummer vorbelegt: <code>{phoneNumber}</code>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="hint">
+                      Die hinterlegte SMS-Methode wird fuer die Challenge verwendet.
+                    </div>
+                  )}
                   {error && <div className="form-error" style={{ color: 'var(--error-color, #ef4444)' }}>{error}</div>}
                   <div className="form-actions">
-                    <button type="submit">{method.toUpperCase()} einrichten</button>
+                    <button type="submit">{method.toUpperCase()} Challenge starten</button>
                   </div>
                 </form>
               ) : (
                 <form onSubmit={handleVerify} className="form-grid">
                   <div className="hint">
-                    Test-TAN (Mock): <code>{sentTan}</code>
+                    Test-TAN (Mock): <code>{sentTan || initialTan}</code>
                   </div>
                   <div className="form-group">
                     <label htmlFor="tan">TAN</label>

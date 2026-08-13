@@ -4,6 +4,7 @@ export interface NextStep {
   identificationMethods?: string[]
   authenticationMethods?: string[]
   smsSetupId?: number
+  tan?: string
 }
 
 export interface SessionStatus {
@@ -13,6 +14,7 @@ export interface SessionStatus {
 }
 
 export interface RegistrationSetupResult {
-  registrationSessionId: string
+  registrationSessionId?: string
+  authorisationSessionId?: string
   next: NextStep
 }

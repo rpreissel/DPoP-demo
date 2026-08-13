@@ -198,8 +198,11 @@ class SessionControllerIntegrationTest {
         assertThat(smsTanResponse.getStatusCode().value()).isEqualTo(200);
         @SuppressWarnings("unchecked")
         Map<String, Object> smsTanNext = (Map<String, Object>) smsTanResponse.getBody().get("next");
-        assertThat(smsTanNext.get("context")).isEqualTo("registration");
-        assertThat(smsTanNext.get("step")).isEqualTo("completed");
+        assertThat(smsTanResponse.getBody().get("registrationSessionId")).isNull();
+        String authorisationSessionId = (String) smsTanResponse.getBody().get("authorisationSessionId");
+        assertThat(authorisationSessionId).isNotBlank();
+        assertThat(smsTanNext.get("context")).isEqualTo("authentication");
+        assertThat(smsTanNext.get("step")).isEqualTo("selectMethod");
 
         AuthSmsSetup validatedSetup = authSmsSetupRepository.findById(smsSetupId).orElseThrow();
         assertThat(validatedSetup.isValidated()).isTrue();
@@ -225,8 +228,200 @@ class SessionControllerIntegrationTest {
                 new HttpEntity<>(getHeaders2),
                 SessionStatusResponse.class);
 
-        assertThat(statusResponse2.getBody().registrationSessionId()).isEqualTo(UUID.fromString(sessionId));
-        assertThat(statusResponse2.getBody().next()).isNull();
+        assertThat(statusResponse2.getBody().registrationSessionId()).isNull();
+        assertThat(statusResponse2.getBody().authorisationSessionId()).isNotNull();
+        assertThat(statusResponse2.getBody().authorisationSessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
+        assertThat(statusResponse2.getBody().next()).isNotNull();
+        assertThat(statusResponse2.getBody().next().step()).isEqualTo("selectMethod");
+    }
+
+    @Test
+    void reusesExistingAccountAndSwitchesToAuthorisationSessionAfterFsc() throws Exception {
+        ECKey firstKey = new ECKeyGenerator(Curve.P_256).generate();
+        String sessionsUrl = "http://localhost:" + port + "/orchestrator/sessions";
+        String setupUrl = "http://localhost:" + port + "/orchestrator/registration-sessions";
+
+        Person person = personRepository.findByKvnr("C111111111").orElseThrow();
+        fscCodeRepository.save(new FscCode(person.getId(), "REUSE123", Instant.now().plus(1, ChronoUnit.HOURS)));
+
+        String firstSetupProof = createDpopProof(firstKey, "POST", setupUrl);
+        HttpHeaders firstSetupHeaders = new HttpHeaders();
+        firstSetupHeaders.set("DPoP", firstSetupProof);
+        ResponseEntity<Map> firstSetupResponse = restTemplate.exchange(
+                setupUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(firstSetupHeaders),
+                Map.class);
+
+        String firstRegistrationSessionId = (String) firstSetupResponse.getBody().get("registrationSessionId");
+        assertThat(firstRegistrationSessionId).isNotBlank();
+
+        String firstIdentificationUrl = setupUrl + "/" + firstRegistrationSessionId + "/identification-methods/fsc";
+        String firstIdentificationProof = createDpopProof(firstKey, "POST", firstIdentificationUrl);
+        HttpHeaders firstIdentificationHeaders = new HttpHeaders();
+        firstIdentificationHeaders.set("DPoP", firstIdentificationProof);
+        firstIdentificationHeaders.set("Content-Type", "application/json");
+        restTemplate.exchange(
+                firstIdentificationUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("kvnr", "C111111111", "name", "Doe", "vorname", "Jane"), firstIdentificationHeaders),
+                Map.class);
+
+        String firstFscProof = createDpopProof(firstKey, "PATCH", firstIdentificationUrl);
+        HttpHeaders firstFscHeaders = new HttpHeaders();
+        firstFscHeaders.set("DPoP", firstFscProof);
+        firstFscHeaders.set("Content-Type", "application/json");
+        ResponseEntity<Map> firstFscResponse = restTemplate.exchange(
+                firstIdentificationUrl,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("fsc", "REUSE123"), firstFscHeaders),
+                Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> firstFscNext = (Map<String, Object>) firstFscResponse.getBody().get("next");
+        assertThat(firstFscNext.get("step")).isIn("setup", "selectMethod");
+
+        if ("setup".equals(firstFscNext.get("step"))) {
+            String firstSmsSetupUrl = setupUrl + "/" + firstRegistrationSessionId + "/authentication-methods/sms";
+            String firstSmsSetupProof = createDpopProof(firstKey, "POST", firstSmsSetupUrl);
+            HttpHeaders firstSmsSetupHeaders = new HttpHeaders();
+            firstSmsSetupHeaders.set("DPoP", firstSmsSetupProof);
+            firstSmsSetupHeaders.set("Content-Type", "application/json");
+            ResponseEntity<Map> firstSmsSetupResponse = restTemplate.exchange(
+                    firstSmsSetupUrl,
+                    HttpMethod.POST,
+                    new HttpEntity<>(Map.of("phoneNumber", "+49 170 1234567"), firstSmsSetupHeaders),
+                    Map.class);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> firstSmsNext = (Map<String, Object>) firstSmsSetupResponse.getBody().get("next");
+            Long firstSmsSetupId = ((Number) firstSmsNext.get("smsSetupId")).longValue();
+            AuthSmsSetup firstSmsSetup = authSmsSetupRepository.findById(firstSmsSetupId).orElseThrow();
+
+            String firstSmsVerifyUrl = setupUrl + "/" + firstRegistrationSessionId + "/authentication-methods/sms/verify-tan";
+            String firstSmsVerifyProof = createDpopProof(firstKey, "POST", firstSmsVerifyUrl);
+            HttpHeaders firstSmsVerifyHeaders = new HttpHeaders();
+            firstSmsVerifyHeaders.set("DPoP", firstSmsVerifyProof);
+            firstSmsVerifyHeaders.set("Content-Type", "application/json");
+            restTemplate.exchange(
+                    firstSmsVerifyUrl,
+                    HttpMethod.POST,
+                    new HttpEntity<>(Map.of("smsSetupId", firstSmsSetupId, "tan", firstSmsSetup.getTan()), firstSmsVerifyHeaders),
+                    Map.class);
+        }
+
+        Account firstAccount = accountRepository.findByPersonId(person.getId()).orElseThrow();
+        assertThat(firstAccount.getIdentifications()).hasSize(1);
+        assertThat(firstAccount.getAuthenticationMethods()).hasSize(1);
+
+        ECKey secondKey = new ECKeyGenerator(Curve.P_256).generate();
+
+        String secondSessionsProof = createDpopProof(secondKey, "GET", sessionsUrl);
+        HttpHeaders secondSessionsHeaders = new HttpHeaders();
+        secondSessionsHeaders.set("DPoP", secondSessionsProof);
+        ResponseEntity<SessionStatusResponse> secondSessionsResponse = restTemplate.exchange(
+                sessionsUrl,
+                HttpMethod.GET,
+                new HttpEntity<>(secondSessionsHeaders),
+                SessionStatusResponse.class);
+        assertThat(secondSessionsResponse.getBody()).isNotNull();
+        assertThat(secondSessionsResponse.getBody().next()).isNotNull();
+        assertThat(secondSessionsResponse.getBody().next().step()).isEqualTo("registration");
+
+        String secondSetupProof = createDpopProof(secondKey, "POST", setupUrl);
+        HttpHeaders secondSetupHeaders = new HttpHeaders();
+        secondSetupHeaders.set("DPoP", secondSetupProof);
+        ResponseEntity<Map> secondSetupResponse = restTemplate.exchange(
+                setupUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(secondSetupHeaders),
+                Map.class);
+        String secondRegistrationSessionId = (String) secondSetupResponse.getBody().get("registrationSessionId");
+        assertThat(secondRegistrationSessionId).isNotBlank();
+
+        String secondIdentificationUrl = setupUrl + "/" + secondRegistrationSessionId + "/identification-methods/fsc";
+        String secondIdentificationProof = createDpopProof(secondKey, "POST", secondIdentificationUrl);
+        HttpHeaders secondIdentificationHeaders = new HttpHeaders();
+        secondIdentificationHeaders.set("DPoP", secondIdentificationProof);
+        secondIdentificationHeaders.set("Content-Type", "application/json");
+        restTemplate.exchange(
+                secondIdentificationUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("kvnr", "C111111111", "name", "Doe", "vorname", "Jane"), secondIdentificationHeaders),
+                Map.class);
+
+        String secondFscProof = createDpopProof(secondKey, "PATCH", secondIdentificationUrl);
+        HttpHeaders secondFscHeaders = new HttpHeaders();
+        secondFscHeaders.set("DPoP", secondFscProof);
+        secondFscHeaders.set("Content-Type", "application/json");
+        ResponseEntity<Map> secondFscResponse = restTemplate.exchange(
+                secondIdentificationUrl,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("fsc", "REUSE123"), secondFscHeaders),
+                Map.class);
+
+        assertThat(secondFscResponse.getStatusCode().value()).isEqualTo(200);
+        assertThat(secondFscResponse.getBody().get("registrationSessionId")).isNull();
+        String authorisationSessionId = (String) secondFscResponse.getBody().get("authorisationSessionId");
+        assertThat(authorisationSessionId).isNotBlank();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> secondFscNext = (Map<String, Object>) secondFscResponse.getBody().get("next");
+        assertThat(secondFscNext.get("context")).isEqualTo("authentication");
+        assertThat(secondFscNext.get("step")).isEqualTo("selectMethod");
+        @SuppressWarnings("unchecked")
+        List<String> methods = (List<String>) secondFscNext.get("authenticationMethods");
+        assertThat(methods).containsExactly("sms");
+
+        String authSessionsProof = createDpopProof(secondKey, "GET", sessionsUrl);
+        HttpHeaders authSessionsHeaders = new HttpHeaders();
+        authSessionsHeaders.set("DPoP", authSessionsProof);
+        ResponseEntity<SessionStatusResponse> authSessionsResponse = restTemplate.exchange(
+                sessionsUrl,
+                HttpMethod.GET,
+                new HttpEntity<>(authSessionsHeaders),
+                SessionStatusResponse.class);
+        assertThat(authSessionsResponse.getBody().authorisationSessionId()).isNotNull();
+        assertThat(authSessionsResponse.getBody().authorisationSessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
+        assertThat(authSessionsResponse.getBody().registrationSessionId()).isNull();
+        assertThat(authSessionsResponse.getBody().next()).isNotNull();
+        assertThat(authSessionsResponse.getBody().next().step()).isEqualTo("selectMethod");
+
+        UUID refreshedAuthorisationSessionId = authSessionsResponse.getBody().authorisationSessionId();
+        String challengeUrl = "http://localhost:" + port + "/orchestrator/authorisation-sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms/challenge";
+        String challengeProof = createDpopProof(secondKey, "POST", challengeUrl);
+        HttpHeaders challengeHeaders = new HttpHeaders();
+        challengeHeaders.set("DPoP", challengeProof);
+        challengeHeaders.set("Content-Type", "application/json");
+        ResponseEntity<Map> challengeResponse = restTemplate.exchange(
+                challengeUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of(), challengeHeaders),
+                Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> challengeNext = (Map<String, Object>) challengeResponse.getBody().get("next");
+        assertThat(challengeNext.get("step")).isEqualTo("smsTanInput");
+        Long secondSmsSetupId = ((Number) challengeNext.get("smsSetupId")).longValue();
+        AuthSmsSetup secondSmsSetup = authSmsSetupRepository.findById(secondSmsSetupId).orElseThrow();
+        assertThat(secondSmsSetup.getPhoneNumber()).isEqualTo("+491701234567");
+
+        String verifyUrl = "http://localhost:" + port + "/orchestrator/authorisation-sessions/" + refreshedAuthorisationSessionId + "/authentication-methods/sms/verify-tan";
+        String verifyProof = createDpopProof(secondKey, "POST", verifyUrl);
+        HttpHeaders verifyHeaders = new HttpHeaders();
+        verifyHeaders.set("DPoP", verifyProof);
+        verifyHeaders.set("Content-Type", "application/json");
+        ResponseEntity<Map> verifyResponse = restTemplate.exchange(
+                verifyUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("smsSetupId", secondSmsSetupId, "tan", secondSmsSetup.getTan()), verifyHeaders),
+                Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> verifyNext = (Map<String, Object>) verifyResponse.getBody().get("next");
+        assertThat(verifyNext.get("context")).isEqualTo("authentication");
+        assertThat(verifyNext.get("step")).isEqualTo("authenticated");
+
+        Account reusedAccount = accountRepository.findByPersonId(person.getId()).orElseThrow();
+        assertThat(reusedAccount.getId()).isEqualTo(firstAccount.getId());
+        assertThat(reusedAccount.getIdentifications()).hasSize(2);
+        assertThat(reusedAccount.getAuthenticationMethods()).hasSize(1);
     }
 
     @Test

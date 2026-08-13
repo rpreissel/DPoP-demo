@@ -22,12 +22,14 @@ public class AccountService {
     }
 
     @Transactional
-    public Account createAccount(Long personId,
-                                 String identificationMethod,
-                                 String identificationQuality,
-                                 UUID registrationSessionId,
-                                 Map<String, Object> details) {
-        Account account = new Account(personId, Instant.now());
+    public Account identifyAccount(Long personId,
+                                   String identificationMethod,
+                                   String identificationQuality,
+                                   UUID registrationSessionId,
+                                   Map<String, Object> details) {
+        Account account = accountRepository.findByPersonId(personId)
+                .orElseGet(() -> new Account(personId, Instant.now()));
+
         AccountIdentification identification = new AccountIdentification(
                 identificationMethod,
                 identificationQuality,
@@ -37,6 +39,15 @@ public class AccountService {
         );
         account.addIdentification(identification);
         return accountRepository.save(account);
+    }
+
+    @Transactional
+    public Account createAccount(Long personId,
+                                 String identificationMethod,
+                                 String identificationQuality,
+                                 UUID registrationSessionId,
+                                 Map<String, Object> details) {
+        return identifyAccount(personId, identificationMethod, identificationQuality, registrationSessionId, details);
     }
 
     @Transactional
@@ -58,5 +69,29 @@ public class AccountService {
     @Transactional(readOnly = true)
     public Optional<Account> findById(Long accountId) {
         return accountRepository.findById(accountId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasActiveAuthenticationMethod(Long accountId) {
+        return accountRepository.findById(accountId)
+                .map(Account::getAuthenticationMethods)
+                .map(methods -> methods.stream().anyMatch(AuthenticationMethod::isActive))
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> findActiveSmsPhoneNumber(Long accountId) {
+        return accountRepository.findById(accountId)
+                .map(Account::getAuthenticationMethods)
+                .stream()
+                .flatMap(methods -> methods.stream()
+                        .filter(AuthenticationMethod::isActive)
+                        .filter(method -> "sms".equals(method.getMethod()))
+                        .map(AuthenticationMethod::getDetails)
+                        .map(details -> details == null ? null : details.get("phoneNumber"))
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .filter(phone -> !phone.isBlank()))
+                .findFirst();
     }
 }

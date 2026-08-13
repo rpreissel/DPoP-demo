@@ -179,6 +179,13 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F36 | Bei erfolgreicher TAN-Validierung wird das `validated`-Flag in `auth_sms` gesetzt. | `validated` wechselt von `false` auf `true` |
 | F37 | Bei erfolgreicher TAN-Validierung wird die Authentifizierungsmethode im Account gespeichert. | Account enthält `AuthenticationMethod` mit Verweis (`smsSetupId`) auf den Eintrag in `auth_sms` |
 | F38 | Ein Account kann mehrere verschiedene Authentifizierungsmethoden speichern. | `authenticationMethods` ist ein JSON-Array in der Account-Tabelle |
+| F39 | Nach erfolgreicher FSC-Identifikation wird ein bestehender Account zur Person wiederverwendet. | Der Flow erstellt keinen zweiten Account für dieselbe `personId` |
+| F40 | Auch bei wiederverwendetem Account wird die neue Identifikation gespeichert. | `identifications` enthält für jede erfolgreiche FSC-Identifikation einen weiteren Eintrag |
+| F41 | Der Orchestrator speichert die Zuordnung `jwk_thumbprint -> accountId`. | Persistente Mapping-Tabelle erlaubt mehrere JWKs pro Account |
+| F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang in eine `AUTH`-Session |
+| F43 | Beim Wechsel von Registrierung zur Anmeldung wird die Registration-Session geschlossen und eine neue Authentication-Session erzeugt. | `client_session` wechselt von `type=REG` zu `type=AUTH` für den JWK-Thumbprint |
+| F44 | In der Authentication-Session werden vorhandene Methoden angeboten und die TAN dort bestätigt. | Die SMS-Challenge unter `/orchestrator/authorisation-sessions/.../sms/challenge` verwendet die im Account hinterlegte aktive Telefonnummer; der Client uebergibt keine Telefonnummer mehr |
+| F45 | Session-IDs werden nur in Antworten mitgegeben, in denen der Client die ID neu benoetigt oder ein Session-Wechsel stattfindet. | Folgeschritte innerhalb derselben Session liefern nur `next` ohne redundante Session-ID |
 | F26 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP 401 abgewiesen |
 | F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
 | F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |
@@ -253,7 +260,6 @@ Antwort bei bekannter KVNR:
 
 ```json
 {
-  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "next": {
     "context": "fsc",
     "step": "input"
@@ -280,10 +286,22 @@ Antwort bei gültigem, nicht abgelaufenem FSC:
 
 ```json
 {
-  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "next": {
     "context": "authentication",
     "step": "setup",
+    "authenticationMethods": ["sms"]
+  }
+}
+```
+
+Falls für die identifizierte Person bereits ein Account mit aktiver Authentifizierungsmethode existiert, wird kein neues Setup verlangt. Stattdessen wird die Registration-Session beendet, eine Authorisation-Session erstellt und die vorhandene Methode angeboten:
+
+```json
+{
+  "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "next": {
+    "context": "authentication",
+    "step": "selectMethod",
     "authenticationMethods": ["sms"]
   }
 }
@@ -308,7 +326,6 @@ Antwort:
 
 ```json
 {
-  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "next": {
     "context": "authentication",
     "step": "smsTanInput",
@@ -337,17 +354,69 @@ Antwort bei korrekter TAN:
 
 ```json
 {
-  "registrationSessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
   "next": {
-    "context": "registration",
-    "step": "completed"
+    "context": "authentication",
+    "step": "selectMethod",
+    "authenticationMethods": ["sms"]
   }
 }
 ```
 
-Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt und der Account um die `sms`-Authentication-Methode ergaenzt.
+Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt, der Account um die `sms`-Authentication-Methode ergaenzt und in die Authentication-Session gewechselt.
 
-#### Schritt 6: Erneute Session-Abfrage
+#### Schritt 6: SMS-Challenge in der Authentication-Session
+
+Nach dem Wechsel in die Authentication-Session (entweder direkt nach Schritt 4 bei bestehender Methode oder nach Schritt 5b) wird die TAN in der Authentication-Session bestaetigt:
+
+##### 6a: Challenge starten
+
+```http
+POST /orchestrator/authorisation-sessions/b2c3d4e5-f6a7-8901-bcde-f23456789012/authentication-methods/sms/challenge HTTP/1.1
+Host: localhost:8080
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+```
+
+Antwort:
+
+```json
+{
+  "next": {
+    "context": "authentication",
+    "step": "smsTanInput",
+    "smsSetupId": 2
+  }
+}
+```
+
+Die Telefonnummer wird aus der aktiven `sms`-Authentication-Methode des Accounts gelesen (z. B. aus `details.phoneNumber`) und nicht vom Client mitgesendet.
+
+##### 6b: TAN bestaetigen
+
+```http
+POST /orchestrator/authorisation-sessions/b2c3d4e5-f6a7-8901-bcde-f23456789012/authentication-methods/sms/verify-tan HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+
+{
+  "smsSetupId": 2,
+  "tan": "123456"
+}
+```
+
+Antwort bei korrekter TAN:
+
+```json
+{
+  "next": {
+    "context": "authentication",
+    "step": "authenticated"
+  }
+}
+```
+
+#### Schritt 7: Erneute Session-Abfrage
 
 Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zustand:
 
@@ -361,17 +430,23 @@ Nach erfolgreicher Registration liefert `GET /orchestrator/sessions` je nach Zus
 }
 ```
 
-- nach Abschluss der Registration (Login-Phase):
+- nach Abschluss der Registration (Login-Phase); bei der naechsten Initialisierung wird diese Auth-Session verworfen und eine neue erzeugt:
 
 ```json
 {
   "registrationSessionId": null,
   "authorisationSessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
-  "next": null
+  "next": {
+    "context": "authentication",
+    "step": "selectMethod",
+    "authenticationMethods": ["sms"]
+  }
 }
 ```
 
 Es existiert zu einem Zeitpunkt immer nur ein `ClientSession`-Eintrag pro JWK-Thumbprint, entweder mit `type=REG` (Registrierung) oder `type=AUTH` (Anmeldung).
+
+Bei jedem neuen Initialisieren des Frontends (`GET /orchestrator/sessions`) wird eine bereits vorhandene Auth-Session verworfen. Ist fuer den JWK-Thumbprint weiterhin ein Account mit mindestens einer aktiven Authentifizierungsmethode bekannt, wird sofort eine neue Auth-Session erzeugt und der Client erhaelt `next.step=selectMethod`. Der Nutzer muss sich so bei jedem erneuten Aufruf erneut authentifizieren.
 
 ## 4. Architekturbeschränkungen
 

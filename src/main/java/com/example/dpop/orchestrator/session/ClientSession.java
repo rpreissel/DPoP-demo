@@ -58,15 +58,17 @@ public class ClientSession {
     }
 
     public static ClientSession createRegistration(String jwkThumbprint, Instant expireAt) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("id", UUID.randomUUID().toString());
-        return new ClientSession(jwkThumbprint, SessionType.REG, expireAt, SessionFormat.V1, data);
+        return createFlow(jwkThumbprint, expireAt);
     }
 
     public static ClientSession createAuthorisation(String jwkThumbprint, Instant expireAt) {
+        return createFlow(jwkThumbprint, expireAt);
+    }
+
+    public static ClientSession createFlow(String jwkThumbprint, Instant expireAt) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", UUID.randomUUID().toString());
-        return new ClientSession(jwkThumbprint, SessionType.AUTH, expireAt, SessionFormat.V1, data);
+        return new ClientSession(jwkThumbprint, SessionType.FLOW, expireAt, SessionFormat.V1, data);
     }
 
     public String getJwkThumbprint() {
@@ -122,6 +124,54 @@ public class ClientSession {
 
     public void setAccountId(Long accountId) {
         data.put("accountId", accountId);
+    }
+
+    public String getPhase() {
+        Object phase = data.get("phase");
+        return phase == null ? null : phase.toString();
+    }
+
+    public void setPhase(String phase) {
+        data.put("phase", phase);
+    }
+
+    public String getSelectedIdentificationMethod() {
+        Object method = data.get("selectedIdentificationMethod");
+        return method == null ? null : method.toString();
+    }
+
+    public void setSelectedIdentificationMethod(String method) {
+        data.put("selectedIdentificationMethod", method);
+    }
+
+    public String getSelectedAuthenticationMethod() {
+        Object method = data.get("selectedAuthenticationMethod");
+        return method == null ? null : method.toString();
+    }
+
+    public void setSelectedAuthenticationMethod(String method) {
+        data.put("selectedAuthenticationMethod", method);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getPendingChallenge() {
+        Object challenge = data.get("pendingChallenge");
+        if (challenge instanceof Map<?, ?> map) {
+            return (Map<String, Object>) map;
+        }
+        return null;
+    }
+
+    public void setPendingChallenge(Map<String, Object> pendingChallenge) {
+        data.put("pendingChallenge", pendingChallenge);
+    }
+
+    public void clearPendingChallenge() {
+        data.remove("pendingChallenge");
+    }
+
+    public void rotateSessionId() {
+        data.put("id", UUID.randomUUID().toString());
     }
 
     public void touch() {

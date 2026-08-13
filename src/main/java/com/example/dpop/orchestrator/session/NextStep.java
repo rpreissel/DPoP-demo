@@ -11,8 +11,10 @@ import java.util.List;
         @JsonSubTypes.Type(value = NextStep.UseIdentificationMethodNextStep.class, name = "useIdentificationMethod"),
         @JsonSubTypes.Type(value = NextStep.FscInputNextStep.class, name = "input"),
         @JsonSubTypes.Type(value = NextStep.AuthenticationSetupNextStep.class, name = "setup"),
+        @JsonSubTypes.Type(value = NextStep.AuthenticationMethodSelectionNextStep.class, name = "selectMethod"),
         @JsonSubTypes.Type(value = NextStep.SmsTanInputNextStep.class, name = "smsTanInput"),
-        @JsonSubTypes.Type(value = NextStep.RegistrationCompletedNextStep.class, name = "completed")
+        @JsonSubTypes.Type(value = NextStep.RegistrationCompletedNextStep.class, name = "completed"),
+        @JsonSubTypes.Type(value = NextStep.AuthenticationCompletedNextStep.class, name = "authenticated")
 })
 public sealed interface NextStep {
 
@@ -52,19 +54,36 @@ public sealed interface NextStep {
         }
     }
 
+    record AuthenticationMethodSelectionNextStep(
+            String context,
+            String step,
+            List<String> authenticationMethods
+    ) implements NextStep {
+        public AuthenticationMethodSelectionNextStep(List<String> authenticationMethods) {
+            this("authentication", "selectMethod", authenticationMethods);
+        }
+    }
+
     record SmsTanInputNextStep(
             String context,
             String step,
-            Long smsSetupId
+            Long smsSetupId,
+            String tan
     ) implements NextStep {
-        public SmsTanInputNextStep(Long smsSetupId) {
-            this("authentication", "smsTanInput", smsSetupId);
+        public SmsTanInputNextStep(Long smsSetupId, String tan) {
+            this("authentication", "smsTanInput", smsSetupId, tan);
         }
     }
 
     record RegistrationCompletedNextStep(String context, String step) implements NextStep {
         public RegistrationCompletedNextStep() {
             this("registration", "completed");
+        }
+    }
+
+    record AuthenticationCompletedNextStep(String context, String step) implements NextStep {
+        public AuthenticationCompletedNextStep() {
+            this("authentication", "authenticated");
         }
     }
 }
