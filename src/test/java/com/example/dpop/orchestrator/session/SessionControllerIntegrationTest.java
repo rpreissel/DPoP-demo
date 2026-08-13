@@ -233,6 +233,21 @@ class SessionControllerIntegrationTest {
         assertThat(statusResponse2.getBody().authorisationSessionId()).isNotEqualTo(UUID.fromString(authorisationSessionId));
         assertThat(statusResponse2.getBody().next()).isNotNull();
         assertThat(statusResponse2.getBody().next().step()).isEqualTo("selectMethod");
+
+        UUID rotatedSessionId = statusResponse2.getBody().authorisationSessionId();
+        String challengeUrl2 = "http://localhost:" + port + "/orchestrator/authorisation-sessions/" + rotatedSessionId + "/authentication-methods/sms/challenge";
+        String challengeProof2 = createDpopProof(ecKey, "POST", challengeUrl2);
+        HttpHeaders challengeHeaders2 = new HttpHeaders();
+        challengeHeaders2.set("DPoP", challengeProof2);
+        challengeHeaders2.set("Content-Type", "application/json");
+        ResponseEntity<Map> challengeResponse2 = restTemplate.exchange(
+                challengeUrl2,
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of(), challengeHeaders2),
+                Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> challengeNext2 = (Map<String, Object>) challengeResponse2.getBody().get("next");
+        assertThat(challengeNext2.get("step")).isEqualTo("smsTanInput");
     }
 
     @Test
