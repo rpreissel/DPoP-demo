@@ -85,7 +85,7 @@ public class RegistrationController {
         UUID sessionId = sessionService.getOrCreateSession(thumbprint);
 
         NextStep nextStep = new NextStep.UseIdentificationMethodNextStep(identificationMethodProvider.availableMethods());
-        return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, nextStep));
+        return ResponseEntity.ok(new RegistrationSetupResponse(sessionId, null, sessionId, nextStep));
     }
 
     @PostMapping("/{registrationSessionId}/identification-methods/fsc")
@@ -156,7 +156,7 @@ public class RegistrationController {
         if (accountService.hasActiveAuthenticationMethod(account.getId())) {
             ClientSession authorisationSession = authorisationSessionService.createSession(thumbprint, account.getId());
             NextStep nextStep = new NextStep.AuthenticationMethodSelectionNextStep(authenticationMethodProvider.activeMethods(account));
-            return ResponseEntity.ok(new RegistrationSetupResponse(null, authorisationSession.getSessionId(), nextStep));
+            return ResponseEntity.ok(new RegistrationSetupResponse(null, authorisationSession.getSessionId(), authorisationSession.getSessionId(), nextStep));
         }
 
         NextStep nextStep = new NextStep.AuthenticationSetupNextStep(authenticationMethodProvider.availableMethods());
@@ -217,7 +217,7 @@ public class RegistrationController {
 
         ClientSession authorisationSession = authorisationSessionService.createSession(thumbprint, accountId);
         NextStep nextStep = new NextStep.AuthenticationMethodSelectionNextStep(authenticationMethodProvider.activeMethods(accountService.findById(accountId).orElseThrow()));
-        return ResponseEntity.ok(new RegistrationSetupResponse(null, authorisationSession.getSessionId(), nextStep));
+        return ResponseEntity.ok(new RegistrationSetupResponse(null, authorisationSession.getSessionId(), authorisationSession.getSessionId(), nextStep));
     }
 
     @ExceptionHandler(DpopValidationException.class)

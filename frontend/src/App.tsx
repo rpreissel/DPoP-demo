@@ -21,9 +21,21 @@ function App() {
       .catch((err) => setMessage(`Error: ${err.message}`))
   }, [])
 
+  function effectiveSessionId(status: SessionStatus): string | undefined {
+    return status.sessionId ?? status.authorisationSessionId ?? status.registrationSessionId
+  }
+
+  function isAuthorisationFlow(status: SessionStatus | null): boolean {
+    if (!status) return false
+    if (status.next?.context === 'authentication' && status.next.step !== 'setup') return true
+    return !!status.authorisationSessionId
+  }
+
   function mergeSessionStatus(result: RegistrationSetupResult, fallback: SessionStatus): SessionStatus {
     const switchedToAuthorisation = !!result.authorisationSessionId
+    const sessionId = result.sessionId ?? result.authorisationSessionId ?? result.registrationSessionId
     return {
+      sessionId,
       registrationSessionId: switchedToAuthorisation ? undefined : (result.registrationSessionId ?? fallback.registrationSessionId),
       authorisationSessionId: result.authorisationSessionId ?? fallback.authorisationSessionId,
       next: result.next,
@@ -66,6 +78,7 @@ function App() {
         const setupResult = (await setupResponse.json()) as RegistrationSetupResult
         if (!active) return
         setSessionStatus({
+          sessionId: setupResult.sessionId ?? setupResult.registrationSessionId,
           registrationSessionId: setupResult.registrationSessionId,
           next: setupResult.next,
         })
@@ -80,9 +93,11 @@ function App() {
   }, [])
 
   async function submitIdentification(kvnr: string, name: string, vorname: string) {
-    if (!dpop || !sessionStatus?.registrationSessionId) return
+    if (!dpop || !sessionStatus) return
 
-    const sessionId = sessionStatus.registrationSessionId
+    const sessionId = effectiveSessionId(sessionStatus)
+    if (!sessionId) return
+
     const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`
     const proof = await createDpopProof(dpop.keyPair, 'POST', url)
     const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`, {
@@ -99,9 +114,11 @@ function App() {
   }
 
   async function submitFsc(fsc: string) {
-    if (!dpop || !sessionStatus?.registrationSessionId) return
+    if (!dpop || !sessionStatus) return
 
-    const sessionId = sessionStatus.registrationSessionId
+    const sessionId = effectiveSessionId(sessionStatus)
+    if (!sessionId) return
+
     const url = `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`
     const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
     const response = await fetch(`/orchestrator/registration-sessions/${sessionId}/identification-methods/fsc`, {
@@ -120,10 +137,10 @@ function App() {
   async function setupSmsStart(phoneNumber?: string): Promise<{ smsSetupId: number; tan: string } | undefined> {
     if (!dpop || !sessionStatus) return undefined
 
-    const isAuthorisation = !!sessionStatus.authorisationSessionId
-    const sessionId = sessionStatus.authorisationSessionId ?? sessionStatus.registrationSessionId
+    const sessionId = effectiveSessionId(sessionStatus)
     if (!sessionId) return undefined
 
+    const isAuthorisation = isAuthorisationFlow(sessionStatus)
     const baseUrl = isAuthorisation
       ? `${window.location.origin}/orchestrator/authorisation-sessions/${sessionId}/authentication-methods/sms/challenge`
       : `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms`
@@ -149,10 +166,10 @@ function App() {
   async function setupSmsVerify(smsSetupId: number, tan: string): Promise<boolean> {
     if (!dpop || !sessionStatus) return false
 
-    const isAuthorisation = !!sessionStatus.authorisationSessionId
-    const sessionId = sessionStatus.authorisationSessionId ?? sessionStatus.registrationSessionId
+    const sessionId = effectiveSessionId(sessionStatus)
     if (!sessionId) return false
 
+    const isAuthorisation = isAuthorisationFlow(sessionStatus)
     const baseUrl = isAuthorisation
       ? `${window.location.origin}/orchestrator/authorisation-sessions/${sessionId}/authentication-methods/sms/verify-tan`
       : `${window.location.origin}/orchestrator/registration-sessions/${sessionId}/authentication-methods/sms/verify-tan`

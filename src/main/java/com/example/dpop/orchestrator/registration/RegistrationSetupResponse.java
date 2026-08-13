@@ -9,13 +9,18 @@ import java.util.UUID;
 public record RegistrationSetupResponse(
         UUID registrationSessionId,
         UUID authorisationSessionId,
+        UUID sessionId,
         NextStep next
 ) {
     public RegistrationSetupResponse(NextStep next) {
-        this(null, null, next);
+        this(null, null, null, next);
     }
 
     public RegistrationSetupResponse(UUID registrationSessionId, NextStep next) {
-        this(registrationSessionId, null, next);
+        this(registrationSessionId, null, null, next);
+    }
+
+    public RegistrationSetupResponse(UUID registrationSessionId, UUID authorisationSessionId, NextStep next) {
+        this(registrationSessionId, authorisationSessionId, null, next);
     }
 }

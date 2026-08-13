@@ -73,6 +73,7 @@ public class SessionController {
                 return ResponseEntity.ok(new SessionStatusResponse(
                         null,
                         session.getSessionId(),
+                        session.getSessionId(),
                         nextStep
                 ));
             }
@@ -81,6 +82,7 @@ public class SessionController {
             return ResponseEntity.ok(new SessionStatusResponse(
                     session.getSessionId(),
                     null,
+                    session.getSessionId(),
                     nextStep
             ));
         }
@@ -93,11 +95,13 @@ public class SessionController {
             return ResponseEntity.ok(new SessionStatusResponse(
                     null,
                     session.getSessionId(),
+                    session.getSessionId(),
                     nextStep
             ));
         }
 
         return ResponseEntity.ok(new SessionStatusResponse(
+                null,
                 null,
                 null,
                 new NextStep.RegistrationNextStep()
