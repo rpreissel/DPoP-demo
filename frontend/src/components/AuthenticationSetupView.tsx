@@ -26,6 +26,7 @@ export function AuthenticationSetupView({
   onSetupSmsStart,
   onSetupSmsVerify,
 }: AuthenticationSetupViewProps) {
+  const isSetupMode = collectPhoneNumber
   const [phoneNumber, setPhoneNumber] = useState('+49 170 1234567')
   const [tan, setTan] = useState(initialTan ?? '')
   const [smsSetupId, setSmsSetupId] = useState<number | null>(initialSmsSetupId ?? null)
@@ -97,8 +98,12 @@ export function AuthenticationSetupView({
 
   return (
     <div className="card">
-      <h2>Authentifizierung einrichten</h2>
-      <p>Die Identifikation war erfolgreich. Waehlen Sie eine Authentifizierungsmethode aus:</p>
+      <h2>{isSetupMode ? 'Authentifizierung einrichten' : 'Authentifizierung anwenden'}</h2>
+      <p>
+        {isSetupMode
+          ? 'Die Identifikation war erfolgreich. Waehlen Sie eine Authentifizierungsmethode aus:'
+          : 'Die Identifikation war erfolgreich. Wenden Sie eine vorhandene Authentifizierungsmethode an:'}
+      </p>
 
       {methods.map((method) => (
         <div key={method} style={{ marginTop: '1rem' }}>
@@ -125,12 +130,12 @@ export function AuthenticationSetupView({
                     </div>
                   ) : (
                     <div className="hint">
-                      Die hinterlegte SMS-Methode wird fuer die Challenge verwendet.
+                      Die hinterlegte SMS-Methode wird fuer die Anmeldung verwendet.
                     </div>
                   )}
                   {error && <div className="form-error" style={{ color: 'var(--error-color, #ef4444)' }}>{error}</div>}
                   <div className="form-actions">
-                    <button type="submit">{method.toUpperCase()} Challenge starten</button>
+                    <button type="submit">{isSetupMode ? `${method.toUpperCase()} einrichten` : `${method.toUpperCase()} anwenden`}</button>
                   </div>
                 </form>
               ) : (
@@ -161,7 +166,7 @@ export function AuthenticationSetupView({
           )}
           {method !== 'sms' && (
             <button className="secondary" type="button">
-              {method.toUpperCase()} einrichten
+              {isSetupMode ? `${method.toUpperCase()} einrichten` : `${method.toUpperCase()} anwenden`}
             </button>
           )}
         </div>

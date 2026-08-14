@@ -41,6 +41,16 @@ async function loadKeyPair(): Promise<CryptoKeyPair | undefined> {
   })
 }
 
+async function deleteKeyPair(): Promise<void> {
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).delete(KEY_ID)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 export async function generateDpopKeyPair(): Promise<CryptoKeyPair> {
   return crypto.subtle.generateKey(
     {
@@ -70,6 +80,10 @@ export async function getOrCreateDpopKeyPair(): Promise<DpopKeyPair> {
   }
   const publicJwk = await exportPublicJwk(keyPair)
   return { keyPair, publicJwk }
+}
+
+export async function resetDpopKeyPair(): Promise<void> {
+  await deleteKeyPair()
 }
 
 function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {

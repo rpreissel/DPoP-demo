@@ -76,7 +76,10 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         session.clearPendingChallenge();
         session.getData().remove("selectedAuthenticationMethod");
         session.setPhase("authenticated");
-        return new NextStep.AuthenticationCompletedNextStep();
+        Long personId = accountService.findById(accountId)
+                .map(account -> account.getPersonId())
+                .orElse(null);
+        return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
     }
 
     private Long requireAccountId(ClientSession session) {

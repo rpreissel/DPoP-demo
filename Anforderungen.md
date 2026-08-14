@@ -53,6 +53,8 @@ Aufbau einer kompilier- und startfähigen **Spring Boot Modulith**-Applikation z
 - Das UI bietet ein übersichtliches Layout mit Karten, konsistentem Farbschema und Darkmode-Unterstützung.
 - Formulare zur Identifikation und FSC-Eingabe sind mit Testdaten vorbelegt, um den Registrierungsflow direkt durchspielen zu können.
 - Der aktuelle Session-Status und der nächste Schritt werden übersichtlich dargestellt.
+- Nach erfolgreicher Anmeldung (`next.step = authenticated`) zeigt das Frontend zusätzlich `accountId` und `personId` aus der Backend-Response an.
+- Das Frontend bietet eine Reset-Aktion, die den gespeicherten DPoP-Key löscht, einen neuen Key generiert und den Session-Flow neu startet.
 
 ### 3.2 Übersicht der Module
 
@@ -111,7 +113,6 @@ Die Applikation gliedert sich in fünf fachliche Module:
 - Die verfügbaren Identifikations- und Authentifizierungsmethoden werden über Provider-Abstraktionen (`IdentificationMethodProvider`, `AuthenticationMethodProvider`) ermittelt, sodass der Flow unabhängig von konkreten Methoden bleibt.
 - Client-Sessions werden in einer gemeinsamen Tabelle `client_session` persistiert:
   - `jwk_thumbprint` (Primärschlüssel)
-  - `type` immer `FLOW`
   - `expire_at`
   - `last_accessed`
   - `format` (`V1`)

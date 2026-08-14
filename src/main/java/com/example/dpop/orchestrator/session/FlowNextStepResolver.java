@@ -24,7 +24,11 @@ public class FlowNextStepResolver {
 
     public NextStep resolve(ClientSession session) {
         if ("authenticated".equals(session.getPhase())) {
-            return new NextStep.AuthenticationCompletedNextStep();
+            Long accountId = session.getAccountId();
+            Long personId = accountId == null
+                    ? null
+                    : accountService.findById(accountId).map(Account::getPersonId).orElse(null);
+            return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
         }
 
         Map<String, Object> pendingChallenge = session.getPendingChallenge();

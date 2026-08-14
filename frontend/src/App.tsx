@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { createDpopProof, getOrCreateDpopKeyPair, type DpopKeyPair } from './dpop.ts'
+import { createDpopProof, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
 import type { SessionStatus, FlowSetupResult } from './types'
 import { AuthenticationSetupView } from './components/AuthenticationSetupView'
@@ -13,6 +13,27 @@ function App() {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null)
   const [error, setError] = useState<string>('')
   const [showDebug, setShowDebug] = useState(false)
+
+  async function startSessionFlow() {
+    const keyPair = await getOrCreateDpopKeyPair()
+    setDpop(keyPair)
+
+    const setupUrl = `${window.location.origin}/orchestrator/sessions`
+    const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
+    const setupResponse = await fetch('/orchestrator/sessions', {
+      method: 'POST',
+      headers: { DPoP: setupProof },
+    })
+    if (!setupResponse.ok) {
+      const body = await setupResponse.text()
+      throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
+    }
+    const setupResult = (await setupResponse.json()) as FlowSetupResult
+    setSessionStatus({
+      sessionId: setupResult.sessionId,
+      next: setupResult.next,
+    })
+  }
 
   useEffect(() => {
     fetch('/orchestrator/process')
@@ -60,6 +81,18 @@ function App() {
       active = false
     }
   }, [])
+
+  async function handleReset() {
+    try {
+      setError('')
+      setSessionStatus(null)
+      await resetDpopKeyPair()
+      await startSessionFlow()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(`Reset failed: ${message}`)
+    }
+  }
 
   async function submitIdentification(kvnr: string, name: string, vorname: string) {
     if (!dpop || !sessionStatus?.sessionId) return
@@ -192,10 +225,20 @@ function App() {
         <div className="card">
           <h2>Anmeldung erfolgreich</h2>
           <p>Die Authentifizierung wurde erfolgreich abgeschlossen.</p>
+          <p>Account ID: {sessionStatus.next.accountId ?? 'unbekannt'}</p>
+          <p>Person ID: {sessionStatus.next.personId ?? 'unbekannt'}</p>
         </div>
       )}
 
       <div className="debug-toggle">
+        <button
+          type="button"
+          className="secondary"
+          onClick={handleReset}
+          title="Loescht den gespeicherten DPoP-Key, generiert neue Keys und startet den Flow neu"
+        >
+          Neu starten
+        </button>
         <button type="button" className="secondary" onClick={() => setShowDebug((s) => !s)}>
           {showDebug ? 'Debug-Info ausblenden' : 'Debug-Info anzeigen'}
         </button>

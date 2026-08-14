@@ -50,42 +50,18 @@ public class FlowActionService {
 
     @Transactional
     public FlowSetupResponse createFlow(String thumbprint) {
-        ClientSession session = resolveOrRotateSession(thumbprint);
-        return new FlowSetupResponse(session.getSessionId(), resolveInitialNextStep(session));
-    }
-
-    private ClientSession resolveOrRotateSession(String thumbprint) {
+        ClientSession session = flowSessionService.createNewByJwkThumbprint(thumbprint);
         Optional<Long> knownAccountId = accountJwkMappingService.findAccountIdByJwkThumbprint(thumbprint);
-        Optional<ClientSession> existingSession = flowSessionService.findByJwkThumbprint(thumbprint);
-
-        if (existingSession.isPresent()) {
-            ClientSession session = existingSession.get();
-            Long accountId = session.getAccountId();
-            boolean accountHasActiveMethod = accountId != null
-                    && accountService.hasActiveAuthenticationMethod(accountId);
-
-            if (accountHasActiveMethod || knownAccountId.filter(accountService::hasActiveAuthenticationMethod).isPresent()) {
-                session = flowSessionService.rotateSessionId(thumbprint);
-                Long effectiveAccountId = accountId != null ? accountId : knownAccountId.orElseThrow();
-                session.setAccountId(effectiveAccountId);
-                return flowSessionService.save(session);
-            }
-
-            return session;
-        }
-
         if (knownAccountId.isPresent() && accountService.hasActiveAuthenticationMethod(knownAccountId.get())) {
-            ClientSession session = flowSessionService.getOrCreateByJwkThumbprint(thumbprint);
             session.setAccountId(knownAccountId.get());
-            return flowSessionService.save(session);
+            session = flowSessionService.save(session);
         }
-
-        return flowSessionService.getOrCreateByJwkThumbprint(thumbprint);
+        return new FlowSetupResponse(session.getSessionId(), resolveInitialNextStep(session));
     }
 
     private NextStep resolveInitialNextStep(ClientSession session) {
         if ("authenticated".equals(session.getPhase())) {
-            return new NextStep.AuthenticationCompletedNextStep();
+            return authenticatedNextStep(session);
         }
 
         if (session.getPendingChallenge() != null) {
@@ -118,6 +94,14 @@ public class FlowActionService {
             return new NextStep.SmsTanInputNextStep(challengeId, tan);
         }
         throw new IllegalStateException("Unsupported pending challenge method: " + method);
+    }
+
+    private NextStep authenticatedNextStep(ClientSession session) {
+        Long accountId = session.getAccountId();
+        Long personId = accountId == null
+                ? null
+                : accountService.findById(accountId).map(account -> account.getPersonId()).orElse(null);
+        return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
     }
 
     @Transactional

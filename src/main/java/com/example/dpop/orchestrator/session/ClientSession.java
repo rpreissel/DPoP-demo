@@ -23,10 +23,6 @@ public class ClientSession {
     @Column(name = "jwk_thumbprint", nullable = false, length = 64)
     private String jwkThumbprint;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false, length = 10)
-    private SessionType type;
-
     @Column(name = "expire_at", nullable = false)
     private Instant expireAt;
 
@@ -48,9 +44,8 @@ public class ClientSession {
     protected ClientSession() {
     }
 
-    public ClientSession(String jwkThumbprint, SessionType type, Instant expireAt, SessionFormat format, Map<String, Object> data) {
+    public ClientSession(String jwkThumbprint, Instant expireAt, SessionFormat format, Map<String, Object> data) {
         this.jwkThumbprint = jwkThumbprint;
-        this.type = type;
         this.expireAt = expireAt;
         this.lastAccessed = Instant.now();
         this.format = format;
@@ -68,15 +63,11 @@ public class ClientSession {
     public static ClientSession createFlow(String jwkThumbprint, Instant expireAt) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", UUID.randomUUID().toString());
-        return new ClientSession(jwkThumbprint, SessionType.FLOW, expireAt, SessionFormat.V1, data);
+        return new ClientSession(jwkThumbprint, expireAt, SessionFormat.V1, data);
     }
 
     public String getJwkThumbprint() {
         return jwkThumbprint;
-    }
-
-    public SessionType getType() {
-        return type;
     }
 
     public Instant getExpireAt() {

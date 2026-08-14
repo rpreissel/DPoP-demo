@@ -1,6 +1,8 @@
 export interface NextStep {
   context: string
   step: string
+  accountId?: number
+  personId?: number
   identificationMethods?: string[]
   authenticationMethods?: string[]
   smsSetupId?: number

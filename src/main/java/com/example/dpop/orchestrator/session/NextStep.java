@@ -81,9 +81,14 @@ public sealed interface NextStep {
         }
     }
 
-    record AuthenticationCompletedNextStep(String context, String step) implements NextStep {
-        public AuthenticationCompletedNextStep() {
-            this("authentication", "authenticated");
+    record AuthenticationCompletedNextStep(
+            String context,
+            String step,
+            Long accountId,
+            Long personId
+    ) implements NextStep {
+        public AuthenticationCompletedNextStep(Long accountId, Long personId) {
+            this("authentication", "authenticated", accountId, personId);
         }
     }
 }

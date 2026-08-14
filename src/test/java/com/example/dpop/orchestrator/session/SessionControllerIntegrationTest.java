@@ -184,6 +184,8 @@ class SessionControllerIntegrationTest {
         Map<String, Object> smsTanNext = (Map<String, Object>) smsTanResponse.getBody().get("next");
         assertThat(smsTanNext.get("context")).isEqualTo("authentication");
         assertThat(smsTanNext.get("step")).isEqualTo("authenticated");
+        assertThat(smsTanNext.get("accountId")).isNotNull();
+        assertThat(smsTanNext.get("personId")).isNotNull();
 
         AuthSmsSetup validatedSetup = authSmsSetupRepository.findById(smsSetupId).orElseThrow();
         assertThat(validatedSetup.isValidated()).isTrue();
@@ -396,6 +398,8 @@ class SessionControllerIntegrationTest {
         Map<String, Object> verifyNext = (Map<String, Object>) verifyResponse.getBody().get("next");
         assertThat(verifyNext.get("context")).isEqualTo("authentication");
         assertThat(verifyNext.get("step")).isEqualTo("authenticated");
+        assertThat(verifyNext.get("accountId")).isNotNull();
+        assertThat(verifyNext.get("personId")).isNotNull();
 
         Account reusedAccount = accountRepository.findByPersonId(person.getId()).orElseThrow();
         assertThat(reusedAccount.getId()).isEqualTo(firstAccount.getId());

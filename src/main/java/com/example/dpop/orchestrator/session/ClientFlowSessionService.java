@@ -44,14 +44,9 @@ public class ClientFlowSessionService {
     }
 
     @Transactional
-    public ClientSession rotateSessionId(String jwkThumbprint) {
-        ClientSession session = findByJwkThumbprint(jwkThumbprint)
-                .orElseGet(() -> ClientSession.createFlow(jwkThumbprint, defaultExpireAt()));
-        session.rotateSessionId();
-        session.setPhase(null);
-        session.clearPendingChallenge();
-        session.getData().remove("selectedAuthenticationMethod");
-        session.touch();
+    public ClientSession createNewByJwkThumbprint(String jwkThumbprint) {
+        findByJwkThumbprint(jwkThumbprint).ifPresent(repository::delete);
+        ClientSession session = ClientSession.createFlow(jwkThumbprint, defaultExpireAt());
         return repository.save(session);
     }
 
