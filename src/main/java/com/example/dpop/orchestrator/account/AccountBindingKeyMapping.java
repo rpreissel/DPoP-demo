@@ -8,11 +8,11 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "account_jwk_mapping")
+@Table(name = "account_binding_key_mapping")
 public class AccountBindingKeyMapping {
 
     @Id
-    @Column(name = "jwk_thumbprint", nullable = false, length = 64)
+    @Column(name = "binding_key_ref", nullable = false, length = 64)
     private String bindingKeyRef;
 
     @Column(name = "account_id", nullable = false)

@@ -16,11 +16,11 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "client_session")
+@Table(name = "binding_session")
 public class BindingSession {
 
     @Id
-    @Column(name = "jwk_thumbprint", nullable = false, length = 64)
+    @Column(name = "binding_key_ref", nullable = false, length = 64)
     private String bindingKeyRef;
 
     @Column(name = "expire_at", nullable = false)
