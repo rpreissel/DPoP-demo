@@ -111,13 +111,83 @@ Die Applikation gliedert sich in fünf fachliche Module:
 - Bei Applikationsstart werden Testdaten in die `person`-Tabelle eingespielt.
 - Für die vorhandenen Testpersonen werden gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow im UI direkt durchgespielt werden kann.
 - Die verfügbaren Identifikations- und Authentifizierungsmethoden werden über Provider-Abstraktionen (`IdentificationMethodProvider`, `AuthenticationMethodProvider`) ermittelt, sodass der Flow unabhängig von konkreten Methoden bleibt.
-- Client-Sessions werden in einer gemeinsamen Tabelle `client_session` persistiert:
-  - `jwk_thumbprint` (Primärschlüssel)
+- Binding-Sessions werden in einer gemeinsamen Tabelle `binding_session` persistiert (aktuelle technische Bezeichnung im Code/Schema derzeit noch `client_session`):
+  - `binding_key_ref` (Primärschlüssel; aktuelle technische Spalte im Code/Schema derzeit noch `jwk_thumbprint`)
   - `expire_at`
   - `last_accessed`
   - `format` (`V1`)
   - `data` (JSON mit session-spezifischen Daten: `id` der Session, `phase`, `personId`, `accountId`, `selectedIdentificationMethod`, `selectedAuthenticationMethod`, `pendingChallenge`)
   - `version` (Optimistic Locking)
+- Terminologieentscheidung (interaktiv mit Nutzer festgelegt):
+  - Finales Namensset:
+    - `client_session` -> `binding_session`
+    - `jwk_thumbprint` -> `binding_key_ref`
+  - Begruendung:
+    - klare fachliche Begriffe ohne `jwk`/`dpop`/`proof` im Namen
+    - strikte Abgrenzung zu OIDC-`client_id` (kein "client" im Schluesselbegriff)
+    - zukunftsfaehig fuer weitere Client-Arten und moeglicherweise geteilte Sessions
+    - konsistente Paarbildung zwischen Session- und Schluesselbegriff (`binding_*`)
+  - Verworfene Alternativen:
+    - Set A: `proof_key_session` / `proof_key_fingerprint`
+    - Set B: `dpop_binding_session` / `dpop_jwk_fingerprint`
+    - Set C: `auth_context_session` / `key_binding_id`
+    - Set D: unveraendert `client_session` / `jwk_thumbprint`
+    - Set F: `actor_session` / `actor_key_ref`
+    - Set G: `context_session` / `context_key_ref`
+    - Set H: `channel_session` / `channel_key_ref`
+- Verbindliche Naming-Matrix Alt -> Neu (gueltig fuer kommende Umbenennungen in Schema, Code und Doku):
+
+| Bereich | Alt (Ist) | Neu (Soll) | Konkreter Scope/Beispiel |
+|---|---|---|---|
+| DB Tabelle | `client_session` | `binding_session` | Migration `V7__create_client_session.sql`, JPA `@Table` in `ClientSession` |
+| DB Spalte (Session-PK) | `jwk_thumbprint` | `binding_key_ref` | Session-Primärschlüssel in Tabelle `client_session`/`binding_session` |
+| DB Tabelle (Mapping) | `account_jwk_mapping` | `account_binding_key_mapping` | Migration `V11__create_account_jwk_mapping.sql` |
+| DB Spalte (Mapping-PK) | `jwk_thumbprint` | `binding_key_ref` | Primärschlüssel in `account_jwk_mapping`/`account_binding_key_mapping` |
+| Java Entitaet | `ClientSession` | `BindingSession` | Datei `orchestrator/session/ClientSession.java` |
+| Java Service | `ClientFlowSessionService` | `BindingFlowSessionService` | Datei `orchestrator/session/ClientFlowSessionService.java` |
+| Java Service | `AccountJwkMappingService` | `AccountBindingKeyMappingService` | Datei `orchestrator/account/AccountJwkMappingService.java` |
+| Java Feldname | `jwkThumbprint` | `bindingKeyRef` | Entitaeten/DTO-intern, z. B. in `ClientSession` |
+| Java Methodenname | `findByJwkThumbprint(...)` | `findByBindingKeyRef(...)` | Repository/Service-Methoden fuer Session- und Mapping-Lookups |
+| Java Methodenname | `getOrCreateByJwkThumbprint(...)` | `getOrCreateByBindingKeyRef(...)` | Session-Lifecycle in `ClientFlowSessionService` |
+| API/Controller-intern | Variable `thumbprint` | Variable `bindingKeyRef` | `FlowController`/`FlowActionService` (externe REST-Pfade bleiben unveraendert) |
+| API/DTO Fachbegriff | "JWK-Thumbprint als Session-Schluessel" | "Binding Key Reference als Session-Schluessel" | API-Dokumentation und Response-Beschreibungen |
+| Doku Begriff | `client_session` | `binding_session` | Anforderungen, Architekturtexte, Sequenzbeschreibungen |
+| Doku Begriff | `jwk_thumbprint` | `binding_key_ref` | Anforderungen, Architekturtexte, Sequenzbeschreibungen |
+| Kryptografie-Begriff (bewusst unveraendert) | `JwkThumbprintService`, "JWK thumbprint" | **unveraendert** | Bleibt fuer RFC-7638-Berechnung bestehen; liefert Wert, der fachlich als `binding_key_ref` verwendet wird |
+- Public-vs-Internal Naming-Regel (verbindlich):
+  1. **Externe Vertraege (Public API)**: In REST-Endpunkten, JSON-Requests/-Responses, DTO-Feldnamen, OpenAPI-/README-Texten und Fehlermeldungen sind ausschliesslich fachliche Begriffe aus dem finalen Set zulaessig (`binding_session`, `binding_key_ref`, "Binding Session", "Binding Key Reference").
+  2. **Interne Fachlogik (Domain/Application)**: In `orchestrator`, `account`, `id_fsc`, `auth_sms`, `ext_stammdaten` gelten ebenfalls die fachlichen Zielnamen; Altbegriffe (`client_*`, `jwk_thumbprint`) sind dort unzulaessig.
+  3. **Low-Level-DPoP-Kryptografie (technische Ausnahme)**: Nur im Paket `src/main/java/com/example/dpop/orchestrator/dpop` duerfen technische RFC-Begriffe wie `thumbprint`/`JWK thumbprint` weiter verwendet werden, sofern sie ausschliesslich die kryptografische Berechnung bezeichnen.
+  4. **Uebersetzungsregel zwischen Ebenen**: Der im DPoP-Modul berechnete `thumbprint` wird ausserhalb dieses Pakets als `binding_key_ref` weitergereicht; dieselbe Zeichenfolge, anderer fachlicher Name.
+  5. **OIDC-Begriffe**: `client_id`/`clientId` und andere OIDC-behaftete Namen sind nur erlaubt, wenn sie explizit als OIDC-Kontext markiert sind (z. B. Kommentar "OIDC terminology"). Ohne diese Markierung sind sie verboten, um Verwechslungen mit Binding-Terminologie auszuschliessen.
+  6. **Default bei Unklarheit**: Wenn ein neuer Name nicht eindeutig Public/Internal zuordenbar ist, gilt standardmaessig die fachliche Binding-Terminologie; technische Begriffe sind nur mit dokumentierter Ausnahme nach Regel 3 erlaubt.
+- Umbenennungsstrategie (sequenziert, ohne Implementierung):
+
+| Schritt | Reihenfolge | Ziel | Konkrete Arbeitsanweisung | Exit-Kriterium |
+|---|---|---|---|---|
+| 1 | Doku | Einheitliche Soll-Terminologie festschreiben | Anforderungen/README/API-Doku auf Naming-Matrix angleichen; Altbegriffe nur als `Legacy:` markieren | Alle fachlichen Beschreibungen nutzen `binding_session`/`binding_key_ref`; keine offenen TBD |
+| 2 | Java Domain/Services | Fachliche Typen und Service-Namen angleichen | Klassen/Felder/Methoden in Domain+Service-Layer von `Client*`/`Jwk*` auf `Binding*` bzw. `bindingKeyRef` umbenennen; DPoP-Paket ausnehmen | Code kompiliert; keine Altbegriffe ausser DPoP-Ausnahme |
+| 3 | Repositories | Persistenz-APIs konsistent machen | Repository-Namen und Finder (`findByJwkThumbprint`) auf `...BindingKeyRef` umstellen | Alle Repository-Methoden verwenden neue Namen |
+| 4 | Controller/DTO | Public Contract sprachlich bereinigen | Interne Variablen/DTO-Felder und Fehlermeldungen auf Binding-Terminologie umstellen; URL-Pfade nur aendern, wenn explizit beschlossen | Kein Public Text mit Altbegriffen; OIDC-Ausnahmen explizit markiert |
+| 5 | DB Migration | Physisches Schema nachziehen | Neue Flyway-Migration fuer Tabellen-/Spalten-Renames (oder Copy+Backfill+Drop) erstellen; bestehende Daten migrieren; keine Datenverluste | Schema enthaelt Zielnamen; Datenintegritaet und Tests grün |
+
+Optionaler Kompatibilitaetszeitraum (wenn API/Schema-Risiko hoch):
+- Dauer: **max. 1 Minor-Release** oder **30 Kalendertage** (was frueher eintritt).
+- Alias-Regeln:
+  - DB: Lesepfad darf Alt+Neu akzeptieren, Schreibpfad nur Neu.
+  - Java: Deprecated Wrapper-Methoden fuer Alt-Namen erlaubt, muessen auf Neu delegieren.
+  - API: Falls unvermeidbar, Alt-Feldnamen nur als input-kompatibler Alias; Responses nur Neu.
+- Entferndatum: **spaetestens am Ende des Kompatibilitaetszeitraums**; anschliessend komplette Entfernung aller Alt-Aliase in einem dedizierten Cleanup-PR.
+
+Abnahmekriterium fuer die Gesamtumbenennung:
+- Keine Restverwendung von Altbegriffen (`client_session`, `jwk_thumbprint`, `ClientSession` als Fachbegriff etc.) ausser explizit markierten Legacy-Kommentaren oder der dokumentierten DPoP-Kryptografie-Ausnahme.
+- Verifikation ueber Volltextsuche (`rg`) und gruene Test-Suite (`./gradlew test`).
+
+Abhaengigkeiten und Risiken:
+- Abhaengigkeit: Public-vs-Internal-Regel muss vor Codeumbenennung final sein.
+- Risiko 1: Breaking Changes in API/DB bei ungeplanter simultaner Umstellung -> Mit Schrittfolge + optionalem Alias-Fenster minimieren.
+- Risiko 2: OIDC-Verwechslung bei `client*`-Restbegriffen -> Durch harte Verbotsregel ausser explizitem OIDC-Kontext minimieren.
+- Risiko 3: Inkonsistente Begriffe zwischen Modulen -> Durch Reihenfolge (Doku -> Domain -> Repo -> API -> DB) und abschliessende Suchprüfung minimieren.
 - Die Session enthält keine separate Registrierungs- oder Authentifizierungssession; stattdessen entscheidet der `FlowNextStepResolver` anhand der Session-Daten und des Accounts, ob Identifikation, Setup einer Authentifizierungsmethode oder eine Authentifizierungs-Challenge erforderlich ist.
 - Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
 - Im Modul `account` existiert eine `Account`-Entität mit folgenden Attributen:
@@ -163,10 +233,10 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F14 | Der öffentliche DPoP-Schlüssel ist als JWK im Frontend einsehbar. | Anzeige des `jwk`-Teils im UI |
 | F15 | Alle Registration-Aufrufe werden mit DPoP abgesichert. | Header `DPoP` enthält valides DPoP-Proof-JWT |
 | F16 | Der Session-Einstieg erfolgt über einen POST-Endpunkt. | POST `/orchestrator/sessions` mit DPoP-Proof liefert `sessionId` und `next` |
-| F17 | Der Abfrage verwendet den JWK-Thumbprint als Schlüssel. | Es gibt genau eine `ClientSession` pro JWK-Thumbprint |
+| F17 | Die Abfrage verwendet die `binding_key_ref` als Schluessel. | Es gibt genau eine Binding-Session pro `binding_key_ref` |
 | F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Ohne Identifikationsmethoden; diese folgen beim Setup |
 | F19 | Eine neue Flow-Session wird über den Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/sessions` liefert `sessionId` |
-| F20 | Der Setup-Prozess verwendet den JWK-Thumbprint als Schlüssel. | Session wird anhand des Thumbprints wiederverwendet |
+| F20 | Der Setup-Prozess verwendet die `binding_key_ref` als Schluessel. | Session wird anhand der `binding_key_ref` wiederverwendet |
 | F21 | Folgende Aufrufe enthalten die `sessionId` im Pfad. | z.B. `/orchestrator/sessions/{id}/identification-methods/fsc` |
 | F22 | Die Identifikationsmethode FSC wird über einen dedizierten Endpunkt gestartet. | POST `/orchestrator/sessions/{id}/identification-methods/fsc` mit KVNR, Name und Vorname |
 | F23 | Der Orchestrator prüft die KVNR gegen die Stammdaten und fordert bei Erfolg die FSC-Eingabe an. | Antwort enthält `next: { context: "fsc", step: "input" }` |
@@ -184,9 +254,9 @@ Die Applikation gliedert sich in fünf fachliche Module:
 | F38 | Ein Account kann mehrere verschiedene Authentifizierungsmethoden speichern. | `authenticationMethods` ist ein JSON-Array in der Account-Tabelle |
 | F39 | Nach erfolgreicher FSC-Identifikation wird ein bestehender Account zur Person wiederverwendet. | Der Flow erstellt keinen zweiten Account für dieselbe `personId` |
 | F40 | Auch bei wiederverwendetem Account wird die neue Identifikation gespeichert. | `identifications` enthält für jede erfolgreiche FSC-Identifikation einen weiteren Eintrag |
-| F41 | Der Orchestrator speichert die Zuordnung `jwk_thumbprint -> accountId`. | Persistente Mapping-Tabelle erlaubt mehrere JWKs pro Account |
+| F41 | Der Orchestrator speichert die Zuordnung `binding_key_ref -> accountId`. | Persistente Mapping-Tabelle erlaubt mehrere Binding-Keys pro Account |
 | F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang zur Authentifizierungs-Auswahl |
-| F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Session erhalten; die Phase wechselt. | `client_session.type` bleibt `FLOW`; `data.phase` und `next.context` leiten den Client weiter |
+| F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Session erhalten; die Phase wechselt. | `binding_session.type` bleibt `FLOW`; `data.phase` und `next.context` leiten den Client weiter |
 | F44 | In der Authentifizierungsphase werden vorhandene Methoden angeboten und die TAN dort bestätigt. | Die SMS-Challenge unter `/orchestrator/sessions/{id}/authentication-methods/sms/challenge` verwendet die im Account hinterlegte aktive Telefonnummer; der Client uebergibt keine Telefonnummer mehr |
 | F45 | Jede Antwort enthält die aktuelle `sessionId`. | `sessionId` und `next` sind die einzigen Session-Felder in Responses |
 | F46 | Bei erneutem Frontend-Start wird eine vorhandene Authentifizierungs-Session rotiert. | `POST /orchestrator/sessions` erzeugt bei bekanntem Account mit aktiver Methode eine neue `sessionId` und bietet `selectMethod` an |

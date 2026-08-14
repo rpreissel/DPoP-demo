@@ -9,11 +9,11 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "account_jwk_mapping")
-public class AccountJwkMapping {
+public class AccountBindingKeyMapping {
 
     @Id
     @Column(name = "jwk_thumbprint", nullable = false, length = 64)
-    private String jwkThumbprint;
+    private String bindingKeyRef;
 
     @Column(name = "account_id", nullable = false)
     private Long accountId;
@@ -21,17 +21,17 @@ public class AccountJwkMapping {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected AccountJwkMapping() {
+    protected AccountBindingKeyMapping() {
     }
 
-    public AccountJwkMapping(String jwkThumbprint, Long accountId, Instant createdAt) {
-        this.jwkThumbprint = jwkThumbprint;
+    public AccountBindingKeyMapping(String bindingKeyRef, Long accountId, Instant createdAt) {
+        this.bindingKeyRef = bindingKeyRef;
         this.accountId = accountId;
         this.createdAt = createdAt;
     }
 
-    public String getJwkThumbprint() {
-        return jwkThumbprint;
+    public String getBindingKeyRef() {
+        return bindingKeyRef;
     }
 
     public Long getAccountId() {

@@ -6,7 +6,7 @@ import com.example.dpop.auth_sms.AuthSmsSetup;
 import com.example.dpop.auth_sms.AuthSmsSetupResult;
 import com.example.dpop.orchestrator.flow.AuthenticationMethodHandler;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
-import com.example.dpop.orchestrator.session.ClientSession;
+import com.example.dpop.orchestrator.session.BindingSession;
 import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +30,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
     }
 
     @Override
-    public NextStep start(ClientSession session, Map<String, Object> request) {
+    public NextStep start(BindingSession session, Map<String, Object> request) {
         Long accountId = requireAccountId(session);
         boolean isChallenge = accountService.hasActiveAuthenticationMethod(accountId);
 
@@ -57,7 +57,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
     }
 
     @Override
-    public NextStep verify(ClientSession session, Map<String, Object> request) {
+    public NextStep verify(BindingSession session, Map<String, Object> request) {
         Long accountId = requireAccountId(session);
         Long smsSetupId = getLong(request, "smsSetupId");
         String tan = getString(request, "tan");
@@ -82,7 +82,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
     }
 
-    private Long requireAccountId(ClientSession session) {
+    private Long requireAccountId(BindingSession session) {
         Long accountId = session.getAccountId();
         if (accountId == null) {
             throw new FlowSessionException("No account linked to this session");

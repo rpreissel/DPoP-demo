@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface AccountJwkMappingRepository extends JpaRepository<AccountJwkMapping, String> {
+public interface AccountBindingKeyMappingRepository extends JpaRepository<AccountBindingKeyMapping, String> {
 
-    Optional<AccountJwkMapping> findByJwkThumbprint(String jwkThumbprint);
+    Optional<AccountBindingKeyMapping> findByBindingKeyRef(String bindingKeyRef);
 }

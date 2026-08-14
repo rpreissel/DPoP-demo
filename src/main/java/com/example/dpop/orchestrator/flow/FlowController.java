@@ -40,8 +40,8 @@ public class FlowController {
             @RequestHeader("DPoP") String dpopProof,
             HttpServletRequest request) {
 
-        String thumbprint = validateAndExtractThumbprint(dpopProof, request);
-        return ResponseEntity.ok(flowActionService.createFlow(thumbprint));
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, request);
+        return ResponseEntity.ok(flowActionService.createFlow(bindingKeyRef));
     }
 
     @PostMapping("/{sessionId}/identification-methods/{method}")
@@ -52,8 +52,8 @@ public class FlowController {
             @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
 
-        String thumbprint = validateAndExtractThumbprint(dpopProof, request);
-        return ResponseEntity.ok(flowActionService.startIdentification(sessionId, thumbprint, method, requestBody));
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, request);
+        return ResponseEntity.ok(flowActionService.startIdentification(sessionId, bindingKeyRef, method, requestBody));
     }
 
     @PatchMapping("/{sessionId}/identification-methods/{method}")
@@ -64,8 +64,8 @@ public class FlowController {
             @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
 
-        String thumbprint = validateAndExtractThumbprint(dpopProof, request);
-        return ResponseEntity.ok(flowActionService.submitIdentification(sessionId, thumbprint, method, requestBody));
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, request);
+        return ResponseEntity.ok(flowActionService.submitIdentification(sessionId, bindingKeyRef, method, requestBody));
     }
 
     @PostMapping("/{sessionId}/authentication-methods/{method}")
@@ -76,8 +76,8 @@ public class FlowController {
             @RequestBody(required = false) Map<String, Object> requestBody,
             HttpServletRequest request) {
 
-        String thumbprint = validateAndExtractThumbprint(dpopProof, request);
-        return ResponseEntity.ok(flowActionService.startAuthentication(sessionId, thumbprint, method, requestBody));
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, request);
+        return ResponseEntity.ok(flowActionService.startAuthentication(sessionId, bindingKeyRef, method, requestBody));
     }
 
     @PostMapping("/{sessionId}/authentication-methods/{method}/verify")
@@ -88,8 +88,8 @@ public class FlowController {
             @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
 
-        String thumbprint = validateAndExtractThumbprint(dpopProof, request);
-        return ResponseEntity.ok(flowActionService.verifyAuthentication(sessionId, thumbprint, method, requestBody));
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, request);
+        return ResponseEntity.ok(flowActionService.verifyAuthentication(sessionId, bindingKeyRef, method, requestBody));
     }
 
     @ExceptionHandler(DpopValidationException.class)
@@ -107,7 +107,7 @@ public class FlowController {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
     }
 
-    private String validateAndExtractThumbprint(String dpopProof, HttpServletRequest request) {
+    private String validateAndExtractBindingKeyRef(String dpopProof, HttpServletRequest request) {
         String requestUrl = buildRequestUrl(request);
         DpopProof proof = dpopValidator.validate(dpopProof, request.getMethod(), requestUrl);
         return jwkThumbprintService.computeThumbprint(proof.publicKey());

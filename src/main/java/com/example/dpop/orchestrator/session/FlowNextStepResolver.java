@@ -22,7 +22,7 @@ public class FlowNextStepResolver {
         this.authenticationMethodProvider = authenticationMethodProvider;
     }
 
-    public NextStep resolve(ClientSession session) {
+    public NextStep resolve(BindingSession session) {
         if ("authenticated".equals(session.getPhase())) {
             Long accountId = session.getAccountId();
             Long personId = accountId == null
@@ -63,7 +63,7 @@ public class FlowNextStepResolver {
         return new NextStep.UseIdentificationMethodNextStep(identificationMethodProvider.availableMethods());
     }
 
-    private NextStep createChallengeNextStep(ClientSession session, Long accountId, String method) {
+    private NextStep createChallengeNextStep(BindingSession session, Long accountId, String method) {
         if ("sms".equals(method)) {
             return new NextStep.SmsTanInputNextStep(null, null);
         }

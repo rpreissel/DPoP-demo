@@ -1,12 +1,12 @@
 package com.example.dpop.orchestrator.flow;
 
 import com.example.dpop.account.AccountService;
-import com.example.dpop.orchestrator.account.AccountJwkMappingService;
+import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
 import com.example.dpop.orchestrator.flow.handler.FscIdentificationHandler;
 import com.example.dpop.orchestrator.flow.handler.SmsAuthenticationHandler;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
-import com.example.dpop.orchestrator.session.ClientFlowSessionService;
-import com.example.dpop.orchestrator.session.ClientSession;
+import com.example.dpop.orchestrator.session.BindingFlowSessionService;
+import com.example.dpop.orchestrator.session.BindingSession;
 import com.example.dpop.orchestrator.session.IdentificationMethodProvider;
 import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Service;
@@ -22,24 +22,24 @@ import java.util.stream.Collectors;
 @Service
 public class FlowActionService {
 
-    private final ClientFlowSessionService flowSessionService;
+    private final BindingFlowSessionService flowSessionService;
     private final AccountService accountService;
-    private final AccountJwkMappingService accountJwkMappingService;
+    private final AccountBindingKeyMappingService accountBindingKeyMappingService;
     private final IdentificationMethodProvider identificationMethodProvider;
     private final AuthenticationMethodProvider authenticationMethodProvider;
     private final Map<String, IdentificationMethodHandler> identificationHandlers;
     private final Map<String, AuthenticationMethodHandler> authenticationHandlers;
 
-    public FlowActionService(ClientFlowSessionService flowSessionService,
+    public FlowActionService(BindingFlowSessionService flowSessionService,
                              AccountService accountService,
-                             AccountJwkMappingService accountJwkMappingService,
+                             AccountBindingKeyMappingService accountBindingKeyMappingService,
                              IdentificationMethodProvider identificationMethodProvider,
                              AuthenticationMethodProvider authenticationMethodProvider,
                              List<IdentificationMethodHandler> identificationHandlers,
                              List<AuthenticationMethodHandler> authenticationHandlers) {
         this.flowSessionService = flowSessionService;
         this.accountService = accountService;
-        this.accountJwkMappingService = accountJwkMappingService;
+        this.accountBindingKeyMappingService = accountBindingKeyMappingService;
         this.identificationMethodProvider = identificationMethodProvider;
         this.authenticationMethodProvider = authenticationMethodProvider;
         this.identificationHandlers = identificationHandlers.stream()
@@ -49,9 +49,9 @@ public class FlowActionService {
     }
 
     @Transactional
-    public FlowSetupResponse createFlow(String thumbprint) {
-        ClientSession session = flowSessionService.createNewByJwkThumbprint(thumbprint);
-        Optional<Long> knownAccountId = accountJwkMappingService.findAccountIdByJwkThumbprint(thumbprint);
+    public FlowSetupResponse createFlow(String bindingKeyRef) {
+        BindingSession session = flowSessionService.createNewByBindingKeyRef(bindingKeyRef);
+        Optional<Long> knownAccountId = accountBindingKeyMappingService.findAccountIdByBindingKeyRef(bindingKeyRef);
         if (knownAccountId.isPresent() && accountService.hasActiveAuthenticationMethod(knownAccountId.get())) {
             session.setAccountId(knownAccountId.get());
             session = flowSessionService.save(session);
@@ -59,7 +59,7 @@ public class FlowActionService {
         return new FlowSetupResponse(session.getSessionId(), resolveInitialNextStep(session));
     }
 
-    private NextStep resolveInitialNextStep(ClientSession session) {
+    private NextStep resolveInitialNextStep(BindingSession session) {
         if ("authenticated".equals(session.getPhase())) {
             return authenticatedNextStep(session);
         }
@@ -85,7 +85,7 @@ public class FlowActionService {
         return new NextStep.UseIdentificationMethodNextStep(identificationMethodProvider.availableMethods());
     }
 
-    private NextStep challengeNextStep(ClientSession session) {
+    private NextStep challengeNextStep(BindingSession session) {
         Map<String, Object> pendingChallenge = session.getPendingChallenge();
         String method = String.valueOf(pendingChallenge.get("method"));
         Long challengeId = ((Number) pendingChallenge.get("challengeId")).longValue();
@@ -96,7 +96,7 @@ public class FlowActionService {
         throw new IllegalStateException("Unsupported pending challenge method: " + method);
     }
 
-    private NextStep authenticatedNextStep(ClientSession session) {
+    private NextStep authenticatedNextStep(BindingSession session) {
         Long accountId = session.getAccountId();
         Long personId = accountId == null
                 ? null
@@ -105,48 +105,48 @@ public class FlowActionService {
     }
 
     @Transactional
-    public FlowSetupResponse startIdentification(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+    public FlowSetupResponse startIdentification(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         IdentificationMethodHandler handler = identificationHandlers.get(method);
         if (handler == null) {
             throw new IllegalArgumentException("Unsupported identification method: " + method);
         }
-        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
+        BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
         NextStep next = handler.start(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
 
     @Transactional
-    public FlowSetupResponse submitIdentification(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+    public FlowSetupResponse submitIdentification(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         IdentificationMethodHandler handler = identificationHandlers.get(method);
         if (handler == null) {
             throw new IllegalArgumentException("Unsupported identification method: " + method);
         }
-        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
+        BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
         NextStep next = handler.submit(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
 
     @Transactional
-    public FlowSetupResponse startAuthentication(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+    public FlowSetupResponse startAuthentication(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         AuthenticationMethodHandler handler = authenticationHandlers.get(method);
         if (handler == null) {
             throw new IllegalArgumentException("Unsupported authentication method: " + method);
         }
-        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
+        BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
         NextStep next = handler.start(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
 
     @Transactional
-    public FlowSetupResponse verifyAuthentication(UUID sessionId, String thumbprint, String method, Map<String, Object> request) {
+    public FlowSetupResponse verifyAuthentication(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         AuthenticationMethodHandler handler = authenticationHandlers.get(method);
         if (handler == null) {
             throw new IllegalArgumentException("Unsupported authentication method: " + method);
         }
-        ClientSession session = flowSessionService.requireSession(sessionId, thumbprint);
+        BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
         NextStep next = handler.verify(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);

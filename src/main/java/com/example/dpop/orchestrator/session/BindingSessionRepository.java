@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface ClientSessionRepository extends JpaRepository<ClientSession, String> {
+public interface BindingSessionRepository extends JpaRepository<BindingSession, String> {
 
-    Optional<ClientSession> findByJwkThumbprint(String jwkThumbprint);
+    Optional<BindingSession> findByBindingKeyRef(String bindingKeyRef);
 }

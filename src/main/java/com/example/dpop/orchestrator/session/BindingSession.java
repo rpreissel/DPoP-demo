@@ -17,11 +17,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "client_session")
-public class ClientSession {
+public class BindingSession {
 
     @Id
     @Column(name = "jwk_thumbprint", nullable = false, length = 64)
-    private String jwkThumbprint;
+    private String bindingKeyRef;
 
     @Column(name = "expire_at", nullable = false)
     private Instant expireAt;
@@ -41,33 +41,33 @@ public class ClientSession {
     @Column(name = "version", nullable = false)
     private Long version;
 
-    protected ClientSession() {
+    protected BindingSession() {
     }
 
-    public ClientSession(String jwkThumbprint, Instant expireAt, SessionFormat format, Map<String, Object> data) {
-        this.jwkThumbprint = jwkThumbprint;
+    public BindingSession(String bindingKeyRef, Instant expireAt, SessionFormat format, Map<String, Object> data) {
+        this.bindingKeyRef = bindingKeyRef;
         this.expireAt = expireAt;
         this.lastAccessed = Instant.now();
         this.format = format;
         this.data = data;
     }
 
-    public static ClientSession createRegistration(String jwkThumbprint, Instant expireAt) {
-        return createFlow(jwkThumbprint, expireAt);
+    public static BindingSession createRegistration(String bindingKeyRef, Instant expireAt) {
+        return createFlow(bindingKeyRef, expireAt);
     }
 
-    public static ClientSession createAuthorisation(String jwkThumbprint, Instant expireAt) {
-        return createFlow(jwkThumbprint, expireAt);
+    public static BindingSession createAuthorisation(String bindingKeyRef, Instant expireAt) {
+        return createFlow(bindingKeyRef, expireAt);
     }
 
-    public static ClientSession createFlow(String jwkThumbprint, Instant expireAt) {
+    public static BindingSession createFlow(String bindingKeyRef, Instant expireAt) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", UUID.randomUUID().toString());
-        return new ClientSession(jwkThumbprint, expireAt, SessionFormat.V1, data);
+        return new BindingSession(bindingKeyRef, expireAt, SessionFormat.V1, data);
     }
 
-    public String getJwkThumbprint() {
-        return jwkThumbprint;
+    public String getBindingKeyRef() {
+        return bindingKeyRef;
     }
 
     public Instant getExpireAt() {

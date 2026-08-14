@@ -5,11 +5,11 @@ import com.example.dpop.account.AccountService;
 import com.example.dpop.ext_stammdaten.Person;
 import com.example.dpop.ext_stammdaten.PersonRepository;
 import com.example.dpop.id_fsc.IdFscService;
-import com.example.dpop.orchestrator.account.AccountJwkMappingService;
+import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
 import com.example.dpop.orchestrator.flow.IdentificationMethodHandler;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
-import com.example.dpop.orchestrator.session.ClientSession;
+import com.example.dpop.orchestrator.session.BindingSession;
 import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Component;
 
@@ -22,18 +22,18 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
     private final PersonRepository personRepository;
     private final IdFscService idFscService;
     private final AccountService accountService;
-    private final AccountJwkMappingService accountJwkMappingService;
+    private final AccountBindingKeyMappingService accountBindingKeyMappingService;
     private final AuthenticationMethodProvider authenticationMethodProvider;
 
     public FscIdentificationHandler(PersonRepository personRepository,
                                     IdFscService idFscService,
                                     AccountService accountService,
-                                    AccountJwkMappingService accountJwkMappingService,
+                                    AccountBindingKeyMappingService accountBindingKeyMappingService,
                                     AuthenticationMethodProvider authenticationMethodProvider) {
         this.personRepository = personRepository;
         this.idFscService = idFscService;
         this.accountService = accountService;
-        this.accountJwkMappingService = accountJwkMappingService;
+        this.accountBindingKeyMappingService = accountBindingKeyMappingService;
         this.authenticationMethodProvider = authenticationMethodProvider;
     }
 
@@ -43,7 +43,7 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
     }
 
     @Override
-    public NextStep start(ClientSession session, Map<String, Object> request) {
+    public NextStep start(BindingSession session, Map<String, Object> request) {
         String kvnr = getString(request, "kvnr");
         String name = getString(request, "name");
         String vorname = getString(request, "vorname");
@@ -61,7 +61,7 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
     }
 
     @Override
-    public NextStep submit(ClientSession session, Map<String, Object> request) {
+    public NextStep submit(BindingSession session, Map<String, Object> request) {
         String fscCode = getString(request, "fsc");
         UUID sessionId = session.getSessionId();
 
@@ -89,7 +89,7 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
                 Map.of("kvnr", person.getKvnr())
         );
         session.setAccountId(account.getId());
-        accountJwkMappingService.mapJwkToAccount(session.getJwkThumbprint(), account.getId());
+        accountBindingKeyMappingService.mapBindingKeyToAccount(session.getBindingKeyRef(), account.getId());
 
         if (accountService.hasActiveAuthenticationMethod(account.getId())) {
             return new NextStep.AuthenticationMethodSelectionNextStep(authenticationMethodProvider.activeMethods(account));
