@@ -1,0 +1,575 @@
+---
+title: Ideen zur Orchestrator und Keycloak-Integration
+description: Integration des Orchestrators mit Keycloak für App und Web — Token-Erzeugung, Credentials, DPoP.
+sidebar:
+  label: Orchestrator & Keycloak
+  order: 13
+---
+
+## Überblick
+
+Der Orchestrator stellt die zentrale fachliche Logik für Identifizierung und Authentisierung bereit. In der **App** steuert der Orchestrator den Flow direkt. Im **Web** steuert Keycloak den Flow und nutzt den Orchestrator als Backend. Keycloak ist darüber hinaus für die **Token-Erzeugung** zuständig.
+
+**Kernprinzipien:**
+- **App:** Der Orchestrator steuert den gesamten Flow (Registrierung + Login) direkt.
+- **Web:** Keycloak steuert den Login-Flow und **nutzt den Orchestrator** als Backend für die Authentisierung. Identifizierung/Registrierung findet nicht in Keycloak statt.
+- **Registrierung** findet immer über den Orchestrator statt — in der App direkt, im Web über eine eigene Registrierungsseite (z.B. tk.de/registrieren), die den Orchestrator aufruft. Keycloak ist an der Registrierung nicht beteiligt.
+- **Token-Erzeugung** ist die einzige eigenständige Aufgabe von Keycloak.
+- **Account-Service** synchronisiert Accounts und Credentials zu Keycloak.
+- **Identifizierungsverfahren** sind austauschbar (z.B. FSC, eID). Sie prüfen die Identität und liefern verifizierte Stammdaten-Referenzen.
+- **Authentisierungsverfahren** sind austauschbar. Die folgenden Beispiele nutzen SMS-TAN, aber der Orchestrator unterstützt beliebige Verfahren (z.B. Passkeys, Push-TAN, TOTP).
+
+---
+
+## 1. Personentypen und Datenmodell
+
+### Drei Typen von Accounts
+
+| Typ | partnerNr | versNr | Stammdaten vorhanden | Beispiel |
+|-----|:---------:|:------:|:--------------------:|----------|
+| **Versicherter** | ✅ | ✅ | ✅ | TK-Mitglied mit KVNR |
+| **Partner** | ✅ | ❌ | ✅ | Familienangehöriger, Vertreter |
+| **Interessent / Demo** | ❌ | ❌ | ❌ | Noch kein TK-Kontakt, Demo-User |
+
+**Regel:** `partnerNr` ist immer vorhanden, wenn die Person in den Stammdaten existiert — auch bei Versicherten. `versNr` gibt es nur bei Versicherten.
+
+**Interessenten:** Können sich zunächst ohne Identifizierung registrieren. Wird nachträglich eine Identifizierung durchgeführt (z.B. per eID oder einem anderen Verfahren — FSC ist nur für bestehende Partner möglich), werden die verifizierten Daten (partnerNr, ggf. versNr) im Account gespeichert und zu Keycloak synchronisiert.
+
+**Identitäts-Eindeutigkeit:** Zu einer Identität (partnerNr/versNr) kann es nur **einen** Account geben. Wird bei einer Identifizierung festgestellt, dass bereits ein anderer Account mit dieser Identität existiert, wird die Identifizierung **nicht** dem neuen Account zugeordnet. Es erfolgt eine Fehlerbehandlung (z.B. Hinweis auf bestehenden Account, Account-Zusammenführung, oder Abbruch).
+
+---
+
+## 2. Komponentenverantwortlichkeiten
+
+| Komponente | Verantwortung |
+|------------|---------------|
+| **Orchestrator** | Stellt die fachliche Logik für Identifizierung und Authentisierung bereit. In der App: steuert den Flow direkt. Im Web: wird von Keycloak für die **Authentisierung** als Backend aufgerufen (nicht für Identifizierung). Validiert Clients über `clientId` + DPoP. |
+| **Account-Service** | Fachliche Domänendaten: partnerNr, versNr, clientIds, Auth-Verfahren. Source of Truth für alle TK-spezifischen Daten. **Verantwortlich für die Synchronisation der Daten zu Keycloak.** Merkt sich alle Identifizierungen und weiß für jedes Attribut, von wem und wann es bestätigt wurde (Verification-Logs). |
+| **Keycloak** | Im Web: **steuert den Login-Flow** und nutzt den Orchestrator als Backend. Token-Erzeugung und -Lifecycle (access_token, refresh_token, id_token). Stellt Token-Claims bereit (partnerNr, versNr). Keine eigene Registrierung. |
+| **Auth-Services** | Austauschbare Authentisierungsverfahren (z.B. SMS-TAN, Push-TAN, TOTP, Passkeys). Werden nur vom Orchestrator aufgerufen. In den folgenden Beispielen wird SMS-TAN als Beispiel verwendet. |
+| **Identifikations-Services** | Austauschbare Identifizierungsverfahren (z.B. FSC, eID). Prüfen die Identität des Nutzers und liefern verifizierte Stammdaten-Referenzen (partnerNr, versNr). Werden nur vom Orchestrator aufgerufen. |
+
+### Datensynchronisation: Account-Service → Keycloak
+
+```
+Account-Service                              Keycloak
+───────────────                              ────────
+Account angelegt/geändert
+        │
+        ▼
+  KeycloakSyncService
+  (im Account-Modul)
+        │
+        ├── createUser()          ──────────► User anlegen
+        ├── updateAttributes()    ──────────► versNr/partnerNr sync
+        └── deleteUser()          ──────────► User entfernen
+```
+
+Der **Account-Service** ist verantwortlich für:
+- Anlegen des Keycloak-Users bei Account-Erstellung
+- Aktualisierung von Keycloak-Attributen (versNr, partnerNr, Name) bei Änderung — ggf. getriggert durch Events vom Stammdaten-Service (z.B. `PersonDataChanged`)
+- Sicherstellen der Konsistenz (Retry, Eventual Consistency)
+
+### Attribut-Verifikation im Account-Service
+
+Der Account-Service protokolliert für jedes Attribut, das er selbst hält oder nach Keycloak synchronisiert, **von wem** und **wann** es bestätigt wurde:
+
+| Attribut | Bestätigt durch | Beispiel |
+|----------|----------------|----------|
+| partnerNr | Stammdaten-Service + FSC-Identification | Stammdaten liefern die Nummer, FSC bestätigt den Besitz |
+| versNr, Name, Geburtsdatum | Stammdaten-Service | Automatisch bei Stammdaten-Lookup als valide registriert |
+| Adresse (Straße) | Stammdaten-Service | Automatisch, sofern nicht explizit ausgenommen |
+| Auth-Telefonnummer | Auth-Service (SMS) | TAN erfolgreich bestätigt |
+
+**Prinzip:** Attribute, die aus den Stammdaten stammen, gelten automatisch als durch den Stammdaten-Service verifiziert — es sei denn, sie sind explizit ausgenommen. Bei jeder weiteren Identifizierung werden neue Bestätigungen hinzugefügt, bestehende bleiben erhalten.
+
+```
+Account Verification-Log:
+├── partnerNr "P900000001"  ← bestätigt durch: Stammdaten-Service + FSC, 2026-08-13
+├── lastName "Partner"      ← bestätigt durch: Stammdaten-Service, 2026-08-13
+├── street "Hauptstraße 1"  ← bestätigt durch: Stammdaten-Service, 2026-08-13
+└── Auth-Telefonnummer   ← bestätigt durch: SMS-Auth, 2026-08-13
+```
+
+---
+
+## 3. Datenhaltung
+
+### Stammdaten-Service (Source of Truth für Personendaten)
+
+```
+Person
+├── partnerNr
+├── versNr (nur Versicherte)
+├── firstName, lastName
+├── birthDate
+├── street
+└── ...
+```
+
+### Account-Service (Zugangs-Domäne)
+
+Der Account speichert **nur zugangsspezifische Daten** — keine Kopien von Stammdaten. Stammdaten werden bei Bedarf über den Stammdaten-Service geladen (über partnerNr/versNr als Referenz).
+
+```
+Account
+├── accountId (UUID)
+├── partnerNr           ← Referenz auf Stammdaten (kein Name, keine Adresse!)
+├── versNr              ← Referenz auf Stammdaten (nur bei Versicherten)
+├── clientIds:
+│     ├── "jwk-thumb-abc123"      ← dpdop Gerät 1 (JWK Thumbprint)
+│     ├── "jwk-thumb-def456"      ← dpdop Gerät 2 (JWK Thumbprint)
+│     └── "jwk-thumb-ghi789"      ← Keycloak Web-Credential (JWK Thumbprint)
+├── identificationMethods: [fsc]
+├── authenticationMethods: [sms]
+└── verificationLogs: [...]
+```
+
+**Nicht im Account:** Name, Geburtsdatum, Adresse — diese Daten gehören dem Stammdaten-Service. Der Personentyp ergibt sich implizit: `versNr` vorhanden → Versicherter, nur `partnerNr` → Partner, beides null → Interessent.
+
+### Keycloak (bewusst redundant)
+
+Keycloak **muss** Kopien der relevanten Daten halten, da Token-Claims beim Ausstellen verfügbar sein müssen — ein Lookup zum Stammdaten-Service bei jeder Token-Erzeugung wäre zu teuer.
+
+```
+Keycloak User
+├── username:   accountId oder partnerNr  ← für Web-Login (was der User kennt)
+├── credential: Schlüsselpaar             ← Custom Credential, identifiziert über JWK Thumbprint
+├── attribute:  accountId = "a1b2c3-..."
+├── attribute:  partnerNr = "P900000001"  ← Kopie, für Token-Claims
+├── attribute:  versNr = "A123456789"     ← Kopie, für Token-Claims
+├── attribute:  name = "Max Mustermann"   ← Kopie, für Token-Claims
+└── realm role: abgeleitet aus versNr/partnerNr
+```
+
+### Datenhaltungsprinzip
+
+| Daten | Stammdaten-Service | Account-Service | Keycloak |
+|-------|:------------------:|:---------------:|:--------:|
+| Name, Geburtsdatum, Adresse | ✅ Source of Truth | ❌ | ✅ Kopie (Claim) |
+| partnerNr / versNr | ✅ Source of Truth | ✅ Referenz | ✅ Kopie (Claim) |
+| accountId | ❌ | ✅ Source of Truth | ✅ Kopie |
+| clientIds | ❌ | ✅ Source of Truth | nur eigene |
+| Auth-/Ident-Verfahren | ❌ | ✅ Source of Truth | ❌ |
+| Verification-Logs | ❌ | ✅ Source of Truth | ❌ |
+| Auth-Telefonnummer (SMS-TAN) | ❌ | ✅ (im SMS-Service) | ❌ |
+| Kontakt-Telefonnummer | ✅ Source of Truth | ❌ | ✅ Kopie |
+
+> **Hinweis:** Auth-Telefonnummer und Kontakt-Telefonnummer können abweichen — z.B. wenn für SMS-TAN eine andere Nummer hinterlegt wird als die Kontaktnummer in den Stammdaten.
+| Public Keys | ❌ | JWK Thumbprint | ✅ Credential |
+| OIDC-Tokens | ❌ | ❌ | ✅ |
+
+### Synchronisation
+
+```
+Stammdaten-Service ──(Änderung)──► Account-Service ──(Sync)──► Keycloak
+                                    merkt sich nur               braucht Kopien
+                                    Referenzen                   für Token-Claims
+```
+
+Bei Stammdaten-Änderungen (z.B. Namensänderung) aktualisiert der Account-Service die Keycloak-Kopien. Der Account selbst muss nicht geändert werden, da er nur Referenzen hält.
+
+### Beispiele nach Personentyp
+
+**Versicherter:**
+```
+Stammdaten: partnerNr="P900000001", versNr="A123456789", name="Max Mustermann"
+Account:    partnerNr="P900000001", versNr="A123456789"  (kein Name!)
+Keycloak:   partnerNr="P900000001", versNr="A123456789", name="Max Mustermann"
+```
+
+**Partner (nicht versichert):**
+```
+Stammdaten: partnerNr="P900000002", versNr=null, name="Klaus Partner"
+Account:    partnerNr="P900000002", versNr=null
+Keycloak:   partnerNr="P900000002", versNr=null, name="Klaus Partner"
+```
+
+**Interessent (nicht in Stammdaten):**
+```
+Stammdaten: (nicht vorhanden)
+Account:    partnerNr=null, versNr=null
+            + ggf. verifizierte Personendaten aus Identifizierung
+              (z.B. Name, Geburtsdatum aus eID)
+Keycloak:   partnerNr=null, versNr=null, name="Erika Beispiel" (aus eID)
+```
+
+> **Hinweis:** Bei Interessenten ohne Stammdaten-Eintrag kann der Account verifizierte Personendaten speichern, die aus einem Identifizierungsverfahren stammen (z.B. eID). Diese Daten werden auch nach Keycloak synchronisiert, obwohl kein Stammdaten-Gegenstück existiert.
+
+---
+
+## 4. Credentials und Schlüsselverwaltung
+
+### Wozu Schlüsselpaare?
+
+Jeder Client (App-Installation oder Keycloak-Web-User) benötigt ein eigenes Schlüsselpaar, um sich gegenüber dem Orchestrator zu authentifizieren. Der Client signiert bei jedem Aufruf einen **DPoP-Proof** (Demonstration of Proof-of-Possession) mit seinem Private Key. Der Orchestrator prüft die Signatur mit dem zugehörigen Public Key. Dadurch wird sichergestellt, dass:
+
+- **Nur der legitime Besitzer** des Private Keys den Orchestrator aufrufen kann
+- **Gestohlene Session-IDs** allein wertlos sind (ohne Private Key keine gültige Signatur)
+- **Jedes Gerät/jeder Kanal** ein eigenes Credential hat und einzeln gesperrt werden kann
+
+### Schlüsselerzeugung in Keycloak
+
+Die Schlüsselpaare werden **direkt in Keycloak** erzeugt und als Custom Credential gespeichert (analog zu Passkeys/WebAuthn). Der Account-Service erhält nur den **JWK Thumbprint** als Referenz — einen kompakten Hash des Public Keys, der als `clientId` dient.
+
+```
+Account-Service                          Keycloak
+───────────────                          ────────
+
+1. Account anlegen
+        │
+        ▼
+2. KeycloakSyncService:
+   createUser(accountId, ...)  ────────► Keycloak-User anlegen
+                                              │
+3. generateCredential()        ────────► Schlüsselpaar erzeugen
+                                          (Custom Credential SPI)
+                                              │
+4. getJwkThumbprint()          ◄──────── JWK Thumbprint zurück
+        │
+        ▼
+5. Thumbprint im Account
+   als clientId-Referenz
+   speichern
+```
+
+### Warum Schlüssel in Keycloak?
+
+| Aspekt | Schlüssel in Keycloak | Schlüssel im Account-Service |
+|--------|:---------------------:|:----------------------------:|
+| Private Key Schutz | ✅ Keycloak HSM/Vault-Integration | ❌ Selbst implementieren |
+| Credential-Lifecycle | ✅ Keycloak Built-in (Rotation, Revocation) | ❌ Selbst implementieren |
+| Passkey-Analogie | ✅ Gleicher Mechanismus wie WebAuthn | ❌ Eigenes System |
+| Skalierung 10M | ✅ `credential`-Tabelle, indiziert | ⚠️ Custom-Lösung |
+
+### Credential pro Client
+
+Jeder Client (App-Installation, Keycloak-Web-User) bekommt ein eigenes Credential:
+
+```
+Keycloak User "Max Mustermann" (username = "P900000001")
+├── Credential 1: App Gerät 1  (Schlüsselpaar, Thumbprint: "abc123")
+├── Credential 2: App Gerät 2  (Schlüsselpaar, Thumbprint: "def456")
+└── Credential 3: Web-Login    (Schlüsselpaar, Thumbprint: "ghi789")
+
+Account-Service
+├── clientId: "abc123" (JWK Thumbprint) → Gerät 1
+├── clientId: "def456" (JWK Thumbprint) → Gerät 2
+└── clientId: "ghi789" (JWK Thumbprint) → Web
+```
+
+### Validierung bei Login
+
+```
+1. Client sendet: clientId (= JWK Thumbprint) + signierte Challenge
+2. Orchestrator → Keycloak: Credential by Thumbprint auflösen
+3. Keycloak: Signatur mit gespeichertem Public Key prüfen
+4. Orchestrator: Flow fortsetzen
+```
+
+---
+
+## 5. Erstregistrierung (App)
+
+Bei der Erstregistrierung wird der Account angelegt. Der Account-Service synchronisiert die Daten zu Keycloak, erzeugt dort das Credential und gibt den JWK Thumbprint als clientId zurück.
+
+```
+App (dpdop)                     Orchestrator                    Account-Service / Keycloak
+───────────                     ────────────                    ──────────────────────────
+1. POST /orchestrator/sessions
+   { }                       ──► Session anlegen
+                                        │
+2. POST /orchestrator/{sid}/identify
+   { kvnr, lastName, fsc }   ──► IdentificationService
+                                  → Stammdaten prüfen
+                                  → FSC verifizieren
+                                        │
+3. POST /orchestrator/{sid}/setup-auth
+   { phoneNumber }           ──► SMS-Service
+                                  → TAN senden
+                                        │
+4. POST /orchestrator/{sid}/confirm-auth
+   { tan }                   ──► SMS-Service
+                                  → TAN prüfen ✓
+                                        │
+                              5. Account anlegen ────────────► Account-Service
+                                                                ├── Account speichern
+                                                                └── KeycloakSyncService:
+                                                                     ├── Keycloak-User anlegen
+                                                                     │   (accountId, partnerNr,
+                                                                     │    versNr)
+                                                                     ├── Credential erzeugen
+                                                                     │   (Schlüsselpaar in KC)
+                                                                     └── JWK Thumbprint
+                                                                         als clientId speichern
+                                        │
+                              6. Token Exchange  ────────────► Keycloak
+                                  (subject_token =               OIDC-Tokens
+                                   signiertes JWT)               erzeugen
+                                        │
+                              7. Tokens in Session
+                                  speichern (Backend)
+                                        │
+        ◄───────────────────────────────┘
+8. App erhält sessionId
+   + clientId (JWK Thumbprint)
+   (Tokens bleiben im Backend)
+```
+
+---
+
+## 6. App-Login (Wiederkehrender Login)
+
+```
+App (dpdop)                     Orchestrator                         Keycloak
+───────────                     ────────────                         ────────
+1. POST /orchestrator/sessions
+   { clientId,
+     signedChallenge }       ──► clientId → Account auflösen
+                                  Signatur prüfen (publicKey)
+                                        │
+2. POST /orchestrator/{sid}/sms-challenge
+                              ──► SMS-Service → TAN senden
+                                        │
+3. POST /orchestrator/{sid}/sms-confirm
+   { tan }                   ──► SMS-Service → TAN prüfen ✓
+                                        │
+                              4. Token Exchange         ──────────► OIDC-Tokens
+                                  mit clientId                       erzeugen
+                                        │
+                              5. Tokens in Session
+                                  speichern
+                                        │
+        ◄───────────────────────────────┘
+6. App erhält sessionId
+```
+
+---
+
+## 7. Web-Registrierung
+
+Die Registrierung im Web läuft **über den Orchestrator** — nicht über Keycloak. Die Web-Registrierungsseite (z.B. tk.de/registrieren) ruft den Orchestrator direkt auf.
+
+```
+Browser                         Orchestrator                    Account-Service / Keycloak
+───────                         ────────────                    ──────────────────────────
+1. User öffnet tk.de/registrieren
+        │
+        ▼
+2. POST /orchestrator/sessions ──► Session anlegen
+        │
+3. POST /orchestrator/{sid}/identify
+   { kvnr, lastName, fsc }    ──► Identifizierung
+                                  (wie App)
+        │
+4. POST /orchestrator/{sid}/setup-auth
+   { phoneNumber }            ──► Auth-Service (z.B. SMS)
+                                  → TAN senden
+        │
+5. POST /orchestrator/{sid}/confirm-auth
+   { tan }                    ──► Auth-Service → TAN prüfen ✓
+                                        │
+                               6. Account anlegen ───────────► Account-Service
+                                                                ├── Account speichern
+                                                                └── KeycloakSyncService:
+                                                                     Keycloak-User + Credential
+                                        │
+                               7. Token Exchange ────────────► Keycloak → Tokens
+                                        │
+        ◄───────────────────────────────┘
+8. BFF speichert Tokens,
+   setzt Session-Cookie
+```
+
+**Keycloak ist an der Registrierung nicht beteiligt** — es wird erst am Ende informiert (User + Credential anlegen) und erzeugt dann die Tokens.
+
+---
+
+## 8. Web-Login (Beispiel: SMS-TAN)
+
+> **Hinweis:** SMS-TAN dient hier als Beispiel. Der Orchestrator unterstützt beliebige Authentisierungsverfahren (Passkeys, Push-TAN, TOTP, etc.). Der Ablauf ist analog — nur der Auth-Service-Aufruf unterscheidet sich.
+
+Im Web-Login delegiert der Keycloak Custom Authenticator an den Orchestrator.
+
+```
+Browser                     Keycloak                    Orchestrator
+───────                     ────────                    ────────────
+1. User öffnet tk.de/login
+        │
+        ▼
+2. Redirect ──────────────► Login-Page
+                             anzeigen
+        │
+3. User gibt versNr ein
+        │
+        ▼
+4. Keycloak findet User
+   (username = versNr/partnerNr)
+        │
+        ▼
+5. Custom Authenticator
+   startet:
+                             POST /orchestrator/     ──► Session anlegen
+                               sessions                  (clientId = JWK Thumb
+                               { clientId,                des Keycloak-Credentials,
+                                 signedChallenge }        DPoP-Proof prüfen)
+                                                              │
+                             POST /orchestrator/     ──► Auth-Service
+                               {sid}/auth-challenge       → TAN senden
+                                                              │
+        ◄─────────────────── TAN-Eingabeformular
+                             anzeigen
+        │
+6. User gibt TAN ein
+        │
+        ▼
+                             POST /orchestrator/     ──► Auth-Service
+                               {sid}/auth-confirm         → TAN prüfen ✓
+                               { tan }
+                                                              │
+                             ◄────────────────────────────────┘
+7. Authenticator: success()
+        │
+        ▼
+8. Keycloak erzeugt
+   OIDC-Tokens (selbst!)
+        │
+        ▼
+9. Redirect ──────────────► tk.de/callback
+                             BFF speichert Tokens
+                             setzt Session-Cookie
+        │
+        ▼
+10. Browser erhält Cookie
+    (Tokens bleiben im BFF)
+```
+
+### Keycloak-spezifische Orchestrator-APIs
+
+Der Orchestrator darf für Keycloak **eigene oder angepasste APIs** bereitstellen, um das Session-Handling im Custom Authenticator zu vereinfachen. Keycloak nutzt dabei dieselbe `clientId` und DPoP wie die App.
+
+| API | Zweck | Unterschied zur App-API |
+|-----|-------|------------------------|
+| `POST /orchestrator/kc/authenticate` | Kombinierter Aufruf: Session + Challenge in einem Request | App nutzt zwei separate Calls |
+| `POST /orchestrator/kc/authenticate/{sid}/confirm` | TAN bestätigen und Ergebnis zurückgeben | Gleiche Logik, ggf. anderes Response-Format |
+
+**Beispiel:** Keycloak-optimierte API, die Session-Anlage und Challenge-Versand kombiniert:
+
+```
+POST /orchestrator/kc/authenticate
+DPoP: <dpop-proof>
+{
+  "clientId": "jwk-thumb-ghi789",
+  "authMethod": "sms"
+}
+
+→ 200 { "sessionId": "...", "challengeSent": true }
+```
+
+### Warum eigene APIs erlaubt sind
+
+- Der Keycloak Custom Authenticator hat **eingeschränkte Möglichkeiten** (synchroner Request/Response, kein Multi-Step mit State)
+- Weniger Netzwerk-Roundtrips = **niedrigere Latenz** im Login
+- Die **Kernlogik bleibt gleich** — nur die API-Oberfläche ist angepasst
+- DPoP und clientId werden **immer** genutzt — die Sicherheitsgarantien bleiben identisch
+
+### DPoP (Demonstration of Proof-of-Possession)
+
+Alle Aufrufe an den Orchestrator — ob von App oder Keycloak — nutzen DPoP:
+
+```
+POST /orchestrator/sessions
+DPoP: eyJhbGciOiJFUzI1NiIsInR5cCI6ImRwb3Arand6ayI6ey4uLn19.eyJodG0iOiJQT1NUIiwiaHR1Ijoi...
+{
+  "clientId": "abc123-jwk-thumbprint"
+}
+```
+
+| Aspekt | Beschreibung |
+|--------|-------------|
+| **DPoP-Proof** | Signiert mit dem Private Key des Credentials (in Keycloak gespeichert) |
+| **clientId** | JWK Thumbprint des Public Keys = Credential-Referenz |
+| **Validierung** | Orchestrator löst clientId → Public Key auf (via Keycloak), prüft DPoP-Signatur |
+| **Sender-Binding** | Stellt sicher, dass nur der Besitzer des Private Keys den Orchestrator aufrufen kann |
+
+### Unterschied zum App-Flow
+
+| Aspekt | App | Web (Keycloak) |
+|--------|-----|----------------|
+| Wer startet den Orchestrator-Flow? | App direkt | Keycloak Custom Authenticator |
+| DPoP-Proof erstellt von | App (Private Key auf Gerät) | Keycloak (Private Key als Credential) |
+| Orchestrator-API | Standard-API (Multi-Step) | Optional: Keycloak-optimierte API (weniger Calls) |
+| Wer erzeugt OIDC-Tokens? | Orchestrator via Token Exchange | Keycloak selbst (nach Authenticator-Success) |
+| Wo bleiben Tokens? | Orchestrator-Session (Backend) | BFF-Session (Backend) |
+| Was erhält der Client? | sessionId (im Pfad) | Session-Cookie (HttpOnly) |
+
+### Was der Orchestrator sieht
+
+Für den Orchestrator gibt es **keinen Unterschied in der Sicherheit**:
+
+```
+App-Login:  clientId="abc123", DPoP-Proof mit Device-Key
+Web-Login:  clientId="def456", DPoP-Proof mit Keycloak-Credential-Key
+
+→ Gleiche DPoP-Validierung, gleicher Auth-Flow, gleiche Audit-Logs
+```
+
+---
+
+## 9. Token-Claims
+
+Nach erfolgreicher Authentisierung enthalten die OIDC-Tokens:
+
+```json
+{
+  "sub": "a1b2c3d4-...",
+  "account_id": "a1b2c3d4-...",
+  "partner_nr": "P900000001",
+  "vers_nr": "A123456789",
+  "name": "Max Mustermann",
+  "iss": "https://keycloak.tk.de/realms/tk"
+}
+```
+
+`partner_nr` ist immer vorhanden, wenn die Person in den Stammdaten existiert.
+`vers_nr` nur bei Versicherten. Bei Interessenten sind beide `null`.
+Der Personentyp ergibt sich aus der Kombination der Claims.
+
+---
+
+## 10. Zusammenfassung
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Orchestrator                             │
+│                                                                 │
+│   ┌──────────┐    ┌──────────────┐    ┌────────────────────┐   │
+│   │ Session- │    │ Identifi-    │    │ Auth-Services       │   │
+│   │ Mgmt     │    │ cation-Svc   │    │ (SMS, Passkey, ...) │   │
+│   └──────────┘    └──────────────┘    └────────────────────┘   │
+│                                                                 │
+│   Fachliche Logik für Authentisierung (+ Identifizierung in App/Web-Reg.) │
+│   App: steuert Flow direkt | Web: wird von Keycloak genutzt    │
+│   Validierung: clientId + DPoP                                  │
+└─────────────────┬──────────────────────────┬────────────────────┘
+                  │                          │
+          ┌───────┴───────┐          ┌───────┴───────┐
+          │   App (dpdop) │          │   Keycloak    │
+          │               │          │               │
+          │ Orchestrator  │          │ Keycloak      │
+          │ steuert Flow  │          │ steuert Flow, │
+          │ direkt        │          │ nutzt Orch.   │
+          │               │          │               │
+          │ clientId =    │          │ clientId =    │
+          │ JWK Thumb    │          │ JWK Thumb     │
+          │ (Geräte-Key) │          │ (KC-Credential)│
+          │               │          │               │
+          │ Keys auf      │          │ Keys als      │
+          │ dem Gerät     │          │ Credential    │
+          │               │          │               │
+          │ Tokens im     │          │ Tokens im     │
+          │ Backend       │          │ BFF           │
+          └───────────────┘          └───────────────┘
+```
+
+**Ein Orchestrator. Zwei Kanäle. App: Orchestrator steuert. Web: Keycloak steuert, Orchestrator liefert.**
