@@ -189,6 +189,7 @@ Abhaengigkeiten und Risiken:
 - Risiko 2: OIDC-Verwechslung bei `client*`-Restbegriffen -> Durch harte Verbotsregel ausser explizitem OIDC-Kontext minimieren.
 - Risiko 3: Inkonsistente Begriffe zwischen Modulen -> Durch Reihenfolge (Doku -> Domain -> Repo -> API -> DB) und abschliessende Suchprüfung minimieren.
 - Die Session enthält keine separate Registrierungs- oder Authentifizierungssession; stattdessen entscheidet der `FlowNextStepResolver` anhand der Session-Daten und des Accounts, ob Identifikation, Setup einer Authentifizierungsmethode oder eine Authentifizierungs-Challenge erforderlich ist.
+- Fuer das diskutierte Zielbild der App-/Keycloak-Kopplung gilt zusaetzlich folgende API-Regel: Das oeffentliche API wird unter `/orchestrator/api/v1` versioniert. Die Prozess-API bleibt kanalabhaengig getrennt (App vs. Keycloak); im oeffentlichen App-API gibt es jedoch keinen separaten Prozessstart mehr. Stattdessen erzeugt oder liest der Einstiegscall die `channelSessionId`, und das Backend leitet unmittelbar anhand von Kanalzustand, Accountstatus und Policy den intern noetigen Prozess (`REGISTRATION`, `LOGIN` oder `STEP_UP`) ab und liefert direkt den ersten fachlichen `next`-Schritt. Die interne `processSessionId` bleibt fuer Persistenz, Korrelation und Audit bestehen, ist aber kein Bestandteil der oeffentlichen Ziel-URLs. Unterschiedliche fachliche Varianten duerfen nicht durch denselben Endpunkt nur anhand verschiedener Request-Daten unterschieden werden; stattdessen werden methoden- und modusspezifische Attempt-Ressourcen mit jeweils eigenem URL-Muster und eigenem Request-Schema modelliert, insbesondere fuer `fsc`, `sms/setup` und `sms/use`. Fuer vorbereitende Methoden gilt ein ressourcenorientiertes Muster: `POST` legt eine Attempt-Ressource an (auch mit teilweisen Daten), `PATCH` ergaenzt fehlende Daten auf derselben Ressource, `GET` liest den aktuellen Stand. Solange Daten fehlen, antwortet der Server erfolgreich mit `status=INPUT_REQUIRED` und `missingFields`; sobald alle Pflichtdaten vorliegen und validiert sind, liefert dieselbe Ressource das Ergebnis mit `status=VERIFIED` plus `result`. Das Rueckgabeobjekt `next` verwendet im Zielbild nur zwei Routing-Attribute: `context` und `step`. `context` benennt den fuer die UI relevanten Kontext, also entweder einen generischen fachlichen Bereich wie `registration` oder den konkreten Methodenkontext wie `fsc` bzw. `sms`. `step` beschreibt nur die Phase innerhalb dieses Kontexts, z. B. `selectIdentificationMethod`, `setup`, `use`, `input`, `tanInput` oder `authenticated`. Die UI-Fortsetzung wird ausschliesslich aus `(context, step)` abgeleitet; URLs sind fest vorgegeben und keine Entscheidungsquelle. HATEOAS-Links sind im Zielbild nicht vorgesehen.
 - Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
 - Im Modul `account` existiert eine `Account`-Entität mit folgenden Attributen:
   - `id` (Primärschlüssel, auto-generiert)
@@ -202,7 +203,7 @@ Abhaengigkeiten und Risiken:
   - `registrationSessionId` (Session, in der die Identifikation stattfand)
   - `details` (JSON mit weiteren wichtigen Daten, z. B. KVNR)
 - Die `Account`-Entitaet speichert zusaetzlich `authenticationMethods` als JSON-Array.
-  - Eine `AuthenticationMethod` enthaelt `method` (z. B. `sms`), `active`, `createdAt` und `details` (JSON, z. B. `smsSetupId`, `phoneNumber`).
+  - Eine `AuthenticationMethod` enthaelt `method` (z. B. `sms`), `active`, `createdAt` und `details` (JSON, z. B. `smsSetupId`).
   - Der Account kann mehrere verschiedene Authentifizierungsmethoden halten.
 - Im Modul `auth_sms` existiert eine `AuthSmsSetup`-Entitaet in eigener Tabelle `auth_sms`:
   - `id` (Primaerschluessel, auto-generiert)
@@ -232,21 +233,21 @@ Abhaengigkeiten und Risiken:
 | F13 | Das DPoP-Keypair wird im Browser persistiert. | Wiederverwendung über Seitenneuladungen hinweg |
 | F14 | Der öffentliche DPoP-Schlüssel ist als JWK im Frontend einsehbar. | Anzeige des `jwk`-Teils im UI |
 | F15 | Alle Registration-Aufrufe werden mit DPoP abgesichert. | Header `DPoP` enthält valides DPoP-Proof-JWT |
-| F16 | Der Session-Einstieg erfolgt über einen POST-Endpunkt. | POST `/orchestrator/sessions` mit DPoP-Proof liefert `sessionId` und `next` |
+| F16 | Der Session-Einstieg erfolgt ueber einen versionierten POST-Endpunkt. | POST `/orchestrator/api/v1/app/channels` mit DPoP-Proof liefert `channelSessionId` und `next` |
 | F17 | Die Abfrage verwendet die `binding_key_ref` als Schluessel. | Es gibt genau eine Binding-Session pro `binding_key_ref` |
-| F18 | Bei fehlender Session wird der nächste Schritt "registration" zurückgegeben. | Ohne Identifikationsmethoden; diese folgen beim Setup |
-| F19 | Eine neue Flow-Session wird über den Setup-Prozess erzeugt oder wiederverwendet. | POST `/orchestrator/sessions` liefert `sessionId` |
-| F20 | Der Setup-Prozess verwendet die `binding_key_ref` als Schluessel. | Session wird anhand der `binding_key_ref` wiederverwendet |
-| F21 | Folgende Aufrufe enthalten die `sessionId` im Pfad. | z.B. `/orchestrator/sessions/{id}/identification-methods/fsc` |
-| F22 | Die Identifikationsmethode FSC wird über einen dedizierten Endpunkt gestartet. | POST `/orchestrator/sessions/{id}/identification-methods/fsc` mit KVNR, Name und Vorname |
+| F18 | Bei fehlender Session wird direkt der erste Registrierungs-Schritt zurueckgegeben. | Antwort enthaelt `next: { context: "registration", step: "selectIdentificationMethod" }` |
+| F19 | Eine Channel-Session wird beim Einstieg erzeugt oder wiederverwendet; der interne Prozess wird serverseitig abgeleitet. | POST `/orchestrator/api/v1/app/channels` liefert `channelSessionId` und den ersten fachlichen `next`-Schritt |
+| F20 | Der Einstieg verwendet die `binding_key_ref` als Schluessel. | Die `channelSessionId` wird anhand der `binding_key_ref` wiederverwendet oder neu angelegt |
+| F21 | Methoden- und modusspezifische Aufrufe enthalten die `channelSessionId` und die konkrete Variante im Pfad. | z. B. `/orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts` oder `/orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/setup/attempts` |
+| F22 | Die Identifikationsmethode FSC wird als Attempt-Ressource modelliert und kann vollstaendig oder schrittweise befuellt werden. | `POST /orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts` akzeptiert `kvnr`, `name`, `vorname` und optional `fsc`; `PATCH /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}` ergaenzt fehlende Felder |
 | F23 | Der Orchestrator prüft die KVNR gegen die Stammdaten und fordert bei Erfolg die FSC-Eingabe an. | Antwort enthält `next: { context: "fsc", step: "input" }` |
-| F24 | Der Freischaltcode wird per PATCH übermittelt und vom FSC-Service validiert. | PATCH `/orchestrator/sessions/{id}/identification-methods/fsc`; Prüfung auf Existenz und Ablauf |
-| F25 | Nach erfolgreicher FSC-Validierung wird der Authentication-Setup-Schritt zurückgegeben. | Antwort enthält `next: { context: "authentication", step: "setup", authenticationMethods: ["sms"] }` |
+| F24 | Der Freischaltcode wird auf derselben FSC-Attempt-Ressource uebermittelt und vom FSC-Service validiert. | `PATCH /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}` mit Feld `fsc`; Pruefung auf Existenz und Ablauf |
+| F25 | Nach erfolgreicher FSC-Validierung liefert dieselbe Attempt-Ressource das fachliche Ergebnis und den naechsten Schritt zur Authentifizierungs-Auswahl. | Antwort enthaelt `status: "VERIFIED"`, `result` und `next: { context: "authentication", step: "selectMethod", authenticationMethods: [...] }` |
 | F25a | Nach erfolgreicher FSC-Validierung wird ein Account erstellt. | Account referenziert die `personId` und speichert mindestens Identifikationsmittel, -qualität, Zeitpunkt und Session-Id |
 | F25b | Der erstellte Account wird in der Registration Session gemerkt. | `ClientSession.data` enthält die `accountId` |
 | F25c | Ein Account kann mehrere Identifikationen speichern. | `identifications` ist ein JSON-Array in der Account-Tabelle |
-| F32 | Nach erfolgreicher Identifikation wird der SMS-Setup-Schritt angeboten. | Antwort enthält `next: { context: "authentication", step: "setup", authenticationMethods: ["sms"] }` |
-| F33 | Die SMS-Authentifizierung wird in zwei Schritten eingerichtet. | `POST .../authentication-methods/sms` speichert Telefonnummer, generiert TAN und sendet gemockte SMS; `POST .../authentication-methods/sms/verify-tan` validiert die TAN |
+| F32 | Nach erfolgreicher Identifikation werden die moeglichen Authentifizierungsverfahren im vorhergehenden Schritt aufgelistet. | Antwort enthaelt `next: { context: "authentication", step: "selectMethod", authenticationMethods: [...] }` |
+| F33 | Die SMS-Authentifizierung wird fuer Setup und Use als getrennte Attempt-Ressourcen mit `POST`/`PATCH`/`GET` modelliert. | `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/setup/attempts` legt die Setup-Ressource an; `PATCH /orchestrator/api/v1/authentication-methods/sms/setup/attempts/{attemptId}` verarbeitet `phoneNumber` oder `tan`; fuer `sms/use` existieren analoge, aber eigene Endpunkte |
 | F34 | Die Telefonnummer wird client- und serverseitig validiert. | Frontend prüft Format; Backend lehnt ungültige Nummern mit HTTP 400 ab |
 | F35 | Der SMS-Versand und die TAN-Validierung werden im `auth_sms`-Modul ausgeführt. | `AuthSmsService` generiert TAN, mockt Versand und validiert TAN gegen die `auth_sms`-Tabelle |
 | F36 | Bei erfolgreicher TAN-Validierung wird das `validated`-Flag in `auth_sms` gesetzt. | `validated` wechselt von `false` auf `true` |
@@ -256,10 +257,11 @@ Abhaengigkeiten und Risiken:
 | F40 | Auch bei wiederverwendetem Account wird die neue Identifikation gespeichert. | `identifications` enthält für jede erfolgreiche FSC-Identifikation einen weiteren Eintrag |
 | F41 | Der Orchestrator speichert die Zuordnung `binding_key_ref -> accountId`. | Persistente Mapping-Tabelle erlaubt mehrere Binding-Keys pro Account |
 | F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang zur Authentifizierungs-Auswahl |
-| F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Session erhalten; die Phase wechselt. | `binding_session.type` bleibt `FLOW`; `data.phase` und `next.context` leiten den Client weiter |
-| F44 | In der Authentifizierungsphase werden vorhandene Methoden angeboten und die TAN dort bestätigt. | Die SMS-Challenge unter `/orchestrator/sessions/{id}/authentication-methods/sms/challenge` verwendet die im Account hinterlegte aktive Telefonnummer; der Client uebergibt keine Telefonnummer mehr |
-| F45 | Jede Antwort enthält die aktuelle `sessionId`. | `sessionId` und `next` sind die einzigen Session-Felder in Responses |
-| F46 | Bei erneutem Frontend-Start wird eine vorhandene Authentifizierungs-Session rotiert. | `POST /orchestrator/sessions` erzeugt bei bekanntem Account mit aktiver Methode eine neue `sessionId` und bietet `selectMethod` an |
+| F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Channel-Session erhalten; nur der interne Prozess wechselt. | `channelSessionId` bleibt stabil; `next.context` und `next.step` leiten den Client weiter |
+| F44 | In der Authentifizierungsphase werden vorhandene Methoden ueber konkrete Use-Attempt-Ressourcen verwendet. | Die SMS-Challenge unter `/orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` verwendet die im Setup (`auth_sms`) gespeicherte Nummer ueber `smsSetupId`; der Client uebergibt keine Telefonnummer mehr |
+| F45 | Responses enthalten nur technische IDs/Zustaende und kein HATEOAS. | Einstieg liefert `channelSessionId`; Attempt-Responses liefern `attemptId`, `status`, `missingFields` (falls unvollstaendig), optional `result` (falls verifiziert) und `next` |
+| F47 | HTTP-Statuscodes fuer vorbereitende Attempt-Ressourcen sind einheitlich definiert. | `POST` -> `201 Created`; `PATCH`/`GET` -> `200 OK`; unvollstaendige Daten sind kein Fehler (`INPUT_REQUIRED` im Body); fachlich ungueltige Daten -> `422`; ungueltiger Zustandswechsel -> `409` |
+| F46 | Bei erneutem Frontend-Start wird ein bekannter Kanal ueber denselben Einstiegscall fortgesetzt und der noetige Login-Schritt serverseitig bestimmt. | `POST /orchestrator/api/v1/app/channels` verwendet bei bekanntem Account die bestehende `channelSessionId` und liefert fuer die Anmeldung zunaechst `next: { context: "authentication", step: "selectMethod" }` |
 | F26 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP 401 abgewiesen |
 | F27 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP 401 abgewiesen |
 | F28 | Der private DPoP-Schlüssel ist im Browser nicht exportierbar. | Erzeugung des Keypairs mit `extractable=false`, öffentliche JWK bleibt für Proof-Header exportierbar |
@@ -269,39 +271,50 @@ Abhaengigkeiten und Risiken:
 
 ### 3.6 DPoP- und Session-Ablauf (Beispiel)
 
-Das Frontend erzeugt beim ersten Start ein ECDSA P-256 Schlüsselpaar und persistiert es im Browser (IndexedDB). Der öffentliche Schlüssel wird als JWK in den DPoP-Proofs übertragen. Das Backend leitet daraus einen JWK-Thumbprint (RFC 7638) ab und verwendet ihn als Schlüssel für Sessions.
+Das Frontend erzeugt beim ersten Start ein ECDSA-P-256-Schluesselpaar und persistiert es im Browser (IndexedDB). Der oeffentliche Schluessel wird als JWK in den DPoP-Proofs uebertragen. Das Backend leitet daraus einen JWK-Thumbprint (RFC 7638) ab und verwendet ihn fachlich als `binding_key_ref`. Das oeffentliche API ist unter `/orchestrator/api/v1` versioniert. Antworten enthalten keine HATEOAS-Links; der Client leitet den naechsten Schritt ausschliesslich aus `next.context` und `next.step` ab.
 
-#### Schritt 1: Session-Einstieg
+Ressourcenmuster fuer vorbereitende Methoden (Identifikation/Authentifizierung):
+
+- `POST` auf die Attempt-Collection legt eine neue Attempt-Ressource an (`201 Created`, mit `Location`).
+- `PATCH` auf dieselbe Attempt-Ressource ergaenzt fehlende Felder.
+- `GET` auf dieselbe Attempt-Ressource liefert den aktuellen Stand.
+- Solange Pflichtdaten fehlen: `status = INPUT_REQUIRED`, `missingFields = [...]`, HTTP `200` (kein Fehlerfall).
+- Wenn alle Pflichtdaten vorliegen und fachlich gueltig sind: `status = VERIFIED`, `result` ist gesetzt, HTTP `200`.
+- Bei fachlich ungueltigen Eingaben: HTTP `422`; bei ungueltigem Zustandswechsel: HTTP `409`.
+
+#### Schritt 1: Channel-Einstieg
 
 ```http
-POST /orchestrator/sessions HTTP/1.1
+POST /orchestrator/api/v1/app/channels HTTP/1.1
 Host: localhost:8080
+Content-Type: application/json
 DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+
+{
+  "channelSessionId": null
+}
 ```
 
-Antwort bei noch unbekanntem Client (neue Session wird angelegt):
+Antwort bei noch unbekanntem Kanal:
 
 ```json
 {
-  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
+  "state": "ANONYMOUS",
   "next": {
     "context": "registration",
-    "step": "useIdentificationMethod",
+    "step": "selectIdentificationMethod",
     "identificationMethods": ["fsc"]
   }
 }
 ```
 
-Derselbe Endpunkt dient auch der Wiederverwendung und Rotation einer bestehenden Session.
+Der Einstieg erzeugt oder liest die `channelSessionId` und startet intern bei Bedarf einen `REGISTRATION`-, `LOGIN`- oder `STEP_UP`-Prozess.
 
-#### Schritt 2: Identifikationsmethode auswählen
-
-Das Frontend zeigt dem Nutzer die vom `IdentificationMethodProvider` ermittelten Methoden an (z. B. `fsc`). Die eigentliche Auswahl erfolgt durch den Aufruf des entsprechenden Endpunkts in Schritt 3.
-
-#### Schritt 3: FSC-Identifikation starten
+#### Schritt 2: FSC-Attempt anlegen (optional direkt mit Daten)
 
 ```http
-POST /orchestrator/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/identification-methods/fsc HTTP/1.1
+POST /orchestrator/api/v1/app/channels/c1111111-1111-1111-1111-111111111111/identification-methods/fsc/attempts HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
 DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
@@ -313,10 +326,19 @@ DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2Ij
 }
 ```
 
-Antwort bei bekannter KVNR:
+Antwort bei unvollstaendigen Daten (`fsc` fehlt):
 
 ```json
 {
+  "attemptId": "i7777777-7777-7777-7777-777777777777",
+  "status": "INPUT_REQUIRED",
+  "input": {
+    "kvnr": "A123456789",
+    "name": "Muster",
+    "vorname": "Max"
+  },
+  "missingFields": ["fsc"],
+  "result": null,
   "next": {
     "context": "fsc",
     "step": "input"
@@ -324,12 +346,12 @@ Antwort bei bekannter KVNR:
 }
 ```
 
-Der Orchestrator speichert die zugeordnete `personId` in der Registration Session.
+Falls alle Pflichtdaten bereits im `POST` enthalten sind (`kvnr`, `name`, `vorname`, `fsc`), wird die Identifikation in demselben Request validiert und direkt ein verifiziertes Ergebnis geliefert (`201 Created`).
 
-#### Schritt 4: Freischaltcode übermitteln
+#### Schritt 3: FSC nachliefern (PATCH auf dieselbe Ressource)
 
 ```http
-PATCH /orchestrator/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/identification-methods/fsc HTTP/1.1
+PATCH /orchestrator/api/v1/identification-methods/fsc/attempts/i7777777-7777-7777-7777-777777777777 HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
 DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
@@ -339,23 +361,23 @@ DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2Ij
 }
 ```
 
-Antwort bei gültigem, nicht abgelaufenem FSC:
+Antwort bei gueltiger, vollstaendiger Eingabe:
 
 ```json
 {
-  "next": {
-    "context": "authentication",
-    "step": "setup",
-    "authenticationMethods": ["sms"]
-  }
-}
-```
-
-Falls für die identifizierte Person bereits ein Account mit aktiver Authentifizierungsmethode existiert, wird kein neues Setup verlangt. Stattdessen wechselt die Flow-Session in die Authentifizierungsphase und bietet die vorhandene Methode an:
-
-```json
-{
-  "sessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "attemptId": "i7777777-7777-7777-7777-777777777777",
+  "status": "VERIFIED",
+  "input": {
+    "kvnr": "A123456789",
+    "name": "Muster",
+    "vorname": "Max",
+    "fsc": "******"
+  },
+  "missingFields": [],
+  "result": {
+    "identified": true,
+    "personId": 456
+  },
   "next": {
     "context": "authentication",
     "step": "selectMethod",
@@ -364,15 +386,95 @@ Falls für die identifizierte Person bereits ein Account mit aktiver Authentifiz
 }
 ```
 
-#### Schritt 5: SMS-Authentifizierung einrichten
+Der Orchestrator speichert die zugeordnete `personId` in der Registration Session.
 
-##### 5a: Telefonnummer senden
+#### Schritt 4: Alternative - alles in einem POST
 
 ```http
-POST /orchestrator/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/authentication-methods/sms HTTP/1.1
+POST /orchestrator/api/v1/app/channels/c1111111-1111-1111-1111-111111111111/identification-methods/fsc/attempts HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
-DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+
+{
+  "kvnr": "A123456789",
+  "name": "Muster",
+  "vorname": "Max",
+  "fsc": "VALIDCODE"
+}
+```
+
+Antwort bei gueltigem, nicht abgelaufenem FSC und noch fehlender aktiver Methode:
+
+```json
+{
+  "attemptId": "i7777777-7777-7777-7777-777777777777",
+  "status": "VERIFIED",
+  "result": {
+    "identified": true,
+    "personId": 456
+  },
+  "next": {
+    "context": "authentication",
+    "step": "selectMethod",
+    "authenticationMethods": ["sms"]
+  }
+}
+```
+
+Falls fuer die identifizierte Person bereits ein Account mit aktiver SMS-Methode existiert, wird ebenfalls `selectMethod` geliefert; die vorhandenen Methoden werden dort gelistet, danach erfolgt der direkte Aufruf der passenden Attempt-Route.
+
+```json
+{
+  "attemptId": "i7777777-7777-7777-7777-777777777777",
+  "status": "VERIFIED",
+  "result": {
+    "identified": true,
+    "personId": 456
+  },
+  "next": {
+    "context": "authentication",
+    "step": "selectMethod",
+    "authenticationMethods": ["sms"]
+  }
+}
+```
+
+#### Schritt 5: SMS-Setup-Attempt anlegen und aktualisieren
+
+##### 5a: Setup-Attempt reservieren
+
+```http
+POST /orchestrator/api/v1/app/channels/c1111111-1111-1111-1111-111111111111/authentication-methods/sms/setup/attempts HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
+
+{}
+```
+
+Antwort:
+
+```json
+{
+  "attemptId": "a3333333-3333-3333-3333-333333333333",
+  "status": "INPUT_REQUIRED",
+  "missingFields": ["phoneNumber"],
+  "result": null,
+  "next": {
+    "context": "sms",
+    "step": "setup"
+  }
+}
+```
+
+##### 5b: Telefonnummer uebergeben
+
+```http
+PATCH /orchestrator/api/v1/authentication-methods/sms/setup/attempts/a3333333-3333-3333-3333-333333333333 HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
 
 {
   "phoneNumber": "+49 170 1234567"
@@ -383,26 +485,27 @@ Antwort:
 
 ```json
 {
+  "attemptId": "a3333333-3333-3333-3333-333333333333",
+  "status": "INPUT_REQUIRED",
+  "missingFields": ["tan"],
   "next": {
-    "context": "authentication",
-    "step": "smsTanInput",
-    "smsSetupId": 1
+    "context": "sms",
+    "step": "tanInput"
   }
 }
 ```
 
 Das Backend validiert die Telefonnummer, speichert sie in der `auth_sms`-Tabelle (`validated: false`) zusammen mit einer generierten TAN und sendet eine gemockte Test-SMS.
 
-##### 5b: TAN bestätigen
+##### 5c: TAN bestaetigen
 
 ```http
-POST /orchestrator/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/authentication-methods/sms/verify HTTP/1.1
+PATCH /orchestrator/api/v1/authentication-methods/sms/setup/attempts/a3333333-3333-3333-3333-333333333333 HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
-DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
 
 {
-  "smsSetupId": 1,
   "tan": "123456"
 }
 ```
@@ -411,90 +514,43 @@ Antwort bei korrekter TAN:
 
 ```json
 {
-  "sessionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "attemptId": "a3333333-3333-3333-3333-333333333333",
+  "status": "VERIFIED",
+  "result": {
+    "authenticated": true,
+    "method": "sms",
+    "mode": "setup"
+  },
   "next": {
     "context": "authentication",
-    "step": "selectMethod",
-    "authenticationMethods": ["sms"]
+    "step": "authenticated",
+    "accountId": 123,
+    "personId": 456
   }
 }
 ```
 
-Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt, der Account um die `sms`-Authentication-Methode ergaenzt und die Flow-Session in die Authentifizierungsphase ueberfuehrt.
+Nach erfolgreicher Validierung wird das `validated`-Flag in `auth_sms` auf `true` gesetzt, der Account um die `sms`-Authentication-Methode ergaenzt und der Channel auf `AUTHENTICATED` aktualisiert.
 
-#### Schritt 6: SMS-Challenge in der Authentifizierungsphase
+#### Schritt 6: Erneuter Einstieg und SMS-Use
 
-Nach dem Wechsel in die Authentifizierungsphase (entweder direkt nach Schritt 4 bei bestehender Methode oder nach Schritt 5b) wird die TAN in derselben Flow-Session bestaetigt:
-
-##### 6a: Challenge starten
+Beim erneuten Frontend-Start mit bekanntem Kanal liefert derselbe Einstiegscall den noetigen Login-Schritt:
 
 ```http
-POST /orchestrator/sessions/b2c3d4e5-f6a7-8901-bcde-f23456789012/authentication-methods/sms/challenge HTTP/1.1
-Host: localhost:8080
-DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
-```
-
-Antwort:
-
-```json
-{
-  "next": {
-    "context": "authentication",
-    "step": "smsTanInput",
-    "smsSetupId": 2
-  }
-}
-```
-
-Die Telefonnummer wird aus der aktiven `sms`-Authentication-Methode des Accounts gelesen (z. B. aus `details.phoneNumber`) und nicht vom Client mitgesendet.
-
-##### 6b: TAN bestaetigen
-
-```http
-POST /orchestrator/sessions/b2c3d4e5-f6a7-8901-bcde-f23456789012/authentication-methods/sms/verify HTTP/1.1
+POST /orchestrator/api/v1/app/channels HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
-DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi…"
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYi..."
 
 {
-  "smsSetupId": 2,
-  "tan": "123456"
+  "channelSessionId": "c1111111-1111-1111-1111-111111111111"
 }
 ```
 
-Antwort bei korrekter TAN:
-
 ```json
 {
-  "next": {
-    "context": "authentication",
-    "step": "authenticated"
-  }
-}
-```
-
-#### Schritt 7: Erneuter Session-Einstieg
-
-Nach erfolgreicher Registration liefert `POST /orchestrator/sessions` je nach Zustand:
-
-- während der Registrierungsphase (Session wird wiederverwendet):
-
-```json
-{
-  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "next": {
-    "context": "registration",
-    "step": "useIdentificationMethod",
-    "identificationMethods": ["fsc"]
-  }
-}
-```
-
-- nach Abschluss der Registrierung (Login-Phase); bei der naechsten Initialisierung wird die Session-ID rotiert und eine neue Authentifizierungs-Challenge erzeugt:
-
-```json
-{
-  "sessionId": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
+  "state": "AUTHENTICATED",
   "next": {
     "context": "authentication",
     "step": "selectMethod",
@@ -503,9 +559,13 @@ Nach erfolgreicher Registration liefert `POST /orchestrator/sessions` je nach Zu
 }
 ```
 
-Es existiert zu einem Zeitpunkt immer nur ein `ClientSession`-Eintrag pro JWK-Thumbprint mit `type=FLOW`. Die Phase der Session ergibt sich aus den gespeicherten Daten (`accountId`, `selectedAuthenticationMethod`, `pendingChallenge`) und wird vom `FlowNextStepResolver` in den `next`-Schritt uebersetzt.
+Danach folgen die festen, vom Setup getrennten Use-Endpunkte:
 
-Bei jedem neuen Initialisieren des Frontends (`POST /orchestrator/sessions`) wird eine bereits vorhandene Authentifizierungs-Session rotiert. Ist fuer den JWK-Thumbprint weiterhin ein Account mit mindestens einer aktiven Authentifizierungsmethode bekannt, wird sofort eine neue `sessionId` erzeugt und der Client erhaelt `next.step=selectMethod`. Der Nutzer muss sich so bei jedem erneuten Aufruf erneut authentifizieren.
+- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts`
+- `PATCH /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` (z. B. TAN)
+- `GET /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}`
+
+Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende Nummer kommt aus dem zuvor validierten SMS-Setup im Modul `auth_sms` (Referenz ueber `smsSetupId`) und nicht aus einem allgemeinen Kontaktfeld am Account. Pro `binding_key_ref` existiert weiterhin genau ein aktiver Kanalbezug; welche fachliche Phase gerade aktiv ist, ergibt sich aus dem intern gefuehrten Prozess und wird vom `FlowNextStepResolver` in den `next`-Schritt uebersetzt.
 
 ## 4. Architekturbeschränkungen
 
@@ -521,6 +581,7 @@ Bei jedem neuen Initialisieren des Frontends (`POST /orchestrator/sessions`) wir
 | A8 | Datenbank: H2 (dateibasiert im Betrieb, In-Memory in Tests) | Einfache lokale Entwicklung und schnelle Tests |
 | A9 | Schema-Management mit Flyway | Versionierter und reproduzierbarer Datenbankaufbau |
 | A10 | Datenzugriff mit Spring Data JPA | Standardisierte Persistenzschicht |
+| A11 | Lesbarkeit hat Vorrang vor maximal generischem API-Wiring. | Endpunkte, DTOs und Handler bleiben methoden-/modusspezifisch explizit (`fsc`, `sms/setup`, `sms/use`), auch wenn dadurch mehr, aber klarerer Code entsteht |
 
 ## 5. Lösungsstrategie
 
