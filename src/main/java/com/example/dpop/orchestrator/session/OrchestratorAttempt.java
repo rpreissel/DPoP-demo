@@ -75,6 +75,7 @@ public abstract class OrchestratorAttempt {
         this.createdAt = Instant.now();
         this.expiresAt = expiresAt;
         this.retryCount = 0;
+        this.version = 0L;
     }
 
     public UUID getAttemptId() {

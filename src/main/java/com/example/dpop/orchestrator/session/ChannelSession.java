@@ -69,6 +69,7 @@ public class ChannelSession {
         this.createdAt = Instant.now();
         this.lastAccessedAt = Instant.now();
         this.expiresAt = expiresAt;
+        this.version = 0L;
     }
 
     public UUID getChannelSessionId() {

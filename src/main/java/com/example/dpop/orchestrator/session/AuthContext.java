@@ -66,6 +66,7 @@ public class AuthContext {
         this.keycloakSubject = keycloakSubject;
         this.authTime = Instant.now();
         this.updatedAt = Instant.now();
+        this.version = 0L;
     }
 
     public UUID getAuthContextId() {

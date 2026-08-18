@@ -79,6 +79,7 @@ public abstract class ProcessSession {
         this.status = ProcessStatus.ACTIVE;
         this.createdAt = Instant.now();
         this.expiresAt = expiresAt;
+        this.version = 0L;
     }
 
     public UUID getProcessSessionId() {
