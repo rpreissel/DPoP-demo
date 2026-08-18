@@ -2,16 +2,18 @@ import { useState } from 'react'
 
 interface AuthenticationSetupViewProps {
   methods: string[]
-  onSubmit: (method: string, data?: { phoneNumber?: string }) => void
+  mode?: string // "enroll" or "use"
+  onSubmit: (method: string, mode: string, data?: { phoneNumber?: string }) => void
 }
 
-export function AuthenticationSetupView({ methods, onSubmit }: AuthenticationSetupViewProps) {
+export function AuthenticationSetupView({ methods, mode, onSubmit }: AuthenticationSetupViewProps) {
   const [phoneNumber, setPhoneNumber] = useState('+49 170 1234567')
   const method = methods[0] || 'sms'
+  const resolvedMode = mode || 'enroll' // Default to enroll
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit(method, { phoneNumber })
+    onSubmit(method, resolvedMode, { phoneNumber })
   }
 
   return (

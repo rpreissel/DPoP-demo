@@ -23,9 +23,9 @@ function App() {
       if (!active) return
       setDpop(keyPair)
 
-      const channelUrl = `${window.location.origin}/orchestrator/api/v1/channel`
+      const channelUrl = `${window.location.origin}/orchestrator/api/v1/app/channels`
       const proof = await createDpopProof(keyPair.keyPair, 'POST', channelUrl)
-      const response = await fetch('/orchestrator/api/v1/channel', {
+      const response = await fetch('/orchestrator/api/v1/app/channels', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,9 +65,9 @@ function App() {
       const keyPair = await getOrCreateDpopKeyPair()
       setDpop(keyPair)
 
-      const channelUrl = `${window.location.origin}/orchestrator/api/v1/channel`
+      const channelUrl = `${window.location.origin}/orchestrator/api/v1/app/channels`
       const proof = await createDpopProof(keyPair.keyPair, 'POST', channelUrl)
-      const response = await fetch('/orchestrator/api/v1/channel', {
+      const response = await fetch('/orchestrator/api/v1/app/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', DPoP: proof },
       })
@@ -128,13 +128,17 @@ function App() {
 
       {/* UI components rendered based on routing table, not URLs */}
       {uiComponent === 'identification-method-selection' && (
-        <IdentificationForm onSubmit={submitIdentification} methods={availableMethods} />
+        <IdentificationForm onSubmit={submitIdentification} />
       )}
 
       {uiComponent === 'fsc-form' && <FscForm onSubmit={submitFsc} />}
 
       {uiComponent === 'authentication-method-selection' && (
-        <AuthenticationSetupView onSubmit={setupAuthentication} methods={availableMethods} />
+        <AuthenticationSetupView
+          onSubmit={setupAuthentication}
+          methods={availableMethods}
+          mode={sessionStatus?.next?.context === 'enrollment' ? 'enroll' : 'use'}
+        />
       )}
 
       {uiComponent === 'authentication-completed' && (
@@ -148,15 +152,15 @@ function App() {
   )
 
   // Handlers for form submissions
-  async function submitIdentification(kvnr: string, name: string, vorname: string, method: string) {
+  async function submitIdentification(kvnr: string, name: string, vorname: string) {
     if (!dpop || !sessionStatus?.channelSessionId) return
 
-    const url = `${window.location.origin}/orchestrator/api/v1/attempts/identification`
+    const url = `${window.location.origin}/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/identification-methods/fsc/attempts`
     const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch('/orchestrator/api/v1/attempts/identification', {
+    const response = await fetch(`/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/identification-methods/fsc/attempts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ method, data: { kvnr, name, vorname } }),
+      body: JSON.stringify({ kvnr, name, vorname }),
     })
 
     if (!response.ok) {
@@ -177,9 +181,9 @@ function App() {
     if (!dpop || !sessionStatus?.attemptState?.attemptId) return
 
     const attemptId = sessionStatus.attemptState.attemptId
-    const url = `${window.location.origin}/orchestrator/api/v1/attempts/identification/${attemptId}`
+    const url = `${window.location.origin}/orchestrator/api/v1/identification-methods/fsc/attempts/${attemptId}`
     const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
-    const response = await fetch(`/orchestrator/api/v1/attempts/identification/${attemptId}`, {
+    const response = await fetch(`/orchestrator/api/v1/identification-methods/fsc/attempts/${attemptId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
       body: JSON.stringify({ fsc }),
@@ -199,15 +203,15 @@ function App() {
     })
   }
 
-  async function setupAuthentication(method: string, data?: Record<string, unknown>) {
+  async function setupAuthentication(method: string, mode: string, data?: Record<string, unknown>) {
     if (!dpop || !sessionStatus?.channelSessionId) return
 
-    const url = `${window.location.origin}/orchestrator/api/v1/attempts/authentication`
+    const url = `${window.location.origin}/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/authentication-methods/${method}/${mode}/attempts`
     const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch('/orchestrator/api/v1/attempts/authentication', {
+    const response = await fetch(`/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/authentication-methods/${method}/${mode}/attempts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ method, data: data || {} }),
+      body: JSON.stringify(data || {}),
     })
 
     if (!response.ok) {
