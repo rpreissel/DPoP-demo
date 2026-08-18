@@ -67,7 +67,6 @@ public abstract class OrchestratorAttempt {
     }
 
     protected OrchestratorAttempt(UUID processSessionId, String nextContext, String nextStep, Instant expiresAt) {
-        this.attemptId = UUID.randomUUID();
         this.processSessionId = processSessionId;
         this.status = AttemptStatus.INPUT_REQUIRED;
         this.nextContext = nextContext;
@@ -75,7 +74,6 @@ public abstract class OrchestratorAttempt {
         this.createdAt = Instant.now();
         this.expiresAt = expiresAt;
         this.retryCount = 0;
-        this.version = 0L;
     }
 
     public UUID getAttemptId() {

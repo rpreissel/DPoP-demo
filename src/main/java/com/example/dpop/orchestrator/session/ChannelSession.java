@@ -62,14 +62,12 @@ public class ChannelSession {
     }
 
     public ChannelSession(Channel channel, String bindingKeyRef, Instant expiresAt) {
-        this.channelSessionId = UUID.randomUUID();
         this.channel = channel;
         this.bindingKeyRef = bindingKeyRef;
         this.state = ChannelState.ANONYMOUS;
         this.createdAt = Instant.now();
         this.lastAccessedAt = Instant.now();
         this.expiresAt = expiresAt;
-        this.version = 0L;
     }
 
     public UUID getChannelSessionId() {

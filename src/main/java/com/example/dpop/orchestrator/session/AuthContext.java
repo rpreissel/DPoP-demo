@@ -60,13 +60,11 @@ public class AuthContext {
     }
 
     public AuthContext(Long accountId, String keycloakSessionId, String keycloakSubject) {
-        this.authContextId = UUID.randomUUID();
         this.accountId = accountId;
         this.keycloakSessionId = keycloakSessionId;
         this.keycloakSubject = keycloakSubject;
         this.authTime = Instant.now();
         this.updatedAt = Instant.now();
-        this.version = 0L;
     }
 
     public UUID getAuthContextId() {

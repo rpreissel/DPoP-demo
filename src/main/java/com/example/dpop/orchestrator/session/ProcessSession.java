@@ -73,13 +73,11 @@ public abstract class ProcessSession {
     }
 
     protected ProcessSession(UUID channelSessionId, ProcessPurpose purpose, Instant expiresAt) {
-        this.processSessionId = UUID.randomUUID();
         this.channelSessionId = channelSessionId;
         this.purpose = purpose;
         this.status = ProcessStatus.ACTIVE;
         this.createdAt = Instant.now();
         this.expiresAt = expiresAt;
-        this.version = 0L;
     }
 
     public UUID getProcessSessionId() {
