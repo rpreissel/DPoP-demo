@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.api.v1;
 
-import com.example.dpop.ext_stammdaten.PersonRepository;
+import com.example.dpop.ext_stammdaten.ExtStammdatenService;
 import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.session.AttemptStatus;
 import com.example.dpop.orchestrator.session.AuthenticationAttempt;
@@ -28,16 +28,16 @@ import java.util.UUID;
 public class OrchestratorApiV1Service {
 
     private final SessionManagementService sessionManagementService;
-    private final PersonRepository personRepository;
+    private final ExtStammdatenService extStammdatenService;
     private final IdFscService idFscService;
 
     public OrchestratorApiV1Service(
             SessionManagementService sessionManagementService,
-            PersonRepository personRepository,
+            ExtStammdatenService extStammdatenService,
             IdFscService idFscService
     ) {
         this.sessionManagementService = sessionManagementService;
-        this.personRepository = personRepository;
+        this.extStammdatenService = extStammdatenService;
         this.idFscService = idFscService;
     }
 
@@ -175,9 +175,9 @@ public class OrchestratorApiV1Service {
         String kvnr = (String) data.get("kvnr");
         String fsc = (String) data.get("fsc");
 
-        // Look up person by KVNR
-        var person = personRepository.findByKvnr(kvnr).orElse(null);
-        if (person == null || !idFscService.validateFsc(person.getId(), fsc)) {
+        // Look up person by KVNR via module-public service, validate FSC
+        Long personId = extStammdatenService.findPersonIdByKvnr(kvnr).orElse(null);
+        if (personId == null || !idFscService.validateFsc(personId, fsc)) {
             attempt.setStatus(AttemptStatus.FAILED);
             attempt.setMissingFields(null);
             attempt.setResult("{ \"error\": \"invalid_fsc\" }");
@@ -187,18 +187,15 @@ public class OrchestratorApiV1Service {
                     new OrchestratorResponse.NextRouting("fsc", "input"));
         }
 
-        Long personId = person.getId();
         attempt.setStatus(AttemptStatus.VERIFIED);
         attempt.setResult("{ \"identified\": true, \"personId\": " + personId + " }");
         sessionManagementService.updateAttempt(attempt);
 
-        // Update process session with person ID
         ProcessSession processSession = sessionManagementService.getProcessSessionById(attempt.getProcessSessionId())
                 .orElseThrow(() -> new IllegalArgumentException("Process session not found"));
         processSession.setPersonId(personId);
         sessionManagementService.updateProcessSession(processSession);
 
-        // Move to SMS enrollment
         return new OrchestratorResponse(
                 null,
                 new OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", personId, null),

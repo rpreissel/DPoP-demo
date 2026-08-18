@@ -2,6 +2,7 @@ package com.example.dpop.ext_stammdaten;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,5 +22,9 @@ public class ExtStammdatenService {
         return "ext_stammdaten: " + persons.stream()
                 .map(p -> p.getVorname() + " " + p.getName())
                 .collect(Collectors.joining(", "));
+    }
+
+    public Optional<Long> findPersonIdByKvnr(String kvnr) {
+        return personRepository.findByKvnr(kvnr).map(Person::getId);
     }
 }
