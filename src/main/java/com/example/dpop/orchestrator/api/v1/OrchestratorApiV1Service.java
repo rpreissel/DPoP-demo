@@ -1,7 +1,10 @@
 package com.example.dpop.orchestrator.api.v1;
 
+import com.example.dpop.account.AccountProfile;
+import com.example.dpop.account.AccountService;
 import com.example.dpop.ext_stammdaten.ExtStammdatenService;
 import com.example.dpop.id_fsc.IdFscService;
+import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
 import com.example.dpop.orchestrator.session.AttemptStatus;
 import com.example.dpop.orchestrator.session.AuthenticationAttempt;
 import com.example.dpop.orchestrator.session.ChannelSession;
@@ -18,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,15 +32,21 @@ public class OrchestratorApiV1Service {
     private final SessionManagementService sessionManagementService;
     private final ExtStammdatenService extStammdatenService;
     private final IdFscService idFscService;
+    private final AccountService accountService;
+    private final AccountBindingKeyMappingService accountBindingKeyMappingService;
 
     public OrchestratorApiV1Service(
             SessionManagementService sessionManagementService,
             ExtStammdatenService extStammdatenService,
-            IdFscService idFscService
+            IdFscService idFscService,
+            AccountService accountService,
+            AccountBindingKeyMappingService accountBindingKeyMappingService
     ) {
         this.sessionManagementService = sessionManagementService;
         this.extStammdatenService = extStammdatenService;
         this.idFscService = idFscService;
+        this.accountService = accountService;
+        this.accountBindingKeyMappingService = accountBindingKeyMappingService;
     }
 
     public OrchestratorResponse initializeFlow(ChannelSession channelSession) {
@@ -196,17 +204,34 @@ public class OrchestratorApiV1Service {
         processSession.setPersonId(personId);
         sessionManagementService.updateProcessSession(processSession);
 
+        // Create or reuse account and bind to channel session
+        AccountProfile account = accountService.identifyAccount(
+                personId, "fsc", "HIGH",
+                processSession.getProcessSessionId(),
+                Map.of("kvnr", kvnr)
+        );
+        sessionManagementService.setAccountId(processSession.getChannelSessionId(), account.accountId());
+        accountBindingKeyMappingService.mapBindingKeyToAccount(bindingKeyRef, account.accountId());
+
+        // Determine next step: enrollment if no active auth method, else re-auth
+        boolean hasAuth = !account.activeAuthenticationMethods().isEmpty();
+        if (hasAuth) {
+            return new OrchestratorResponse(
+                    processSession.getChannelSessionId(),
+                    new OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", personId, account.accountId()),
+                    new OrchestratorResponse.AttemptState(attemptId, "identification", "VERIFIED", null,
+                            Map.of("identified", true, "personId", personId)),
+                    new OrchestratorResponse.NextRouting("authentication", "selectMethod",
+                            account.activeAuthenticationMethods(), null, account.accountId(), personId)
+            );
+        }
         return new OrchestratorResponse(
-                null,
-                new OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", personId, null),
-                new OrchestratorResponse.AttemptState(
-                        attemptId,
-                        "identification",
-                        "VERIFIED",
-                        null,
-                        Map.of("identified", true, "personId", personId)
-                ),
-                new OrchestratorResponse.NextRouting("enrollment", "selectMethod", Arrays.asList("sms"))
+                processSession.getChannelSessionId(),
+                new OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", personId, account.accountId()),
+                new OrchestratorResponse.AttemptState(attemptId, "identification", "VERIFIED", null,
+                        Map.of("identified", true, "personId", personId)),
+                new OrchestratorResponse.NextRouting("enrollment", "selectMethod", Arrays.asList("sms"),
+                        null, account.accountId(), personId)
         );
     }
 

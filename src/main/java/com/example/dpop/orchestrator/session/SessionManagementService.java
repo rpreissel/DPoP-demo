@@ -66,6 +66,14 @@ public class SessionManagementService {
         });
     }
 
+    public void setAccountId(UUID channelSessionId, Long accountId) {
+        channelSessionRepository.findById(channelSessionId).ifPresent(session -> {
+            session.setAccountId(accountId);
+            session.touch();
+            channelSessionRepository.save(session);
+        });
+    }
+
     public Optional<ChannelSession> getChannelSessionWithAuth(UUID channelSessionId) {
         return channelSessionRepository.findById(channelSessionId)
                 .filter(s -> !s.isExpired());
