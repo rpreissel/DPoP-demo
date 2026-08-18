@@ -49,14 +49,20 @@ public record OrchestratorResponse(
             String context,
             String step,
             List<String> methods,
-            String enrollmentRef
+            String enrollmentRef,
+            Long accountId,
+            Long personId
     ) {
         public NextRouting(String context, String step) {
-            this(context, step, null, null);
+            this(context, step, null, null, null, null);
         }
 
         public NextRouting(String context, String step, List<String> methods) {
-            this(context, step, methods, null);
+            this(context, step, methods, null, null, null);
+        }
+
+        public NextRouting(String context, String step, List<String> methods, String enrollmentRef) {
+            this(context, step, methods, enrollmentRef, null, null);
         }
     }
 }

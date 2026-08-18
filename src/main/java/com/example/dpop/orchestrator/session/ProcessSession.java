@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -41,6 +42,19 @@ public abstract class ProcessSession {
 
     @Column(name = "account_id")
     private Long accountId;
+
+    @Column(name = "selected_identification_method", length = 50)
+    private String selectedIdentificationMethod;
+
+    @Column(name = "selected_authentication_method", length = 50)
+    private String selectedAuthenticationMethod;
+
+    @Column(name = "person_id")
+    private Long personId;
+
+    @Lob
+    @Column(name = "pending_challenge")
+    private String pendingChallenge;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -93,6 +107,38 @@ public abstract class ProcessSession {
 
     public void setAccountId(Long accountId) {
         this.accountId = accountId;
+    }
+
+    public String getSelectedIdentificationMethod() {
+        return selectedIdentificationMethod;
+    }
+
+    public void setSelectedIdentificationMethod(String selectedIdentificationMethod) {
+        this.selectedIdentificationMethod = selectedIdentificationMethod;
+    }
+
+    public String getSelectedAuthenticationMethod() {
+        return selectedAuthenticationMethod;
+    }
+
+    public void setSelectedAuthenticationMethod(String selectedAuthenticationMethod) {
+        this.selectedAuthenticationMethod = selectedAuthenticationMethod;
+    }
+
+    public Long getPersonId() {
+        return personId;
+    }
+
+    public void setPersonId(Long personId) {
+        this.personId = personId;
+    }
+
+    public String getPendingChallenge() {
+        return pendingChallenge;
+    }
+
+    public void setPendingChallenge(String pendingChallenge) {
+        this.pendingChallenge = pendingChallenge;
     }
 
     public Instant getCreatedAt() {

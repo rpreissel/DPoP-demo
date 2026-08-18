@@ -7,5 +7,10 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AttemptRequest(
         String method,
+        String mode,
         Map<String, Object> data
-) {}
+) {
+    public AttemptRequest(String method, Map<String, Object> data) {
+        this(method, null, data);
+    }
+}

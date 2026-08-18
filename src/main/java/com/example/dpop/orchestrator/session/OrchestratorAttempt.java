@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -41,6 +42,14 @@ public abstract class OrchestratorAttempt {
     @Column(name = "next_step", length = 50)
     private String nextStep;
 
+    @Lob
+    @Column(name = "missing_fields")
+    private String missingFields;
+
+    @Lob
+    @Column(name = "result")
+    private String result;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -60,7 +69,7 @@ public abstract class OrchestratorAttempt {
     protected OrchestratorAttempt(UUID processSessionId, String nextContext, String nextStep, Instant expiresAt) {
         this.attemptId = UUID.randomUUID();
         this.processSessionId = processSessionId;
-        this.status = AttemptStatus.ACTIVE;
+        this.status = AttemptStatus.INPUT_REQUIRED;
         this.nextContext = nextContext;
         this.nextStep = nextStep;
         this.createdAt = Instant.now();
@@ -100,6 +109,22 @@ public abstract class OrchestratorAttempt {
         this.nextStep = step;
     }
 
+    public String getMissingFields() {
+        return missingFields;
+    }
+
+    public void setMissingFields(String missingFields) {
+        this.missingFields = missingFields;
+    }
+
+    public String getResult() {
+        return result;
+    }
+
+    public void setResult(String result) {
+        this.result = result;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -122,13 +147,5 @@ public abstract class OrchestratorAttempt {
 
     public boolean isExpired() {
         return Instant.now().isAfter(expiresAt);
-    }
-
-    public enum AttemptStatus {
-        ACTIVE,
-        PENDING_VERIFICATION,
-        COMPLETED,
-        FAILED,
-        EXPIRED
     }
 }

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1;
 
+import com.example.dpop.orchestrator.session.AttemptStatus;
 import com.example.dpop.orchestrator.session.AuthenticationAttempt;
 import com.example.dpop.orchestrator.session.ChannelSession;
 import com.example.dpop.orchestrator.session.IdentificationAttempt;
@@ -107,7 +108,7 @@ public class OrchestratorApiV1Service {
                 .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
 
         // Validate data and update attempt
-        attempt.setStatus(OrchestratorAttempt.AttemptStatus.COMPLETED);
+        attempt.setStatus(AttemptStatus.VERIFIED);
         sessionManagementService.updateAttempt(attempt);
 
         return new OrchestratorResponse(
@@ -175,7 +176,7 @@ public class OrchestratorApiV1Service {
         OrchestratorAttempt attempt = sessionManagementService.getLatestAttemptForProcessSession(null)
                 .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
 
-        attempt.setStatus(OrchestratorAttempt.AttemptStatus.PENDING_VERIFICATION);
+        attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
         sessionManagementService.updateAttempt(attempt);
 
         return new OrchestratorResponse(
@@ -194,6 +195,101 @@ public class OrchestratorApiV1Service {
 
     public OrchestratorResponse getAuthenticationStatus(UUID attemptId, String bindingKeyRef) {
         OrchestratorAttempt attempt = sessionManagementService.getLatestAttemptForProcessSession(null)
+                .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
+
+        return new OrchestratorResponse(
+                null,
+                null,
+                new OrchestratorResponse.AttemptState(
+                        attempt.getAttemptId(),
+                        "AUTHENTICATION",
+                        attempt.getStatus().toString(),
+                        null,
+                        null
+                ),
+                new OrchestratorResponse.NextRouting(attempt.getNextContext(), attempt.getNextStep())
+        );
+    }
+
+    public ChannelSessionResponse getChannelSession(UUID channelSessionId) {
+        ChannelSession channelSession = sessionManagementService.getChannelSessionById(channelSessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Channel session not found"));
+
+        List<String> currentAmr = null;
+        String currentAcr = null;
+        if (channelSession.getAuthContextId() != null) {
+            // TODO: Load AuthContext and extract ACR/AMR
+            // For now, returning null
+        }
+
+        return new ChannelSessionResponse(
+                channelSession.getChannelSessionId(),
+                channelSession.getState(),
+                currentAcr,
+                currentAmr,
+                false,
+                channelSession.getAccountId()
+        );
+    }
+
+    public OrchestratorResponse startAuthenticationWithMode(String bindingKeyRef, String method, String mode, Map<String, Object> data) {
+        ChannelSession channelSession = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
+                .orElseThrow(() -> new IllegalArgumentException("Channel session not found"));
+
+        LoginProcessSession processSession = (LoginProcessSession) sessionManagementService
+                .getLatestProcessSessionByChannel(channelSession.getChannelSessionId(), null)
+                .orElseGet(() -> sessionManagementService.createLoginProcessSession(
+                        channelSession.getChannelSessionId(),
+                        Duration.ofMinutes(15)
+                ));
+
+        processSession.setSelectedAuthenticationMethod(method);
+        sessionManagementService.updateProcessSession(processSession);
+
+        AuthenticationAttempt attempt = sessionManagementService.createAuthenticationAttempt(
+                processSession.getProcessSessionId(),
+                method,
+                mode.equals("enroll") ? "enroll" : "use",
+                Duration.ofMinutes(10)
+        );
+
+        return new OrchestratorResponse(
+                channelSession.getChannelSessionId(),
+                new OrchestratorResponse.ProcessState("LOGIN", "ACTIVE", null, null),
+                new OrchestratorResponse.AttemptState(
+                        attempt.getAttemptId(),
+                        "AUTHENTICATION",
+                        "INPUT_REQUIRED",
+                        Arrays.asList("phoneNumber"),
+                        null
+                ),
+                new OrchestratorResponse.NextRouting(method, mode.equals("enroll") ? "enroll" : "use")
+        );
+    }
+
+    public OrchestratorResponse submitAuthenticationDataWithMode(UUID attemptId, String bindingKeyRef, String method, String mode, Map<String, Object> data) {
+        OrchestratorAttempt attempt = sessionManagementService.getLatestAttemptForProcessSession(null)
+                .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
+
+        attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
+        sessionManagementService.updateAttempt(attempt);
+
+        return new OrchestratorResponse(
+                null,
+                null,
+                new OrchestratorResponse.AttemptState(
+                        attempt.getAttemptId(),
+                        "AUTHENTICATION",
+                        attempt.getStatus().toString(),
+                        Arrays.asList("tan"),
+                        null
+                ),
+                new OrchestratorResponse.NextRouting(method, "tanInput")
+        );
+    }
+
+    public OrchestratorResponse getAuthenticationStatusWithMode(UUID attemptId, String bindingKeyRef, String method, String mode) {
+        OrchestratorAttempt attempt = sessionManagementService.getAttemptById(attemptId)
                 .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
 
         return new OrchestratorResponse(

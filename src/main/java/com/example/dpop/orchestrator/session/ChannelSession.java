@@ -7,6 +7,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -32,6 +34,17 @@ public class ChannelSession {
     @Column(name = "account_id")
     private Long accountId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "state", nullable = false, length = 50)
+    private ChannelState state;
+
+    @Column(name = "auth_context_id")
+    private UUID authContextId;
+
+    @ManyToOne
+    @JoinColumn(name = "auth_context_id", insertable = false, updatable = false)
+    private AuthContext authContext;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -52,6 +65,7 @@ public class ChannelSession {
         this.channelSessionId = UUID.randomUUID();
         this.channel = channel;
         this.bindingKeyRef = bindingKeyRef;
+        this.state = ChannelState.ANONYMOUS;
         this.createdAt = Instant.now();
         this.lastAccessedAt = Instant.now();
         this.expiresAt = expiresAt;
@@ -75,6 +89,26 @@ public class ChannelSession {
 
     public void setAccountId(Long accountId) {
         this.accountId = accountId;
+    }
+
+    public ChannelState getState() {
+        return state;
+    }
+
+    public void setState(ChannelState state) {
+        this.state = state;
+    }
+
+    public UUID getAuthContextId() {
+        return authContextId;
+    }
+
+    public void setAuthContextId(UUID authContextId) {
+        this.authContextId = authContextId;
+    }
+
+    public AuthContext getAuthContext() {
+        return authContext;
     }
 
     public Instant getCreatedAt() {

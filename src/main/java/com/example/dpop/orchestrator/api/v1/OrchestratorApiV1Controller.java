@@ -44,7 +44,41 @@ public class OrchestratorApiV1Controller {
         this.orchestratorApiV1Service = orchestratorApiV1Service;
     }
 
-    // Channel entry point
+    // Channel entry point - NEW PATH
+    @PostMapping("/app/channels")
+    public ResponseEntity<OrchestratorResponse> createChannel(
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody(required = false) ChannelSessionRequest request,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        ChannelSession.Channel channel = request != null && "WEB".equalsIgnoreCase(request.channel())
+                ? ChannelSession.Channel.WEB
+                : ChannelSession.Channel.APP;
+
+        ChannelSession channelSession = sessionManagementService.getOrCreateChannelSession(
+                bindingKeyRef,
+                channel,
+                Duration.ofHours(1)
+        );
+
+        OrchestratorResponse response = orchestratorApiV1Service.initializeFlow(channelSession);
+        return ResponseEntity.ok(response);
+    }
+
+    // Get channel session - NEW PATH
+    @GetMapping("/app/channels/{channelSessionId}")
+    public ResponseEntity<ChannelSessionResponse> getChannel(
+            @PathVariable UUID channelSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            HttpServletRequest httpRequest) {
+
+        validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        ChannelSessionResponse response = orchestratorApiV1Service.getChannelSession(channelSessionId);
+        return ResponseEntity.ok(response);
+    }
+
+    // Channel entry point - LEGACY PATH (kept for backward compatibility)
     @PostMapping("/channel")
     public ResponseEntity<OrchestratorResponse> initializeChannel(
             @RequestHeader("DPoP") String dpopProof,
@@ -66,7 +100,79 @@ public class OrchestratorApiV1Controller {
         return ResponseEntity.ok(response);
     }
 
-    // Identification attempt endpoints
+    // Identification attempt endpoints - NEW PATHS
+    @PostMapping("/app/channels/{channelSessionId}/identification-methods/fsc/attempts")
+    public ResponseEntity<OrchestratorResponse> startIdentificationFsc(
+            @PathVariable UUID channelSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody AttemptRequest request,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.startIdentification(bindingKeyRef, "fsc", request.data());
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/identification-methods/fsc/attempts/{attemptId}")
+    public ResponseEntity<OrchestratorResponse> submitIdentificationDataFsc(
+            @PathVariable UUID attemptId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody Map<String, Object> data,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.submitIdentificationData(attemptId, bindingKeyRef, data);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/identification-methods/fsc/attempts/{attemptId}")
+    public ResponseEntity<OrchestratorResponse> getIdentificationStatusFsc(
+            @PathVariable UUID attemptId,
+            @RequestHeader("DPoP") String dpopProof,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.getIdentificationStatus(attemptId, bindingKeyRef);
+        return ResponseEntity.ok(response);
+    }
+
+    // Authentication SMS Enroll - NEW PATHS
+    @PostMapping("/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts")
+    public ResponseEntity<OrchestratorResponse> startAuthenticationSmsEnroll(
+            @PathVariable UUID channelSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody AttemptRequest request,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.startAuthenticationWithMode(bindingKeyRef, "sms", "enroll", request.data());
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/authentication-methods/sms/enroll/attempts/{attemptId}")
+    public ResponseEntity<OrchestratorResponse> submitAuthenticationDataSmsEnroll(
+            @PathVariable UUID attemptId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody Map<String, Object> data,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.submitAuthenticationDataWithMode(attemptId, bindingKeyRef, "sms", "enroll", data);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/authentication-methods/sms/enroll/attempts/{attemptId}")
+    public ResponseEntity<OrchestratorResponse> getAuthenticationStatusSmsEnroll(
+            @PathVariable UUID attemptId,
+            @RequestHeader("DPoP") String dpopProof,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.getAuthenticationStatusWithMode(attemptId, bindingKeyRef, "sms", "enroll");
+        return ResponseEntity.ok(response);
+    }
+
+    // Identification attempt endpoints - LEGACY PATHS (kept for backward compatibility)
     @PostMapping("/attempts/identification")
     public ResponseEntity<OrchestratorResponse> startIdentification(
             @RequestHeader("DPoP") String dpopProof,
@@ -101,7 +207,7 @@ public class OrchestratorApiV1Controller {
         return ResponseEntity.ok(response);
     }
 
-    // Authentication attempt endpoints
+    // Authentication attempt endpoints - LEGACY PATHS (kept for backward compatibility)
     @PostMapping("/attempts/authentication")
     public ResponseEntity<OrchestratorResponse> startAuthentication(
             @RequestHeader("DPoP") String dpopProof,

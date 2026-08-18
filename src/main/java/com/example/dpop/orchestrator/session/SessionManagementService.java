@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session;
 
+import com.example.dpop.orchestrator.session.AttemptStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -144,9 +145,19 @@ public class SessionManagementService {
         attemptRepository.save(attempt);
     }
 
+    public Optional<ChannelSession> getChannelSessionById(UUID channelSessionId) {
+        return channelSessionRepository.findById(channelSessionId)
+                .filter(s -> !s.isExpired());
+    }
+
+    public Optional<OrchestratorAttempt> getAttemptById(UUID attemptId) {
+        return attemptRepository.findById(attemptId)
+                .filter(a -> !a.isExpired());
+    }
+
     public void completeAttempt(UUID attemptId, String nextContext, String nextStep) {
         attemptRepository.findById(attemptId).ifPresent(attempt -> {
-            attempt.setStatus(OrchestratorAttempt.AttemptStatus.COMPLETED);
+            attempt.setStatus(AttemptStatus.VERIFIED);
             attempt.setNextContext(nextContext);
             attempt.setNextStep(nextStep);
             attemptRepository.save(attempt);

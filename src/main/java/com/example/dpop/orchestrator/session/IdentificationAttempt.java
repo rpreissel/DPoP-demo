@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@DiscriminatorValue("IDENTIFICATION")
+@DiscriminatorValue("identification")
 public class IdentificationAttempt extends OrchestratorAttempt {
 
     protected IdentificationAttempt() {
