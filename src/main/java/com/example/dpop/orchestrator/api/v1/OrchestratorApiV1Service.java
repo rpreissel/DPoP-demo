@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1;
 
 import com.example.dpop.account.AccountProfile;
 import com.example.dpop.account.AccountService;
+import com.example.dpop.auth_sms.AuthSmsService;
 import com.example.dpop.ext_stammdaten.ExtStammdatenService;
 import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
@@ -34,19 +35,22 @@ public class OrchestratorApiV1Service {
     private final IdFscService idFscService;
     private final AccountService accountService;
     private final AccountBindingKeyMappingService accountBindingKeyMappingService;
+    private final AuthSmsService authSmsService;
 
     public OrchestratorApiV1Service(
             SessionManagementService sessionManagementService,
             ExtStammdatenService extStammdatenService,
             IdFscService idFscService,
             AccountService accountService,
-            AccountBindingKeyMappingService accountBindingKeyMappingService
+            AccountBindingKeyMappingService accountBindingKeyMappingService,
+            AuthSmsService authSmsService
     ) {
         this.sessionManagementService = sessionManagementService;
         this.extStammdatenService = extStammdatenService;
         this.idFscService = idFscService;
         this.accountService = accountService;
         this.accountBindingKeyMappingService = accountBindingKeyMappingService;
+        this.authSmsService = authSmsService;
     }
 
     public OrchestratorResponse initializeFlow(ChannelSession channelSession) {
@@ -258,7 +262,7 @@ public class OrchestratorApiV1Service {
         );
     }
 
-    // SMS Authentication - Enroll Flow
+    // SMS Authentication - Enroll/Use Flow
     public OrchestratorResponse startAuthenticationWithMode(String bindingKeyRef, String method, String mode, Map<String, Object> data) {
         if (!"sms".equals(method)) {
             throw new IllegalArgumentException("Only sms method is supported for authentication");
@@ -267,38 +271,60 @@ public class OrchestratorApiV1Service {
         ChannelSession channelSession = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
                 .orElseThrow(() -> new IllegalArgumentException("Channel session not found"));
 
+        String phoneNumber = data != null ? (String) data.get("phoneNumber") : null;
+
+        // For "use" mode, get phone number from account
+        if ("use".equals(mode) && phoneNumber == null) {
+            Long accountId = channelSession.getAccountId();
+            if (accountId != null) {
+                phoneNumber = accountService.findActiveSmsPhoneNumber(accountId).orElse(null);
+            }
+        }
+
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            // Need phone number first
+            LoginProcessSession processSession = (LoginProcessSession) sessionManagementService
+                    .getLatestProcessSessionByChannel(channelSession.getChannelSessionId(), null)
+                    .orElseGet(() -> sessionManagementService.createLoginProcessSession(
+                            channelSession.getChannelSessionId(), Duration.ofMinutes(15)));
+
+            AuthenticationAttempt attempt = sessionManagementService.createAuthenticationAttempt(
+                    processSession.getProcessSessionId(), method, mode, Duration.ofMinutes(10));
+            attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
+            attempt.setMissingFields(serializeList(Arrays.asList("phoneNumber")));
+            sessionManagementService.updateAttempt(attempt);
+
+            return new OrchestratorResponse(
+                    channelSession.getChannelSessionId(), null,
+                    new OrchestratorResponse.AttemptState(attempt.getAttemptId(), "authentication",
+                            "INPUT_REQUIRED", Arrays.asList("phoneNumber"), null),
+                    new OrchestratorResponse.NextRouting("enrollment".equals(mode) ? "enrollment" : "authentication",
+                            "setup", Arrays.asList(method))
+            );
+        }
+
+        // Send SMS via AuthSmsService
+        var smsResult = authSmsService.setupSms(phoneNumber);
+
         LoginProcessSession processSession = (LoginProcessSession) sessionManagementService
                 .getLatestProcessSessionByChannel(channelSession.getChannelSessionId(), null)
                 .orElseGet(() -> sessionManagementService.createLoginProcessSession(
-                        channelSession.getChannelSessionId(),
-                        Duration.ofMinutes(15)
-                ));
-
-        processSession.setSelectedAuthenticationMethod(method);
-        sessionManagementService.updateProcessSession(processSession);
+                        channelSession.getChannelSessionId(), Duration.ofMinutes(15)));
 
         AuthenticationAttempt attempt = sessionManagementService.createAuthenticationAttempt(
-                processSession.getProcessSessionId(),
-                method,
-                mode.equals("enroll") ? "enroll" : "use",
-                Duration.ofMinutes(10)
-        );
-
+                processSession.getProcessSessionId(), method, mode, Duration.ofMinutes(10));
         attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
-        attempt.setMissingFields(serializeList(Arrays.asList("phoneNumber")));
+        attempt.setMissingFields(serializeList(Arrays.asList("tan")));
+        // Store smsSetupId in result for later TAN validation
+        attempt.setResult("{ \"smsSetupId\": " + smsResult.smsSetupId() + " }");
         sessionManagementService.updateAttempt(attempt);
 
+        String nextContext = "enroll".equals(mode) ? "enrollment" : "authentication";
         return new OrchestratorResponse(
-                channelSession.getChannelSessionId(),
-                new OrchestratorResponse.ProcessState("LOGIN", "ACTIVE", null, null),
-                new OrchestratorResponse.AttemptState(
-                        attempt.getAttemptId(),
-                        "authentication",
-                        "INPUT_REQUIRED",
-                        Arrays.asList("phoneNumber"),
-                        null
-                ),
-                new OrchestratorResponse.NextRouting("sms", mode.equals("enroll") ? "enroll" : "use")
+                channelSession.getChannelSessionId(), null,
+                new OrchestratorResponse.AttemptState(attempt.getAttemptId(), "authentication",
+                        "INPUT_REQUIRED", Arrays.asList("tan"), Map.of("smsSetupId", smsResult.smsSetupId())),
+                new OrchestratorResponse.NextRouting(nextContext, "tanInput")
         );
     }
 
@@ -306,32 +332,56 @@ public class OrchestratorApiV1Service {
         OrchestratorAttempt attempt = sessionManagementService.getAttemptById(attemptId)
                 .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
 
-        // First submission: collect phone number
-        List<String> missingFields = new ArrayList<>();
-        if (data == null || !data.containsKey("tan")) {
-            if (data == null || !data.containsKey("phoneNumber")) {
-                missingFields.add("phoneNumber");
-            } else {
-                missingFields.add("tan");
-            }
+        String tan = data != null ? (String) data.get("tan") : null;
+        if (tan == null || tan.isBlank()) {
+            return new OrchestratorResponse(null, null,
+                    new OrchestratorResponse.AttemptState(attemptId, "authentication", "INPUT_REQUIRED",
+                            Arrays.asList("tan"), null),
+                    new OrchestratorResponse.NextRouting("enroll".equals(mode) ? "enrollment" : "authentication", "tanInput"));
         }
 
-        attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
-        attempt.setMissingFields(serializeList(missingFields));
-        attempt.setNextStep(missingFields.contains("tan") ? "tanInput" : "enroll");
+        // Extract smsSetupId from stored result
+        String resultJson = attempt.getResult();
+        Long smsSetupId = null;
+        if (resultJson != null) {
+            try {
+                smsSetupId = Long.parseLong(resultJson.replaceAll(".*\"smsSetupId\":\\s*(\\d+).*", "$1"));
+            } catch (Exception e) {
+                throw new IllegalStateException("Cannot extract smsSetupId from attempt result");
+            }
+        }
+        if (smsSetupId == null) {
+            throw new IllegalStateException("No smsSetupId stored in attempt");
+        }
+
+        // Validate TAN
+        var validated = authSmsService.validateTan(smsSetupId, tan);
+
+        // For enrollment: add SMS auth method to account
+        ChannelSession channelSession = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
+                .orElseThrow(() -> new IllegalArgumentException("Channel session not found"));
+        Long accountId = channelSession.getAccountId();
+        if (accountId != null && "enroll".equals(mode)) {
+            accountService.addAuthenticationMethod(accountId, "sms", true,
+                    Map.of("smsSetupId", validated.smsSetupId(), "phoneNumber", validated.phoneNumber()));
+        }
+
+        attempt.setStatus(AttemptStatus.VERIFIED);
+        attempt.setResult("{ \"verified\": true }");
         sessionManagementService.updateAttempt(attempt);
+        sessionManagementService.updateChannelState(channelSession.getChannelSessionId(), ChannelState.AUTHENTICATED);
+
+        ProcessSession processSession = sessionManagementService.getProcessSessionById(attempt.getProcessSessionId())
+                .orElse(null);
+        Long personId = processSession != null ? processSession.getPersonId() : null;
 
         return new OrchestratorResponse(
-                null,
-                null,
-                new OrchestratorResponse.AttemptState(
-                        attemptId,
-                        "authentication",
-                        "INPUT_REQUIRED",
-                        missingFields,
-                        null
-                ),
-                new OrchestratorResponse.NextRouting("sms", missingFields.contains("tan") ? "tanInput" : "enroll")
+                channelSession.getChannelSessionId(),
+                new OrchestratorResponse.ProcessState("REGISTRATION", "COMPLETED", personId, accountId),
+                new OrchestratorResponse.AttemptState(attemptId, "authentication", "VERIFIED", null,
+                        Map.of("verified", true)),
+                new OrchestratorResponse.NextRouting("authentication", "authenticated", null,
+                        null, accountId, personId)
         );
     }
 

@@ -7,6 +7,7 @@ import { AuthenticationSetupView } from './components/AuthenticationSetupView'
 import { FscForm } from './components/FscForm'
 import { IdentificationForm } from './components/IdentificationForm'
 import { SessionStatusView } from './components/SessionStatusView'
+import { TanInputForm } from './components/TanInputForm'
 
 function App() {
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
@@ -133,13 +134,15 @@ function App() {
 
       {uiComponent === 'fsc-form' && <FscForm onSubmit={submitFsc} />}
 
-      {uiComponent === 'authentication-method-selection' && (
+      {(uiComponent === 'authentication-setup' || uiComponent === 'authentication-method-selection') && (
         <AuthenticationSetupView
           onSubmit={setupAuthentication}
           methods={availableMethods}
           mode={sessionStatus?.next?.context === 'enrollment' ? 'enroll' : 'use'}
         />
       )}
+
+      {uiComponent === 'tan-input-form' && <TanInputForm onSubmit={submitTan} />}
 
       {uiComponent === 'authentication-completed' && (
         <div className="card success-card">
@@ -217,6 +220,33 @@ function App() {
     if (!response.ok) {
       const body = await response.text()
       throw new Error(`Authentication setup failed: ${response.status} ${body}`)
+    }
+
+    const result = (await response.json()) as OrchestratorResponse
+    setSessionStatus({
+      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
+      next: result.next,
+      processState: result.processState,
+      attemptState: result.attemptState,
+    })
+  }
+
+  async function submitTan(tan: string) {
+    if (!dpop || !sessionStatus?.attemptState?.attemptId || !sessionStatus?.channelSessionId) return
+
+    const attemptId = sessionStatus.attemptState.attemptId
+    const mode = sessionStatus?.next?.context === 'enrollment' ? 'enroll' : 'use'
+    const url = `${window.location.origin}/orchestrator/api/v1/authentication-methods/sms/${mode}/attempts/${attemptId}`
+    const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
+    const response = await fetch(`/orchestrator/api/v1/authentication-methods/sms/${mode}/attempts/${attemptId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ tan }),
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`TAN validation failed: ${response.status} ${body}`)
     }
 
     const result = (await response.json()) as OrchestratorResponse
