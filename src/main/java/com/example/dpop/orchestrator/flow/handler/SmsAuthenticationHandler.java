@@ -1,8 +1,9 @@
 package com.example.dpop.orchestrator.flow.handler;
 
 import com.example.dpop.account.AccountService;
+import com.example.dpop.auth_sms.AuthSmsChallengeResult;
+import com.example.dpop.auth_sms.AuthSmsEnrollResult;
 import com.example.dpop.auth_sms.AuthSmsService;
-import com.example.dpop.auth_sms.AuthSmsSetupResult;
 import com.example.dpop.orchestrator.flow.AuthenticationMethodHandler;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
 import com.example.dpop.orchestrator.session.BindingSession;
@@ -33,35 +34,42 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         Long accountId = requireAccountId(session);
         boolean isChallenge = accountService.hasActiveAuthenticationMethod(accountId);
 
-        String phoneNumber;
+        AuthSmsEnrollResult smsResult;
         if (isChallenge) {
-            phoneNumber = accountService.findActiveSmsPhoneNumber(accountId)
-                    .orElseThrow(() -> new FlowSessionException("No active sms authentication method configured"));
+            Long enrollmentId = accountService.findActiveSmsEnrollmentId(accountId)
+                    .orElseThrow(() -> new FlowSessionException("No active sms enrollment configured"));
+            AuthSmsChallengeResult challenge = authSmsService.sendChallenge(enrollmentId);
+            session.setSelectedAuthenticationMethod("sms");
+            session.setPendingChallenge(Map.of(
+                    "method", "sms",
+                    "challengeId", challenge.enrollmentId(),
+                    "tan", challenge.tan()
+            ));
+            return new NextStep.SmsTanInputNextStep(challenge.enrollmentId(), challenge.tan());
         } else {
-            phoneNumber = getString(request, "phoneNumber");
+            String phoneNumber = getString(request, "phoneNumber");
             if (phoneNumber == null || phoneNumber.isBlank()) {
                 throw new FlowSessionException("phoneNumber is required for sms setup");
             }
+            smsResult = authSmsService.enrollSms(phoneNumber);
         }
-
-        AuthSmsSetupResult smsResult = authSmsService.setupSms(phoneNumber);
 
         session.setSelectedAuthenticationMethod("sms");
         session.setPendingChallenge(Map.of(
                 "method", "sms",
-                "challengeId", smsResult.smsSetupId(),
+                "challengeId", smsResult.enrollmentId(),
                 "tan", smsResult.tan()
         ));
-        return new NextStep.SmsTanInputNextStep(smsResult.smsSetupId(), smsResult.tan());
+        return new NextStep.SmsTanInputNextStep(smsResult.enrollmentId(), smsResult.tan());
     }
 
     @Override
     public NextStep verify(BindingSession session, Map<String, Object> request) {
         Long accountId = requireAccountId(session);
-        Long smsSetupId = getLong(request, "smsSetupId");
+        Long enrollmentId = getLong(request, "enrollmentId");
         String tan = getString(request, "tan");
 
-        AuthSmsSetupResult validatedSetup = authSmsService.validateTan(smsSetupId, tan);
+        authSmsService.validateTan(enrollmentId, tan);
 
         boolean wasSetup = !accountService.hasActiveAuthenticationMethod(accountId);
         if (wasSetup) {
@@ -69,7 +77,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
                     accountId,
                     "sms",
                     true,
-                    Map.of("smsSetupId", validatedSetup.smsSetupId(), "phoneNumber", validatedSetup.phoneNumber())
+                    Map.of("enrollmentId", enrollmentId)
             );
         }
         session.clearPendingChallenge();

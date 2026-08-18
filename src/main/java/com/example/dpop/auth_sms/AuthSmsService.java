@@ -21,8 +21,12 @@ public class AuthSmsService {
         this.repository = repository;
     }
 
+    /**
+     * Enrolls a new SMS authentication method: validates the phone number, persists it,
+     * sends a first TAN for confirmation, and returns the enrollment reference.
+     */
     @Transactional
-    public AuthSmsSetupResult setupSms(String phoneNumber) {
+    public AuthSmsEnrollResult enrollSms(String phoneNumber) {
         if (phoneNumber == null || phoneNumber.isBlank()) {
             throw new IllegalArgumentException("Telefonnummer ist erforderlich");
         }
@@ -34,24 +38,40 @@ public class AuthSmsService {
         String tan = generateTan();
         Instant now = Instant.now();
         AuthSmsSetup setup = repository.save(new AuthSmsSetup(normalized, tan, false, now, now));
+        sendTestSms(normalized, tan);
 
-        boolean testSmsSent = sendTestSms(normalized, tan);
-
-        return new AuthSmsSetupResult(setup.getId(), setup.getPhoneNumber(), setup.getTan(), testSmsSent);
+        return new AuthSmsEnrollResult(setup.getId(), tan);
     }
 
+    /**
+     * Sends a fresh TAN to the phone number of an already validated enrollment.
+     * The phone number stays within this module.
+     */
     @Transactional
-    public AuthSmsSetupResult validateTan(Long smsSetupId, String tan) {
-        if (smsSetupId == null || tan == null || tan.isBlank()) {
-            throw new IllegalArgumentException("SMS-Setup-ID und TAN sind erforderlich");
+    public AuthSmsChallengeResult sendChallenge(Long enrollmentId) {
+        AuthSmsSetup setup = repository.findById(enrollmentId)
+                .orElseThrow(() -> new IllegalArgumentException("SMS-Enrollment nicht gefunden: " + enrollmentId));
+        if (!setup.isValidated()) {
+            throw new IllegalArgumentException("SMS-Enrollment wurde noch nicht validiert");
         }
+        String tan = generateTan();
+        setup.setTan(tan);
+        setup.setUpdatedAt(Instant.now());
+        repository.save(setup);
+        sendTestSms(setup.getPhoneNumber(), tan);
+        return new AuthSmsChallengeResult(enrollmentId, tan);
+    }
 
-        AuthSmsSetup setup = repository.findById(smsSetupId)
-                .orElseThrow(() -> new IllegalArgumentException("SMS-Setup nicht gefunden"));
-
-        if (setup.isValidated()) {
-            throw new IllegalArgumentException("TAN wurde bereits validiert");
+    /**
+     * Validates a TAN for the given enrollment. Marks the enrollment as validated on success.
+     */
+    @Transactional
+    public void validateTan(Long enrollmentId, String tan) {
+        if (enrollmentId == null || tan == null || tan.isBlank()) {
+            throw new IllegalArgumentException("enrollmentId und TAN sind erforderlich");
         }
+        AuthSmsSetup setup = repository.findById(enrollmentId)
+                .orElseThrow(() -> new IllegalArgumentException("SMS-Enrollment nicht gefunden: " + enrollmentId));
 
         if (!setup.getTan().equals(tan.trim())) {
             throw new IllegalArgumentException("Ungueltige TAN");
@@ -59,8 +79,7 @@ public class AuthSmsService {
 
         setup.setValidated(true);
         setup.setUpdatedAt(Instant.now());
-        AuthSmsSetup validated = repository.save(setup);
-        return new AuthSmsSetupResult(validated.getId(), validated.getPhoneNumber(), validated.getTan(), true);
+        repository.save(setup);
     }
 
     public boolean isValidPhoneNumber(String phoneNumber) {

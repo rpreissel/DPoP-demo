@@ -67,11 +67,11 @@ public sealed interface NextStep {
     record SmsTanInputNextStep(
             String context,
             String step,
-            Long smsSetupId,
+            Long enrollmentId,
             String tan
     ) implements NextStep {
-        public SmsTanInputNextStep(Long smsSetupId, String tan) {
-            this("authentication", "smsTanInput", smsSetupId, tan);
+        public SmsTanInputNextStep(Long enrollmentId, String tan) {
+            this("authentication", "smsTanInput", enrollmentId, tan);
         }
     }
 

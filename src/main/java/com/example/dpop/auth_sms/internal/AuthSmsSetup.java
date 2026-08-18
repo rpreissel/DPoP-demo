@@ -69,6 +69,10 @@ public class AuthSmsSetup {
         this.validated = validated;
     }
 
+    public void setTan(String tan) {
+        this.tan = tan;
+    }
+
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }

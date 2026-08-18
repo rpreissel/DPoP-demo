@@ -27,7 +27,7 @@ public class Orchestrator {
     public String runProcess() {
         return String.join(" | ",
                 idFscService.identify(),
-                authSmsService.setupSms("+49 170 1234567").phoneNumber(),
+                String.valueOf(authSmsService.enrollSms("+491701234567").enrollmentId()),
                 accountService.manageAccount(),
                 extStammdatenService.fetchStammdaten());
     }

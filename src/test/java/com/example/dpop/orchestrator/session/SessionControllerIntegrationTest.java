@@ -156,7 +156,7 @@ class SessionControllerIntegrationTest {
         Map<String, Object> smsSetupNext = (Map<String, Object>) smsSetupResponse.getBody().get("next");
         assertThat(smsSetupNext.get("context")).isEqualTo("authentication");
         assertThat(smsSetupNext.get("step")).isEqualTo("smsTanInput");
-        Number smsSetupIdNumber = (Number) smsSetupNext.get("smsSetupId");
+        Number smsSetupIdNumber = (Number) smsSetupNext.get("enrollmentId");
         Long smsSetupId = smsSetupIdNumber.longValue();
 
         AuthSmsSetup setup = authSmsSetupRepository.findById(smsSetupId).orElseThrow();
@@ -170,7 +170,7 @@ class SessionControllerIntegrationTest {
         smsTanHeaders.set("DPoP", smsTanProof);
         smsTanHeaders.set("Content-Type", "application/json");
         HttpEntity<Map<String, Object>> smsTanEntity = new HttpEntity<>(Map.of(
-                "smsSetupId", smsSetupId,
+                "enrollmentId", smsSetupId,
                 "tan", setup.getTan()
         ), smsTanHeaders);
         ResponseEntity<Map> smsTanResponse = restTemplate.exchange(
@@ -200,7 +200,7 @@ class SessionControllerIntegrationTest {
         assertThat(account.getAuthenticationMethods()).hasSize(1);
         assertThat(account.getAuthenticationMethods().get(0).getMethod()).isEqualTo("sms");
         assertThat(account.getAuthenticationMethods().get(0).isActive()).isTrue();
-        assertThat(account.getAuthenticationMethods().get(0).getDetails()).containsKey("smsSetupId");
+        assertThat(account.getAuthenticationMethods().get(0).getDetails()).containsKey("enrollmentId");
 
         String sessionsProof2 = createDpopProof(ecKey, "POST", setupUrl);
         HttpHeaders postHeaders2 = new HttpHeaders();
@@ -291,7 +291,7 @@ class SessionControllerIntegrationTest {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> firstSmsNext = (Map<String, Object>) firstSmsSetupResponse.getBody().get("next");
-            Long firstSmsSetupId = ((Number) firstSmsNext.get("smsSetupId")).longValue();
+            Long firstSmsSetupId = ((Number) firstSmsNext.get("enrollmentId")).longValue();
             AuthSmsSetup firstSmsSetup = authSmsSetupRepository.findById(firstSmsSetupId).orElseThrow();
 
             String firstSmsVerifyUrl = setupUrl + "/" + firstSessionId + "/authentication-methods/sms/verify";
@@ -302,7 +302,7 @@ class SessionControllerIntegrationTest {
             restTemplate.exchange(
                     firstSmsVerifyUrl,
                     HttpMethod.POST,
-                    new HttpEntity<>(Map.of("smsSetupId", firstSmsSetupId, "tan", firstSmsSetup.getTan()), firstSmsVerifyHeaders),
+                    new HttpEntity<>(Map.of("enrollmentId", firstSmsSetupId, "tan", firstSmsSetup.getTan()), firstSmsVerifyHeaders),
                     Map.class);
         }
 
@@ -380,7 +380,7 @@ class SessionControllerIntegrationTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> challengeNext = (Map<String, Object>) challengeResponse.getBody().get("next");
         assertThat(challengeNext.get("step")).isEqualTo("smsTanInput");
-        Long secondSmsSetupId = ((Number) challengeNext.get("smsSetupId")).longValue();
+        Long secondSmsSetupId = ((Number) challengeNext.get("enrollmentId")).longValue();
         AuthSmsSetup secondSmsSetup = authSmsSetupRepository.findById(secondSmsSetupId).orElseThrow();
         assertThat(secondSmsSetup.getPhoneNumber()).isEqualTo("+491701234567");
 
@@ -392,7 +392,7 @@ class SessionControllerIntegrationTest {
         ResponseEntity<Map> verifyResponse = restTemplate.exchange(
                 verifyUrl,
                 HttpMethod.POST,
-                new HttpEntity<>(Map.of("smsSetupId", secondSmsSetupId, "tan", secondSmsSetup.getTan()), verifyHeaders),
+                new HttpEntity<>(Map.of("enrollmentId", secondSmsSetupId, "tan", secondSmsSetup.getTan()), verifyHeaders),
                 Map.class);
         @SuppressWarnings("unchecked")
         Map<String, Object> verifyNext = (Map<String, Object>) verifyResponse.getBody().get("next");

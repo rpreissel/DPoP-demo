@@ -85,7 +85,7 @@ public class AccountService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<String> findActiveSmsPhoneNumber(Long accountId) {
+    public Optional<Long> findActiveSmsEnrollmentId(Long accountId) {
         return accountRepository.findById(accountId)
                 .map(Account::getAuthenticationMethods)
                 .stream()
@@ -93,10 +93,10 @@ public class AccountService {
                         .filter(AuthenticationMethod::isActive)
                         .filter(method -> "sms".equals(method.getMethod()))
                         .map(AuthenticationMethod::getDetails)
-                        .map(details -> details == null ? null : details.get("phoneNumber"))
-                        .filter(String.class::isInstance)
-                        .map(String.class::cast)
-                        .filter(phone -> !phone.isBlank()))
+                        .filter(details -> details != null && details.containsKey("enrollmentId"))
+                        .map(details -> details.get("enrollmentId"))
+                        .filter(v -> v instanceof Number)
+                        .map(v -> ((Number) v).longValue()))
                 .findFirst();
     }
 

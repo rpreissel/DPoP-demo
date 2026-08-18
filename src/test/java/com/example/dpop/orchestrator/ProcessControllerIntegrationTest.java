@@ -23,6 +23,6 @@ class ProcessControllerIntegrationTest {
                 "http://localhost:" + port + "/orchestrator/process",
                 String.class);
 
-        assertThat(body).contains("id_fsc", "+49170", "account", "ext_stammdaten");
+        assertThat(body).contains("id_fsc", "account", "ext_stammdaten");
     }
 }
