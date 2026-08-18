@@ -177,7 +177,7 @@ function App() {
     })
   }
 
-  async function submitFsc(fsc: string) {
+  async function submitFsc(kvnr: string, fsc: string) {
     if (!dpop || !sessionStatus?.attemptState?.attemptId) return
 
     const attemptId = sessionStatus.attemptState.attemptId
@@ -186,7 +186,7 @@ function App() {
     const response = await fetch(`/orchestrator/api/v1/identification-methods/fsc/attempts/${attemptId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ fsc }),
+      body: JSON.stringify({ kvnr, fsc }),
     })
 
     if (!response.ok) {

@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.api.v1;
 
+import com.example.dpop.ext_stammdaten.PersonRepository;
+import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.session.AttemptStatus;
 import com.example.dpop.orchestrator.session.AuthenticationAttempt;
 import com.example.dpop.orchestrator.session.ChannelSession;
@@ -26,9 +28,17 @@ import java.util.UUID;
 public class OrchestratorApiV1Service {
 
     private final SessionManagementService sessionManagementService;
+    private final PersonRepository personRepository;
+    private final IdFscService idFscService;
 
-    public OrchestratorApiV1Service(SessionManagementService sessionManagementService) {
+    public OrchestratorApiV1Service(
+            SessionManagementService sessionManagementService,
+            PersonRepository personRepository,
+            IdFscService idFscService
+    ) {
         this.sessionManagementService = sessionManagementService;
+        this.personRepository = personRepository;
+        this.idFscService = idFscService;
     }
 
     public OrchestratorResponse initializeFlow(ChannelSession channelSession) {
@@ -57,7 +67,7 @@ public class OrchestratorApiV1Service {
                     Duration.ofMinutes(10)
             );
             attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
-            attempt.setMissingFields(serializeList(Arrays.asList("kvnr", "name")));
+            attempt.setMissingFields(serializeList(Arrays.asList("kvnr", "fsc")));
             sessionManagementService.updateAttempt(attempt);
 
             return new OrchestratorResponse(
@@ -124,7 +134,7 @@ public class OrchestratorApiV1Service {
 
         List<String> missingFields = new ArrayList<>();
         if (data == null || !data.containsKey("kvnr")) missingFields.add("kvnr");
-        if (data == null || !data.containsKey("name")) missingFields.add("name");
+        if (data == null || !data.containsKey("fsc")) missingFields.add("fsc");
 
         attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
         attempt.setMissingFields(serializeList(missingFields));
@@ -148,38 +158,38 @@ public class OrchestratorApiV1Service {
         OrchestratorAttempt attempt = sessionManagementService.getAttemptById(attemptId)
                 .orElseThrow(() -> new IllegalArgumentException("Attempt not found"));
 
-        // Validate data
+        // Validate required fields: kvnr + fsc
         List<String> missingFields = new ArrayList<>();
         if (data == null || !data.containsKey("kvnr")) missingFields.add("kvnr");
-        if (data == null || !data.containsKey("name")) missingFields.add("name");
+        if (data == null || !data.containsKey("fsc")) missingFields.add("fsc");
 
         if (!missingFields.isEmpty()) {
             attempt.setStatus(AttemptStatus.INPUT_REQUIRED);
             attempt.setMissingFields(serializeList(missingFields));
             sessionManagementService.updateAttempt(attempt);
-
-            return new OrchestratorResponse(
-                    null,
-                    null,
-                    new OrchestratorResponse.AttemptState(
-                            attemptId,
-                            "identification",
-                            "INPUT_REQUIRED",
-                            missingFields,
-                            null
-                    ),
-                    new OrchestratorResponse.NextRouting("fsc", "input")
-            );
+            return new OrchestratorResponse(null, null,
+                    new OrchestratorResponse.AttemptState(attemptId, "identification", "INPUT_REQUIRED", missingFields, null),
+                    new OrchestratorResponse.NextRouting("fsc", "input"));
         }
 
-        // Mock verification - in real implementation, would call ID verification service
-        Long personId = 5001L;
+        String kvnr = (String) data.get("kvnr");
+        String fsc = (String) data.get("fsc");
 
+        // Look up person by KVNR
+        var person = personRepository.findByKvnr(kvnr).orElse(null);
+        if (person == null || !idFscService.validateFsc(person.getId(), fsc)) {
+            attempt.setStatus(AttemptStatus.FAILED);
+            attempt.setMissingFields(null);
+            attempt.setResult("{ \"error\": \"invalid_fsc\" }");
+            sessionManagementService.updateAttempt(attempt);
+            return new OrchestratorResponse(null, null,
+                    new OrchestratorResponse.AttemptState(attemptId, "identification", "FAILED", null, Map.of("error", "invalid_fsc")),
+                    new OrchestratorResponse.NextRouting("fsc", "input"));
+        }
+
+        Long personId = person.getId();
         attempt.setStatus(AttemptStatus.VERIFIED);
-        Map<String, Object> result = new HashMap<>();
-        result.put("identified", true);
-        result.put("personId", personId);
-        attempt.setResult("{ \"identified\": true, \"personId\": 5001 }");
+        attempt.setResult("{ \"identified\": true, \"personId\": " + personId + " }");
         sessionManagementService.updateAttempt(attempt);
 
         // Update process session with person ID
@@ -197,7 +207,7 @@ public class OrchestratorApiV1Service {
                         "identification",
                         "VERIFIED",
                         null,
-                        result
+                        Map.of("identified", true, "personId", personId)
                 ),
                 new OrchestratorResponse.NextRouting("enrollment", "selectMethod", Arrays.asList("sms"))
         );
