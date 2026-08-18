@@ -610,13 +610,104 @@ Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende
 | H2 | (von Spring Boot verwaltet) |
 | Flyway | (von Spring Boot verwaltet) |
 
-## 7. Verifikation
+## 7. App-Only Orchestrator Persistierungsmodell (v1)
+
+### 7.1 Zielstruktur
+
+Das Persistierungsmodell wurde refaktoriert, um die fachliche Unterscheidung zwischen stabilen Kanal-Sessions und kurzlebigen Prozess-Sessions sowie zentralen Attempt-Metadaten zu unterstützen. Die neue Struktur ist app-only ausgerichtet und unterstützt Keycloak/AuthContext/Web-Channel **nicht**.
+
+#### 7.1.1 ChannelSession
+
+- **Rolle**: Stabile, langlebige Kanal-Bindung (APP oder WEB) mit DPoP-Bindung
+- **Identifikat**: `channelSessionId` (UUID)
+- **Schlüsselattribute**:
+  - `channel`: APP oder WEB
+  - `bindingKeyRef`: Eindeutige DPoP-Binding-Referenz (JWK-Thumbprint)
+  - `accountId`: Referenz zum Account (nullable für anonyme Sessions)
+  - `createdAt`, `lastAccessedAt`, `expiresAt`: Lifecycle-Timestamps
+  - `version`: Optimistic Locking
+- **Persistierung**: Tabelle `channel_session` (Flyway V13)
+- **Repository**: `ChannelSessionRepository`
+
+#### 7.1.2 ProcessSession (abstrakt mit Spezialisierungen)
+
+- **Rolle**: Kurzlebige Prozess-Kontexte für REGISTRATION, LOGIN oder STEP_UP
+- **Basisklasse**: `ProcessSession` (abstrakt)
+- **Spezialisierungen**:
+
+| Typ | Klasse | Spezialattribute | Einsatz |
+|-----|--------|------------------|--------|
+| REGISTRATION | `RegistrationProcessSession` | `personId`, `selectedIdentificationMethod`, `selectedAuthenticationMethod` | Neuer Account im App-Kanal |
+| LOGIN | `LoginProcessSession` | `selectedAuthenticationMethod` | Anmeldung bestehender Account |
+| STEP_UP | `StepUpProcessSession` | `requiredAcr`, `startingAcr`, `achievedAcr`, `selectedAuthenticationMethod` | Erhöhung der Authentifizierungsstufe |
+
+- **Gemeinsame Attribute** (alle Typen):
+  - `processSessionId` (UUID)
+  - `channelSessionId` (Foreign Key zu `ChannelSession`)
+  - `purpose` (Discriminator: REGISTRATION, LOGIN, STEP_UP)
+  - `status`: ACTIVE, PENDING_VERIFICATION, COMPLETED, EXPIRED, FAILED
+  - `accountId` (nullable)
+  - `createdAt`, `expiresAt`, `consumedAt` (nullable)
+  - `version`: Optimistic Locking
+- **Persistierung**: Tabelle `process_session` mit Single-Table-Inheritance (Flyway V13)
+- **Repository**: `ProcessSessionRepository`
+
+#### 7.1.3 OrchestratorAttempt (abstrakt mit Spezialisierungen)
+
+- **Rolle**: Zentrale Lifecycle- und Routing-Metadaten für Identifikations- und Authentifizierungsversuche
+- **Basisklasse**: `OrchestratorAttempt` (abstrakt)
+- **Spezialisierungen**:
+
+| Typ | Klasse | Einsatz |
+|-----|--------|--------|
+| IDENTIFICATION | `IdentificationAttempt` | FSC/KVNR-Identifikation |
+| AUTHENTICATION | `AuthenticationAttempt` | SMS-Setup, TAN-Verifizierung, etc. |
+
+- **Gemeinsame Attribute** (beide Typen):
+  - `attemptId` (UUID)
+  - `processSessionId` (Foreign Key zu `ProcessSession`)
+  - `attemptType` (Discriminator: IDENTIFICATION, AUTHENTICATION)
+  - `status`: ACTIVE, PENDING_VERIFICATION, COMPLETED, FAILED, EXPIRED
+  - `nextContext`: Routing-Kontext für UI (z. B. "registration", "fsc", "sms")
+  - `nextStep`: Routing-Schritt für UI (z. B. "selectMethod", "input", "tanInput")
+  - `createdAt`, `expiresAt`: Lifecycle
+  - `retryCount`: Zähler für Wiederholung
+  - `version`: Optimistic Locking
+- **Persistierung**: Tabelle `orchestrator_attempt` mit Single-Table-Inheritance (Flyway V13)
+- **Repository**: `OrchestratorAttemptRepository`
+
+### 7.2 SessionManagementService
+
+- **Zweck**: Zentrale Verwaltung von Kanal-, Prozess- und Attempt-Sessions
+- **Hauptmethoden**:
+  - `createChannelSession(channel, bindingKeyRef, ttl): ChannelSession`
+  - `getChannelSessionByBindingKeyRef(bindingKeyRef): Optional<ChannelSession>`
+  - `createRegistrationProcessSession(channelSessionId, ttl): RegistrationProcessSession`
+  - `createLoginProcessSession(channelSessionId, ttl): LoginProcessSession`
+  - `createStepUpProcessSession(channelSessionId, requiredAcr, ttl): StepUpProcessSession`
+  - `createIdentificationAttempt(...): IdentificationAttempt`
+  - `createAuthenticationAttempt(...): AuthenticationAttempt`
+  - `completeAttempt(attemptId, nextContext, nextStep)`
+  - `consumeProcessSession(processSessionId)`
+
+### 7.3 Rückwärtskompatibilität
+
+Die alte `BindingSession`-Tabelle bleibt bestehen (Tabelle `binding_session`), um Rückwärtskompatibilität mit existierenden Tests und Services zu gewährleisten. Eine vollständige Migration von alten zu neuen Strukturen ist als Folgearbeit vorgesehen.
+
+### 7.4 Ausschlüsse (aktuell nicht implementiert)
+
+- AuthContext (Keycloak-Integration)
+- Web-Channel-spezifische Logik
+- Datenmigration von alter zu neuer Struktur
+- enrollmentRef-basierte Authentifizierungsmethoden-Referenzen (Placeholder für Zukunft)
+
+## 8. Verifikation
 
 - `./gradlew build` baut Backend und Frontend und führt alle Tests aus.
 - `./gradlew bootRun` startet die Applikation auf Port 8080 (blockierend; für Verifikation lieber Integrationstests verwenden).
 - Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den Endpunkt `/orchestrator/process` sowie den vollständigen DPoP-Session-Flow.
 
-## 8. Abnahmekriterien
+## 9. Abnahmekriterien
 
 - [x] `./gradlew build` läuft erfolgreich durch.
 - [x] `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
