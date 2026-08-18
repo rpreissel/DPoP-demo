@@ -298,7 +298,7 @@ public class OrchestratorApiV1Service {
                     channelSession.getChannelSessionId(), null,
                     new OrchestratorResponse.AttemptState(attempt.getAttemptId(), "authentication",
                             "INPUT_REQUIRED", Arrays.asList("phoneNumber"), null),
-                    new OrchestratorResponse.NextRouting("enrollment".equals(mode) ? "enrollment" : "authentication",
+                    new OrchestratorResponse.NextRouting("enroll".equals(mode) ? "enrollment" : "authentication",
                             "setup", Arrays.asList(method))
             );
         }

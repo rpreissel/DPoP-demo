@@ -141,11 +141,23 @@ public class OrchestratorApiV1Controller {
     public ResponseEntity<OrchestratorResponse> startAuthenticationSmsEnroll(
             @PathVariable UUID channelSessionId,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody AttemptRequest request,
+            @RequestBody Map<String, Object> data,
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = orchestratorApiV1Service.startAuthenticationWithMode(bindingKeyRef, "sms", "enroll", request.data());
+        OrchestratorResponse response = orchestratorApiV1Service.startAuthenticationWithMode(bindingKeyRef, "sms", "enroll", data);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts")
+    public ResponseEntity<OrchestratorResponse> startAuthenticationSmsUse(
+            @PathVariable UUID channelSessionId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody Map<String, Object> data,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.startAuthenticationWithMode(bindingKeyRef, "sms", "use", data);
         return ResponseEntity.ok(response);
     }
 
@@ -161,6 +173,18 @@ public class OrchestratorApiV1Controller {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/authentication-methods/sms/use/attempts/{attemptId}")
+    public ResponseEntity<OrchestratorResponse> submitAuthenticationDataSmsUse(
+            @PathVariable UUID attemptId,
+            @RequestHeader("DPoP") String dpopProof,
+            @RequestBody Map<String, Object> data,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.submitAuthenticationDataWithMode(attemptId, bindingKeyRef, "sms", "use", data);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/authentication-methods/sms/enroll/attempts/{attemptId}")
     public ResponseEntity<OrchestratorResponse> getAuthenticationStatusSmsEnroll(
             @PathVariable UUID attemptId,
@@ -169,6 +193,17 @@ public class OrchestratorApiV1Controller {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
         OrchestratorResponse response = orchestratorApiV1Service.getAuthenticationStatusWithMode(attemptId, bindingKeyRef, "sms", "enroll");
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/authentication-methods/sms/use/attempts/{attemptId}")
+    public ResponseEntity<OrchestratorResponse> getAuthenticationStatusSmsUse(
+            @PathVariable UUID attemptId,
+            @RequestHeader("DPoP") String dpopProof,
+            HttpServletRequest httpRequest) {
+
+        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
+        OrchestratorResponse response = orchestratorApiV1Service.getAuthenticationStatusWithMode(attemptId, bindingKeyRef, "sms", "use");
         return ResponseEntity.ok(response);
     }
 

@@ -17,18 +17,15 @@ export const routingTable: Record<string, Record<string, UIRoute>> = {
     input: { component: 'fsc-form' },
   },
   enrollment: {
-    selectMethod: { component: 'authentication-setup', methods: ['sms'] },
-    tanInput: { component: 'tan-input-form' },
+    selectMethod: { component: 'authentication-setup', methods: ['sms'] }, // phone number entry
+    setup:        { component: 'authentication-setup', methods: ['sms'] }, // phone number entry (fallback)
+    tanInput:     { component: 'tan-input-form' },
   },
   authentication: {
-    selectMethod: { component: 'authentication-method-selection', methods: ['sms'] },
-    setup: { component: 'authentication-setup', methods: ['sms'] },
-    tanInput: { component: 'tan-input-form' },
+    selectMethod:  { component: 'authentication-method-selection', methods: ['sms'] },
+    setup:         { component: 'authentication-setup', methods: ['sms'] }, // phone number re-entry
+    tanInput:      { component: 'tan-input-form' },
     authenticated: { component: 'authentication-completed' },
-  },
-  sms: {
-    setup: { component: 'sms-setup-form' },
-    tanInput: { component: 'tan-input-form' },
   },
 }
 
