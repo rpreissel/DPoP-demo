@@ -10,22 +10,27 @@ public record OrchestratorResponse(
         UUID channelSessionId,
         ProcessState processState,
         AttemptState attemptState,
-        NextRouting next
+        NextRouting next,
+        DemoHints _demo
 ) {
     public OrchestratorResponse(UUID channelSessionId, NextRouting next) {
-        this(channelSessionId, null, null, next);
+        this(channelSessionId, null, null, next, null);
     }
 
     public OrchestratorResponse(UUID channelSessionId, ProcessState processState, NextRouting next) {
-        this(channelSessionId, processState, null, next);
+        this(channelSessionId, processState, null, next, null);
     }
 
     public OrchestratorResponse(UUID channelSessionId, ProcessState processState, AttemptState attemptState, NextRouting next) {
-        this.channelSessionId = channelSessionId;
-        this.processState = processState;
-        this.attemptState = attemptState;
-        this.next = next;
+        this(channelSessionId, processState, attemptState, next, null);
     }
+
+    /** Only present in demo/test mode — never included in production responses. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record DemoHints(
+            String tan,
+            String note
+    ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ProcessState(

@@ -47,6 +47,7 @@ function App() {
         next: result.next,
         processState: result.processState,
         attemptState: result.attemptState,
+        demo: result._demo,
       })
     }
 
@@ -79,6 +80,7 @@ function App() {
         next: result.next,
         processState: result.processState,
         attemptState: result.attemptState,
+        demo: result._demo,
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -142,7 +144,9 @@ function App() {
         />
       )}
 
-      {uiComponent === 'tan-input-form' && <TanInputForm onSubmit={submitTan} />}
+      {uiComponent === 'tan-input-form' && (
+        <TanInputForm onSubmit={submitTan} demoTan={sessionStatus?.demo?.tan} />
+      )}
 
       {uiComponent === 'authentication-completed' && (
         <div className="card success-card">
@@ -177,6 +181,7 @@ function App() {
       next: result.next,
       processState: result.processState,
       attemptState: result.attemptState,
+      demo: result._demo,
     })
   }
 
@@ -203,6 +208,7 @@ function App() {
       next: result.next,
       processState: result.processState,
       attemptState: result.attemptState,
+      demo: result._demo,
     })
   }
 
@@ -228,6 +234,7 @@ function App() {
       next: result.next,
       processState: result.processState,
       attemptState: result.attemptState,
+      demo: result._demo,
     })
   }
 
@@ -255,6 +262,7 @@ function App() {
       next: result.next,
       processState: result.processState,
       attemptState: result.attemptState,
+      demo: result._demo,
     })
   }
 }

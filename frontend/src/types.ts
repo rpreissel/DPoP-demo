@@ -3,6 +3,8 @@ export interface NextRouting {
   step: string
   methods?: string[]
   enrollmentRef?: string
+  accountId?: number
+  personId?: number
 }
 
 export interface ProcessState {
@@ -20,11 +22,17 @@ export interface AttemptState {
   result?: unknown
 }
 
+export interface DemoHints {
+  tan?: string
+  note?: string
+}
+
 export interface OrchestratorResponse {
   channelSessionId: string
   processState?: ProcessState
   attemptState?: AttemptState
   next: NextRouting
+  _demo?: DemoHints
 }
 
 export interface SessionStatus {
@@ -32,4 +40,5 @@ export interface SessionStatus {
   next?: NextRouting
   processState?: ProcessState
   attemptState?: AttemptState
+  demo?: DemoHints
 }

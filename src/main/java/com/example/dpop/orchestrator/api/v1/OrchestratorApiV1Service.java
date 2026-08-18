@@ -324,7 +324,9 @@ public class OrchestratorApiV1Service {
                 channelSession.getChannelSessionId(), null,
                 new OrchestratorResponse.AttemptState(attempt.getAttemptId(), "authentication",
                         "INPUT_REQUIRED", Arrays.asList("tan"), Map.of("smsSetupId", smsResult.smsSetupId())),
-                new OrchestratorResponse.NextRouting(nextContext, "tanInput")
+                new OrchestratorResponse.NextRouting(nextContext, "tanInput"),
+                new OrchestratorResponse.DemoHints(smsResult.tan(),
+                        "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response")
         );
     }
 
