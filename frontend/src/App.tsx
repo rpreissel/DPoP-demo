@@ -1,81 +1,55 @@
 import React, { useEffect, useState } from 'react'
 import { createDpopProof, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
-import type { SessionStatus, FlowSetupResult } from './types'
+import type { SessionStatus, OrchestratorResponse } from './types'
+import { getUIComponent, getAvailableMethods } from './routing.ts'
 import { AuthenticationSetupView } from './components/AuthenticationSetupView'
 import { FscForm } from './components/FscForm'
 import { IdentificationForm } from './components/IdentificationForm'
 import { SessionStatusView } from './components/SessionStatusView'
 
 function App() {
-  const [message, setMessage] = useState<string>('')
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null)
   const [error, setError] = useState<string>('')
   const [showDebug, setShowDebug] = useState(false)
 
-  async function startSessionFlow() {
-    const keyPair = await getOrCreateDpopKeyPair()
-    setDpop(keyPair)
-
-    const setupUrl = `${window.location.origin}/orchestrator/sessions`
-    const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
-    const setupResponse = await fetch('/orchestrator/sessions', {
-      method: 'POST',
-      headers: { DPoP: setupProof },
-    })
-    if (!setupResponse.ok) {
-      const body = await setupResponse.text()
-      throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
-    }
-    const setupResult = (await setupResponse.json()) as FlowSetupResult
-    setSessionStatus({
-      sessionId: setupResult.sessionId,
-      next: setupResult.next,
-    })
-  }
-
-  useEffect(() => {
-    fetch('/orchestrator/process')
-      .then((res) => res.text())
-      .then((text) => setMessage(text))
-      .catch((err) => setMessage(`Error: ${err.message}`))
-  }, [])
-
-  function mergeSessionStatus(result: FlowSetupResult, fallback: SessionStatus): SessionStatus {
-    return {
-      sessionId: result.sessionId ?? fallback.sessionId,
-      next: result.next,
-    }
-  }
-
+  // Initialize channel session
   useEffect(() => {
     let active = true
 
-    async function runSessionFlow() {
+    async function initializeChannel() {
       const keyPair = await getOrCreateDpopKeyPair()
       if (!active) return
       setDpop(keyPair)
 
-      const setupUrl = `${window.location.origin}/orchestrator/sessions`
-      const setupProof = await createDpopProof(keyPair.keyPair, 'POST', setupUrl)
-      const setupResponse = await fetch('/orchestrator/sessions', {
+      const channelUrl = `${window.location.origin}/orchestrator/api/v1/channel`
+      const proof = await createDpopProof(keyPair.keyPair, 'POST', channelUrl)
+      const response = await fetch('/orchestrator/api/v1/channel', {
         method: 'POST',
-        headers: { DPoP: setupProof },
+        headers: {
+          'Content-Type': 'application/json',
+          DPoP: proof,
+        },
       })
-      if (!setupResponse.ok) {
-        const body = await setupResponse.text()
-        throw new Error(`Setup failed: ${setupResponse.status} ${body}`)
+
+      if (!response.ok) {
+        const body = await response.text()
+        throw new Error(`Channel initialization failed: ${response.status} ${body}`)
       }
-      const setupResult = (await setupResponse.json()) as FlowSetupResult
+
+      const result = (await response.json()) as OrchestratorResponse
       if (!active) return
+
       setSessionStatus({
-        sessionId: setupResult.sessionId,
-        next: setupResult.next,
+        channelSessionId: result.channelSessionId,
+        next: result.next,
+        processState: result.processState,
+        attemptState: result.attemptState,
       })
     }
 
-    runSessionFlow().catch((err) => setError(`Session flow error: ${err.message}`))
+    initializeChannel().catch((err) => setError(`Init error: ${err.message}`))
 
     return () => {
       active = false
@@ -87,93 +61,36 @@ function App() {
       setError('')
       setSessionStatus(null)
       await resetDpopKeyPair()
-      await startSessionFlow()
+      // Re-trigger initialization
+      const keyPair = await getOrCreateDpopKeyPair()
+      setDpop(keyPair)
+
+      const channelUrl = `${window.location.origin}/orchestrator/api/v1/channel`
+      const proof = await createDpopProof(keyPair.keyPair, 'POST', channelUrl)
+      const response = await fetch('/orchestrator/api/v1/channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', DPoP: proof },
+      })
+
+      const result = (await response.json()) as OrchestratorResponse
+      setSessionStatus({
+        channelSessionId: result.channelSessionId,
+        next: result.next,
+        processState: result.processState,
+        attemptState: result.attemptState,
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(`Reset failed: ${message}`)
     }
   }
 
-  async function submitIdentification(kvnr: string, name: string, vorname: string) {
-    if (!dpop || !sessionStatus?.sessionId) return
-
-    const sessionId = sessionStatus.sessionId
-    const url = `${window.location.origin}/orchestrator/sessions/${sessionId}/identification-methods/fsc`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch(`/orchestrator/sessions/${sessionId}/identification-methods/fsc`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ kvnr, name, vorname }),
-    })
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`Identification failed: ${response.status} ${body}`)
-    }
-    const result = (await response.json()) as FlowSetupResult
-    setSessionStatus(mergeSessionStatus(result, sessionStatus))
-  }
-
-  async function submitFsc(fsc: string) {
-    if (!dpop || !sessionStatus?.sessionId) return
-
-    const sessionId = sessionStatus.sessionId
-    const url = `${window.location.origin}/orchestrator/sessions/${sessionId}/identification-methods/fsc`
-    const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
-    const response = await fetch(`/orchestrator/sessions/${sessionId}/identification-methods/fsc`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ fsc }),
-    })
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`FSC validation failed: ${response.status} ${body}`)
-    }
-    const result = (await response.json()) as FlowSetupResult
-    setSessionStatus(mergeSessionStatus(result, sessionStatus))
-  }
-
-  async function setupSmsStart(phoneNumber?: string): Promise<{ smsSetupId: number; tan: string } | undefined> {
-    if (!dpop || !sessionStatus?.sessionId) return undefined
-
-    const sessionId = sessionStatus.sessionId
-    const baseUrl = `${window.location.origin}/orchestrator/sessions/${sessionId}/authentication-methods/sms`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
-    const response = await fetch(baseUrl.replace(window.location.origin, ''), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify(phoneNumber ? { phoneNumber } : {}),
-    })
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`SMS setup failed: ${response.status} ${body}`)
-    }
-    const result = (await response.json()) as FlowSetupResult
-    setSessionStatus(mergeSessionStatus(result, sessionStatus))
-
-    return {
-      smsSetupId: result.next.smsSetupId!,
-      tan: result.next.tan ?? '',
-    }
-  }
-
-  async function setupSmsVerify(smsSetupId: number, tan: string): Promise<boolean> {
-    if (!dpop || !sessionStatus?.sessionId) return false
-
-    const sessionId = sessionStatus.sessionId
-    const baseUrl = `${window.location.origin}/orchestrator/sessions/${sessionId}/authentication-methods/sms/verify`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', baseUrl)
-    const response = await fetch(baseUrl.replace(window.location.origin, ''), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ smsSetupId, tan }),
-    })
-    if (!response.ok) {
-      return false
-    }
-    const result = (await response.json()) as FlowSetupResult
-    setSessionStatus(mergeSessionStatus(result, sessionStatus))
-    return true
-  }
+  // Route based on context/step, not URL
+  const uiComponent = getUIComponent(sessionStatus?.next)
+  const availableMethods = getAvailableMethods(sessionStatus?.next)
+  const resultJson = sessionStatus?.attemptState?.result
+    ? JSON.stringify(sessionStatus.attemptState.result as unknown, null, 2)
+    : ''
 
   return (
     <div className="app">
@@ -191,75 +108,121 @@ function App() {
 
       {sessionStatus && <SessionStatusView status={sessionStatus} />}
 
-      {sessionStatus?.next?.context === 'registration' && sessionStatus?.next?.step === 'useIdentificationMethod' && (
-        <IdentificationForm onSubmit={submitIdentification} />
-      )}
-
-      {sessionStatus?.next?.context === 'fsc' && sessionStatus?.next?.step === 'input' && (
-        <FscForm onSubmit={submitFsc} />
-      )}
-
-      {sessionStatus?.next?.context === 'authentication' &&
-        (sessionStatus?.next?.step === 'setup' || sessionStatus?.next?.step === 'selectMethod') &&
-        sessionStatus.next.authenticationMethods && (
-        <AuthenticationSetupView
-          methods={sessionStatus.next.authenticationMethods}
-          collectPhoneNumber={sessionStatus.next.step === 'setup'}
-          onSetupSmsStart={setupSmsStart}
-          onSetupSmsVerify={setupSmsVerify}
-        />
-      )}
-
-      {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'smsTanInput' && sessionStatus.next.smsSetupId && (
-        <AuthenticationSetupView
-          methods={['sms']}
-          collectPhoneNumber={false}
-          initialSmsSetupId={sessionStatus.next.smsSetupId}
-          initialTan={sessionStatus.next.tan}
-          onSetupSmsStart={setupSmsStart}
-          onSetupSmsVerify={setupSmsVerify}
-        />
-      )}
-
-      {sessionStatus?.next?.context === 'authentication' && sessionStatus?.next?.step === 'authenticated' && (
-        <div className="card">
-          <h2>Anmeldung erfolgreich</h2>
-          <p>Die Authentifizierung wurde erfolgreich abgeschlossen.</p>
-          <p>Account ID: {sessionStatus.next.accountId ?? 'unbekannt'}</p>
-          <p>Person ID: {sessionStatus.next.personId ?? 'unbekannt'}</p>
-        </div>
-      )}
-
-      <div className="debug-toggle">
-        <button
-          type="button"
-          className="secondary"
-          onClick={handleReset}
-          title="Loescht den gespeicherten DPoP-Key, generiert neue Keys und startet den Flow neu"
-        >
-          Neu starten
+      <div className="controls">
+        <button onClick={handleReset} className="button-reset">
+          Reset & Restart
         </button>
-        <button type="button" className="secondary" onClick={() => setShowDebug((s) => !s)}>
-          {showDebug ? 'Debug-Info ausblenden' : 'Debug-Info anzeigen'}
+        <button onClick={() => setShowDebug(!showDebug)} className="button-debug">
+          {showDebug ? 'Hide Debug' : 'Show Debug'}
         </button>
       </div>
 
-      {showDebug && (
-        <>
-          <div className="card debug-section">
-            <h2>Backend Response</h2>
-            <pre>{message || 'Loading...'}</pre>
-          </div>
-          {dpop && (
-            <div className="card debug-section">
-              <h2>DPoP Public Key (JWK)</h2>
-              <pre>{JSON.stringify(dpop.publicJwk, null, 2)}</pre>
-            </div>
-          )}
-        </>
+      {showDebug && sessionStatus && (
+        <div className="card debug-card">
+          <h3>Debug Info</h3>
+          <pre>{JSON.stringify(sessionStatus, null, 2)}</pre>
+          <p>UI Component: {uiComponent || 'none'}</p>
+          <p>Available Methods: {availableMethods.join(', ') || 'none'}</p>
+        </div>
+      )}
+
+      {/* UI components rendered based on routing table, not URLs */}
+      {uiComponent === 'identification-method-selection' && (
+        <IdentificationForm onSubmit={submitIdentification} methods={availableMethods} />
+      )}
+
+      {uiComponent === 'fsc-form' && <FscForm onSubmit={submitFsc} />}
+
+      {uiComponent === 'authentication-method-selection' && (
+        <AuthenticationSetupView onSubmit={setupAuthentication} methods={availableMethods} />
+      )}
+
+      {uiComponent === 'authentication-completed' && (
+        <div className="card success-card">
+          <h2>Authentifizierung erfolgreich!</h2>
+          <p>Sie sind angemeldet.</p>
+          {resultJson && <pre>{resultJson}</pre>}
+        </div>
       )}
     </div>
   )
+
+  // Handlers for form submissions
+  async function submitIdentification(kvnr: string, name: string, vorname: string, method: string) {
+    if (!dpop || !sessionStatus?.channelSessionId) return
+
+    const url = `${window.location.origin}/orchestrator/api/v1/attempts/identification`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
+    const response = await fetch('/orchestrator/api/v1/attempts/identification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ method, data: { kvnr, name, vorname } }),
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`Identification start failed: ${response.status} ${body}`)
+    }
+
+    const result = (await response.json()) as OrchestratorResponse
+    setSessionStatus({
+      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
+      next: result.next,
+      processState: result.processState,
+      attemptState: result.attemptState,
+    })
+  }
+
+  async function submitFsc(fsc: string) {
+    if (!dpop || !sessionStatus?.attemptState?.attemptId) return
+
+    const attemptId = sessionStatus.attemptState.attemptId
+    const url = `${window.location.origin}/orchestrator/api/v1/attempts/identification/${attemptId}`
+    const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
+    const response = await fetch(`/orchestrator/api/v1/attempts/identification/${attemptId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ fsc }),
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`FSC validation failed: ${response.status} ${body}`)
+    }
+
+    const result = (await response.json()) as OrchestratorResponse
+    setSessionStatus({
+      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
+      next: result.next,
+      processState: result.processState,
+      attemptState: result.attemptState,
+    })
+  }
+
+  async function setupAuthentication(method: string, data?: Record<string, unknown>) {
+    if (!dpop || !sessionStatus?.channelSessionId) return
+
+    const url = `${window.location.origin}/orchestrator/api/v1/attempts/authentication`
+    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
+    const response = await fetch('/orchestrator/api/v1/attempts/authentication', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', DPoP: proof },
+      body: JSON.stringify({ method, data: data || {} }),
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`Authentication setup failed: ${response.status} ${body}`)
+    }
+
+    const result = (await response.json()) as OrchestratorResponse
+    setSessionStatus({
+      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
+      next: result.next,
+      processState: result.processState,
+      attemptState: result.attemptState,
+    })
+  }
 }
 
 export default App

@@ -1,20 +1,35 @@
-export interface NextStep {
+export interface NextRouting {
   context: string
   step: string
-  accountId?: number
+  methods?: string[]
+  enrollmentRef?: string
+}
+
+export interface ProcessState {
+  purpose?: string
+  status?: string
   personId?: number
-  identificationMethods?: string[]
-  authenticationMethods?: string[]
-  smsSetupId?: number
-  tan?: string
+  accountId?: number
+}
+
+export interface AttemptState {
+  attemptId?: string
+  attemptType?: string
+  status?: string
+  missingFields?: string[]
+  result?: unknown
+}
+
+export interface OrchestratorResponse {
+  channelSessionId: string
+  processState?: ProcessState
+  attemptState?: AttemptState
+  next: NextRouting
 }
 
 export interface SessionStatus {
-  sessionId?: string
-  next?: NextStep
-}
-
-export interface FlowSetupResult {
-  sessionId?: string
-  next: NextStep
+  channelSessionId?: string
+  next?: NextRouting
+  processState?: ProcessState
+  attemptState?: AttemptState
 }

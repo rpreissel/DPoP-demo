@@ -1,17 +1,19 @@
 import { useState } from 'react'
 
 interface IdentificationFormProps {
-  onSubmit: (kvnr: string, name: string, vorname: string) => void
+  onSubmit: (kvnr: string, name: string, vorname: string, method: string) => void
+  methods: string[]
 }
 
-export function IdentificationForm({ onSubmit }: IdentificationFormProps) {
+export function IdentificationForm({ onSubmit, methods }: IdentificationFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
   const [name, setName] = useState('Muster')
   const [vorname, setVorname] = useState('Max')
+  const method = methods[0] || 'fsc'
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit(kvnr, name, vorname)
+    onSubmit(kvnr, name, vorname, method)
   }
 
   return (

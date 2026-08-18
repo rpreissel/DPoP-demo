@@ -701,6 +701,41 @@ Die alte `BindingSession`-Tabelle bleibt bestehen (Tabelle `binding_session`), u
 - Datenmigration von alter zu neuer Struktur
 - enrollmentRef-basierte Authentifizierungsmethoden-Referenzen (Placeholder für Zukunft)
 
+### 7.5 Frontend-Decoupling von Action-URLs
+
+Das Frontend nutzt eine **feste lokale Routing-Tabelle** und trifft UI-Entscheidungen ausschließlich basierend auf `next(context, step, methods)`, nicht auf vom Backend gelieferten URLs oder Action-Namen.
+
+#### 7.5.1 Routing-Architektur
+
+- **Backend liefert**: `context` (String, z. B. "registration", "fsc", "authentication", "sms"), `step` (String, z. B. "selectMethod", "input", "setup", "tanInput"), `methods` (Array von Strings, wenn mehrere Methoden zur Auswahl stehen)
+- **Frontend entscheidet**: Anhand dieser drei Attribute wird aus einer lokalen Routing-Tabelle (`routing.ts`) ermittelt, welche UI-Komponente anzuzeigen ist
+- **UI-Komponenten** sind an `(context, step)`-Paare gekoppelt, nicht an URL-Muster
+- **Verfügbare Methoden**: Falls `methods` vom Backend geliefert wird, nutzt das Frontend diese; ansonsten fallback auf Konfiguration in der Routing-Tabelle
+
+#### 7.5.2 Beispiel Routing-Tabelle
+
+```
+registration:
+  selectMethod -> IdentificationMethodSelection
+fsc:
+  input -> FscForm
+authentication:
+  selectMethod -> AuthenticationMethodSelection
+  setup -> AuthenticationSetup
+  tanInput -> TanInputForm
+  authenticated -> AuthenticationCompleted
+sms:
+  setup -> SmsSetupForm
+  tanInput -> TanInputForm
+```
+
+#### 7.5.3 Konsequenzen
+
+- Alle Backend-URLs sind Implementierungsdetails und nicht Gegenstand der UI-Logik
+- UI-Navigation ist deterministisch und nicht von der Form oder Semantik von Backend-Endpunkten abhängig
+- Änderungen an Backend-URL-Strukturen beeinflussen die UI nicht
+- Das Frontend ist wartbar und testbar unabhängig vom Backend-Routing-Konzept
+
 ## 8. Verifikation
 
 - `./gradlew build` baut Backend und Frontend und führt alle Tests aus.
@@ -716,3 +751,4 @@ Die alte `BindingSession`-Tabelle bleibt bestehen (Tabelle `binding_session`), u
 - [x] Das Frontend ist über Spring Boot (`./gradlew bootRun`) erreichbar.
 - [x] Das Frontend kann autark über `npm run dev` im Verzeichnis `frontend/` betrieben werden.
 - [x] Das Frontend zeigt den Session-Status übersichtlich an und erlaubt das Durchspielen des Registrierungsflows mit vorbelegten Testdaten.
+- [x] Das Frontend trifft Routing-Entscheidungen ausschließlich basierend auf `next(context, step, methods)` und nutzt eine lokale Routing-Tabelle, nicht Backend-URLs.

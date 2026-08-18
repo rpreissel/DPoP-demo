@@ -27,10 +27,10 @@ export function SessionStatusView({ status }: SessionStatusViewProps) {
             {phaseLabel}
           </span>
         </li>
-        {status.sessionId && (
+        {status.channelSessionId && (
           <li>
-            <span className="label">Session</span>
-            <span className="value">{status.sessionId}</span>
+            <span className="label">Channel Session</span>
+            <span className="value">{status.channelSessionId}</span>
           </li>
         )}
         {status.next && (
