@@ -1,5 +1,7 @@
 package com.example.dpop.auth_sms;
 
+import com.example.dpop.auth_sms.internal.AuthSmsSetup;
+import com.example.dpop.auth_sms.internal.AuthSmsSetupRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +41,7 @@ public class AuthSmsService {
     }
 
     @Transactional
-    public AuthSmsSetup validateTan(Long smsSetupId, String tan) {
+    public AuthSmsSetupResult validateTan(Long smsSetupId, String tan) {
         if (smsSetupId == null || tan == null || tan.isBlank()) {
             throw new IllegalArgumentException("SMS-Setup-ID und TAN sind erforderlich");
         }
@@ -57,7 +59,8 @@ public class AuthSmsService {
 
         setup.setValidated(true);
         setup.setUpdatedAt(Instant.now());
-        return repository.save(setup);
+        AuthSmsSetup validated = repository.save(setup);
+        return new AuthSmsSetupResult(validated.getId(), validated.getPhoneNumber(), validated.getTan(), true);
     }
 
     public boolean isValidPhoneNumber(String phoneNumber) {

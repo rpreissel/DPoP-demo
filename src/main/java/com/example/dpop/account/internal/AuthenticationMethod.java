@@ -1,4 +1,4 @@
-package com.example.dpop.account;
+package com.example.dpop.account.internal;
 
 import java.time.Instant;
 import java.util.Map;

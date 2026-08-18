@@ -1,4 +1,4 @@
-package com.example.dpop.id_fsc;
+package com.example.dpop.id_fsc.internal;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

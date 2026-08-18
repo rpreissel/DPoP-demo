@@ -1,4 +1,4 @@
-package com.example.dpop.account;
+package com.example.dpop.account.internal;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

@@ -1,4 +1,4 @@
-package com.example.dpop.ext_stammdaten;
+package com.example.dpop.ext_stammdaten.internal;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

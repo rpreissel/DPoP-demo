@@ -1,4 +1,4 @@
-package com.example.dpop.auth_sms;
+package com.example.dpop.auth_sms.internal;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

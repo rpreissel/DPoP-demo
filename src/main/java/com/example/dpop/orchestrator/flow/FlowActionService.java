@@ -72,7 +72,7 @@ public class FlowActionService {
         if (accountId != null) {
             if (accountService.hasActiveAuthenticationMethod(accountId)) {
                 return new NextStep.AuthenticationMethodSelectionNextStep(
-                        authenticationMethodProvider.activeMethods(accountService.findById(accountId).orElseThrow()));
+                        accountService.findActiveAuthenticationMethods(accountId));
             }
             return new NextStep.AuthenticationSetupNextStep(authenticationMethodProvider.availableMethods());
         }
@@ -100,7 +100,7 @@ public class FlowActionService {
         Long accountId = session.getAccountId();
         Long personId = accountId == null
                 ? null
-                : accountService.findById(accountId).map(account -> account.getPersonId()).orElse(null);
+                : accountService.findAccountProfile(accountId).map(profile -> profile.personId()).orElse(null);
         return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
     }
 

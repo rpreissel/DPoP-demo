@@ -1,6 +1,5 @@
 package com.example.dpop.orchestrator.session;
 
-import com.example.dpop.account.Account;
 import com.example.dpop.account.AccountService;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +26,7 @@ public class FlowNextStepResolver {
             Long accountId = session.getAccountId();
             Long personId = accountId == null
                     ? null
-                    : accountService.findById(accountId).map(Account::getPersonId).orElse(null);
+                    : accountService.findAccountProfile(accountId).map(profile -> profile.personId()).orElse(null);
             return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
         }
 
@@ -41,9 +40,7 @@ public class FlowNextStepResolver {
 
         Long accountId = session.getAccountId();
         if (accountId != null) {
-            List<String> activeMethods = accountService.findById(accountId)
-                    .map(authenticationMethodProvider::activeMethods)
-                    .orElse(List.of());
+            List<String> activeMethods = accountService.findActiveAuthenticationMethods(accountId);
 
             String selectedAuthMethod = session.getSelectedAuthenticationMethod();
             if (!activeMethods.isEmpty()) {

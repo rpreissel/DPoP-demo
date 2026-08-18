@@ -1,5 +1,6 @@
 package com.example.dpop.ext_stammdaten;
 
+import com.example.dpop.ext_stammdaten.internal.PersonRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -25,6 +26,16 @@ public class ExtStammdatenService {
     }
 
     public Optional<Long> findPersonIdByKvnr(String kvnr) {
-        return personRepository.findByKvnr(kvnr).map(Person::getId);
+        return personRepository.findByKvnr(kvnr).map(person -> person.getId());
+    }
+
+    public Optional<PersonData> findPersonByKvnr(String kvnr) {
+        return personRepository.findByKvnr(kvnr)
+                .map(person -> new PersonData(person.getId(), person.getKvnr(), person.getName(), person.getVorname()));
+    }
+
+    public Optional<PersonData> findPersonById(Long personId) {
+        return personRepository.findById(personId)
+                .map(person -> new PersonData(person.getId(), person.getKvnr(), person.getName(), person.getVorname()));
     }
 }

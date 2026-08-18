@@ -1,9 +1,14 @@
 package com.example.dpop.account;
 
+import com.example.dpop.account.internal.Account;
+import com.example.dpop.account.internal.AccountIdentification;
+import com.example.dpop.account.internal.AccountRepository;
+import com.example.dpop.account.internal.AuthenticationMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,11 +27,11 @@ public class AccountService {
     }
 
     @Transactional
-    public Account identifyAccount(Long personId,
-                                   String identificationMethod,
-                                   String identificationQuality,
-                                   UUID registrationSessionId,
-                                   Map<String, Object> details) {
+    public AccountProfile identifyAccount(Long personId,
+                                          String identificationMethod,
+                                          String identificationQuality,
+                                          UUID registrationSessionId,
+                                          Map<String, Object> details) {
         Account account = accountRepository.findByPersonId(personId)
                 .orElseGet(() -> new Account(personId, Instant.now()));
 
@@ -38,37 +43,37 @@ public class AccountService {
                 details
         );
         account.addIdentification(identification);
-        return accountRepository.save(account);
+        return toProfile(accountRepository.save(account));
     }
 
     @Transactional
-    public Account createAccount(Long personId,
-                                 String identificationMethod,
-                                 String identificationQuality,
-                                 UUID registrationSessionId,
-                                 Map<String, Object> details) {
+    public AccountProfile createAccount(Long personId,
+                                        String identificationMethod,
+                                        String identificationQuality,
+                                        UUID registrationSessionId,
+                                        Map<String, Object> details) {
         return identifyAccount(personId, identificationMethod, identificationQuality, registrationSessionId, details);
     }
 
     @Transactional
-    public Account addAuthenticationMethod(Long accountId,
-                                           String method,
-                                           boolean active,
-                                           Map<String, Object> details) {
+    public AccountProfile addAuthenticationMethod(Long accountId,
+                                                  String method,
+                                                  boolean active,
+                                                  Map<String, Object> details) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Account not found"));
         account.addAuthenticationMethod(new AuthenticationMethod(method, active, Instant.now(), details));
-        return accountRepository.save(account);
+        return toProfile(accountRepository.save(account));
     }
 
     @Transactional(readOnly = true)
-    public Optional<Account> findByPersonId(Long personId) {
-        return accountRepository.findByPersonId(personId);
+    public Optional<AccountProfile> findByPersonId(Long personId) {
+        return accountRepository.findByPersonId(personId).map(this::toProfile);
     }
 
     @Transactional(readOnly = true)
-    public Optional<Account> findById(Long accountId) {
-        return accountRepository.findById(accountId);
+    public Optional<AccountProfile> findAccountProfile(Long accountId) {
+        return accountRepository.findById(accountId).map(this::toProfile);
     }
 
     @Transactional(readOnly = true)
@@ -93,5 +98,23 @@ public class AccountService {
                         .map(String.class::cast)
                         .filter(phone -> !phone.isBlank()))
                 .findFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> findActiveAuthenticationMethods(Long accountId) {
+        return findAccountProfile(accountId)
+                .map(AccountProfile::activeAuthenticationMethods)
+                .orElse(List.of());
+    }
+
+    private AccountProfile toProfile(Account account) {
+        List<String> activeMethods = account.getAuthenticationMethods() == null
+                ? List.of()
+                : account.getAuthenticationMethods().stream()
+                .filter(AuthenticationMethod::isActive)
+                .map(AuthenticationMethod::getMethod)
+                .distinct()
+                .toList();
+        return new AccountProfile(account.getId(), account.getPersonId(), activeMethods);
     }
 }

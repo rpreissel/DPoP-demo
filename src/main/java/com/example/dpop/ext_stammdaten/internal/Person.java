@@ -1,4 +1,4 @@
-package com.example.dpop.ext_stammdaten;
+package com.example.dpop.ext_stammdaten.internal;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

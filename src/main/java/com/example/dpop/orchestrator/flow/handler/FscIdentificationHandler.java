@@ -1,9 +1,9 @@
 package com.example.dpop.orchestrator.flow.handler;
 
-import com.example.dpop.account.Account;
+import com.example.dpop.account.AccountProfile;
 import com.example.dpop.account.AccountService;
-import com.example.dpop.ext_stammdaten.Person;
-import com.example.dpop.ext_stammdaten.PersonRepository;
+import com.example.dpop.ext_stammdaten.ExtStammdatenService;
+import com.example.dpop.ext_stammdaten.PersonData;
 import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
@@ -19,18 +19,18 @@ import java.util.UUID;
 @Component
 public class FscIdentificationHandler implements IdentificationMethodHandler {
 
-    private final PersonRepository personRepository;
+    private final ExtStammdatenService extStammdatenService;
     private final IdFscService idFscService;
     private final AccountService accountService;
     private final AccountBindingKeyMappingService accountBindingKeyMappingService;
     private final AuthenticationMethodProvider authenticationMethodProvider;
 
-    public FscIdentificationHandler(PersonRepository personRepository,
+    public FscIdentificationHandler(ExtStammdatenService extStammdatenService,
                                     IdFscService idFscService,
                                     AccountService accountService,
                                     AccountBindingKeyMappingService accountBindingKeyMappingService,
                                     AuthenticationMethodProvider authenticationMethodProvider) {
-        this.personRepository = personRepository;
+        this.extStammdatenService = extStammdatenService;
         this.idFscService = idFscService;
         this.accountService = accountService;
         this.accountBindingKeyMappingService = accountBindingKeyMappingService;
@@ -48,14 +48,14 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
         String name = getString(request, "name");
         String vorname = getString(request, "vorname");
 
-        Person person = personRepository.findByKvnr(kvnr)
+        PersonData person = extStammdatenService.findPersonByKvnr(kvnr)
                 .orElseThrow(() -> new FlowSessionException("Person with given KVNR not found"));
 
-        if (!person.getName().equals(name) || !person.getVorname().equals(vorname)) {
+        if (!person.name().equals(name) || !person.vorname().equals(vorname)) {
             throw new FlowSessionException("Person data does not match");
         }
 
-        session.setPersonId(person.getId());
+        session.setPersonId(person.id());
         session.setSelectedIdentificationMethod("fsc");
         return new NextStep.FscInputNextStep();
     }
@@ -78,21 +78,21 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
             throw new FlowSessionException("Invalid or expired FSC code");
         }
 
-        Person person = personRepository.findById(personId)
+        PersonData person = extStammdatenService.findPersonById(personId)
                 .orElseThrow(() -> new FlowSessionException("Person not found"));
 
-        Account account = accountService.identifyAccount(
+        AccountProfile account = accountService.identifyAccount(
                 personId,
                 "fsc",
                 "HIGH",
                 sessionId,
-                Map.of("kvnr", person.getKvnr())
+                Map.of("kvnr", person.kvnr())
         );
-        session.setAccountId(account.getId());
-        accountBindingKeyMappingService.mapBindingKeyToAccount(session.getBindingKeyRef(), account.getId());
+        session.setAccountId(account.accountId());
+        accountBindingKeyMappingService.mapBindingKeyToAccount(session.getBindingKeyRef(), account.accountId());
 
-        if (accountService.hasActiveAuthenticationMethod(account.getId())) {
-            return new NextStep.AuthenticationMethodSelectionNextStep(authenticationMethodProvider.activeMethods(account));
+        if (!account.activeAuthenticationMethods().isEmpty()) {
+            return new NextStep.AuthenticationMethodSelectionNextStep(account.activeAuthenticationMethods());
         }
         return new NextStep.AuthenticationSetupNextStep(authenticationMethodProvider.availableMethods());
     }

@@ -1,13 +1,13 @@
 package com.example.dpop.orchestrator.session;
 
-import com.example.dpop.account.Account;
-import com.example.dpop.account.AccountRepository;
-import com.example.dpop.auth_sms.AuthSmsSetup;
-import com.example.dpop.auth_sms.AuthSmsSetupRepository;
-import com.example.dpop.ext_stammdaten.Person;
-import com.example.dpop.ext_stammdaten.PersonRepository;
-import com.example.dpop.id_fsc.FscCode;
-import com.example.dpop.id_fsc.FscCodeRepository;
+import com.example.dpop.account.internal.Account;
+import com.example.dpop.account.internal.AccountRepository;
+import com.example.dpop.auth_sms.internal.AuthSmsSetup;
+import com.example.dpop.auth_sms.internal.AuthSmsSetupRepository;
+import com.example.dpop.ext_stammdaten.internal.Person;
+import com.example.dpop.ext_stammdaten.internal.PersonRepository;
+import com.example.dpop.id_fsc.internal.FscCode;
+import com.example.dpop.id_fsc.internal.FscCodeRepository;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;

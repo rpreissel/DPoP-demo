@@ -2,7 +2,6 @@ package com.example.dpop.orchestrator.flow.handler;
 
 import com.example.dpop.account.AccountService;
 import com.example.dpop.auth_sms.AuthSmsService;
-import com.example.dpop.auth_sms.AuthSmsSetup;
 import com.example.dpop.auth_sms.AuthSmsSetupResult;
 import com.example.dpop.orchestrator.flow.AuthenticationMethodHandler;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
@@ -62,7 +61,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         Long smsSetupId = getLong(request, "smsSetupId");
         String tan = getString(request, "tan");
 
-        AuthSmsSetup validatedSetup = authSmsService.validateTan(smsSetupId, tan);
+        AuthSmsSetupResult validatedSetup = authSmsService.validateTan(smsSetupId, tan);
 
         boolean wasSetup = !accountService.hasActiveAuthenticationMethod(accountId);
         if (wasSetup) {
@@ -70,14 +69,14 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
                     accountId,
                     "sms",
                     true,
-                    Map.of("smsSetupId", validatedSetup.getId(), "phoneNumber", validatedSetup.getPhoneNumber())
+                    Map.of("smsSetupId", validatedSetup.smsSetupId(), "phoneNumber", validatedSetup.phoneNumber())
             );
         }
         session.clearPendingChallenge();
         session.getData().remove("selectedAuthenticationMethod");
         session.setPhase("authenticated");
-        Long personId = accountService.findById(accountId)
-                .map(account -> account.getPersonId())
+        Long personId = accountService.findAccountProfile(accountId)
+                .map(profile -> profile.personId())
                 .orElse(null);
         return new NextStep.AuthenticationCompletedNextStep(accountId, personId);
     }

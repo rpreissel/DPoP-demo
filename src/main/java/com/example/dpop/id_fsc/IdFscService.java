@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc;
 
+import com.example.dpop.id_fsc.internal.FscCodeRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -20,17 +21,17 @@ public class IdFscService {
 
     public boolean hasValidFsc(Long personId) {
         return fscCodeRepository.findByPersonId(personId)
-                .map(FscCode::isValid)
+                .map(fscCode -> fscCode.isValid())
                 .orElse(false);
     }
 
     public boolean validateFsc(Long personId, String code) {
         return fscCodeRepository.findByPersonIdAndCode(personId, code)
-                .map(FscCode::isValid)
+                .map(fscCode -> fscCode.isValid())
                 .orElse(false);
     }
 
-    public FscCode createFsc(Long personId, String code, Instant expiresAt) {
-        return fscCodeRepository.save(new FscCode(personId, code, expiresAt));
+    public void createFsc(Long personId, String code, Instant expiresAt) {
+        fscCodeRepository.save(new com.example.dpop.id_fsc.internal.FscCode(personId, code, expiresAt));
     }
 }
