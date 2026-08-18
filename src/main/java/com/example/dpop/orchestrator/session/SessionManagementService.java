@@ -58,6 +58,19 @@ public class SessionManagementService {
         channelSessionRepository.save(session);
     }
 
+    public void updateChannelState(UUID channelSessionId, ChannelState newState) {
+        channelSessionRepository.findById(channelSessionId).ifPresent(session -> {
+            session.setState(newState);
+            session.touch();
+            channelSessionRepository.save(session);
+        });
+    }
+
+    public Optional<ChannelSession> getChannelSessionWithAuth(UUID channelSessionId) {
+        return channelSessionRepository.findById(channelSessionId)
+                .filter(s -> !s.isExpired());
+    }
+
     // ProcessSession management
 
     public RegistrationProcessSession createRegistrationProcessSession(
