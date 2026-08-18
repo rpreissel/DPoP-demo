@@ -612,9 +612,14 @@ Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende
 
 ## 7. App-Only Orchestrator Persistierungsmodell (v1)
 
-### 7.1 Zielstruktur
+### 7.1 Zielstruktur (Konzept-konform nach orchestrator-keycloak-session-konzept.md)
 
-Das Persistierungsmodell wurde refaktoriert, um die fachliche Unterscheidung zwischen stabilen Kanal-Sessions und kurzlebigen Prozess-Sessions sowie zentralen Attempt-Metadaten zu unterstützen. Die neue Struktur ist app-only ausgerichtet und unterstützt Keycloak/AuthContext/Web-Channel **nicht**.
+Das Persistierungsmodell wurde vollständig gemäß dem orchestrator-keycloak-session-konzept.md refaktoriert. Die Struktur unterstützt:
+- Stabile, langlebige Kanal-Sessions mit DPoP-Bindung (APP/WEB)
+- Kurzlebige Prozess-Sessions (REGISTRATION, LOGIN, STEP_UP)
+- Zentrale Attempt-Metadaten für Identification/Authentication
+- Keycloak/AuthContext-Integration für Web-Kanal
+- State-Management für Channel-Lifecycle
 
 #### 7.1.1 ChannelSession
 
@@ -623,10 +628,12 @@ Das Persistierungsmodell wurde refaktoriert, um die fachliche Unterscheidung zwi
 - **Schlüsselattribute**:
   - `channel`: APP oder WEB
   - `bindingKeyRef`: Eindeutige DPoP-Binding-Referenz (JWK-Thumbprint)
+  - `state`: `ChannelState` Enum (ANONYMOUS, REGISTERING, AUTHENTICATED, STEP_UP_REQUIRED, STEP_UP_IN_PROGRESS, LOGGED_OUT, EXPIRED)
   - `accountId`: Referenz zum Account (nullable für anonyme Sessions)
+  - `authContextId`: Referenz zu AuthContext für Keycloak-Integration (nullable)
   - `createdAt`, `lastAccessedAt`, `expiresAt`: Lifecycle-Timestamps
   - `version`: Optimistic Locking
-- **Persistierung**: Tabelle `channel_session` (Flyway V13)
+- **Persistierung**: Tabelle `channel_session` (Flyway V13+V14)
 - **Repository**: `ChannelSessionRepository`
 
 #### 7.1.2 ProcessSession (abstrakt mit Spezialisierungen)
@@ -637,19 +644,23 @@ Das Persistierungsmodell wurde refaktoriert, um die fachliche Unterscheidung zwi
 
 | Typ | Klasse | Spezialattribute | Einsatz |
 |-----|--------|------------------|--------|
-| REGISTRATION | `RegistrationProcessSession` | `personId`, `selectedIdentificationMethod`, `selectedAuthenticationMethod` | Neuer Account im App-Kanal |
-| LOGIN | `LoginProcessSession` | `selectedAuthenticationMethod` | Anmeldung bestehender Account |
-| STEP_UP | `StepUpProcessSession` | `requiredAcr`, `startingAcr`, `achievedAcr`, `selectedAuthenticationMethod` | Erhöhung der Authentifizierungsstufe |
+| REGISTRATION | `RegistrationProcessSession` | `personId`, `selectedIdentificationMethod`, `selectedAuthenticationMethod`, `pendingChallenge` | Neuer Account im App-Kanal |
+| LOGIN | `LoginProcessSession` | `selectedAuthenticationMethod`, `pendingChallenge` | Anmeldung bestehender Account |
+| STEP_UP | `StepUpProcessSession` | `requiredAcr`, `startingAcr`, `achievedAcr`, `selectedAuthenticationMethod`, `pendingChallenge` | Erhöhung der Authentifizierungsstufe |
 
 - **Gemeinsame Attribute** (alle Typen):
   - `processSessionId` (UUID)
   - `channelSessionId` (Foreign Key zu `ChannelSession`)
   - `purpose` (Discriminator: REGISTRATION, LOGIN, STEP_UP)
-  - `status`: ACTIVE, PENDING_VERIFICATION, COMPLETED, EXPIRED, FAILED
+  - `status`: STARTED, CHALLENGE_SENT, VERIFY_PENDING, SUCCEEDED, FAILED, CANCELLED, EXPIRED, CONSUMED
   - `accountId` (nullable)
+  - `selectedIdentificationMethod` (String, nullable)
+  - `selectedAuthenticationMethod` (String, nullable)
+  - `personId` (Long, nullable)
+  - `pendingChallenge` (JSON, nullable)
   - `createdAt`, `expiresAt`, `consumedAt` (nullable)
   - `version`: Optimistic Locking
-- **Persistierung**: Tabelle `process_session` mit Single-Table-Inheritance (Flyway V13)
+- **Persistierung**: Tabelle `process_session` mit Single-Table-Inheritance (Flyway V13+V14)
 - **Repository**: `ProcessSessionRepository`
 
 #### 7.1.3 OrchestratorAttempt (abstrakt mit Spezialisierungen)
@@ -661,45 +672,150 @@ Das Persistierungsmodell wurde refaktoriert, um die fachliche Unterscheidung zwi
 | Typ | Klasse | Einsatz |
 |-----|--------|--------|
 | IDENTIFICATION | `IdentificationAttempt` | FSC/KVNR-Identifikation |
-| AUTHENTICATION | `AuthenticationAttempt` | SMS-Setup, TAN-Verifizierung, etc. |
+| AUTHENTICATION | `AuthenticationAttempt` | SMS-Setup/Use, TAN-Verifizierung, etc. |
 
 - **Gemeinsame Attribute** (beide Typen):
   - `attemptId` (UUID)
   - `processSessionId` (Foreign Key zu `ProcessSession`)
-  - `attemptType` (Discriminator: IDENTIFICATION, AUTHENTICATION)
-  - `status`: ACTIVE, PENDING_VERIFICATION, COMPLETED, FAILED, EXPIRED
-  - `nextContext`: Routing-Kontext für UI (z. B. "registration", "fsc", "sms")
-  - `nextStep`: Routing-Schritt für UI (z. B. "selectMethod", "input", "tanInput")
+  - `attemptType` (Discriminator: `identification`, `authentication`)
+  - `status`: INPUT_REQUIRED, VERIFIED, FAILED, EXPIRED, CANCELLED
+  - `missingFields`: String-Array (JSON) mit fehlenden Feldern
+  - `result`: JSON-Objekt mit Verifizierungsergebnis (nullable)
   - `createdAt`, `expiresAt`: Lifecycle
   - `retryCount`: Zähler für Wiederholung
   - `version`: Optimistic Locking
-- **Persistierung**: Tabelle `orchestrator_attempt` mit Single-Table-Inheritance (Flyway V13)
-- **Repository**: `OrchestratorAttemptRepository`
+- **Persistierung**: Tabelle `orchestrator_attempt` mit Single-Table-Inheritance (Flyway V13+V14)
+- **Repository**: `OrchestratorAttemptRepository` + Subtyp-Repositories
 
-### 7.2 SessionManagementService
+### 7.1.4 AuthContext (Keycloak-Integration)
 
-- **Zweck**: Zentrale Verwaltung von Kanal-, Prozess- und Attempt-Sessions
-- **Hauptmethoden**:
+- **Rolle**: Serverseitige Speicherung von IAM-Kontext und Keycloak-Tokenverwaltung
+- **Identifikat**: `authContextId` (UUID, Primary Key)
+- **Schlüsselattribute**:
+  - `accountId`: Referenz zum Account
+  - `keycloakSessionId`: Session-ID aus Keycloak (für Web-Kanal)
+  - `keycloakSubject`: Nutzer-ID aus Keycloak
+  - `tokenHandle`: Referenz zum Keycloak-Token
+  - `currentAcr`: Gegenwärtige Authentication Context Reference (z. B. "loa1", "loa2")
+  - `currentAmr`: JSON-Array mit Authentication Methods (z. B. ["fsc", "sms"])
+  - `authTime`: Zeitstempel der Authentifizierung
+  - `tokenExpiresAt`: Ablaufdatum des Tokens
+  - `refreshExpiresAt`: Ablaufdatum des Refresh-Tokens
+  - `updatedAt`: Letzte Aktualisierung
+- **Persistierung**: Tabelle `auth_context` (Flyway V14)
+- **Repository**: `AuthContextRepository`
+
+### 7.2 SessionManagementService und AuthContextService
+
+- **SessionManagementService**:
   - `createChannelSession(channel, bindingKeyRef, ttl): ChannelSession`
   - `getChannelSessionByBindingKeyRef(bindingKeyRef): Optional<ChannelSession>`
-  - `createRegistrationProcessSession(channelSessionId, ttl): RegistrationProcessSession`
-  - `createLoginProcessSession(channelSessionId, ttl): LoginProcessSession`
-  - `createStepUpProcessSession(channelSessionId, requiredAcr, ttl): StepUpProcessSession`
+  - `getChannelSessionById(channelSessionId): Optional<ChannelSession>`
+  - `updateChannelState(channelSessionId, newState): void`
+  - `createRegistrationProcessSession(...): RegistrationProcessSession`
+  - `createLoginProcessSession(...): LoginProcessSession`
+  - `createStepUpProcessSession(...): StepUpProcessSession`
   - `createIdentificationAttempt(...): IdentificationAttempt`
   - `createAuthenticationAttempt(...): AuthenticationAttempt`
-  - `completeAttempt(attemptId, nextContext, nextStep)`
-  - `consumeProcessSession(processSessionId)`
+  - `getAttemptById(attemptId): Optional<OrchestratorAttempt>`
+  - `completeAttempt(attemptId, result): void`
+  - `consumeProcessSession(processSessionId): void`
+
+- **AuthContextService** (neu):
+  - `createAuthContext(accountId, keycloakSessionId, keycloakSubject): AuthContext`
+  - `updateAcr(authContextId, acr, amr): void`
+  - `getAuthContext(authContextId): Optional<AuthContext>`
+  - `refreshToken(authContextId, newTokenHandle, tokenExpiresAt): void`
+
+### 7.3 API v1 Endpoints (Konzept-konform)
+
+Die neuen API-Endpunkte folgen konsistent dem orchestrator-keycloak-session-konzept:
+
+#### App-Kanal-Fassade (Orchestrator-first)
+
+```
+POST   /orchestrator/api/v1/app/channels
+  → Kanal-Initialisierung / Fortführung
+  → Response: channelSessionId, state, next(context, step, methods)
+
+GET    /orchestrator/api/v1/app/channels/{channelSessionId}
+  → Channel-Status lesen
+  → Response: channelSessionId, state, currentAcr, currentAmr, stepUpRequired
+
+POST   /orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts
+  → FSC-Attempt anlegen
+  → Response: attemptId, status, missingFields, next
+
+PATCH  /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}
+  → FSC-Daten ergänzen
+  → Response: attemptId, status, missingFields, result, next
+
+GET    /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}
+  → FSC-Attempt-Status lesen
+
+POST   /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts
+  → SMS-Enroll-Attempt anlegen (für REGISTRATION)
+  → Response: attemptId, status, missingFields, next
+
+PATCH  /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}
+  → SMS-Enroll-Daten ergänzen / TAN verifizieren
+  → Response: attemptId, status, missingFields, result, next
+
+GET    /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}
+  → SMS-Enroll-Attempt-Status lesen
+
+POST   /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts
+  → SMS-Use-Attempt anlegen (für LOGIN/STEP_UP)
+  → Response: attemptId, status, missingFields, next
+
+PATCH  /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}
+  → SMS-Use-Daten ergänzen / TAN verifizieren
+  → Response: attemptId, status, missingFields, result, next
+
+GET    /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}
+  → SMS-Use-Attempt-Status lesen
+```
+
+**Response-Struktur:**
+```json
+{
+  "channelSessionId": "UUID",
+  "processState": {
+    "purpose": "REGISTRATION",
+    "status": "STARTED",
+    "personId": 5001,
+    "accountId": 1001
+  },
+  "attemptState": {
+    "attemptId": "UUID",
+    "attemptType": "identification",
+    "status": "VERIFIED",
+    "missingFields": [],
+    "result": {
+      "identified": true,
+      "personId": 5001
+    }
+  },
+  "next": {
+    "context": "enrollment",
+    "step": "selectMethod",
+    "methods": ["sms"],
+    "accountId": 1001,
+    "personId": 5001
+  }
+}
+```
 
 ### 7.3 Rückwärtskompatibilität
 
-Die alte `BindingSession`-Tabelle bleibt bestehen (Tabelle `binding_session`), um Rückwärtskompatibilität mit existierenden Tests und Services zu gewährleisten. Eine vollständige Migration von alten zu neuen Strukturen ist als Folgearbeit vorgesehen.
+Die alte `BindingSession`-Tabelle bleibt bestehen (Tabelle `binding_session`), um Rückwärtskompatibilität mit existierenden Tests und Services zu gewährleisten. Eine vollständige Migration von alten zu neuer Struktur ist als Folgearbeit vorgesehen.
 
 ### 7.4 Ausschlüsse (aktuell nicht implementiert)
 
-- AuthContext (Keycloak-Integration)
-- Web-Channel-spezifische Logik
+- Web-Channel-spezifische Keycloak-Integration (nur App-Kanal)
 - Datenmigration von alter zu neuer Struktur
-- enrollmentRef-basierte Authentifizierungsmethoden-Referenzen (Placeholder für Zukunft)
+- Echte Delegation an `id_fsc` und `auth_sms` Module (derzeit Mock)
+- SessionEvent Audit-Trail (Infrastruktur vorhanden, Schreiben deaktiviert)
 
 ### 7.5 Frontend-Decoupling von Action-URLs
 
@@ -736,7 +852,34 @@ sms:
 - Änderungen an Backend-URL-Strukturen beeinflussen die UI nicht
 - Das Frontend ist wartbar und testbar unabhängig vom Backend-Routing-Konzept
 
-## 8. Verifikation
+## 8. Implementierungsstatus (Phase 1-4 abgeschlossen)
+
+### Phase 1: Enums & Entities ✅
+- ChannelState Enum (7 Werte)
+- AttemptStatus Enum (5 Werte)
+- AuthContext Entität
+- Subtypen IdentificationAttempt, AuthenticationAttempt
+- ProcessSession mit type-spezifischen Feldern
+- Flyway V14 Migration
+
+### Phase 2: API Response Types ✅
+- NextRouting mit accountId/personId
+- ChannelSessionResponse DTO
+- Strukturierte result-Objekte
+
+### Phase 3: API Endpoints ✅
+- Neue Pfade nach orchestrator-keycloak-session-konzept
+- DPoP-Validierung in allen Endpoints
+- Backward Compatibility mit alten Pfaden
+
+### Phase 4: Business Logic ✅
+- AuthContextService für Keycloak-Lifecycle
+- OrchestratorApiV1Service mit echter Prozesslogik
+- Channel State-Übergänge
+- FSC Identification Flow
+- SMS Enroll/Use Flows
+
+## 9. Verifikation
 
 - `./gradlew build` baut Backend und Frontend und führt alle Tests aus.
 - `./gradlew bootRun` startet die Applikation auf Port 8080 (blockierend; für Verifikation lieber Integrationstests verwenden).
