@@ -88,6 +88,7 @@ Die Applikation gliedert sich in fünf fachliche Module:
 ```
 
 - Der `orchestrator` ist der einzige Modul, der die anderen Module referenzieren darf.
+- Das Modul `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef`-API; Orchestrator-seitig werden typsichere Pending-Records und zustandsbasierte Schritte fuer SMS-Enrollment und -Use verwendet.
 - Die Module `id_fsc`, `auth_sms`, `account` und `ext_stammdaten` sind voneinander entkoppelt.
 - Die Package-Grenzen werden durch `@ApplicationModule` (Spring Modulith) abgesichert.
 - Das Frontend kommuniziert ausschließlich über den `orchestrator` mit dem Backend.
