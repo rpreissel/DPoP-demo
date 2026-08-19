@@ -2,8 +2,6 @@ package com.example.dpop.orchestrator.flow;
 
 import com.example.dpop.account.AccountService;
 import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
-import com.example.dpop.orchestrator.flow.handler.FscIdentificationHandler;
-import com.example.dpop.orchestrator.flow.handler.SmsAuthenticationHandler;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
 import com.example.dpop.orchestrator.session.BindingFlowSessionService;
 import com.example.dpop.orchestrator.session.BindingSession;
@@ -12,12 +10,9 @@ import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 public class FlowActionService {
@@ -27,25 +22,23 @@ public class FlowActionService {
     private final AccountBindingKeyMappingService accountBindingKeyMappingService;
     private final IdentificationMethodProvider identificationMethodProvider;
     private final AuthenticationMethodProvider authenticationMethodProvider;
-    private final Map<String, IdentificationMethodHandler> identificationHandlers;
-    private final Map<String, AuthenticationMethodHandler> authenticationHandlers;
+    private final CommandRegistry commandRegistry;
+    private final PolicyEngine policyEngine;
 
     public FlowActionService(BindingFlowSessionService flowSessionService,
                              AccountService accountService,
                              AccountBindingKeyMappingService accountBindingKeyMappingService,
                              IdentificationMethodProvider identificationMethodProvider,
                              AuthenticationMethodProvider authenticationMethodProvider,
-                             List<IdentificationMethodHandler> identificationHandlers,
-                             List<AuthenticationMethodHandler> authenticationHandlers) {
+                             CommandRegistry commandRegistry,
+                             PolicyEngine policyEngine) {
         this.flowSessionService = flowSessionService;
         this.accountService = accountService;
         this.accountBindingKeyMappingService = accountBindingKeyMappingService;
         this.identificationMethodProvider = identificationMethodProvider;
         this.authenticationMethodProvider = authenticationMethodProvider;
-        this.identificationHandlers = identificationHandlers.stream()
-                .collect(Collectors.toMap(IdentificationMethodHandler::method, Function.identity()));
-        this.authenticationHandlers = authenticationHandlers.stream()
-                .collect(Collectors.toMap(AuthenticationMethodHandler::method, Function.identity()));
+        this.commandRegistry = commandRegistry;
+        this.policyEngine = policyEngine;
     }
 
     @Transactional
@@ -106,48 +99,40 @@ public class FlowActionService {
 
     @Transactional
     public FlowSetupResponse startIdentification(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
-        IdentificationMethodHandler handler = identificationHandlers.get(method);
-        if (handler == null) {
-            throw new IllegalArgumentException("Unsupported identification method: " + method);
-        }
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        NextStep next = handler.start(session, request);
+        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "start"));
+        policyEngine.validate(registration.policy(), session, request);
+        NextStep next = registration.executor().execute(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
 
     @Transactional
     public FlowSetupResponse submitIdentification(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
-        IdentificationMethodHandler handler = identificationHandlers.get(method);
-        if (handler == null) {
-            throw new IllegalArgumentException("Unsupported identification method: " + method);
-        }
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        NextStep next = handler.submit(session, request);
+        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "submit"));
+        policyEngine.validate(registration.policy(), session, request);
+        NextStep next = registration.executor().execute(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
 
     @Transactional
     public FlowSetupResponse startAuthentication(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
-        AuthenticationMethodHandler handler = authenticationHandlers.get(method);
-        if (handler == null) {
-            throw new IllegalArgumentException("Unsupported authentication method: " + method);
-        }
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        NextStep next = handler.start(session, request);
+        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "start"));
+        policyEngine.validate(registration.policy(), session, request);
+        NextStep next = registration.executor().execute(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
 
     @Transactional
     public FlowSetupResponse verifyAuthentication(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
-        AuthenticationMethodHandler handler = authenticationHandlers.get(method);
-        if (handler == null) {
-            throw new IllegalArgumentException("Unsupported authentication method: " + method);
-        }
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        NextStep next = handler.verify(session, request);
+        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "verify"));
+        policyEngine.validate(registration.policy(), session, request);
+        NextStep next = registration.executor().execute(session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }

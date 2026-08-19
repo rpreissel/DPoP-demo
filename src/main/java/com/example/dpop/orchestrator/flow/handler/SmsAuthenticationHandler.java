@@ -29,7 +29,6 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         return "sms";
     }
 
-    @Override
     public NextStep start(BindingSession session, Map<String, Object> request) {
         Long accountId = requireAccountId(session);
         boolean isChallenge = accountService.hasActiveAuthenticationMethod(accountId);
@@ -63,7 +62,6 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         return new NextStep.SmsTanInputNextStep(smsResult.enrollmentId(), smsResult.tan());
     }
 
-    @Override
     public NextStep verify(BindingSession session, Map<String, Object> request) {
         Long accountId = requireAccountId(session);
         Long enrollmentId = getLong(request, "enrollmentId");
@@ -77,7 +75,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
                     accountId,
                     "sms",
                     true,
-                    Map.of("enrollmentId", enrollmentId)
+                    Map.of("enrollmentId", enrollmentId, "enrollmentRef", enrollmentId)
             );
         }
         session.clearPendingChallenge();

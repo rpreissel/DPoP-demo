@@ -155,7 +155,7 @@ public class SmsAuthenticationService {
         Long accountId = channelSession.getAccountId();
         if (accountId != null && "enroll".equals(mode)) {
             accountService.addAuthenticationMethod(accountId, "sms", true,
-                    Map.of("enrollmentId", enrollmentId));
+                    Map.of("enrollmentId", enrollmentId, "enrollmentRef", enrollmentId));
         }
 
         attempt.setStatus(AttemptStatus.VERIFIED);

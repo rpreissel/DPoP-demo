@@ -93,10 +93,15 @@ public class AccountService {
                         .filter(AuthenticationMethod::isActive)
                         .filter(method -> "sms".equals(method.getMethod()))
                         .map(AuthenticationMethod::getDetails)
-                        .filter(details -> details != null && details.containsKey("enrollmentId"))
-                        .map(details -> details.get("enrollmentId"))
-                        .filter(v -> v instanceof Number)
-                        .map(v -> ((Number) v).longValue()))
+                        .filter(details -> details != null)
+                        .map(details -> details.containsKey("enrollmentRef") ? details.get("enrollmentRef") : details.get("enrollmentId"))
+                        .map(value -> {
+                            if (value instanceof Number number) {
+                                return number.longValue();
+                            }
+                            return value == null ? null : Long.valueOf(value.toString());
+                        })
+                        .filter(java.util.Objects::nonNull))
                 .findFirst();
     }
 
