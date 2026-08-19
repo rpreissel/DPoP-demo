@@ -534,7 +534,7 @@ Alle Endpunkte erwarten den Header `DPoP`.
 
 ```json
 {
-  "smsSetupId": 1,
+  "enrollmentId": 1,
   "tan": "123456"
 }
 ```
@@ -546,7 +546,7 @@ Alle Endpunkte erwarten den Header `DPoP`.
 - `{"context":"fsc","step":"input"}`
 - `{"context":"authentication","step":"setup","authenticationMethods":[...]}`
 - `{"context":"authentication","step":"selectMethod","authenticationMethods":[...]}`
-- `{"context":"authentication","step":"smsTanInput","smsSetupId":1,"tan":"..."}`
+- `{"context":"authentication","step":"smsTanInput","enrollmentId":1,"tan":"..."}`
 - `{"context":"authentication","step":"authenticated","accountId":123,"personId":456}`
 
 Hinweis zur Konsistenz:
@@ -559,7 +559,54 @@ Hinweis: Das Feld `tan` in `smsTanInput` ist fuer Demo/Test praktisch, sollte ab
 Migrationshinweis:
 
 - Im Ist-Stand referenzieren SMS-Verifikationsschritte teils noch ein Setup ueber `smsSetupId`.
-- Im Zielbild unten wird diese Kopplung konsequent auf `details.enrollmentRef = { type, id }` umgestellt.
+- Im Zielbild unten wird diese Kopplung konsequent auf `details.enrollmentRef = { type, id }` und oeffentliche API-Felder wie `enrollmentId` umgestellt.
+
+### 4.1.1 Dynamisches Kommando-Register statt fixer `start/verify`-Annahme
+
+Der bisherige Zuschnitt auf genau zwei Handler-Operationen (`start`/`verify`) wird als zu starr bewertet. Zielbild:
+
+- Dispatch-Schluessel ist `(method, action)` statt nur `method`.
+- Jedes registrierte Kommando bringt seinen eigenen Request-Typ und seine eigene Policy mit.
+- `FlowController` bleibt generisch und kennt keine methodenspezifische Logik.
+- `FlowActionService` fuehrt immer denselben Ablauf aus:
+  1. Kommando aus Registry aufloesen,
+  2. Request typsicher deserialisieren,
+  3. zentrale Policy pruefen,
+  4. Handler ausfuehren,
+  5. Session/Phase aktualisieren.
+
+Beispielhafte Kommandos:
+
+- `sms:enroll.start`
+- `sms:enroll.confirm`
+- `sms:challenge.send`
+- `sms:challenge.verify`
+- `password:enroll.set`
+- `password:enroll.confirm`
+- `password:challenge.verify`
+
+Damit sind mehr als zwei Aktionen pro Verfahren explizit moeglich, ohne `FlowController` anzupassen.
+
+### 4.1.2 Policy-Gating zentral, methodenunabhaengig
+
+Policy-Pruefung findet vor der Handler-Ausfuehrung zentral statt (nicht in Controllern). Pro Kommando wird eine deklarative Policy registriert.
+
+Beispiel SMS:
+
+| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
+|---|---|---|---|---|
+| `sms:enroll.start` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `sms.active` | `ENROLLMENT_PENDING` |
+| `sms:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.sms.enrollmentId` | - | `AUTHENTICATED` |
+| `sms:challenge.send` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `sms.active`, `sms.enrollmentRef` | - | `CHALLENGE_PENDING` |
+| `sms:challenge.verify` | `CHALLENGE_PENDING` | `pending.sms.challengeId` | - | `AUTHENTICATED` |
+
+Beispiel Passwort:
+
+| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
+|---|---|---|---|---|
+| `password:enroll.set` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `password.active` | `ENROLLMENT_PENDING` |
+| `password:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.password.enrollmentId` | - | `AUTHENTICATED` |
+| `password:challenge.verify` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `password.active` | `account.locked` | `AUTHENTICATED` |
 
 ### 4.2 Soll-Spezifikation (zusaetzliche Fassaden)
 

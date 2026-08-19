@@ -203,7 +203,7 @@ Abhaengigkeiten und Risiken:
   - `registrationSessionId` (Session, in der die Identifikation stattfand)
   - `details` (JSON mit weiteren wichtigen Daten, z. B. KVNR)
 - Die `Account`-Entitaet speichert zusaetzlich `authenticationMethods` als JSON-Array.
-  - Eine `AuthenticationMethod` enthaelt `method` (z. B. `sms`), `active`, `createdAt` und `details` (JSON, z. B. `smsSetupId`).
+  - Eine `AuthenticationMethod` enthaelt `method` (z. B. `sms`), `active`, `createdAt` und `details` (JSON, z. B. `enrollmentRef` mit `type`/`id`; konkrete Telefonnummern bleiben im jeweiligen Methoden-Modul).
   - Der Account kann mehrere verschiedene Authentifizierungsmethoden halten.
 - Im Modul `auth_sms` existiert eine `AuthSmsSetup`-Entitaet in eigener Tabelle `auth_sms`:
   - `id` (Primaerschluessel, auto-generiert)
@@ -251,14 +251,17 @@ Abhaengigkeiten und Risiken:
 | F34 | Die Telefonnummer wird client- und serverseitig validiert. | Frontend prüft Format; Backend lehnt ungültige Nummern mit HTTP 400 ab |
 | F35 | Der SMS-Versand und die TAN-Validierung werden im `auth_sms`-Modul ausgeführt. | `AuthSmsService` generiert TAN, mockt Versand und validiert TAN gegen die `auth_sms`-Tabelle |
 | F36 | Bei erfolgreicher TAN-Validierung wird das `validated`-Flag in `auth_sms` gesetzt. | `validated` wechselt von `false` auf `true` |
-| F37 | Bei erfolgreicher TAN-Validierung wird die Authentifizierungsmethode im Account gespeichert. | Account enthält `AuthenticationMethod` mit Verweis (`smsSetupId`) auf den Eintrag in `auth_sms` |
+| F37 | Bei erfolgreicher TAN-Validierung wird die Authentifizierungsmethode im Account gespeichert. | Account enthält `AuthenticationMethod` mit generischer Enrollment-Referenz (`enrollmentRef` mit `type`/`id`) auf den Eintrag im Verfahren-Modul (bei SMS: `auth_sms`) |
 | F38 | Ein Account kann mehrere verschiedene Authentifizierungsmethoden speichern. | `authenticationMethods` ist ein JSON-Array in der Account-Tabelle |
 | F39 | Nach erfolgreicher FSC-Identifikation wird ein bestehender Account zur Person wiederverwendet. | Der Flow erstellt keinen zweiten Account für dieselbe `personId` |
 | F40 | Auch bei wiederverwendetem Account wird die neue Identifikation gespeichert. | `identifications` enthält für jede erfolgreiche FSC-Identifikation einen weiteren Eintrag |
 | F41 | Der Orchestrator speichert die Zuordnung `binding_key_ref -> accountId`. | Persistente Mapping-Tabelle erlaubt mehrere Binding-Keys pro Account |
 | F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang zur Authentifizierungs-Auswahl |
 | F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Channel-Session erhalten; nur der interne Prozess wechselt. | `channelSessionId` bleibt stabil; `next.context` und `next.step` leiten den Client weiter |
-| F44 | In der Authentifizierungsphase werden vorhandene Methoden ueber konkrete Use-Attempt-Ressourcen verwendet. | Die SMS-Challenge unter `/orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` verwendet die im Setup (`auth_sms`) gespeicherte Nummer ueber `smsSetupId`; der Client uebergibt keine Telefonnummer mehr |
+| F44 | In der Authentifizierungsphase werden vorhandene Methoden ueber konkrete Use-Attempt-Ressourcen verwendet. | Die SMS-Challenge unter `/orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` verwendet die im Setup (`auth_sms`) gespeicherte Nummer ueber `enrollmentRef`; der Client uebergibt keine Telefonnummer mehr |
+| F48 | Der Authentifizierungs-Dispatch ist kommandozentriert und erweiterbar. | Handler werden per `(method, action)` registriert; neue Aktionen (z. B. `challenge.send`, `challenge.verify`, `rotate`) sind ohne Controller-Aenderung ergaenzbar |
+| F49 | Policy-Gating ist zentral und methodenunabhaengig vor der Handler-Ausfuehrung durchzusetzen. | `FlowActionService` ruft vor jedem Kommando eine zentrale Policy-Engine auf; `FlowController` enthaelt keine methodenspezifische Falllogik |
+| F50 | Kommandos werden typisiert deserialisiert und danach dynamisch dispatcht. | Fuer jedes registrierte Kommando ist ein konkreter Request-Typ hinterlegt; fehlerhafte Bodies werden beim Deserialisieren/Validieren abgewiesen |
 | F45 | Responses enthalten nur technische IDs/Zustaende und kein HATEOAS. | Einstieg liefert `channelSessionId`; Attempt-Responses liefern `attemptId`, `status`, `missingFields` (falls unvollstaendig), optional `result` (falls verifiziert) und `next` |
 | F47 | HTTP-Statuscodes fuer vorbereitende Attempt-Ressourcen sind einheitlich definiert. | `POST` -> `201 Created`; `PATCH`/`GET` -> `200 OK`; unvollstaendige Daten sind kein Fehler (`INPUT_REQUIRED` im Body); fachlich ungueltige Daten -> `422`; ungueltiger Zustandswechsel -> `409` |
 | F46 | Bei erneutem Frontend-Start wird ein bekannter Kanal ueber denselben Einstiegscall fortgesetzt und der noetige Login-Schritt serverseitig bestimmt. | `POST /orchestrator/api/v1/app/channels` verwendet bei bekanntem Account die bestehende `channelSessionId` und liefert fuer die Anmeldung zunaechst `next: { context: "authentication", step: "selectMethod" }` |
@@ -565,7 +568,36 @@ Danach folgen die festen, vom Setup getrennten Use-Endpunkte:
 - `PATCH /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` (z. B. TAN)
 - `GET /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}`
 
-Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende Nummer kommt aus dem zuvor validierten SMS-Setup im Modul `auth_sms` (Referenz ueber `smsSetupId`) und nicht aus einem allgemeinen Kontaktfeld am Account. Pro `binding_key_ref` existiert weiterhin genau ein aktiver Kanalbezug; welche fachliche Phase gerade aktiv ist, ergibt sich aus dem intern gefuehrten Prozess und wird vom `FlowNextStepResolver` in den `next`-Schritt uebersetzt.
+Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende Nummer kommt aus dem zuvor validierten SMS-Setup im Modul `auth_sms` (Referenz ueber generisches `enrollmentRef`) und nicht aus einem allgemeinen Kontaktfeld am Account. Pro `binding_key_ref` existiert weiterhin genau ein aktiver Kanalbezug; welche fachliche Phase gerade aktiv ist, ergibt sich aus dem intern gefuehrten Prozess und wird vom `FlowNextStepResolver` in den `next`-Schritt uebersetzt.
+
+### 3.6.1 Kommando- und Policy-Modell (Zielbild)
+
+Zur Entkopplung von API-Controller und methodenspezifischer Fachlogik wird ein dynamisches Kommando-Register verwendet:
+
+- Schluessel: `(method, action)` (z. B. `sms:enroll.start`, `sms:challenge.verify`, `password:challenge.verify`).
+- Jedes Kommando registriert:
+  - konkreten Request-Typ,
+  - zugehoerige Policy,
+  - Handler-Funktion.
+- `FlowController` bleibt generisch und delegiert an `FlowActionService`.
+- `FlowActionService` deserialisiert in den registrierten Request-Typ, prueft zentral die Policy und dispatcht dann an den Handler.
+
+Beispiel-Policies fuer SMS:
+
+| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
+|---|---|---|---|---|
+| `sms:enroll.start` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `sms.active` | `ENROLLMENT_PENDING` |
+| `sms:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.sms.enrollmentId` | - | `AUTHENTICATED` |
+| `sms:challenge.send` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `sms.active`, `sms.enrollmentRef` | - | `CHALLENGE_PENDING` |
+| `sms:challenge.verify` | `CHALLENGE_PENDING` | `pending.sms.challengeId` | - | `AUTHENTICATED` |
+
+Beispiel-Policies fuer Passwort:
+
+| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
+|---|---|---|---|---|
+| `password:enroll.set` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `password.active` | `ENROLLMENT_PENDING` |
+| `password:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.password.enrollmentId` | - | `AUTHENTICATED` |
+| `password:challenge.verify` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `password.active` | `account.locked` | `AUTHENTICATED` |
 
 ## 4. Architekturbeschränkungen
 
@@ -582,6 +614,7 @@ Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende
 | A9 | Schema-Management mit Flyway | Versionierter und reproduzierbarer Datenbankaufbau |
 | A10 | Datenzugriff mit Spring Data JPA | Standardisierte Persistenzschicht |
 | A11 | Lesbarkeit hat Vorrang vor maximal generischem API-Wiring. | Endpunkte, DTOs und Handler bleiben methoden-/modusspezifisch explizit (`fsc`, `sms/setup`, `sms/use`), auch wenn dadurch mehr, aber klarerer Code entsteht |
+| A12 | Die zentrale Flow-API bleibt methodenunabhaengig. | `FlowController` und `FlowActionService` enthalten keine methodenspezifischen `if/switch`-Bloecke, sondern arbeiten ueber registrierte Kommandos und zentrale Policies |
 
 ## 5. Lösungsstrategie
 
