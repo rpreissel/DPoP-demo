@@ -1,11 +1,11 @@
 package com.example.dpop.orchestrator.api.v1.authentication.sms;
 
-import com.example.dpop.orchestrator.api.v1.AttemptRequest;
 import com.example.dpop.orchestrator.api.v1.DpopBaseController;
 import com.example.dpop.orchestrator.api.v1.OrchestratorResponse;
 import com.example.dpop.orchestrator.dpop.DpopValidator;
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -34,29 +34,28 @@ public class SmsAuthenticationController extends DpopBaseController {
         this.smsService = smsService;
     }
 
-    // New paths - SMS Enroll
     @PostMapping("/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts")
     public ResponseEntity<OrchestratorResponse> startAuthenticationSmsEnroll(
             @PathVariable UUID channelSessionId,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody Map<String, Object> data,
+            @RequestBody(required = false) Map<String, Object> data,
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.startAuthentication(channelSessionId, bindingKeyRef, "enroll", data);
-        return ResponseEntity.ok(response);
+        OrchestratorResponse response = smsService.startEnroll(channelSessionId, bindingKeyRef);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts")
     public ResponseEntity<OrchestratorResponse> startAuthenticationSmsUse(
             @PathVariable UUID channelSessionId,
             @RequestHeader("DPoP") String dpopProof,
-            @RequestBody Map<String, Object> data,
+            @RequestBody(required = false) Map<String, Object> data,
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.startAuthentication(channelSessionId, bindingKeyRef, "use", data);
-        return ResponseEntity.ok(response);
+        OrchestratorResponse response = smsService.startUse(channelSessionId, bindingKeyRef);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PatchMapping("/authentication-methods/sms/enroll/attempts/{attemptId}")
@@ -67,7 +66,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.submitAuthentication(attemptId, bindingKeyRef, "enroll", data);
+        OrchestratorResponse response = smsService.submitEnroll(attemptId, bindingKeyRef, data);
         return ResponseEntity.ok(response);
     }
 
@@ -79,7 +78,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.submitAuthentication(attemptId, bindingKeyRef, "use", data);
+        OrchestratorResponse response = smsService.submitUse(attemptId, bindingKeyRef, data);
         return ResponseEntity.ok(response);
     }
 
@@ -90,7 +89,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.getAuthenticationStatus(attemptId, bindingKeyRef, "enroll");
+        OrchestratorResponse response = smsService.getStatus(attemptId, bindingKeyRef);
         return ResponseEntity.ok(response);
     }
 
@@ -101,42 +100,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.getAuthenticationStatus(attemptId, bindingKeyRef, "use");
-        return ResponseEntity.ok(response);
-    }
-
-    // Legacy paths (kept for backward compatibility)
-    @PostMapping("/attempts/authentication")
-    public ResponseEntity<OrchestratorResponse> startAuthentication(
-            @RequestHeader("DPoP") String dpopProof,
-            @RequestBody AttemptRequest request,
-            HttpServletRequest httpRequest) {
-
-        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.startAuthentication(null, bindingKeyRef, "use", request.data());
-        return ResponseEntity.ok(response);
-    }
-
-    @PatchMapping("/attempts/authentication/{attemptId}")
-    public ResponseEntity<OrchestratorResponse> submitAuthenticationData(
-            @PathVariable UUID attemptId,
-            @RequestHeader("DPoP") String dpopProof,
-            @RequestBody Map<String, Object> data,
-            HttpServletRequest httpRequest) {
-
-        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.submitAuthentication(attemptId, bindingKeyRef, "use", data);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/attempts/authentication/{attemptId}")
-    public ResponseEntity<OrchestratorResponse> getAuthenticationStatus(
-            @PathVariable UUID attemptId,
-            @RequestHeader("DPoP") String dpopProof,
-            HttpServletRequest httpRequest) {
-
-        String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.getAuthenticationStatus(attemptId, bindingKeyRef, "use");
+        OrchestratorResponse response = smsService.getStatus(attemptId, bindingKeyRef);
         return ResponseEntity.ok(response);
     }
 }
