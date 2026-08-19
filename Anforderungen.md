@@ -110,109 +110,10 @@ Die Applikation gliedert sich in fünf fachliche Module:
   - `ort`
 - Bei Applikationsstart werden Testdaten in die `person`-Tabelle eingespielt.
 - Für die vorhandenen Testpersonen werden gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow im UI direkt durchgespielt werden kann.
-- Die verfügbaren Identifikations- und Authentifizierungsmethoden werden über Provider-Abstraktionen (`IdentificationMethodProvider`, `AuthenticationMethodProvider`) ermittelt, sodass der Flow unabhängig von konkreten Methoden bleibt.
-- Binding-Sessions werden in einer gemeinsamen Tabelle `binding_session` persistiert (aktuelle technische Bezeichnung im Code/Schema derzeit noch `client_session`):
-  - `binding_key_ref` (Primärschlüssel; aktuelle technische Spalte im Code/Schema derzeit noch `jwk_thumbprint`)
-  - `expire_at`
-  - `last_accessed`
-  - `format` (`V1`)
-  - `data` (JSON mit session-spezifischen Daten: `id` der Session, `phase`, `personId`, `accountId`, `selectedIdentificationMethod`, `selectedAuthenticationMethod`, `pendingChallenge`)
-  - `version` (Optimistic Locking)
-- Terminologieentscheidung (interaktiv mit Nutzer festgelegt):
-  - Finales Namensset:
-    - `client_session` -> `binding_session`
-    - `jwk_thumbprint` -> `binding_key_ref`
-  - Begruendung:
-    - klare fachliche Begriffe ohne `jwk`/`dpop`/`proof` im Namen
-    - strikte Abgrenzung zu OIDC-`client_id` (kein "client" im Schluesselbegriff)
-    - zukunftsfaehig fuer weitere Client-Arten und moeglicherweise geteilte Sessions
-    - konsistente Paarbildung zwischen Session- und Schluesselbegriff (`binding_*`)
-  - Verworfene Alternativen:
-    - Set A: `proof_key_session` / `proof_key_fingerprint`
-    - Set B: `dpop_binding_session` / `dpop_jwk_fingerprint`
-    - Set C: `auth_context_session` / `key_binding_id`
-    - Set D: unveraendert `client_session` / `jwk_thumbprint`
-    - Set F: `actor_session` / `actor_key_ref`
-    - Set G: `context_session` / `context_key_ref`
-    - Set H: `channel_session` / `channel_key_ref`
-- Verbindliche Naming-Matrix Alt -> Neu (gueltig fuer kommende Umbenennungen in Schema, Code und Doku):
-
-| Bereich | Alt (Ist) | Neu (Soll) | Konkreter Scope/Beispiel |
-|---|---|---|---|
-| DB Tabelle | `client_session` | `binding_session` | Migration `V7__create_client_session.sql`, JPA `@Table` in `ClientSession` |
-| DB Spalte (Session-PK) | `jwk_thumbprint` | `binding_key_ref` | Session-Primärschlüssel in Tabelle `client_session`/`binding_session` |
-| DB Tabelle (Mapping) | `account_jwk_mapping` | `account_binding_key_mapping` | Migration `V11__create_account_jwk_mapping.sql` |
-| DB Spalte (Mapping-PK) | `jwk_thumbprint` | `binding_key_ref` | Primärschlüssel in `account_jwk_mapping`/`account_binding_key_mapping` |
-| Java Entitaet | `ClientSession` | `BindingSession` | Datei `orchestrator/session/ClientSession.java` |
-| Java Service | `ClientFlowSessionService` | `BindingFlowSessionService` | Datei `orchestrator/session/ClientFlowSessionService.java` |
-| Java Service | `AccountJwkMappingService` | `AccountBindingKeyMappingService` | Datei `orchestrator/account/AccountJwkMappingService.java` |
-| Java Feldname | `jwkThumbprint` | `bindingKeyRef` | Entitaeten/DTO-intern, z. B. in `ClientSession` |
-| Java Methodenname | `findByJwkThumbprint(...)` | `findByBindingKeyRef(...)` | Repository/Service-Methoden fuer Session- und Mapping-Lookups |
-| Java Methodenname | `getOrCreateByJwkThumbprint(...)` | `getOrCreateByBindingKeyRef(...)` | Session-Lifecycle in `ClientFlowSessionService` |
-| API/Controller-intern | Variable `thumbprint` | Variable `bindingKeyRef` | `FlowController`/`FlowActionService` (externe REST-Pfade bleiben unveraendert) |
-| API/DTO Fachbegriff | "JWK-Thumbprint als Session-Schluessel" | "Binding Key Reference als Session-Schluessel" | API-Dokumentation und Response-Beschreibungen |
-| Doku Begriff | `client_session` | `binding_session` | Anforderungen, Architekturtexte, Sequenzbeschreibungen |
-| Doku Begriff | `jwk_thumbprint` | `binding_key_ref` | Anforderungen, Architekturtexte, Sequenzbeschreibungen |
-| Kryptografie-Begriff (bewusst unveraendert) | `JwkThumbprintService`, "JWK thumbprint" | **unveraendert** | Bleibt fuer RFC-7638-Berechnung bestehen; liefert Wert, der fachlich als `binding_key_ref` verwendet wird |
-- Public-vs-Internal Naming-Regel (verbindlich):
-  1. **Externe Vertraege (Public API)**: In REST-Endpunkten, JSON-Requests/-Responses, DTO-Feldnamen, OpenAPI-/README-Texten und Fehlermeldungen sind ausschliesslich fachliche Begriffe aus dem finalen Set zulaessig (`binding_session`, `binding_key_ref`, "Binding Session", "Binding Key Reference").
-  2. **Interne Fachlogik (Domain/Application)**: In `orchestrator`, `account`, `id_fsc`, `auth_sms`, `ext_stammdaten` gelten ebenfalls die fachlichen Zielnamen; Altbegriffe (`client_*`, `jwk_thumbprint`) sind dort unzulaessig.
-  3. **Low-Level-DPoP-Kryptografie (technische Ausnahme)**: Nur im Paket `src/main/java/com/example/dpop/orchestrator/dpop` duerfen technische RFC-Begriffe wie `thumbprint`/`JWK thumbprint` weiter verwendet werden, sofern sie ausschliesslich die kryptografische Berechnung bezeichnen.
-  4. **Uebersetzungsregel zwischen Ebenen**: Der im DPoP-Modul berechnete `thumbprint` wird ausserhalb dieses Pakets als `binding_key_ref` weitergereicht; dieselbe Zeichenfolge, anderer fachlicher Name.
-  5. **OIDC-Begriffe**: `client_id`/`clientId` und andere OIDC-behaftete Namen sind nur erlaubt, wenn sie explizit als OIDC-Kontext markiert sind (z. B. Kommentar "OIDC terminology"). Ohne diese Markierung sind sie verboten, um Verwechslungen mit Binding-Terminologie auszuschliessen.
-  6. **Default bei Unklarheit**: Wenn ein neuer Name nicht eindeutig Public/Internal zuordenbar ist, gilt standardmaessig die fachliche Binding-Terminologie; technische Begriffe sind nur mit dokumentierter Ausnahme nach Regel 3 erlaubt.
-- Umbenennungsstrategie (sequenziert, ohne Implementierung):
-
-| Schritt | Reihenfolge | Ziel | Konkrete Arbeitsanweisung | Exit-Kriterium |
-|---|---|---|---|---|
-| 1 | Doku | Einheitliche Soll-Terminologie festschreiben | Anforderungen/README/API-Doku auf Naming-Matrix angleichen; Altbegriffe nur als `Legacy:` markieren | Alle fachlichen Beschreibungen nutzen `binding_session`/`binding_key_ref`; keine offenen TBD |
-| 2 | Java Domain/Services | Fachliche Typen und Service-Namen angleichen | Klassen/Felder/Methoden in Domain+Service-Layer von `Client*`/`Jwk*` auf `Binding*` bzw. `bindingKeyRef` umbenennen; DPoP-Paket ausnehmen | Code kompiliert; keine Altbegriffe ausser DPoP-Ausnahme |
-| 3 | Repositories | Persistenz-APIs konsistent machen | Repository-Namen und Finder (`findByJwkThumbprint`) auf `...BindingKeyRef` umstellen | Alle Repository-Methoden verwenden neue Namen |
-| 4 | Controller/DTO | Public Contract sprachlich bereinigen | Interne Variablen/DTO-Felder und Fehlermeldungen auf Binding-Terminologie umstellen; URL-Pfade nur aendern, wenn explizit beschlossen | Kein Public Text mit Altbegriffen; OIDC-Ausnahmen explizit markiert |
-| 5 | DB Migration | Physisches Schema nachziehen | Neue Flyway-Migration fuer Tabellen-/Spalten-Renames (oder Copy+Backfill+Drop) erstellen; bestehende Daten migrieren; keine Datenverluste | Schema enthaelt Zielnamen; Datenintegritaet und Tests grün |
-
-Optionaler Kompatibilitaetszeitraum (wenn API/Schema-Risiko hoch):
-- Dauer: **max. 1 Minor-Release** oder **30 Kalendertage** (was frueher eintritt).
-- Alias-Regeln:
-  - DB: Lesepfad darf Alt+Neu akzeptieren, Schreibpfad nur Neu.
-  - Java: Deprecated Wrapper-Methoden fuer Alt-Namen erlaubt, muessen auf Neu delegieren.
-  - API: Falls unvermeidbar, Alt-Feldnamen nur als input-kompatibler Alias; Responses nur Neu.
-- Entferndatum: **spaetestens am Ende des Kompatibilitaetszeitraums**; anschliessend komplette Entfernung aller Alt-Aliase in einem dedizierten Cleanup-PR.
-
-Abnahmekriterium fuer die Gesamtumbenennung:
-- Keine Restverwendung von Altbegriffen (`client_session`, `jwk_thumbprint`, `ClientSession` als Fachbegriff etc.) ausser explizit markierten Legacy-Kommentaren oder der dokumentierten DPoP-Kryptografie-Ausnahme.
-- Verifikation ueber Volltextsuche (`rg`) und gruene Test-Suite (`./gradlew test`).
-
-Abhaengigkeiten und Risiken:
-- Abhaengigkeit: Public-vs-Internal-Regel muss vor Codeumbenennung final sein.
-- Risiko 1: Breaking Changes in API/DB bei ungeplanter simultaner Umstellung -> Mit Schrittfolge + optionalem Alias-Fenster minimieren.
-- Risiko 2: OIDC-Verwechslung bei `client*`-Restbegriffen -> Durch harte Verbotsregel ausser explizitem OIDC-Kontext minimieren.
-- Risiko 3: Inkonsistente Begriffe zwischen Modulen -> Durch Reihenfolge (Doku -> Domain -> Repo -> API -> DB) und abschliessende Suchprüfung minimieren.
-- Die Session enthält keine separate Registrierungs- oder Authentifizierungssession; stattdessen entscheidet der `FlowNextStepResolver` anhand der Session-Daten und des Accounts, ob Identifikation, Setup einer Authentifizierungsmethode oder eine Authentifizierungs-Challenge erforderlich ist.
-- Fuer das diskutierte Zielbild der App-/Keycloak-Kopplung gilt zusaetzlich folgende API-Regel: Das oeffentliche API wird unter `/orchestrator/api/v1` versioniert. Die Prozess-API bleibt kanalabhaengig getrennt (App vs. Keycloak); im oeffentlichen App-API gibt es jedoch keinen separaten Prozessstart mehr. Stattdessen erzeugt oder liest der Einstiegscall die `channelSessionId`, und das Backend leitet unmittelbar anhand von Kanalzustand, Accountstatus und Policy den intern noetigen Prozess (`REGISTRATION`, `LOGIN` oder `STEP_UP`) ab und liefert direkt den ersten fachlichen `next`-Schritt. Die interne `processSessionId` bleibt fuer Persistenz, Korrelation und Audit bestehen, ist aber kein Bestandteil der oeffentlichen Ziel-URLs. Unterschiedliche fachliche Varianten duerfen nicht durch denselben Endpunkt nur anhand verschiedener Request-Daten unterschieden werden; stattdessen werden methoden- und modusspezifische Attempt-Ressourcen mit jeweils eigenem URL-Muster und eigenem Request-Schema modelliert, insbesondere fuer `fsc`, `sms/setup` und `sms/use`. Fuer vorbereitende Methoden gilt ein ressourcenorientiertes Muster: `POST` legt eine Attempt-Ressource an (auch mit teilweisen Daten), `PATCH` ergaenzt fehlende Daten auf derselben Ressource, `GET` liest den aktuellen Stand. Solange Daten fehlen, antwortet der Server erfolgreich mit `status=INPUT_REQUIRED` und `missingFields`; sobald alle Pflichtdaten vorliegen und validiert sind, liefert dieselbe Ressource das Ergebnis mit `status=VERIFIED` plus `result`. Das Rueckgabeobjekt `next` verwendet im Zielbild nur zwei Routing-Attribute: `context` und `step`. `context` benennt den fuer die UI relevanten Kontext, also entweder einen generischen fachlichen Bereich wie `registration` oder den konkreten Methodenkontext wie `fsc` bzw. `sms`. `step` beschreibt nur die Phase innerhalb dieses Kontexts, z. B. `selectIdentificationMethod`, `setup`, `use`, `input`, `tanInput` oder `authenticated`. Die UI-Fortsetzung wird ausschliesslich aus `(context, step)` abgeleitet; URLs sind fest vorgegeben und keine Entscheidungsquelle. HATEOAS-Links sind im Zielbild nicht vorgesehen.
-- Im Modul `id_fsc` existiert eine `FscCode`-Entität mit den Attributen `personId`, `code` und `expiresAt`.
-- Im Modul `account` existiert eine `Account`-Entität mit folgenden Attributen:
-  - `id` (Primärschlüssel, auto-generiert)
-  - `personId` (Referenz auf die identifizierte Person)
-  - `createdAt` (Zeitpunkt der Erstellung)
-  - `identifications` (JSON-Array mit den durchgeführten Identifikationen)
-- Eine `AccountIdentification` enthält:
-  - `identificationMethod` (z. B. `fsc`)
-  - `identificationQuality` (z. B. `HIGH`)
-  - `identifiedAt` (Zeitpunkt der Identifikation)
-  - `registrationSessionId` (Session, in der die Identifikation stattfand)
-  - `details` (JSON mit weiteren wichtigen Daten, z. B. KVNR)
-- Die `Account`-Entitaet speichert zusaetzlich `authenticationMethods` als JSON-Array.
-  - Eine `AuthenticationMethod` enthaelt `method` (z. B. `sms`), `active`, `createdAt` und `details` (JSON, z. B. `enrollmentRef` mit `type`/`id`; konkrete Telefonnummern bleiben im jeweiligen Methoden-Modul).
-  - Der Account kann mehrere verschiedene Authentifizierungsmethoden halten.
-- Im Modul `auth_sms` existiert eine `AuthSmsSetup`-Entitaet in eigener Tabelle `auth_sms`:
-  - `id` (Primaerschluessel, auto-generiert)
-  - `phoneNumber`
-  - `tan` (waehrend des Setups generierter Verifikationscode)
-  - `validated` (Flag, ob die TAN erfolgreich bestaetigt wurde)
-  - `createdAt`, `updatedAt`
-  - Die Tabelle enthaelt keinen Fremdschluessel auf `account`, `client_session` oder `person`.
-  - Der Verweis auf das SMS-Setup wird ausschliesslich vom Account in den `details` der Authentication-Methode gehalten.
+- Die Session-Struktur basiert auf `ChannelSession` (langlebig, DPoP-gebunden über `binding_key_ref`) und `ProcessSession` (kurzlebig, fachlicher Verfahrens-Kontext). Die `binding_session`-Tabelle wurde vollständig durch dieses Modell abgelöst (Flyway V16).
+- Terminologie (final umgesetzt):
+  - DPoP-Thumbprint wird intern als `binding_key_ref` geführt.
+  - Kryptografie-Berechnung bleibt im Paket `orchestrator/dpop` unter RFC-7638-Begriffen (`JwkThumbprintService`).
 
 ### 3.5 Pflichtenheft
 
@@ -259,9 +160,9 @@ Abhaengigkeiten und Risiken:
 | F42 | Das SMS-Setup wird nur angeboten, wenn der Account keine aktive Methode besitzt. | Bei aktiver Methode erfolgt direkt Übergang zur Authentifizierungs-Auswahl |
 | F43 | Beim Wechsel von Registrierung zur Anmeldung bleibt die Channel-Session erhalten; nur der interne Prozess wechselt. | `channelSessionId` bleibt stabil; `next.context` und `next.step` leiten den Client weiter |
 | F44 | In der Authentifizierungsphase werden vorhandene Methoden ueber konkrete Use-Attempt-Ressourcen verwendet. | Die SMS-Challenge unter `/orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` verwendet die im Setup (`auth_sms`) gespeicherte Nummer ueber `enrollmentRef`; der Client uebergibt keine Telefonnummer mehr |
-| F48 | Der Authentifizierungs-Dispatch ist kommandozentriert und erweiterbar. | Handler werden per `(method, action)` registriert; neue Aktionen (z. B. `challenge.send`, `challenge.verify`, `rotate`) sind ohne Controller-Aenderung ergaenzbar |
-| F49 | Policy-Gating ist zentral und methodenunabhaengig vor der Handler-Ausfuehrung durchzusetzen. | `FlowActionService` ruft vor jedem Kommando eine zentrale Policy-Engine auf; `FlowController` enthaelt keine methodenspezifische Falllogik |
-| F50 | Kommandos werden typisiert deserialisiert und danach dynamisch dispatcht. | Fuer jedes registrierte Kommando ist ein konkreter Request-Typ hinterlegt; fehlerhafte Bodies werden beim Deserialisieren/Validieren abgewiesen |
+| F48 | Der Authentifizierungs-Dispatch ist ueber explizite Attempt-Ressourcen klar modelliert. | Jeder Modus (`enroll`, `use`) hat eigene URL-Pfade und Controller-Methoden; kein generischer Dispatch-Mechanismus |
+| F49 | Fachlich ungueltige Zustandswechsel und Verifikationsfehler werden mit strukturierten Fehlercodes abgewiesen. | `OrchestratorException` liefert 409/410/422/403 je nach Fehlertyp; Handler enthalten keine eigene Fehlerbehandlung |
+| F50 | Request-Bodies werden typsicher per Controller-Parameter gebunden und validiert. | Spring MVC deserialisiert `@RequestBody Map<String, Object>` oder spezifische Records; fehlerhafte Bodies werden beim Binding abgewiesen |
 | F45 | Responses enthalten nur technische IDs/Zustaende und kein HATEOAS. | Einstieg liefert `channelSessionId`; Attempt-Responses liefern `attemptId`, `status`, `missingFields` (falls unvollstaendig), optional `result` (falls verifiziert) und `next` |
 | F47 | HTTP-Statuscodes fuer vorbereitende Attempt-Ressourcen sind einheitlich definiert. | `POST` -> `201 Created`; `PATCH`/`GET` -> `200 OK`; unvollstaendige Daten sind kein Fehler (`INPUT_REQUIRED` im Body); fachlich ungueltige Daten -> `422`; ungueltiger Zustandswechsel -> `409` |
 | F46 | Bei erneutem Frontend-Start wird ein bekannter Kanal ueber denselben Einstiegscall fortgesetzt und der noetige Login-Schritt serverseitig bestimmt. | `POST /orchestrator/api/v1/app/channels` verwendet bei bekanntem Account die bestehende `channelSessionId` und liefert fuer die Anmeldung zunaechst `next: { context: "authentication", step: "selectMethod" }` |
@@ -568,37 +469,7 @@ Danach folgen die festen, vom Setup getrennten Use-Endpunkte:
 - `PATCH /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` (z. B. TAN)
 - `GET /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}`
 
-Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende Nummer kommt aus dem zuvor validierten SMS-Setup im Modul `auth_sms` (Referenz ueber generisches `enrollmentRef`) und nicht aus einem allgemeinen Kontaktfeld am Account. Pro `binding_key_ref` existiert weiterhin genau ein aktiver Kanalbezug; welche fachliche Phase gerade aktiv ist, ergibt sich aus dem intern gefuehrten Prozess und wird vom `FlowNextStepResolver` in den `next`-Schritt uebersetzt.
-
-### 3.6.1 Kommando- und Policy-Modell (Zielbild)
-
-Zur Entkopplung von API-Controller und methodenspezifischer Fachlogik wird ein dynamisches Kommando-Register verwendet:
-
-- Schluessel: `(method, action)` (z. B. `sms:enroll.start`, `sms:challenge.verify`, `password:challenge.verify`).
-- Jedes Kommando registriert:
-  - typsicheren Request-Record,
-  - zugehoerige Policy,
-  - Handler-Funktion.
-- Die Handler registrieren ihre Kommandos selbst als Spring-Beans; ein zentrales Sammel-Registrar ist dafuer nicht vorgesehen.
-- `FlowController` bleibt generisch und delegiert an `FlowActionService`.
-- `FlowActionService` deserialisiert in den registrierten Request-Typ, prueft zentral die Policy und dispatcht dann an den Handler.
-
-Beispiel-Policies fuer SMS:
-
-| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
-|---|---|---|---|---|
-| `sms:enroll.start` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `sms.active` | `ENROLLMENT_PENDING` |
-| `sms:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.sms.enrollmentId` | - | `AUTHENTICATED` |
-| `sms:challenge.send` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `sms.active`, `sms.enrollmentRef` | - | `CHALLENGE_PENDING` |
-| `sms:challenge.verify` | `CHALLENGE_PENDING` | `pending.sms.challengeId` | - | `AUTHENTICATED` |
-
-Beispiel-Policies fuer Passwort:
-
-| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
-|---|---|---|---|---|
-| `password:enroll.set` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `password.active` | `ENROLLMENT_PENDING` |
-| `password:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.password.enrollmentId` | - | `AUTHENTICATED` |
-| `password:challenge.verify` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `password.active` | `account.locked` | `AUTHENTICATED` |
+Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende Nummer kommt aus dem zuvor validierten SMS-Setup im Modul `auth_sms` (Referenz ueber generisches `enrollmentRef`) und nicht aus einem allgemeinen Kontaktfeld am Account. Pro `binding_key_ref` existiert weiterhin genau ein aktiver Kanalbezug; welche fachliche Phase gerade aktiv ist, ergibt sich aus dem intern gefuehrten Prozess und der `ChannelSession`.
 
 ## 4. Architekturbeschränkungen
 
@@ -614,8 +485,7 @@ Beispiel-Policies fuer Passwort:
 | A8 | Datenbank: H2 (dateibasiert im Betrieb, In-Memory in Tests) | Einfache lokale Entwicklung und schnelle Tests |
 | A9 | Schema-Management mit Flyway | Versionierter und reproduzierbarer Datenbankaufbau |
 | A10 | Datenzugriff mit Spring Data JPA | Standardisierte Persistenzschicht |
-| A11 | Lesbarkeit hat Vorrang vor maximal generischem API-Wiring. | Endpunkte, DTOs und Handler bleiben methoden-/modusspezifisch explizit (`fsc`, `sms/setup`, `sms/use`), auch wenn dadurch mehr, aber klarerer Code entsteht |
-| A12 | Die zentrale Flow-API bleibt methodenunabhaengig. | `FlowController` und `FlowActionService` enthalten keine methodenspezifischen `if/switch`-Bloecke, sondern arbeiten ueber registrierte Kommandos und zentrale Policies |
+| A11 | Lesbarkeit hat Vorrang vor maximal generischem API-Wiring. | Endpunkte, DTOs und Handler bleiben methoden-/modusspezifisch explizit (`fsc`, `sms/enroll`, `sms/use`), auch wenn dadurch mehr, aber klarerer Code entsteht |
 
 ## 5. Lösungsstrategie
 
@@ -840,10 +710,6 @@ GET    /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}
 }
 ```
 
-### 7.3 Rückwärtskompatibilität
-
-Die alte `BindingSession`-Tabelle bleibt bestehen (Tabelle `binding_session`), um Rückwärtskompatibilität mit existierenden Tests und Services zu gewährleisten. Eine vollständige Migration von alten zu neuer Struktur ist als Folgearbeit vorgesehen.
-
 ### 7.4 Ausschlüsse (aktuell nicht implementiert)
 
 - Web-Channel-spezifische Keycloak-Integration (nur App-Kanal)
@@ -902,9 +768,9 @@ sms:
 - Strukturierte result-Objekte
 
 ### Phase 3: API Endpoints ✅
-- Neue Pfade nach orchestrator-keycloak-session-konzept
+- Neue Pfade nach orchestrator-keycloak-session-konzept (Soll-Stand)
 - DPoP-Validierung in allen Endpoints
-- Backward Compatibility mit alten Pfaden
+- Alte Ist-Stand-API (`/orchestrator/sessions`) entfernt
 
 ### Phase 4: Business Logic ✅
 - AuthContextService für Keycloak-Lifecycle
@@ -924,7 +790,7 @@ sms:
 - [x] `./gradlew build` läuft erfolgreich durch.
 - [x] `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
 - [x] Der Integrationstest für `/orchestrator/process` liefert eine Antwort aus dem `orchestrator` und enthält Personen-Daten aus `ext_stammdaten`.
-- [x] Der Integrationstest für den Session-Flow durchläuft Registrierung, FSC-Identifikation, SMS-Setup und TAN-Bestaetigung.
+- [x] Der Integrationstest für den Channel-API-Flow durchläuft Channel-Einstieg, FSC-Attempt-Anlage und Datenergänzung via PATCH.
 - [x] Das Frontend ist über Spring Boot (`./gradlew bootRun`) erreichbar.
 - [x] Das Frontend kann autark über `npm run dev` im Verzeichnis `frontend/` betrieben werden.
 - [x] Das Frontend zeigt den Session-Status übersichtlich an und erlaubt das Durchspielen des Registrierungsflows mit vorbelegten Testdaten.

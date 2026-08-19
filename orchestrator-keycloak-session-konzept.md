@@ -457,162 +457,9 @@ stateDiagram-v2
 
 ## 4) API-Spezifikation
 
-Hinweis: Das aktuelle Repo hat bereits ein produktives Flow-API unter `/orchestrator/sessions`. Das folgende Kapitel trennt in:
+### 4.1 API-Spezifikation (implementiert)
 
-1. **Ist-Spezifikation** (heute implementiert)
-2. **Soll-Spezifikation** (zusaetzliche App/Web-Fassaden fuer Keycloak-Kopplung)
-
-### 4.1 Ist-Spezifikation (bereits implementiert)
-
-Basis:
-
-- Controller: `src/main/java/com/example/dpop/orchestrator/flow/FlowController.java`
-- Response-DTO: `src/main/java/com/example/dpop/orchestrator/flow/FlowSetupResponse.java`
-- NextStep-Typen: `src/main/java/com/example/dpop/orchestrator/session/NextStep.java`
-
-Alle Endpunkte erwarten den Header `DPoP`.
-
-#### `POST /orchestrator/sessions`
-
-- Zweck: Session erstellen/rotieren und initialen `next` Schritt liefern
-- Response: `FlowSetupResponse`
-
-```json
-{
-  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "next": {
-    "context": "registration",
-    "step": "useIdentificationMethod",
-    "identificationMethods": ["fsc"]
-  }
-}
-```
-
-#### `POST /orchestrator/sessions/{sessionId}/identification-methods/{method}`
-
-- Zweck: Identifikationsverfahren starten (z. B. `fsc`)
-- Beispiel-Request fuer FSC:
-
-```json
-{
-  "kvnr": "A123456789",
-  "name": "Muster",
-  "vorname": "Max"
-}
-```
-
-- Response: `FlowSetupResponse` (ohne `sessionId`, nur `next`)
-
-#### `PATCH /orchestrator/sessions/{sessionId}/identification-methods/{method}`
-
-- Zweck: Identifikation bestaetigen (z. B. FSC-Code)
-- Beispiel-Request:
-
-```json
-{
-  "fsc": "TESTCODE123"
-}
-```
-
-#### `POST /orchestrator/sessions/{sessionId}/authentication-methods/{method}`
-
-- Zweck: Authentifizierung starten (Setup oder Challenge)
-- Bei erstem SMS-Setup typischer Request:
-
-```json
-{
-  "phoneNumber": "+49 170 1234567"
-}
-```
-
-- Bei bestehender aktiver SMS-Methode ist Request-Body optional.
-
-#### `POST /orchestrator/sessions/{sessionId}/authentication-methods/{method}/verify`
-
-- Zweck: Challenge bestaetigen (z. B. TAN)
-- Beispiel-Request:
-
-```json
-{
-  "enrollmentId": 1,
-  "tan": "123456"
-}
-```
-
-#### Aktuelle `next` Auspraegungen (aus `NextStep`)
-
-- `{"context":"registration","step":"registration"}`
-- `{"context":"registration","step":"useIdentificationMethod","identificationMethods":[...]}`
-- `{"context":"fsc","step":"input"}`
-- `{"context":"authentication","step":"setup","authenticationMethods":[...]}`
-- `{"context":"authentication","step":"selectMethod","authenticationMethods":[...]}`
-- `{"context":"authentication","step":"smsTanInput","enrollmentId":1,"tan":"..."}`
-- `{"context":"authentication","step":"authenticated","accountId":123,"personId":456}`
-
-Hinweis zur Konsistenz:
-
-- Der aktuelle Ist-Stand ist historisch gewachsen und noch nicht voll konsistent, weil methodenspezifische Semantik teils im `context` (`fsc`) und teils im Pfad steckt.
-- Fuer das Zielbild unten wird das vereinheitlicht: `context` benennt den UI-Kontext. Fuer generische Auswahlseiten bleibt er fachlich (`registration`, `enrollment`, `use`); fuer methodenspezifische Schritte wird er konkret (`fsc`, `sms`). `step` beschreibt nur noch die Phase innerhalb dieses Kontexts, z. B. `selectIdentificationMethod`, `selectMethod`, `enroll`, `use`, `input`, `tanInput`, `authenticated`.
-
-Hinweis: Das Feld `tan` in `smsTanInput` ist fuer Demo/Test praktisch, sollte aber fuer produktionsnahe Flows entfernt oder feature-flagged werden.
-
-Migrationshinweis:
-
-- Im Ist-Stand referenzieren SMS-Verifikationsschritte teils noch ein Setup ueber `smsSetupId`.
-- Im Zielbild unten wird diese Kopplung konsequent auf `details.enrollmentRef = { type, id }` und oeffentliche API-Felder wie `enrollmentId` umgestellt.
-
-### 4.1.1 Dynamisches Kommando-Register statt fixer `start/verify`-Annahme
-
-Der bisherige Zuschnitt auf genau zwei Handler-Operationen (`start`/`verify`) wird als zu starr bewertet. Zielbild:
-
-- Dispatch-Schluessel ist `(method, action)` statt nur `method`.
-- Jedes registrierte Kommando bringt seinen eigenen Request-Typ und seine eigene Policy mit.
-- `FlowController` bleibt generisch und kennt keine methodenspezifische Logik.
-- `FlowActionService` fuehrt immer denselben Ablauf aus:
-  1. Kommando aus Registry aufloesen,
-  2. Request typsicher deserialisieren,
-  3. zentrale Policy pruefen,
-  4. Handler ausfuehren,
-  5. Session/Phase aktualisieren.
-
-Beispielhafte Kommandos:
-
-- `sms:enroll.start`
-- `sms:enroll.confirm`
-- `sms:challenge.send`
-- `sms:challenge.verify`
-- `password:enroll.set`
-- `password:enroll.confirm`
-- `password:challenge.verify`
-
-Damit sind mehr als zwei Aktionen pro Verfahren explizit moeglich, ohne `FlowController` anzupassen.
-
-### 4.1.2 Policy-Gating zentral, methodenunabhaengig
-
-Policy-Pruefung findet vor der Handler-Ausfuehrung zentral statt (nicht in Controllern). Pro Kommando wird eine deklarative Policy registriert.
-
-Beispiel SMS:
-
-| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
-|---|---|---|---|---|
-| `sms:enroll.start` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `sms.active` | `ENROLLMENT_PENDING` |
-| `sms:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.sms.enrollmentId` | - | `AUTHENTICATED` |
-| `sms:challenge.send` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `sms.active`, `sms.enrollmentRef` | - | `CHALLENGE_PENDING` |
-| `sms:challenge.verify` | `CHALLENGE_PENDING` | `pending.sms.challengeId` | - | `AUTHENTICATED` |
-
-Beispiel Passwort:
-
-| Kommando | allowedPhases | requiredFlags | forbiddenFlags | nextPhase |
-|---|---|---|---|---|
-| `password:enroll.set` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked` | `password.active` | `ENROLLMENT_PENDING` |
-| `password:enroll.confirm` | `ENROLLMENT_PENDING` | `pending.password.enrollmentId` | - | `AUTHENTICATED` |
-| `password:challenge.verify` | `IDENTIFIED`, `AUTH_METHOD_SELECTION` | `account.linked`, `password.active` | `account.locked` | `AUTHENTICATED` |
-
-### 4.2 Soll-Spezifikation (zusaetzliche Fassaden)
-
-Ziel: Gemeinsame Kernlogik, aber zwei kanal-spezifische APIs.
-
-Festgelegte API-Entscheidung fuer die weitere Umsetzung:
+Festgelegte API-Entscheidung:
 
 - Das oeffentliche API wird unter `/orchestrator/api/v1` versioniert.
 - Unterschiedliche Methoden und Modi werden ueber getrennte konkrete Endpunkte modelliert.
@@ -1166,17 +1013,17 @@ Konsistenz-Regeln:
 
 ## 6) Mapping auf bestehende Konzepte im Repo
 
-- Bestehende `binding_session` passt inhaltlich zu `ProcessSession` (fachlicher Flow-Kontext).
-- Aktuelles Public-API (`/orchestrator/sessions`) kann als kompatibler Kern bestehen bleiben und intern in die neue Modellstruktur ueberfuehrt werden.
-- Fuer das Zielbild braucht es zusaetzlich eine langlebige `ChannelSession` und einen separaten `AuthContext`.
-- Bestehende DPoP-Ableitung (`binding_key_ref`) bleibt fuer App-Bindung zentral.
+- Die `binding_session`-Tabelle wurde vollstaendig entfernt (Flyway V16); fachlicher Flow-Kontext wird nun ueber `ProcessSession` abgebildet.
+- Das alte Public-API (`/orchestrator/sessions`) wurde entfernt; das aktuelle API liegt unter `/orchestrator/api/v1/app/...`.
+- `ChannelSession` ist langlebig und DPoP-gebunden ueber `binding_key_ref`.
+- `AuthContext` ist bereit fuer Keycloak-Integration (Struktur vorhanden, Keycloak-Anbindung noch nicht implementiert).
 
 ---
 
-## 7) Inkrementelle Umsetzung
+## 7) Umsetzungsstatus
 
-1. **Schritt 1**: Entitaeten `ChannelSession`, `AuthContext`, `SessionEvent` hinzufuegen.
-2. **Schritt 2**: Bestehende Flow-Session in konkrete Prozessklassen aufteilen (`RegistrationProcessSession`, `LoginProcessSession`, `StepUpProcessSession`) und Status sauber typisieren.
-3. **Schritt 3**: App-API-Fassade (`/orchestrator/api/v1/app/...`) aufbauen, intern bestehende Handler weiterverwenden.
-4. **Schritt 4**: Keycloak-Fassade (`/orchestrator/api/v1/kc/...`) mit minimalem Step-up-Start/Confirm.
-5. **Schritt 5**: Policy-Gating anhand `currentAcr/currentAmr` zentralisieren.
+1. **Schritt 1** ✅: Entitaeten `ChannelSession`, `AuthContext`, `SessionEvent` hinzugefuegt.
+2. **Schritt 2** ✅: Bestehende Flow-Session in konkrete Prozessklassen aufgeteilt (`RegistrationProcessSession`, `LoginProcessSession`, `StepUpProcessSession`).
+3. **Schritt 3** ✅: App-API-Fassade (`/orchestrator/api/v1/app/...`) aufgebaut; alte Ist-Stand-API entfernt.
+4. **Schritt 4** 🔲: Keycloak-Fassade (`/orchestrator/api/v1/kc/...`) mit Step-up-Start/Confirm (noch nicht implementiert).
+5. **Schritt 5** 🔲: Policy-Gating anhand `currentAcr/currentAmr` zentralisieren (noch nicht implementiert).
