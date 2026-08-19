@@ -47,9 +47,10 @@ public class FscIdentificationService {
         this.accountBindingKeyMappingService = accountBindingKeyMappingService;
     }
 
-    public OrchestratorResponse startIdentification(String bindingKeyRef, Map<String, Object> data) {
+    public OrchestratorResponse startIdentification(UUID channelSessionId, String bindingKeyRef, Map<String, Object> data) {
         ChannelSession channelSession = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
                 .orElseThrow(() -> new IllegalArgumentException("Channel session not found"));
+        ensureChannelMatches(channelSessionId, channelSession);
 
         RegistrationProcessSession processSession = (RegistrationProcessSession) sessionManagementService
                 .getLatestProcessSessionByChannel(channelSession.getChannelSessionId(), null)
@@ -85,6 +86,15 @@ public class FscIdentificationService {
                 ),
                 new OrchestratorResponse.NextRouting("fsc", "input")
         );
+    }
+
+    private void ensureChannelMatches(UUID expectedChannelSessionId, ChannelSession actualChannelSession) {
+        if (expectedChannelSessionId == null) {
+            return;
+        }
+        if (!actualChannelSession.getChannelSessionId().equals(expectedChannelSessionId)) {
+            throw new IllegalArgumentException("Channel session not found");
+        }
     }
 
     public OrchestratorResponse submitIdentificationData(UUID attemptId, String bindingKeyRef, Map<String, Object> data) {

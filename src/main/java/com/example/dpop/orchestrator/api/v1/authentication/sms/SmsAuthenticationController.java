@@ -43,7 +43,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.startAuthentication(bindingKeyRef, "enroll", data);
+        OrchestratorResponse response = smsService.startAuthentication(channelSessionId, bindingKeyRef, "enroll", data);
         return ResponseEntity.ok(response);
     }
 
@@ -55,7 +55,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.startAuthentication(bindingKeyRef, "use", data);
+        OrchestratorResponse response = smsService.startAuthentication(channelSessionId, bindingKeyRef, "use", data);
         return ResponseEntity.ok(response);
     }
 
@@ -113,7 +113,7 @@ public class SmsAuthenticationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = smsService.startAuthentication(bindingKeyRef, "use", request.data());
+        OrchestratorResponse response = smsService.startAuthentication(null, bindingKeyRef, "use", request.data());
         return ResponseEntity.ok(response);
     }
 

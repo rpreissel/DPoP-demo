@@ -40,9 +40,10 @@ public class SmsAuthenticationService {
         this.authSmsService = authSmsService;
     }
 
-    public OrchestratorResponse startAuthentication(String bindingKeyRef, String mode, Map<String, Object> data) {
+    public OrchestratorResponse startAuthentication(UUID channelSessionId, String bindingKeyRef, String mode, Map<String, Object> data) {
         ChannelSession channelSession = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
                 .orElseThrow(() -> new IllegalArgumentException("Channel session not found"));
+        ensureChannelMatches(channelSessionId, channelSession);
 
         String phoneNumber = data != null ? (String) data.get("phoneNumber") : null;
 
@@ -208,5 +209,14 @@ public class SmsAuthenticationService {
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    private void ensureChannelMatches(UUID expectedChannelSessionId, ChannelSession actualChannelSession) {
+        if (expectedChannelSessionId == null) {
+            return;
+        }
+        if (!actualChannelSession.getChannelSessionId().equals(expectedChannelSessionId)) {
+            throw new IllegalArgumentException("Channel session not found");
+        }
     }
 }

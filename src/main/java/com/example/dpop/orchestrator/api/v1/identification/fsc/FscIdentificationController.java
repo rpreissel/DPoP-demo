@@ -43,7 +43,7 @@ public class FscIdentificationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = fscService.startIdentification(bindingKeyRef, request.data());
+        OrchestratorResponse response = fscService.startIdentification(channelSessionId, bindingKeyRef, request.data());
         return ResponseEntity.ok(response);
     }
 
@@ -78,7 +78,7 @@ public class FscIdentificationController extends DpopBaseController {
             HttpServletRequest httpRequest) {
 
         String bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest);
-        OrchestratorResponse response = fscService.startIdentification(bindingKeyRef, request.data());
+        OrchestratorResponse response = fscService.startIdentification(null, bindingKeyRef, request.data());
         return ResponseEntity.ok(response);
     }
 
