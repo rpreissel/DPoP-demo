@@ -4,32 +4,61 @@ import com.example.dpop.account.AccountService;
 import com.example.dpop.auth_sms.AuthSmsChallengeResult;
 import com.example.dpop.auth_sms.AuthSmsEnrollResult;
 import com.example.dpop.auth_sms.AuthSmsService;
-import com.example.dpop.orchestrator.flow.AuthenticationMethodHandler;
+import com.example.dpop.orchestrator.flow.CommandKey;
+import com.example.dpop.orchestrator.flow.CommandPolicy;
+import com.example.dpop.orchestrator.flow.CommandRegistration;
+import com.example.dpop.orchestrator.flow.CommandRegistry;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
+import com.example.dpop.orchestrator.flow.command.SmsStartCommand;
+import com.example.dpop.orchestrator.flow.command.SmsVerifyCommand;
 import com.example.dpop.orchestrator.session.BindingSession;
 import com.example.dpop.orchestrator.session.NextStep;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Set;
 
 @Component
-public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
+public class SmsAuthenticationHandler {
 
     private final AuthSmsService authSmsService;
     private final AccountService accountService;
+    private final CommandRegistry commandRegistry;
 
     public SmsAuthenticationHandler(AuthSmsService authSmsService,
-                                    AccountService accountService) {
+                                    AccountService accountService,
+                                    CommandRegistry commandRegistry) {
         this.authSmsService = authSmsService;
         this.accountService = accountService;
+        this.commandRegistry = commandRegistry;
     }
 
-    @Override
     public String method() {
         return "sms";
     }
 
-    public NextStep start(BindingSession session, Map<String, Object> request) {
+    @PostConstruct
+    void registerCommands() {
+        commandRegistry.register(
+                new CommandKey("sms", "start"),
+                new CommandRegistration<>(
+                        SmsStartCommand.class,
+                        new CommandPolicy(Set.of(), Set.of(), Set.of(), null),
+                        this::start
+                )
+        );
+        commandRegistry.register(
+                new CommandKey("sms", "verify"),
+                new CommandRegistration<>(
+                        SmsVerifyCommand.class,
+                        new CommandPolicy(Set.of(), Set.of(), Set.of(), "authenticated"),
+                        this::verify
+                )
+        );
+    }
+
+    public NextStep start(BindingSession session, SmsStartCommand request) {
         Long accountId = requireAccountId(session);
         boolean isChallenge = accountService.hasActiveAuthenticationMethod(accountId);
 
@@ -46,7 +75,7 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
             ));
             return new NextStep.SmsTanInputNextStep(challenge.enrollmentId(), challenge.tan());
         } else {
-            String phoneNumber = getString(request, "phoneNumber");
+            String phoneNumber = request == null ? null : request.phoneNumber();
             if (phoneNumber == null || phoneNumber.isBlank()) {
                 throw new FlowSessionException("phoneNumber is required for sms setup");
             }
@@ -62,10 +91,10 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         return new NextStep.SmsTanInputNextStep(smsResult.enrollmentId(), smsResult.tan());
     }
 
-    public NextStep verify(BindingSession session, Map<String, Object> request) {
+    public NextStep verify(BindingSession session, SmsVerifyCommand request) {
         Long accountId = requireAccountId(session);
-        Long enrollmentId = getLong(request, "enrollmentId");
-        String tan = getString(request, "tan");
+        Long enrollmentId = request == null ? null : request.enrollmentId();
+        String tan = request == null ? null : request.tan();
 
         authSmsService.validateTan(enrollmentId, tan);
 
@@ -95,22 +124,4 @@ public class SmsAuthenticationHandler implements AuthenticationMethodHandler {
         return accountId;
     }
 
-    private String getString(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        if (value == null) {
-            return null;
-        }
-        return value.toString();
-    }
-
-    private Long getLong(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        return Long.valueOf(value.toString());
-    }
 }

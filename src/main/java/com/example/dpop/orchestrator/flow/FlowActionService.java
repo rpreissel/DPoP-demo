@@ -2,6 +2,11 @@ package com.example.dpop.orchestrator.flow;
 
 import com.example.dpop.account.AccountService;
 import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
+import com.example.dpop.orchestrator.flow.command.FscStartCommand;
+import com.example.dpop.orchestrator.flow.command.FscSubmitCommand;
+import com.example.dpop.orchestrator.flow.command.PasswordVerifyCommand;
+import com.example.dpop.orchestrator.flow.command.SmsStartCommand;
+import com.example.dpop.orchestrator.flow.command.SmsVerifyCommand;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
 import com.example.dpop.orchestrator.session.BindingFlowSessionService;
 import com.example.dpop.orchestrator.session.BindingSession;
@@ -100,9 +105,10 @@ public class FlowActionService {
     @Transactional
     public FlowSetupResponse startIdentification(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "start"));
+        request = request == null ? Map.of() : request;
+        CommandRegistration<?> registration = commandRegistry.require(new CommandKey(method, "start"));
         policyEngine.validate(registration.policy(), session, request);
-        NextStep next = registration.executor().execute(session, request);
+        NextStep next = execute(registration, session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
@@ -110,9 +116,10 @@ public class FlowActionService {
     @Transactional
     public FlowSetupResponse submitIdentification(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "submit"));
+        request = request == null ? Map.of() : request;
+        CommandRegistration<?> registration = commandRegistry.require(new CommandKey(method, "submit"));
         policyEngine.validate(registration.policy(), session, request);
-        NextStep next = registration.executor().execute(session, request);
+        NextStep next = execute(registration, session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
@@ -120,9 +127,10 @@ public class FlowActionService {
     @Transactional
     public FlowSetupResponse startAuthentication(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "start"));
+        request = request == null ? Map.of() : request;
+        CommandRegistration<?> registration = commandRegistry.require(new CommandKey(method, "start"));
         policyEngine.validate(registration.policy(), session, request);
-        NextStep next = registration.executor().execute(session, request);
+        NextStep next = execute(registration, session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
     }
@@ -130,10 +138,60 @@ public class FlowActionService {
     @Transactional
     public FlowSetupResponse verifyAuthentication(UUID sessionId, String bindingKeyRef, String method, Map<String, Object> request) {
         BindingSession session = flowSessionService.requireSession(sessionId, bindingKeyRef);
-        CommandRegistration registration = commandRegistry.require(new CommandKey(method, "verify"));
+        request = request == null ? Map.of() : request;
+        CommandRegistration<?> registration = commandRegistry.require(new CommandKey(method, "verify"));
         policyEngine.validate(registration.policy(), session, request);
-        NextStep next = registration.executor().execute(session, request);
+        NextStep next = execute(registration, session, request);
         flowSessionService.save(session);
         return new FlowSetupResponse(next);
+    }
+
+    private NextStep execute(CommandRegistration<?> registration,
+                             BindingSession session,
+                             Map<String, Object> request) {
+        Object typedRequest = convertRequest(registration.requestType(), request);
+        return executeTyped(registration, session, typedRequest);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> NextStep executeTyped(CommandRegistration<?> registration,
+                                      BindingSession session,
+                                      Object request) {
+        return ((CommandRegistration<T>) registration).executor().execute(session, (T) request);
+    }
+
+    private Object convertRequest(Class<?> requestType, Map<String, Object> request) {
+        if (requestType.equals(FscStartCommand.class)) {
+            return new FscStartCommand(getString(request, "kvnr"), getString(request, "name"), getString(request, "vorname"));
+        }
+        if (requestType.equals(FscSubmitCommand.class)) {
+            return new FscSubmitCommand(getString(request, "fsc"));
+        }
+        if (requestType.equals(SmsStartCommand.class)) {
+            return new SmsStartCommand(getString(request, "phoneNumber"));
+        }
+        if (requestType.equals(SmsVerifyCommand.class)) {
+            return new SmsVerifyCommand(getLong(request, "enrollmentId"), getString(request, "tan"));
+        }
+        if (requestType.equals(PasswordVerifyCommand.class)) {
+            return new PasswordVerifyCommand(getString(request, "username"), getString(request, "password"));
+        }
+        throw new IllegalArgumentException("Unsupported request type: " + requestType.getName());
+    }
+
+    private String getString(Map<String, Object> request, String key) {
+        Object value = request.get(key);
+        return value == null ? null : value.toString();
+    }
+
+    private Long getLong(Map<String, Object> request, String key) {
+        Object value = request.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.valueOf(value.toString());
     }
 }

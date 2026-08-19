@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.flow;
 
-public record CommandRegistration(Class<?> requestType,
-                                  CommandPolicy policy,
-                                  CommandExecutor executor) {
+public record CommandRegistration<T>(Class<T> requestType,
+                                     CommandPolicy policy,
+                                     CommandExecutor<T> executor) {
 }

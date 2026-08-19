@@ -576,9 +576,10 @@ Zur Entkopplung von API-Controller und methodenspezifischer Fachlogik wird ein d
 
 - Schluessel: `(method, action)` (z. B. `sms:enroll.start`, `sms:challenge.verify`, `password:challenge.verify`).
 - Jedes Kommando registriert:
-  - konkreten Request-Typ,
+  - typsicheren Request-Record,
   - zugehoerige Policy,
   - Handler-Funktion.
+- Die Handler registrieren ihre Kommandos selbst als Spring-Beans; ein zentrales Sammel-Registrar ist dafuer nicht vorgesehen.
 - `FlowController` bleibt generisch und delegiert an `FlowActionService`.
 - `FlowActionService` deserialisiert in den registrierten Request-Typ, prueft zentral die Policy und dispatcht dann an den Handler.
 

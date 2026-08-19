@@ -6,47 +6,76 @@ import com.example.dpop.ext_stammdaten.ExtStammdatenService;
 import com.example.dpop.ext_stammdaten.PersonData;
 import com.example.dpop.id_fsc.IdFscService;
 import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService;
+import com.example.dpop.orchestrator.flow.CommandKey;
+import com.example.dpop.orchestrator.flow.CommandPolicy;
+import com.example.dpop.orchestrator.flow.CommandRegistration;
+import com.example.dpop.orchestrator.flow.CommandRegistry;
 import com.example.dpop.orchestrator.flow.FlowSessionException;
-import com.example.dpop.orchestrator.flow.IdentificationMethodHandler;
+import com.example.dpop.orchestrator.flow.command.FscStartCommand;
+import com.example.dpop.orchestrator.flow.command.FscSubmitCommand;
 import com.example.dpop.orchestrator.session.AuthenticationMethodProvider;
 import com.example.dpop.orchestrator.session.BindingSession;
 import com.example.dpop.orchestrator.session.NextStep;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
+
 import java.util.Map;
 import java.util.UUID;
+import java.util.Set;
 
 @Component
-public class FscIdentificationHandler implements IdentificationMethodHandler {
+public class FscIdentificationHandler {
 
     private final ExtStammdatenService extStammdatenService;
     private final IdFscService idFscService;
     private final AccountService accountService;
     private final AccountBindingKeyMappingService accountBindingKeyMappingService;
     private final AuthenticationMethodProvider authenticationMethodProvider;
+    private final CommandRegistry commandRegistry;
 
     public FscIdentificationHandler(ExtStammdatenService extStammdatenService,
                                     IdFscService idFscService,
                                     AccountService accountService,
                                     AccountBindingKeyMappingService accountBindingKeyMappingService,
-                                    AuthenticationMethodProvider authenticationMethodProvider) {
+                                    AuthenticationMethodProvider authenticationMethodProvider,
+                                    CommandRegistry commandRegistry) {
         this.extStammdatenService = extStammdatenService;
         this.idFscService = idFscService;
         this.accountService = accountService;
         this.accountBindingKeyMappingService = accountBindingKeyMappingService;
         this.authenticationMethodProvider = authenticationMethodProvider;
+        this.commandRegistry = commandRegistry;
     }
 
-    @Override
     public String method() {
         return "fsc";
     }
 
-    @Override
-    public NextStep start(BindingSession session, Map<String, Object> request) {
-        String kvnr = getString(request, "kvnr");
-        String name = getString(request, "name");
-        String vorname = getString(request, "vorname");
+    @PostConstruct
+    void registerCommands() {
+        commandRegistry.register(
+                new CommandKey("fsc", "start"),
+                new CommandRegistration<>(
+                        FscStartCommand.class,
+                        new CommandPolicy(Set.of(), Set.of(), Set.of(), null),
+                        this::start
+                )
+        );
+        commandRegistry.register(
+                new CommandKey("fsc", "submit"),
+                new CommandRegistration<>(
+                        FscSubmitCommand.class,
+                        new CommandPolicy(Set.of(), Set.of(), Set.of(), null),
+                        this::submit
+                )
+        );
+    }
+
+    public NextStep start(BindingSession session, FscStartCommand request) {
+        String kvnr = request == null ? null : request.kvnr();
+        String name = request == null ? null : request.name();
+        String vorname = request == null ? null : request.vorname();
 
         PersonData person = extStammdatenService.findPersonByKvnr(kvnr)
                 .orElseThrow(() -> new FlowSessionException("Person with given KVNR not found"));
@@ -60,9 +89,8 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
         return new NextStep.FscInputNextStep();
     }
 
-    @Override
-    public NextStep submit(BindingSession session, Map<String, Object> request) {
-        String fscCode = getString(request, "fsc");
+    public NextStep submit(BindingSession session, FscSubmitCommand request) {
+        String fscCode = request == null ? null : request.fsc();
         UUID sessionId = session.getSessionId();
 
         Long personId = session.getPersonId();
@@ -95,13 +123,5 @@ public class FscIdentificationHandler implements IdentificationMethodHandler {
             return new NextStep.AuthenticationMethodSelectionNextStep(account.activeAuthenticationMethods());
         }
         return new NextStep.AuthenticationSetupNextStep(authenticationMethodProvider.availableMethods());
-    }
-
-    private String getString(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        if (value == null) {
-            return null;
-        }
-        return value.toString();
     }
 }
