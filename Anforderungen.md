@@ -120,7 +120,7 @@ Die Applikation gliedert sich in fünf fachliche Module:
 
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
-| F1 | Jedes Modul besitzt ein eigenes Java-Package. | Package-Struktur unter `com.example.dpop.<modul>` |
+| F1 | Jedes Modul besitzt ein eigenes Package. | Package-Struktur unter `com.example.dpop.<modul>` |
 | F2 | Jedes Modul enthält mindestens eine Service-Klasse. | `@Service` in jedem Modul vorhanden |
 | F3 | Der `orchestrator` orchestriert alle anderen Module. | Konstruktor-Injection aller Modul-Services |
 | F4 | Der `orchestrator` stellt eine REST-API für das Frontend bereit. | Endpunkt `/orchestrator/process` verfügbar |
@@ -478,7 +478,7 @@ Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende
 |----|--------------|------------|
 | A1 | Build-Tool: Gradle mit Kotlin-DSL | Einheitliche, typsichere Build-Konfiguration |
 | A2 | Gradle Wrapper muss enthalten sein | Reproduzierbarkeit ohne lokale Gradle-Installation |
-| A3 | Java-Version 21 | Voraussetzung für Spring Boot 4.x |
+| A3 | JVM-Version 21 (Bytecode-Target), Kotlin 2.2.21 | Voraussetzung für Spring Boot 4.x; Kotlin als Implementierungssprache |
 | A4 | Aktuelle Spring Boot-Version verwenden | Sicherheit und Aktualität |
 | A5 | Versionen zentral in `gradle/libs.versions.toml` pflegen | Zentrale Versionsverwaltung, konsistente Abhängigkeiten |
 | A6 | Frontend-Build ist in den Gradle-Build integriert | Einheitlicher Build-Prozess für Backend und Frontend |
@@ -491,6 +491,7 @@ Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende
 ## 5. Lösungsstrategie
 
 - **Framework**: Spring Boot 4.x mit eingebettetem Tomcat
+- **Sprache**: Kotlin 2.2.x als Backend-Implementierungssprache
 - **Modularisierung**: Spring Modulith 2.x zur Architekturverifikation
 - **Build**: Gradle 9.x mit Kotlin-DSL (`build.gradle.kts`, `settings.gradle.kts`)
 - **Versionsverwaltung**: Gradle Version Catalog in `gradle/libs.versions.toml`
@@ -507,7 +508,8 @@ Bei `sms/use` wird keine Telefonnummer vom Client uebergeben. Die zu verwendende
 | Spring Modulith | `2.1.0` |
 | Dependency Management Plugin | `1.1.7` |
 | Gradle (Wrapper) | `9.7.0` |
-| Java | `21` |
+| Kotlin | `2.2.21` |
+| JVM Target | `21` |
 | React | `19.2.8` |
 | React DOM | `19.2.8` |
 | TypeScript | `6.0.2` |
