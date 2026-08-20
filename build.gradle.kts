@@ -1,5 +1,9 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    java
+    kotlin("jvm") version "2.2.21"
+    kotlin("plugin.spring") version "2.2.21"
+    kotlin("plugin.jpa") version "2.2.21"
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.dependency.management)
 }
@@ -9,6 +13,12 @@ version = "0.0.1-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.toVersion(libs.versions.java.get())
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_21)
+    }
 }
 
 repositories {
@@ -22,6 +32,7 @@ dependencies {
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.nimbus.jose.jwt)
+    implementation(libs.kotlin.reflect)
     runtimeOnly(libs.h2)
 
     testImplementation(libs.spring.boot.starter.test)
