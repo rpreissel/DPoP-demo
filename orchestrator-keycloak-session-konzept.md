@@ -1020,7 +1020,112 @@ Konsistenz-Regeln:
 
 ---
 
-## 7) Umsetzungsstatus
+## 7) Flow-Architektur: State + Effects + Prozess-Entkopplung
+
+### Grundprinzip
+
+Flows und Prozesse sind vollständig voneinander getrennt:
+
+- **Flow**: kennt nur seinen eigenen Zustand und entscheidet über den nächsten Schritt sowie auszuführende Effekte.
+- **Prozess**: kennt keine Flow-Internals — er erhält nur ein neutrales `FlowOutcome` und entscheidet daraus seinen nächsten Schritt.
+
+### Neutraler Vertrag (Flow → Prozess)
+
+```kotlin
+sealed interface FlowOutcome {
+    data class InProgress(val missingFields: List<String> = emptyList()) : FlowOutcome
+    data object Completed : FlowOutcome
+    data class Failed(val reason: String) : FlowOutcome
+}
+```
+
+Der Flow liefert immer genau eines dieser drei Ergebnisse. Der Prozess wertet ausschließlich dieses Ergebnis aus.
+
+### Flow-Struktur (Beispiel: SMS-Enrollment)
+
+```kotlin
+class SmsEnrollFlow {
+
+    sealed interface State
+    data object AwaitingPhone : State
+    data class AwaitingTan(val ref: EnrollmentRef) : State
+    data class Verified(val ref: EnrollmentRef) : State
+
+    data class Input(val phoneNumber: String?, val tan: String?)
+
+    sealed interface Effect
+    data class StartEnrollment(val phoneNumber: String) : Effect
+    data class ConfirmEnrollment(val ref: EnrollmentRef, val tan: String) : Effect
+    data class ActivateMethod(val ref: EnrollmentRef) : Effect
+
+    data class Decision(
+        val nextState: State,
+        val effects: List<Effect> = emptyList(),
+        val outcome: FlowOutcome = FlowOutcome.InProgress()
+    )
+
+    fun decide(state: State, input: Input): Decision = when (state) {
+        AwaitingPhone -> {
+            if (input.phoneNumber.isNullOrBlank())
+                Decision(nextState = state, outcome = FlowOutcome.InProgress(listOf("phoneNumber")))
+            else
+                Decision(
+                    nextState = state,
+                    effects = listOf(StartEnrollment(input.phoneNumber))
+                )
+        }
+        is AwaitingTan -> {
+            if (input.tan.isNullOrBlank())
+                Decision(nextState = state, outcome = FlowOutcome.InProgress(listOf("tan")))
+            else
+                Decision(
+                    nextState = Verified(state.ref),
+                    effects = listOf(
+                        ConfirmEnrollment(state.ref, input.tan),
+                        ActivateMethod(state.ref)
+                    ),
+                    outcome = FlowOutcome.Completed
+                )
+        }
+        is Verified -> Decision(nextState = state, outcome = FlowOutcome.Completed)
+    }
+}
+```
+
+### Prozess-Ebene (kennt nur FlowOutcome)
+
+```kotlin
+enum class ProcessStep { ENROLL_SMS, ISSUE_TOKEN, ABORT }
+
+class RegistrationProcess {
+    fun nextStep(current: ProcessStep, outcome: FlowOutcome): ProcessStep =
+        when (outcome) {
+            is FlowOutcome.InProgress -> current          // Flow läuft noch
+            is FlowOutcome.Completed  -> ProcessStep.ISSUE_TOKEN
+            is FlowOutcome.Failed     -> ProcessStep.ABORT
+        }
+}
+```
+
+### Eigenschaften dieses Musters
+
+| Eigenschaft | Flow | Prozess |
+|---|---|---|
+| Kennt interne Zustände | ✅ eigene `State` | ❌ nur `FlowOutcome` |
+| Entscheidet nächsten Schritt | ✅ `nextState` | ✅ basierend auf `outcome` |
+| Löst Seiteneffekte aus | ✅ via `effects` | ❌ |
+| Änderbar ohne andere zu beeinflussen | ✅ | ✅ |
+
+### Zweistufige Navigation
+
+- **Solange der Flow läuft** (`InProgress`): Flow bestimmt den internen nächsten Schritt.
+- **Wenn der Flow abgeschlossen ist** (`Completed`/`Failed`): Prozess entscheidet den nächsten Prozessschritt.
+
+Diese Trennung erlaubt es, Flows auszutauschen oder neue hinzuzufügen, ohne die Prozess-Ebene zu ändern — und umgekehrt.
+
+---
+
+## 8) Umsetzungsstatus
 
 1. **Schritt 1** ✅: Entitaeten `ChannelSession`, `AuthContext`, `SessionEvent` hinzugefuegt.
 2. **Schritt 2** ✅: Bestehende Flow-Session in konkrete Prozessklassen aufgeteilt (`RegistrationProcessSession`, `LoginProcessSession`, `StepUpProcessSession`).
