@@ -27,7 +27,7 @@ class JwkThumbprintService {
 
     private fun extractRequiredMembers(jwk: JWK): Map<String, Any> {
         val members = jwk.toJSONObject()
-        val required = LinkedHashMap<String, Any>()
+        val required = linkedMapOf<String, Any>()
         val kty = members["kty"] as String?
             ?: throw DpopValidationException("JWK is missing kty")
         required["kty"] = kty
@@ -54,17 +54,14 @@ class JwkThumbprintService {
         target[key] = value
     }
 
-    private fun toCanonicalJson(map: Map<String, Any>): String {
-        val sb = StringBuilder("{")
-        var first = true
-        for ((k, v) in map) {
-            if (!first) sb.append(",")
-            first = false
-            sb.append("\"").append(escapeJson(k)).append("\":")
-            sb.append("\"").append(escapeJson(v.toString())).append("\"")
+    private fun toCanonicalJson(map: Map<String, Any>): String = buildString {
+        append("{")
+        map.entries.forEachIndexed { index, (k, v) ->
+            if (index > 0) append(",")
+            append("\"").append(escapeJson(k)).append("\":")
+            append("\"").append(escapeJson(v.toString())).append("\"")
         }
-        sb.append("}")
-        return sb.toString()
+        append("}")
     }
 
     private fun escapeJson(value: String): String = value

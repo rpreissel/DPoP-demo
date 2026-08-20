@@ -11,14 +11,10 @@ class IdFscService(private val fscCodeRepository: FscCodeRepository) {
     fun identify(): String = "id_fsc: identity verified"
 
     fun hasValidFsc(personId: Long): Boolean =
-        fscCodeRepository.findByPersonId(personId)
-            .map { it.isValid }
-            .orElse(false)
+        fscCodeRepository.findByPersonId(personId)?.isValid ?: false
 
     fun validateFsc(personId: Long, code: String): Boolean =
-        fscCodeRepository.findByPersonIdAndCode(personId, code)
-            .map { it.isValid }
-            .orElse(false)
+        fscCodeRepository.findByPersonIdAndCode(personId, code)?.isValid ?: false
 
     fun createFsc(personId: Long, code: String, expiresAt: Instant) {
         fscCodeRepository.save(FscCode(personId, code, expiresAt))

@@ -33,7 +33,7 @@ class ChannelController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<OrchestratorResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val channel = if (request != null && "WEB".equals(request.channel, ignoreCase = true))
+        val channel = if (request?.channel.equals("WEB", ignoreCase = true))
             ChannelSession.Channel.WEB
         else
             ChannelSession.Channel.APP
@@ -49,7 +49,7 @@ class ChannelController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelSessionResponse> {
         validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val response = channelService.getChannelSession(channelSessionId)
+        val response = channelService.findChannelSession(channelSessionId)
         return ResponseEntity.ok(response)
     }
 
@@ -61,7 +61,7 @@ class ChannelController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<OrchestratorResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val channel = if (request != null && "WEB".equals(request.channel, ignoreCase = true))
+        val channel = if (request?.channel.equals("WEB", ignoreCase = true))
             ChannelSession.Channel.WEB
         else
             ChannelSession.Channel.APP

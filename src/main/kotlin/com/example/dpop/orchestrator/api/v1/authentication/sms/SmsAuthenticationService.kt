@@ -1,13 +1,12 @@
 package com.example.dpop.orchestrator.api.v1.authentication.sms
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.auth_sms.AuthSmsChallengeResult
-import com.example.dpop.auth_sms.AuthSmsEnrollResult
 import com.example.dpop.auth_sms.AuthSmsService
 import com.example.dpop.auth_sms.EnrollmentRef
 import com.example.dpop.orchestrator.api.v1.AttemptPendingStore
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.OrchestratorResponse
+import com.example.dpop.orchestrator.api.v1.load
 import com.example.dpop.orchestrator.session.AttemptStatus
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
@@ -42,14 +41,15 @@ class SmsAuthenticationService(
     }
 
     fun submitEnroll(attemptId: UUID, bindingKeyRef: String, patchData: Map<String, Any>?): OrchestratorResponse {
-        val attempt = sessionManagementService.getAttemptById(attemptId)
-            .orElseThrow { OrchestratorException.notFound("Attempt not found") }
+        val attempt = sessionManagementService.findAttemptById(attemptId)
+            ?: throw OrchestratorException.notFound("Attempt not found")
         if (attempt.status == AttemptStatus.VERIFIED) {
             throw OrchestratorException.conflict("Attempt is already verified")
         }
         val channelSession = getChannelSession(bindingKeyRef, null)
-        var pending = pendingStore.load(attempt, SmsEnrollPending::class.java) ?: SmsEnrollPending.empty()
-        pending = pending.merge(patchData)
+        val pending = pendingStore.load<SmsEnrollPending>(attempt)
+            ?.merge(patchData)
+            ?: SmsEnrollPending.empty().merge(patchData)
         return advanceEnroll(attempt, pending, channelSession)
     }
 
@@ -59,10 +59,10 @@ class SmsAuthenticationService(
             ?: throw OrchestratorException.forbidden("No account bound to channel")
 
         val enrollmentId = accountService.findActiveSmsEnrollmentId(accountId)
-            .orElseThrow { IllegalStateException("No active SMS enrollment found") }
+            ?: throw IllegalStateException("No active SMS enrollment found")
         val ref = EnrollmentRef(enrollmentId)
 
-        val challenge: AuthSmsChallengeResult = authSmsService.startChallenge(ref)
+        val challenge = authSmsService.startChallenge(ref)
 
         val processSession = getOrCreateLoginSession(channelSession)
         val processSessionId = processSession.processSessionId
@@ -81,50 +81,66 @@ class SmsAuthenticationService(
         sessionManagementService.updateAttempt(attempt)
 
         return OrchestratorResponse(
-            channelId, null,
-            OrchestratorResponse.AttemptState(attemptId, "authentication",
-                "INPUT_REQUIRED", listOf("tan"), java.util.Map.of("enrollmentId", ref.id)),
-            OrchestratorResponse.NextRouting("sms", "use"),
-            OrchestratorResponse.DemoHints(challenge.tan,
-                "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response")
+            channelSessionId = channelId,
+            attemptState = OrchestratorResponse.AttemptState(
+                attemptId = attemptId,
+                attemptType = "authentication",
+                status = "INPUT_REQUIRED",
+                missingFields = listOf("tan"),
+                result = mapOf("enrollmentId" to ref.id)
+            ),
+            next = OrchestratorResponse.NextRouting(
+                context = "sms",
+                step = "use"
+            ),
+            _demo = OrchestratorResponse.DemoHints(
+                tan = challenge.tan,
+                note = "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response"
+            )
         )
     }
 
     fun submitUse(attemptId: UUID, bindingKeyRef: String, patchData: Map<String, Any>?): OrchestratorResponse {
-        val attempt = sessionManagementService.getAttemptById(attemptId)
-            .orElseThrow { OrchestratorException.notFound("Attempt not found") }
+        val attempt = sessionManagementService.findAttemptById(attemptId)
+            ?: throw OrchestratorException.notFound("Attempt not found")
         if (attempt.status == AttemptStatus.VERIFIED) {
             throw OrchestratorException.conflict("Attempt is already verified")
         }
         val channelSession = getChannelSession(bindingKeyRef, null)
-        val pending = pendingStore.load(attempt, SmsUsePending::class.java)
+        val pending = pendingStore.load<SmsUsePending>(attempt)
             ?: throw IllegalStateException("No pending use data found")
         val merged = pending.merge(patchData)
         return advanceUse(attempt, merged, channelSession)
     }
 
     fun getStatus(attemptId: UUID, bindingKeyRef: String): OrchestratorResponse {
-        val attempt = sessionManagementService.getAttemptById(attemptId)
-            .orElseThrow { OrchestratorException.notFound("Attempt not found") }
-        var result: Any? = null
-        if (attempt.status == AttemptStatus.VERIFIED && attempt.result != null) {
-            result = attempt.result
-        }
-        val attemptIdVal = attempt.attemptId
-        return OrchestratorResponse(null, null,
-            OrchestratorResponse.AttemptState(
-                attemptIdVal, "authentication", attempt.status.toString(), null, result),
-            OrchestratorResponse.NextRouting(attempt.nextContext, attempt.nextStep)
+        val attempt = sessionManagementService.findAttemptById(attemptId)
+            ?: throw OrchestratorException.notFound("Attempt not found")
+        val result = attempt.result
+            ?.takeIf { attempt.status == AttemptStatus.VERIFIED }
+        return OrchestratorResponse(
+            channelSessionId = null,
+            attemptState = OrchestratorResponse.AttemptState(
+                attemptId = attempt.attemptId,
+                attemptType = "authentication",
+                status = attempt.status.toString(),
+                missingFields = null,
+                result = result
+            ),
+            next = OrchestratorResponse.NextRouting(
+                context = attempt.nextContext,
+                step = attempt.nextStep
+            )
         )
     }
 
-    private fun nextEnrollStep(p: SmsEnrollPending): EnrollStep {
-        if (p.phoneNumber.isNullOrBlank()) return EnrollStep.NeedInput(p.missingUserInputs())
-        if (p.enrollmentRef == null) return EnrollStep.StartEnrollment(p.phoneNumber)
-        if (p.tan.isNullOrBlank()) return EnrollStep.NeedInput(listOf("tan"))
-        if (!p.tanVerified) return EnrollStep.ConfirmEnrollment(p.enrollmentRef, p.tan)
-        if (!p.enrollmentConfirmed) return EnrollStep.ActivateMethod(p.enrollmentRef)
-        throw IllegalStateException("Enroll bereits abgeschlossen")
+    private fun nextEnrollStep(p: SmsEnrollPending): EnrollStep = when {
+        p.phoneNumber.isNullOrBlank() -> EnrollStep.NeedInput(p.missingUserInputs())
+        p.enrollmentRef == null -> EnrollStep.StartEnrollment(p.phoneNumber)
+        p.tan.isNullOrBlank() -> EnrollStep.NeedInput(listOf("tan"))
+        !p.tanVerified -> EnrollStep.ConfirmEnrollment(p.enrollmentRef, p.tan)
+        !p.enrollmentConfirmed -> EnrollStep.ActivateMethod(p.enrollmentRef)
+        else -> throw IllegalStateException("Enroll bereits abgeschlossen")
     }
 
     private fun advanceEnroll(
@@ -140,81 +156,114 @@ class SmsAuthenticationService(
             saveMissingFields(attempt, missing)
             attempt.status = AttemptStatus.INPUT_REQUIRED
             sessionManagementService.updateAttempt(attempt)
-            var hints: OrchestratorResponse.DemoHints? = null
-            if (missing.contains("tan") && pending.enrollmentRef != null) {
-                hints = OrchestratorResponse.DemoHints(pending.tan,
-                    "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response")
-            }
+            val hints = if (missing.contains("tan") && pending.enrollmentRef != null) {
+                OrchestratorResponse.DemoHints(
+                    tan = pending.tan,
+                    note = "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response"
+                )
+            } else null
             OrchestratorResponse(
-                channelId, null,
-                OrchestratorResponse.AttemptState(attemptId, "authentication",
-                    "INPUT_REQUIRED", missing, null),
-                OrchestratorResponse.NextRouting("sms", "enroll"),
-                hints
+                channelSessionId = channelId,
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "authentication",
+                    status = "INPUT_REQUIRED",
+                    missingFields = missing,
+                    result = null
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "sms",
+                    step = "enroll"
+                ),
+                _demo = hints
             )
         }
         is EnrollStep.StartEnrollment -> {
-            val phone = step.phoneNumber
-            val result: AuthSmsEnrollResult = authSmsService.startEnrollment(phone!!)
+            val result = authSmsService.startEnrollment(step.phoneNumber)
             val attemptId = attempt.attemptId ?: throw IllegalStateException("Attempt has no id")
             val channelId = channel.channelSessionId ?: throw IllegalStateException("Channel has no id")
             val withRef = SmsEnrollPending(
-                phone, result.enrollmentRef, null, false, false
+                phoneNumber = step.phoneNumber,
+                enrollmentRef = result.enrollmentRef,
+                tan = null,
+                tanVerified = false,
+                enrollmentConfirmed = false
             )
             pendingStore.save(attempt, withRef)
             saveMissingFields(attempt, listOf("tan"))
             attempt.status = AttemptStatus.INPUT_REQUIRED
             sessionManagementService.updateAttempt(attempt)
             OrchestratorResponse(
-                channelId, null,
-                OrchestratorResponse.AttemptState(attemptId, "authentication",
-                    "INPUT_REQUIRED", listOf("tan"), null),
-                OrchestratorResponse.NextRouting("sms", "enroll"),
-                OrchestratorResponse.DemoHints(result.tan,
-                    "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response")
+                channelSessionId = channelId,
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "authentication",
+                    status = "INPUT_REQUIRED",
+                    missingFields = listOf("tan"),
+                    result = null
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "sms",
+                    step = "enroll"
+                ),
+                _demo = OrchestratorResponse.DemoHints(
+                    tan = result.tan,
+                    note = "DEMO ONLY – in production the TAN is sent via SMS and never included in the API response"
+                )
             )
         }
         is EnrollStep.ConfirmEnrollment -> {
-            val ref = step.ref
-            val tan = step.tan
             try {
-                authSmsService.confirmEnrollment(ref, tan!!)
+                authSmsService.confirmEnrollment(step.ref, step.tan)
             } catch (e: Exception) {
                 throw OrchestratorException.verificationFailed("TAN validation failed")
             }
             advanceEnroll(attempt, pending.withTanVerified(), channel)
         }
         is EnrollStep.ActivateMethod -> {
-            val ref = step.ref
             val accountId = channel.accountId ?: throw IllegalStateException("Channel has no account id")
             val attemptId = attempt.attemptId ?: throw IllegalStateException("Attempt has no id")
             val channelId = channel.channelSessionId ?: throw IllegalStateException("Channel has no id")
+            val enrollmentId = step.ref.id
+                ?: throw IllegalStateException("EnrollmentRef has no id")
             accountService.addAuthenticationMethod(
-                accountId, "sms", true, java.util.HashMap<String, Any>().apply { put("enrollmentId", ref.id!!) } as java.util.Map<String, Any>
+                accountId, "sms", true, mapOf("enrollmentId" to enrollmentId)
             )
             attempt.status = AttemptStatus.VERIFIED
             attempt.result = "{ \"verified\": true }"
             sessionManagementService.updateAttempt(attempt)
             sessionManagementService.updateChannelState(channelId, ChannelState.AUTHENTICATED)
-            val processSessionId2 = attempt.processSessionId
+            val processSessionId = attempt.processSessionId
                 ?: throw IllegalStateException("Attempt has no process session id")
-            val processSession = sessionManagementService
-                .getProcessSessionById(processSessionId2).orElse(null)
-            val personId = processSession?.personId
+            val personId = sessionManagementService.findProcessSessionById(processSessionId)?.personId
             OrchestratorResponse(
-                channelId,
-                OrchestratorResponse.ProcessState("REGISTRATION", "COMPLETED", personId, accountId),
-                OrchestratorResponse.AttemptState(attemptId, "authentication", "VERIFIED",
-                    null, java.util.Map.of("verified", true)),
-                OrchestratorResponse.NextRouting("authentication", "authenticated", null,
-                    null, accountId, personId)
+                channelSessionId = channelId,
+                processState = OrchestratorResponse.ProcessState(
+                    purpose = "REGISTRATION",
+                    status = "COMPLETED",
+                    personId = personId,
+                    accountId = accountId
+                ),
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "authentication",
+                    status = "VERIFIED",
+                    missingFields = null,
+                    result = mapOf("verified" to true)
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "authentication",
+                    step = "authenticated",
+                    accountId = accountId,
+                    personId = personId
+                )
             )
         }
     }
 
-    private fun nextUseStep(p: SmsUsePending): UseStep {
-        if (p.tan.isNullOrBlank()) return UseStep.NeedInput(p.missingUserInputs())
-        return UseStep.VerifyChallenge(p.enrollmentRef!!, p.tan)
+    private fun nextUseStep(p: SmsUsePending): UseStep = when {
+        p.tan.isNullOrBlank() -> UseStep.NeedInput(p.missingUserInputs())
+        else -> UseStep.VerifyChallenge(p.enrollmentRef, p.tan)
     }
 
     private fun advanceUse(
@@ -231,23 +280,28 @@ class SmsAuthenticationService(
             attempt.status = AttemptStatus.INPUT_REQUIRED
             sessionManagementService.updateAttempt(attempt)
             OrchestratorResponse(
-                channelId, null,
-                OrchestratorResponse.AttemptState(attemptId, "authentication",
-                    "INPUT_REQUIRED", missing,
-                    if (pending.enrollmentRef != null) java.util.Map.of("enrollmentId", pending.enrollmentRef.id!!) else null),
-                OrchestratorResponse.NextRouting("sms", "use")
+                channelSessionId = channelId,
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "authentication",
+                    status = "INPUT_REQUIRED",
+                    missingFields = missing,
+                    result = mapOf("enrollmentId" to pending.enrollmentRef.id)
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "sms",
+                    step = "use"
+                )
             )
         }
         is UseStep.VerifyChallenge -> {
-            val ref = step.ref
-            val tan = step.tan
             val attemptId = attempt.attemptId ?: throw IllegalStateException("Attempt has no id")
             val channelId = channel.channelSessionId ?: throw IllegalStateException("Channel has no id")
             val accountId = channel.accountId ?: throw IllegalStateException("Channel has no account id")
             val processSessionId = attempt.processSessionId
                 ?: throw IllegalStateException("Attempt has no process session id")
             try {
-                authSmsService.verifyChallenge(ref, tan!!)
+                authSmsService.verifyChallenge(step.ref, step.tan)
             } catch (e: Exception) {
                 throw OrchestratorException.verificationFailed("TAN validation failed")
             }
@@ -255,31 +309,41 @@ class SmsAuthenticationService(
             attempt.result = "{ \"verified\": true }"
             sessionManagementService.updateAttempt(attempt)
             sessionManagementService.updateChannelState(channelId, ChannelState.AUTHENTICATED)
-            val processSession = sessionManagementService
-                .getProcessSessionById(processSessionId).orElse(null)
-            val personId = processSession?.personId
+            val personId = sessionManagementService.findProcessSessionById(processSessionId)?.personId
             OrchestratorResponse(
-                channelId,
-                OrchestratorResponse.ProcessState("LOGIN", "COMPLETED", personId, accountId),
-                OrchestratorResponse.AttemptState(attemptId, "authentication", "VERIFIED",
-                    null, java.util.Map.of("verified", true)),
-                OrchestratorResponse.NextRouting("authentication", "authenticated", null,
-                    null, accountId, personId)
+                channelSessionId = channelId,
+                processState = OrchestratorResponse.ProcessState(
+                    purpose = "LOGIN",
+                    status = "COMPLETED",
+                    personId = personId,
+                    accountId = accountId
+                ),
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "authentication",
+                    status = "VERIFIED",
+                    missingFields = null,
+                    result = mapOf("verified" to true)
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "authentication",
+                    step = "authenticated",
+                    accountId = accountId,
+                    personId = personId
+                )
             )
         }
     }
 
     private fun saveMissingFields(attempt: OrchestratorAttempt, missing: List<String>) {
-        if (missing.isEmpty()) {
-            attempt.missingFields = null
-        } else {
-            attempt.missingFields = missing.joinToString(", ", "[", "]") { "\"$it\"" }
-        }
+        attempt.missingFields = missing
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(", ", "[", "]") { "\"$it\"" }
     }
 
     private fun getChannelSession(bindingKeyRef: String, channelSessionId: UUID?): ChannelSession {
-        val cs = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
-            .orElseThrow { OrchestratorException.forbidden("Channel session not found") }
+        val cs = sessionManagementService.findChannelSessionByBindingKeyRef(bindingKeyRef)
+            ?: throw OrchestratorException.forbidden("Channel session not found")
         if (channelSessionId != null && cs.channelSessionId != channelSessionId) {
             throw OrchestratorException.forbidden("Channel session mismatch")
         }
@@ -289,13 +353,10 @@ class SmsAuthenticationService(
     private fun getOrCreateLoginSession(channelSession: ChannelSession): LoginProcessSession {
         val channelId = channelSession.channelSessionId
             ?: throw IllegalStateException("Channel session has no id")
-        val existing = sessionManagementService
-            .getLatestProcessSessionByChannel(channelId, ProcessPurpose.LOGIN)
-        @Suppress("UNCHECKED_CAST")
-        return (existing.orElseGet {
-            sessionManagementService.createLoginProcessSession(
+        return sessionManagementService
+            .findLatestProcessSessionByChannel(channelId, ProcessPurpose.LOGIN) as? LoginProcessSession
+            ?: sessionManagementService.createLoginProcessSession(
                 channelId, Duration.ofMinutes(15)
             )
-        }) as LoginProcessSession
     }
 }

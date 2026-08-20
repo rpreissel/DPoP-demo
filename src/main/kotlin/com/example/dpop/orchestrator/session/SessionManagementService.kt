@@ -1,10 +1,10 @@
 package com.example.dpop.orchestrator.session
 
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
-import java.util.Optional
 import java.util.UUID
 
 @Service
@@ -23,17 +23,17 @@ class SessionManagementService(
         return channelSessionRepository.save(session)
     }
 
-    fun getChannelSessionByBindingKeyRef(bindingKeyRef: String): Optional<ChannelSession> =
+    fun findChannelSessionByBindingKeyRef(bindingKeyRef: String): ChannelSession? =
         channelSessionRepository.findByBindingKeyRef(bindingKeyRef)
-            .filter { !it.isExpired }
+            ?.takeIf { !it.isExpired }
 
     fun getOrCreateChannelSession(
         bindingKeyRef: String,
         channel: ChannelSession.Channel,
         ttl: Duration
     ): ChannelSession =
-        getChannelSessionByBindingKeyRef(bindingKeyRef)
-            .orElseGet { createChannelSession(channel, bindingKeyRef, ttl) }
+        findChannelSessionByBindingKeyRef(bindingKeyRef)
+            ?: createChannelSession(channel, bindingKeyRef, ttl)
 
     fun updateChannelSession(session: ChannelSession) {
         session.touch()
@@ -41,24 +41,24 @@ class SessionManagementService(
     }
 
     fun updateChannelState(channelSessionId: UUID, newState: ChannelState) {
-        channelSessionRepository.findById(channelSessionId).ifPresent { session ->
+        channelSessionRepository.findByIdOrNull(channelSessionId)?.let { session ->
             session.state = newState
             session.touch()
             channelSessionRepository.save(session)
         }
     }
 
-    fun setAccountId(channelSessionId: UUID, accountId: Long) {
-        channelSessionRepository.findById(channelSessionId).ifPresent { session ->
+    fun bindAccountId(channelSessionId: UUID, accountId: Long) {
+        channelSessionRepository.findByIdOrNull(channelSessionId)?.let { session ->
             session.accountId = accountId
             session.touch()
             channelSessionRepository.save(session)
         }
     }
 
-    fun getChannelSessionWithAuth(channelSessionId: UUID): Optional<ChannelSession> =
-        channelSessionRepository.findById(channelSessionId)
-            .filter { !it.isExpired }
+    fun findChannelSessionWithAuth(channelSessionId: UUID): ChannelSession? =
+        channelSessionRepository.findByIdOrNull(channelSessionId)
+            ?.takeIf { !it.isExpired }
 
     // ProcessSession management
 
@@ -80,20 +80,20 @@ class SessionManagementService(
         return processSessionRepository.save(session)
     }
 
-    fun getProcessSessionById(processSessionId: UUID): Optional<ProcessSession> =
-        processSessionRepository.findById(processSessionId)
-            .filter { !it.isExpired }
+    fun findProcessSessionById(processSessionId: UUID): ProcessSession? =
+        processSessionRepository.findByIdOrNull(processSessionId)
+            ?.takeIf { !it.isExpired }
 
-    fun getLatestProcessSessionByChannel(channelSessionId: UUID, purpose: ProcessPurpose): Optional<ProcessSession> =
+    fun findLatestProcessSessionByChannel(channelSessionId: UUID, purpose: ProcessPurpose): ProcessSession? =
         processSessionRepository.findByChannelSessionIdAndPurpose(channelSessionId, purpose)
-            .filter { !it.isExpired }
+            ?.takeIf { !it.isExpired }
 
     fun updateProcessSession(session: ProcessSession) {
         processSessionRepository.save(session)
     }
 
     fun consumeProcessSession(processSessionId: UUID) {
-        getProcessSessionById(processSessionId).ifPresent { session ->
+        findProcessSessionById(processSessionId)?.let { session ->
             session.consume()
             updateProcessSession(session)
         }
@@ -123,24 +123,24 @@ class SessionManagementService(
         return attemptRepository.save(attempt)
     }
 
-    fun getLatestAttemptForProcessSession(processSessionId: UUID): Optional<OrchestratorAttempt> =
+    fun findLatestAttemptForProcessSession(processSessionId: UUID): OrchestratorAttempt? =
         attemptRepository.findLatestByProcessSessionId(processSessionId)
-            .filter { !it.isExpired }
+            ?.takeIf { !it.isExpired }
 
     fun updateAttempt(attempt: OrchestratorAttempt) {
         attemptRepository.save(attempt)
     }
 
-    fun getChannelSessionById(channelSessionId: UUID): Optional<ChannelSession> =
-        channelSessionRepository.findById(channelSessionId)
-            .filter { !it.isExpired }
+    fun findChannelSessionById(channelSessionId: UUID): ChannelSession? =
+        channelSessionRepository.findByIdOrNull(channelSessionId)
+            ?.takeIf { !it.isExpired }
 
-    fun getAttemptById(attemptId: UUID): Optional<OrchestratorAttempt> =
-        attemptRepository.findById(attemptId)
-            .filter { !it.isExpired }
+    fun findAttemptById(attemptId: UUID): OrchestratorAttempt? =
+        attemptRepository.findByIdOrNull(attemptId)
+            ?.takeIf { !it.isExpired }
 
     fun completeAttempt(attemptId: UUID, nextContext: String, nextStep: String) {
-        attemptRepository.findById(attemptId).ifPresent { attempt ->
+        attemptRepository.findByIdOrNull(attemptId)?.let { attempt ->
             attempt.status = AttemptStatus.VERIFIED
             attempt.nextContext = nextContext
             attempt.nextStep = nextStep

@@ -4,10 +4,10 @@ import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountIdentification
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.util.Optional
 import java.util.UUID
 
 @Service
@@ -21,10 +21,10 @@ class AccountService(private val accountRepository: AccountRepository) {
         identificationMethod: String,
         identificationQuality: String,
         registrationSessionId: UUID,
-        details: java.util.Map<String, Any>
+        details: Map<String, Any>
     ): AccountProfile {
         val account: Account = accountRepository.findByPersonId(personId)
-            .orElseGet { Account(personId, Instant.now()) }
+            ?: Account(personId, Instant.now())
 
         account.addIdentification(
             AccountIdentification(
@@ -44,7 +44,7 @@ class AccountService(private val accountRepository: AccountRepository) {
         identificationMethod: String,
         identificationQuality: String,
         registrationSessionId: UUID,
-        details: java.util.Map<String, Any>
+        details: Map<String, Any>
     ): AccountProfile = identifyAccount(personId, identificationMethod, identificationQuality, registrationSessionId, details)
 
     @Transactional
@@ -52,54 +52,52 @@ class AccountService(private val accountRepository: AccountRepository) {
         accountId: Long,
         method: String,
         active: Boolean,
-        details: java.util.Map<String, Any>
+        details: Map<String, Any>
     ): AccountProfile {
-        val account = accountRepository.findById(accountId)
-            .orElseThrow { IllegalArgumentException("Account not found") }
+        val account = accountRepository.findByIdOrNull(accountId)
+            ?: throw IllegalArgumentException("Account not found")
         account.addAuthenticationMethod(AuthenticationMethod(method, active, Instant.now(), details))
         return toProfile(accountRepository.save(account))
     }
 
     @Transactional(readOnly = true)
-    fun findByPersonId(personId: Long): Optional<AccountProfile> =
-        accountRepository.findByPersonId(personId).map { toProfile(it) }
+    fun findByPersonId(personId: Long): AccountProfile? =
+        accountRepository.findByPersonId(personId)?.let { toProfile(it) }
 
     @Transactional(readOnly = true)
-    fun findAccountProfile(accountId: Long): Optional<AccountProfile> =
-        accountRepository.findById(accountId).map { toProfile(it) }
+    fun findAccountProfile(accountId: Long): AccountProfile? =
+        accountRepository.findByIdOrNull(accountId)?.let { toProfile(it) }
 
     @Transactional(readOnly = true)
     fun hasActiveAuthenticationMethod(accountId: Long): Boolean =
-        accountRepository.findById(accountId)
-            .map { it.authenticationMethods.any { m -> m.active } }
-            .orElse(false)
+        accountRepository.findByIdOrNull(accountId)
+            ?.authenticationMethods?.any { it.active }
+            ?: false
 
     @Transactional(readOnly = true)
-    fun findActiveSmsEnrollmentId(accountId: Long): Optional<Long> {
-        val enrollmentId = accountRepository.findById(accountId)
-            .map { it.authenticationMethods }
-            .orElse(mutableListOf<AuthenticationMethod>())
-            .asSequence()
-            .filter { it.active }
-            .filter { it.method == "sms" }
-            .mapNotNull { it.details }
-            .mapNotNull { it["enrollmentRef"] ?: it["enrollmentId"] }
-            .mapNotNull { value ->
+    fun findActiveSmsEnrollmentId(accountId: Long): Long? {
+        return accountRepository.findByIdOrNull(accountId)
+            ?.authenticationMethods
+            ?.asSequence()
+            ?.filter { it.active }
+            ?.filter { it.method == "sms" }
+            ?.mapNotNull { it.details }
+            ?.mapNotNull { it["enrollmentRef"] ?: it["enrollmentId"] }
+            ?.mapNotNull { value ->
                 when (value) {
                     is Number -> value.toLong()
                     is String -> value.toLongOrNull()
                     else -> null
                 }
             }
-            .firstOrNull()
-        return Optional.ofNullable(enrollmentId)
+            ?.firstOrNull()
     }
 
     @Transactional(readOnly = true)
     fun findActiveAuthenticationMethods(accountId: Long): List<String> =
         findAccountProfile(accountId)
-            .map { it.activeAuthenticationMethods }
-            .orElse(emptyList())
+            ?.activeAuthenticationMethods
+            ?: emptyList()
 
     private fun toProfile(account: Account): AccountProfile {
         val activeMethods: List<String> = account.authenticationMethods

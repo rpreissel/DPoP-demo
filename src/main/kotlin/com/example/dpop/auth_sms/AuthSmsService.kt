@@ -2,24 +2,20 @@ package com.example.dpop.auth_sms
 
 import com.example.dpop.auth_sms.internal.AuthSmsSetup
 import com.example.dpop.auth_sms.internal.AuthSmsSetupRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
 import java.time.Instant
-import java.util.regex.Pattern
 
 @Service
 class AuthSmsService(private val repository: AuthSmsSetupRepository) {
 
     @Transactional
     fun startEnrollment(phoneNumber: String): AuthSmsEnrollResult {
-        if (phoneNumber.isBlank()) {
-            throw IllegalArgumentException("Telefonnummer ist erforderlich")
-        }
+        require(phoneNumber.isNotBlank()) { "Telefonnummer ist erforderlich" }
         val normalized = normalizePhoneNumber(phoneNumber)
-        if (!PHONE_PATTERN.matcher(normalized).matches()) {
-            throw IllegalArgumentException("Ungueltige Telefonnummer")
-        }
+        require(PHONE_PATTERN.matches(normalized)) { "Ungueltige Telefonnummer" }
         val tan = generateTan()
         val now = Instant.now()
         val setup = repository.save(AuthSmsSetup(normalized, tan, false, now, now))
@@ -29,10 +25,9 @@ class AuthSmsService(private val repository: AuthSmsSetupRepository) {
 
     @Transactional
     fun confirmEnrollment(ref: EnrollmentRef, tan: String) {
-        requireNotNull(ref) { "ref und TAN sind erforderlich" }
         require(tan.isNotBlank()) { "ref und TAN sind erforderlich" }
-        val setup = repository.findById(ref.id ?: throw IllegalArgumentException("Ungueltige Enrollment-Ref"))
-            .orElseThrow { IllegalArgumentException("SMS-Enrollment nicht gefunden: ${ref.id}") }
+        val setup = repository.findByIdOrNull(ref.id ?: throw IllegalArgumentException("Ungueltige Enrollment-Ref"))
+            ?: throw IllegalArgumentException("SMS-Enrollment nicht gefunden: ${ref.id}")
         if (setup.tan != tan.trim()) {
             throw IllegalArgumentException("Ungueltige TAN")
         }
@@ -43,8 +38,8 @@ class AuthSmsService(private val repository: AuthSmsSetupRepository) {
 
     @Transactional
     fun startChallenge(ref: EnrollmentRef): AuthSmsChallengeResult {
-        val setup = repository.findById(ref.id ?: throw IllegalArgumentException("Ungueltige Enrollment-Ref"))
-            .orElseThrow { IllegalArgumentException("SMS-Enrollment nicht gefunden: ${ref.id}") }
+        val setup = repository.findByIdOrNull(ref.id ?: throw IllegalArgumentException("Ungueltige Enrollment-Ref"))
+            ?: throw IllegalArgumentException("SMS-Enrollment nicht gefunden: ${ref.id}")
         if (!setup.validated) {
             throw IllegalArgumentException("SMS-Enrollment wurde noch nicht validiert")
         }
@@ -58,10 +53,9 @@ class AuthSmsService(private val repository: AuthSmsSetupRepository) {
 
     @Transactional
     fun verifyChallenge(ref: EnrollmentRef, tan: String) {
-        requireNotNull(ref) { "ref und TAN sind erforderlich" }
         require(tan.isNotBlank()) { "ref und TAN sind erforderlich" }
-        val setup = repository.findById(ref.id ?: throw IllegalArgumentException("Ungueltige Enrollment-Ref"))
-            .orElseThrow { IllegalArgumentException("SMS-Enrollment nicht gefunden: ${ref.id}") }
+        val setup = repository.findByIdOrNull(ref.id ?: throw IllegalArgumentException("Ungueltige Enrollment-Ref"))
+            ?: throw IllegalArgumentException("SMS-Enrollment nicht gefunden: ${ref.id}")
         if (setup.tan != tan.trim()) {
             throw IllegalArgumentException("Ungueltige TAN")
         }
@@ -69,7 +63,7 @@ class AuthSmsService(private val repository: AuthSmsSetupRepository) {
 
     fun isValidPhoneNumber(phoneNumber: String?): Boolean {
         if (phoneNumber.isNullOrBlank()) return false
-        return PHONE_PATTERN.matcher(normalizePhoneNumber(phoneNumber)).matches()
+        return PHONE_PATTERN.matches(normalizePhoneNumber(phoneNumber))
     }
 
     private fun normalizePhoneNumber(phoneNumber: String): String =
@@ -82,7 +76,7 @@ class AuthSmsService(private val repository: AuthSmsSetupRepository) {
     }
 
     companion object {
-        private val PHONE_PATTERN = Pattern.compile("^\\+?[0-9]{6,20}$")
+        private val PHONE_PATTERN = "^\\+?[0-9]{6,20}$".toRegex()
         private val RANDOM = SecureRandom()
     }
 }

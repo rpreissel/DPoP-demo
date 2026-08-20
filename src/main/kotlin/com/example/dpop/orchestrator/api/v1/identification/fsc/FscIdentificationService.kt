@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.account.AccountBindingKeyMappingService
 import com.example.dpop.orchestrator.api.v1.AttemptPendingStore
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.OrchestratorResponse
+import com.example.dpop.orchestrator.api.v1.load
 import com.example.dpop.orchestrator.session.AttemptStatus
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.OrchestratorAttempt
@@ -41,10 +42,10 @@ class FscIdentificationService(
             ?: throw IllegalStateException("Channel session has no id")
 
         val processSession = sessionManagementService
-            .getLatestProcessSessionByChannel(channelId, ProcessPurpose.REGISTRATION)
-            .orElseThrow { IllegalArgumentException("Process session not found") }
-        @Suppress("UNCHECKED_CAST")
-        val registrationSession = processSession as RegistrationProcessSession
+            .findLatestProcessSessionByChannel(channelId, ProcessPurpose.REGISTRATION)
+            ?: throw IllegalArgumentException("Process session not found")
+        val registrationSession = processSession as? RegistrationProcessSession
+            ?: throw IllegalStateException("Process session is not a registration session")
         registrationSession.selectedIdentificationMethod = "fsc"
         sessionManagementService.updateProcessSession(registrationSession)
 
@@ -64,37 +65,46 @@ class FscIdentificationService(
         bindingKeyRef: String,
         patchData: Map<String, Any>?
     ): OrchestratorResponse {
-        val attempt = sessionManagementService.getAttemptById(attemptId)
-            .orElseThrow { OrchestratorException.notFound("Attempt not found") }
+        val attempt = sessionManagementService.findAttemptById(attemptId)
+            ?: throw OrchestratorException.notFound("Attempt not found")
 
         if (attempt.status == AttemptStatus.VERIFIED) {
             throw OrchestratorException.conflict("Attempt is already verified")
         }
 
-        val stored = pendingStore.load(attempt, FscPending::class.java)
-        val pending = (stored ?: FscPending.empty()).merge(patchData)
+        val pending = pendingStore.load<FscPending>(attempt)
+            ?.merge(patchData)
+            ?: FscPending.empty().merge(patchData)
 
-        val channelSession = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
-            .orElseThrow { OrchestratorException.forbidden("Channel session not found") }
+        val channelSession = sessionManagementService.findChannelSessionByBindingKeyRef(bindingKeyRef)
+            ?: throw OrchestratorException.forbidden("Channel session not found")
         val processSessionId = attempt.processSessionId
             ?: throw IllegalStateException("Attempt has no process session id")
         val processSession = sessionManagementService
-            .getProcessSessionById(processSessionId)
-            .orElseThrow { IllegalArgumentException("Process session not found") }
+            .findProcessSessionById(processSessionId)
+            ?: throw IllegalArgumentException("Process session not found")
 
         return advance(attempt, pending, bindingKeyRef, channelSession, processSession)
     }
 
     fun getIdentificationStatus(attemptId: UUID, bindingKeyRef: String): OrchestratorResponse {
-        val attempt = sessionManagementService.getAttemptById(attemptId)
-            .orElseThrow { OrchestratorException.notFound("Attempt not found") }
+        val attempt = sessionManagementService.findAttemptById(attemptId)
+            ?: throw OrchestratorException.notFound("Attempt not found")
 
-        val result: Any? = if (attempt.status == AttemptStatus.VERIFIED) attempt.result else null
-        return OrchestratorResponse(null, null,
-            OrchestratorResponse.AttemptState(
-                attempt.attemptId, "identification",
-                attempt.status.toString(), null, result),
-            OrchestratorResponse.NextRouting(attempt.nextContext, attempt.nextStep)
+        val result = attempt.result.takeIf { attempt.status == AttemptStatus.VERIFIED }
+        return OrchestratorResponse(
+            channelSessionId = null,
+            attemptState = OrchestratorResponse.AttemptState(
+                attemptId = attempt.attemptId,
+                attemptType = "identification",
+                status = attempt.status.toString(),
+                missingFields = null,
+                result = result
+            ),
+            next = OrchestratorResponse.NextRouting(
+                context = attempt.nextContext,
+                step = attempt.nextStep
+            )
         )
     }
 
@@ -114,11 +124,24 @@ class FscIdentificationService(
             saveMissingFields(attempt, missing)
             sessionManagementService.updateAttempt(attempt)
             OrchestratorResponse(
-                channelId,
-                OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", null, null),
-                OrchestratorResponse.AttemptState(attemptId, "identification",
-                    "INPUT_REQUIRED", missing, null),
-                OrchestratorResponse.NextRouting("fsc", "input")
+                channelSessionId = channelId,
+                processState = OrchestratorResponse.ProcessState(
+                    purpose = "REGISTRATION",
+                    status = "ACTIVE",
+                    personId = null,
+                    accountId = null
+                ),
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "identification",
+                    status = "INPUT_REQUIRED",
+                    missingFields = missing,
+                    result = null
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "fsc",
+                    step = "input"
+                )
             )
         }
         is FscStep.Verify -> {
@@ -127,20 +150,25 @@ class FscIdentificationService(
     }
 
     private fun nextStep(p: FscPending): FscStep {
-        val missing = p.missingFields()
-        return if (missing.isEmpty()) FscStep.Verify(p.kvnr, p.fsc) else FscStep.NeedInput(missing)
+        val kvnr = p.kvnr
+        val fsc = p.fsc
+        return if (kvnr.isNullOrBlank() || fsc.isNullOrBlank()) {
+            FscStep.NeedInput(p.missingFields())
+        } else {
+            FscStep.Verify(kvnr, fsc)
+        }
     }
 
     private fun verifyFsc(
         attempt: OrchestratorAttempt,
-        kvnr: String?,
-        fsc: String?,
+        kvnr: String,
+        fsc: String,
         bindingKeyRef: String,
         channelSession: ChannelSession,
         processSession: ProcessSession
     ): OrchestratorResponse {
-        val personId = extStammdatenService.findPersonIdByKvnr(kvnr!!).orElse(null)
-        if (personId == null || !idFscService.validateFsc(personId, fsc!!)) {
+        val personId = extStammdatenService.findPersonIdByKvnr(kvnr)
+        if (personId == null || !idFscService.validateFsc(personId, fsc)) {
             val attemptId = attempt.attemptId ?: throw IllegalStateException("Attempt has no id")
             attempt.status = AttemptStatus.FAILED
             attempt.result = "{}"
@@ -157,38 +185,59 @@ class FscIdentificationService(
 
         val processSessionId = processSession.processSessionId
             ?: throw IllegalStateException("Process session has no id")
-        val accountId = channelSession.accountId
-            ?: throw IllegalStateException("Channel has no account id")
         val attemptId = attempt.attemptId ?: throw IllegalStateException("Attempt has no id")
         val channelId = channelSession.channelSessionId ?: throw IllegalStateException("Channel has no id")
 
         val account: AccountProfile = accountService.identifyAccount(
             personId, "fsc", "HIGH", processSessionId,
-            java.util.HashMap<String, Any>().apply { put("kvnr", kvnr!!) } as java.util.Map<String, Any>
+            mapOf("kvnr" to kvnr)
         )
-        sessionManagementService.setAccountId(channelId, account.accountId!!)
-        accountBindingKeyMappingService.mapBindingKeyToAccount(bindingKeyRef, account.accountId!!)
+        val accountId = account.accountId
+            ?: throw IllegalStateException("Account has no id")
+        sessionManagementService.bindAccountId(channelId, accountId)
+        accountBindingKeyMappingService.mapBindingKeyToAccount(bindingKeyRef, accountId)
 
         val hasAuth = account.activeAuthenticationMethods.isNotEmpty()
-        val next = if (hasAuth)
-            OrchestratorResponse.NextRouting("authentication", "selectMethod",
-                account.activeAuthenticationMethods, null, account.accountId!!, personId)
-        else
-            OrchestratorResponse.NextRouting("enrollment", "selectMethod",
-                listOf("sms"), null, account.accountId!!, personId)
+        val next = if (hasAuth) {
+            OrchestratorResponse.NextRouting(
+                context = "authentication",
+                step = "selectMethod",
+                methods = account.activeAuthenticationMethods,
+                accountId = accountId,
+                personId = personId
+            )
+        } else {
+            OrchestratorResponse.NextRouting(
+                context = "enrollment",
+                step = "selectMethod",
+                methods = listOf("sms"),
+                accountId = accountId,
+                personId = personId
+            )
+        }
 
         return OrchestratorResponse(
-            channelId,
-            OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", personId, account.accountId!!),
-            OrchestratorResponse.AttemptState(attemptId, "identification", "VERIFIED",
-                null, java.util.Map.of("identified", true, "personId", personId)),
-            next
+            channelSessionId = channelId,
+            processState = OrchestratorResponse.ProcessState(
+                purpose = "REGISTRATION",
+                status = "ACTIVE",
+                personId = personId,
+                accountId = accountId
+            ),
+            attemptState = OrchestratorResponse.AttemptState(
+                attemptId = attemptId,
+                attemptType = "identification",
+                status = "VERIFIED",
+                missingFields = null,
+                result = mapOf("identified" to true, "personId" to personId)
+            ),
+            next = next
         )
     }
 
     private fun getChannelSession(bindingKeyRef: String, channelSessionId: UUID?): ChannelSession {
-        val cs = sessionManagementService.getChannelSessionByBindingKeyRef(bindingKeyRef)
-            .orElseThrow { OrchestratorException.forbidden("Channel session not found") }
+        val cs = sessionManagementService.findChannelSessionByBindingKeyRef(bindingKeyRef)
+            ?: throw OrchestratorException.forbidden("Channel session not found")
         if (channelSessionId != null && cs.channelSessionId != channelSessionId) {
             throw OrchestratorException.forbidden("Channel session mismatch")
         }
@@ -196,6 +245,8 @@ class FscIdentificationService(
     }
 
     private fun saveMissingFields(attempt: OrchestratorAttempt, missing: List<String>) {
-        attempt.missingFields = missing.joinToString(", ", "[", "]") { "\"$it\"" }
+        attempt.missingFields = missing
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(", ", "[", "]") { "\"$it\"" }
     }
 }

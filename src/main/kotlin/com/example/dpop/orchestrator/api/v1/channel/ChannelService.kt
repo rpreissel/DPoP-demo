@@ -17,9 +17,9 @@ class ChannelService(private val sessionManagementService: SessionManagementServ
 
     fun initializeFlow(bindingKeyRef: String, channel: ChannelSession.Channel): OrchestratorResponse {
         val channelSession = sessionManagementService.getOrCreateChannelSession(
-            bindingKeyRef,
-            channel,
-            Duration.ofHours(1)
+            bindingKeyRef = bindingKeyRef,
+            channel = channel,
+            ttl = Duration.ofMinutes(30)
         )
         return initializeFlow(channelSession)
     }
@@ -33,8 +33,12 @@ class ChannelService(private val sessionManagementService: SessionManagementServ
         if (channelSession.accountId != null) {
             sessionManagementService.updateChannelState(channelId, ChannelState.AUTHENTICATED)
             return OrchestratorResponse(
-                channelId,
-                OrchestratorResponse.NextRouting("authentication", "selectMethod", listOf("sms"))
+                channelSessionId = channelId,
+                next = OrchestratorResponse.NextRouting(
+                    context = "authentication",
+                    step = "selectMethod",
+                    methods = listOf("sms")
+                )
             )
         } else {
             sessionManagementService.updateChannelState(channelId, ChannelState.REGISTERING)
@@ -57,27 +61,31 @@ class ChannelService(private val sessionManagementService: SessionManagementServ
             sessionManagementService.updateAttempt(attempt)
 
             return OrchestratorResponse(
-                channelId,
-                OrchestratorResponse.ProcessState("REGISTRATION", "ACTIVE", null, null),
-                OrchestratorResponse.AttemptState(
-                    attemptId,
-                    "identification",
-                    "INPUT_REQUIRED",
-                    listOf("kvnr", "name"),
-                    null
+                channelSessionId = channelId,
+                processState = OrchestratorResponse.ProcessState(
+                    purpose = "REGISTRATION",
+                    status = "ACTIVE",
+                    personId = null,
+                    accountId = null
                 ),
-                OrchestratorResponse.NextRouting(
-                    "fsc",
-                    "input",
-                    null
+                attemptState = OrchestratorResponse.AttemptState(
+                    attemptId = attemptId,
+                    attemptType = "identification",
+                    status = "INPUT_REQUIRED",
+                    missingFields = listOf("kvnr", "name"),
+                    result = null
+                ),
+                next = OrchestratorResponse.NextRouting(
+                    context = "fsc",
+                    step = "input"
                 )
             )
         }
     }
 
-    fun getChannelSession(channelSessionId: UUID): ChannelSessionResponse {
-        val channelSession = sessionManagementService.getChannelSessionById(channelSessionId)
-            .orElseThrow { IllegalArgumentException("Channel session not found") }
+    fun findChannelSession(channelSessionId: UUID): ChannelSessionResponse {
+        val channelSession = sessionManagementService.findChannelSessionById(channelSessionId)
+            ?: throw IllegalArgumentException("Channel session not found")
 
         var currentAmr: List<String>? = null
         var currentAcr: String? = null
@@ -86,22 +94,15 @@ class ChannelService(private val sessionManagementService: SessionManagementServ
         }
 
         return ChannelSessionResponse(
-            channelSession.channelSessionId,
-            channelSession.state,
-            currentAcr,
-            currentAmr,
-            channelSession.state == ChannelState.STEP_UP_REQUIRED,
-            channelSession.accountId
+            channelSessionId = channelSession.channelSessionId,
+            state = channelSession.state,
+            currentAcr = currentAcr,
+            currentAmr = currentAmr,
+            stepUpRequired = channelSession.state == ChannelState.STEP_UP_REQUIRED,
+            accountId = channelSession.accountId
         )
     }
 
-    private fun serializeList(list: List<String>): String {
-        val sb = StringBuilder("[")
-        for ((i, item) in list.withIndex()) {
-            if (i > 0) sb.append(", ")
-            sb.append("\"").append(item).append("\"")
-        }
-        sb.append("]")
-        return sb.toString()
-    }
+    private fun serializeList(list: List<String>): String =
+        list.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
 }

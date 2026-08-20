@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component
 import java.text.ParseException
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Date
 
 @Component
 class DpopValidator(
@@ -110,9 +109,8 @@ class DpopValidator(
                 throw DpopValidationException("DPoP htu claim does not match request URL")
             }
 
-            val issueTime: Date = claims.issueTime
+            val issuedAt = claims.issueTime?.toInstant()
                 ?: throw DpopValidationException("DPoP iat claim is missing")
-            val issuedAt = issueTime.toInstant()
             val now = Instant.now()
             if (issuedAt.isAfter(now.plus(maxClockSkewSeconds, ChronoUnit.SECONDS))) {
                 throw DpopValidationException("DPoP iat claim is in the future")

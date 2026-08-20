@@ -33,3 +33,18 @@ class Account(
         authenticationMethods.add(authenticationMethod)
     }
 }
+
+class AuthenticationMethod(
+    var method: String? = null,
+    var active: Boolean = false,
+    var createdAt: Instant? = null,
+    var details: Map<String, Any>? = null
+)
+
+class AccountIdentification(
+    var identificationMethod: String? = null,
+    var identificationQuality: String? = null,
+    var identifiedAt: Instant? = null,
+    var registrationSessionId: String? = null,
+    var details: Map<String, Any>? = null
+)

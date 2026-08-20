@@ -3,7 +3,6 @@ package com.example.dpop.orchestrator.dpop
 import com.nimbusds.jose.jwk.JWK
 import java.time.Instant
 
-@JvmRecord
 data class DpopProof(
     val token: String,
     val publicKey: JWK,
@@ -13,3 +12,8 @@ data class DpopProof(
     val issuedAt: Instant,
     val nonce: String?
 )
+
+class DpopValidationException : RuntimeException {
+    constructor(message: String) : super(message)
+    constructor(message: String, cause: Throwable) : super(message, cause)
+}

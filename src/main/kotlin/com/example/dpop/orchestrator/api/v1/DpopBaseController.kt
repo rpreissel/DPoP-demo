@@ -20,18 +20,14 @@ abstract class DpopBaseController(
         return jwkThumbprintService.computeThumbprint(proof.publicKey)
     }
 
-    private fun buildRequestUrl(request: HttpServletRequest): String {
-        val scheme = request.scheme
-        val host = request.serverName
+    private fun buildRequestUrl(request: HttpServletRequest): String = buildString {
+        append(request.scheme).append("://").append(request.serverName)
         val port = request.serverPort
-        val path = request.requestURI
-
-        val url = StringBuilder(scheme).append("://").append(host)
-        if (("http" == scheme && port != 80) || ("https" == scheme && port != 443)) {
-            url.append(":").append(port)
+        val scheme = request.scheme
+        if ((scheme == "http" && port != 80) || (scheme == "https" && port != 443)) {
+            append(":").append(port)
         }
-        url.append(path)
-        return url.toString()
+        append(request.requestURI)
     }
 
     @ExceptionHandler(DpopValidationException::class)
