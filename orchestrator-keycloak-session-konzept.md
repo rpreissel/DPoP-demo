@@ -14,6 +14,12 @@ Nicht Teil dieses Dokuments:
 
 ---
 
+## Hinweis zu zukünftigen Änderungen
+
+Bei zukünftigen Änderungswünschen an diesem Dokument weise ich dich aktiv darauf hin, wenn neue Anforderungen oder Formulierungen mit bisher getroffenen Aussagen in diesem Dokument in Konflikt stehen könnten. Ich stelle die betroffene Stelle und den Widerspruch dar und überlasse dir die Entscheidung, wie damit umgegangen werden soll, indem ich dich interaktiv frage.
+
+---
+
 ## Begriffe
 
 - **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web), nie direkt fachlicher Challenge-State.
@@ -116,7 +122,7 @@ classDiagram
 - `StepUpProcessSession` kapselt ACR-spezifische Step-up-Daten (`requiredAcr`, `startingAcr`, `achievedAcr`).
 - Persistenz darf physisch weiterhin eine Tabelle nutzen, aber das Domain-Modell arbeitet mit konkreten Typen statt einem grossen, flachen JSON-Objekt.
 
-### 1.1.2 Entitaetsmodell fuer Identification-/Authentication-Attempts
+### 1.1.2 Entitaetsmodell fuer Ident-/Auth-/Enroll-Attempts
 
 ```mermaid
 classDiagram
@@ -124,6 +130,7 @@ classDiagram
     <<abstract>>
     UUID attemptId
     UUID processSessionId
+    AttemptKind kind
     AttemptStatus status
     string[] missingFields
     string nextContext
@@ -133,11 +140,15 @@ classDiagram
     int retryCount
   }
 
-  class OrchestratorIdentificationAttempt {
+  class OrchestratorIdentAttempt {
     <<abstract>>
   }
 
-  class OrchestratorAuthenticationAttempt {
+  class OrchestratorAuthAttempt {
+    <<abstract>>
+  }
+
+  class OrchestratorEnrollAttempt {
     <<abstract>>
   }
 
@@ -148,7 +159,7 @@ classDiagram
     string fsc
   }
 
-  class AuthSmsEnrollAttemptData {
+  class EnrollSmsAttemptData {
     string phoneNumber
     long smsEnrollmentId
     string tan
@@ -160,22 +171,24 @@ classDiagram
     string tan
   }
 
-  OrchestratorAttempt <|-- OrchestratorIdentificationAttempt
-  OrchestratorAttempt <|-- OrchestratorAuthenticationAttempt
+  OrchestratorAttempt <|-- OrchestratorIdentAttempt
+  OrchestratorAttempt <|-- OrchestratorAuthAttempt
+  OrchestratorAttempt <|-- OrchestratorEnrollAttempt
 
-  OrchestratorIdentificationAttempt "1" --> "0..1" IdFscAttemptData : method-data
-  OrchestratorAuthenticationAttempt "1" --> "0..1" AuthSmsEnrollAttemptData : method-data
-  OrchestratorAuthenticationAttempt "1" --> "0..1" AuthSmsUseAttemptData : method-data
+  OrchestratorIdentAttempt "1" --> "0..1" IdFscAttemptData : method-data
+  OrchestratorEnrollAttempt "1" --> "0..1" EnrollSmsAttemptData : method-data
+  OrchestratorAuthAttempt "1" --> "0..1" AuthSmsUseAttemptData : method-data
 
   ProcessSession "1" --> "0..*" OrchestratorAttempt : owns
 ```
 
 - `OrchestratorAttempt` (plus Untertypen) bleibt im Orchestrator-Modul und enthaelt nur lifecycle-/routing-relevante Felder.
-- Methodenbezogene Attempt-Daten liegen in den jeweiligen Modulen: `IdFscAttemptData` im Modul `id_fsc`, `AuthSmsEnrollAttemptData`/`AuthSmsUseAttemptData` im Modul `auth_sms`.
-- Das gilt gleichermassen fuer Identification- und Authentication-Attempts.
+- `AttemptKind` unterscheidet die drei Attempt-Arten: `IDENT`, `AUTH`, `ENROLL`.
+- Methodenbezogene Attempt-Daten liegen in den jeweiligen Modulen: `IdFscAttemptData` im Modul `id_fsc`, `EnrollSmsAttemptData`/`AuthSmsUseAttemptData` im Modul `auth_sms`.
+- Das gilt gleichermassen fuer Ident-, Auth- und Enroll-Attempts.
 - Die Attempt-Entitaeten bilden direkt das API-Muster `POST` (anlegen), `PATCH` (anreichern/verifizieren), `GET` (lesen) ab.
-- Fuer `sms/use` wird kein fester `smsEnrollmentId` als Core-Feld angenommen; stattdessen verwendet das Modell eine generische Enrollment-Referenz (`enrollmentRefType`, `enrollmentRefId`), die fachlich auf einen Enrollment-Datensatz im jeweiligen Modul zeigt (bei SMS auf `auth_sms`).
-- Strikte Regel fuer dieses Zielbild: Der Orchestrator persistiert keine methodenspezifischen Fachdaten (auch nicht `method`/`mode`/fachliche Ergebnisdetails); diese liegen ausschliesslich in den Methodenmodulen.
+- Fuer `auth/sms` wird kein fester `smsEnrollmentId` als Core-Feld angenommen; stattdessen verwendet das Modell eine generische Enrollment-Referenz (`enrollmentRefType`, `enrollmentRefId`), die fachlich auf einen Enrollment-Datensatz im jeweiligen Modul zeigt (bei SMS auf `auth_sms`).
+- Strikte Regel fuer dieses Zielbild: Der Orchestrator persistiert keine methodenspezifischen Fachdaten (auch nicht `method`/`kind`/fachliche Ergebnisdetails); diese liegen ausschliesslich in den Methodenmodulen.
 
 ### 1.1.3 Modulklassen fuer Attempt-Verarbeitung
 
@@ -188,7 +201,7 @@ classDiagram
   }
 
   class AttemptHandlerRegistry {
-    +resolve(method, mode)
+    +resolve(kind, method)
   }
 
   class OrchestratorAttemptRepository {
@@ -196,17 +209,17 @@ classDiagram
     +findById(...)
   }
 
-  class IdFscAttemptDataRepository {
+  class IdentFscAttemptDataRepository {
     +save(...)
     +findByAttemptId(...)
   }
 
-  class IdFscAttemptHandler {
+  class IdentFscAttemptHandler {
     +createOrUpdate(...)
     +validateAndBuildResult(...)
   }
 
-  class AuthSmsEnrollAttemptDataRepository {
+  class EnrollSmsAttemptDataRepository {
     +save(...)
     +findByAttemptId(...)
   }
@@ -216,7 +229,7 @@ classDiagram
     +findByAttemptId(...)
   }
 
-  class AuthSmsEnrollAttemptHandler {
+  class EnrollSmsAttemptHandler {
     +createOrUpdate(...)
     +validateAndBuildResult(...)
   }
@@ -229,21 +242,21 @@ classDiagram
   OrchestratorAttemptFacade --> AttemptHandlerRegistry : uses
   OrchestratorAttemptFacade --> OrchestratorAttemptRepository : persists lifecycle
 
-  AttemptHandlerRegistry --> IdFscAttemptHandler : method=fsc
-  AttemptHandlerRegistry --> AuthSmsEnrollAttemptHandler : method=sms, mode=enroll
-  AttemptHandlerRegistry --> AuthSmsUseAttemptHandler : method=sms, mode=use
+  AttemptHandlerRegistry --> IdentFscAttemptHandler : kind=ident, method=fsc
+  AttemptHandlerRegistry --> EnrollSmsAttemptHandler : kind=enroll, method=sms
+  AttemptHandlerRegistry --> AuthSmsUseAttemptHandler : kind=auth, method=sms
 
-  IdFscAttemptHandler --> IdFscAttemptDataRepository : persists module data
-  AuthSmsEnrollAttemptHandler --> AuthSmsEnrollAttemptDataRepository : persists module data
+  IdentFscAttemptHandler --> IdentFscAttemptDataRepository : persists module data
+  EnrollSmsAttemptHandler --> EnrollSmsAttemptDataRepository : persists module data
   AuthSmsUseAttemptHandler --> AuthSmsUseAttemptDataRepository : persists module data
 ```
 
 - Orchestrator-Modul: `OrchestratorAttemptFacade`, `AttemptHandlerRegistry`, `OrchestratorAttemptRepository`.
-- Modul `id_fsc`: `IdFscAttemptHandler` plus `IdFscAttemptDataRepository`.
-- Modul `auth_sms`: `AuthSmsEnrollAttemptHandler`/`AuthSmsUseAttemptHandler` plus zugehoerige Repositories.
+- Modul `id_fsc`: `IdentFscAttemptHandler` plus `IdentFscAttemptDataRepository`.
+- Modul `auth_sms`: `EnrollSmsAttemptHandler`/`AuthSmsUseAttemptHandler` plus zugehoerige Repositories.
 - Damit sind im Bild sowohl der zentrale Lifecycle als auch die eigentlichen Fachklassen in den Modulen sichtbar.
 
-### 1.1.4 Konkretes Datenmodell fuer `sms/use`
+### 1.1.4 Konkretes Datenmodell fuer `auth/sms`
 
 Zielprinzip:
 
@@ -272,7 +285,7 @@ classDiagram
     string id
   }
 
-  class OrchestratorAttempt {
+  class OrchestratorAuthAttempt {
     UUID attemptId
     UUID processSessionId
     AttemptStatus status
@@ -299,7 +312,7 @@ classDiagram
 
   Account "1" --> "0..*" AuthenticationMethodEntry : authenticationMethods
   AuthenticationMethodEntry "1" --> "0..1" EnrollmentRef : details.enrollmentRef
-  OrchestratorAttempt "1" --> "0..1" AuthSmsUseAttemptData : method-data
+  OrchestratorAuthAttempt "1" --> "0..1" AuthSmsUseAttemptData : method-data
   AuthSmsUseAttemptData --> AuthSmsEnrollment : resolved by (type=auth_sms_enrollment, id)
 ```
 
@@ -323,10 +336,76 @@ Speicherorte:
 
 - Tabelle `account`: enthaelt `authenticationMethods` (JSON-Array) mit generischer Referenz auf Enrollment-Daten.
 - Tabelle `auth_sms`: enthaelt SMS-Enrollment inkl. `phoneNumber`, `tan`, `validated`.
-- Orchestrator-Attempt-Tabelle (Zielbild, z. B. `orchestrator_attempt`): enthaelt nur technische Attempt-Metadaten (`status`, `missingFields`, `nextContext`, `nextStep`, `processSessionId`, Zeitstempel).
+- Orchestrator-Attempt-Tabelle (Zielbild, z. B. `orchestrator_attempt`): enthaelt nur technische Attempt-Metadaten (`status`, `missingFields`, `nextContext`, `nextStep`, `processSessionId`, `kind`, Zeitstempel).
 - Modul-Tabelle fuer `AuthSmsUseAttemptData` (Zielbild im Modul `auth_sms`): enthaelt `attemptId`, `enrollmentRefType`, `enrollmentRefId`, `tan`.
 
-### 1.1.5 Detaillierter Code-Flow fuer `sms/use`
+### 1.1.5 Konkretes Datenmodell fuer `enroll/sms`
+
+Zielprinzip:
+
+- SMS-Enrollment (Telefonnummer erfassen, TAN versenden, Enrollment aktivieren) liegt ausschliesslich im Modul `auth_sms`.
+- Der Orchestrator speichert nur Attempt-Lifecycle, Routing und Referenzen.
+- Das Ergebnis des Enrollments ist ein neuer Eintrag in `account.authenticationMethods` mit generischer `EnrollmentRef`.
+
+Konkrete Persistenzsicht:
+
+```mermaid
+classDiagram
+  class Account {
+    long id
+    json authenticationMethods
+  }
+
+  class AuthenticationMethodEntry {
+    string method
+    bool active
+    Instant createdAt
+    json details
+  }
+
+  class EnrollmentRef {
+    string type
+    string id
+  }
+
+  class OrchestratorEnrollAttempt {
+    UUID attemptId
+    UUID processSessionId
+    AttemptStatus status
+    string[] missingFields
+    string nextContext
+    string nextStep
+  }
+
+  class EnrollSmsAttemptData {
+    UUID attemptId
+    string phoneNumber
+    long smsEnrollmentId
+    string tan
+  }
+
+  class AuthSmsEnrollment {
+    long id
+    string phoneNumber
+    string tan
+    bool validated
+    Instant createdAt
+    Instant updatedAt
+  }
+
+  Account "1" --> "0..*" AuthenticationMethodEntry : authenticationMethods
+  OrchestratorEnrollAttempt "1" --> "0..1" EnrollSmsAttemptData : method-data
+  EnrollSmsAttemptData --> AuthSmsEnrollment : creates/updates
+```
+
+Speicherorte:
+
+- Tabelle `account`: enthaelt nach erfolgreichem Enrollment einen neuen Eintrag in `authenticationMethods` (JSON-Array) mit generischer Referenz auf das SMS-Enrollment.
+- Tabelle `auth_sms`: enthaelt SMS-Enrollment inkl. `phoneNumber`, `tan`, `validated`.
+- Orchestrator-Attempt-Tabelle (Zielbild, z. B. `orchestrator_attempt`): enthaelt nur technische Attempt-Metadaten (`status`, `missingFields`, `nextContext`, `nextStep`, `processSessionId`, `kind`, Zeitstempel).
+- Modul-Tabelle fuer `EnrollSmsAttemptData` (Zielbild im Modul `auth_sms`): enthaelt `attemptId`, `phoneNumber`, `smsEnrollmentId`, `tan`.
+
+### 1.1.6 Detaillierter Code-Flow fuer `auth/sms`
 
 #### Verantwortungen je Modul
 
@@ -334,19 +413,20 @@ Speicherorte:
 - SMS-Modul (`auth_sms`): TAN erzeugen, TAN senden (Mock/Provider), TAN validieren, Laden der referenzierten Enrollment-Daten.
 - Account-Modul (`account`): aktive Authentifizierungsmethoden und generische Enrollment-Referenz (`details.enrollmentRef`) bereitstellen.
 
-#### Ablauf `sms/use` (Zielbild)
+#### Ablauf `auth/sms` (Zielbild)
 
-1. `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts`
-   - Orchestrator legt eine technische Attempt-Ressource an.
+1. `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/auth`
+   - Request-Body enthaelt die gewaehlte Methode: `{ "method": "sms" }`.
+   - Orchestrator legt eine technische Attempt-Ressource der Art `AUTH` an.
    - Orchestrator persistiert in `orchestrator_attempt`:
-     - `attemptId`, `processSessionId`, `status=INPUT_REQUIRED`, `missingFields=["tan"]`, `nextContext=sms`, `nextStep=tanInput`.
+     - `attemptId`, `processSessionId`, `kind=AUTH`, `status=INPUT_REQUIRED`, `missingFields=["tan"]`, `nextContext=sms`, `nextStep=auth`.
    - Orchestrator delegiert an `AuthSmsUseAttemptHandler` (im Modul `auth_sms`).
    - `AuthSmsUseAttemptHandler` liest aus `account.authenticationMethods[].details.enrollmentRef` die aktive Enrollment-Referenz.
    - `auth_sms` loest Referenz auf `auth_sms.id` auf, erzeugt TAN, schreibt TAN nach `auth_sms.tan` (und ggf. `updatedAt`), versendet SMS.
    - `auth_sms` speichert in `auth_sms_use_attempt_data` die technischen Bezugsdaten (`attemptId`, `enrollmentRefType`, `enrollmentRefId`), optional noch ohne `tan`.
-   - Response: `201`, `status=INPUT_REQUIRED`, `missingFields=["tan"]`, `next={context:"sms",step:"tanInput"}`.
+   - Response: `201`, `status=INPUT_REQUIRED`, `missingFields=["tan"]`, `next={context:"sms",step:"auth"}`.
 
-2. `PATCH /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}` mit `{ "tan": "..." }`
+2. `PATCH /orchestrator/api/v1/attempts/{attemptId}/auth/sms` mit `{ "tan": "..." }`
    - Orchestrator validiert nur Request-Form und Attempt-Status, dann Delegation an `AuthSmsUseAttemptHandler`.
    - `auth_sms` liest `auth_sms_use_attempt_data` per `attemptId`, loest Enrollment-Referenz auf und verifiziert TAN gegen `auth_sms.tan`.
    - Bei Erfolg schreibt `auth_sms` in `auth_sms.validated=true` (und `updatedAt`).
@@ -355,7 +435,7 @@ Speicherorte:
      - `status=VERIFIED`, `missingFields=[]`, `nextContext=authentication`, `nextStep=authenticated`.
    - Response: `200`, `status=VERIFIED`, `next={context:"authentication",step:"authenticated",...}`.
 
-3. `GET /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}`
+3. `GET /orchestrator/api/v1/attempts/{attemptId}/auth/sms`
    - Orchestrator liest `orchestrator_attempt` und liefert technischen Zustand (`status`, `missingFields`, `result`, `next`).
    - Keine SMS-Fachlogik im GET.
 
@@ -365,12 +445,59 @@ Speicherorte:
 - Attempt in ungueltigem Zustand (z. B. bereits `VERIFIED`): Orchestrator liefert HTTP `409`.
 - Unbekannte Referenz (`enrollmentRef`) oder fehlendes Enrollment: HTTP `422` oder `404` gemaess Fehlervertrag.
 
+### 1.1.7 Detaillierter Code-Flow fuer `enroll/sms`
+
+#### Verantwortungen je Modul
+
+- Orchestrator (`orchestrator`): API-Routing, Attempt-Lifecycle (`INPUT_REQUIRED`/`VERIFIED`), `next`-Ermittlung, Prozess-Gating.
+- SMS-Modul (`auth_sms`): TAN erzeugen, TAN senden (Mock/Provider), TAN validieren, SMS-Enrollment-Datensatz anlegen und aktivieren.
+- Account-Modul (`account`): Nach erfolgreichem Enrollment neuen Eintrag in `authenticationMethods` mit generischer `EnrollmentRef` erstellen.
+
+#### Ablauf `enroll/sms` (Zielbild)
+
+1. `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/enroll`
+   - Request-Body enthaelt die gewaehlte Methode: `{ "method": "sms" }`.
+   - Orchestrator legt eine technische Attempt-Ressource der Art `ENROLL` an.
+   - Orchestrator persistiert in `orchestrator_attempt`:
+     - `attemptId`, `processSessionId`, `kind=ENROLL`, `status=INPUT_REQUIRED`, `missingFields=["phoneNumber"]`, `nextContext=sms`, `nextStep=enroll`.
+   - Orchestrator delegiert an `EnrollSmsAttemptHandler` (im Modul `auth_sms`).
+   - Response: `201`, `status=INPUT_REQUIRED`, `missingFields=["phoneNumber"]`, `next={context:"sms",step:"enroll"}`.
+
+2. `PATCH /orchestrator/api/v1/attempts/{attemptId}/enroll/sms` mit `{ "phoneNumber": "+49 170 1234567" }`
+   - Orchestrator validiert Request-Form und Attempt-Status, dann Delegation an `EnrollSmsAttemptHandler`.
+   - `auth_sms` legt einen neuen `AuthSmsEnrollment`-Datensatz an (`phoneNumber`, `validated=false`), erzeugt TAN, speichert sie und versendet SMS.
+   - `auth_sms` speichert in `enroll_sms_attempt_data` die technischen Bezugsdaten (`attemptId`, `phoneNumber`, `smsEnrollmentId`).
+   - Orchestrator aktualisiert `orchestrator_attempt`:
+     - `status=INPUT_REQUIRED`, `missingFields=["tan"]`, `nextContext=sms`, `nextStep=tanInput`.
+   - Response: `200`, `status=INPUT_REQUIRED`, `missingFields=["tan"]`, `next={context:"sms",step:"tanInput"}`.
+
+3. `PATCH /orchestrator/api/v1/attempts/{attemptId}/enroll/sms` mit `{ "tan": "123456" }`
+   - Orchestrator validiert Request-Form und Attempt-Status, dann Delegation an `EnrollSmsAttemptHandler`.
+   - `auth_sms` liest `enroll_sms_attempt_data` per `attemptId`, verifiziert TAN gegen `auth_sms.tan`.
+   - Bei Erfolg setzt `auth_sms` `validated=true` (und `updatedAt`).
+   - Account-Modul legt neuen Eintrag in `account.authenticationMethods` an:
+     - `{ "method": "sms", "active": true, "details": { "enrollmentRef": { "type": "auth_sms_enrollment", "id": "<smsEnrollmentId>" } } }`.
+   - Orchestrator schreibt Ergebnis in `orchestrator_attempt`:
+     - `status=VERIFIED`, `missingFields=[]`, `nextContext=authentication`, `nextStep=authenticated`.
+   - Response: `200`, `status=VERIFIED`, `next={context:"authentication",step:"authenticated",...}`.
+
+4. `GET /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`
+   - Orchestrator liest `orchestrator_attempt` und liefert technischen Zustand (`status`, `missingFields`, `result`, `next`).
+   - Keine SMS-Fachlogik im GET.
+
+#### Fehlerfaelle
+
+- Falsche TAN: fachlicher Fehler aus `auth_sms`, HTTP `422`.
+- Attempt in ungueltigem Zustand (z. B. bereits `VERIFIED`): Orchestrator liefert HTTP `409`.
+- Ungueltige Telefonnummer: fachlicher Fehler aus `auth_sms`, HTTP `422`.
+
 ### 1.2 Enumerationen
 
 - `Channel`: `APP`, `WEB`
 - `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`, `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
 - `ProcessPurpose`: `REGISTRATION`, `LOGIN`, `STEP_UP`
 - `ProcessStatus`: `STARTED`, `CHALLENGE_SENT`, `VERIFY_PENDING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`
+- `AttemptKind`: `IDENT`, `AUTH`, `ENROLL`
 - `AttemptStatus`: `INPUT_REQUIRED`, `VERIFIED`, `FAILED`, `EXPIRED`, `CANCELLED`
 
 ### 1.3 Persistenz-Regeln
@@ -464,12 +591,12 @@ Festgelegte API-Entscheidung:
 - Das oeffentliche API wird unter `/orchestrator/api/v1` versioniert.
 - Unterschiedliche Methoden und Modi werden ueber getrennte konkrete Endpunkte modelliert.
 - Die URL bestimmt die Operation; derselbe Endpunkt darf nicht allein anhand unterschiedlicher Request-Bodies verschiedene fachliche Ablaufe ausfuehren.
-- Vorbereitende Methoden nutzen ressourcenorientierte Attempt-Objekte: `POST` legt an, `PATCH` aktualisiert die bestehende Attempt-Ressource partiell, `GET` liest den Stand.
+- Vorbereitende Methoden nutzen ressourcenorientierte Attempt-Objekte: `POST` erzeugt den Attempt ueber den Channel (Methode im Body), `PATCH` aktualisiert die methodenspezifische Attempt-Ressource, `GET` liest den Stand.
 - Bei `PATCH` wird grundsaetzlich nur der aktuell nachzuliefernde oder zu aendernde Teil uebergeben; bereits vorhandene Felder duerfen dabei gezielt ueberschrieben werden.
 - Solange Pflichtdaten fehlen, bleibt die Ressource in `INPUT_REQUIRED` (HTTP `200`, kein Fehlerfall); bei Vollstaendigkeit liefert sie `VERIFIED` plus `result`.
 - HATEOAS wird im Zielbild nicht verwendet.
 - Der Client leitet den naechsten technischen Call aus `next.context`, `next.step` und - falls vorhanden - dem gewaehlten Eintrag aus `methods` ueber eine feste Routing-Tabelle ab.
-- Lesbarkeit hat Vorrang vor maximal generischem API-Wiring: methoden- und modusspezifische Endpunkte sowie klar benannte DTOs/Handler (`fsc`, `sms/enroll`, `sms/use`) sind gewollt, auch wenn dafuer etwas mehr expliziter Code entsteht.
+- Lesbarkeit hat Vorrang vor maximal generischem API-Wiring: methoden- und artspezifische Endpunkte sowie klar benannte DTOs/Handler (`ident/fsc`, `enroll/sms`, `auth/sms`) sind gewollt, auch wenn dafuer etwas mehr expliziter Code entsteht.
 
 #### App-Fassade (Orchestrator-first)
 
@@ -481,17 +608,18 @@ Designentscheidung:
 - Die fachliche Prozesswahl (`REGISTRATION`, `LOGIN`, `STEP_UP`) trifft das Backend auf Basis von Kanalzustand, Accountstatus und Policy.
 - Oeffentliche App-APIs verwenden nur `channelSessionId`; weder `purpose` noch die interne `processSessionId` werden vom Client vorgegeben.
 - Das `next`-Objekt nutzt genau zwei fachliche Routing-Attribute: `context` und `step`.
-- Bei Auswahlseiten enthaelt `next.methods` nur echte technische Methoden-Keys wie `sms` oder `passkey`; der Modus steckt dort nicht, sondern im `context`.
-- Die UI leitet den naechsten Call aus `(context, step)` und - bei Auswahlseiten - aus dem gewaehlten `methods`-Eintrag ab; URLs sind feste technische Endpunkte und keine Entscheidungsquelle.
-- Der Client darf `enroll` vs. `use` nie aus Sessionzustand oder aus einer Methodenliste erraten; der Modus wird serverseitig ueber `context = enrollment|use` festgelegt.
-- Wenn genau eine Methode erlaubt ist, darf das Backend die Auswahlseite ueberspringen und direkt den methodenspezifischen Folgeschritt liefern, z. B. `{ "context": "sms", "step": "enroll" }` oder `{ "context": "sms", "step": "use" }`.
+- Bei Auswahlseiten enthaelt `next.methods` nur echte technische Methoden-Keys wie `sms` oder `passkey`; die Attempt-Art (`ident`/`enroll`/`auth`) steckt dort nicht, sondern wird serverseitig bestimmt.
+- Die UI leitet den naechsten Call aus `(context, step)` und - bei Auswahlseiten - aus dem gewaehlten `methods`-Eintrag ueber eine feste Routing-Tabelle ab; URLs sind feste technische Endpunkte und keine Entscheidungsquelle.
+- Der Client darf `ident`/`enroll`/`auth` nie aus Sessionzustand oder aus einer Methodenliste erraten; die Attempt-Art wird serverseitig festgelegt und in der URL widergespiegelt.
+- Wenn genau eine Methode erlaubt ist, darf das Backend die Auswahlseite ueberspringen und direkt den methodenspezifischen Folgeschritt liefern, z. B. `{ "context": "sms", "step": "enroll" }` fuer `enroll/sms` oder `{ "context": "sms", "step": "auth" }` fuer `auth/sms`.
 - Ergebnislieferung: Sobald eine Attempt-Ressource vollstaendig und validiert ist, liefert dieselbe Ressource das fachliche `result` im Response-Body.
 
 Pfadkonvention:
 
 - Einstieg: `POST /orchestrator/api/v1/app/channels`
 - Laufende Prozessschritte: `/orchestrator/api/v1/app/channels/{channelSessionId}/...`
-- Attempt-Endpunkte: `/orchestrator/api/v1/identification-methods/...` und `/orchestrator/api/v1/authentication-methods/...`
+- Attempt-Auswahl/-Anlage ueber Channel: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/{kind}` (Methode im Body)
+- Attempt-Fortschreibung/-Lesen: `PATCH/GET /orchestrator/api/v1/attempts/{attemptId}/{kind}/{method}`
 
 Konsistenzregel:
 
@@ -528,20 +656,48 @@ Response `200`:
   "next": {
     "context": "registration",
     "step": "selectIdentificationMethod",
-    "identificationMethods": ["fsc"]
+    "methods": ["fsc"]
   }
 }
 ```
 
-##### 2) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts`
+##### 2) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/ident`
 
 Zweck:
 
-- Legt eine FSC-Attempt-Ressource an.
+- Waehlt die Methode fuer einen neuen Ident-Attempt aus und erzeugt die technische Attempt-Ressource.
 - In diesem Beispiel: `fsc`.
-- Kann bereits alle FSC-Pflichtdaten enthalten oder nur einen Teil davon.
 
 Request:
+
+```json
+{
+  "method": "fsc"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "attemptId": "i7777777-7777-7777-7777-777777777777",
+  "status": "INPUT_REQUIRED",
+  "missingFields": ["kvnr", "name", "vorname"],
+  "result": null,
+  "next": {
+    "context": "fsc",
+    "step": "input"
+  }
+}
+```
+
+##### 3) `PATCH /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`
+
+Zweck:
+
+- Ergaenzt fehlende Felder auf der FSC-Attempt-Ressource; bei Bedarf duerfen bereits gesetzte Felder gezielt ueberschrieben werden.
+
+Request (erste Datenlieferung):
 
 ```json
 {
@@ -551,7 +707,7 @@ Request:
 }
 ```
 
-Response `201` bei unvollstaendiger Eingabe:
+Response `200` bei unvollstaendiger Eingabe:
 
 ```json
 {
@@ -566,15 +722,7 @@ Response `201` bei unvollstaendiger Eingabe:
 }
 ```
 
-Wenn der `POST` bereits `kvnr`, `name`, `vorname` und `fsc` enthaelt, kann direkt `VERIFIED` plus `result` geliefert werden.
-
-##### 3) `PATCH /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}`
-
-Zweck:
-
-- Ergaenzt fehlende Felder auf derselben FSC-Attempt-Ressource; bei Bedarf duerfen bereits gesetzte Felder gezielt ueberschrieben werden.
-
-Request:
+Request (zweite Datenlieferung):
 
 ```json
 {
@@ -601,7 +749,7 @@ Response `200` bei erfolgreicher Verifikation:
 }
 ```
 
-##### 4) `GET /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}`
+##### 4) `GET /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`
 
 Zweck:
 
@@ -625,20 +773,21 @@ Response `200` Beispiel:
 }
 ```
 
-##### 5) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts`
+##### 5) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/enroll`
 
 Zweck:
 
-- Reserviert den fachlichen Authentifizierungsschritt im Prozess.
+- Waehlt die Methode fuer einen neuen Enroll-Attempt aus und erzeugt die technische Attempt-Ressource.
 - Beispiel hier: `enroll` bei Registration.
-- Fuer Login/Step-up existiert der separate, explizite Endpoint `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts`.
-- Legt eine SMS-Attempt-Ressource an; sie kann initial unvollstaendig sein.
-- Das Frontend leitet `enroll` oder `use` aus `next.context` ab; die konkrete Methode stammt - falls noetig - aus `next.methods`.
+- Fuer Login/Step-up existiert der separate, explizite Endpoint `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/auth`.
+- Das Frontend leitet `enroll` oder `auth` aus `next.context` ab; die konkrete Methode stammt - falls noetig - aus `next.methods`.
 
 Request:
 
 ```json
-{}
+{
+  "method": "sms"
+}
 ```
 
 Response `201`:
@@ -648,6 +797,7 @@ Response `201`:
   "attemptId": "a3333333-3333-3333-3333-333333333333",
   "status": "INPUT_REQUIRED",
   "missingFields": ["phoneNumber"],
+  "result": null,
   "next": {
     "context": "sms",
     "step": "enroll"
@@ -655,7 +805,7 @@ Response `201`:
 }
 ```
 
-##### 6) `PATCH /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`
+##### 6) `PATCH /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`
 
 Zweck:
 
@@ -663,7 +813,7 @@ Zweck:
 - Diese Route ist nur fuer den Enrollment-Fall definiert.
 - Der Request enthaelt nur die Felder, die in diesem Schritt fehlen oder bewusst geaendert werden sollen.
 
-Request:
+Request (Telefonnummer):
 
 ```json
 {
@@ -685,14 +835,7 @@ Response `200`:
 }
 ```
 
-##### 7) `PATCH /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}` (TAN)
-
-Zweck:
-
-- Verifiziert die Challenge einer SMS-Enrollment-Attempt und finalisiert den Prozess.
-- Bei Erfolg wird der Channel-Status auf `AUTHENTICATED` aktualisiert.
-
-Request:
+Request (TAN):
 
 ```json
 {
@@ -700,7 +843,7 @@ Request:
 }
 ```
 
-Response `200`:
+Response `200` bei erfolgreicher Verifikation:
 
 ```json
 {
@@ -709,7 +852,7 @@ Response `200`:
   "result": {
     "authenticated": true,
     "method": "sms",
-    "mode": "enroll"
+    "kind": "enroll"
   },
   "next": {
     "context": "authentication",
@@ -720,7 +863,7 @@ Response `200`:
 }
 ```
 
-##### 8) `GET /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`
+##### 7) `GET /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`
 
 Zweck:
 
@@ -741,7 +884,7 @@ Response `200`:
 }
 ```
 
-##### 9) `GET /orchestrator/api/v1/app/channels/{channelSessionId}`
+##### 8) `GET /orchestrator/api/v1/app/channels/{channelSessionId}`
 
 Zweck:
 
@@ -762,22 +905,23 @@ Response `200`:
 
 ##### Erreichbare APIs je Prozess (Beispielregel)
 
-- Wenn das Backend intern `REGISTRATION` gewaehlt hat, liefert es nach der Identifikation entweder direkt einen methodenspezifischen Schritt wie `next = { context: "sms", step: "enroll" }` oder - bei echter Auswahl - `next = { context: "enrollment", step: "selectMethod", methods: [...] }`.
-- Wenn das Backend intern `LOGIN` oder `STEP_UP` gewaehlt hat, liefert es analog entweder direkt einen Use-Schritt wie `next = { context: "sms", step: "use" }` oder - bei mehreren erlaubten Verfahren - `next = { context: "use", step: "selectMethod", methods: [...] }`.
+- Wenn das Backend intern `REGISTRATION` gewaehlt hat, liefert es nach der Identifikation entweder direkt einen methodenspezifischen Schritt wie `next = { context: "sms", step: "enroll" }` fuer `enroll/sms` oder - bei echter Auswahl - `next = { context: "enrollment", step: "selectMethod", methods: [...] }`.
+- Wenn das Backend intern `LOGIN` oder `STEP_UP` gewaehlt hat, liefert es analog entweder direkt einen Auth-Schritt wie `next = { context: "sms", step: "auth" }` fuer `auth/sms` oder - bei mehreren erlaubten Verfahren - `next = { context: "auth", step: "selectMethod", methods: [...] }`.
 - Wenn eine nicht erlaubte Aktion fuer den Prozess aufgerufen wird: `409 invalid_state` mit `allowedActions`.
-- Fuer den Client ist damit keine URL-Auswertung und keine eigene Ableitung von `enroll` vs. `use` erforderlich.
+- Fuer den Client ist damit keine URL-Auswertung und keine eigene Ableitung von `ident`/`enroll`/`auth` erforderlich.
 
 ##### Durchgaengiger Sequenzblick (kurz)
 
 1. Channel anlegen/holen (`POST /orchestrator/api/v1/app/channels`)
-2. FSC-Attempt anlegen (`POST /orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts`)
-3. FSC-Attempt mit fehlenden Feldern ergaenzen (`PATCH /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}`)
-4. FSC-Attempt-Zustand lesen (`GET /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}`)
-5. SMS-Enrollment-Attempt reservieren (`POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts`)
-6. SMS-Enrollment-Attempt mit `phoneNumber` ergaenzen (`PATCH /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`)
-7. SMS-Enrollment-Attempt mit `tan` abschliessen (`PATCH /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`)
-8. SMS-Enrollment-Attempt-Zustand lesen (`GET /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`)
-9. Finalen Kanalstatus lesen (`GET /orchestrator/api/v1/app/channels/{channelSessionId}`)
+2. FSC-Attempt auswaehlen/anlegen (`POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/ident`)
+3. FSC-Attempt mit Identifikationsdaten befuellen (`PATCH /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`)
+4. FSC-Attempt mit FSC verifizieren (`PATCH /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`)
+5. FSC-Attempt-Zustand lesen (`GET /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`)
+6. SMS-Enrollment-Attempt auswaehlen/anlegen (`POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/enroll`)
+7. SMS-Enrollment-Attempt mit `phoneNumber` befuellen (`PATCH /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`)
+8. SMS-Enrollment-Attempt mit `tan` abschliessen (`PATCH /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`)
+9. SMS-Enrollment-Attempt-Zustand lesen (`GET /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`)
+10. Finalen Kanalstatus lesen (`GET /orchestrator/api/v1/app/channels/{channelSessionId}`)
 
 #### Web/Keycloak-Fassade (Keycloak-first)
 
@@ -805,7 +949,7 @@ Antwort `201`:
   "status": "STARTED",
   "next": {
     "context": "sms",
-    "step": "use"
+    "step": "auth"
   }
 }
 ```
@@ -819,18 +963,19 @@ Ziel:
 
 Kernidee:
 
-1. Prozess-Endpunkt startet einen Auth-Schritt (fachlich).
-2. Backend erstellt eine technische Attempt-Ressource (`identificationAttemptId` oder `authenticationAttemptId`).
-3. Die Prozess-API nimmt dabei keine optionalen Nachlieferdaten entgegen.
-4. Das Backend liefert einen fachlich eindeutigen `next`-Zustand, z. B. `{"context":"enrollment","step":"selectMethod","methods":["sms"]}` oder `{"context":"sms","step":"use"}`.
+1. Channel-Endpunkt waehlt die Attempt-Art und -Methode aus und erzeugt eine technische Attempt-Ressource.
+2. Backend erstellt die methodenspezifische Attempt-Ressource (`OrchestratorIdentAttempt`, `OrchestratorEnrollAttempt` oder `OrchestratorAuthAttempt`).
+3. Die Channel-API nimmt dabei keine fachlichen Eingabedaten entgegen; lediglich der Methoden-Key steht im Body.
+4. Das Backend liefert einen fachlich eindeutigen `next`-Zustand, z. B. `{"context":"enrollment","step":"selectMethod","methods":["sms"]}` oder `{"context":"sms","step":"auth"}`.
 5. App oder Keycloak nutzen eine feste Routing-Tabelle von `context`, `step` und - falls vorhanden - dem gewaehlten Methoden-Key auf die passenden Endpunkte und leiten nichts aus URLs ab.
 
 #### Ressourcenmodell
 
 - `ProcessSession` bleibt der fachliche Owner.
-- Neue technische Ressourcen: `IdentificationAttempt` und `AuthenticationAttempt`
+- Neue technische Ressourcen: `IdentAttempt`, `EnrollAttempt` und `AuthAttempt`
   - `attemptId`
   - `processSessionId` (nur intern)
+  - `kind` (`IDENT`, `ENROLL`, `AUTH`)
   - `status` (`INPUT_REQUIRED`, `VERIFIED`, `EXPIRED`, ...)
   - `missingFields`
   - `nextContext`
@@ -840,35 +985,37 @@ Kernidee:
 Klarstellung zum Persistenzmodell:
 
 - Der Orchestrator persistiert fuer Attempts nur Lifecycle- und Routing-Metadaten.
-- `method` und `mode` werden nicht als zentrale Datenfelder gespeichert, sondern aus der anlegenden Route und dem konkreten Attempt-Typ abgeleitet.
+- `method` und `kind` werden nicht als zentrale Datenfelder gespeichert, sondern aus der anlegenden Route und dem konkreten Attempt-Typ abgeleitet.
 - Fachliche Ergebnisdaten bleiben in den jeweiligen Methodenmodulen; `GET`-Responses baut der Orchestrator aus zentralem Attempt-Zustand und Moduldaten zusammen.
 
 #### API-Schnitt
 
-Start bleibt in der Prozess-API und ist parameterarm:
+Start erfolgt ueber den Channel-Endpunkt und ist parameterarm:
 
-- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts`
-- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts`
-- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/use/attempts`
-- `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/{purpose}/authentication-methods/sms/use/attempts`
+- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/ident`
+- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/enroll`
+- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/auth`
+- `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/{purpose}/attempts/auth`
 
-Fuer Lesbarkeit und klare Verantwortlichkeit werden `enroll` und `use` als getrennte, explizite Endpunkte dokumentiert (kein Platzhalter `{mode}` im Zielbild).
+Fuer Lesbarkeit und klare Verantwortlichkeit werden `ident`, `enroll` und `auth` als eigenstaendige Attempt-Arten (`AttemptKind`) und damit als getrennte, explizite Endpunkte dokumentiert (kein Platzhalter `{kind}` in den konkreten Channel-Endpunkten).
 
-Die eigentliche Parametereingabe und Verifikation laufen danach ueber eine kanalneutrale Attempt-API. Fuer Authentifizierung werden `enroll` und `use` als getrennte konkrete Endpunkte modelliert, damit kein Endpunkt anhand des Request-Bodys unterschiedliche Prozesse ausfuehrt.
+Die eigentliche Parametereingabe und Verifikation laufen danach ueber eine kanalneutrale Attempt-API. Die drei Attempt-Arten `ident`, `enroll` und `auth` werden als getrennte konkrete Endpunkte modelliert, damit kein Endpunkt anhand des Request-Bodys unterschiedliche Prozesse ausfuehrt.
 
 Fuer `PATCH` gilt dabei durchgaengig: Der Client sendet nur den aktuell fehlenden oder zu korrigierenden Teil der Attempt-Daten; bereits vorhandene Werte koennen gezielt ueberschrieben werden, muessen aber nicht erneut vollstaendig mitgesendet werden.
 
-- `PATCH /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}`
-- `GET /orchestrator/api/v1/identification-methods/fsc/attempts/{attemptId}`
-- `PATCH /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`
-- `GET /orchestrator/api/v1/authentication-methods/sms/enroll/attempts/{attemptId}`
-- `PATCH /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}`
-- `GET /orchestrator/api/v1/authentication-methods/sms/use/attempts/{attemptId}`
+- `PATCH /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`
+- `GET /orchestrator/api/v1/attempts/{attemptId}/ident/fsc`
+- `PATCH /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`
+- `GET /orchestrator/api/v1/attempts/{attemptId}/enroll/sms`
+- `PATCH /orchestrator/api/v1/attempts/{attemptId}/auth/sms`
+- `GET /orchestrator/api/v1/attempts/{attemptId}/auth/sms`
 
-Beispiel Prozess-Start `POST /orchestrator/api/v1/app/channels/{channelSessionId}/authentication-methods/sms/enroll/attempts`:
+Beispiel Prozess-Start `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/enroll`:
 
 ```json
-{}
+{
+  "method": "sms"
+}
 ```
 
 Beispielantwort beim Prozess-Start:
@@ -885,7 +1032,7 @@ Beispielantwort beim Prozess-Start:
 }
 ```
 
-Beispiel `PATCH` auf Attempt-Root fuer `sms/enroll` (Telefonnummer):
+Beispiel `PATCH` auf Attempt-Root fuer `enroll/sms` (Telefonnummer):
 
 ```json
 {
@@ -907,10 +1054,71 @@ Antwort `200`:
 }
 ```
 
+Beispiel `PATCH` fuer `enroll/sms` (TAN):
+
+```json
+{
+  "tan": "123456"
+}
+```
+
+Antwort `200`:
+
+```json
+{
+  "attemptId": "a3333333-3333-3333-3333-333333333333",
+  "status": "VERIFIED",
+  "missingFields": [],
+  "result": {
+    "authenticated": true,
+    "method": "sms",
+    "kind": "enroll"
+  },
+  "next": {
+    "context": "authentication",
+    "step": "authenticated",
+    "accountId": 1001,
+    "personId": 5001
+  }
+}
+```
+
 Analoges Beispiel fuer eine Identifikationsmethode `fsc`:
 
-- Prozess-Start: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/identification-methods/fsc/attempts`
+- Prozess-Start: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/ident`
+- Request:
+
+```json
+{
+  "method": "fsc"
+}
+```
+
 - Rueckgabe bei unvollstaendiger Eingabe:
+
+```json
+{
+  "attemptId": "i7777777-7777-7777-7777-777777777777",
+  "status": "INPUT_REQUIRED",
+  "missingFields": ["kvnr", "name", "vorname"],
+  "next": {
+    "context": "fsc",
+    "step": "input"
+  }
+}
+```
+
+Beispiel `PATCH` fuer FSC (Identifikationsdaten):
+
+```json
+{
+  "kvnr": "A123456789",
+  "name": "Muster",
+  "vorname": "Max"
+}
+```
+
+Antwort `200`:
 
 ```json
 {
@@ -924,7 +1132,7 @@ Analoges Beispiel fuer eine Identifikationsmethode `fsc`:
 }
 ```
 
-Beispiel `PATCH` fuer FSC:
+Beispiel `PATCH` fuer FSC (Verifikation):
 
 ```json
 {
@@ -951,7 +1159,32 @@ Antwort `200`:
 }
 ```
 
-Separates Beispiel fuer `sms/use`:
+Separates Beispiel fuer `auth/sms`:
+
+- Prozess-Start: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/attempts/auth`
+- Request:
+
+```json
+{
+  "method": "sms"
+}
+```
+
+- Rueckgabe:
+
+```json
+{
+  "attemptId": "a4444444-4444-4444-4444-444444444444",
+  "status": "INPUT_REQUIRED",
+  "missingFields": ["tan"],
+  "next": {
+    "context": "sms",
+    "step": "auth"
+  }
+}
+```
+
+Beispiel `PATCH` fuer `auth/sms` (TAN):
 
 ```json
 {
@@ -968,7 +1201,7 @@ Antwort `200`:
   "result": {
     "authenticated": true,
     "method": "sms",
-    "mode": "use"
+    "kind": "auth"
   },
   "next": {
     "context": "authentication",
@@ -984,7 +1217,7 @@ Antwort `200`:
 Nein, wenn die Verantwortung klar getrennt ist:
 
 - Prozess-API: kanal- und fachkontextspezifischer Start (`app` oder `kc`), Policy, Ableitung des intern noetigen `purpose`, Reservierung einer Attempt-Instanz
-- Attempt-API: kanalneutrale technische Parametereingabe und Verifikation ueber dieselbe Ressource (`PATCH`/`GET`); unterschiedliche fachliche Varianten wie `sms/enroll` und `sms/use` werden als getrennte konkrete Endpunkte modelliert
+- Attempt-API: kanalneutrale technische Parametereingabe und Verifikation ueber dieselbe Ressource (`PATCH`/`GET`); unterschiedliche fachliche Varianten wie `enroll/sms` und `auth/sms` werden als getrennte konkrete Endpunkte modelliert
 
 Damit ist nur die fachliche Freigabe prozess- und kanalabhaengig; Startparameter und Verifikation laufen danach kanalneutral ueber ein einheitliches Attempt-Muster.
 
