@@ -22,8 +22,12 @@ Nicht Teil dieser Dokumentation:
 | [05-api.md](05-api.md) | API-Grundsätze, App- und Keycloak-Fassade, Beispiele | Client-Entwicklung |
 | [06-ablaeufe.md](06-ablaeufe.md) | `ident-fsc`, `auth-sms`, `enroll-sms` Schritt für Schritt | Implementierung eines Flows |
 | [07-betrieb.md](07-betrieb.md) | Fehlervertrag, Konsistenz, Aufbewahrung und Löschung | Betrieb, Datenschutz |
+| [08-projektrahmen.md](08-projektrahmen.md) | Aufgabenstellung, Module, Tech-Stack, Versionen, Build | Projektkontext, Einrichtung |
+| [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
+| [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
 
-**Empfohlene Lesereihenfolge:** 01 -> 02 -> 03 -> 04. Wer nur einen Client baut, kommt mit 01 und 05 aus.
+**Empfohlene Lesereihenfolge:** 01 -> 02 -> 03 -> 04 für das Fachkonzept; 08 für den
+Projektkontext. Wer nur einen Client baut, kommt mit 01, 05 und 10 aus.
 
 ---
 
@@ -42,10 +46,17 @@ Drei Session-Ebenen mit fallender Lebensdauer:
 ---
 ## Bezug zum bestehenden Code
 
-- Die `binding_session`-Tabelle wurde vollständig entfernt (Flyway V16); fachlicher Flow-Kontext wird nun über `ProcessSession` abgebildet.
+Diese Dokumentation beschreibt das **Zielbild**. Der Code ist an mehreren Stellen noch auf
+einem früheren Stand (u. a. `Attempt`-Terminologie und methodenspezifische URL-Pfade);
+Abweichungen zwischen Code und Dokumentation sind daher zu erwarten und im Zweifel zugunsten
+der Dokumentation aufzulösen.
+
+Bereits umgesetzt:
+
+- Die `binding_session`-Tabelle wurde vollständig entfernt (Flyway V16); fachlicher Flow-Kontext wird über `ProcessSession` abgebildet.
 - Das alte Public-API (`/orchestrator/sessions`) wurde entfernt; das aktuelle API liegt unter `/orchestrator/api/v1/app/...`.
 - `ChannelSession` ist langlebig und DPoP-gebunden über `binding_key_ref`.
-- `AuthContext` ist bereit für Keycloak-Integration (Struktur vorhanden, Keycloak-Anbindung noch nicht implementiert).
+- `AuthContext` ist als Struktur vorhanden; die Keycloak-Anbindung fehlt noch.
 
 ---
 

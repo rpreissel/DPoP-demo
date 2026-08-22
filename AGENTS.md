@@ -4,14 +4,15 @@
 
 - **Projekt**: `dpop-demo` – Spring Boot Modulith-Applikation mit React/TypeScript-Frontend.
 - **Arbeitsverzeichnis**: `/Users/rene/Develop/opencode/DPoP-demo`
-- **Details**: Siehe `Anforderungen.md` für vollständige Anforderungen, Architektur und verwendete Versionen.
+- **Details**: Siehe `docs/` — Einstieg über `docs/README.md`; Projektkontext, Tech-Stack und Versionen in `docs/08-projektrahmen.md`.
 
-## Anforderungsdokumentation
+## Anforderungs- und Konzeptdokumentation
 
-- Aus allen Benutzer-Prompts abgeleitete Anforderungen werden zentral in `Anforderungen.md` dokumentiert.
-- Die Dokumentation folgt einer Arc42-/C4-nahen Struktur.
-- Prompt-Wortlaute werden nicht wörtlich zitiert, sondern in strukturierte Anforderungen überführt.
-- Bei Änderungen oder neuen Anforderungen ist `Anforderungen.md` entsprechend zu aktualisieren.
+- Die gesamte Dokumentation liegt in `docs/`; `docs/README.md` ist der Einstieg mit Navigationstabelle.
+- Fachliches Zielbild: `01`–`07` (Überblick, Domänenmodell, Tool-Architektur, Orchestrierung, API, Abläufe, Betrieb). Rahmen und Querschnitt: `08` (Projektrahmen), `09` (DPoP), `10` (Frontend).
+- Aus Benutzer-Prompts abgeleitete Anforderungen werden in das jeweils thematisch passende Dokument eingearbeitet, nicht in einer separaten Sammeldatei.
+- Prompt-Wortlaute werden nicht wörtlich zitiert, sondern in strukturierte Aussagen überführt.
+- Die Dokumentation beschreibt das Zielbild. Weicht der Code ab, ist die Dokumentation maßgeblich.
 
 ## Git-Verhalten
 

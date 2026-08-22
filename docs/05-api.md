@@ -276,9 +276,18 @@ Response `200` bei erfolgreicher Verifikation:
     "type": "flow",
     "context": "authentication",
     "step": "authenticated"
+  },
+  "demo": {
+    "accountId": 1001,
+    "personId": 5001
   }
 }
 ```
+
+Das `demo`-Objekt ist **kein Teil des produktiven Vertrags**: `accountId` und `personId` sind
+interne Korrelations-IDs, die der Client für keinen Folgeaufruf braucht. Sie werden
+ausschließlich geliefert, damit die Demo-Oberfläche den Ablauf nachvollziehbar machen kann
+(siehe [10-frontend.md](10-frontend.md)), und in einer echten Umgebung abgeschaltet.
 
 ### 7) `GET /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms`
 
@@ -486,7 +495,7 @@ Klarstellung zum Persistenzmodell:
 - Weder `toolId` noch `stepData` sind persistierte Datenfelder: `toolId` ergibt sich aus der anlegenden/lesenden Route, `stepData` wird bei jeder Antwort aus den Moduldaten neu aufgebaut.
 - Fachliche Ergebnisdaten bleiben in den jeweiligen Methodenmodulen; `GET`-Responses baut der Orchestrator aus Lifecycle-Zustand, Moduldaten und dem Routing-Zustand der `ProcessSession` zusammen.
 - `stepData` hat je nach Situation zwei Quellen: bei laufendem Tool reicht der Orchestrator `ToolOutcome.InProgress.data` unverändert durch; bei Auswahl- und Abschlussantworten baut er es selbst (z. B. `options`, `error`). Der Inhalt von `Completed` geht nie direkt zum Client — er ist für die Verarbeitung in [Orchestrierung](04-orchestrierung.md) bestimmt.
-- `accountId`/`personId` erscheinen in keinem Client-Response: Der Client braucht sie für keinen der über `next` erreichbaren Folgeaufrufe, deshalb bleiben sie ausschließlich serverseitig in der `ProcessSession`. `personId` liefert das Ident-Tool selbst (`Completed.Identified` — Identifikation *ist* die Auflösung zur Person); `accountId` kennt kein Methoden-Handler, es entsteht erst bei der Verarbeitung über `findOrCreateAccount(personId)` ([Orchestrierung](04-orchestrierung.md)), und spätere Tools lesen es nur noch aus der `ProcessSession`.
+- `accountId`/`personId` sind kein Teil des fachlichen Antwortvertrags: Der Client braucht sie für keinen der über `next` erreichbaren Folgeaufrufe, deshalb bleiben sie serverseitig in der `ProcessSession`. Einzige Ausnahme ist das ausdrücklich als solches gekennzeichnete `demo`-Objekt für die Demo-Oberfläche (Abschnitt 2, Beispiel 6). `personId` liefert das Ident-Tool selbst (`Completed.Identified` — Identifikation *ist* die Auflösung zur Person); `accountId` kennt kein Methoden-Handler, es entsteht erst bei der Verarbeitung über `findOrCreateAccount(personId)` ([Orchestrierung](04-orchestrierung.md)), und spätere Tools lesen es nur noch aus der `ProcessSession`.
 
 ### API-Schnitt
 
