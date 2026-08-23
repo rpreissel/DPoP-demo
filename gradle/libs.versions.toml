@@ -4,6 +4,7 @@ kotlin = "2.2.21"
 spring-boot = "4.1.0"
 spring-modulith = "2.1.0"
 dependency-management = "1.1.7"
+springdoc-openapi = "2.8.5"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
@@ -27,3 +28,4 @@ flyway-core = { module = "org.flywaydb:flyway-core" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version = "10.2" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi" }

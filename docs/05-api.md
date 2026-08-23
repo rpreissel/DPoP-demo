@@ -45,8 +45,10 @@ Pfadkonvention:
 - Einstieg: `POST /orchestrator/api/v1/app/channels`
 - Kanalzustand lesen/Niveau anheben: `GET/PATCH /orchestrator/api/v1/app/channels/{channelSessionId}`
 - Laufende Prozessschritte: `/orchestrator/api/v1/app/channels/{channelSessionId}/...`
+- Prozess abbrechen: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/cancel` (kein Body; siehe Abschnitt „Cancel" unten)
 - Tool-Anlage über Channel: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/{toolId}` (kein Body nötig, `toolId` trägt Kind und Methode zusammen, z. B. `tool-activate/enroll-sms`)
 - Tool-Fortschreibung/-Lesen: `PATCH/GET /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` als Regelfall
+- Tool-Attempt verwerfen: `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` (siehe Abschnitt „Back/Switch" unten)
 
 Tool-Namespace:
 
@@ -55,6 +57,22 @@ Tool-Namespace:
 - Grund: Nicht jedes Verfahren passt in „Felder nachliefern". WebAuthn reicht eine Assertion ein (kein partielles Update), eID braucht Redirect und Callback, QR-Verfahren einen Bildabruf, Push-Verfahren einen Polling- oder Callback-Endpunkt.
 - Der Client findet diese Endpunkte über denselben Mechanismus wie bisher: `next.step` ist ohnehin tool-spezifisch, die Routing-Tabelle bildet `(toolId, step)` auf den konkreten Endpunkt ab. Es braucht dafür keine URL-Interpretation.
 - Weil damit auch `GET` auf der Tool-Ressource entfallen darf, ist der garantierte Resume-Einstieg **nicht** die Tool-Ressource, sondern `GET /orchestrator/api/v1/app/channels/{channelSessionId}`: Dieser Endpunkt existiert immer und liefert den aktuell fälligen `next` (Abschnitt 2, Beispiel 8).
+- **Implementierungsnote:** `POST`/`PATCH`/`GET` liegen je Tool in einem eigenen Controller mit typisiertem Request-DTO (`ident-fsc`, `enroll-sms`, `auth-sms` — [Tool-Architektur](03-tool-architektur.md) Abschnitt 2), nicht in einem generischen, `toolId`-dispatchenden Handler. `DELETE` ist die einzige Ausnahme: Es hat kein tool-spezifisches Verhalten (nur Prozess-/Katalogzugriff) und liegt deshalb in einer einzigen, tool-übergreifenden Implementierung.
+
+### Cancel
+
+- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/cancel` bricht den aktuell aktiven `ProcessSession` (REGISTRATION/LOGIN/STEP_UP) ab (`ProcessState.CANCELLED`, [Domänenmodell](02-domaenenmodell.md) Abschnitt 4) und rollt `ChannelSession.state` gemäß dem Zustandsdiagramm zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3: „REGISTERING --> ANONYMOUS: cancel or timeout", „STEP_UP_IN_PROGRESS --> AUTHENTICATED: step-up not required anymore").
+- Kein Body nötig — die App-API kennt ohnehin nur `channelSessionId`, nie die interne `processSessionId`.
+- REGISTRATION-Abbruch setzt `ChannelSession.accountId`/`authContextId` zurück (vollständiger Reset, kein halb gebundener Kanal ohne nutzbare Auth-Methode) und bietet in derselben Antwort direkt einen frischen Registrierungsstart an. Ein zuvor über `ident-fsc` bereits angelegter Account bleibt unangetastet liegen und wird bei erneuter Identifikation mit derselben KVNR wiedergefunden.
+- STEP_UP-Abbruch liefert direkt `next={type:"flow", context:"authentication", step:"authenticated"}`.
+- LOGIN-Abbruch bietet in derselben Antwort einen neuen Login-Versuch an (dieselbe Kandidaten-Ermittlung wie beim Login-Start).
+
+### Back/Switch
+
+- `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` verwirft einen aktivierten, aber noch nicht abgeschlossenen Tool-Versuch — für den Fall, dass der Nutzer doch eine andere Methode wählen möchte (oder, bei nur einer verfügbaren Methode je Kategorie, es sich anders überlegt).
+- Wirkung: Die verworfene `toolSessionId` wird sofort ungültig (nicht erst nach Ablauf ihrer TTL); der Prozess bekommt dieselbe Kandidaten-Ermittlung erneut vorgesetzt, die schon beim letzten `Completed` benutzt wurde ([Orchestrierung](04-orchestrierung.md) Abschnitt 1) — ohne dass etwas neu nachgewiesen wurde, ändert sich nur die Wahl.
+- Für das allererste Tool eines Prozesses (Kategorie `IDENT`, aktuell `ident-fsc`) gibt es kein „davor" — dort wirkt `DELETE` wie ein vollständiger Cancel des Prozesses.
+- Diese Aussage hat aktuell wenig praktischen Effekt, weil der Katalog nur eine Methode je Kategorie kennt (`enroll-sms`, `auth-sms`) — sie wird erst mit einem zweiten Kandidaten je Kategorie (z. B. `enroll-passkey`) sichtbar nützlich.
 
 Konsistenzregel:
 
@@ -90,17 +108,20 @@ Response `200`:
 ```json
 {
   "channelSessionId": "c1111111-1111-1111-1111-111111111111",
-  "state": "ANONYMOUS",
-  "stepData": {
-    "options": ["ident-fsc"]
-  },
+  "state": "REGISTERING",
   "next": {
-    "type": "flow",
-    "context": "registration",
-    "step": "selectIdentificationMethod"
+    "type": "tool",
+    "toolId": "ident-fsc",
+    "step": "input"
   }
 }
 ```
+
+Genau eine `IDENT`-Methode ist registriert, deshalb entfällt die Auswahlseite (gleiche
+Skip-bei-einem-Kandidaten-Regel wie bei `ENROLL`/`AUTH`, [Orchestrierung](04-orchestrierung.md)
+Abschnitt 1) - `next` zeigt direkt auf `ident-fsc`. Gäbe es mehrere `IDENT`-Methoden, sähe die
+Antwort wie bei `enrollment`/`auth` aus: `{"type":"flow","context":"registration","step":"selectIdentificationMethod"}`
+plus `stepData={"options":[...]}`.
 
 ### 2) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/ident-fsc`
 
@@ -255,9 +276,18 @@ Response `200`:
     "type": "tool",
     "toolId": "enroll-sms",
     "step": "tanInput"
+  },
+  "demo": {
+    "tan": "123456"
   }
 }
 ```
+
+`demo.tan` ist wie `demo.accountId`/`demo.personId` **kein Teil des produktiven Vertrags** - die
+gerade ausgestellte TAN, ausschließlich damit die Demo-Oberfläche ohne Server-Log-Zugriff
+durchgeklickt werden kann (in einer echten Umgebung abgeschaltet). Nur die Response, die die TAN
+gerade erst ausgestellt hat, trägt das Feld; ein späteres `GET` (Abschnitt 7) liefert nur den
+stabilen `missingFields`-Zustand ohne `demo`-Objekt.
 
 Request (TAN):
 
@@ -285,7 +315,9 @@ Response `200` bei erfolgreicher Verifikation:
 ```
 
 Das `demo`-Objekt ist **kein Teil des produktiven Vertrags**: `accountId` und `personId` sind
-interne Korrelations-IDs, die der Client für keinen Folgeaufruf braucht. Sie werden
+interne Korrelations-IDs, die der Client für keinen Folgeaufruf braucht; bei TAN-Ausstellung
+(Beispiel oben, Response nach der Telefonnummer) trägt es stattdessen `tan` - die gerade
+ausgestellte TAN, die sonst nur im (Mock-)SMS-Versand landet. Alle drei Felder werden
 ausschließlich geliefert, damit die Demo-Oberfläche den Ablauf nachvollziehbar machen kann
 (siehe [10-frontend.md](10-frontend.md)), und in einer echten Umgebung abgeschaltet.
 
@@ -526,6 +558,9 @@ Antwort `201`:
     "type": "tool",
     "toolId": "auth-sms",
     "step": "auth"
+  },
+  "demo": {
+    "tan": "123456"
   }
 }
 ```

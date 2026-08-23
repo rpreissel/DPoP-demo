@@ -1,42 +1,44 @@
-import type { SessionStatus } from '../types'
+import type { Next } from '../types'
 
 interface SessionStatusViewProps {
-  status: SessionStatus
+  channelSessionId?: string
+  state?: string
+  next?: Next
 }
 
-export function SessionStatusView({ status }: SessionStatusViewProps) {
-  const phase = status.next?.context === 'authentication'
-    ? 'authentication'
-    : status.next?.context === 'registration'
-      ? 'registration'
-      : 'new'
+const PHASE_LABELS: Record<string, string> = {
+  ANONYMOUS: 'Neuer Client',
+  REGISTERING: 'Registrierung',
+  AUTHENTICATED: 'Angemeldet',
+  STEP_UP_REQUIRED: 'Step-up erforderlich',
+  STEP_UP_IN_PROGRESS: 'Step-up läuft',
+  LOGGED_OUT: 'Abgemeldet',
+  EXPIRED: 'Abgelaufen',
+}
 
-  const phaseLabel = {
-    new: 'Neuer Client',
-    registration: 'Registrierung',
-    authentication: 'Anmeldung',
-  }[phase]
+export function SessionStatusView({ channelSessionId, state, next }: SessionStatusViewProps) {
+  const badgeVariant = state === 'AUTHENTICATED' ? 'authentication' : 'registration'
 
   return (
     <div className="card">
       <h2>Session-Status</h2>
       <ul className="status-list">
         <li>
-          <span className="label">Aktuelle Phase</span>
-          <span className={`badge badge--${phase === 'authentication' ? 'authentication' : 'registration'}`}>
-            {phaseLabel}
-          </span>
+          <span className="label">Kanalstatus</span>
+          <span className={`badge badge--${badgeVariant}`}>{(state && PHASE_LABELS[state]) ?? state ?? 'Neuer Client'}</span>
         </li>
-        {status.channelSessionId && (
+        {channelSessionId && (
           <li>
             <span className="label">Channel Session</span>
-            <span className="value">{status.channelSessionId}</span>
+            <span className="value">{channelSessionId}</span>
           </li>
         )}
-        {status.next && (
+        {next && (
           <li>
             <span className="label">Nächster Schritt</span>
-            <span className="value">{status.next.context} / {status.next.step}</span>
+            <span className="value">
+              {next.type === 'tool' ? `${next.toolId} / ${next.step}` : `${next.context} / ${next.step}`}
+            </span>
           </li>
         )}
       </ul>

@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1
 
 import org.springframework.http.HttpStatus
 
+/** Error contract from docs/07-betrieb.md #1: HTTP errors are reserved for disrupted flows. */
 class OrchestratorException(
     val status: HttpStatus,
     val errorCode: String,
@@ -10,15 +11,20 @@ class OrchestratorException(
 
     companion object {
         fun notFound(message: String) =
-            OrchestratorException(HttpStatus.GONE, "ATTEMPT_NOT_FOUND", message)
+            OrchestratorException(HttpStatus.NOT_FOUND, "NOT_FOUND", message)
 
-        fun conflict(message: String) =
+        fun bindingMismatch(message: String) =
+            OrchestratorException(HttpStatus.FORBIDDEN, "BINDING_MISMATCH", message)
+
+        fun invalidState(message: String) =
             OrchestratorException(HttpStatus.CONFLICT, "INVALID_STATE_TRANSITION", message)
 
-        fun verificationFailed(message: String) =
-            OrchestratorException(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFICATION_FAILED", message)
+        /** Process expired/consumed, or aborted after exhausted retries. */
+        fun processGone(message: String) =
+            OrchestratorException(HttpStatus.GONE, "PROCESS_GONE", message)
 
-        fun forbidden(message: String) =
-            OrchestratorException(HttpStatus.FORBIDDEN, "BINDING_MISMATCH", message)
+        /** Required level unreachable with the account's current methods (docs/04-orchestrierung.md #1). */
+        fun processAborted(message: String) =
+            OrchestratorException(HttpStatus.GONE, "PROCESS_ABORTED", message)
     }
 }

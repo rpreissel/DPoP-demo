@@ -1,65 +1,30 @@
-import type { NextRouting } from './types'
-
-export interface UIRoute {
-  component: string
-  methods?: string[]
-}
+import type { Next } from './types'
 
 /**
- * Fixed local routing table. Decisions are based on context/step/methods, not backend URLs.
- * All backend URLs are implementation details, not part of routing logic.
+ * Fixed local routing table (docs/10-frontend.md #3). Keyed by (type, toolId|context, step) -
+ * never by URL. Backend URLs stay implementation detail; a new tool only needs a new entry here.
  */
-export const routingTable: Record<string, Record<string, UIRoute>> = {
-  registration: {
-    selectMethod: { component: 'identification-method-selection', methods: ['fsc'] },
-  },
-  fsc: {
-    input: { component: 'fsc-form' },
-  },
-  enrollment: {
-    selectMethod: { component: 'authentication-setup', methods: ['sms'] }, // phone number entry
-    setup:        { component: 'authentication-setup', methods: ['sms'] }, // phone number entry (fallback)
-    tanInput:     { component: 'tan-input-form' },
-  },
-  authentication: {
-    selectMethod:  { component: 'authentication-method-selection', methods: ['sms'] },
-    setup:         { component: 'authentication-setup', methods: ['sms'] }, // phone number re-entry
-    tanInput:      { component: 'tan-input-form' },
-    authenticated: { component: 'authentication-completed' },
-  },
+const toolRoutes: Record<string, Record<string, string>> = {
+  'ident-fsc': { input: 'ident-fsc-form' },
+  'enroll-sms': { enroll: 'sms-enroll-form', tanInput: 'tan-input-form' },
+  'auth-sms': { auth: 'tan-input-form' },
 }
 
-/**
- * Determine which UI component to show based on next routing.
- * @param next routing information from backend
- * @returns component name or null if no matching route
- */
-export function getUIComponent(next: NextRouting | undefined): string | null {
-  if (!next?.context || !next?.step) return null
-
-  const contextRoutes = routingTable[next.context]
-  if (!contextRoutes) return null
-
-  const route = contextRoutes[next.step]
-  if (!route) return null
-
-  return route.component
+const flowRoutes: Record<string, Record<string, string>> = {
+  registration: { selectIdentificationMethod: 'select-method' },
+  enrollment: { selectMethod: 'select-method' },
+  auth: { selectMethod: 'select-method' },
+  authentication: { authenticated: 'authentication-completed' },
 }
 
-/**
- * Get available methods for the current routing state.
- * Use backend methods if provided, otherwise fall back to route configuration.
- */
-export function getAvailableMethods(next: NextRouting | undefined): string[] {
-  if (!next) return []
-
-  // Prefer backend-provided methods
-  if (next.methods && next.methods.length > 0) {
-    return next.methods
+/** Determines which UI component to show, based solely on `next` - never on a URL. */
+export function getUIComponent(next: Next | undefined): string | null {
+  if (!next) return null
+  if (next.type === 'tool' && next.toolId) {
+    return toolRoutes[next.toolId]?.[next.step] ?? null
   }
-
-  // Fall back to routing table configuration
-  const contextRoutes = routingTable[next.context]
-  const route = contextRoutes?.[next.step]
-  return route?.methods ?? []
+  if (next.type === 'flow' && next.context) {
+    return flowRoutes[next.context]?.[next.step] ?? null
+  }
+  return null
 }

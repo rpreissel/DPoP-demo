@@ -1,44 +1,39 @@
-export interface NextRouting {
-  context: string
+/** Pure address, never mixed with content (docs/05-api.md #2). */
+export interface Next {
+  type: 'tool' | 'flow'
+  toolId?: string
+  context?: string
   step: string
-  methods?: string[]
-  enrollmentRef?: string
-  accountId?: number
-  personId?: number
 }
 
-export interface ProcessState {
-  purpose?: string
-  status?: string
-  personId?: number
-  accountId?: number
-}
-
-export interface AttemptState {
-  attemptId?: string
-  attemptType?: string
-  status?: string
+/** Whatever the current step needs to render: missing fields, selection options, or a retry reason. */
+export interface StepData {
   missingFields?: string[]
-  result?: unknown
+  options?: string[]
+  error?: string
+  [key: string]: unknown
 }
 
-export interface DemoHints {
-  tan?: string
-  note?: string
-}
-
-export interface OrchestratorResponse {
+export interface ChannelResponse {
   channelSessionId: string
-  processState?: ProcessState
-  attemptState?: AttemptState
-  next: NextRouting
-  _demo?: DemoHints
+  state: string
+  currentAcr?: string
+  currentAmr?: string[]
+  stepData?: StepData
+  next?: Next
 }
 
-export interface SessionStatus {
-  channelSessionId?: string
-  next?: NextRouting
-  processState?: ProcessState
-  attemptState?: AttemptState
-  demo?: DemoHints
+/** Demo-only values, never part of the production contract (docs/05-api.md #2). */
+export interface DemoInfo {
+  accountId?: number
+  personId?: number
+  /** The just-issued TAN, shown so testers don't need server-log access. */
+  tan?: string
+}
+
+export interface ToolStateResponse {
+  toolSessionId: string
+  stepData?: StepData
+  next: Next
+  demo?: DemoInfo
 }

@@ -19,9 +19,11 @@ class Account(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
+    /** Durable record of how this account's identity was ever established (docs/06-ablaeufe.md #1). */
     @JdbcTypeCode(SqlTypes.JSON)
     var identifications: MutableList<AccountIdentification> = mutableListOf()
 
+    /** Enrolled 2nd-factor methods, with the level they were enrolled under (capping, docs/04-orchestrierung.md). */
     @JdbcTypeCode(SqlTypes.JSON)
     var authenticationMethods: MutableList<AuthenticationMethod> = mutableListOf()
 
@@ -34,17 +36,20 @@ class Account(
     }
 }
 
+/** Matches account.authenticationMethods[] in docs/06-ablaeufe.md #1. */
 class AuthenticationMethod(
     var method: String? = null,
     var active: Boolean = false,
     var createdAt: Instant? = null,
-    var details: Map<String, Any>? = null
+    /** Level in force when this method was set up; caps what it can ever authenticate to. */
+    var enrolledUnderAcr: String? = null,
+    var details: Map<String, Any?>? = null
 )
 
+/** Matches account.identifications[] in docs/06-ablaeufe.md #1. */
 class AccountIdentification(
-    var identificationMethod: String? = null,
-    var identificationQuality: String? = null,
+    var method: String? = null,
+    var loa: String? = null,
     var identifiedAt: Instant? = null,
-    var registrationSessionId: String? = null,
-    var details: Map<String, Any>? = null
+    var details: Map<String, Any?>? = null
 )

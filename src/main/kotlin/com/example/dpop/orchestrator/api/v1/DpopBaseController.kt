@@ -30,11 +30,8 @@ abstract class DpopBaseController(
         append(request.requestURI)
     }
 
+    /** Missing/invalid DPoP - docs/07-betrieb.md #1: 401. */
     @ExceptionHandler(DpopValidationException::class)
     fun handleDpopValidation(e: DpopValidationException): ResponseEntity<Map<String, String>> =
-        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to (e.message ?: "")))
-
-    @ExceptionHandler(IllegalArgumentException::class)
-    fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<Map<String, String>> =
-        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to (e.message ?: "")))
+        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
 }

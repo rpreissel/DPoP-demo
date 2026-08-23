@@ -46,6 +46,10 @@ class ChannelSession(
     @JoinColumn(name = "auth_context_id", insertable = false, updatable = false)
     var authContext: AuthContext? = null
 
+    /** Durable lower bound of the channel (docs/02-domaenenmodell.md #5); survives individual processes. */
+    @Column(name = "required_acr", length = 50)
+    var requiredAcr: String? = null
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null
 

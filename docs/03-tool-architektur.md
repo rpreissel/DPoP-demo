@@ -79,14 +79,32 @@ Tool-Katalog — **keine zentral gepflegte Tabelle**, sondern die Aggregation de
 
 ```mermaid
 classDiagram
-  class ToolSessionFacade {
-    +createTool(...)
-    +patchTool(...)
-    +getTool(...)
+  class IdentFscToolController {
+    +activate(channelSessionId)
+    +patch(toolSessionId, request)
+    +read(toolSessionId)
+  }
+
+  class EnrollSmsToolController {
+    +activate(channelSessionId)
+    +patch(toolSessionId, request)
+    +read(toolSessionId)
+  }
+
+  class AuthSmsToolController {
+    +activate(channelSessionId)
+    +patch(toolSessionId, request)
+    +read(toolSessionId)
+  }
+
+  class ToolResponseAssembler {
+    +beginActivation(...)
+    +loadContext(...)
+    +applyOutcome(...)
   }
 
   class ToolHandlerRegistry {
-    +resolve(toolId)
+    +descriptorOf(toolId)
     +descriptors()
   }
 
@@ -101,8 +119,9 @@ classDiagram
   }
 
   class IdentFscToolHandler {
-    +createOrUpdate(...)
-    +validateAndBuildResult(...)
+    +start(toolSessionId)
+    +patch(toolSessionId, kvnr, name, vorname, fsc, personId)
+    +read(toolSessionId)
   }
 
   class EnrollSmsToolDataRepository {
@@ -116,28 +135,39 @@ classDiagram
   }
 
   class EnrollSmsToolHandler {
-    +createOrUpdate(...)
-    +validateAndBuildResult(...)
+    +start(toolSessionId)
+    +patch(toolSessionId, phoneNumber, tan)
+    +read(toolSessionId)
   }
 
   class AuthSmsUseToolHandler {
-    +createOrUpdate(...)
-    +validateAndBuildResult(...)
+    +start(toolSessionId, enrollmentRef)
+    +patch(toolSessionId, tan)
+    +read(toolSessionId)
   }
 
-  ToolSessionFacade --> ToolHandlerRegistry : uses
-  ToolSessionFacade --> ToolSessionRepository : persists lifecycle
+  IdentFscToolController --> IdentFscToolHandler : calls directly
+  EnrollSmsToolController --> EnrollSmsToolHandler : calls directly
+  AuthSmsToolController --> AuthSmsUseToolHandler : calls directly
 
-  ToolHandlerRegistry --> IdentFscToolHandler : toolId=ident-fsc
-  ToolHandlerRegistry --> EnrollSmsToolHandler : toolId=enroll-sms
-  ToolHandlerRegistry --> AuthSmsUseToolHandler : toolId=auth-sms
+  IdentFscToolController --> ToolResponseAssembler : shared plumbing
+  EnrollSmsToolController --> ToolResponseAssembler : shared plumbing
+  AuthSmsToolController --> ToolResponseAssembler : shared plumbing
+  ToolResponseAssembler --> ToolSessionRepository : persists lifecycle
+
+  IdentFscToolController --> ToolHandlerRegistry : category lookup only
+  EnrollSmsToolController --> ToolHandlerRegistry : category lookup only
+  AuthSmsToolController --> ToolHandlerRegistry : category lookup only
 
   IdentFscToolHandler --> IdentFscToolDataRepository : persists module data
   EnrollSmsToolHandler --> EnrollSmsToolDataRepository : persists module data
   AuthSmsUseToolHandler --> AuthSmsUseToolDataRepository : persists module data
 ```
 
-- Orchestrator-Modul: `ToolSessionFacade`, `ToolHandlerRegistry` (löst `toolId` auf Handler auf und liefert über `descriptors()` den Tool-Katalog), `ToolSessionRepository`.
+- **Ein Controller je Tool**, nicht ein generischer Dispatcher: `IdentFscToolController`, `EnrollSmsToolController`, `AuthSmsToolController` besitzen je Aktivierung (`POST .../tool-activate/{toolId}`), `PATCH` und `GET` für genau ihr Tool, mit eigenen typisierten Request-DTOs (`IdentFscPatchRequest`, `EnrollSmsPatchRequest`, `AuthSmsPatchRequest`) und rufen ihren Handler direkt auf ([Projektrahmen](08-projektrahmen.md) A11: „Lesbarkeit hat Vorrang vor maximal generischem API-Wiring"). Es gibt keinen `toolId`-basierten Laufzeit-Dispatch auf einen Handler mehr.
+- `ToolHandlerRegistry` (Orchestrator-Modul) sammelt beim Start alle `ToolHandler`-Beans ein und aggregiert daraus ausschließlich den Tool-Katalog (`descriptorOf`/`descriptors()`) — keine Handler-Auflösung mehr, da nichts mehr generisch dispatcht.
+- `ToolResponseAssembler` (Orchestrator-Modul) bündelt die Plumbing, die für jedes Tool identisch und sicherheitsrelevant ist: Binding-Prüfung, Aktivierungs-Validierung gegen den aktuellen Prozesszustand, Anlegen der `ToolSession`, Retry-Zählung, Persistieren von `next`. Das bleibt zentral, weil eine Abweichung zwischen Tools hier ein Sicherheits-/Konsistenzproblem wäre, nicht weil hier Fachlogik steckt.
+- `ToolHandler` (Modul `tool_spi`) ist auf `descriptor: ToolDescriptor` verschlankt. `start(toolSessionId, ...)` ist auf den Handler-Klassen selbst deklariert und wird vom jeweiligen Controller direkt aufgerufen — typisiert statt über eine generische `Map<String, Any?>`, z. B. `AuthSmsUseToolHandler.start(toolSessionId, enrollmentRef: EnrollmentRef)`. Referenzen, die der Orchestrator für ein Tool auflöst (z. B. die `EnrollmentRef` für `auth-sms`), werden am Aufrufort im Controller aufgelöst und geprüft; der Handler bekommt nie einen nullable Parameter, sondern entweder einen gültigen Wert oder der Aufruf wird vorher mit `UnresolvableReferenceException` abgebrochen.
 - Modul `id_fsc`: `IdentFscToolHandler` plus `IdentFscToolDataRepository`.
 - Modul `auth_sms`: `EnrollSmsToolHandler`/`AuthSmsUseToolHandler` plus zugehörige Repositories.
 - Damit sind im Bild sowohl der zentrale Lifecycle als auch die eigentlichen Fachklassen in den Modulen sichtbar.
@@ -158,7 +188,7 @@ interface ToolDescriptor {
 - `factorTypes` ist bewusst eine **Menge**: Manche Verfahren erbringen in einem einzigen Durchlauf mehrere Faktoren. Ein Passkey mit User Verification vereint Besitz (Authenticator) und Inhärenz oder Wissen (Biometrie/PIN); eine Smartcard mit PIN vereint Besitz und Wissen. Solche Tools sind für sich genommen bereits Mehr-Faktor ([Orchestrierung](04-orchestrierung.md)).
 - Der Orchestrator interpretiert diese Werte nur; er legt sie nicht fest.
 
-`+validateAndBuildResult(...)` liefert bei jedem Handler denselben Vertrag zurück:
+`start(...)`/`patch(...)` liefern bei jedem Handler denselben Vertrag zurück, auch wenn ihre Parameter je Tool typisiert und unterschiedlich sind:
 
 ```kotlin
 sealed interface ToolOutcome {

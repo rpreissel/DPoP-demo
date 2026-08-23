@@ -25,6 +25,7 @@ Nicht Teil dieser Dokumentation:
 | [08-projektrahmen.md](08-projektrahmen.md) | Aufgabenstellung, Module, Tech-Stack, Versionen, Build | Projektkontext, Einrichtung |
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
+| [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
 
 **Empfohlene Lesereihenfolge:** 01 -> 02 -> 03 -> 04 für das Fachkonzept; 08 für den
 Projektkontext. Wer nur einen Client baut, kommt mit 01, 05 und 10 aus.
@@ -46,27 +47,20 @@ Drei Session-Ebenen mit fallender Lebensdauer:
 ---
 ## Bezug zum bestehenden Code
 
-Diese Dokumentation beschreibt das **Zielbild**. Der Code ist an mehreren Stellen noch auf
-einem früheren Stand (u. a. `Attempt`-Terminologie und methodenspezifische URL-Pfade);
-Abweichungen zwischen Code und Dokumentation sind daher zu erwarten und im Zweifel zugunsten
-der Dokumentation aufzulösen.
-
-Bereits umgesetzt:
-
-- Die `binding_session`-Tabelle wurde vollständig entfernt (Flyway V16); fachlicher Flow-Kontext wird über `ProcessSession` abgebildet.
-- Das alte Public-API (`/orchestrator/sessions`) wurde entfernt; das aktuelle API liegt unter `/orchestrator/api/v1/app/...`.
-- `ChannelSession` ist langlebig und DPoP-gebunden über `binding_key_ref`.
-- `AuthContext` ist als Struktur vorhanden; die Keycloak-Anbindung fehlt noch.
+Diese Dokumentation beschreibt das **Zielbild**; Backend und Frontend wurden gemäß
+[11-umsetzungsplan.md](11-umsetzungsplan.md) vollständig darauf umgebaut (Details und
+nachträgliche Korrekturen dort, Abschnitt 5). Die einzige bewusste Lücke ist die
+Keycloak-Anbindung — sie ist explizit außerhalb dieses Umbaus.
 
 ---
 
 ## Umsetzungsstatus
 
-1. **Schritt 1** ✅: Entitäten `ChannelSession`, `AuthContext`, `SessionEvent` hinzugefügt.
-2. **Schritt 2** ✅: Bestehende Flow-Session in konkrete Prozessklassen aufgeteilt (`RegistrationProcessSession`, `LoginProcessSession`, `StepUpProcessSession`).
-3. **Schritt 3** ✅: App-API-Fassade (`/orchestrator/api/v1/app/...`) aufgebaut; alte Ist-Stand-API entfernt.
-4. **Schritt 4** 🔲: Keycloak-Fassade (`/orchestrator/api/v1/kc/...`) mit Step-up-Start/Confirm (noch nicht implementiert).
-5. **Schritt 5** 🔲: `AuthPolicy` implementieren (siehe [04-orchestrierung.md](04-orchestrierung.md)) — zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte ist fachlich/regulatorisch festzulegen und bewusst noch offen.
+1. **Domänenmodell** ✅: `ChannelSession`, `ProcessSession` (+Subklassen), `AuthContext`, `SessionEvent`, `ToolSession`.
+2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool (`ident-fsc`, `enroll-sms`, `auth-sms`).
+3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Cancel (`POST .../cancel`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
+4. **Keycloak-Fassade** 🔲: `/orchestrator/api/v1/kc/...` mit Step-up-Start/Confirm — bewusst nicht umgesetzt.
+5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus (siehe [11-umsetzungsplan.md](11-umsetzungsplan.md) Abschnitt 4).
 
 ---
 

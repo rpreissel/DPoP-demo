@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.nimbus.jose.jwt)
     implementation(libs.kotlin.reflect)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
     runtimeOnly(libs.h2)
 
     testImplementation(libs.spring.boot.starter.test)

@@ -1,99 +1,184 @@
-import React, { useEffect, useState } from 'react'
-import { createDpopProof, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
+import React, { useEffect, useRef, useState } from 'react'
+import { getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
-import type { SessionStatus, OrchestratorResponse } from './types'
-import { getUIComponent, getAvailableMethods } from './routing.ts'
-import { AuthenticationSetupView } from './components/AuthenticationSetupView'
-import { FscForm } from './components/FscForm'
-import { IdentificationForm } from './components/IdentificationForm'
+import type { DemoInfo, Next, StepData } from './types'
+import { getUIComponent } from './routing.ts'
+import { activateTool, ApiError, cancelProcess, createChannel, getChannel, patchTool } from './api.ts'
+import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
+import { IdentFscForm } from './components/IdentFscForm'
+import { SelectMethodView } from './components/SelectMethodView'
 import { SessionStatusView } from './components/SessionStatusView'
+import { SmsEnrollForm } from './components/SmsEnrollForm'
 import { TanInputForm } from './components/TanInputForm'
+
+interface ActiveTool {
+  toolSessionId: string
+  toolId: string
+}
+
+/**
+ * Renders any thrown error into the UI's error card. ApiErrors carry the server's own message
+ * (docs/07-betrieb.md #1); GONE (session/process expired or exhausted) additionally gets a
+ * concrete next step, since "Process for this tool session is gone" alone isn't actionable.
+ */
+function describeError(prefix: string, err: unknown): string {
+  if (err instanceof ApiError) {
+    const hint = err.status === 410 ? ' Bitte "Reset & Restart" klicken, um neu zu starten.' : ''
+    return `${prefix}: ${err.message}${hint}`
+  }
+  return `${prefix}: ${err instanceof Error ? err.message : String(err)}`
+}
 
 function App() {
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null)
-  const [error, setError] = useState<string>('')
+  const [channelSessionId, setChannelSessionId] = useState<string | undefined>()
+  const [channelState, setChannelState] = useState<string | undefined>()
+  const [currentAcr, setCurrentAcr] = useState<string | undefined>()
+  const [currentAmr, setCurrentAmr] = useState<string[] | undefined>()
+  const [next, setNext] = useState<Next | undefined>()
+  const [stepData, setStepData] = useState<StepData | undefined>()
+  const [demo, setDemo] = useState<DemoInfo | undefined>()
+  const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
+  const [error, setError] = useState('')
   const [showDebug, setShowDebug] = useState(false)
 
-  // Initialize channel session
+  function applyChannelResponse(response: {
+    channelSessionId: string
+    state: string
+    currentAcr?: string
+    currentAmr?: string[]
+    stepData?: StepData
+    next?: Next
+  }) {
+    setChannelSessionId(response.channelSessionId)
+    setChannelState(response.state)
+    setCurrentAcr(response.currentAcr)
+    setCurrentAmr(response.currentAmr)
+    setNext(response.next)
+    setStepData(response.stepData)
+    setActiveTool(null)
+  }
+
+  /**
+   * `response.toolSessionId` is always the tool that was just acted on (`actedToolId`) - NOT
+   * necessarily `response.next.toolId`. A Completed outcome can hand off straight to a different,
+   * not-yet-activated tool (e.g. ident-fsc -> auth-sms on single-candidate skip); pairing that
+   * new toolId with the old toolSessionId would make the auto-activate effect below think the new
+   * tool is already active and never actually activate it (no request ever fires, no TAN issued).
+   */
+  async function applyToolResponse(
+    keyPair: DpopKeyPair,
+    channelId: string,
+    response: { toolSessionId: string; stepData?: StepData; next: Next; demo?: DemoInfo },
+    actedToolId: string
+  ) {
+    setNext(response.next)
+    setStepData(response.stepData)
+    setDemo(response.demo)
+
+    if (response.next.type === 'tool' && response.next.toolId === actedToolId) {
+      setActiveTool({ toolSessionId: response.toolSessionId, toolId: response.next.toolId })
+      return
+    }
+
+    setActiveTool(null)
+    if (response.next.type === 'flow' && response.next.context === 'authentication' && response.next.step === 'authenticated') {
+      // Tool responses don't carry channel-level info (currentAcr/currentAmr/state) - refresh it.
+      const channel = await getChannel(keyPair, channelId)
+      applyChannelResponse(channel)
+    }
+  }
+
+  // Bootstrap: DPoP key + channel init.
   useEffect(() => {
     let active = true
-
-    async function initializeChannel() {
+    async function init() {
       const keyPair = await getOrCreateDpopKeyPair()
       if (!active) return
       setDpop(keyPair)
-
-      const channelUrl = `${window.location.origin}/orchestrator/api/v1/app/channels`
-      const proof = await createDpopProof(keyPair.keyPair, 'POST', channelUrl)
-      const response = await fetch('/orchestrator/api/v1/app/channels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          DPoP: proof,
-        },
-      })
-
-      if (!response.ok) {
-        const body = await response.text()
-        throw new Error(`Channel initialization failed: ${response.status} ${body}`)
-      }
-
-      const result = (await response.json()) as OrchestratorResponse
+      const response = await createChannel(keyPair)
       if (!active) return
-
-      setSessionStatus({
-        channelSessionId: result.channelSessionId,
-        next: result.next,
-        processState: result.processState,
-        attemptState: result.attemptState,
-        demo: result._demo,
-      })
+      applyChannelResponse(response)
     }
-
-    initializeChannel().catch((err) => setError(`Init error: ${err.message}`))
-
+    init().catch((err) => setError(describeError('Init error', err)))
     return () => {
       active = false
     }
   }, [])
 
+  // Auto-activate whenever `next` points at a tool we haven't activated yet.
+  // activatingToolIdRef guards against StrictMode's double effect-invocation in dev: refs update
+  // synchronously (unlike state), so the second invocation sees the first one's in-flight marker
+  // before it can fire a second POST for the same toolId.
+  const activatingToolIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!dpop || !channelSessionId || !next || next.type !== 'tool' || !next.toolId) return
+    if (activeTool?.toolId === next.toolId) return
+    if (activatingToolIdRef.current === next.toolId) return
+
+    const toolId = next.toolId
+    activatingToolIdRef.current = toolId
+    activateTool(dpop, channelSessionId, toolId)
+      .then((response) => applyToolResponse(dpop, channelSessionId, response, toolId))
+      .catch((err) => setError(describeError('Tool activation failed', err)))
+      .finally(() => {
+        if (activatingToolIdRef.current === toolId) activatingToolIdRef.current = null
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dpop, channelSessionId, next, activeTool])
+
   async function handleReset() {
     try {
       setError('')
-      setSessionStatus(null)
+      setChannelSessionId(undefined)
+      setChannelState(undefined)
+      setNext(undefined)
+      setStepData(undefined)
+      setDemo(undefined)
+      setActiveTool(null)
       await resetDpopKeyPair()
-      // Re-trigger initialization
       const keyPair = await getOrCreateDpopKeyPair()
       setDpop(keyPair)
-
-      const channelUrl = `${window.location.origin}/orchestrator/api/v1/app/channels`
-      const proof = await createDpopProof(keyPair.keyPair, 'POST', channelUrl)
-      const response = await fetch('/orchestrator/api/v1/app/channels', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', DPoP: proof },
-      })
-
-      const result = (await response.json()) as OrchestratorResponse
-      setSessionStatus({
-        channelSessionId: result.channelSessionId,
-        next: result.next,
-        processState: result.processState,
-        attemptState: result.attemptState,
-        demo: result._demo,
-      })
+      const response = await createChannel(keyPair)
+      applyChannelResponse(response)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      setError(`Reset failed: ${message}`)
+      setError(describeError('Reset failed', err))
     }
   }
 
-  // Route based on context/step, not URL
-  const uiComponent = getUIComponent(sessionStatus?.next)
-  const availableMethods = getAvailableMethods(sessionStatus?.next)
-  const resultJson = sessionStatus?.attemptState?.result
-    ? JSON.stringify(sessionStatus.attemptState.result as unknown, null, 2)
-    : ''
+  async function handleCancel() {
+    if (!dpop || !channelSessionId) return
+    try {
+      const response = await cancelProcess(dpop, channelSessionId)
+      applyChannelResponse(response)
+    } catch (err) {
+      setError(describeError('Cancel failed', err))
+    }
+  }
+
+  async function handleSelectMethod(toolId: string) {
+    if (!dpop || !channelSessionId) return
+    try {
+      const response = await activateTool(dpop, channelSessionId, toolId)
+      await applyToolResponse(dpop, channelSessionId, response, toolId)
+    } catch (err) {
+      setError(describeError('Tool activation failed', err))
+    }
+  }
+
+  async function handlePatch(body: Record<string, unknown>) {
+    if (!dpop || !channelSessionId || !activeTool) return
+    try {
+      const response = await patchTool(dpop, activeTool.toolSessionId, activeTool.toolId, body)
+      await applyToolResponse(dpop, channelSessionId, response, activeTool.toolId)
+    } catch (err) {
+      setError(describeError('Request failed', err))
+    }
+  }
+
+  const uiComponent = getUIComponent(next)
+  // Nothing to cancel before a process even started, or once it's already finished.
+  const canCancel = !!next && !(next.type === 'flow' && next.context === 'authentication' && next.step === 'authenticated')
 
   return (
     <div className="app">
@@ -109,162 +194,48 @@ function App() {
         </div>
       )}
 
-      {sessionStatus && <SessionStatusView status={sessionStatus} />}
+      <SessionStatusView channelSessionId={channelSessionId} state={channelState} next={next} />
 
-      <div className="controls">
-        <button onClick={handleReset} className="button-reset">
-          Reset & Restart
+      <div className="controls" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
+        {canCancel && (
+          <button className="secondary" onClick={handleCancel}>
+            Abbrechen
+          </button>
+        )}
+        <button className="secondary" onClick={handleReset}>
+          Reset &amp; Restart
         </button>
-        <button onClick={() => setShowDebug(!showDebug)} className="button-debug">
-          {showDebug ? 'Hide Debug' : 'Show Debug'}
+        <button className="secondary" onClick={() => setShowDebug(!showDebug)}>
+          {showDebug ? 'Debug ausblenden' : 'Debug anzeigen'}
         </button>
       </div>
 
-      {showDebug && sessionStatus && (
-        <div className="card debug-card">
+      {showDebug && (
+        <div className="card debug-section">
           <h3>Debug Info</h3>
-          <pre>{JSON.stringify(sessionStatus, null, 2)}</pre>
-          <p>UI Component: {uiComponent || 'none'}</p>
-          <p>Available Methods: {availableMethods.join(', ') || 'none'}</p>
+          <pre>
+            {JSON.stringify({ channelSessionId, channelState, currentAcr, currentAmr, next, stepData, demo, activeTool }, null, 2)}
+          </pre>
         </div>
       )}
 
-      {/* UI components rendered based on routing table, not URLs */}
-      {uiComponent === 'identification-method-selection' && (
-        <IdentificationForm onSubmit={submitIdentification} />
+      {uiComponent === 'select-method' && stepData?.options && (
+        <SelectMethodView options={stepData.options} onSelect={handleSelectMethod} />
       )}
 
-      {uiComponent === 'fsc-form' && <FscForm onSubmit={submitFsc} />}
+      {uiComponent === 'ident-fsc-form' && <IdentFscForm onSubmit={(fields) => handlePatch(fields)} />}
 
-      {(uiComponent === 'authentication-setup' || uiComponent === 'authentication-method-selection') && (
-        <AuthenticationSetupView
-          onSubmit={setupAuthentication}
-          methods={availableMethods}
-          mode={sessionStatus?.next?.context === 'enrollment' ? 'enroll' : 'use'}
-        />
-      )}
+      {uiComponent === 'sms-enroll-form' && <SmsEnrollForm onSubmit={(phoneNumber) => handlePatch({ phoneNumber })} />}
 
       {uiComponent === 'tan-input-form' && (
-        <TanInputForm onSubmit={submitTan} demoTan={sessionStatus?.demo?.tan} />
+        <TanInputForm onSubmit={(tan) => handlePatch({ tan })} error={stepData?.error} demoTan={demo?.tan} />
       )}
 
       {uiComponent === 'authentication-completed' && (
-        <div className="card success-card">
-          <h2>Authentifizierung erfolgreich!</h2>
-          <p>Sie sind angemeldet.</p>
-          {resultJson && <pre>{resultJson}</pre>}
-        </div>
+        <AuthenticationCompletedView currentAcr={currentAcr} currentAmr={currentAmr} demo={demo} />
       )}
     </div>
   )
-
-  // Handlers for form submissions
-  async function submitIdentification(kvnr: string, name: string, vorname: string) {
-    if (!dpop || !sessionStatus?.channelSessionId) return
-
-    const url = `${window.location.origin}/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/identification-methods/fsc/attempts`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch(`/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/identification-methods/fsc/attempts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ kvnr, name, vorname }),
-    })
-
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`Identification start failed: ${response.status} ${body}`)
-    }
-
-    const result = (await response.json()) as OrchestratorResponse
-    setSessionStatus({
-      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
-      next: result.next,
-      processState: result.processState,
-      attemptState: result.attemptState,
-      demo: result._demo,
-    })
-  }
-
-  async function submitFsc(kvnr: string, fsc: string) {
-    if (!dpop || !sessionStatus?.attemptState?.attemptId) return
-
-    const attemptId = sessionStatus.attemptState.attemptId
-    const url = `${window.location.origin}/orchestrator/api/v1/identification-methods/fsc/attempts/${attemptId}`
-    const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
-    const response = await fetch(`/orchestrator/api/v1/identification-methods/fsc/attempts/${attemptId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ kvnr, fsc }),
-    })
-
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`FSC validation failed: ${response.status} ${body}`)
-    }
-
-    const result = (await response.json()) as OrchestratorResponse
-    setSessionStatus({
-      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
-      next: result.next,
-      processState: result.processState,
-      attemptState: result.attemptState,
-      demo: result._demo,
-    })
-  }
-
-  async function setupAuthentication(method: string, mode: string, data?: Record<string, unknown>) {
-    if (!dpop || !sessionStatus?.channelSessionId) return
-
-    const url = `${window.location.origin}/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/authentication-methods/${method}/${mode}/attempts`
-    const proof = await createDpopProof(dpop.keyPair, 'POST', url)
-    const response = await fetch(`/orchestrator/api/v1/app/channels/${sessionStatus.channelSessionId}/authentication-methods/${method}/${mode}/attempts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify(data || {}),
-    })
-
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`Authentication setup failed: ${response.status} ${body}`)
-    }
-
-    const result = (await response.json()) as OrchestratorResponse
-    setSessionStatus({
-      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
-      next: result.next,
-      processState: result.processState,
-      attemptState: result.attemptState,
-      demo: result._demo,
-    })
-  }
-
-  async function submitTan(tan: string) {
-    if (!dpop || !sessionStatus?.attemptState?.attemptId || !sessionStatus?.channelSessionId) return
-
-    const attemptId = sessionStatus.attemptState.attemptId
-    const mode = sessionStatus?.next?.context === 'enrollment' ? 'enroll' : 'use'
-    const url = `${window.location.origin}/orchestrator/api/v1/authentication-methods/sms/${mode}/attempts/${attemptId}`
-    const proof = await createDpopProof(dpop.keyPair, 'PATCH', url)
-    const response = await fetch(`/orchestrator/api/v1/authentication-methods/sms/${mode}/attempts/${attemptId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', DPoP: proof },
-      body: JSON.stringify({ tan }),
-    })
-
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`TAN validation failed: ${response.status} ${body}`)
-    }
-
-    const result = (await response.json()) as OrchestratorResponse
-    setSessionStatus({
-      channelSessionId: result.channelSessionId || sessionStatus.channelSessionId,
-      next: result.next,
-      processState: result.processState,
-      attemptState: result.attemptState,
-      demo: result._demo,
-    })
-  }
 }
 
 export default App
