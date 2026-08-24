@@ -21,6 +21,16 @@ kotlin {
     }
 }
 
+// kotlin("plugin.jpa")'s own default annotation preset isn't opening these jakarta.persistence
+// entities in practice (verified via javap: getters/classes came out final) - configuring the
+// allOpen extension it brings in explicitly is the documented fix so Hibernate can proxy them
+// for lazy loading.
+allOpen {
+    annotation("jakarta.persistence.Entity")
+    annotation("jakarta.persistence.MappedSuperclass")
+    annotation("jakarta.persistence.Embeddable")
+}
+
 repositories {
     mavenCentral()
 }
