@@ -8,6 +8,13 @@ const toolRoutes: Record<string, Record<string, string>> = {
   'ident-fsc': { input: 'ident-fsc-form' },
   'enroll-sms': { enroll: 'sms-enroll-form', tanInput: 'tan-input-form' },
   'auth-sms': { auth: 'tan-input-form' },
+  'enroll-password': { enroll: 'password-enroll-form' },
+  'auth-password': { auth: 'password-login-form' },
+  'enroll-email': { enroll: 'email-enroll-form', codeInput: 'email-code-input-form' },
+  'auth-email': { auth: 'email-code-input-form' },
+  'auth-sms-lookup': { auth: 'email-lookup-form', tanInput: 'tan-input-form' },
+  'auth-password-lookup': { auth: 'email-password-lookup-form' },
+  'auth-email-lookup': { auth: 'email-code-lookup-form', codeInput: 'email-code-input-form' },
 }
 
 const flowRoutes: Record<string, Record<string, string>> = {

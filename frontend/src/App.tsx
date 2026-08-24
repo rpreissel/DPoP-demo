@@ -1,11 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
+import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
 import type { DemoInfo, Next, StepData } from './types'
 import { getUIComponent } from './routing.ts'
-import { activateTool, ApiError, cancelProcess, createChannel, getChannel, patchTool } from './api.ts'
+import {
+  activateTool,
+  ApiError,
+  cancelProcess,
+  createChannel,
+  deactivateMethod,
+  getChannel,
+  logoutChannel,
+  onApiCall,
+  patchTool,
+  raiseRequiredAcr,
+  startManageMethods,
+} from './api.ts'
+import { forgetChannelSessionId, loadChannelSessionId, storeChannelSessionId } from './session.ts'
+import { shorten } from './format.ts'
 import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
+import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
+import { EmailCodeInputForm } from './components/EmailCodeInputForm'
+import { EmailCodeLookupForm } from './components/EmailCodeLookupForm'
+import { EmailEnrollForm } from './components/EmailEnrollForm'
+import { EmailLookupForm } from './components/EmailLookupForm'
+import { EmailPasswordLookupForm } from './components/EmailPasswordLookupForm'
+import { EntryChoiceLinks } from './components/EntryChoiceLinks'
 import { IdentFscForm } from './components/IdentFscForm'
+import { PasswordEnrollForm } from './components/PasswordEnrollForm'
+import { PasswordLoginForm } from './components/PasswordLoginForm'
 import { SelectMethodView } from './components/SelectMethodView'
 import { SessionStatusView } from './components/SessionStatusView'
 import { SmsEnrollForm } from './components/SmsEnrollForm'
@@ -23,7 +46,7 @@ interface ActiveTool {
  */
 function describeError(prefix: string, err: unknown): string {
   if (err instanceof ApiError) {
-    const hint = err.status === 410 ? ' Bitte "Reset & Restart" klicken, um neu zu starten.' : ''
+    const hint = err.status === 410 ? ' Bitte "Kanal leeren" klicken, um neu zu starten.' : ''
     return `${prefix}: ${err.message}${hint}`
   }
   return `${prefix}: ${err instanceof Error ? err.message : String(err)}`
@@ -31,29 +54,72 @@ function describeError(prefix: string, err: unknown): string {
 
 function App() {
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
+  const [jwkThumbprint, setJwkThumbprint] = useState<string | undefined>()
   const [channelSessionId, setChannelSessionId] = useState<string | undefined>()
   const [channelState, setChannelState] = useState<string | undefined>()
   const [currentAcr, setCurrentAcr] = useState<string | undefined>()
   const [currentAmr, setCurrentAmr] = useState<string[] | undefined>()
+  const [activeMethods, setActiveMethods] = useState<string[] | undefined>()
   const [next, setNext] = useState<Next | undefined>()
   const [stepData, setStepData] = useState<StepData | undefined>()
   const [demo, setDemo] = useState<DemoInfo | undefined>()
   const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
   const [error, setError] = useState('')
-  const [showDebug, setShowDebug] = useState(false)
+  // Only takes effect on the next channel-creating action (Verbinden/Login ohne DPoP/Registrieren
+  // below) - needed to reach enroll-password at all: it requires a confirmed email first, but a
+  // single loa1 method already satisfies the default floor and ends registration before password
+  // could ever be offered - only requesting loa2 up front keeps the flow going long enough to
+  // chain sms/email -> password.
+  const [requiredAcr, setRequiredAcr] = useState('')
+  const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
+  const debugIdRef = useRef(0)
+  // Drives the "Sitzung fortsetzen" button's visibility on the "no channel" screen - kept in
+  // sync explicitly (not derived from channelSessionId) since it must survive Clear/Logout
+  // clearing the in-memory state while still reflecting localStorage accurately afterwards.
+  const [rememberedChannelSessionId, setRememberedChannelSessionId] = useState(() => loadChannelSessionId())
+
+  function logEvent(label: string, extra?: { request?: unknown; response?: unknown; error?: string }) {
+    debugIdRef.current += 1
+    setDebugLog((prev) => [{ id: debugIdRef.current, time: new Date().toLocaleTimeString(), label, ...extra }, ...prev].slice(0, 200))
+  }
+
+  // Single source of truth for the debug log's API entries: every call() in api.ts reports here,
+  // so individual handlers below don't each hand-write their own (drift-prone) log entry anymore.
+  useEffect(() => {
+    return onApiCall((entry) => {
+      logEvent(`${entry.method} ${entry.path}`, { request: entry.requestBody, response: entry.responseBody, error: entry.error })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function clearChannelState() {
+    setChannelSessionId(undefined)
+    setChannelState(undefined)
+    setCurrentAcr(undefined)
+    setCurrentAmr(undefined)
+    setActiveMethods(undefined)
+    setNext(undefined)
+    setStepData(undefined)
+    setDemo(undefined)
+    setActiveTool(null)
+  }
 
   function applyChannelResponse(response: {
     channelSessionId: string
     state: string
     currentAcr?: string
     currentAmr?: string[]
+    activeMethods?: string[]
     stepData?: StepData
     next?: Next
   }) {
     setChannelSessionId(response.channelSessionId)
+    storeChannelSessionId(response.channelSessionId)
+    setRememberedChannelSessionId(response.channelSessionId)
     setChannelState(response.state)
     setCurrentAcr(response.currentAcr)
     setCurrentAmr(response.currentAmr)
+    setActiveMethods(response.activeMethods)
     setNext(response.next)
     setStepData(response.stepData)
     setActiveTool(null)
@@ -89,21 +155,26 @@ function App() {
     }
   }
 
-  // Bootstrap: DPoP key + channel init.
+  // Bootstrap: ONLY the DPoP key pair (and its thumbprint) - nothing channel-related happens
+  // automatically. The app must remember its own channelSessionId (docs/02-domaenenmodell.md #3)
+  // and the user explicitly chooses how to start below (resume/connect/login/register); the DPoP
+  // key alone only proves which device this is, it is never a lookup key for resuming a session.
   useEffect(() => {
     let active = true
     async function init() {
       const keyPair = await getOrCreateDpopKeyPair()
       if (!active) return
       setDpop(keyPair)
-      const response = await createChannel(keyPair)
+      const thumbprint = await computeJwkThumbprint(keyPair.publicJwk)
       if (!active) return
-      applyChannelResponse(response)
+      setJwkThumbprint(thumbprint)
+      logEvent('DPoP-Key geladen/erzeugt', { response: { jwkThumbprint: thumbprint, publicJwk: keyPair.publicJwk } })
     }
     init().catch((err) => setError(describeError('Init error', err)))
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-activate whenever `next` points at a tool we haven't activated yet.
@@ -127,22 +198,116 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpop, channelSessionId, next, activeTool])
 
-  async function handleReset() {
+  /**
+   * Every explicit way a channel comes into existence (docs/04-orchestrierung.md, lookup-based
+   * login): "resume" reads a remembered channelSessionId (GET), the rest each mint a brand-new
+   * channel with the corresponding `intent` - "auto" omits it (today's default: DeviceAccountLink
+   * found -> LOGIN, else REGISTRATION).
+   */
+  async function handleStart(mode: 'resume' | 'auto' | 'login' | 'register') {
+    if (!dpop) return
     try {
       setError('')
-      setChannelSessionId(undefined)
-      setChannelState(undefined)
-      setNext(undefined)
-      setStepData(undefined)
-      setDemo(undefined)
-      setActiveTool(null)
+      if (mode === 'resume') {
+        const rememberedId = loadChannelSessionId()
+        if (!rememberedId) return
+        try {
+          const response = await getChannel(dpop, rememberedId)
+          applyChannelResponse(response)
+        } catch (err) {
+          forgetChannelSessionId()
+          setRememberedChannelSessionId(null)
+          throw err
+        }
+        return
+      }
+      const intent = mode === 'auto' ? undefined : mode
+      const response = await createChannel(dpop, requiredAcr || undefined, intent)
+      applyChannelResponse(response)
+    } catch (err) {
+      setError(describeError('Start fehlgeschlagen', err))
+    }
+  }
+
+  /** Local-only: forgets the remembered channelSessionId and resets all channel state - no backend call, unlike Logout. */
+  function handleClearChannel() {
+    forgetChannelSessionId()
+    setRememberedChannelSessionId(null)
+    clearChannelState()
+    setError('')
+    logEvent('Kanal lokal geleert (kein Backend-Aufruf)')
+  }
+
+  /** Forgets this device's identity entirely: deletes the DPoP key, generates a new one. Does NOT create a channel - same "nothing happens automatically" principle as startup. */
+  async function handleRecreateKey() {
+    try {
+      setError('')
+      forgetChannelSessionId()
+      setRememberedChannelSessionId(null)
+      clearChannelState()
       await resetDpopKeyPair()
       const keyPair = await getOrCreateDpopKeyPair()
       setDpop(keyPair)
-      const response = await createChannel(keyPair)
+      const thumbprint = await computeJwkThumbprint(keyPair.publicJwk)
+      setJwkThumbprint(thumbprint)
+      logEvent('DPoP-Key neu erzeugt', { response: { jwkThumbprint: thumbprint, publicJwk: keyPair.publicJwk } })
+    } catch (err) {
+      setError(describeError('Key-Neuerzeugung fehlgeschlagen', err))
+    }
+  }
+
+  /** Keeps the DPoP key (same device) but ends this session on the backend. Does NOT auto-start a new one - the user picks explicitly, same as on first load. */
+  async function handleLogout() {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      await logoutChannel(dpop, channelSessionId)
+      forgetChannelSessionId()
+      setRememberedChannelSessionId(null)
+      clearChannelState()
+    } catch (err) {
+      setError(describeError('Logout failed', err))
+    }
+  }
+
+  /**
+   * Raises this channel's required level and, if the current evidence doesn't already satisfy
+   * it, moves the channel to STEP_UP_IN_PROGRESS - the response's `next` then points at a
+   * candidate AUTH tool (or a selection page), rendered by the very same tool forms/routing
+   * already used for LOGIN, no separate step-up UI needed. A 410 (target level unreachable with
+   * the account's enrolled methods) surfaces via the normal error path.
+   */
+  async function handleStepUp(requiredAcr: string) {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      const response = await raiseRequiredAcr(dpop, channelSessionId, requiredAcr)
       applyChannelResponse(response)
     } catch (err) {
-      setError(describeError('Reset failed', err))
+      setError(describeError('Step-up fehlgeschlagen', err))
+    }
+  }
+
+  /** Voluntary enrollment on an already-AUTHENTICATED channel - offers a new enroll-* tool, which the auto-activate effect below then picks up. */
+  async function handleAddMethod() {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      const response = await startManageMethods(dpop, channelSessionId)
+      applyChannelResponse(response)
+    } catch (err) {
+      setError(describeError('Hinzufügen fehlgeschlagen', err))
+    }
+  }
+
+  async function handleDeactivateMethod(method: string) {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      const response = await deactivateMethod(dpop, channelSessionId, method)
+      applyChannelResponse(response)
+    } catch (err) {
+      setError(describeError('Deaktivieren fehlgeschlagen', err))
     }
   }
 
@@ -179,61 +344,164 @@ function App() {
   const uiComponent = getUIComponent(next)
   // Nothing to cancel before a process even started, or once it's already finished.
   const canCancel = !!next && !(next.type === 'flow' && next.context === 'authentication' && next.step === 'authenticated')
+  // Once a tool is actively awaiting input - or the user is choosing WHICH tool, i.e.
+  // select-method - every other action (bail into a different flow, logout, ...) just competes
+  // for attention with the one that matters: Abbrechen.
+  const inToolMode = !!activeTool || uiComponent === 'select-method'
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>DPoP Demo</h1>
-        <p>React {React.version} + TypeScript + Spring Boot Modulith</p>
-      </header>
+    <div className="app-shell">
+      <div className="app-main">
+        <div className="app">
+          <header className="app-header">
+            <h1>DPoP Demo</h1>
+            <p>React {React.version} + TypeScript + Spring Boot Modulith</p>
+          </header>
 
-      {error && (
-        <div className="card error-card">
-          <h2>Fehler</h2>
-          <p>{error}</p>
+          {error && (
+            <div className="card error-card">
+              <h2>Fehler</h2>
+              <p>{error}</p>
+            </div>
+          )}
+
+          <div className="card">
+            <h2>Geräte-Identität</h2>
+            <ul className="status-list">
+              <li>
+                <span className="label">JWK Thumbprint</span>
+                <span className="value-with-action">
+                  <span className="value" title={jwkThumbprint}>
+                    {shorten(jwkThumbprint)}
+                  </span>
+                  <button className="secondary small" onClick={handleRecreateKey}>
+                    Neu erzeugen
+                  </button>
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          {channelSessionId ? (
+            <>
+              <SessionStatusView channelSessionId={channelSessionId} state={channelState} next={next} onClear={handleClearChannel} />
+              {inToolMode ? (
+                canCancel && (
+                  <div className="controls">
+                    <button className="secondary" onClick={handleCancel}>
+                      Abbrechen
+                    </button>
+                  </div>
+                )
+              ) : (
+                <>
+                  <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />
+                  <div className="controls">
+                    {canCancel && (
+                      <button className="secondary" onClick={handleCancel}>
+                        Abbrechen
+                      </button>
+                    )}
+                    {channelState === 'AUTHENTICATED' && (
+                      <button className="secondary" onClick={handleLogout}>
+                        Logout
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="card">
+              <h2>Kein Kanal aktiv</h2>
+              <p>Es passiert nichts automatisch - wählen Sie, wie der Kanal starten soll.</p>
+              <label className="field-row">
+                Startniveau:
+                <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
+                  <option value="">loa1 (Standard)</option>
+                  <option value="loa2">loa2 (MFA - mehrere Enrollments)</option>
+                </select>
+              </label>
+              <div className="form-actions stacked">
+                {rememberedChannelSessionId && (
+                  <button onClick={() => handleStart('resume')}>Sitzung fortsetzen ({shorten(rememberedChannelSessionId)})</button>
+                )}
+                <button onClick={() => handleStart('auto')}>Verbinden (automatisch)</button>
+                <button className="secondary" onClick={() => handleStart('login')}>
+                  Login ohne DPoP
+                </button>
+                <button className="secondary" onClick={() => handleStart('register')}>
+                  Neuen Account registrieren
+                </button>
+              </div>
+            </div>
+          )}
+
+          {uiComponent === 'select-method' && stepData?.options && (
+            <SelectMethodView options={stepData.options} onSelect={handleSelectMethod} />
+          )}
+
+          {uiComponent === 'ident-fsc-form' && <IdentFscForm onSubmit={(fields) => handlePatch(fields)} />}
+
+          {uiComponent === 'sms-enroll-form' && <SmsEnrollForm onSubmit={(phoneNumber) => handlePatch({ phoneNumber })} />}
+
+          {uiComponent === 'tan-input-form' && (
+            <TanInputForm onSubmit={(tan) => handlePatch({ tan })} error={stepData?.error} demoTan={demo?.tan} />
+          )}
+
+          {uiComponent === 'password-enroll-form' && (
+            <PasswordEnrollForm onSubmit={(fields) => handlePatch(fields)} error={stepData?.error} demoPassword={demo?.password} />
+          )}
+
+          {uiComponent === 'password-login-form' && (
+            <PasswordLoginForm onSubmit={(fields) => handlePatch(fields)} error={stepData?.error} demoPassword={demo?.password} />
+          )}
+
+          {uiComponent === 'email-enroll-form' && (
+            <EmailEnrollForm onSubmit={(email) => handlePatch({ email })} error={stepData?.error} demoEmail={demo?.email} />
+          )}
+
+          {uiComponent === 'email-code-input-form' && (
+            <EmailCodeInputForm onSubmit={(code) => handlePatch({ code })} error={stepData?.error} demoTan={demo?.tan} />
+          )}
+
+          {uiComponent === 'email-lookup-form' && (
+            <EmailLookupForm onSubmit={(email) => handlePatch({ email })} error={stepData?.error} demoEmail={demo?.email} />
+          )}
+
+          {uiComponent === 'email-code-lookup-form' && (
+            <EmailCodeLookupForm onSubmit={(email) => handlePatch({ email })} error={stepData?.error} demoEmail={demo?.email} />
+          )}
+
+          {uiComponent === 'email-password-lookup-form' && (
+            <EmailPasswordLookupForm
+              onSubmit={(fields) => handlePatch(fields)}
+              error={stepData?.error}
+              demoPassword={demo?.password}
+              demoEmail={demo?.email}
+            />
+          )}
+
+          {uiComponent === 'authentication-completed' && (
+            <AuthenticationCompletedView
+              currentAcr={currentAcr}
+              currentAmr={currentAmr}
+              activeMethods={activeMethods}
+              demo={demo}
+              onAddMethod={handleAddMethod}
+              onDeactivateMethod={handleDeactivateMethod}
+              onStepUp={handleStepUp}
+              manageError={error || undefined}
+              infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}
+            />
+          )}
         </div>
-      )}
-
-      <SessionStatusView channelSessionId={channelSessionId} state={channelState} next={next} />
-
-      <div className="controls" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
-        {canCancel && (
-          <button className="secondary" onClick={handleCancel}>
-            Abbrechen
-          </button>
-        )}
-        <button className="secondary" onClick={handleReset}>
-          Reset &amp; Restart
-        </button>
-        <button className="secondary" onClick={() => setShowDebug(!showDebug)}>
-          {showDebug ? 'Debug ausblenden' : 'Debug anzeigen'}
-        </button>
       </div>
 
-      {showDebug && (
-        <div className="card debug-section">
-          <h3>Debug Info</h3>
-          <pre>
-            {JSON.stringify({ channelSessionId, channelState, currentAcr, currentAmr, next, stepData, demo, activeTool }, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {uiComponent === 'select-method' && stepData?.options && (
-        <SelectMethodView options={stepData.options} onSelect={handleSelectMethod} />
-      )}
-
-      {uiComponent === 'ident-fsc-form' && <IdentFscForm onSubmit={(fields) => handlePatch(fields)} />}
-
-      {uiComponent === 'sms-enroll-form' && <SmsEnrollForm onSubmit={(phoneNumber) => handlePatch({ phoneNumber })} />}
-
-      {uiComponent === 'tan-input-form' && (
-        <TanInputForm onSubmit={(tan) => handlePatch({ tan })} error={stepData?.error} demoTan={demo?.tan} />
-      )}
-
-      {uiComponent === 'authentication-completed' && (
-        <AuthenticationCompletedView currentAcr={currentAcr} currentAmr={currentAmr} demo={demo} />
-      )}
+      <DebugSidebar
+        channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
+        log={debugLog}
+      />
     </div>
   )
 }

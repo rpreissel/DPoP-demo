@@ -19,6 +19,8 @@ export interface ChannelResponse {
   state: string
   currentAcr?: string
   currentAmr?: string[]
+  /** All active methods on the account, regardless of whether this session proved them - distinct from currentAmr (session evidence). */
+  activeMethods?: string[]
   stepData?: StepData
   next?: Next
 }
@@ -29,6 +31,10 @@ export interface DemoInfo {
   personId?: number
   /** The just-issued TAN, shown so testers don't need server-log access. */
   tan?: string
+  /** Fixed demo password (same value for enroll/login/lookup), prefilled so testers never have to remember one. */
+  password?: string
+  /** Fixed demo email (same value for enroll-email and both lookup-based logins), prefilled so testers never have to remember one. */
+  email?: string
 }
 
 export interface ToolStateResponse {

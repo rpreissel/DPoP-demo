@@ -86,7 +86,18 @@ export async function resetDpopKeyPair(): Promise<void> {
   await deleteKeyPair()
 }
 
-function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
+/**
+ * RFC 7638 JWK thumbprint - matches the backend's JwkThumbprintService member order exactly
+ * (kty, crv, x, y; not strict lexicographic order) so this displays the SAME value the backend
+ * derives as `bindingKeyRef`, not just "a" thumbprint.
+ */
+export async function computeJwkThumbprint(jwk: JsonWebKey): Promise<string> {
+  const canonical = `{"kty":"${jwk.kty}","crv":"${jwk.crv}","x":"${jwk.x}","y":"${jwk.y}"}`
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  return base64UrlEncode(hash)
+}
+
+export function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) {

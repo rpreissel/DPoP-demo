@@ -1,9 +1,11 @@
 import type { Next } from '../types'
+import { shorten } from '../format'
 
 interface SessionStatusViewProps {
   channelSessionId?: string
   state?: string
   next?: Next
+  onClear: () => void
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -16,7 +18,7 @@ const PHASE_LABELS: Record<string, string> = {
   EXPIRED: 'Abgelaufen',
 }
 
-export function SessionStatusView({ channelSessionId, state, next }: SessionStatusViewProps) {
+export function SessionStatusView({ channelSessionId, state, next, onClear }: SessionStatusViewProps) {
   const badgeVariant = state === 'AUTHENTICATED' ? 'authentication' : 'registration'
 
   return (
@@ -30,7 +32,14 @@ export function SessionStatusView({ channelSessionId, state, next }: SessionStat
         {channelSessionId && (
           <li>
             <span className="label">Channel Session</span>
-            <span className="value">{channelSessionId}</span>
+            <span className="value-with-action">
+              <span className="value" title={channelSessionId}>
+                {shorten(channelSessionId)}
+              </span>
+              <button className="secondary small" onClick={onClear}>
+                Leeren
+              </button>
+            </span>
           </li>
         )}
         {next && (

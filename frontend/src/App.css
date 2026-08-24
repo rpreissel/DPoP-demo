@@ -1,3 +1,14 @@
+.app-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .app {
   max-width: 720px;
   margin: 0 auto;
@@ -81,6 +92,36 @@
   align-items: center;
 }
 
+.section-heading {
+  margin-top: 1.5rem;
+}
+
+.form-actions.stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.controls {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.entry-choice-links {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 button,
 .button {
   display: inline-flex;
@@ -132,6 +173,62 @@ button.secondary:hover,
   background: transparent;
   padding: 0;
   font-weight: 600;
+}
+
+.method-choice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+button.method-choice {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-h);
+  text-align: left;
+  font-weight: 400;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.05s;
+}
+
+button.method-choice:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+button.method-choice:active {
+  transform: translateY(1px);
+}
+
+.method-choice-icon {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.method-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.method-choice-label {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.method-choice-hint {
+  font-size: 0.82rem;
+  color: var(--text);
 }
 
 .status-list {
@@ -208,11 +305,117 @@ pre {
   overflow-x: auto;
 }
 
-.debug-toggle {
-  margin-top: 2rem;
-  text-align: center;
+.debug-sidebar {
+  flex: 0 0 420px;
+  width: 420px;
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  padding: 1.5rem;
+  border-left: 1px solid var(--border);
+  background: var(--code-bg);
+  box-sizing: border-box;
 }
 
-.debug-section {
-  margin-top: 1.5rem;
+.debug-sidebar h2 {
+  margin: 0 0 1rem;
+  color: var(--text-h);
+}
+
+.debug-sidebar h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text-h);
+}
+
+.debug-sidebar section:first-of-type h3 {
+  margin-top: 0;
+}
+
+.debug-sidebar pre {
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.debug-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.debug-log li {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.debug-log li:last-child {
+  border-bottom: none;
+}
+
+.debug-log-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.debug-log-time {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.debug-log-label {
+  color: var(--text-h);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.debug-log-block {
+  margin-top: 0.35rem;
+}
+
+.debug-log-block-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin-bottom: 0.15rem;
+}
+
+.debug-log-block pre {
+  margin: 0;
+}
+
+.value-with-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+button.small,
+.button.small {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .debug-sidebar {
+    width: 100%;
+    min-height: auto;
+    max-height: 60vh;
+    position: static;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
