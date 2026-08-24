@@ -1,8 +1,10 @@
 # DPoP-Bindung
 
 Wie der Kanal kryptographisch an das Gerät gebunden wird. Der daraus abgeleitete
-`binding_key_ref` ist der Schlüssel, über den eine `ChannelSession` wiedererkannt wird
-([02-domaenenmodell.md](02-domaenenmodell.md)).
+`binding_key_ref` beweist ausschließlich, welches GERÄT spricht — er ist bewusst **kein**
+Schlüssel, über den eine `ChannelSession` gefunden oder wiederverwendet wird
+([02-domaenenmodell.md](02-domaenenmodell.md)). Eine konkrete Session wiederzuerkennen ist
+Sache der `channelSessionId`, die der Client selbst merken muss.
 
 ---
 
@@ -38,7 +40,9 @@ Alle Requests des App-Kanals tragen den Header `DPoP: <proof>`.
 
 ## 3) Bindung an die ChannelSession
 
-- Der Kanaleinstieg (`POST /orchestrator/api/v1/app/channels`) nutzt den `binding_key_ref` als Schlüssel: Eine bestehende `ChannelSession` wird wiederverwendet, andernfalls neu angelegt.
-- Pro `binding_key_ref` existiert genau ein aktiver Kanalbezug.
-- Bei jedem Folgerequest muss `ChannelSession.bindingKeyRef` mit dem aktuellen DPoP-Ableitungswert übereinstimmen; andernfalls `403` (Binding-Mismatch, siehe [07-betrieb.md](07-betrieb.md)).
-- Ein Wechsel zwischen Registrierung und Anmeldung ändert den Kanal nicht: Die `channelSessionId` bleibt stabil, nur der interne Prozess wechselt.
+- Der Kanaleinstieg (`POST /orchestrator/api/v1/app/channels`) legt **immer** eine neue `ChannelSession` an — er sucht nie nach einer bestehenden über `binding_key_ref`. Eine bereits laufende Session wiederaufzunehmen ist Sache von `GET /orchestrator/api/v1/app/channels/{channelSessionId}` mit der vom Client gemerkten `channelSessionId` ([05-api.md](05-api.md)).
+- Bei jedem Request gegen eine konkrete `channelSessionId` muss `ChannelSession.bindingKeyRef` mit dem aktuellen DPoP-Ableitungswert übereinstimmen; andernfalls `403` (Binding-Mismatch, siehe [07-betrieb.md](07-betrieb.md)). Das gilt für `GET`/`PATCH`/`cancel`/`logout` gleichermaßen.
+- Pro `binding_key_ref` können über die Zeit mehrere `ChannelSession`-Datensätze entstehen (jeder Kanaleinstieg ohne bekannte `channelSessionId` legt einen neuen an, z. B. nach Logout oder wenn der Client seine gemerkte ID verloren hat) — anders als früher gibt es keinen erzwungenen 1:1-Bezug mehr.
+- Damit ein bereits registriertes Gerät trotzdem nicht jedes Mal neu `ident-fsc` durchlaufen muss, existiert `DeviceAccountLink` (`binding_key_ref -> accountId`, [02-domaenenmodell.md](02-domaenenmodell.md)) als eigener, von der einzelnen `ChannelSession` unabhängiger Datensatz. Der Kanaleinstieg liest ihn, um eine frische `ChannelSession` direkt mit `accountId` vorzubelegen (-> Login statt Registrierung).
+- Zeitpunkt bewusst gewählt, nicht `AUTHENTICATED` und nicht `Identified`: Der Link entsteht/aktualisiert sich, sobald `Completed.Enrolled` ein erstes Auth-Mittel anlegt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1) — nicht erst, wenn der Kanal sein eigenes `requiredAcr` erreicht. Ein Kanal, der z. B. `loa2` verlangt, bricht nach nur einem `loa1`-Mittel noch nicht ab; wird die Session danach abgebrochen, soll ein neues Gerät-Login trotzdem direkt das vorhandene Mittel anbieten, statt auf das (kanalspezifische) Erreichen von `loa2` zu warten. Bei bloßer Identifikation (`Completed.Identified`) entsteht dagegen **kein** Link: Ohne ein angelegtes Auth-Mittel gäbe es nichts, womit ein neuer Kanal die Identität erneut belastbar prüfen könnte — das würde bedeuten, dass der Besitz des DPoP-Keys allein als Login-Nachweis durchginge. Ein Kanal ohne Link nach abgebrochener Registrierung durchläuft deshalb bewusst wieder vollständig `ident-fsc`.
+- Ein Wechsel zwischen Registrierung und Anmeldung ändert den Kanal nicht: Innerhalb EINER `ChannelSession` bleibt die `channelSessionId` stabil, nur der interne Prozess wechselt.

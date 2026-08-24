@@ -23,6 +23,8 @@ classDiagram
   class Account {
     long id
     long personId
+    string email
+    Instant emailConfirmedAt
     json identifications
     json authenticationMethods
   }
@@ -140,7 +142,9 @@ Regel für `details`: Der Eintrag belegt, **dass und wie** geprüft wurde — ni
 
 Speicherorte:
 
-- Tabelle `account`: `personId` als Bezug zur identifizierten Person (Grundlage für `findOrCreateAccount`), `identifications` (JSON-Array) als dauerhafte Historie der angewendeten Identifikationsverfahren und `authenticationMethods` (JSON-Array) mit generischer Referenz auf Enrollment-Daten, `enrolledUnderAcr` und Nachweis-`details`; letztere geschrieben von `enroll-sms`, gelesen von `auth-sms`.
+- Tabelle `account`: `personId` als Bezug zur identifizierten Person (Grundlage für `findOrCreateAccount`), `email`/`emailConfirmedAt` als eigene Spalten (siehe unten), `identifications` (JSON-Array) als dauerhafte Historie der angewendeten Identifikationsverfahren und `authenticationMethods` (JSON-Array) mit generischer Referenz auf Enrollment-Daten, `enrolledUnderAcr` und Nachweis-`details`; letztere geschrieben von `enroll-sms`, gelesen von `auth-sms`.
+- `email`/`emailConfirmedAt` liegen wie `personId` direkt und ungejsont auf `Account` (Migration `V6__add_auth_email.sql`), nicht als Eintrag in `authenticationMethods[].details` oder einer separaten Lookup-Tabelle: Ein Account hat höchstens eine bestätigte E-Mail zu jeder Zeit — dieselbe Behandlung wie `personId`. Das erlaubt, dieselbe E-Mail sowohl als bestätigtes Auth-Mittel (`enroll-email`/`auth-email`, [Tool-Architektur](03-tool-architektur.md) Abschnitt 1) als auch — perspektivisch — als Identifikator für einen lookup-basierten Login zu nutzen. `AccountService.confirmEmail(accountId, email)` setzt `emailConfirmedAt`; aufgerufen aus `ToolOutcomeProcessor.handleEnrolled`, sobald `method=="email"` ([Orchestrierung](04-orchestrierung.md) Abschnitt 1) — der Wert kommt dabei aus `Completed.Enrolled.auditDetails["email"]`, wird aber vor dem generischen `details`-Blob entfernt, um ihn nicht doppelt zu führen. Ein eindeutiger Index (`idx_account_email`) verhindert doppelt vergebene Adressen; `NULL` zählt dabei standardkonform nicht als Duplikat, die Eindeutigkeit gilt also nur unter bereits bestätigten E-Mails.
+- `enroll-password`/`auth-password` (Modul `auth_password`) führen bewusst **kein** eigenes Identifikator-Feld mehr (`username`-Spalte entfernt, Migration `V7__auth_password_drop_username.sql`): Die bestätigte `account.email` übernimmt diese Rolle, erzwungen über die Tool-Vorbedingung `ToolDescriptor.requiresConfirmedEmail` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2).
 - Beide Arrays halten damit nicht nur den funktionalen Zustand („welche Nummer ist hinterlegt"), sondern auch den Nachweis, unter welchen Bedingungen er zustande kam. Der `AuthSmsEnrollment`-Datensatz im Modul bleibt bewusst schlank und trägt keine Audit-Information.
 - Tabelle `auth_sms`: das langlebige SMS-Enrollment, reduziert auf `id`, `phoneNumber`, `createdAt`. Es entsteht erst nach erfolgreicher TAN-Prüfung, existiert also per Definition nur gültig — ein `validated`-Flag ist damit überflüssig, ebenso `updatedAt` (nach dem Anlegen ändert sich nichts mehr). Ob die Methode später deaktiviert wird, steht in `account.authenticationMethods[].active`.
 - **Keine TAN im Enrollment**: Die ausgestellte TAN ist ein versuchsbezogenes Einmalgeheimnis und liegt deshalb in der jeweiligen ToolData-Tabelle, gehasht und mit Ablaufzeit. Das ist nicht nur sauberer, sondern verhindert einen echten Fehler: Zwei parallele Versuche (zweites Gerät, Doppel-Tap) würden sich sonst gegenseitig die TAN im gemeinsamen Enrollment-Datensatz überschreiben.

@@ -55,8 +55,14 @@ Tool-Katalog — **keine zentral gepflegte Tabelle**, sondern die Aggregation de
 | toolId | Kategorie | method | factorTypes | maxAcr | Modul |
 |---|---|---|---|---|---|
 | `ident-fsc` | Identifikation | `fsc` | `{possession}` | `loa2` | `id_fsc` |
-| `enroll-sms` | Enrollment | `sms` | `{possession}` | `loa2` | `auth_sms` |
-| `auth-sms` | Authentifizierung | `sms` | `{possession}` | `loa2` | `auth_sms` |
+| `enroll-sms` | Enrollment | `sms` | `{possession}` | `loa1` | `auth_sms` |
+| `auth-sms` | Authentifizierung | `sms` | `{possession}` | `loa1` | `auth_sms` |
+| `enroll-password` | Enrollment | `password` | `{knowledge}` | `loa1` | `auth_password` |
+| `auth-password` | Authentifizierung | `password` | `{knowledge}` | `loa1` | `auth_password` |
+| `enroll-email` | Enrollment | `email` | `{possession}` | `loa1` | `auth_email` |
+| `auth-email` | Authentifizierung | `email` | `{possession}` | `loa1` | `auth_email` |
+| `auth-sms-lookup` | Authentifizierung | `sms` | `{possession}` | `loa1` | `auth_sms` |
+| `auth-password-lookup` | Authentifizierung | `password` | `{knowledge}` | `loa1` | `auth_password` |
 | `auth-passkey` (Beispiel) | Authentifizierung | `passkey` | `{possession, inherence}` | `loa3` | `auth_passkey` |
 
 - Jedes Modul liefert diese Angaben selbst. Es weiß am besten, welche Faktorart es abdeckt und welches Niveau sein Verfahren maximal tragen kann — dieselbe Begründung, aus der bereits `amr` und `achievedAcr` aus dem Modul kommen (Tool-Architektur). Ein neues Modul bringt seine Beschreibung mit; niemand muss eine zentrale Liste nachpflegen und dabei etwas vergessen.
@@ -65,6 +71,9 @@ Tool-Katalog — **keine zentral gepflegte Tabelle**, sondern die Aggregation de
 - `factorTypes` (`knowledge`, `possession`, `inherence`) ist die Grundlage für Mehr-Faktor-Prüfungen ([Orchestrierung](04-orchestrierung.md)). MFA bedeutet zwei **verschiedene** Faktorarten, nicht zwei Methoden — ohne diese Angabe könnten zwei Wissensfaktoren fälschlich als MFA durchgehen. Die Angabe gehört zur Methode: Enroll- und Auth-Tool derselben `method` melden dieselben Faktorarten.
 - Es ist eine Menge, weil ein einzelnes Verfahren mehrere Faktoren gleichzeitig erbringen kann (Zeile `auth-passkey`): Der Authenticator ist Besitz, die User Verification darauf Inhärenz oder Wissen. Solche Tools erfüllen MFA im Alleingang.
 - Zentral bleibt nur, was ein einzelnes Modul nicht wissen *kann*: welches Niveau sich aus einer **Kombination** von Nachweisen ergibt und welches Niveau eine Ressource fordert. Das ist Sache der `AuthPolicy` ([Orchestrierung](04-orchestrierung.md)).
+- `enroll-password`/`auth-password` verzichten bewusst auf ein eigenes Identifikator-Feld — kein `username` mehr (Migration `V7__auth_password_drop_username.sql`, das Feld existierte in `V4__add_auth_password.sql`). Die bestätigte Account-E-Mail (`account.email`, [Abläufe](06-ablaeufe.md) Abschnitt 1) ist der implizite Login-Bezeichner. Voraussetzung dafür ist eine Tool-Vorbedingung, `ToolDescriptor.requiresConfirmedEmail` (Abschnitt 2).
+- `enroll-email`/`auth-email` (Modul `auth_email`, Migration `V6__add_auth_email.sql`) melden `factorTypes={possession}` wie `enroll-sms`/`auth-sms`, sind aber ein eigenständiges Modul statt Teil von `auth_sms`. Der bestätigte Wert landet nicht in einer modul-eigenen Enrollment-Tabelle, sondern direkt auf `Account` (`email`/`emailConfirmedAt`, [Abläufe](06-ablaeufe.md) Abschnitt 1) — der `enrollmentRef` in `Completed.Enrolled` ist deshalb nur ein fester, inerter Platzhalter (`{type:"account_email", id:"self"}`). `auth-email` deckt aktuell nur den geräte-gebundenen Fall ab: Es authentifiziert gegen die bereits über den Account bekannte, bestätigte E-Mail-Adresse; ein `auth-email-lookup` existiert (noch) nicht, nur `sms`/`password` haben `-lookup`-Zwillinge (Bead-Scope).
+- `auth-sms-lookup`/`auth-password-lookup` (Migration `V9__add_lookup_login_tools.sql`) sind die lookup-basierten Zwillinge von `auth-sms`/`auth-password` für "Login ohne DPoP" ([Orchestrierung](04-orchestrierung.md) Abschnitt 4): gleiche `method`/`factorTypes`/`maxAcr` (dasselbe Credential, nur ein anderer Weg, es zu präsentieren), aber `deviceBound = false` — sie lösen den Account selbst über eine eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen, und sind nur über `POST /channels {"intent":"login"}` erreichbar, nie über die normale `AuthPolicy.candidateTools`-Kandidatenermittlung.
 
 - `ToolState` (`INPUT_REQUIRED`, `VERIFIED`, ...) wird nicht auf der Tool-Entität gespeichert, sondern vom konkreten Handler aus dem methodenspezifischen Zustand ermittelt. Dasselbe gilt für `stepData`: Es ist kein persistiertes Feld, sondern wird bei jeder Antwort neu aus den Moduldaten aufgebaut.
 - Routing-Information (`next.type`, `next.toolId`/`next.context`, `next.step`) gehört zur `ProcessSession`, nicht zum Tool.
@@ -97,7 +106,7 @@ classDiagram
     +read(toolSessionId)
   }
 
-  class ToolResponseAssembler {
+  class ToolControllerSupport {
     +beginActivation(...)
     +loadContext(...)
     +applyOutcome(...)
@@ -150,10 +159,10 @@ classDiagram
   EnrollSmsToolController --> EnrollSmsToolHandler : calls directly
   AuthSmsToolController --> AuthSmsUseToolHandler : calls directly
 
-  IdentFscToolController --> ToolResponseAssembler : shared plumbing
-  EnrollSmsToolController --> ToolResponseAssembler : shared plumbing
-  AuthSmsToolController --> ToolResponseAssembler : shared plumbing
-  ToolResponseAssembler --> ToolSessionRepository : persists lifecycle
+  IdentFscToolController --> ToolControllerSupport : shared plumbing
+  EnrollSmsToolController --> ToolControllerSupport : shared plumbing
+  AuthSmsToolController --> ToolControllerSupport : shared plumbing
+  ToolControllerSupport --> ToolSessionRepository : persists lifecycle
 
   IdentFscToolController --> ToolHandlerRegistry : category lookup only
   EnrollSmsToolController --> ToolHandlerRegistry : category lookup only
@@ -166,10 +175,12 @@ classDiagram
 
 - **Ein Controller je Tool**, nicht ein generischer Dispatcher: `IdentFscToolController`, `EnrollSmsToolController`, `AuthSmsToolController` besitzen je Aktivierung (`POST .../tool-activate/{toolId}`), `PATCH` und `GET` für genau ihr Tool, mit eigenen typisierten Request-DTOs (`IdentFscPatchRequest`, `EnrollSmsPatchRequest`, `AuthSmsPatchRequest`) und rufen ihren Handler direkt auf ([Projektrahmen](08-projektrahmen.md) A11: „Lesbarkeit hat Vorrang vor maximal generischem API-Wiring"). Es gibt keinen `toolId`-basierten Laufzeit-Dispatch auf einen Handler mehr.
 - `ToolHandlerRegistry` (Orchestrator-Modul) sammelt beim Start alle `ToolHandler`-Beans ein und aggregiert daraus ausschließlich den Tool-Katalog (`descriptorOf`/`descriptors()`) — keine Handler-Auflösung mehr, da nichts mehr generisch dispatcht.
-- `ToolResponseAssembler` (Orchestrator-Modul) bündelt die Plumbing, die für jedes Tool identisch und sicherheitsrelevant ist: Binding-Prüfung, Aktivierungs-Validierung gegen den aktuellen Prozesszustand, Anlegen der `ToolSession`, Retry-Zählung, Persistieren von `next`. Das bleibt zentral, weil eine Abweichung zwischen Tools hier ein Sicherheits-/Konsistenzproblem wäre, nicht weil hier Fachlogik steckt.
+- `ToolControllerSupport` (Orchestrator-Modul) bündelt die Plumbing, die für jedes Tool identisch und sicherheitsrelevant ist: Binding-Prüfung, Aktivierungs-Validierung gegen den aktuellen Prozesszustand, Prüfung deklarierter Tool-Vorbedingungen (`validatePreconditions`, Abschnitt 2 unten), Kontosperre bei zu vielen Fehlversuchen (nur Kategorie `AUTH`, siehe [Betrieb](07-betrieb.md)), Anlegen der `ToolSession`, Retry-Zählung, Persistieren von `next`. Das bleibt zentral, weil eine Abweichung zwischen Tools hier ein Sicherheits-/Konsistenzproblem wäre, nicht weil hier Fachlogik steckt.
 - `ToolHandler` (Modul `tool_spi`) ist auf `descriptor: ToolDescriptor` verschlankt. `start(toolSessionId, ...)` ist auf den Handler-Klassen selbst deklariert und wird vom jeweiligen Controller direkt aufgerufen — typisiert statt über eine generische `Map<String, Any?>`, z. B. `AuthSmsUseToolHandler.start(toolSessionId, enrollmentRef: EnrollmentRef)`. Referenzen, die der Orchestrator für ein Tool auflöst (z. B. die `EnrollmentRef` für `auth-sms`), werden am Aufrufort im Controller aufgelöst und geprüft; der Handler bekommt nie einen nullable Parameter, sondern entweder einen gültigen Wert oder der Aufruf wird vorher mit `UnresolvableReferenceException` abgebrochen.
 - Modul `id_fsc`: `IdentFscToolHandler` plus `IdentFscToolDataRepository`.
 - Modul `auth_sms`: `EnrollSmsToolHandler`/`AuthSmsUseToolHandler` plus zugehörige Repositories.
+- Modul `auth_password`: `EnrollPasswordToolHandler`/`AuthPasswordUseToolHandler` plus zugehörige Repositories; kein eigenes Identifikator-Feld mehr (siehe oben).
+- Modul `auth_email`: `EnrollEmailToolHandler`/`AuthEmailUseToolHandler` plus zugehörige Repositories und ein eigener `EmailCodeGenerator`. Bewusst **nicht** mit dem strukturell fast identischen `TanGenerator` aus `auth_sms` geteilt: Kotlin `internal` gilt pro Compilation-Modul, nicht pro Package — eine gemeinsame Nutzung über `auth_sms`/`auth_email` hinweg wäre ein stiller Verstoß gegen genau die Modulith-Grenze, die beide Module voneinander trennen soll.
 - Damit sind im Bild sowohl der zentrale Lifecycle als auch die eigentlichen Fachklassen in den Modulen sichtbar.
 
 Jeder Handler beschreibt sich zusätzlich selbst. Der Orchestrator sammelt diese Descriptors beim Start ein — daraus entsteht der Tool-Katalog aus Abschnitt 1, ohne dass irgendwo eine Liste gepflegt werden müsste:
@@ -181,12 +192,18 @@ interface ToolDescriptor {
     val method: String                     // "sms" — verbindet enroll-sms und auth-sms
     val factorTypes: Set<FactorType>       // Faktorarten, die das Verfahren abdecken kann
     val maxAcr: String                     // höchstes Niveau, das dieses Verfahren tragen kann
+    val requiresConfirmedEmail: Boolean    // Vorbedingung fürs Aktivieren; Default false
+        get() = false
+    val deviceBound: Boolean               // false nur bei den -lookup-Tools; Default true
+        get() = true
 }
 ```
 
 - `maxAcr` und `factorTypes` sind statisch und dienen der Vorauswahl: Die `AuthPolicy` muss entscheiden können, ob ein Tool eine offene Lücke überhaupt schließen *könnte*, bevor sie es dem Nutzer anbietet. Was der konkrete Durchlauf tatsächlich erbracht hat, meldet `Completed` (`achievedAcr`, `factorTypes`) — nie mehr, als der Descriptor zulässt.
 - `factorTypes` ist bewusst eine **Menge**: Manche Verfahren erbringen in einem einzigen Durchlauf mehrere Faktoren. Ein Passkey mit User Verification vereint Besitz (Authenticator) und Inhärenz oder Wissen (Biometrie/PIN); eine Smartcard mit PIN vereint Besitz und Wissen. Solche Tools sind für sich genommen bereits Mehr-Faktor ([Orchestrierung](04-orchestrierung.md)).
 - Der Orchestrator interpretiert diese Werte nur; er legt sie nicht fest.
+- `requiresConfirmedEmail` ist bewusst ein einzelnes, minimales Boolean statt eines generischen Vorbedingungs-Enums — eine bestätigte E-Mail war der einzige konkrete Vorbedingungsfall (aktuell nur `enroll-password = true`). Zwei Stellen prüfen das unabhängig voneinander, beide notwendig für Korrektheit: `AuthPolicy.enrollmentCandidates()` filtert das Tool aus dem Angebot (`!it.requiresConfirmedEmail || account.emailConfirmed`, [Orchestrierung](04-orchestrierung.md) Abschnitt 2); `ToolControllerSupport.validatePreconditions(toolId, accountId)` weist unabhängig davon eine direkte Aktivierung ab, selbst wenn ein Client `tool-activate/enroll-password` unter Umgehung der angebotenen Kandidatenliste direkt aufruft — `validateActivation` prüft dabei nur die Tool-*Kategorie* gegen den aktuellen Auswahlkontext, nicht den konkreten Kandidaten, und könnte einen präconditions-gebundenen Kandidaten sonst durchlassen.
+- `deviceBound` unterscheidet, ob ein Tool voraussetzt, dass der Account bereits über den Kanal/Prozess bekannt ist (Normalfall, Default `true`), oder ihn selbst auflöst (nur `auth-sms-lookup`/`auth-password-lookup`, [Orchestrierung](04-orchestrierung.md) Abschnitt 4). Nötig, weil ein `-lookup`-Tool bewusst dieselbe `method` wie sein geräte-gebundenes Geschwister meldet (dasselbe Credential) — ohne den Filter könnte `AuthPolicy.candidateTools()`s Lookup für eine ganz gewöhnliche, bereits Account-gebundene Session mehrdeutig auf den `-lookup`-Zwilling statt das Original treffen.
 
 `start(...)`/`patch(...)` liefern bei jedem Handler denselben Vertrag zurück, auch wenn ihre Parameter je Tool typisiert und unterschiedlich sind:
 

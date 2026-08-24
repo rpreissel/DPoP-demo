@@ -93,8 +93,8 @@ Ziel: Endpunkte aus [05-api.md](05-api.md).
 ### Phase B5: Betrieb (ohne Keycloak-Anteil)
 
 - Transaktionale Klammer um die `Completed`-Verarbeitung (ein Commit für Moduldaten + Account + `ProcessSession` + `AuthContext`), SMS-Versand bewusst außerhalb der Transaktion.
-- Aufräum-Jobs je Aufbewahrungsfrist aus [07-betrieb.md](07-betrieb.md) Abschnitt 3 (`*ToolData` 24h, `ToolSession` 24h, `ProcessSession` 7 Tage, `AuthContext` bei Logout, `ChannelSession` 30 Tage, `SessionEvent` 90 Tage) — je Modul eigenständig, kein zentraler Löschbefehl.
-- `AuthSmsEnrollment`/`account.*` explizit vom Cleanup ausnehmen.
+- Aufräum-Jobs je Aufbewahrungsfrist aus [07-betrieb.md](07-betrieb.md) Abschnitt 3 (`*ToolData` 24h, `ToolSession` 24h, `ProcessSession` 7 Tage, `AuthContext` bei Logout, `ChannelSession` 24h, `SessionEvent` 90 Tage) — je Modul eigenständig, kein zentraler Löschbefehl.
+- `AuthSmsEnrollment`/`account.*`/`DeviceAccountLink`/`LoginAttemptThrottle` explizit vom Cleanup ausnehmen.
 
 ### Phase B6: Tests
 

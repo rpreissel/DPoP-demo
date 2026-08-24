@@ -57,7 +57,7 @@ Keycloak-Anbindung — sie ist explizit außerhalb dieses Umbaus.
 ## Umsetzungsstatus
 
 1. **Domänenmodell** ✅: `ChannelSession`, `ProcessSession` (+Subklassen), `AuthContext`, `SessionEvent`, `ToolSession`.
-2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool (`ident-fsc`, `enroll-sms`, `auth-sms`).
+2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool (`ident-fsc`, `enroll-sms`, `auth-sms`, `enroll-password`, `auth-password`, `enroll-email`, `auth-email`).
 3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Cancel (`POST .../cancel`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
 4. **Keycloak-Fassade** 🔲: `/orchestrator/api/v1/kc/...` mit Step-up-Start/Confirm — bewusst nicht umgesetzt.
 5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus (siehe [11-umsetzungsplan.md](11-umsetzungsplan.md) Abschnitt 4).

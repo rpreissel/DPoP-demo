@@ -56,6 +56,8 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms` und `auth-sms`) |
 | M4 | `account` | Verwaltung von Konten, Identifikationen und Authentifizierungsmethoden |
 | M5 | `ext_stammdaten` | Zugriff auf externe Stammdaten; verwaltet `Person`-Entitäten mit Adressdaten |
+| M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password` und `auth-password`), voraussetzungsgebunden über `ToolDescriptor.requiresConfirmedEmail` ([Tool-Architektur](03-tool-architektur.md)) |
+| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email` und `auth-email`); bewusst eigenständiges Modul statt Teil von `auth_sms` (eigener `EmailCodeGenerator`, [Tool-Architektur](03-tool-architektur.md)) |
 
 ### Modulabhängigkeiten (C4 Component View)
 

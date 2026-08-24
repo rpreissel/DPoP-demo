@@ -66,6 +66,8 @@ sessionEvents.record(processSession, outcome)
 
 - Schritt 2 zeigt, warum `Authenticated` kein Leerfall ist: Jeder erfolgreiche Tool-Abschluss vermerkt seine Methode im `AuthContext` (sichtbar für den Client über `GET /channels/...` als `currentAmr`/`currentAcr`), aktualisiert bei Step-up `achievedAcr` und erzeugt einen `SessionEvent`. Nur der *account-bezogene* Teil in Schritt 1 unterscheidet sich je Kategorie.
 - Die Deckelung im `Authenticated`-Zweig ist der Grund, warum `enrolledUnderAcr` am Methodeneintrag steht (Datenmodell in [06-ablaeufe.md](06-ablaeufe.md)): Ein Tool darf melden, welches Niveau es *technisch* erreicht hat, aber der Orchestrator begrenzt es auf das Niveau, unter dem die verwendete Methode eingerichtet wurde. Andernfalls ließe sich über eine in schwacher Session hinterlegte Methode dauerhaft ein höheres Niveau erschleichen. Bei `Identified` und `Enrolled` gibt es nichts zu deckeln — dort *entsteht* das Niveau gerade erst.
+- `Enrolled` deaktiviert vor dem Anlegen automatisch alle bisher aktiven Einträge derselben `method` (`AccountService.addAuthenticationMethod`: `account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }`). Ein erneutes Enrollment — etwa eine neu bestätigte E-Mail-Adresse, nachdem bereits einmal `enroll-email` durchlaufen wurde — **ersetzt** die alte Methode, statt sie zu verdecken. Ohne diese Regel könnten zwei gleichzeitig aktive Einträge derselben Methode entstehen, die `canAccountReach`/`candidateTools`/`resolveAcr` (Abschnitt 2) fälschlich doppelt zählen würden.
+- Bei `method=="email"` entnimmt der Orchestrator vorab `auditDetails["email"]` und ruft `AccountService.confirmEmail(accountId, email)`, bevor der Rest von `auditDetails` in `authenticationMethods[].details` landet — die E-Mail selbst wird dabei aus diesem Blob entfernt. Grund: Die bestätigte E-Mail ist ein first-class Feld auf `Account` (`email`/`emailConfirmedAt`, [Abläufe](06-ablaeufe.md) Abschnitt 1), keine Dopplung im generischen Audit-`details`.
 - Zwei Ebenen für dieselbe Information, bewusst getrennt: `AuthContext.currentAmr` beschreibt **diese Session** und verschwindet mit ihr — ein späterer reiner SMS-Login hat korrekt nur `["sms"]`. `account.identifications` dagegen ist **dauerhaft** und beantwortet, mit welchem Verfahren und Vertrauensniveau die Identität dieses Accounts überhaupt einmal festgestellt wurde. Ohne diesen Eintrag wäre die Herkunft der Identität nach Ablauf der Audit-Frist ([Betrieb](07-betrieb.md)) nicht mehr feststellbar.
 - `findOrCreateAccount` ([API](05-api.md) #2) findet bei erneuter Identifikation mit derselben KVNR den bestehenden Account wieder, statt einen zweiten anzulegen. Dieser Account kann bereits eine aktive Methode haben, die `requiredAcr` erreicht — dann gäbe es nichts zu enrollen, und `enrollmentCandidates` liefert erwartungsgemäß eine leere Liste. Die `Identified`-Zeile prüft deshalb `canAccountReach` **vor** `enrollmentCandidates`; andernfalls bräche der Prozess mit `410 PROCESS_ABORTED` ab, obwohl der Nutzer sich nur erneut identifiziert hat und eigentlich einen Login-artigen Nachweis der vorhandenen Methode erbringen sollte.
 - Ein künftiges Tool muss sich in eine der drei `Completed`-Varianten einfügen. Braucht es wirklich eine vierte Ergebnisart, ist das ein sichtbarer, zentraler Eingriff (neue Variante + neuer `when`-Zweig) statt eines still hinzugefügten Adapters — bei einem Auth-System eher erwünscht.
@@ -85,6 +87,7 @@ Erst danach ermittelt der Orchestrator `next` als Funktion von `ToolOutcome` **u
 | LOGIN / STEP_UP | `auth-*` | Completed | Policy fordert weiteren Faktor, genau ein Kandidat | `{type:"tool", toolId:<Kandidat>, step:<Startschritt>}` |
 | LOGIN / STEP_UP | `auth-*` | Completed | Policy fordert weiteren Faktor, mehrere Kandidaten | `{type:"flow", context:"auth", step:"selectMethod"}` plus `stepData={options:[Kandidaten]}` |
 | LOGIN / STEP_UP | `auth-*` | Completed | Policy fordert weiteren Faktor, **kein** Kandidat verfügbar | Prozessabbruch (`ProcessState=FAILED`, HTTP `410`) — das geforderte Niveau ist mit den vorhandenen Methoden nicht erreichbar |
+| MANAGE_METHODS | `enroll-*` | Completed | — (kein Policy-Check, siehe Abschnitt 3) | `{type:"flow", context:"authentication", step:"authenticated"}`; Kanal bleibt/wird `AUTHENTICATED`, unabhängig vom erreichten Niveau. Ein weiteres Mittel erfordert einen erneuten `POST .../methods`-Aufruf ([API](05-api.md)) |
 | beliebig | beliebig | Failed | `retryCount` unter Limit | HTTP `200`, `next={type:"tool", toolId:<gleiches Tool>, step:<Startschritt>}` plus `stepData={error:<reason>, ...}` |
 | beliebig | beliebig | Failed | `retryCount` erreicht/überschritten | Prozessabbruch (`ProcessState=FAILED`, HTTP `410`) |
 
@@ -105,6 +108,9 @@ interface AuthPolicy {
 
     /** Welche Auth-Tools des Accounts könnten die verbleibende Lücke schließen? */
     fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: Account): List<String>
+
+    /** Welche IDENT-Tools (Re-Identifikation, z. B. ident-fsc) könnten die Lücke ZUSÄTZLICH schließen? Siehe Abschnitt 3. */
+    fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String>
 
     /** Kann der Account das Niveau KÜNFTIG aus eigener Kraft erreichen? (Registrierung) */
     fun canAccountReach(account: Account, requiredAcr: String): Boolean
@@ -159,3 +165,69 @@ Regeln für die Kandidatenermittlung:
 - Bei genau einem Kandidaten überspringt der Orchestrator die Auswahlseite und zeigt direkt auf das Tool — dieselbe Skip-Regel wie im [API-Dokument](05-api.md).
 
 Damit ist MFA keine Sonderbehandlung, sondern der Normalfall der bestehenden Schleife: Ein Prozess durchläuft so lange Tools, bis die Policy zufrieden ist.
+
+---
+
+## 3) MANAGE_METHODS: freiwillige Methodenverwaltung ohne Policy-Ziel
+
+`ProcessPurpose.MANAGE_METHODS` mit `ManageMethodsProcessSession` (leere Marker-Subklasse wie `LoginProcessSession`, [Domänenmodell](02-domaenenmodell.md) Abschnitt 1/4) erlaubt einem bereits `AUTHENTICATED`-Kanal, freiwillig Auth-Mittel hinzuzufügen oder zu deaktivieren — losgelöst von der policy-getriebenen REGISTRATION/STEP_UP-Schleife aus Abschnitt 1/2.
+
+Endpunkte (`ChannelController`/`ChannelService`, siehe [API](05-api.md)):
+
+- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/methods` (`startManageMethods`) — bietet `AuthPolicy.enrollmentCandidates()` an, dieselben Kandidaten und dieselben unveränderten Enroll-Tool-Handler wie REGISTRATION. Kanal muss `AUTHENTICATED` sein. Ist nichts mehr zu enrollen, ist das **kein Fehler**: Antwort `{"message": "Keine weiteren Mittel verfuegbar"}`, Kanal bleibt `AUTHENTICATED` ohne aktiven Prozess.
+- `DELETE /orchestrator/api/v1/app/channels/{channelSessionId}/methods/{method}` (`deactivateMethod`) — deaktiviert ein aktives Mittel. Schutz gegen Selbstsperre: Der Zustand des Accounts *nach* der Entfernung wird berechnet und die Anfrage abgelehnt (`409`, `OrchestratorException.invalidState`), falls `AuthPolicy.canAccountReach()` danach unter das kanaleigene `requiredAcr` fiele.
+
+Wesentlicher Verhaltensunterschied zu REGISTRATION: Der Abschluss von MANAGE_METHODS hängt **nicht** von `canAccountReach`/`isSatisfied` ab — im `Enrolled`-Zweig von `ToolOutcomeProcessor.resolveNext` wird `processSession is ManageMethodsProcessSession` **zuerst** geprüft (vor der Policy-Abfrage, siehe Tabelle in Abschnitt 1). Ein einziges erfolgreiches `Enrolled` beendet den Prozess sofort zurück zu `AUTHENTICATED`, unabhängig davon, ob dabei ein höheres Niveau erreicht wurde. Ein weiteres Mittel hinzuzufügen erfordert einen erneuten `POST .../methods`-Aufruf.
+
+### loa2-Freigabe-Gate
+
+Beide Endpunkte prüfen zuerst `ChannelService.requireManageMethodsAssurance(channel, account)`: Reicht der Nachweis **dieser Session** nicht bereits für `loa2` (`AuthPolicy.isSatisfied`), liefert die Methode direkt eine Step-up-Antwort (`startStepUp(channel, "loa2", allowReIdent=true)`) statt fortzufahren — fest auf `loa2`, unabhängig vom kanaleigenen `requiredAcr`.
+
+Begründung: Dieselbe Anti-Selbsteskalations-Logik wie bei der `enrolledUnderAcr`-Deckelung (Abschnitt 1) — eine gekaperte `loa1`-Session darf nicht aus eigener Kraft Credentials hinzufügen oder entfernen können. Entfernen wird dabei als mindestens so sensibel wie Hinzufügen behandelt, deshalb gilt dieselbe Schranke für beide Endpunkte.
+
+### Die Falle: Ein-Methoden-Konten ohne Weg zu loa2
+
+Dieses Gate erzeugte zunächst einen echten Selbstsperr-Bug für den häufigen Fall: Ein Account mit genau **einer** aktiven Auth-Methode (z. B. nur SMS) hatte nach einem frischen geräte-gebundenen Login — der über `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) direkt bei LOGIN landet und dabei nur `loa1` über dieses eine Mittel nachweist, ohne erneutes `ident-fsc` — **keinen** Weg, `loa2` je zu erreichen: Es gab keine zweite Methode, mit der sich die eine kombinieren ließe, um MANAGE_METHODS freizuschalten.
+
+Die Lösung: `AuthPolicy.reIdentCandidates(evidence, requiredAcr)` (neue Schnittstellenmethode) bietet Re-Identifikation (`ident-fsc`) als alternativen Weg an. `ident-fsc` erreicht `loa2` bereits im Alleingang (eigenes `maxAcr="loa2"`, unabhängig davon, was der Account sonst enrollt hat) — eine erneute Bestätigung schließt die Lücke also direkt, ohne mit einer zweiten Methode kombiniert werden zu müssen.
+
+Bewusst **nicht** in `candidateTools()` eingebaut, sondern eine eigene, separate Methode: Nur `ChannelService.startStepUp(channel, requiredAcr, allowReIdent=true)` fragt sie ab, und das ausschließlich für das MANAGE_METHODS-Gate — gewöhnliche LOGIN/STEP_UP-Kandidatenermittlung (`raiseRequiredAcr`, Abschnitt 1/2) ruft `reIdentCandidates` nie auf. Re-Identifikation wird dort also nie als generische Login-Abkürzung angeboten, nur gezielt dort, wo sie als Notausgang aus einer sonst unlösbaren Lage gebraucht wird.
+
+### Plumbing, die Re-Identifikation mitten im Step-up erst nutzbar macht
+
+Drei weitere, kleinere Anpassungen waren nötig, damit `ident-fsc` innerhalb eines Step-ups überhaupt sicher durchlaufen werden kann:
+
+- `ToolOutcomeProcessor.handleIdentified` akzeptiert jetzt zusätzlich `StepUpProcessSession` (bisher nur `RegistrationProcessSession`). Während eines Step-ups **muss** die neu identifizierte `personId` zum bereits angemeldeten Account passen — bei Abweichung `409 CONFLICT` (`OrchestratorException.invalidState`, „Identifizierte Person passt nicht zum angemeldeten Konto"). Das ist eine echte Sicherheitsschranke, kein Implementierungsdetail: Ohne sie könnte eine `loa1`-Session eine fremde KVNR/FSC einschleusen und damit einen anderen Account kapern.
+- `ToolOutcomeProcessor.resolveNext`, Zweig `Identified`: Ist `processSession is StepUpProcessSession` und reicht die Identifikation allein bereits für das geforderte Niveau, schließt der Prozess sofort ab (`finishAsAuthenticated`) — anders als bei REGISTRATION, wo Identifikation allein nie genügt (Abschnitt 2, „Session-Nachweis ist nicht gleich Account-Fähigkeit").
+- `ToolControllerSupport.EXPECTED_CATEGORIES_BY_CONTEXT["auth"]` akzeptiert jetzt sowohl `ToolCategory.AUTH` als auch `ToolCategory.IDENT` (vorher nur `AUTH`) — nötig, weil `ident-fsc` (Kategorie IDENT) während dieses Step-ups legitim als Kandidat im Auswahlkontext `"auth"` auftauchen kann.
+
+---
+
+## 4) Lookup-basierter Login ("Login ohne DPoP")
+
+Löst das strukturelle Problem, dass ein NICHT über `DeviceAccountLink` verlinktes Gerät bisher nur REGISTRATION angeboten bekam — es gab keinen Weg, sich ohne vorherige Geräte-Bindung in einen bereits bestehenden Account einzuloggen (klassischer Web-Login: nur Identifier + Credential, kein gepaartes Gerät nötig).
+
+### `intent`-Parameter am Kanaleinstieg
+
+`POST /channels` bekommt ein optionales Feld `intent: "auto" | "login" | "register"` ([API](05-api.md)). `ChannelService.initializeChannel` unterdrückt den `DeviceAccountLink`-Lookup für `intent != "auto"` komplett (`linkedAccountId = null`), sodass die Kanal-eigene `accountId` in beiden Fällen `null` bleibt:
+
+- `intent="register"` fällt dadurch automatisch in den bestehenden `resumeChannel`-Zweig `channel.accountId == null -> startRegistration` — kein neuer Code nötig, nur die Link-Unterdrückung.
+- `intent="login"` ruft stattdessen explizit die neue `ChannelService.startLookupLogin(channel)` auf, statt `resumeChannel`.
+
+### `startLookupLogin`: Kandidaten ohne bekannten Account
+
+`startLookupLogin` bietet den fixen Werkzeugsatz `["auth-sms-lookup", "auth-password-lookup"]` direkt an (`CandidateOffering.resolve`) — **nicht** über `AuthPolicy.candidateTools`, das einen bereits aufgelösten `account` braucht, den es an dieser Stelle noch gar nicht geben kann (die E-Mail wurde ja noch nicht eingegeben). Der Prozess bleibt eine gewöhnliche `LoginProcessSession`; kein neuer `ProcessPurpose` nötig.
+
+### `ToolDescriptor.deviceBound`: Werkzeugkatalog-Kollision vermeiden
+
+`auth-sms-lookup`/`auth-password-lookup` melden bewusst `method="sms"`/`"password"` — dieselben Werte wie ihre geräte-gebundenen Geschwister `auth-sms`/`auth-password` (es ist fachlich dasselbe Credential, nur ein anderer Weg, es zu präsentieren). Das würde `AuthPolicy.candidateTools()`s bisherigen `firstOrNull { category==AUTH && method==m.method }`-Lookup mehrdeutig machen, sobald ein Account einmal per Lookup eingeloggt war: Für eine ganz normale, bereits Account-gebundene LOGIN/STEP_UP-Fortsetzung dürfte NIE der `-lookup`-Zwilling zurückkommen (der erwartet eine erneute E-Mail-Eingabe, obwohl der Account längst bekannt ist). Fix: `ToolDescriptor.deviceBound: Boolean` (Default `true`), nur die beiden `-lookup`-Tools setzen `false`; `candidateTools()`s Lookup filtert zusätzlich auf `it.deviceBound`.
+
+### `Completed.Authenticated.accountId` und die Account-Auflösung selbst
+
+`ToolOutcome.Completed.Authenticated` bekommt ein optionales `accountId`-Feld, das NUR die `-lookup`-Tools setzen (gewöhnliche `auth-*`-Tools kennen den Account schon vorher über den Kanal, siehe Abschnitt 1). Die Auflösung E-Mail -> Account passiert bewusst im jeweiligen Controller (`AuthSmsLookupToolController`/`AuthPasswordLookupToolController`), nicht im Handler: `auth_sms`/`auth_password` dürfen laut Modulith-Grenzen nur von `tool_spi` abhängen ([Projektrahmen](08-projektrahmen.md) A11), nicht von `account`. Derselbe Modulgrenzen-Grund, aus dem schon die geräte-gebundenen `auth-*`-Tools ihre `EnrollmentRef` vom Controller statt selbst auflösen lassen.
+
+`ToolOutcomeProcessor.handleAuthenticated` verwendet `outcome.accountId`, falls gesetzt, statt (wie bisher) zwingend `processSession.accountId ?: channelSession.accountId` vorauszusetzen, bindet ihn an Kanal und Prozess und ruft `sessionManagementService.linkDeviceToAccount(...)` — derselbe Hook wie bei `handleEnrolled` (Abschnitt 1): Ein erfolgreicher Lookup-Login ist ein genauso starker Credential-Nachweis wie eine frische Enrollment und rechtfertigt dieselbe Geräte-Verlinkung. Ein Kanal, der danach mit `intent="auto"` angelegt wird, erkennt das Gerät entsprechend wieder und bietet den gewöhnlichen geräte-gebundenen LOGIN an.
+
+### Enumeration-Schutz
+
+Eine unbekannte E-Mail liefert bei beiden `-lookup`-Tools exakt dieselbe Antwortform wie ein korrekt aufgelöster Account mit falschem Credential (`Failed`, `200`, Retry angeboten) — nie eine eigene Fehlerform. `auth-sms-lookup` „verschickt" dabei sogar konsequent eine (nutzlose) TAN-Erwartung, nur ohne `demoTan` in der Antwort, damit Timing/Form zwischen unbekannter E-Mail und bekannter E-Mail möglichst gleich bleiben. Bewusst nicht weiter gehärtet (kein künstliches Timing-Padding) — für eine Demo ausreichend, in einem Produktivsystem wäre das der nächste Schritt.
