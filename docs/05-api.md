@@ -15,7 +15,7 @@ Festgelegte API-Entscheidung:
 - Das öffentliche API wird unter `/orchestrator/api/v1` versioniert.
 - Unterschiedliche Methoden und Modi werden über getrennte konkrete Endpunkte modelliert.
 - Die URL bestimmt die Operation; derselbe Endpunkt darf nicht allein anhand unterschiedlicher Request-Bodies verschiedene fachliche Abläufe ausführen.
-- Vorbereitende Methoden nutzen ressourcenorientierte Tool-Objekte: `POST` erzeugt das Tool über den Channel, danach gestaltet das Tool seinen eigenen URL-Namespace (siehe „Tool-Namespace" in Abschnitt 2). `PATCH` zum Nachliefern und `GET` zum Lesen sind der empfohlene Regelfall, aber nicht für jedes Tool verpflichtend.
+- Vorbereitende Methoden nutzen ressourcenorientierte Tool-Objekte: `POST` erzeugt das Tool über den Channel, danach gestaltet das Tool seinen eigenen URL-Namespace (Abschnitt 2). `PATCH` zum Nachliefern und `GET` zum Lesen sind der empfohlene Regelfall, aber nicht für jedes Tool verpflichtend.
 - Bei `PATCH` wird grundsätzlich nur der aktuell nachzuliefernde oder zu ändernde Teil übergeben; bereits vorhandene Felder dürfen dabei gezielt überschrieben werden.
 - HTTP-Fehlercodes sind gestörten Abläufen vorbehalten, nicht erwartbaren Nutzereingaben: Fehlende Pflichtdaten und fehlgeschlagene Versuche mit verbleibenden Retries werden mit `200` plus `next` beantwortet (Retry-Regel in [Orchestrierung](04-orchestrierung.md)), nicht mit `4xx`.
 - HATEOAS wird im Zielbild nicht verwendet.
@@ -26,7 +26,7 @@ Festgelegte API-Entscheidung:
 
 ## 2) App-Fassade (Orchestrator-first)
 
-Die folgenden Endpunkte sind als Zielbild für einen durchgängigen App-Flow gedacht. Alle Requests enthalten den Header `DPoP: <proof>`.
+Alle Requests enthalten den Header `DPoP: <proof>`.
 
 Designentscheidung:
 
@@ -34,482 +34,111 @@ Designentscheidung:
 - Die fachliche Prozesswahl (`REGISTRATION`, `LOGIN`, `STEP_UP`) trifft das Backend auf Basis von Kanalzustand, Accountstatus und Policy.
 - Öffentliche App-APIs verwenden nur `channelSessionId`; weder `purpose` noch die interne `processSessionId` werden vom Client vorgegeben.
 - Das `next`-Objekt ist reine Adresse und hat immer dieselbe schlanke Form: bei einem konkreten Tool-Schritt `{ "type": "tool", "toolId": "...", "step": "..." }`, bei einer Auswahl- oder Abschlussseite `{ "type": "flow", "context": "...", "step": "..." }` — niemals mit Inhalt vermischt.
-- Auswahloptionen stehen nicht in `next`, sondern in `stepData.options` als vollständige `toolId`-Werte (z. B. `enroll-sms`), sodass der Client direkt den zugehörigen Endpunkt aufrufen kann, ohne Kind und Methode selbst zu kombinieren.
-- Die UI leitet den nächsten Call aus `next.type` (`tool` vs. `flow`) und dem passenden Attribut (`toolId` bzw. `context` + gewähltem Eintrag aus `stepData.options`) über eine feste Routing-Tabelle ab; URLs sind feste technische Endpunkte und keine Entscheidungsquelle.
-- Der Client darf `toolId` nie selbst konstruieren oder erraten; er wird serverseitig festgelegt und entweder direkt in `next.toolId` oder als Eintrag in `stepData.options` geliefert.
-- Wenn genau eine Methode erlaubt ist, darf das Backend die Auswahlseite überspringen und direkt den Tool-Schritt liefern, z. B. `{ "type": "tool", "toolId": "enroll-sms", "step": "enroll" }` oder `{ "type": "tool", "toolId": "auth-sms", "step": "auth" }`.
-- `stepData` trägt alles, was der aktuelle Schritt zum Anzeigen braucht: bei laufendem Tool den tool-internen Zustand (z. B. `missingFields`), bei einer Auswahlseite die erlaubten Folge-Tools (`options`), nach einem fehlgeschlagenen Versuch den Grund (`error`). Ist nichts davon nötig, entfällt das Feld — bei erfolgreichem Abschluss ist der Erfolg bereits durch `200` plus weiterzeigendes `next` ausgedrückt.
+- Auswahloptionen stehen nicht in `next`, sondern in `stepData.options` als vollständige `toolId`-Werte (z. B. `enroll-sms`), sodass der Client direkt den zugehörigen Endpunkt aufrufen kann.
+- Der Client darf `toolId` nie selbst konstruieren oder erraten; sie kommt entweder direkt in `next.toolId` oder als Eintrag in `stepData.options`.
+- Wenn genau eine Methode erlaubt ist, überspringt das Backend die Auswahlseite und liefert direkt den Tool-Schritt.
+- `stepData` trägt alles, was der aktuelle Schritt zum Anzeigen braucht: bei laufendem Tool den tool-internen Zustand (z. B. `missingFields`), bei einer Auswahlseite die erlaubten Folge-Tools (`options`), nach einem fehlgeschlagenen Versuch den Grund (`error`). Ist nichts davon nötig, entfällt das Feld.
 
 Pfadkonvention:
 
 - Einstieg: `POST /orchestrator/api/v1/app/channels`
 - Kanalzustand lesen/Niveau anheben: `GET/PATCH /orchestrator/api/v1/app/channels/{channelSessionId}`
-- Laufende Prozessschritte: `/orchestrator/api/v1/app/channels/{channelSessionId}/...`
-- Prozess abbrechen: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/cancel` (kein Body; siehe Abschnitt „Cancel" unten)
-- Logout: `DELETE /orchestrator/api/v1/app/channels/{channelSessionId}` (kein Body; siehe Abschnitt „Logout" unten)
-- Methode hinzufügen: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/methods` (kein Body; siehe Abschnitt „Methoden verwalten (MANAGE_METHODS)" unten)
-- Methode deaktivieren: `DELETE /orchestrator/api/v1/app/channels/{channelSessionId}/methods/{method}` (kein Body; siehe Abschnitt „Methoden verwalten (MANAGE_METHODS)" unten)
-- Tool-Anlage über Channel: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/{toolId}` (kein Body nötig, `toolId` trägt Kind und Methode zusammen, z. B. `tool-activate/enroll-sms`)
+- Prozess abbrechen: `POST .../{channelSessionId}/cancel` (kein Body)
+- Logout: `DELETE .../{channelSessionId}` (kein Body)
+- Methode hinzufügen: `POST .../{channelSessionId}/methods` (kein Body)
+- Methode deaktivieren: `DELETE .../{channelSessionId}/methods/{method}` (kein Body)
+- Tool-Anlage über Channel: `POST .../{channelSessionId}/tool-activate/{toolId}` (kein Body — `toolId` trägt Kind und Methode zusammen)
 - Tool-Fortschreibung/-Lesen: `PATCH/GET /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` als Regelfall
-- Tool-Attempt verwerfen: `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` (siehe Abschnitt „Back/Switch" unten)
+- Tool-Attempt verwerfen: `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}`
 
 Tool-Namespace:
 
 - Die Aktivierung bleibt Orchestrator-Hoheit und ist für alle Tools gleich — nur dort entsteht die `toolSessionId`.
-- Alles unterhalb von `/orchestrator/api/v1/tools/{toolSessionId}/{toolId}` gestaltet das Tool selbst: eigene Sub-Ressourcen und frei gewählte HTTP-Methoden. `PATCH` (nachliefern) und `GET` (Stand lesen) sind der empfohlene Regelfall und decken die hier gezeigten Tools ab, sind aber keine Pflicht.
-- Grund: Nicht jedes Verfahren passt in „Felder nachliefern". WebAuthn reicht eine Assertion ein (kein partielles Update), eID braucht Redirect und Callback, QR-Verfahren einen Bildabruf, Push-Verfahren einen Polling- oder Callback-Endpunkt.
-- Der Client findet diese Endpunkte über denselben Mechanismus wie bisher: `next.step` ist ohnehin tool-spezifisch, die Routing-Tabelle bildet `(toolId, step)` auf den konkreten Endpunkt ab. Es braucht dafür keine URL-Interpretation.
-- Weil damit auch `GET` auf der Tool-Ressource entfallen darf, ist der garantierte Resume-Einstieg **nicht** die Tool-Ressource, sondern `GET /orchestrator/api/v1/app/channels/{channelSessionId}`: Dieser Endpunkt existiert immer und liefert den aktuell fälligen `next` (Abschnitt 2, Beispiel 8).
-- **Implementierungsnote:** `POST`/`PATCH`/`GET` liegen je Tool in einem eigenen Controller mit typisiertem Request-DTO (`ident-fsc`, `enroll-sms`, `auth-sms` — [Tool-Architektur](03-tool-architektur.md) Abschnitt 2), nicht in einem generischen, `toolId`-dispatchenden Handler. `DELETE` ist die einzige Ausnahme: Es hat kein tool-spezifisches Verhalten (nur Prozess-/Katalogzugriff) und liegt deshalb in einer einzigen, tool-übergreifenden Implementierung.
+- Alles unterhalb von `/tools/{toolSessionId}/{toolId}` gestaltet das Tool selbst: eigene Sub-Ressourcen und frei gewählte HTTP-Methoden. `PATCH`/`GET` sind der empfohlene Regelfall, aber keine Pflicht — nicht jedes Verfahren passt in "Felder nachliefern" (WebAuthn reicht eine Assertion ein, eID braucht Redirect/Callback).
+- Der Client findet diese Endpunkte über dieselbe Routing-Tabelle wie überall: `(toolId, step)` bildet auf den konkreten Endpunkt ab, ohne URL-Interpretation.
+- Der garantierte Resume-Einstieg ist **nicht** die Tool-Ressource (deren `GET` ein Tool optional weglassen darf), sondern `GET /app/channels/{channelSessionId}`: existiert immer und liefert den aktuell fälligen `next`.
+- **Implementierungsnote:** `POST`/`PATCH`/`GET` liegen je Tool in einem eigenen Controller mit typisiertem Request-DTO ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2), nicht in einem generischen, `toolId`-dispatchenden Handler. `DELETE` ist die einzige Ausnahme (kein tool-spezifisches Verhalten).
 
 ### Cancel
 
-- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/cancel` bricht den aktuell aktiven `ProcessSession` (REGISTRATION/LOGIN/STEP_UP) ab (`ProcessState.CANCELLED`, [Domänenmodell](02-domaenenmodell.md) Abschnitt 4) und rollt `ChannelSession.state` gemäß dem Zustandsdiagramm zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3: „REGISTERING --> ANONYMOUS: cancel or timeout", „STEP_UP_IN_PROGRESS --> AUTHENTICATED: step-up not required anymore").
-- Kein Body nötig — die App-API kennt ohnehin nur `channelSessionId`, nie die interne `processSessionId`.
-- REGISTRATION-Abbruch setzt `ChannelSession.accountId`/`authContextId` zurück (vollständiger Reset, kein halb gebundener Kanal ohne nutzbare Auth-Methode) und bietet in derselben Antwort direkt einen frischen Registrierungsstart an. Ein zuvor über `ident-fsc` bereits angelegter Account bleibt unangetastet liegen und wird bei erneuter Identifikation mit derselben KVNR wiedergefunden.
-- STEP_UP-Abbruch liefert direkt `next={type:"flow", context:"authentication", step:"authenticated"}`.
-- LOGIN-Abbruch bietet in derselben Antwort einen neuen Login-Versuch an (dieselbe Kandidaten-Ermittlung wie beim Login-Start).
+`POST .../cancel` bricht den aktiven `ProcessSession` ab und rollt `ChannelSession.state` zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). REGISTRATION-Abbruch setzt Account-Bindung zurück und bietet direkt einen frischen Start an (ein zuvor per `ident-fsc` angelegter Account bleibt dabei unangetastet und wird bei erneuter Identifikation wiedergefunden). STEP_UP-Abbruch liefert direkt `authenticated`. LOGIN-Abbruch bietet einen neuen Login-Versuch an.
 
 ### Logout
 
-- `DELETE /orchestrator/api/v1/app/channels/{channelSessionId}` beendet diesen Kanal endgültig (Zustandsdiagramm [Domänenmodell](02-domaenenmodell.md) Abschnitt 3: `AUTHENTICATED -> LOGGED_OUT`, terminal): bricht wie Cancel einen aktiven `ProcessSession` ab und verwirft zusätzlich den `AuthContext` dieser Session (`ChannelSession.authContextId = null`).
-- Antwort: `204 No Content`. Anders als Cancel liefert Logout **keinen** frischen Start auf demselben Kanal — diese `channelSessionId` bleibt `LOGGED_OUT` und wird nie wieder aufgelöst (`GET` liefert weiterhin `200` mit `state="LOGGED_OUT"` und `next=null`, statt den Kanal wiederzubeleben). Der Client ruft danach `POST /orchestrator/api/v1/app/channels` erneut auf, um eine neue `ChannelSession` zu erhalten.
-- Unterschied zu Cancel: Cancel lässt einen bereits `AUTHENTICATED`-Kanal unangetastet (nichts zu canceln) und bleibt derselbe Kanal; Logout meldet ihn immer ab und beendet ihn. Die Geräte-Bindung (`bindingKeyRef`) und der Account bleiben trotzdem nutzbar — nicht über diesen Kanal, sondern über `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3): Der nächste `POST` auf einen neuen Kanal erkennt das Gerät wieder und bietet direkt LOGIN statt `ident-fsc` an.
-- Kein Body nötig, wie bei Cancel.
+`DELETE /app/channels/{channelSessionId}` beendet den Kanal endgültig (`AUTHENTICATED -> LOGGED_OUT`, terminal, `204`): bricht wie Cancel einen aktiven Prozess ab und verwirft zusätzlich den `AuthContext`. Anders als Cancel lebt diese `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Geräte-Bindung bleibt trotzdem nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` auf einen neuen Kanal das Gerät wiedererkennt und direkt LOGIN statt `ident-fsc` anbietet.
 
 ### Methoden verwalten (MANAGE_METHODS)
 
-Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal — Hinzufügen oder Deaktivieren von Auth-Mitteln, losgelöst vom policy-getriebenen REGISTRATION/STEP_UP-Ablauf ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).
+Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst vom policy-getriebenen REGISTRATION/STEP_UP-Ablauf ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).
 
-- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/methods` bietet dieselben Kandidaten und Enroll-Tools wie REGISTRATION an (`AuthPolicy.enrollmentCandidates()`). Kanal muss `AUTHENTICATED` sein. Ist nichts mehr zu enrollen, ist das kein Fehlerfall: `200` mit `{"message": "Keine weiteren Mittel verfuegbar"}`, Kanal bleibt `AUTHENTICATED` ohne aktiven Prozess. Ein einziges erfolgreiches Enrollment beendet den Prozess sofort — für ein weiteres Mittel ruft der Client denselben Endpunkt erneut auf.
-- `DELETE /orchestrator/api/v1/app/channels/{channelSessionId}/methods/{method}` deaktiviert ein aktives Mittel (`method`, z. B. `sms`). Abgelehnt mit `409`, falls der Account danach das kanaleigene `requiredAcr` nicht mehr erreichen könnte (`AuthPolicy.canAccountReach`) — Schutz gegen Selbstsperre.
-- Beide Endpunkte verlangen zusätzlich, dass der Nachweis der aktuellen Session bereits `loa2` erreicht; reicht er nicht, liefert die Antwort statt der eigentlichen Aktion einen Step-up-Schritt (`next` zeigt auf `auth-*` oder — als Notausgang für Accounts mit nur einem enrollten Mittel — auf `ident-fsc`, siehe [Orchestrierung](04-orchestrierung.md) Abschnitt 3). Der Client folgt in diesem Fall einfach dem gelieferten `next` wie bei jedem anderen Step-up und ruft den Methoden-Endpunkt danach erneut auf.
+- `POST .../methods` bietet dieselben Kandidaten/Enroll-Tools wie REGISTRATION an. Nichts mehr zu enrollen ist kein Fehler: `200` mit `{"message": "Keine weiteren Mittel verfuegbar"}`.
+- `DELETE .../methods/{method}` deaktiviert ein aktives Mittel; `409`, falls der Account danach das kanaleigene `requiredAcr` nicht mehr erreichen könnte (Selbstsperrschutz).
+- Beide Endpunkte verlangen zusätzlich, dass die aktuelle Session bereits `loa2` erreicht hat; reicht es nicht, liefert die Antwort statt der Aktion einen Step-up-Schritt — der Client folgt ihm wie jedem anderen Step-up und ruft den Methoden-Endpunkt danach erneut auf.
 - Response-Form ist dieselbe `ChannelResponse` wie bei `GET`/`PATCH` auf `/channels/{channelSessionId}`.
 
 ### Back/Switch
 
-- `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` verwirft einen aktivierten, aber noch nicht abgeschlossenen Tool-Versuch — für den Fall, dass der Nutzer doch eine andere Methode wählen möchte (oder, bei nur einer verfügbaren Methode je Kategorie, es sich anders überlegt).
-- Wirkung: Die verworfene `toolSessionId` wird sofort ungültig (nicht erst nach Ablauf ihrer TTL); der Prozess bekommt dieselbe Kandidaten-Ermittlung erneut vorgesetzt, die schon beim letzten `Completed` benutzt wurde ([Orchestrierung](04-orchestrierung.md) Abschnitt 1) — ohne dass etwas neu nachgewiesen wurde, ändert sich nur die Wahl.
-- Für das allererste Tool eines Prozesses (Kategorie `IDENT`, aktuell weiterhin nur `ident-fsc`) gibt es kein „davor" — dort wirkt `DELETE` wie ein vollständiger Cancel des Prozesses; das bleibt ohne praktischen Nutzen, solange es keine zweite `IDENT`-Methode gibt (z. B. `ident-eid`).
-- Für `ENROLL`/`AUTH` ist der Katalog dagegen längst nicht mehr einmethodig: `enroll-sms`/`enroll-password`/`enroll-email` stehen nebeneinander, ebenso `auth-sms`/`auth-password`/`auth-email` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 1) — dort hat `DELETE` also bereits jetzt sichtbaren Nutzen: eine aktivierte, aber noch nicht abgeschlossene Methode verwerfen und stattdessen eine andere aus derselben Auswahlseite wählen.
+`DELETE /tools/{toolSessionId}/{toolId}` verwirft einen aktivierten, aber noch nicht abgeschlossenen Tool-Versuch (z. B. um doch eine andere Methode zu wählen). Die verworfene `toolSessionId` wird sofort ungültig; der Prozess bekommt dieselbe Kandidatenermittlung erneut vorgesetzt, die schon beim letzten `Completed` benutzt wurde — ohne dass etwas neu nachgewiesen wurde.
 
-Konsistenzregel:
-
-- Pro `channelSessionId` darf es höchstens einen aktiven öffentlichen Prozesskontext geben. Welcher interne `purpose` dazu gehört, entscheidet und verwaltet das Backend.
-
-Konsistentes Beispiel über alle Calls:
-
-- `channelSessionId`: `c1111111-1111-1111-1111-111111111111`
-- Identifikation: `ident-fsc`
-- Authentifizierung: `auth-sms`
-
-### 1) `POST /orchestrator/api/v1/app/channels`
-
-Zweck:
-
-- Erstkontakt der App mit dem Backend.
-- Liefert eine neue oder bestehende `ChannelSession`.
-- Das Backend leitet dabei sofort den aktuell nötigen fachlichen Prozess ab und liefert direkt den ersten fachlichen `next`-Schritt.
-
-Request (beide Felder optional; erzeugt IMMER eine neue `ChannelSession` — `channelSessionId` zum Fortsetzen einer bekannten Session ist `GET`, siehe oben, nicht dieser Endpunkt):
-
-```json
-{
-  "requiredAcr": "loa2",
-  "intent": "auto"
-}
-```
-
-`requiredAcr` erspart der App den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up, wenn schon beim Start feststeht, dass eine sensible Funktion genutzt werden soll. Der Wert wirkt nur nach oben: Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
-
-`intent` (docs/04-orchestrierung.md, Login ohne DPoP) steuert, welcher Prozess auf DIESEM Kanal startet, unabhängig vom durch `DeviceAccountLink` erkannten Gerät:
-- `auto` (Default, weggelassen = gleiche Wirkung): heutiges Verhalten — `DeviceAccountLink` gefunden -> LOGIN mit vorbefülltem Account, sonst REGISTRATION.
-- `login`: erzwingt lookup-basierten Login (E-Mail + Credential, Abschnitt „Lookup-basierter Login" unten) — auch auf einem bereits verlinkten Gerät (z. B. um ein anderes Konto auf demselben Gerät zu nutzen). Der Link-Lookup wird für diesen Kanal komplett übersprungen.
-- `register`: erzwingt eine frische REGISTRATION — auch auf einem bereits verlinkten Gerät (Zweitaccount). Übersteht der Kanal die Registrierung, überschreibt sie den bestehenden `DeviceAccountLink` (derselbe idempotente Schreibvorgang wie sonst auch).
-
-Response `200`:
-
-```json
-{
-  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
-  "state": "REGISTERING",
-  "next": {
-    "type": "tool",
-    "toolId": "ident-fsc",
-    "step": "input"
-  }
-}
-```
-
-Genau eine `IDENT`-Methode ist registriert, deshalb entfällt die Auswahlseite (gleiche
-Skip-bei-einem-Kandidaten-Regel wie bei `ENROLL`/`AUTH`, [Orchestrierung](04-orchestrierung.md)
-Abschnitt 1) - `next` zeigt direkt auf `ident-fsc`. Gäbe es mehrere `IDENT`-Methoden, sähe die
-Antwort wie bei `enrollment`/`auth` aus: `{"type":"flow","context":"registration","step":"selectIdentificationMethod"}`
-plus `stepData={"options":[...]}`.
-
-### 2) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/ident-fsc`
-
-Zweck:
-
-- Erzeugt eine neue Tool-Ressource für `ident-fsc`; kein Body nötig, da `toolId` bereits Kind und Methode festlegt.
-
-Response `201`:
-
-```json
-{
-  "toolSessionId": "i7777777-7777-7777-7777-777777777777",
-  "stepData": {
-    "missingFields": ["kvnr", "name", "vorname"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "ident-fsc",
-    "step": "input"
-  }
-}
-```
-
-### 3) `PATCH /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc`
-
-Zweck:
-
-- Ergänzt fehlende Felder auf der FSC-Tool-Ressource; bei Bedarf dürfen bereits gesetzte Felder gezielt überschrieben werden.
-
-Request (erste Datenlieferung):
-
-```json
-{
-  "kvnr": "A123456789",
-  "name": "Muster",
-  "vorname": "Max"
-}
-```
-
-Response `200` bei unvollständiger Eingabe:
-
-```json
-{
-  "toolSessionId": "i7777777-7777-7777-7777-777777777777",
-  "stepData": {
-    "missingFields": ["fsc"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "ident-fsc",
-    "step": "input"
-  }
-}
-```
-
-Request (zweite Datenlieferung):
-
-```json
-{
-  "fsc": "TESTCODE123"
-}
-```
-
-Response `200` bei erfolgreicher Verifikation:
-
-```json
-{
-  "toolSessionId": "i7777777-7777-7777-7777-777777777777",
-  "stepData": {
-    "options": ["enroll-sms"]
-  },
-  "next": {
-    "type": "flow",
-    "context": "enrollment",
-    "step": "selectMethod"
-  }
-}
-```
-
-### 4) `GET /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc`
-
-Zweck:
-
-- Liest den aktuellen Zustand der FSC-Tool-Ressource.
-- Dient für Resume/Polling und UI-Synchronisation. `next` ist immer der aktuelle Prozessschritt — ist das Tool schon abgeschlossen, zeigt es bereits auf das Folge-Tool.
-
-Response `200` Beispiel:
-
-```json
-{
-  "toolSessionId": "i7777777-7777-7777-7777-777777777777",
-  "stepData": {
-    "missingFields": ["fsc"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "ident-fsc",
-    "step": "input"
-  }
-}
-```
-
-### 5) `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/enroll-sms`
-
-Zweck:
-
-- Erzeugt eine neue Tool-Ressource für `enroll-sms`; kein Body nötig.
-- Für Login/Step-up existiert der separate, explizite Endpoint `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/auth-sms`.
-- Das Frontend leitet den Ziel-Endpunkt direkt aus `next.toolId` (bzw. bei Auswahlseiten aus `stepData.options`) ab.
-
-Response `201`:
-
-```json
-{
-  "toolSessionId": "a3333333-3333-3333-3333-333333333333",
-  "stepData": {
-    "missingFields": ["phoneNumber"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "enroll-sms",
-    "step": "enroll"
-  }
-}
-```
-
-### 6) `PATCH /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms`
-
-Zweck:
-
-- Ergänzt oder aktualisiert partiell Daten eines konkreten SMS-Enrollment-Tools.
-- Diese Route ist nur für den Enrollment-Fall definiert.
-- Der Request enthält nur die Felder, die in diesem Schritt fehlen oder bewusst geändert werden sollen.
-
-Request (Telefonnummer):
-
-```json
-{
-  "phoneNumber": "+49 170 1234567"
-}
-```
-
-Response `200`:
-
-```json
-{
-  "toolSessionId": "a3333333-3333-3333-3333-333333333333",
-  "stepData": {
-    "missingFields": ["tan"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "enroll-sms",
-    "step": "tanInput"
-  },
-  "demo": {
-    "tan": "123456"
-  }
-}
-```
-
-`demo.tan` ist wie `demo.accountId`/`demo.personId` **kein Teil des produktiven Vertrags** - die
-gerade ausgestellte TAN, ausschließlich damit die Demo-Oberfläche ohne Server-Log-Zugriff
-durchgeklickt werden kann (in einer echten Umgebung abgeschaltet). Nur die Response, die die TAN
-gerade erst ausgestellt hat, trägt das Feld; ein späteres `GET` (Abschnitt 7) liefert nur den
-stabilen `missingFields`-Zustand ohne `demo`-Objekt.
-
-Request (TAN):
-
-```json
-{
-  "tan": "123456"
-}
-```
-
-Response `200` bei erfolgreicher Verifikation:
-
-```json
-{
-  "toolSessionId": "a3333333-3333-3333-3333-333333333333",
-  "next": {
-    "type": "flow",
-    "context": "authentication",
-    "step": "authenticated"
-  },
-  "demo": {
-    "accountId": 1001,
-    "personId": 5001
-  }
-}
-```
-
-Das `demo`-Objekt ist **kein Teil des produktiven Vertrags**: `accountId` und `personId` sind
-interne Korrelations-IDs, die der Client für keinen Folgeaufruf braucht; bei TAN-Ausstellung
-(Beispiel oben, Response nach der Telefonnummer) trägt es stattdessen `tan` - die gerade
-ausgestellte TAN, die sonst nur im (Mock-)SMS-Versand landet. Alle drei Felder werden
-ausschließlich geliefert, damit die Demo-Oberfläche den Ablauf nachvollziehbar machen kann
-(siehe [10-frontend.md](10-frontend.md)), und in einer echten Umgebung abgeschaltet.
-
-**Implementierungshinweis (generischer Mechanismus):** Ein Tool-Handler liefert seine
-demo-only-Werte über einen reservierten, verschachtelten Schlüssel im `InProgress.data`
-(`tool_spi.DEMO_DATA_KEY = "demo"`, Hilfsfunktion `demoData("tan" to ...)`). `ToolControllerSupport`
-hebt diesen Schlüssel generisch ins Antwort-`demo`-Objekt (flach, via `@JsonAnyGetter`), ohne dass
-der Orchestrator die Namen der einzelnen demo-Felder kennen muss — ein neues Tool mit einem neuen
-demo-Wert (z. B. `demo.password`, `demo.email`, siehe unten) braucht dafür keine Änderung an
-`ToolControllerSupport`, nur einen `demoData(...)`-Aufruf im Handler selbst.
-
-### 7) `GET /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms`
-
-Zweck:
-
-- Liest den stabilen Tool-Zustand für Resume/Polling; `next` ist auch hier immer der aktuelle Prozessschritt, nicht der historische Stand beim Tool-Abschluss.
-
-Response `200`:
-
-```json
-{
-  "toolSessionId": "a3333333-3333-3333-3333-333333333333",
-  "stepData": {
-    "missingFields": ["tan"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "enroll-sms",
-    "step": "tanInput"
-  }
-}
-```
-
-### 8) `GET /orchestrator/api/v1/app/channels/{channelSessionId}`
-
-Zweck:
-
-- Liest den stabilen Kanalzustand für Folgerequests.
-- Dient als einfache Session- und Policy-Sicht für die App und als Resume-Einstieg: `next` zeigt immer auf den aktuell fälligen Schritt (bzw. fehlt, wenn kein Prozess läuft).
-
-Response `200` (laufender Prozess, Resume nach App-Neustart):
-
-```json
-{
-  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
-  "state": "REGISTERING",
-  "next": {
-    "type": "tool",
-    "toolId": "enroll-sms",
-    "step": "tanInput"
-  }
-}
-```
-
-Response `200` (abgeschlossen, kein Prozess offen):
-
-```json
-{
-  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
-  "state": "AUTHENTICATED",
-  "currentAcr": "loa2",
-  "currentAmr": ["fsc", "sms"],
-  "activeMethods": ["sms", "email", "password"],
-  "next": {
-    "type": "flow",
-    "context": "authentication",
-    "step": "authenticated"
-  }
-}
-```
-
-`activeMethods` und `currentAmr` beantworten bewusst unterschiedliche Fragen und dürfen nicht
-verwechselt werden: `currentAmr` ist Sitzungsevidenz — nur, was DIESER Kanal tatsächlich
-nachgewiesen hat (im Beispiel oben: `fsc` + `sms`, weil ein einzelnes `loa1`-Mittel für den
-Standard-Floor bereits reicht und `email`/`password` in dieser Sitzung nie geprüft wurden).
-`activeMethods` ist dagegen der vollständige, kontostabile Methodenbestand (`AccountProfile.
-activeAuthenticationMethods`) — unabhängig davon, was diese Sitzung geprüft hat. Beide Felder
-werden nur bei bekanntem `accountId` befüllt; `activeMethods` enthält nie `fsc` (Identifikation
-lebt in `identifications`, nicht in `authenticationMethods`). Der Client braucht `activeMethods`,
-um Methoden verwalten zu können, die die aktuelle Sitzung selbst nie angefasst hat (docs/10-frontend.md).
-
-`next` ist auch hier immer gesetzt — ein separates `stepUpRequired`-Flag gibt es bewusst nicht: Ob ein Step-up ansteht, sagt bereits `next` (Verweis auf ein Auth-Tool statt auf `authenticated`). Ein zusätzliches Bool wäre dieselbe Information in zweiter Form und könnte davon abweichen.
-
-### 9) `PATCH /orchestrator/api/v1/app/channels/{channelSessionId}`
-
-Zweck:
-
-- Hebt die geforderte Untergrenze des Kanals an — der **Step-up-Auslöser des App-Kanals**, Gegenstück zu `processes/step-up` auf der kc-Seite (API).
-- Die App ruft das auf, bevor sie eine Funktion nutzt, die ein höheres Niveau verlangt.
-
-Request:
-
-```json
-{
-  "requiredAcr": "loa3"
-}
-```
-
-Response `200`, wenn das aktuelle Niveau nicht ausreicht — das Backend startet eine `ProcessSession(STEP_UP)` und liefert den fälligen Schritt in derselben Form wie überall:
-
-```json
-{
-  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
-  "state": "STEP_UP_IN_PROGRESS",
-  "next": {
-    "type": "tool",
-    "toolId": "auth-passkey",
-    "step": "assert"
-  }
-}
-```
-
-Response `200`, wenn das Niveau bereits erreicht ist — kein Prozess wird gestartet, `requiredAcr` bleibt aber als neue Untergrenze gesetzt. Die Antwort zeigt sofort auf `authenticated`:
-
-```json
-{
-  "channelSessionId": "c1111111-1111-1111-1111-111111111111",
-  "state": "AUTHENTICATED",
-  "currentAcr": "loa3",
-  "currentAmr": ["fsc", "passkey"],
-  "next": {
-    "type": "flow",
-    "context": "authentication",
-    "step": "authenticated"
-  }
-}
-```
-
-- Beide Fälle liefern ein `next` — der Client muss nie aus dessen Abwesenheit schließen, dass nichts zu tun ist. Er folgt einfach dem Verweis: entweder auf ein Step-up-Tool oder direkt auf `authenticated`.
-- Nur Anheben ist möglich. Ein `requiredAcr` unterhalb des bereits geforderten Niveaus wird ignoriert (das Maximum bleibt bestehen), nicht als Herabstufung interpretiert.
-- Ist das geforderte Niveau mit den vorhandenen Methoden des Accounts nicht erreichbar, greift die Regel aus [Orchestrierung](04-orchestrierung.md): Prozessabbruch mit `410`, statt eine Auswahl ohne gültige Kandidaten anzubieten.
-
-### Erreichbare APIs je Prozess (Beispielregel)
-
-- Welches `next` nach Abschluss eines Tools folgt, legt die Orchestrator-Tabelle in [Orchestrierung](04-orchestrierung.md) fest (`ProcessPurpose` + abgeschlossenes `toolId` -> `next`); Beispiel 3 zeigt die REGISTRATION-Auswahlseite konkret.
-- Nicht erlaubte Aktion für den Prozess: `409 invalid_state` mit `allowedActions`.
-- Der Client muss dafür weder URLs auswerten noch `toolId`-Werte selbst konstruieren.
-
-### Durchgängiger Sequenzblick (kurz)
-
-1. Channel anlegen/holen (`POST /orchestrator/api/v1/app/channels`)
-2. FSC-Tool anlegen (`POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/ident-fsc`)
-3. FSC-Tool mit Identifikationsdaten befüllen (`PATCH /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc`)
-4. FSC-Tool mit FSC verifizieren (`PATCH /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc`)
-5. FSC-Tool-Zustand lesen (`GET /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc`)
-6. SMS-Enrollment-Tool anlegen (`POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/enroll-sms`)
-7. SMS-Enrollment-Tool mit `phoneNumber` befüllen (`PATCH /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms`)
-8. SMS-Enrollment-Tool mit `tan` abschließen (`PATCH /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms`)
-9. SMS-Enrollment-Tool-Zustand lesen (`GET /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms`)
-10. Finalen Kanalstatus lesen (`GET /orchestrator/api/v1/app/channels/{channelSessionId}`)
+Konsistenzregel: Pro `channelSessionId` darf es höchstens einen aktiven öffentlichen Prozesskontext geben; welcher interne `purpose` dazu gehört, entscheidet das Backend.
+
+### Ein Tool-Zyklus im Beispiel
+
+Registrierung mit `ident-fsc` -> `enroll-sms`:
+
+1. `POST /app/channels` (optional `{"requiredAcr": "loa2", "intent": "auto"}`) liefert eine neue `channelSessionId` und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode registriert, daher kein Auswahlschritt).
+2. `POST .../tool-activate/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"missingFields":["kvnr","name","vorname"]}`.
+3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem FSC. Solange Felder fehlen: `200` mit aktualisiertem `stepData.missingFields`, `next` unverändert auf `ident-fsc`. Nach erfolgreicher Verifikation: `stepData={"options":["enroll-sms"]}`, `next={"type":"flow","context":"enrollment","step":"selectMethod"}` (bzw. direkt `{"type":"tool","toolId":"enroll-sms",...}` bei nur einer erlaubten Methode).
+4. `POST .../tool-activate/enroll-sms` liefert `stepData={"missingFields":["phoneNumber"]}`.
+5. `PATCH .../enroll-sms` mit `{"phoneNumber": "..."}` löst den TAN-Versand aus: `stepData={"missingFields":["tan"]}` plus (siehe unten) `demo={"tan":"123456"}`.
+6. `PATCH .../enroll-sms` mit `{"tan": "123456"}` schließt ab: `next={"type":"flow","context":"authentication","step":"authenticated"}`, kein `stepData` mehr nötig.
+7. `GET /app/channels/{channelSessionId}` liefert jederzeit den stabilen Kanalzustand — der garantierte Resume-Einstieg.
+
+Jedes weitere Tool (`enroll-password`/`auth-password`, `enroll-email`/`auth-email`, die `-lookup`-Varianten) folgt demselben `POST`(anlegen)/`PATCH`(nachliefern)/`GET`(lesen)-Muster; die tool-spezifischen Abweichungen stehen unten.
+
+### Das `demo`-Objekt
+
+Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen — **kein Teil des produktiven Vertrags**, nur damit die Demo-Oberfläche ohne Server-Log-Zugriff durchgeklickt werden kann (in einer echten Umgebung abgeschaltet). Es trägt `accountId`/`personId` (interne Korrelations-IDs, kein Folgeaufruf braucht sie), sowie je nach Tool `tan` (gerade ausgestellte TAN/Code), `password`/`email` (feste Demo-Werte zum Vorbelegen von Formularen). Ein Tool hängt seine demo-Werte generisch über einen reservierten Schlüssel an (`tool_spi.demoData(...)`), ohne dass der Orchestrator die einzelnen Feldnamen kennen muss.
+
+### `POST /app/channels`: `intent`-Parameter
+
+`intent` (optional, Default `"auto"`) steuert, welcher Prozess auf DIESEM Kanal startet, unabhängig vom durch `DeviceAccountLink` erkannten Gerät:
+
+- `auto`: heutiges Verhalten — `DeviceAccountLink` gefunden -> LOGIN mit vorbefülltem Account, sonst REGISTRATION.
+- `login`: erzwingt lookup-basierten Login (E-Mail + Credential, siehe unten) — auch auf einem bereits verlinkten Gerät. Der Link-Lookup wird für diesen Kanal komplett übersprungen.
+- `register`: erzwingt eine frische REGISTRATION — auch auf einem bereits verlinkten Gerät (Zweitaccount). Übersteht der Kanal die Registrierung, überschreibt sie den bestehenden `DeviceAccountLink`.
+
+`requiredAcr` (optional) erspart der App den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up. Der Wert wirkt nur nach oben: Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
+
+### `GET /app/channels/{channelSessionId}`
+
+Liest den stabilen Kanalzustand — Resume-Einstieg und einfache Session-/Policy-Sicht. Zwei zusätzliche Felder neben `state`/`next`:
+
+- `currentAmr`: was **diese Sitzung** bereits nachgewiesen hat (Sitzungsevidenz aus dem `AuthContext`).
+- `activeMethods`: der volle, kontostabile Methodenbestand — unabhängig davon, was diese Sitzung geprüft hat. Enthält nie `fsc` (Identifikation liegt in `identifications`, nicht in `authenticationMethods`).
+
+Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer gesetzt — auch bei abgeschlossenem Prozess (`{"type":"flow","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es bewusst nicht, da schon `next` selbst zeigt, ob ein Step-up ansteht.
+
+### `PATCH /app/channels/{channelSessionId}`: Step-up-Auslöser
+
+Hebt die geforderte Untergrenze des Kanals an (Gegenstück zu `processes/step-up` auf der kc-Seite). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `ProcessSession(STEP_UP)` und liefert den fälligen Schritt in derselben `ChannelResponse`-Form wie überall; reicht es bereits, bleibt kein Prozess offen und `next` zeigt sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Ist das geforderte Niveau mit den vorhandenen Methoden des Accounts nicht erreichbar, bricht der Prozess mit `410` ab, statt eine Auswahl ohne gültige Kandidaten anzubieten ([Orchestrierung](04-orchestrierung.md)).
 
 ### `enroll-email` / `auth-email` / `enroll-password` / `auth-password`
 
-Diese vier Tools folgen exakt den oben gezeigten Mustern und werden hier nicht mit vollständigen Payload-Beispielen dupliziert (Tool-Katalog: [Tool-Architektur](03-tool-architektur.md) Abschnitt 1):
+Folgen demselben Muster wie `ident-fsc`/`enroll-sms`/`auth-sms` oben, mit diesen Abweichungen:
 
-- `enroll-email` folgt dem Zwei-`PATCH`-Muster von `enroll-sms` (erst `{"email": "..."}`, dann `{"code": "..."}`); die Antwort nach der ersten `PATCH` trägt `stepData.missingFields=["code"]` und wie bei SMS ein `demo`-Objekt mit dem versendeten Code. Schon die `start`/`read`-Antwort (bevor überhaupt etwas eingegeben wurde) trägt zusätzlich `demo.email` — die eine feste E-Mail-Adresse, die diese Demo überall verwendet (`tool_spi.DEMO_EMAIL`), damit das Formular vorbelegt ist.
-- `auth-email` folgt dem Ein-`PATCH`-Muster von `auth-sms` (`{"code": "..."}`), deckt aber aktuell nur den geräte-gebundenen Fall ab: Es authentifiziert gegen die bereits bestätigte E-Mail-Adresse des über `DeviceAccountLink`/Login bekannten Accounts, nicht gegen eine im Request übergebene Adresse.
-- `enroll-password`/`auth-password` erwarten nur `{"password": "..."}` — **kein** `username` mehr ([Tool-Architektur](03-tool-architektur.md) Abschnitt 1). `enroll-password` schließt in einem einzigen `PATCH` ab (selbstverifizierend, kein TAN-/Code-Zwischenschritt) und setzt eine bereits bestätigte Account-E-Mail voraus (`ToolDescriptor.requiresConfirmedEmail`); ohne sie lehnt schon die Aktivierung (`POST .../tool-activate/enroll-password`) mit `409` ab ([Orchestrierung](04-orchestrierung.md) Abschnitt 2). Alle drei Passwort-Tools (`enroll-password`/`auth-password`/`auth-password-lookup`) liefern in jeder `InProgress`-Antwort `demo.password` — dieselbe feste Konstante (`auth_password.DEMO_PASSWORD`), damit ein in dieser Demo eingerichtetes Passwort sich nie merken lässt, sondern immer vorbelegt ist.
+- `enroll-email` folgt dem Zwei-`PATCH`-Muster (`email`, dann `code`); `demo.email` steht schon in der `start`/`read`-Antwort (feste, überall gleiche Demo-Adresse), `demo.tan` erst nach dem ersten `PATCH`.
+- `auth-email` folgt dem Ein-`PATCH`-Muster (`code`), deckt aber nur den geräte-gebundenen Fall ab: authentifiziert gegen die bereits bekannte, bestätigte E-Mail-Adresse des Accounts, nicht gegen eine im Request übergebene.
+- `enroll-password`/`auth-password` erwarten nur `{"password": "..."}` — **kein** `username` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 1). `enroll-password` schließt in einem einzigen `PATCH` ab und setzt eine bereits bestätigte Account-E-Mail voraus (`requiresConfirmedEmail`); ohne sie lehnt schon die Aktivierung mit `409` ab. `demo.password` (feste Demo-Konstante) steht in jeder `InProgress`-Antwort aller drei Passwort-Tools.
 
-### Lookup-basierter Login (`auth-sms-lookup` / `auth-password-lookup`, „Login ohne DPoP")
+### Lookup-basierter Login (`auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup`, "Login ohne DPoP")
 
-Erreichbar nur über `POST /channels` mit `intent: "login"` (siehe oben) — niemals über die normale `AuthPolicy`-Kandidatenermittlung einer bereits Account-gebundenen LOGIN/STEP_UP-Session (`ToolDescriptor.deviceBound = false`, [Tool-Architektur](03-tool-architektur.md) Abschnitt 1). Löst den Account selbst über die eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen:
+Erreichbar nur über `POST /channels` mit `intent: "login"` — nie über die normale Kandidatenermittlung einer bereits Account-gebundenen Session (`ToolDescriptor.deviceBound = false`). Löst den Account selbst über die eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen:
 
-- `auth-sms-lookup` folgt dem Zwei-`PATCH`-Muster: erst `{"email": "..."}` (löst den Account auf und verschickt bei Erfolg eine TAN an die hinterlegte Telefonnummer), dann `{"tan": "..."}`. Ist die E-Mail unbekannt oder ohne aktives SMS-Mittel, verhält sich die Antwort der ersten `PATCH` identisch zum Erfolgsfall (`stepData.missingFields=["tan"]`, aber ohne `demo.tan`) — die zweite `PATCH` schlägt dann zwangsläufig mit derselben `Failed`-Antwort fehl wie eine falsche TAN (Enumeration-Schutz: eine unbekannte E-Mail ist von einer falschen TAN nicht unterscheidbar).
-- `auth-password-lookup` erwartet `{"email": "...", "password": "..."}` in einem einzigen `PATCH` (selbstverifizierend wie `auth-password`). Unbekannte E-Mail und falsches Passwort führen zur selben `Failed`-Antwort (gleicher Enumeration-Schutz).
-- `auth-email-lookup` folgt demselben Zwei-`PATCH`-Muster wie `auth-sms-lookup`: erst `{"email": "..."}` (löst den Account auf und verschickt bei Erfolg einen Bestätigungscode an genau diese Adresse — dieselbe E-Mail dient hier sowohl als Identifikator als auch als Zustellziel), dann `{"code": "..."}`. `nextStep` nach der ersten `PATCH` ist `codeInput`, identisch zu `enroll-email`/`auth-email`, sodass das Frontend dasselbe Code-Formular wiederverwendet (docs/10-frontend.md). Unbekannte oder unbestätigte E-Mail verhält sich wie bei `auth-sms-lookup` (gleiche Antwortform ohne `demo.tan`, gleicher Enumeration-Schutz).
-- Alle drei Lookup-Tools tragen in jeder `InProgress`-Antwort zusätzlich `demo.email`/`demo.password` (dieselben festen Konstanten wie oben) — das ist unproblematisch für den Enumeration-Schutz, weil beide Werte fest und unabhängig vom tatsächlich aufgelösten Account sind, nie aus echten Accountdaten abgeleitet.
-- Bei Erfolg schreibt der Orchestrator `DeviceAccountLink` für dieses Gerät neu (`ToolOutcomeProcessor.handleAuthenticated`, [Orchestrierung](04-orchestrierung.md) Abschnitt 1) — ein danach mit `intent: "auto"` (oder weggelassen) angelegter Kanal erkennt das Gerät und bietet direkt den gewöhnlichen geräte-gebundenen LOGIN an, nicht wieder den Lookup-Login.
+- `auth-sms-lookup`/`auth-email-lookup` folgen dem Zwei-`PATCH`-Muster: erst `{"email": "..."}` (löst den Account auf, verschickt bei Erfolg TAN/Code), dann `{"tan"/"code": "..."}`.
+- `auth-password-lookup` erwartet `{"email": "...", "password": "..."}` in einem einzigen `PATCH`.
+- Enumeration-Schutz: Eine unbekannte oder unbestätigte E-Mail verhält sich in Form und Timing identisch zu einem korrekt aufgelösten Account mit falschem Credential — nie eine eigene Fehlerform. Das gilt auch für die demo-Werte: `demo.email`/`demo.password` sind feste Konstanten, unabhängig vom tatsächlich aufgelösten Account, verraten also nichts.
+- Bei Erfolg schreibt der Orchestrator `DeviceAccountLink` für dieses Gerät neu — ein danach mit `intent: "auto"` angelegter Kanal erkennt das Gerät und bietet direkt den gewöhnlichen geräte-gebundenen LOGIN an.
 
 ---
 
@@ -518,140 +147,21 @@ Erreichbar nur über `POST /channels` mit `intent: "login"` (siehe oben) — nie
 - `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/step-up`
 - `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/login`
 - `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/tool-activate/{toolId}` (Gegenstück zur App-Fassade; danach laufen beide Kanäle über dieselben `/tools/{toolSessionId}/{toolId}`-URLs)
-- optional: `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/{purpose}/cancel`
+- optional: `POST .../processes/{purpose}/cancel`
 
-Beispiel `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/step-up`:
-
-```json
-{
-  "channelSessionId": "uuid",
-  "keycloakSessionId": "kc-session-id",
-  "keycloakSubject": "user-sub",
-  "startingAcr": "loa1",
-  "requiredAcr": "loa2",
-  "currentAmr": ["pwd"]
-}
-```
-
-Antwort `201`:
-
-```json
-{
-  "next": {
-    "type": "tool",
-    "toolId": "auth-sms",
-    "step": "auth"
-  }
-}
-```
-
-Keycloak folgt diesem `next` über dieselbe Routing-Tabelle wie die App: `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/tool-activate/auth-sms` liefert die `toolSessionId`, danach laufen `PATCH`/`GET` kanalneutral über `/tools/{toolSessionId}/auth-sms`.
+`processes/step-up` bekommt `channelSessionId`, `keycloakSessionId`/`keycloakSubject`, `startingAcr`/`requiredAcr`, `currentAmr` und liefert `next` in derselben Form wie die App-Fassade — Keycloak folgt ihm über dieselbe Routing-Tabelle.
 
 ---
 
 ## 4) Hybrid-Modell: Prozess-API + Tool-Ressourcen
 
-Ziel:
+Ziel: Prozesssicht/Fachführung bleibt in den Prozess-Endpoints; App-Frontend und Keycloak nutzen für Eingabe- und Verifikationsschritte dieselben kanalneutralen Tool-URLs.
 
-- Prozesssicht und Fachführung bleiben in den Prozess-Endpoints sichtbar.
-- App-Frontend und Keycloak nutzen für Eingabe- und Verifikationsschritte dieselben kanalneutralen Tool-URLs.
+- Der Channel-/Prozess-Endpunkt wählt über `toolId` das Tool aus und erzeugt eine technische `ToolSession`, ohne selbst fachliche Eingabedaten entgegenzunehmen.
+- Das Backend liefert einen fachlich eindeutigen `next`-Zustand; App/Keycloak leiten daraus über dieselbe feste Routing-Tabelle den nächsten Endpunkt ab.
+- `ProcessSession` bleibt der fachliche Owner (Routing-Zustand); `ToolSession` trägt nur Lifecycle-Metadaten (`toolSessionId`, `processSessionId`, `retryCount`, Zeitstempel) — weder `toolId` noch `stepData` sind eigene Spalten, beides ergibt sich aus Route bzw. Moduldaten (siehe [Domänenmodell](02-domaenenmodell.md)).
+- `accountId`/`personId` sind kein Teil des fachlichen Antwortvertrags — der Client braucht sie für keinen der über `next` erreichbaren Folgeaufrufe. Einzige Ausnahme ist das demo-Objekt.
 
-Kernidee:
-
-1. Channel-Endpunkt wählt über `toolId` das Tool aus und erzeugt eine technische Tool-Ressource.
-2. Backend erstellt die `ToolSession` und ordnet sie über den `toolId` der passenden Moduldaten-Klasse zu (z. B. `EnrollSmsToolData` für `enroll-sms`, siehe [Tool-Architektur](03-tool-architektur.md)).
-3. Die Channel-API nimmt dabei keine fachlichen Eingabedaten entgegen; `toolId` steht bereits in der URL, ein Body ist nicht nötig.
-4. Das Backend liefert einen fachlich eindeutigen `next`-Zustand, z. B. `{"type":"flow","context":"enrollment","step":"selectMethod"}` (plus `stepData={"options":["enroll-sms"]}`) oder `{"type":"tool","toolId":"auth-sms","step":"auth"}`.
-5. App oder Keycloak nutzen eine feste Routing-Tabelle von `next.type` (`tool`/`flow`) und dem passenden Attribut (`toolId` bzw. `context`+`stepData.options`) auf die passenden Endpunkte und leiten nichts aus URLs ab.
-
-### Ressourcenmodell
-
-- `ProcessSession` bleibt der fachliche Owner und enthält den aktuellen Routing-Zustand:
-  - `processSessionId`
-  - `channelSessionId`
-  - `purpose`
-  - `state`
-  - `accountId`
-  - `nextType` (`tool` oder `flow`)
-  - `nextToolId` (nur bei `nextType=tool` gesetzt)
-  - `nextContext` (nur bei `nextType=flow` gesetzt)
-  - `nextStep`
-  - `expiresAt`, `consumedAt`
-- Neue technische Ressource: `ToolSession` (keine Kind-Subtypen mehr; `toolId` wählt direkt Handler und Moduldaten-Klasse, siehe [Tool-Architektur](03-tool-architektur.md)):
-  - `toolSessionId`
-  - `processSessionId` (nur intern)
-  - `expiresAt`, `retryCount`
-
-Klarstellung zum Persistenzmodell:
-
-- Der Orchestrator persistiert für Tools nur Lifecycle-Metadaten (`toolSessionId`, `processSessionId`, `retryCount`, Zeitstempel).
-- Weder `toolId` noch `stepData` sind persistierte Datenfelder: `toolId` ergibt sich aus der anlegenden/lesenden Route, `stepData` wird bei jeder Antwort aus den Moduldaten neu aufgebaut.
-- Fachliche Ergebnisdaten bleiben in den jeweiligen Methodenmodulen; `GET`-Responses baut der Orchestrator aus Lifecycle-Zustand, Moduldaten und dem Routing-Zustand der `ProcessSession` zusammen.
-- `stepData` hat je nach Situation zwei Quellen: bei laufendem Tool reicht der Orchestrator `ToolOutcome.InProgress.data` unverändert durch; bei Auswahl- und Abschlussantworten baut er es selbst (z. B. `options`, `error`). Der Inhalt von `Completed` geht nie direkt zum Client — er ist für die Verarbeitung in [Orchestrierung](04-orchestrierung.md) bestimmt.
-- `accountId`/`personId` sind kein Teil des fachlichen Antwortvertrags: Der Client braucht sie für keinen der über `next` erreichbaren Folgeaufrufe, deshalb bleiben sie serverseitig in der `ProcessSession`. Einzige Ausnahme ist das ausdrücklich als solches gekennzeichnete `demo`-Objekt für die Demo-Oberfläche (Abschnitt 2, Beispiel 6). `personId` liefert das Ident-Tool selbst (`Completed.Identified` — Identifikation *ist* die Auflösung zur Person); `accountId` kennt kein Methoden-Handler, es entsteht erst bei der Verarbeitung über `findOrCreateAccount(personId)` ([Orchestrierung](04-orchestrierung.md)), und spätere Tools lesen es nur noch aus der `ProcessSession`.
-
-### API-Schnitt
-
-Start erfolgt über den Channel-Endpunkt (App) bzw. die Prozess-Endpunkte (Web/Keycloak, Abschnitt 3):
-
-- `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/{toolId}` (kein Body nötig, z. B. `ident-fsc`, `enroll-sms`, `auth-sms`)
-
-Jede unterstützte Kombination aus Kind und Methode hat eine eigene, konkrete `toolId` (kein generischer `{kind}`/`{method}`-Platzhalter); der Tool-Katalog in [Tool-Architektur](03-tool-architektur.md) listet die aktuell unterstützten Werte.
-
-Die eigentliche Parametereingabe und Verifikation laufen danach über eine kanalneutrale Tool-API, deren Struktur das jeweilige Tool bestimmt (Tool-Namespace, Abschnitt 2). Für den `PATCH`-Regelfall gilt durchgängig: Der Client sendet nur den aktuell fehlenden oder zu korrigierenden Teil der Tool-Daten; bereits vorhandene Werte können gezielt überschrieben werden, müssen aber nicht erneut vollständig mitgesendet werden.
-
-- `PATCH/GET /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` (Regelfall; von `ident-fsc`, `enroll-sms` und `auth-sms` genutzt)
-- `<beliebig> /orchestrator/api/v1/tools/{toolSessionId}/{toolId}/{aktion}` (tool-eigene Endpunkte, z. B. WebAuthn-Assertion oder eID-Callback)
-
-Die Request-/Response-Beispiele für `ident-fsc` und `enroll-sms` entsprechen exakt den in Abschnitt 2 gezeigten Payloads (gleiches `toolSessionId`-Schema) und werden hier nicht erneut dupliziert. Einzig `auth-sms` (Login/Step-up) ist dort nicht abgedeckt:
-
-Prozess-Start: `POST /orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/auth-sms` (kein Body nötig)
-
-Antwort `201`:
-
-```json
-{
-  "toolSessionId": "a4444444-4444-4444-4444-444444444444",
-  "stepData": {
-    "missingFields": ["tan"]
-  },
-  "next": {
-    "type": "tool",
-    "toolId": "auth-sms",
-    "step": "auth"
-  },
-  "demo": {
-    "tan": "123456"
-  }
-}
-```
-
-`PATCH /orchestrator/api/v1/tools/{toolSessionId}/auth-sms` (TAN):
-
-```json
-{
-  "tan": "123456"
-}
-```
-
-Antwort `200`:
-
-```json
-{
-  "toolSessionId": "a4444444-4444-4444-4444-444444444444",
-  "next": {
-    "type": "flow",
-    "context": "authentication",
-    "step": "authenticated"
-  }
-}
-```
-
-### Gibt es doppelte APIs?
-
-Nein, wenn die Verantwortung klar getrennt ist:
-
-- Prozess-API: kanal- und fachkontextspezifischer Start (`app` oder `kc`), Policy, Ableitung des intern nötigen `purpose`, Reservierung einer Tool-Instanz
-- Tool-API: kanalneutrale technische Parametereingabe und Verifikation über dieselbe Ressource (`PATCH`/`GET`); unterschiedliche fachliche Varianten wie `enroll-sms` und `auth-sms` werden als getrennte konkrete Endpunkte modelliert
+Für Keycloak ist `auth-sms` (Login/Step-up) der einzige nicht bereits über die App-Fassade abgedeckte Fall — die `PATCH`/`GET`-Formen sind identisch zur App-Seite, nur der Prozess-Start läuft über `POST /kc/sessions/{kcSessionId}/tool-activate/auth-sms` statt über einen Channel.
 
 Damit ist nur die fachliche Freigabe prozess- und kanalabhängig; Startparameter und Verifikation laufen danach kanalneutral über ein einheitliches Tool-Muster.

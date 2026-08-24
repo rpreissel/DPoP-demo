@@ -1,346 +1,87 @@
 # Tool-Architektur
 
 Ein *Tool* ist ein konkretes Verfahren zur Identifikation, zum Enrollment oder zur Authentifizierung
-(`ident-fsc`, `enroll-sms`, `auth-sms`). Dieses Dokument beschreibt, wie Tools modelliert sind, wie sie
-sich selbst beschreiben und was sie über die Modulgrenze hinweg melden.
+(`ident-fsc`, `enroll-sms`, `auth-sms`). Dieses Dokument beschreibt, wie Tools sich selbst
+beschreiben und was sie über die Modulgrenze hinweg melden.
 
 Was der Orchestrator mit diesen Meldungen macht, steht in [04-orchestrierung.md](04-orchestrierung.md).
 
 ---
 
-## 1) Entitätsmodell und Tool-Katalog
+## 1) Tool-Katalog
 
-```mermaid
-classDiagram
-  class ToolSession {
-    UUID toolSessionId
-    UUID processSessionId
-    Instant createdAt
-    Instant expiresAt
-    int retryCount
-  }
+`ToolSession` ist die dritte und kurzlebigste Session-Ebene (`ChannelSession` -> `ProcessSession` -> `ToolSession`) und steht für genau einen Durchlauf eines Tools; sie trägt nur technische Lifecycle-Metadaten, keine Kind-Subtypen. `toolId` (z. B. `ident-fsc`, `enroll-sms`, `auth-sms`) identifiziert Kind und Methode zusammen in einem flachen Bezeichner — kein persistiertes Feld, sondern ergibt sich aus der Route und wählt darüber Handler und Moduldaten-Klasse.
 
-  class IdFscToolData {
-    string kvnr
-    string name
-    string vorname
-    string fsc
-  }
+Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregation der Selbstauskünfte aller Module (`ToolDescriptor`, Abschnitt 2):
 
-  class EnrollSmsToolData {
-    string phoneNumber
-    string issuedTanHash
-    Instant tanExpiresAt
-  }
-
-  class AuthSmsUseToolData {
-    string enrollmentRefType
-    string enrollmentRefId
-    string issuedTanHash
-    Instant tanExpiresAt
-  }
-
-  ToolSession "1" --> "0..1" IdFscToolData : toolId=ident-fsc
-  ToolSession "1" --> "0..1" EnrollSmsToolData : toolId=enroll-sms
-  ToolSession "1" --> "0..1" AuthSmsUseToolData : toolId=auth-sms
-
-  ProcessSession "1" --> "0..*" ToolSession : owns
-```
-
-- `ToolSession` ist die dritte und kurzlebigste Session-Ebene (`ChannelSession` -> `ProcessSession` -> `ToolSession`) und steht für genau einen Durchlauf eines Tools. Sie ist eine einzige konkrete Klasse ohne Kind-Subtypen und enthält nur technische Identitäts- und Lifecycle-Metadaten.
-- `toolId` (z. B. `ident-fsc`, `enroll-sms`, `auth-sms`) identifiziert Kind und Methode zusammen in einem flachen Bezeichner. Er ist kein persistiertes Feld, sondern ergibt sich aus der anlegenden/lesenden Route und wählt darüber direkt Handler und `*ToolData`-Klasse (Abschnitt 2).
-
-Tool-Katalog — **keine zentral gepflegte Tabelle**, sondern die Aggregation der Selbstauskünfte aller Module (`ToolDescriptor`, Abschnitt 2). Aktueller Stand:
-
-| toolId | Kategorie | method | factorTypes | maxAcr | Modul |
+| toolId | Kategorie | method | factorTypes | maxAcr | deviceBound |
 |---|---|---|---|---|---|
-| `ident-fsc` | Identifikation | `fsc` | `{possession}` | `loa2` | `id_fsc` |
-| `enroll-sms` | Enrollment | `sms` | `{possession}` | `loa1` | `auth_sms` |
-| `auth-sms` | Authentifizierung | `sms` | `{possession}` | `loa1` | `auth_sms` |
-| `enroll-password` | Enrollment | `password` | `{knowledge}` | `loa1` | `auth_password` |
-| `auth-password` | Authentifizierung | `password` | `{knowledge}` | `loa1` | `auth_password` |
-| `enroll-email` | Enrollment | `email` | `{possession}` | `loa1` | `auth_email` |
-| `auth-email` | Authentifizierung | `email` | `{possession}` | `loa1` | `auth_email` |
-| `auth-sms-lookup` | Authentifizierung | `sms` | `{possession}` | `loa1` | `auth_sms` |
-| `auth-password-lookup` | Authentifizierung | `password` | `{knowledge}` | `loa1` | `auth_password` |
-| `auth-passkey` (Beispiel) | Authentifizierung | `passkey` | `{possession, inherence}` | `loa3` | `auth_passkey` |
+| `ident-fsc` | Identifikation | `fsc` | `{possession}` | `loa2` | — |
+| `enroll-sms` / `auth-sms` | Enrollment / Auth | `sms` | `{possession}` | `loa1` | `true` |
+| `enroll-password` / `auth-password` | Enrollment / Auth | `password` | `{knowledge}` | `loa1` | `true` |
+| `enroll-email` / `auth-email` | Enrollment / Auth | `email` | `{possession}` | `loa1` | `true` |
+| `auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup` | Auth | `sms`/`password`/`email` | wie Zwilling | `loa1` | `false` |
 
-- Jedes Modul liefert diese Angaben selbst. Es weiß am besten, welche Faktorart es abdeckt und welches Niveau sein Verfahren maximal tragen kann — dieselbe Begründung, aus der bereits `amr` und `achievedAcr` aus dem Modul kommen (Tool-Architektur). Ein neues Modul bringt seine Beschreibung mit; niemand muss eine zentrale Liste nachpflegen und dabei etwas vergessen.
-- `method` wird **nicht** aus dem `toolId` geparst. Der Name ist ein Bezeichner, kein strukturiertes Datum — ein künftiges `auth-push-tan` würde bei naivem Zerlegen falsch aufgelöst.
-- `method` trägt echte Information: `enroll-sms` und `auth-sms` melden dieselbe `method` (`sms`). Genau darüber findet ein Auth-Tool die passende Zeile in `account.authenticationMethods`, die das zugehörige Enroll-Tool angelegt hat.
-- `factorTypes` (`knowledge`, `possession`, `inherence`) ist die Grundlage für Mehr-Faktor-Prüfungen ([Orchestrierung](04-orchestrierung.md)). MFA bedeutet zwei **verschiedene** Faktorarten, nicht zwei Methoden — ohne diese Angabe könnten zwei Wissensfaktoren fälschlich als MFA durchgehen. Die Angabe gehört zur Methode: Enroll- und Auth-Tool derselben `method` melden dieselben Faktorarten.
-- Es ist eine Menge, weil ein einzelnes Verfahren mehrere Faktoren gleichzeitig erbringen kann (Zeile `auth-passkey`): Der Authenticator ist Besitz, die User Verification darauf Inhärenz oder Wissen. Solche Tools erfüllen MFA im Alleingang.
-- Zentral bleibt nur, was ein einzelnes Modul nicht wissen *kann*: welches Niveau sich aus einer **Kombination** von Nachweisen ergibt und welches Niveau eine Ressource fordert. Das ist Sache der `AuthPolicy` ([Orchestrierung](04-orchestrierung.md)).
-- `enroll-password`/`auth-password` verzichten bewusst auf ein eigenes Identifikator-Feld — kein `username` mehr (Migration `V7__auth_password_drop_username.sql`, das Feld existierte in `V4__add_auth_password.sql`). Die bestätigte Account-E-Mail (`account.email`, [Abläufe](06-ablaeufe.md) Abschnitt 1) ist der implizite Login-Bezeichner. Voraussetzung dafür ist eine Tool-Vorbedingung, `ToolDescriptor.requiresConfirmedEmail` (Abschnitt 2).
-- `enroll-email`/`auth-email` (Modul `auth_email`, Migration `V6__add_auth_email.sql`) melden `factorTypes={possession}` wie `enroll-sms`/`auth-sms`, sind aber ein eigenständiges Modul statt Teil von `auth_sms`. Der bestätigte Wert landet nicht in einer modul-eigenen Enrollment-Tabelle, sondern direkt auf `Account` (`email`/`emailConfirmedAt`, [Abläufe](06-ablaeufe.md) Abschnitt 1) — der `enrollmentRef` in `Completed.Enrolled` ist deshalb nur ein fester, inerter Platzhalter (`{type:"account_email", id:"self"}`). `auth-email` deckt aktuell nur den geräte-gebundenen Fall ab: Es authentifiziert gegen die bereits über den Account bekannte, bestätigte E-Mail-Adresse; ein `auth-email-lookup` existiert (noch) nicht, nur `sms`/`password` haben `-lookup`-Zwillinge (Bead-Scope).
-- `auth-sms-lookup`/`auth-password-lookup` (Migration `V9__add_lookup_login_tools.sql`) sind die lookup-basierten Zwillinge von `auth-sms`/`auth-password` für "Login ohne DPoP" ([Orchestrierung](04-orchestrierung.md) Abschnitt 4): gleiche `method`/`factorTypes`/`maxAcr` (dasselbe Credential, nur ein anderer Weg, es zu präsentieren), aber `deviceBound = false` — sie lösen den Account selbst über eine eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen, und sind nur über `POST /channels {"intent":"login"}` erreichbar, nie über die normale `AuthPolicy.candidateTools`-Kandidatenermittlung.
+Entscheidungen dahinter:
 
-- `ToolState` (`INPUT_REQUIRED`, `VERIFIED`, ...) wird nicht auf der Tool-Entität gespeichert, sondern vom konkreten Handler aus dem methodenspezifischen Zustand ermittelt. Dasselbe gilt für `stepData`: Es ist kein persistiertes Feld, sondern wird bei jeder Antwort neu aus den Moduldaten aufgebaut.
-- Routing-Information (`next.type`, `next.toolId`/`next.context`, `next.step`) gehört zur `ProcessSession`, nicht zum Tool.
-- Methodenbezogene Tool-Daten liegen in den jeweiligen Modulen: `IdFscToolData` im Modul `id_fsc`, `EnrollSmsToolData`/`AuthSmsUseToolData` im Modul `auth_sms`.
-- Die Tool-Entität bildet direkt das API-Muster `POST` (anlegen), `PATCH` (anreichern/verifizieren), `GET` (lesen) ab.
-- Für `auth-sms` wird kein fester `smsEnrollmentId` als Core-Feld angenommen; stattdessen verwendet das Modell eine generische Enrollment-Referenz (`enrollmentRefType`, `enrollmentRefId`), die fachlich auf einen Enrollment-Datensatz im jeweiligen Modul zeigt (bei SMS auf `auth_sms`).
-- Strikte Regel für dieses Zielbild: Der Orchestrator persistiert weder `toolId` noch fachliche Ergebnisdetails als eigenes Datenfeld; diese liegen ausschließlich in den Methodenmodulen bzw. ergeben sich aus der Route.
+- Jedes Modul liefert Kategorie/Methode/Faktorart/Niveau selbst — es weiß am besten, was sein Verfahren maximal trägt. Ein neues Modul bringt seine Beschreibung mit; niemand muss eine zentrale Liste nachpflegen.
+- `method` wird **nicht** aus `toolId` geparst (der Name ist ein Bezeichner, kein strukturiertes Datum) und trägt echte Information: `enroll-sms`/`auth-sms` melden dieselbe `method`, worüber ein Auth-Tool die passende Zeile in `account.authenticationMethods` findet.
+- `factorTypes` ist die Grundlage für MFA-Prüfungen ([Orchestrierung](04-orchestrierung.md)) — eine **Menge**, weil ein einzelnes Verfahren mehrere Faktoren zugleich erbringen kann (ein hypothetischer Passkey mit User Verification wäre Besitz *und* Inhärenz und erfüllte MFA im Alleingang).
+- `requiresConfirmedEmail` (bislang nur `enroll-password`) wird an zwei Stellen unabhängig geprüft: bei der Kandidatenermittlung (`AuthPolicy.enrollmentCandidates`) und nochmals bei der Aktivierung selbst (`ToolControllerSupport.validatePreconditions`) — letzteres, weil die Aktivierungsprüfung sonst nur die Tool-*Kategorie* gegen den Auswahlkontext prüft, nicht den konkreten Kandidaten, und einen direkten Aufruf unter Umgehung der Kandidatenliste sonst durchließe.
+- `deviceBound=false` markiert die `-lookup`-Zwillinge: Sie melden bewusst dieselbe `method` wie ihr geräte-gebundenes Geschwister (dasselbe Credential, nur ein anderer Weg, es zu präsentieren) und lösen den Account selbst über eine eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen ([Orchestrierung](04-orchestrierung.md) Abschnitt 4). Ohne den Filter könnte die normale Kandidatenermittlung für eine ganz gewöhnliche, bereits Account-gebundene Session mehrdeutig auf den `-lookup`-Zwilling statt das Original treffen.
+
+Zentral bleibt nur, was ein einzelnes Modul nicht wissen *kann*: welches Niveau sich aus einer **Kombination** von Nachweisen ergibt, und welches Niveau eine Ressource fordert — Sache der `AuthPolicy` ([Orchestrierung](04-orchestrierung.md)).
 
 ---
 
-## 2) Modulklassen und Verträge
+## 2) `ToolDescriptor` und `ToolOutcome`
 
-```mermaid
-classDiagram
-  class IdentFscToolController {
-    +activate(channelSessionId)
-    +patch(toolSessionId, request)
-    +read(toolSessionId)
-  }
-
-  class EnrollSmsToolController {
-    +activate(channelSessionId)
-    +patch(toolSessionId, request)
-    +read(toolSessionId)
-  }
-
-  class AuthSmsToolController {
-    +activate(channelSessionId)
-    +patch(toolSessionId, request)
-    +read(toolSessionId)
-  }
-
-  class ToolControllerSupport {
-    +beginActivation(...)
-    +loadContext(...)
-    +applyOutcome(...)
-  }
-
-  class ToolHandlerRegistry {
-    +descriptorOf(toolId)
-    +descriptors()
-  }
-
-  class ToolSessionRepository {
-    +save(...)
-    +findById(...)
-  }
-
-  class IdentFscToolDataRepository {
-    +save(...)
-    +findByToolId(...)
-  }
-
-  class IdentFscToolHandler {
-    +start(toolSessionId)
-    +patch(toolSessionId, kvnr, name, vorname, fsc, personId)
-    +read(toolSessionId)
-  }
-
-  class EnrollSmsToolDataRepository {
-    +save(...)
-    +findByToolId(...)
-  }
-
-  class AuthSmsUseToolDataRepository {
-    +save(...)
-    +findByToolId(...)
-  }
-
-  class EnrollSmsToolHandler {
-    +start(toolSessionId)
-    +patch(toolSessionId, phoneNumber, tan)
-    +read(toolSessionId)
-  }
-
-  class AuthSmsUseToolHandler {
-    +start(toolSessionId, enrollmentRef)
-    +patch(toolSessionId, tan)
-    +read(toolSessionId)
-  }
-
-  IdentFscToolController --> IdentFscToolHandler : calls directly
-  EnrollSmsToolController --> EnrollSmsToolHandler : calls directly
-  AuthSmsToolController --> AuthSmsUseToolHandler : calls directly
-
-  IdentFscToolController --> ToolControllerSupport : shared plumbing
-  EnrollSmsToolController --> ToolControllerSupport : shared plumbing
-  AuthSmsToolController --> ToolControllerSupport : shared plumbing
-  ToolControllerSupport --> ToolSessionRepository : persists lifecycle
-
-  IdentFscToolController --> ToolHandlerRegistry : category lookup only
-  EnrollSmsToolController --> ToolHandlerRegistry : category lookup only
-  AuthSmsToolController --> ToolHandlerRegistry : category lookup only
-
-  IdentFscToolHandler --> IdentFscToolDataRepository : persists module data
-  EnrollSmsToolHandler --> EnrollSmsToolDataRepository : persists module data
-  AuthSmsUseToolHandler --> AuthSmsUseToolDataRepository : persists module data
-```
-
-- **Ein Controller je Tool**, nicht ein generischer Dispatcher: `IdentFscToolController`, `EnrollSmsToolController`, `AuthSmsToolController` besitzen je Aktivierung (`POST .../tool-activate/{toolId}`), `PATCH` und `GET` für genau ihr Tool, mit eigenen typisierten Request-DTOs (`IdentFscPatchRequest`, `EnrollSmsPatchRequest`, `AuthSmsPatchRequest`) und rufen ihren Handler direkt auf ([Projektrahmen](08-projektrahmen.md) A11: „Lesbarkeit hat Vorrang vor maximal generischem API-Wiring"). Es gibt keinen `toolId`-basierten Laufzeit-Dispatch auf einen Handler mehr.
-- `ToolHandlerRegistry` (Orchestrator-Modul) sammelt beim Start alle `ToolHandler`-Beans ein und aggregiert daraus ausschließlich den Tool-Katalog (`descriptorOf`/`descriptors()`) — keine Handler-Auflösung mehr, da nichts mehr generisch dispatcht.
-- `ToolControllerSupport` (Orchestrator-Modul) bündelt die Plumbing, die für jedes Tool identisch und sicherheitsrelevant ist: Binding-Prüfung, Aktivierungs-Validierung gegen den aktuellen Prozesszustand, Prüfung deklarierter Tool-Vorbedingungen (`validatePreconditions`, Abschnitt 2 unten), Kontosperre bei zu vielen Fehlversuchen (nur Kategorie `AUTH`, siehe [Betrieb](07-betrieb.md)), Anlegen der `ToolSession`, Retry-Zählung, Persistieren von `next`. Das bleibt zentral, weil eine Abweichung zwischen Tools hier ein Sicherheits-/Konsistenzproblem wäre, nicht weil hier Fachlogik steckt.
-- `ToolHandler` (Modul `tool_spi`) ist auf `descriptor: ToolDescriptor` verschlankt. `start(toolSessionId, ...)` ist auf den Handler-Klassen selbst deklariert und wird vom jeweiligen Controller direkt aufgerufen — typisiert statt über eine generische `Map<String, Any?>`, z. B. `AuthSmsUseToolHandler.start(toolSessionId, enrollmentRef: EnrollmentRef)`. Referenzen, die der Orchestrator für ein Tool auflöst (z. B. die `EnrollmentRef` für `auth-sms`), werden am Aufrufort im Controller aufgelöst und geprüft; der Handler bekommt nie einen nullable Parameter, sondern entweder einen gültigen Wert oder der Aufruf wird vorher mit `UnresolvableReferenceException` abgebrochen.
-- Modul `id_fsc`: `IdentFscToolHandler` plus `IdentFscToolDataRepository`.
-- Modul `auth_sms`: `EnrollSmsToolHandler`/`AuthSmsUseToolHandler` plus zugehörige Repositories.
-- Modul `auth_password`: `EnrollPasswordToolHandler`/`AuthPasswordUseToolHandler` plus zugehörige Repositories; kein eigenes Identifikator-Feld mehr (siehe oben).
-- Modul `auth_email`: `EnrollEmailToolHandler`/`AuthEmailUseToolHandler` plus zugehörige Repositories und ein eigener `EmailCodeGenerator`. Bewusst **nicht** mit dem strukturell fast identischen `TanGenerator` aus `auth_sms` geteilt: Kotlin `internal` gilt pro Compilation-Modul, nicht pro Package — eine gemeinsame Nutzung über `auth_sms`/`auth_email` hinweg wäre ein stiller Verstoß gegen genau die Modulith-Grenze, die beide Module voneinander trennen soll.
-- Damit sind im Bild sowohl der zentrale Lifecycle als auch die eigentlichen Fachklassen in den Modulen sichtbar.
-
-Jeder Handler beschreibt sich zusätzlich selbst. Der Orchestrator sammelt diese Descriptors beim Start ein — daraus entsteht der Tool-Katalog aus Abschnitt 1, ohne dass irgendwo eine Liste gepflegt werden müsste:
+Jeder Handler beschreibt sich selbst; der Orchestrator sammelt diese Descriptors beim Start ein und aggregiert daraus den Katalog aus Abschnitt 1:
 
 ```kotlin
 interface ToolDescriptor {
     val toolId: String                     // "auth-sms"
     val category: ToolCategory             // IDENT | ENROLL | AUTH
     val method: String                     // "sms" — verbindet enroll-sms und auth-sms
-    val factorTypes: Set<FactorType>       // Faktorarten, die das Verfahren abdecken kann
-    val maxAcr: String                     // höchstes Niveau, das dieses Verfahren tragen kann
-    val requiresConfirmedEmail: Boolean    // Vorbedingung fürs Aktivieren; Default false
-        get() = false
-    val deviceBound: Boolean               // false nur bei den -lookup-Tools; Default true
-        get() = true
+    val factorTypes: Set<FactorType>
+    val maxAcr: String
+    val requiresConfirmedEmail: Boolean get() = false
+    val deviceBound: Boolean get() = true
 }
 ```
 
-- `maxAcr` und `factorTypes` sind statisch und dienen der Vorauswahl: Die `AuthPolicy` muss entscheiden können, ob ein Tool eine offene Lücke überhaupt schließen *könnte*, bevor sie es dem Nutzer anbietet. Was der konkrete Durchlauf tatsächlich erbracht hat, meldet `Completed` (`achievedAcr`, `factorTypes`) — nie mehr, als der Descriptor zulässt.
-- `factorTypes` ist bewusst eine **Menge**: Manche Verfahren erbringen in einem einzigen Durchlauf mehrere Faktoren. Ein Passkey mit User Verification vereint Besitz (Authenticator) und Inhärenz oder Wissen (Biometrie/PIN); eine Smartcard mit PIN vereint Besitz und Wissen. Solche Tools sind für sich genommen bereits Mehr-Faktor ([Orchestrierung](04-orchestrierung.md)).
-- Der Orchestrator interpretiert diese Werte nur; er legt sie nicht fest.
-- `requiresConfirmedEmail` ist bewusst ein einzelnes, minimales Boolean statt eines generischen Vorbedingungs-Enums — eine bestätigte E-Mail war der einzige konkrete Vorbedingungsfall (aktuell nur `enroll-password = true`). Zwei Stellen prüfen das unabhängig voneinander, beide notwendig für Korrektheit: `AuthPolicy.enrollmentCandidates()` filtert das Tool aus dem Angebot (`!it.requiresConfirmedEmail || account.emailConfirmed`, [Orchestrierung](04-orchestrierung.md) Abschnitt 2); `ToolControllerSupport.validatePreconditions(toolId, accountId)` weist unabhängig davon eine direkte Aktivierung ab, selbst wenn ein Client `tool-activate/enroll-password` unter Umgehung der angebotenen Kandidatenliste direkt aufruft — `validateActivation` prüft dabei nur die Tool-*Kategorie* gegen den aktuellen Auswahlkontext, nicht den konkreten Kandidaten, und könnte einen präconditions-gebundenen Kandidaten sonst durchlassen.
-- `deviceBound` unterscheidet, ob ein Tool voraussetzt, dass der Account bereits über den Kanal/Prozess bekannt ist (Normalfall, Default `true`), oder ihn selbst auflöst (nur `auth-sms-lookup`/`auth-password-lookup`, [Orchestrierung](04-orchestrierung.md) Abschnitt 4). Nötig, weil ein `-lookup`-Tool bewusst dieselbe `method` wie sein geräte-gebundenes Geschwister meldet (dasselbe Credential) — ohne den Filter könnte `AuthPolicy.candidateTools()`s Lookup für eine ganz gewöhnliche, bereits Account-gebundene Session mehrdeutig auf den `-lookup`-Zwilling statt das Original treffen.
+`maxAcr`/`factorTypes` sind statisch und dienen der Vorauswahl (kann dieses Tool eine Lücke überhaupt schließen?); was ein konkreter Durchlauf tatsächlich erbracht hat, meldet `Completed` — nie mehr, als der Descriptor zulässt.
 
-`start(...)`/`patch(...)` liefern bei jedem Handler denselben Vertrag zurück, auch wenn ihre Parameter je Tool typisiert und unterschiedlich sind:
+Über die Modulgrenze geht ausschließlich `ToolOutcome` — läuft noch, abgeschlossen, oder fehlgeschlagen:
 
 ```kotlin
 sealed interface ToolOutcome {
-
-    /** Tool läuft weiter; `data` ist client-gerichtet und wird als `stepData` durchgereicht. */
-    data class InProgress(
-        val nextStep: String,
-        val data: Map<String, Any?>? = null
-    ) : ToolOutcome
+    /** Läuft weiter; `data` ist client-gerichtet und wird unverändert als `stepData` durchgereicht. */
+    data class InProgress(val nextStep: String, val data: Map<String, Any?>? = null) : ToolOutcome
 
     /** Versuch fehlgeschlagen; Retry-Regel siehe 04-orchestrierung.md. */
     data class Failed(val reason: String) : ToolOutcome
 
-    /**
-     * Tool abgeschlossen. Die Variante entspricht der Kategorie aus dem Tool-Katalog
-     * und legt fest, was der Orchestrator damit tut.
-     */
+    /** Abgeschlossen. Die Variante *ist* die Kategorie und legt fest, was der Orchestrator tut. */
     sealed interface Completed : ToolOutcome {
-        /** Vom Tool nachgewiesene Methoden für `AuthContext.currentAmr` (ein Durchlauf kann mehrere liefern). */
-        val amr: List<String>
-        /** Erreichtes Sicherheitsniveau, falls das Tool es selbst bestimmen kann. */
+        val amr: List<String>                  // nachgewiesene Methoden, für AuthContext.currentAmr
         val achievedAcr: String?
-        /** Faktorarten, die dieser Durchlauf tatsächlich erbracht hat; Teilmenge von `ToolDescriptor.factorTypes`. */
-        val factorTypes: Set<FactorType>
+        val factorTypes: Set<FactorType>        // Teilmenge von ToolDescriptor.factorTypes
 
-        data class Identified(
-            val personId: Long,
-            override val amr: List<String> = emptyList(),
-            override val achievedAcr: String? = null,
-            override val factorTypes: Set<FactorType> = emptySet(),
-            /** Methodenspezifischer Prüfnachweis; wandert unverändert nach `account.identifications[].details`. */
-            val auditDetails: Map<String, Any?>? = null
-        ) : Completed
-
-        data class Enrolled(
-            val enrollmentRef: EnrollmentRef,
-            override val amr: List<String> = emptyList(),
-            override val achievedAcr: String? = null,
-            override val factorTypes: Set<FactorType> = emptySet(),
-            /** Methodenspezifischer Zustellnachweis; wandert nach `authenticationMethods[].details`. */
-            val auditDetails: Map<String, Any?>? = null
-        ) : Completed
-
-        data class Authenticated(
-            override val amr: List<String>,
-            override val achievedAcr: String? = null,
-            override val factorTypes: Set<FactorType> = emptySet()
-        ) : Completed
+        data class Identified(val personId: Long, val auditDetails: Map<String, Any?>? = null, ...) : Completed
+        data class Enrolled(val enrollmentRef: EnrollmentRef, val auditDetails: Map<String, Any?>? = null, ...) : Completed
+        data class Authenticated(val accountId: Long? = null, ...) : Completed
     }
 }
 ```
 
-- `ToolOutcome` ist der Orchestrator-weite Vertrag an der Modulgrenze. Entscheidend ist, **an wen** der Inhalt jeweils gerichtet ist:
-  - `InProgress.data` ist **client-gerichtet**: der tool-interne Zustand, den der Nutzer sehen muss (z. B. `missingFields`, maskierte Telefonnummer, TAN-Gültigkeit). Der Orchestrator reicht ihn unverändert als `stepData` in den API-Response durch ([API](05-api.md)).
-  - `Completed` ist **orchestrator-gerichtet** und typisiert statt als freie Map: Die Variante *ist* die Kategorie des Tools und legt damit fest, was der Orchestrator zu tun hat (siehe [Orchestrierung](04-orchestrierung.md)). Ein Erfolgs-Bool wäre redundant, weil `Completed` den Erfolg schon durch seinen Typ ausdrückt.
-  - `Failed` trägt nur `reason` — eine Fehlermeldung transportiert keinen tool-internen Zustand.
-- `amr`/`achievedAcr` liefert jedes Tool selbst, weil dasselbe Verfahren je nach Ausführung unterschiedliche Niveaus erreichen kann (z. B. eID mit oder ohne PIN). Auch Identifikation und Enrollment dürfen einen Nachweis beitragen — im Beispiel führt `ident-fsc` + `enroll-sms` zu `currentAmr: ["fsc", "sms"]`. Wie sich daraus ein Gesamt-`acr` ergibt, ist Policy und bleibt der offene Punkt im [Umsetzungsstatus](README.md#umsetzungsstatus).
-- Das `stepData` einer Abschluss- oder Auswahlantwort stammt **nicht** vom Handler, sondern baut der Orchestrator selbst (z. B. `options` mit den erlaubten Folge-Tools, siehe [Orchestrierung](04-orchestrierung.md)).
-- `Completed`/`Failed` verlassen das Tool und werden ausschließlich vom Orchestrator interpretiert (siehe [Orchestrierung](04-orchestrierung.md)).
-- Das ist bewusst getrennt vom tool-internen `FlowOutcome` (Abschnitt 3 dieses Dokuments): `FlowOutcome` steuert nur den State-Effects-Flow *innerhalb* eines Moduls (z. B. wie `auth_sms` intern von "Telefonnummer erwartet" zu "TAN erwartet" kommt); `ToolOutcome` ist das, was ein Handler daraus baut und über die Modulgrenze hinweg an den Orchestrator meldet.
+- `InProgress.data` ist **client-gerichtet** (der Nutzer muss es sehen, z. B. `missingFields`); `Completed`/`Failed` sind **orchestrator-gerichtet** und werden nie direkt an den Client durchgereicht (siehe [Orchestrierung](04-orchestrierung.md)). Ein Erfolgs-Bool wäre redundant — der Erfolg steckt schon im Typ.
+- `amr`/`achievedAcr` liefert jedes Tool selbst, weil dasselbe Verfahren je nach Ausführung unterschiedliche Niveaus erreichen kann.
+- `Completed.Authenticated.accountId` setzen nur die `-lookup`-Tools, die den Account selbst auflösen — gewöhnliche `auth-*`-Tools kennen ihn schon über den Kanal.
+- Ein Controller pro Tool ruft seinen Handler direkt auf, typisiert statt über eine generische `Map<String, Any?>` — kein `toolId`-basierter Laufzeit-Dispatch ([Projektrahmen](08-projektrahmen.md) A11: „Lesbarkeit hat Vorrang vor maximal generischem API-Wiring"). Referenzen, die der Orchestrator für ein Tool auflöst (z. B. `EnrollmentRef`), werden am Aufrufort im Controller aufgelöst und geprüft — der Handler bekommt nie einen nullable Parameter, sondern entweder einen gültigen Wert oder der Aufruf bricht vorher ab.
 
 ---
 
-## 3) Modulinterne Flow-Architektur: State + Effects
+## 3) Modulinterne Flow-Architektur (optional)
 
-Dieser Abschnitt beschreibt ausschließlich, wie ein Methodenmodul **intern** aufgebaut sein kann. Was über die Modulgrenze geht (`ToolOutcome`), steht in Abschnitt 2; wie daraus der nächste Prozessschritt wird, in [04-orchestrierung.md](04-orchestrierung.md) — nicht hier.
-
-### Grundprinzip
-
-- **Flow**: kennt nur seinen eigenen Zustand und entscheidet über den nächsten internen Schritt sowie auszuführende Effekte.
-- **Modulgrenze**: nach außen sichtbar ist nur ein neutrales Ergebnis, nie der interne `State`.
-
-### Neutraler Vertrag (Flow → Handler)
-
-```kotlin
-sealed interface FlowOutcome {
-    data class InProgress(val missingFields: List<String> = emptyList()) : FlowOutcome
-    data object Completed : FlowOutcome
-    data class Failed(val reason: String) : FlowOutcome
-}
-```
-
-Der Flow liefert immer genau eines dieser drei Ergebnisse; der Handler des Moduls wertet es aus und baut daraus sein `ToolOutcome` (Tool-Architektur). Nur `ToolOutcome` verlässt das Modul — `FlowOutcome` und `State` bleiben intern.
-
-### Flow-Struktur (Beispiel: SMS-Enrollment)
-
-```kotlin
-class SmsEnrollFlow {
-
-    sealed interface State
-    data object AwaitingPhone : State
-    data class AwaitingTan(val phoneNumber: String) : State
-    data class Verified(val ref: EnrollmentRef) : State
-
-    data class Input(val phoneNumber: String?, val tan: String?)
-
-    sealed interface Effect
-    /** TAN erzeugen, gehasht mit Ablaufzeit ablegen, SMS versenden. */
-    data class SendTan(val phoneNumber: String) : Effect
-    /** Erst nach bestätigter TAN: Enrollment-Datensatz anlegen, liefert die EnrollmentRef. */
-    data class CreateEnrollment(val phoneNumber: String) : Effect
-
-    data class Decision(
-        val nextState: State,
-        val effects: List<Effect> = emptyList(),
-        val outcome: FlowOutcome = FlowOutcome.InProgress()
-    )
-
-    fun decide(state: State, input: Input): Decision = when (state) {
-        AwaitingPhone -> {
-            if (input.phoneNumber.isNullOrBlank())
-                Decision(nextState = state, outcome = FlowOutcome.InProgress(listOf("phoneNumber")))
-            else
-                Decision(
-                    nextState = AwaitingTan(input.phoneNumber),
-                    effects = listOf(SendTan(input.phoneNumber))
-                )
-        }
-        is AwaitingTan -> {
-            if (input.tan.isNullOrBlank())
-                Decision(nextState = state, outcome = FlowOutcome.InProgress(listOf("tan")))
-            else
-                Decision(
-                    nextState = state,
-                    effects = listOf(CreateEnrollment(state.phoneNumber)),
-                    outcome = FlowOutcome.Completed
-                )
-        }
-        is Verified -> Decision(nextState = state, outcome = FlowOutcome.Completed)
-    }
-}
-```
-
-### Eigenschaften dieses Musters
-
-- Der `State` ist modulintern und wird nie nach außen sichtbar; die Modulgrenze kennt nur `FlowOutcome` -> `ToolOutcome`.
-- Seiteneffekte entstehen ausschließlich im Modul (TAN erzeugen/senden/prüfen). Alles, was Account- oder Prozessbezug hat, macht der Orchestrator bei der Verarbeitung von `Completed` ([Orchestrierung](04-orchestrierung.md)) — deshalb taucht hier kein „Methode aktivieren"-Effect auf.
-- Flows lassen sich austauschen oder ergänzen, ohne die Prozess-Ebene zu ändern, weil diese nur `ToolOutcome` sieht.
+Ein Methodenmodul darf sich intern frei organisieren — nur `ToolOutcome` verlässt die Modulgrenze, nie ein interner Zustand. Ein mögliches, aber nicht vorgeschriebenes Muster: ein reiner `Flow`, der nur seinen eigenen `State` kennt und aus `(State, Input)` eine `Decision` mit nächstem Zustand, auszuführenden Effekten (z. B. „TAN senden") und einem neutralen `FlowOutcome` (`InProgress`/`Completed`/`Failed`) ableitet. Der Handler übersetzt `FlowOutcome` in `ToolOutcome`. Vorteil: Seiteneffekte bleiben im Modul, der `State` wird nie sichtbar, und Flows lassen sich austauschen, ohne die Prozess-Ebene zu berühren.
