@@ -24,6 +24,7 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
 h2 = { module = "com.h2database:h2" }
+spring-boot-h2console = { module = "org.springframework.boot:spring-boot-h2console" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version = "10.2" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }

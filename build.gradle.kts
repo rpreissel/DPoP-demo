@@ -45,6 +45,9 @@ dependencies {
     implementation(libs.kotlin.reflect)
     implementation(libs.springdoc.openapi.starter.webmvc.ui)
     runtimeOnly(libs.h2)
+    // Spring Boot 4's modular autoconfigure split the H2 console out of the core autoconfigure
+    // jar into its own module - without this it silently 404s even with spring.h2.console.enabled=true.
+    runtimeOnly(libs.spring.boot.h2console)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.modulith.starter.test)
