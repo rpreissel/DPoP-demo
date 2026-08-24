@@ -14,22 +14,29 @@ class SessionManagementService(
     private val channelSessionRepository: ChannelSessionRepository,
     private val processSessionRepository: ProcessSessionRepository,
     private val toolSessionRepository: ToolSessionRepository,
-    private val sessionEventRepository: SessionEventRepository
+    private val sessionEventRepository: SessionEventRepository,
+    private val deviceAccountLinkRepository: DeviceAccountLinkRepository
 ) {
 
     // ChannelSession management ------------------------------------------------
 
-    fun findChannelSessionByBindingKeyRef(bindingKeyRef: String): ChannelSession? =
-        channelSessionRepository.findByBindingKeyRef(bindingKeyRef)
-            ?.takeIf { !it.isExpired }
-
-    fun getOrCreateChannelSession(
+    /**
+     * Always creates a brand-new ChannelSession - never looks one up by [bindingKeyRef]. DPoP
+     * only proves which device is talking; it is deliberately NOT a lookup key for resuming a
+     * session (that requires the client to present a known channelSessionId via
+     * [findChannelSessionById]). [accountId] pre-links the new channel to a known device
+     * (see [findLinkedAccountId]) so a returning device can skip straight to LOGIN.
+     */
+    fun createChannelSession(
         bindingKeyRef: String,
         channel: ChannelSession.Channel,
-        ttl: Duration
-    ): ChannelSession =
-        findChannelSessionByBindingKeyRef(bindingKeyRef)
-            ?: channelSessionRepository.save(ChannelSession(channel, bindingKeyRef, Instant.now().plus(ttl)))
+        ttl: Duration,
+        accountId: Long?
+    ): ChannelSession {
+        val session = ChannelSession(channel, bindingKeyRef, Instant.now().plus(ttl))
+        session.accountId = accountId
+        return channelSessionRepository.save(session)
+    }
 
     fun findChannelSessionById(channelSessionId: UUID): ChannelSession? =
         channelSessionRepository.findByIdOrNull(channelSessionId)
@@ -71,6 +78,24 @@ class SessionManagementService(
         }
     }
 
+    // Device-account link management --------------------------------------------
+
+    /** Known account for this device, if any - lets a brand-new ChannelSession skip straight to LOGIN. */
+    fun findLinkedAccountId(bindingKeyRef: String): Long? =
+        deviceAccountLinkRepository.findByIdOrNull(bindingKeyRef)?.accountId
+
+    /** Idempotent: called every time a channel reaches AUTHENTICATED, regardless of purpose. */
+    fun linkDeviceToAccount(bindingKeyRef: String, accountId: Long) {
+        val existing = deviceAccountLinkRepository.findByIdOrNull(bindingKeyRef)
+        if (existing == null) {
+            deviceAccountLinkRepository.save(DeviceAccountLink(bindingKeyRef, accountId))
+        } else if (existing.accountId != accountId) {
+            existing.accountId = accountId
+            existing.updatedAt = Instant.now()
+            deviceAccountLinkRepository.save(existing)
+        }
+    }
+
     // ProcessSession management -------------------------------------------------
 
     fun createRegistrationProcessSession(channelSessionId: UUID, ttl: Duration): RegistrationProcessSession =
@@ -81,6 +106,9 @@ class SessionManagementService(
 
     fun createStepUpProcessSession(channelSessionId: UUID, requiredAcr: String, ttl: Duration): StepUpProcessSession =
         processSessionRepository.save(StepUpProcessSession(channelSessionId, requiredAcr, Instant.now().plus(ttl)))
+
+    fun createManageMethodsProcessSession(channelSessionId: UUID, ttl: Duration): ManageMethodsProcessSession =
+        processSessionRepository.save(ManageMethodsProcessSession(channelSessionId, Instant.now().plus(ttl)))
 
     fun findProcessSessionById(processSessionId: UUID): ProcessSession? =
         processSessionRepository.findByIdOrNull(processSessionId)

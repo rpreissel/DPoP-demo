@@ -21,8 +21,14 @@ data class AccountProfile(
     val accountId: Long,
     val personId: Long,
     val identifications: List<IdentificationView>,
-    val authenticationMethods: List<AuthMethodView>
+    val authenticationMethods: List<AuthMethodView>,
+    val email: String? = null,
+    val emailConfirmedAt: Instant? = null
 ) {
     val activeAuthenticationMethods: List<String>
         get() = authenticationMethods.filter { it.active }.map { it.method }.distinct()
+
+    /** Precondition for tools like enroll-password that require a confirmed identifier first (docs/03-tool-architektur.md). */
+    val emailConfirmed: Boolean
+        get() = emailConfirmedAt != null
 }

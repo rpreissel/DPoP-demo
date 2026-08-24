@@ -26,5 +26,9 @@ class OrchestratorException(
         /** Required level unreachable with the account's current methods (docs/04-orchestrierung.md #1). */
         fun processAborted(message: String) =
             OrchestratorException(HttpStatus.GONE, "PROCESS_ABORTED", message)
+
+        /** Account-level brute-force throttle tripped (LoginThrottleService) - independent of any single ToolSession. */
+        fun accountLocked(message: String) =
+            OrchestratorException(HttpStatus.LOCKED, "ACCOUNT_LOCKED", message)
     }
 }

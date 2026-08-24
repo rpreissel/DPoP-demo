@@ -1,15 +1,19 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
+import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.orchestration.Next
 import com.example.dpop.orchestrator.orchestration.ToolOutcomeProcessor
 import com.example.dpop.orchestrator.orchestration.ToolSteps
 import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.ProcessSession
 import com.example.dpop.orchestrator.session.RegistrationProcessSession
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.ToolSession
+import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Service
@@ -29,7 +33,10 @@ import java.util.UUID
 class ToolControllerSupport(
     private val sessionManagementService: SessionManagementService,
     private val toolOutcomeProcessor: ToolOutcomeProcessor,
-    private val channelAccessGuard: ChannelAccessGuard
+    private val channelAccessGuard: ChannelAccessGuard,
+    private val toolRegistry: ToolHandlerRegistry,
+    private val accountService: AccountService,
+    private val loginThrottleService: LoginThrottleService
 ) {
     data class Context(val toolSession: ToolSession, val processSession: ProcessSession, val channel: ChannelSession)
 
@@ -43,6 +50,12 @@ class ToolControllerSupport(
         val processSession = sessionManagementService.findActiveProcessSession(channelSessionId)
             ?: throw OrchestratorException.invalidState("No active process for this channel")
         validateActivation(processSession, toolId, category)
+        validatePreconditions(toolId, channel.accountId)
+        // Only AUTH tools authenticate an EXISTING account against a submitted credential -
+        // IDENT/ENROLL failures aren't a brute-force target the same way (no credential guessed).
+        if (category == ToolCategory.AUTH) {
+            channel.accountId?.let { loginThrottleService.assertNotLocked(it) }
+        }
         val toolSession = sessionManagementService.createToolSession(processSession.processSessionId!!, TOOL_TTL)
 
         // Claim this ToolSession as THE current attempt for toolId - a concurrent/duplicate
@@ -62,12 +75,30 @@ class ToolControllerSupport(
                 throw OrchestratorException.invalidState("Currently due tool is ${processSession.nextToolId}, not $toolId")
             }
             "flow" -> {
-                val expected = EXPECTED_CATEGORY_BY_CONTEXT[processSession.nextContext]
-                if (expected != null && expected != category) {
+                val expected = EXPECTED_CATEGORIES_BY_CONTEXT[processSession.nextContext]
+                if (expected != null && category !in expected) {
                     throw OrchestratorException.invalidState("$toolId does not match selection context ${processSession.nextContext}")
                 }
             }
             else -> throw OrchestratorException.invalidState("No tool step is currently due for this channel")
+        }
+    }
+
+    /**
+     * [validateActivation] only checks the CATEGORY matches the current selection context (e.g.
+     * "enrollment" accepts any ENROLL tool) - it does not, and structurally cannot, know which
+     * specific candidates were actually offered in `stepData.options`. Without this second check,
+     * a client could activate a precondition-gated tool (e.g. enroll-password, which requires a
+     * confirmed email - docs/03-tool-architektur.md) directly, bypassing the fact that it was
+     * silently excluded from the offer. `requiresConfirmedEmail` must be enforced here, not just
+     * reflected in what AuthPolicy.enrollmentCandidates chooses to list.
+     */
+    private fun validatePreconditions(toolId: String, accountId: Long?) {
+        val descriptor = toolRegistry.descriptorOf(toolId)
+        if (!descriptor.requiresConfirmedEmail) return
+        val confirmed = accountId?.let { accountService.findAccount(it)?.emailConfirmed } ?: false
+        if (!confirmed) {
+            throw OrchestratorException.invalidState("$toolId requires a confirmed account email first")
         }
     }
 
@@ -99,6 +130,7 @@ class ToolControllerSupport(
 
     /** InProgress/Failed/Completed -> persisted next + API response, incl. the retry rule (docs/04-orchestrierung.md #1). */
     fun applyOutcome(toolId: String, outcome: ToolOutcome, context: Context): ToolStateResponse {
+        val category = toolRegistry.descriptorOf(toolId).category
         val (next, stepData) = when (outcome) {
             is ToolOutcome.InProgress -> {
                 context.processSession.setNextTool(toolId, outcome.nextStep, context.toolSession.toolSessionId)
@@ -106,20 +138,35 @@ class ToolControllerSupport(
                 Next.tool(toolId, outcome.nextStep) to outcome.data
             }
 
-            is ToolOutcome.Failed -> handleFailed(outcome.reason, context)
+            is ToolOutcome.Failed -> {
+                if (category == ToolCategory.AUTH) {
+                    context.channel.accountId?.let { loginThrottleService.recordFailure(it) }
+                }
+                handleFailed(outcome.reason, context)
+            }
 
             is ToolOutcome.Completed -> {
+                if (category == ToolCategory.AUTH) {
+                    context.channel.accountId?.let { loginThrottleService.recordSuccess(it) }
+                }
                 val result = toolOutcomeProcessor.process(toolId, outcome, context.processSession, context.channel)
                 result.next to result.stepData
             }
         }
 
-        // demoTan travels inside ToolOutcome.data like any other tool-internal field, but never
-        // belongs in stepData (docs/05-api.md #2: production contract) - lift it into the
-        // separate `demo` object alongside accountId/personId, same as every other demo-only value.
-        val demoTan = stepData?.get(DEMO_TAN_KEY) as? String
-        val cleanedStepData = if (demoTan != null) stepData.minus(DEMO_TAN_KEY) else stepData
-        return ToolStateResponse(context.toolSession.toolSessionId!!, cleanedStepData, next, demoInfo(context.processSession, next, demoTan))
+        // The DEMO_DATA_KEY bag travels inside ToolOutcome.data like any other tool-internal
+        // field, but never belongs in stepData (docs/05-api.md #2: production contract) - lift it
+        // into the separate `demo` object alongside accountId/personId. Generic: a handler can
+        // attach any demo-only value via tool_spi.demoData(...) without this class knowing its name.
+        @Suppress("UNCHECKED_CAST")
+        val demoValues = stepData?.get(DEMO_DATA_KEY) as? Map<String, Any?>
+        val cleanedStepData = stepData?.minus(DEMO_DATA_KEY)?.ifEmpty { null }
+        return ToolStateResponse(
+            context.toolSession.toolSessionId!!,
+            cleanedStepData,
+            next,
+            demoInfo(context.processSession, next, demoValues)
+        )
     }
 
     /** For GET: only the still-current tool's freshly rebuilt InProgress state is shown (docs/06-ablaeufe.md #2, step 4). */
@@ -139,21 +186,23 @@ class ToolControllerSupport(
         return currentProcessNext(context.processSession) to mapOf("error" to reason)
     }
 
-    private fun demoInfo(processSession: ProcessSession, next: Next, tan: String? = null): DemoInfo? {
+    private fun demoInfo(processSession: ProcessSession, next: Next, values: Map<String, Any?>?): DemoInfo? {
         val isAuthenticated = next.context == "authentication" && next.step == "authenticated"
-        if (!isAuthenticated && tan == null) return null
+        if (!isAuthenticated && values.isNullOrEmpty()) return null
         val personId = (processSession as? RegistrationProcessSession)?.personId
-        return DemoInfo(processSession.accountId, personId, tan)
+        return DemoInfo(processSession.accountId, personId, values ?: emptyMap())
     }
 
     companion object {
         private const val MAX_RETRIES = 3
-        private const val DEMO_TAN_KEY = "demoTan"
         private val TOOL_TTL: Duration = Duration.ofMinutes(10)
-        private val EXPECTED_CATEGORY_BY_CONTEXT = mapOf(
-            "registration" to ToolCategory.IDENT,
-            "enrollment" to ToolCategory.ENROLL,
-            "auth" to ToolCategory.AUTH
+        // "auth" also accepts IDENT: re-identification (ident-fsc) can be offered as a step-up
+        // candidate alongside AUTH tools (docs/04-orchestrierung.md, MANAGE_METHODS) - see
+        // AuthPolicy.reIdentCandidates.
+        private val EXPECTED_CATEGORIES_BY_CONTEXT = mapOf(
+            "registration" to setOf(ToolCategory.IDENT),
+            "enrollment" to setOf(ToolCategory.ENROLL),
+            "auth" to setOf(ToolCategory.AUTH, ToolCategory.IDENT)
         )
     }
 }

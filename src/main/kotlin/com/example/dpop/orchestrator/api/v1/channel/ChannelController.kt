@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -32,8 +33,11 @@ class ChannelController(
 
     @PostMapping
     @Operation(
-        summary = "Create or resume the App channel",
-        description = "Resolves the ChannelSession by the DPoP-bound binding key and returns the first (or current) fällig next step."
+        summary = "Create a new App channel",
+        description = "Always mints a brand-new ChannelSession for this DPoP-bound device (docs/02-domaenenmodell.md " +
+            "#3: the key proves the device, never a lookup key for resuming a session - use GET with a remembered " +
+            "channelSessionId to resume). A device that was already registered still gets offered LOGIN, not a " +
+            "fresh ident-fsc. To end a previous session first (logout), call DELETE on it before this."
     )
     fun createChannel(
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
@@ -41,7 +45,7 @@ class ChannelController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        return ResponseEntity.ok(channelService.initializeChannel(bindingKeyRef, request?.requiredAcr))
+        return ResponseEntity.ok(channelService.initializeChannel(bindingKeyRef, request?.requiredAcr, request?.intent))
     }
 
     @GetMapping("/{channelSessionId}")
@@ -85,5 +89,55 @@ class ChannelController(
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.cancelActiveProcess(channelSessionId, bindingKeyRef))
+    }
+
+    @DeleteMapping("/{channelSessionId}")
+    @Operation(
+        summary = "Log out",
+        description = "Ends this channel for good (docs/02-domaenenmodell.md #3: AUTHENTICATED -> LOGGED_OUT, " +
+            "terminal) - cancels any active process and discards the AuthContext. Never resumes on this " +
+            "channelSessionId afterwards; call POST .../channels again for a new session (a known device still " +
+            "skips straight to LOGIN there)."
+    )
+    fun logout(
+        @PathVariable channelSessionId: UUID,
+        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<Void> {
+        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
+        channelService.logout(channelSessionId, bindingKeyRef)
+        return ResponseEntity.noContent().build()
+    }
+
+    @PostMapping("/{channelSessionId}/methods")
+    @Operation(
+        summary = "Voluntarily add another authentication method",
+        description = "Channel must already be AUTHENTICATED. Offers AuthPolicy.enrollmentCandidates via the " +
+            "existing enroll-* tools, unchanged; finishing does not require reaching any particular level - one " +
+            "successful enrollment ends this and returns to AUTHENTICATED. Call again to add another."
+    )
+    fun manageMethods(
+        @PathVariable channelSessionId: UUID,
+        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<ChannelResponse> {
+        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
+        return ResponseEntity.ok(channelService.startManageMethods(channelSessionId, bindingKeyRef))
+    }
+
+    @DeleteMapping("/{channelSessionId}/methods/{method}")
+    @Operation(
+        summary = "Deactivate an authentication method",
+        description = "Channel must already be AUTHENTICATED and the method currently active. Rejected (409) if " +
+            "removing it would drop the account below this channel's own required level."
+    )
+    fun deactivateMethod(
+        @PathVariable channelSessionId: UUID,
+        @PathVariable method: String,
+        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<ChannelResponse> {
+        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
+        return ResponseEntity.ok(channelService.deactivateMethod(channelSessionId, bindingKeyRef, method))
     }
 }

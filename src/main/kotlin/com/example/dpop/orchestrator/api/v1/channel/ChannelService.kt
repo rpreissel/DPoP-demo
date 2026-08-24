@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1.channel
 
+import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
@@ -33,21 +34,54 @@ class ChannelService(
     private val processCancellationService: ProcessCancellationService
 ) {
 
-    fun initializeChannel(bindingKeyRef: String, requestedRequiredAcr: String?): ChannelResponse {
-        val channelId = sessionManagementService
-            .getOrCreateChannelSession(bindingKeyRef, ChannelSession.Channel.APP, CHANNEL_TTL)
-            .channelSessionId!!
-        requestedRequiredAcr?.let { sessionManagementService.raiseChannelRequiredAcr(channelId, it) }
+    /**
+     * Always mints a brand-new ChannelSession - DPoP proves which device this is, but is
+     * deliberately never a lookup key for resuming a session (docs/02-domaenenmodell.md #3).
+     * The client must remember `channelSessionId` and call [getChannel] to resume; calling this
+     * again (e.g. because it forgot the id, or after an explicit [logout]) legitimately starts a
+     * new one. [DeviceAccountLink] is the one thing that DOES survive on the same key: a device
+     * that was already registered still skips straight to LOGIN instead of a fresh `ident-fsc`.
+     *
+     * [intent] (docs/04-orchestrierung.md, lookup-based login) lets the client override that
+     * default just for THIS channel, without affecting the durable [DeviceAccountLink]:
+     * - `null`/`"auto"` (default): unchanged behaviour above.
+     * - `"login"`: always offers lookup-based login (email + credential), even on an already
+     *   linked device - e.g. to use a different account on the same device. The link lookup is
+     *   suppressed entirely for this channel; a successful lookup login re-links the device to
+     *   whichever account it just proved (idempotent, [linkDeviceToAccount]).
+     * - `"register"`: always starts fresh REGISTRATION, even on an already linked device (a
+     *   second account on the same device) - likewise suppresses the link lookup.
+     */
+    fun initializeChannel(bindingKeyRef: String, requestedRequiredAcr: String?, intent: String? = null): ChannelResponse {
+        val linkedAccountId = if (intent == null || intent == "auto") {
+            sessionManagementService.findLinkedAccountId(bindingKeyRef)
+        } else {
+            null
+        }
+        val channel = sessionManagementService
+            .createChannelSession(bindingKeyRef, ChannelSession.Channel.APP, CHANNEL_TTL, linkedAccountId)
+        requestedRequiredAcr?.let { sessionManagementService.raiseChannelRequiredAcr(channel.channelSessionId!!, it) }
+        val refreshed = sessionManagementService.findChannelSessionById(channel.channelSessionId!!)!!
+        return if (intent == "login") startLookupLogin(refreshed) else resumeChannel(refreshed)
+    }
 
-        val channel = sessionManagementService.findChannelSessionById(channelId)!!
+    /** The guaranteed resume entry point (docs/05-api.md #2): re-derives the currently due `next`, not just a stored snapshot. */
+    fun getChannel(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse =
+        resumeChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
+
+    private fun resumeChannel(channel: ChannelSession): ChannelResponse {
+        // A logged-out channel stays logged out (docs/02-domaenenmodell.md #3: LOGGED_OUT is
+        // terminal) - without this, GET on an old channelSessionId after logout would silently
+        // re-derive and hand back a fresh login attempt on a channel that's supposed to be dead.
+        if (channel.state == ChannelState.LOGGED_OUT) {
+            return buildResponseForChannel(channel)
+        }
+        val channelId = channel.channelSessionId!!
         if (sessionManagementService.findActiveProcessSession(channelId) != null) {
             return buildResponseForChannel(channel)
         }
         return if (channel.accountId == null) startRegistration(channel) else resumeOrStartLogin(channel)
     }
-
-    fun getChannel(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse =
-        buildResponseForChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
 
     fun raiseRequiredAcr(channelSessionId: UUID, bindingKeyRef: String, requiredAcr: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
@@ -55,7 +89,8 @@ class ChannelService(
         val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
 
         val floor = refreshed.requiredAcr ?: AcrLevels.DEFAULT_REQUIRED_ACR
-        return if (authPolicy.isSatisfied(currentEvidence(refreshed), floor)) {
+        val account = refreshed.accountId?.let { accountService.findAccount(it) }
+        return if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) {
             buildResponseForChannel(refreshed)
         } else {
             startStepUp(refreshed, floor)
@@ -78,6 +113,113 @@ class ChannelService(
         }
     }
 
+    /**
+     * Ends this channel for good (docs/02-domaenenmodell.md #3: AUTHENTICATED -> LOGGED_OUT ->
+     * terminal): cancels any in-flight process and discards this session's AuthContext. Never
+     * resurrected afterwards - unlike [cancelActiveProcess], which offers a fresh start on the
+     * SAME channel, a logged-out channel stays logged out; the client must call
+     * [initializeChannel] again for a new ChannelSession ([DeviceAccountLink] still gets a known
+     * device straight to LOGIN there).
+     */
+    fun logout(channelSessionId: UUID, bindingKeyRef: String) {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+
+        sessionManagementService.findActiveProcessSession(channelSessionId)?.let {
+            processCancellationService.cancel(it, channel)
+        }
+
+        val afterCancel = sessionManagementService.findChannelSessionById(channelSessionId)!!
+        afterCancel.authContextId = null
+        afterCancel.state = ChannelState.LOGGED_OUT
+        sessionManagementService.updateChannelSession(afterCancel)
+    }
+
+    /**
+     * Voluntary enrollment on an already-AUTHENTICATED channel (docs/04-orchestrierung.md,
+     * ProcessPurpose.MANAGE_METHODS): reuses AuthPolicy.enrollmentCandidates and the existing
+     * enroll-* tools unchanged, but finishing does NOT depend on canAccountReach/isSatisfied -
+     * ToolOutcomeProcessor.resolveNext ends the process after exactly one Enrolled outcome. To
+     * add another method, call this again.
+     */
+    fun startManageMethods(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        if (channel.state != ChannelState.AUTHENTICATED) {
+            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to manage methods")
+        }
+        val accountId = checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
+        val account = accountService.findAccount(accountId)
+            ?: throw OrchestratorException.processGone("Account not found for channel $channelSessionId")
+
+        requireManageMethodsAssurance(channel, account)?.let { return it }
+
+        val floor = channel.requiredAcr ?: AcrLevels.DEFAULT_REQUIRED_ACR
+        val candidates = authPolicy.enrollmentCandidates(account, floor)
+        if (candidates.isEmpty()) {
+            // Nothing left to add - not an error, just nothing to do; stays AUTHENTICATED with
+            // no active process (docs/07-betrieb.md #1: HTTP errors are for disrupted flows, not
+            // an expectable "you already have everything" outcome).
+            return buildResponseForChannel(channel, mapOf("message" to "Keine weiteren Mittel verfuegbar"))
+        }
+
+        val processSession = sessionManagementService.createManageMethodsProcessSession(channelSessionId, PROCESS_TTL)
+        processSession.accountId = accountId
+        val offer = CandidateOffering.resolve(candidates, "enrollment")
+        applyNext(processSession, offer.next)
+        sessionManagementService.updateProcessSession(processSession)
+
+        return buildResponseForChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!, offer.stepData)
+    }
+
+    /**
+     * Deactivates an active method on an already-AUTHENTICATED channel. Guarded against
+     * self-lockout: rejected if the account could no longer reach its own channel's required
+     * floor afterwards. Same loa2-in-this-session requirement as [startManageMethods] - removing
+     * a factor is at least as sensitive as adding one.
+     */
+    fun deactivateMethod(channelSessionId: UUID, bindingKeyRef: String, method: String): ChannelResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        if (channel.state != ChannelState.AUTHENTICATED) {
+            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to manage methods")
+        }
+        val accountId = checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
+        val account = accountService.findAccount(accountId)
+            ?: throw OrchestratorException.processGone("Account not found for channel $channelSessionId")
+
+        requireManageMethodsAssurance(channel, account)?.let { return it }
+
+        if (account.authenticationMethods.none { it.active && it.method == method }) {
+            throw OrchestratorException.notFound("No active method '$method' for this account")
+        }
+
+        val afterRemoval = account.copy(
+            authenticationMethods = account.authenticationMethods.map {
+                if (it.method == method) it.copy(active = false) else it
+            }
+        )
+        val floor = channel.requiredAcr ?: AcrLevels.DEFAULT_REQUIRED_ACR
+        if (!authPolicy.canAccountReach(afterRemoval, floor)) {
+            throw OrchestratorException.invalidState(
+                "Deaktivieren von '$method' wuerde das Mindestniveau dieses Kanals unterschreiten"
+            )
+        }
+
+        accountService.deactivateAuthenticationMethod(accountId, method)
+        return buildResponseForChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
+    }
+
+    /**
+     * Gate before add/deactivate: MANAGE_METHODS requires the CURRENT session to already carry
+     * loa2 (via combined factors or ident-fsc), mirroring enrolledUnderAcr's anti-self-escalation
+     * reasoning - a hijacked loa1 session must not be able to add or remove credentials on its
+     * own say-so. Returns a step-up ChannelResponse if not yet satisfied, null if the caller may
+     * proceed.
+     */
+    private fun requireManageMethodsAssurance(channel: ChannelSession, account: AccountProfile): ChannelResponse? {
+        val evidence = currentEvidence(channel)
+        if (authPolicy.isSatisfied(evidence, MANAGE_METHODS_REQUIRED_ACR, account)) return null
+        return startStepUp(channel, MANAGE_METHODS_REQUIRED_ACR, allowReIdent = true)
+    }
+
     private fun startRegistration(channel: ChannelSession): ChannelResponse {
         val channelId = channel.channelSessionId!!
         sessionManagementService.updateChannelState(channelId, ChannelState.REGISTERING)
@@ -97,8 +239,10 @@ class ChannelService(
         val channelId = channel.channelSessionId!!
         val evidence = currentEvidence(channel)
         val floor = channel.requiredAcr ?: AcrLevels.DEFAULT_REQUIRED_ACR
+        val account = accountService.findAccount(channel.accountId!!)
+            ?: throw OrchestratorException.processGone("Account not found for channel $channelId")
 
-        if (authPolicy.isSatisfied(evidence, floor)) {
+        if (authPolicy.isSatisfied(evidence, floor, account)) {
             sessionManagementService.updateChannelState(channelId, ChannelState.AUTHENTICATED)
             return buildResponseForChannel(sessionManagementService.findChannelSessionById(channelId)!!)
         }
@@ -108,8 +252,6 @@ class ChannelService(
         // this, a cancelled/abandoned login would leave the channel stuck reporting a stale
         // AUTHENTICATED from a previous session.
         sessionManagementService.updateChannelState(channelId, ChannelState.ANONYMOUS)
-        val account = accountService.findAccount(channel.accountId!!)
-            ?: throw OrchestratorException.processGone("Account not found for channel $channelId")
         val processSession = sessionManagementService.createLoginProcessSession(channelId, PROCESS_TTL)
         val offer = CandidateOffering.resolve(authPolicy.candidateTools(evidence, floor, account), "auth")
         applyNext(processSession, offer.next)
@@ -118,7 +260,31 @@ class ChannelService(
         return buildResponseForChannel(sessionManagementService.findChannelSessionById(channelId)!!, offer.stepData)
     }
 
-    private fun startStepUp(channel: ChannelSession, requiredAcr: String): ChannelResponse {
+    /**
+     * [allowReIdent] opts into also offering re-identification (ident-fsc) as a way to close the
+     * gap - needed for [requireManageMethodsAssurance], where an account with only ONE enrolled
+     * AUTH method would otherwise have no possible path to loa2 at all (nothing left to combine
+     * it with). Deliberately NOT the default: ordinary step-ups (e.g. [raiseRequiredAcr]) keep
+     * offering only already-enrolled AUTH methods, matching existing candidate-selection tests.
+     */
+    /**
+     * intent="login" entry point (docs/04-orchestrierung.md, lookup-based login): unlike
+     * [resumeOrStartLogin], the account is NOT known yet - `channel.accountId` is null here even
+     * if the device happens to be linked, because [initializeChannel] deliberately suppressed
+     * the link lookup for this intent. Offers the fixed `-lookup` tool set directly rather than
+     * AuthPolicy.candidateTools, which needs an already-resolved account it cannot have yet.
+     */
+    private fun startLookupLogin(channel: ChannelSession): ChannelResponse {
+        val channelId = channel.channelSessionId!!
+        val processSession = sessionManagementService.createLoginProcessSession(channelId, PROCESS_TTL)
+        val offer = CandidateOffering.resolve(LOOKUP_LOGIN_TOOL_IDS, "auth")
+        applyNext(processSession, offer.next)
+        sessionManagementService.updateProcessSession(processSession)
+
+        return buildResponseForChannel(sessionManagementService.findChannelSessionById(channelId)!!, offer.stepData)
+    }
+
+    private fun startStepUp(channel: ChannelSession, requiredAcr: String, allowReIdent: Boolean = false): ChannelResponse {
         val channelId = channel.channelSessionId!!
         sessionManagementService.updateChannelState(channelId, ChannelState.STEP_UP_IN_PROGRESS)
 
@@ -126,8 +292,10 @@ class ChannelService(
             ?: throw OrchestratorException.processGone("Account not found for channel $channelId")
         val evidence = currentEvidence(channel)
         val processSession = sessionManagementService.createStepUpProcessSession(channelId, requiredAcr, PROCESS_TTL)
-        processSession.startingAcr = authPolicy.resolveAcr(evidence)
-        val offer = CandidateOffering.resolve(authPolicy.candidateTools(evidence, requiredAcr, account), "auth")
+        processSession.startingAcr = authPolicy.resolveAcr(evidence, account)
+        val candidates = authPolicy.candidateTools(evidence, requiredAcr, account) +
+            if (allowReIdent) authPolicy.reIdentCandidates(evidence, requiredAcr) else emptyList()
+        val offer = CandidateOffering.resolve(candidates, "auth")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -157,13 +325,18 @@ class ChannelService(
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
             currentAcr = authContext?.currentAcr,
             currentAmr = authContext?.currentAmr,
+            activeMethods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods },
             stepData = stepData,
             next = next
         )
     }
 
     companion object {
-        private val CHANNEL_TTL: Duration = Duration.ofDays(30)
+        // The device's long-lived identity now lives in DeviceAccountLink, not the
+        // ChannelSession itself - this only needs to outlive a single app session/day, not 30.
+        private val CHANNEL_TTL: Duration = Duration.ofHours(24)
         private val PROCESS_TTL: Duration = Duration.ofMinutes(60)
+        private const val MANAGE_METHODS_REQUIRED_ACR = "loa2"
+        private val LOOKUP_LOGIN_TOOL_IDS = listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
     }
 }

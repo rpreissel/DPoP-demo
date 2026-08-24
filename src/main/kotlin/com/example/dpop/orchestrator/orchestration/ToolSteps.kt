@@ -5,7 +5,13 @@ object ToolSteps {
     private val startStepByToolId = mapOf(
         "ident-fsc" to "input",
         "enroll-sms" to "enroll",
-        "auth-sms" to "auth"
+        "auth-sms" to "auth",
+        "enroll-password" to "enroll",
+        "auth-password" to "auth",
+        "enroll-email" to "enroll",
+        "auth-email" to "auth",
+        "auth-sms-lookup" to "auth",
+        "auth-password-lookup" to "auth"
     )
 
     fun startStepFor(toolId: String): String = startStepByToolId[toolId] ?: "start"

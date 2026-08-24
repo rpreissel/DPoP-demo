@@ -41,6 +41,11 @@ class AccountService(private val accountRepository: AccountRepository) {
         details: Map<String, Any?>
     ): AccountProfile {
         val account = getOrThrow(accountId)
+        // Re-enrolling a method (e.g. a new phone number/email) REPLACES the old credential
+        // rather than shadowing it - without this, two "active" entries for the same method
+        // could coexist (nothing elsewhere ever deactivates a superseded one), and
+        // canAccountReach/candidateTools/resolveAcr would inconsistently see both.
+        account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }
         val mergedDetails = details + mapOf("enrollmentRef" to mapOf("type" to enrollmentRef.type, "id" to enrollmentRef.id))
         account.addAuthenticationMethod(
             AuthenticationMethod(method, true, Instant.now(), enrolledUnderAcr, mergedDetails)
@@ -48,9 +53,33 @@ class AccountService(private val accountRepository: AccountRepository) {
         return toProfile(accountRepository.save(account))
     }
 
+    /** Called only for an account-initiated deactivation (MANAGE_METHODS) - the caller must already have verified this won't drop the account below its channel's required floor. */
+    @Transactional
+    fun deactivateAuthenticationMethod(accountId: Long, method: String): AccountProfile {
+        val account = getOrThrow(accountId)
+        account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }
+        return toProfile(accountRepository.save(account))
+    }
+
     @Transactional(readOnly = true)
     fun findAccount(accountId: Long): AccountProfile? =
         accountRepository.findByIdOrNull(accountId)?.let { toProfile(it) }
+
+    @Transactional(readOnly = true)
+    fun findAccountByEmail(email: String): AccountProfile? =
+        accountRepository.findByEmail(email)?.let { toProfile(it) }
+
+    @Transactional(readOnly = true)
+    fun existsByEmail(email: String): Boolean = accountRepository.existsByEmail(email)
+
+    /** Called only by ToolOutcomeProcessor when a Completed.Enrolled for method="email" is processed. */
+    @Transactional
+    fun confirmEmail(accountId: Long, email: String): AccountProfile {
+        val account = getOrThrow(accountId)
+        account.email = email
+        account.emailConfirmedAt = Instant.now()
+        return toProfile(accountRepository.save(account))
+    }
 
     @Transactional(readOnly = true)
     fun findActiveMethod(accountId: Long, method: String): AuthMethodView? =
@@ -72,6 +101,8 @@ class AccountService(private val accountRepository: AccountRepository) {
         },
         authenticationMethods = account.authenticationMethods.map {
             AuthMethodView(it.method.orEmpty(), it.active, it.createdAt, it.enrolledUnderAcr, it.details)
-        }
+        },
+        email = account.email,
+        emailConfirmedAt = account.emailConfirmedAt
     )
 }

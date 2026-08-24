@@ -7,7 +7,7 @@ package com.example.dpop.orchestrator.session
  */
 object AcrLevels {
     /** Baseline floor when neither the channel nor a step-up process names one explicitly. */
-    const val DEFAULT_REQUIRED_ACR = "loa2"
+    const val DEFAULT_REQUIRED_ACR = "loa1"
 
     private val order = listOf("none", "loa1", "loa2", "loa3")
 
@@ -23,4 +23,8 @@ object AcrLevels {
         if (a == null || b == null) return "none"
         return if (rank(a) <= rank(b)) a else b
     }
+
+    /** Moves [acr] up by [steps] tiers, capped at the highest known level - used for the MFA bump (docs/04-orchestrierung.md #2). */
+    fun bump(acr: String, steps: Int = 1): String =
+        order.getOrElse((rank(acr) + steps).coerceAtMost(order.size - 1)) { order.last() }
 }

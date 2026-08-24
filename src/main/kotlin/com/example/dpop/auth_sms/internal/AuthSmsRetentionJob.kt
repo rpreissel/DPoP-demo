@@ -14,7 +14,8 @@ import java.time.Instant
 @Component
 class AuthSmsRetentionJob(
     private val enrollToolDataRepository: EnrollSmsToolDataRepository,
-    private val authUseToolDataRepository: AuthSmsUseToolDataRepository
+    private val authUseToolDataRepository: AuthSmsUseToolDataRepository,
+    private val authLookupToolDataRepository: AuthSmsLookupToolDataRepository
 ) {
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
@@ -23,6 +24,7 @@ class AuthSmsRetentionJob(
         val cutoff = Instant.now().minus(RETENTION)
         enrollToolDataRepository.deleteByCreatedAtBefore(cutoff)
         authUseToolDataRepository.deleteByCreatedAtBefore(cutoff)
+        authLookupToolDataRepository.deleteByCreatedAtBefore(cutoff)
     }
 
     companion object {

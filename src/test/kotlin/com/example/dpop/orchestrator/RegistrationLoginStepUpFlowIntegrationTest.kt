@@ -3,7 +3,6 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
-import com.example.dpop.orchestrator.session.ChannelSessionRepository
 import com.nimbusds.jose.jwk.JWK
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -32,9 +31,16 @@ import java.util.UUID
 
 /**
  * Exercises the full REGISTRATION (ident-fsc -> enroll-sms -> authenticated), LOGIN (auth-sms),
- * Cancel and Back/Switch flows end to end against the real HTTP layer, matching docs/05-api.md
- * and docs/06-ablaeufe.md. DPoP validation is mocked (the crypto itself is covered separately);
- * everything downstream - orchestration, policy, persistence - is real.
+ * Cancel/Logout and Back/Switch flows end to end against the real HTTP layer, matching
+ * docs/05-api.md and docs/06-ablaeufe.md. DPoP validation is mocked (the crypto itself is
+ * covered separately); everything downstream - orchestration, policy, persistence - is real.
+ *
+ * Channel resolution model (docs/02-domaenenmodell.md #3): the DPoP key only proves which
+ * DEVICE is talking - `POST .../channels` always mints a brand-new ChannelSession, never
+ * resumes one by key. "Same device, fresh app session" is simulated throughout by simply
+ * calling `POST .../channels` again with the SAME mocked binding key and capturing the NEW
+ * channelSessionId it returns; DeviceAccountLink is what still routes that new channel straight
+ * to LOGIN for an already-registered device.
  *
  * The DB is wiped (mutable tables only; person/fsc_code seed data survives) before every test
  * method, so every test can use the same test person without cross-test interference.
@@ -53,9 +59,6 @@ class RegistrationLoginStepUpFlowIntegrationTest {
     private lateinit var jwkThumbprintService: JwkThumbprintService
 
     @Autowired
-    private lateinit var channelSessionRepository: ChannelSessionRepository
-
-    @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
     // The JDK's default request factory can't send PATCH; HttpClient5 (already a test dep) can.
@@ -66,8 +69,12 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // Children first (FK order); person/fsc_code seed data is left untouched.
         listOf(
             "id_fsc_tool_data", "enroll_sms_tool_data", "auth_sms_use_tool_data",
+            "enroll_password_tool_data", "auth_password_use_tool_data",
+            "enroll_email_tool_data", "auth_email_use_tool_data",
+            "auth_sms_lookup_tool_data", "auth_password_lookup_tool_data",
             "tool_session", "process_session", "session_event",
-            "channel_session", "auth_context", "account", "auth_sms"
+            "channel_session", "auth_context", "account", "auth_sms", "auth_password",
+            "device_account_link", "login_attempt_throttle"
         ).forEach { jdbcTemplate.update("DELETE FROM $it") }
     }
 
@@ -116,6 +123,12 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "http://localhost:$port$url", HttpMethod.DELETE, HttpEntity<Void>(headers()), MAP_TYPE
         ).let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
 
+    /** Logout returns 204 No Content (docs/05-api.md), no body to parse. */
+    private fun deleteNoContent(url: String): HttpStatus =
+        restTemplate.exchange(
+            "http://localhost:$port$url", HttpMethod.DELETE, HttpEntity<Void>(headers()), Void::class.java
+        ).statusCode as HttpStatus
+
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any?>.next(): Map<String, Any?> = this["next"] as Map<String, Any?>
 
@@ -133,8 +146,9 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             System.setOut(original)
         }
         val printed = buffer.toString()
-        val tan = Regex("""TAN (\d{6}) an""").find(printed)?.groupValues?.get(1)
-            ?: error("No mock TAN found in captured output: $printed")
+        // Matches both "[MOCK SMS] TAN 123456 an ..." and "[MOCK EMAIL] Code 123456 an ...".
+        val tan = Regex("""(?:TAN|Code) (\d{6}) an""").find(printed)?.groupValues?.get(1)
+            ?: error("No mock TAN/code found in captured output: $printed")
         return tan to response
     }
 
@@ -185,9 +199,13 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         @Suppress("UNCHECKED_CAST")
         assertThat(afterNames.stepData()["missingFields"] as List<String>).containsExactly("fsc")
 
-        // 4) Supply the valid FSC -> identified, single enroll candidate skips straight to enroll-sms
+        // 4) Supply the valid FSC -> identified; two enroll candidates exist (sms, email), so
+        // the process offers a selection page instead of skipping straight to one of them.
+        // enroll-password isn't offered yet - it requires a confirmed account email first.
         val identified = patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
-        assertThat(identified.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-sms", "step" to "enroll"))
+        assertThat(identified.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(identified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email")
 
         // 5) Activate enroll-sms
         val enrollActivation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-sms")
@@ -217,26 +235,23 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         @Suppress("UNCHECKED_CAST")
         assertThat(finalChannel["currentAmr"] as List<String>).containsExactlyInAnyOrder("fsc", "sms")
 
-        // --- Simulate a fresh login: same device/channel, but its AuthContext evidence is gone
-        // (e.g. app restart after the server-side context expired) ---
-        val channelUuid = UUID.fromString(channelSessionId)
-        val stored = channelSessionRepository.findById(channelUuid).orElseThrow()
-        stored.authContextId = null
-        channelSessionRepository.save(stored)
-
+        // --- Simulate a fresh app session on the SAME device (same DPoP key, no remembered
+        // channelSessionId): POST always mints a brand-new channel, but DeviceAccountLink still
+        // recognizes this device and routes it straight to LOGIN instead of ident-fsc. ---
         val loginStart = post("/orchestrator/api/v1/app/channels")
-        assertThat(loginStart["channelSessionId"]).isEqualTo(channelSessionId)
+        val newChannelSessionId = loginStart["channelSessionId"] as String
+        assertThat(newChannelSessionId).isNotEqualTo(channelSessionId)
         assertThat(loginStart.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
 
         val (authTan, authActivation) = captureMockTan {
-            post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-sms")
+            post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-sms")
         }
         val authToolSessionId = authActivation["toolSessionId"] as String
 
         val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
         assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
 
-        val afterLogin = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin["state"]).isEqualTo("AUTHENTICATED")
     }
 
@@ -326,14 +341,10 @@ class RegistrationLoginStepUpFlowIntegrationTest {
 
     @Test
     fun cancelDuringLogin_offersAFreshLoginAttempt() {
-        val channelSessionId = registerAndAuthenticate()
+        registerAndAuthenticate()
 
-        // Simulate a fresh login (same device, lost server-side evidence) and activate auth-sms.
-        val channelUuid = UUID.fromString(channelSessionId)
-        val stored = channelSessionRepository.findById(channelUuid).orElseThrow()
-        stored.authContextId = null
-        channelSessionRepository.save(stored)
-        post("/orchestrator/api/v1/app/channels")
+        // Simulate a fresh app session on the same device: new channel, straight to LOGIN via the device link.
+        val channelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
         post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-sms")
 
         val cancelled = post("/orchestrator/api/v1/app/channels/$channelSessionId/cancel")
@@ -365,15 +376,11 @@ class RegistrationLoginStepUpFlowIntegrationTest {
 
     @Test
     fun duplicateActivation_orphansThePreviousToolSessionCleanly() {
-        val channelSessionId = registerAndAuthenticate()
+        registerAndAuthenticate()
 
-        // Simulate a fresh login and activate auth-sms TWICE (e.g. a double client request) -
-        // each activation mints its own ToolSession with its own issued TAN.
-        val channelUuid = UUID.fromString(channelSessionId)
-        val stored = channelSessionRepository.findById(channelUuid).orElseThrow()
-        stored.authContextId = null
-        channelSessionRepository.save(stored)
-        post("/orchestrator/api/v1/app/channels")
+        // Simulate a fresh app session and activate auth-sms TWICE (e.g. a double client
+        // request) - each activation mints its own ToolSession with its own issued TAN.
+        val channelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
 
         val firstActivation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-sms")
         val firstToolSessionId = firstActivation["toolSessionId"] as String
@@ -416,12 +423,15 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val channelSessionId = identify()
         val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-sms")["toolSessionId"] as String
 
-        // Only one enrollment method exists in the catalog today, so switching away just
-        // re-offers that same one - but the OLD tool session is abandoned either way.
+        // Two enrollment methods are actually offerable at this point (enroll-password needs a
+        // confirmed email first), so switching away re-offers the selection page - but the OLD
+        // tool session is abandoned either way.
         val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
-        assertThat(result.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-sms", "step" to "enroll"))
+        assertThat(result.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(result.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email")
 
-        // The abandoned tool session is gone even though the re-offered toolId is the same one.
+        // The abandoned tool session is gone even though we re-activate the same toolId.
         val exception = assertThrows<HttpClientErrorException> {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
@@ -430,6 +440,637 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // Re-activating works fine and mints a new tool session.
         val reactivated = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-sms")
         assertThat(reactivated["toolSessionId"]).isNotEqualTo(enrollToolSessionId)
+    }
+
+    @Test
+    fun passwordEnrollmentAndSubsequentLoginFlow() {
+        // 1) Identify, confirm email (password's precondition), then enroll password. Channel
+        // requires loa2 up front so registration doesn't auto-finish after email alone (which,
+        // like sms, only reaches loa1 by itself) before password is ever offered.
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val channelSessionId = channelResponse["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        enrollEmail(channelSessionId)
+        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")["toolSessionId"] as String
+
+        // 2) Password alone in one call - the credential is self-verifying, no confirmation handshake.
+        val enrolled = patch(
+            "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password",
+            """{"password":"correct-horse-battery"}"""
+        )
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        assertThat(finalChannel["state"]).isEqualTo("AUTHENTICATED")
+        assertThat(finalChannel["currentAcr"]).isEqualTo("loa2")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(finalChannel["currentAmr"] as List<String>).containsExactlyInAnyOrder("fsc", "email", "password")
+
+        // --- Simulate a fresh app session on the same device ---
+        val loginStart = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val newChannelSessionId = loginStart["channelSessionId"] as String
+        // Neither email nor password alone reaches loa2 - the login offers a pick between both.
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-email", "auth-password")
+
+        val authActivation = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-password")
+        val authToolSessionId = authActivation["toolSessionId"] as String
+
+        // 3) Wrong password first - retryable, not an HTTP error.
+        val retry = patch(
+            "/orchestrator/api/v1/tools/$authToolSessionId/auth-password",
+            """{"password":"wrong-password"}"""
+        )
+        assertThat(retry.stepData()["error"]).isNotNull()
+        assertThat(retry.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth"))
+
+        // 4) Correct password -> completes password, but loa2 needs the second (differently-typed) factor too.
+        val afterPassword = patch(
+            "/orchestrator/api/v1/tools/$authToolSessionId/auth-password",
+            """{"password":"correct-horse-battery"}"""
+        )
+        assertThat(afterPassword.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth"))
+
+        val (code, activation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-email")
+        }
+        val authEmailToolSessionId = activation["toolSessionId"] as String
+        val authenticated = patch("/orchestrator/api/v1/tools/$authEmailToolSessionId/auth-email", """{"code":"$code"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+        assertThat(afterLogin["state"]).isEqualTo("AUTHENTICATED")
+    }
+
+    /** Runs enroll-email through to Completed on the given channel, returns the confirmed email. */
+    private fun enrollEmail(channelSessionId: String): String {
+        val email = "max.mustermann+${UUID.randomUUID()}@example.com"
+        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-email")["toolSessionId"] as String
+        val (code, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"email":"$email"}""")
+        }
+        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"code":"$code"}""")
+        return email
+    }
+
+    @Test
+    fun mfaCombination_smsAndPasswordTogetherReachLoa2_whileEachAloneIsOnlyLoa1() {
+        // Channel requires loa2 up front, so registration can't stop after a single loa1-rated
+        // factor - it must chain further, differently-typed ones too.
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val channelSessionId = channelResponse["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+
+        // First factor (sms): alone it's loa1, not the required loa2, so registration continues.
+        val enrollSmsToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-sms")["toolSessionId"] as String
+        val (smsTan, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+        }
+        val afterSms = patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
+        // Only enroll-email is left as a candidate (sms is already active, password still needs a
+        // confirmed email first) - single-candidate skip goes straight to it.
+        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+
+        // Second factor (email): sms+email are BOTH possession, so this alone still doesn't
+        // reach loa2 - but it unlocks enroll-password (requiresConfirmedEmail).
+        enrollEmail(channelSessionId)
+
+        // Third factor (password, a KNOWLEDGE factor): together with sms/email this combines to loa2.
+        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")["toolSessionId"] as String
+        val enrolled = patch(
+            "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
+            """{"password":"correct-horse-battery"}"""
+        )
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        assertThat(finalChannel["currentAcr"]).isEqualTo("loa2")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(finalChannel["currentAmr"] as List<String>).containsExactlyInAnyOrder("fsc", "sms", "email", "password")
+
+        // --- Fresh app session on the same device (no re-identification, so fsc's own loa2 isn't in play this time) ---
+        val loginStart = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val newChannelSessionId = loginStart["channelSessionId"] as String
+        // No single method alone reaches loa2, so the login offers a pick among all three.
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email", "auth-password")
+
+        val (loginTan, smsActivation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-sms")
+        }
+        val authSmsToolSessionId = smsActivation["toolSessionId"] as String
+        val afterSmsAuth = patch("/orchestrator/api/v1/tools/$authSmsToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+        // sms alone is only loa1, and email would be the SAME factor type (no MFA progress) - only
+        // password is offered next.
+        assertThat(afterSmsAuth.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth"))
+
+        // Same rule as above: activate auth-password explicitly, don't reuse afterSmsAuth's (auth-sms) session id.
+        val authPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-password")["toolSessionId"] as String
+        val authenticated = patch(
+            "/orchestrator/api/v1/tools/$authPasswordToolSessionId/auth-password",
+            """{"password":"correct-horse-battery"}"""
+        )
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+        assertThat(afterLogin["currentAcr"]).isEqualTo("loa2")
+    }
+
+    @Test
+    fun deviceLink_isWrittenAssoonAsOneAuthMethodExists_notOnlyOnceTheChannelsOwnFloorIsReached() {
+        // Channel requires loa2, so a single loa1-rated method isn't enough for THIS channel -
+        // registration doesn't finish yet, it offers enroll-email next.
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val channelSessionId = channelResponse["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-sms")["toolSessionId"] as String
+        val (tan, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+        }
+        val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
+        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+
+        // Abandon here (never enroll email/password, never reach this channel's own loa2 floor) -
+        // a fresh app session (new channel, plain default loa1 floor) must still recognize this
+        // device via the sms method already on file, not fall back to ident-fsc.
+        val newChannel = post("/orchestrator/api/v1/app/channels")
+        assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
+
+        val (loginTan, activation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/${newChannel["channelSessionId"]}/tool-activate/auth-sms")
+        }
+        val authToolSessionId = activation["toolSessionId"] as String
+        val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+    }
+
+    @Test
+    fun logout_endsTheChannelForGood_aNewOneStartsAFreshLoginViaTheDeviceLink() {
+        val channelSessionId = registerAndAuthenticate()
+        val beforeLogout = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        assertThat(beforeLogout["state"]).isEqualTo("AUTHENTICATED")
+
+        // Unlike Cancel (which leaves an AUTHENTICATED channel untouched, nothing to cancel),
+        // Logout always ends the channel.
+        assertThat(deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId")).isEqualTo(HttpStatus.NO_CONTENT)
+
+        // The old channelSessionId is dead - GET still resolves it (same key, valid binding),
+        // but it stays LOGGED_OUT and reports no next step; it is never silently re-derived.
+        val loggedOutChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        assertThat(loggedOutChannel["state"]).isEqualTo("LOGGED_OUT")
+        assertThat(loggedOutChannel["next"]).isNull()
+        assertThat(loggedOutChannel["currentAcr"]).isNull()
+
+        // A brand-new channel on the SAME device (same DPoP key) still recognizes the account via
+        // DeviceAccountLink and skips straight to LOGIN instead of a fresh ident-fsc.
+        val newChannel = post("/orchestrator/api/v1/app/channels")
+        val newChannelSessionId = newChannel["channelSessionId"] as String
+        assertThat(newChannelSessionId).isNotEqualTo(channelSessionId)
+        assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
+
+        val (tan, activation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-sms")
+        }
+        val authToolSessionId = activation["toolSessionId"] as String
+        val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+        assertThat(afterLogin["state"]).isEqualTo("AUTHENTICATED")
+    }
+
+    @Test
+    fun logout_duringActiveRegistration_cancelsTheProcessToo() {
+        val channelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+
+        assertThat(deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId")).isEqualTo(HttpStatus.NO_CONTENT)
+
+        // The old ident-fsc tool session is no longer part of any active process.
+        val exception = assertThrows<HttpClientErrorException> {
+            patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+
+        // Half-registered isn't a returning user (same rule as plain Cancel, docs/06-ablaeufe.md
+        // via ProcessCancellationService): no account was ever fully provisioned, so the new
+        // channel starts registration again, not LOGIN.
+        val newChannel = post("/orchestrator/api/v1/app/channels")
+        assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+    }
+
+    @Test
+    fun logout_withMismatchedBindingKey_isForbidden() {
+        val channelSessionId = registerAndAuthenticate()
+
+        currentBindingKeyRef = "a-completely-different-binding-key"
+
+        val exception = assertThrows<HttpClientErrorException> {
+            deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId")
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+    }
+
+    @Test
+    fun weakPassword_isRejectedAsBadRequest() {
+        // loa2 up front: default loa1 would already be satisfied by email alone, ending
+        // registration (finishAsAuthenticated -> process consumed) before enroll-password could
+        // ever be activated.
+        val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        enrollEmail(channelSessionId)
+        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")["toolSessionId"] as String
+
+        val exception = assertThrows<HttpClientErrorException> {
+            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"short"}""")
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
+    @Test
+    fun enrollPassword_withoutConfirmedEmail_isRejectedAsConflict() {
+        // Bypass attempt: activate enroll-password directly while still in an "enrollment"
+        // selection context, without ever having confirmed an email - validateActivation alone
+        // only checks the CATEGORY (ENROLL) matches, not that this specific toolId was actually
+        // offered, so ToolControllerSupport must enforce the requiresConfirmedEmail precondition
+        // itself, not just rely on it being excluded from stepData.options.
+        val channelSessionId = identify()
+
+        val exception = assertThrows<HttpClientErrorException> {
+            post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+    }
+
+    @Test
+    fun accountLevelThrottle_locksAfterRepeatedFailedAuthAttempts_acrossFreshToolSessions() {
+        registerAndAuthenticate()
+        // Fresh app session on the same device - each iteration below mints its OWN ToolSession
+        // (a fresh per-session retryCount every time), proving the account-level throttle catches
+        // what the per-session retry counter alone cannot.
+        val channelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
+
+        repeat(5) {
+            val activation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-sms")
+            val toolSessionId = activation["toolSessionId"] as String
+            patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
+        }
+
+        val exception = assertThrows<HttpClientErrorException> {
+            post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-sms")
+        }
+        assertThat(exception.statusCode.value()).isEqualTo(423)
+    }
+
+    @Test
+    fun accountLevelThrottle_resetsOnSuccessfulAuth() {
+        registerAndAuthenticate()
+        val freshChannelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
+
+        // A few failures, but not enough to lock - then a genuine success should clear the counter.
+        repeat(3) {
+            val activation = post("/orchestrator/api/v1/app/channels/$freshChannelSessionId/tool-activate/auth-sms")
+            val toolSessionId = activation["toolSessionId"] as String
+            patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
+        }
+        val (tan, activation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$freshChannelSessionId/tool-activate/auth-sms")
+        }
+        val toolSessionId = activation["toolSessionId"] as String
+        val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        // Confirm the counter was actually reset, not just "not yet locked": two more fresh
+        // failures on ANOTHER new session right after a success should NOT be treated as
+        // already at 3/5 - they still land on the same account via the device link.
+        val nextChannelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
+        repeat(2) {
+            val retryActivation = post("/orchestrator/api/v1/app/channels/$nextChannelSessionId/tool-activate/auth-sms")
+            val retryToolSessionId = retryActivation["toolSessionId"] as String
+            patch("/orchestrator/api/v1/tools/$retryToolSessionId/auth-sms", """{"tan":"000000"}""")
+        }
+        // Still allowed - only 2 failures since the reset, well under the lock threshold.
+        val stillAllowed = post("/orchestrator/api/v1/app/channels/$nextChannelSessionId/tool-activate/auth-sms")
+        assertThat(stillAllowed["toolSessionId"]).isNotNull()
+    }
+
+    @Test
+    fun manageMethods_addsAnotherMethodOnAnAuthenticatedChannel() {
+        val channelSessionId = registerAndAuthenticate()
+
+        val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/methods")
+        // sms already active; email is offered (password still needs a confirmed email first).
+        assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+
+        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-email")["toolSessionId"] as String
+        val email = "manage-methods-${UUID.randomUUID()}@example.com"
+        val (code, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"email":"$email"}""")
+        }
+        val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"code":"$code"}""")
+        // Finishes immediately after ONE enrollment, regardless of whether some higher floor was
+        // reached - unlike REGISTRATION, MANAGE_METHODS never depends on canAccountReach.
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        assertThat(channel["state"]).isEqualTo("AUTHENTICATED")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(channel["currentAmr"] as List<String>).contains("email")
+    }
+
+    @Test
+    fun manageMethods_withNoRemainingCandidates_reportsNothingToAddInsteadOfErroring() {
+        val channelSessionId = registerAndAuthenticate()
+        post("/orchestrator/api/v1/app/channels/$channelSessionId/methods")
+        enrollEmail(channelSessionId)
+
+        post("/orchestrator/api/v1/app/channels/$channelSessionId/methods")
+        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
+
+        // sms, email and password are now all active - nothing left in the catalog to offer.
+        val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/methods")
+        assertThat(started["stepData"]).isEqualTo(mapOf("message" to "Keine weiteren Mittel verfuegbar"))
+        assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+    }
+
+    @Test
+    fun deactivateMethod_rejectsWhenItWouldDropBelowTheChannelsFloor() {
+        val channelSessionId = registerAndAuthenticate()
+
+        val exception = assertThrows<HttpClientErrorException> {
+            delete("/orchestrator/api/v1/app/channels/$channelSessionId/methods/sms")
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+    }
+
+    @Test
+    fun deactivateMethod_succeedsWhenAnotherActiveMethodStillCoversTheFloor() {
+        val channelSessionId = registerAndAuthenticate()
+        post("/orchestrator/api/v1/app/channels/$channelSessionId/methods")
+        enrollEmail(channelSessionId)
+
+        delete("/orchestrator/api/v1/app/channels/$channelSessionId/methods/sms")
+
+        // sms is a candidate again now that it was deactivated - email is already confirmed, so
+        // password is ALSO now a valid candidate, hence a selection page rather than a skip.
+        val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/methods")
+        assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-password")
+    }
+
+    @Test
+    fun manageMethods_stepsUpToLoa2_whenSessionOnlyHasLoa1Evidence() {
+        // Register with fsc+sms in one continuous session (loa2), then simulate a completely
+        // fresh app session on the same device: DeviceAccountLink skips straight to LOGIN via
+        // auth-sms alone, never re-proving fsc, so this session's own evidence sits at loa1.
+        registerAndAuthenticate()
+        val loginStart = post("/orchestrator/api/v1/app/channels")
+        val newChannelSessionId = loginStart["channelSessionId"] as String
+        val (authTan, authActivation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-sms")
+        }
+        val authToolSessionId = authActivation["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
+        val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+        assertThat(afterLogin["currentAcr"]).isEqualTo("loa1")
+
+        // The account has only sms enrolled - no second AUTH method exists to combine with, so
+        // without re-identification this would be a dead end (the bug this test guards against).
+        // MANAGE_METHODS must offer ident-fsc as a way to reach loa2 instead of erroring out.
+        val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/methods")
+        assertThat(started["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
+        assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        val reIdentified = patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        // Re-identification alone already reaches loa2 - MANAGE_METHODS resumes immediately,
+        // finishing back to AUTHENTICATED rather than demanding a further factor.
+        assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val afterStepUp = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+        assertThat(afterStepUp["state"]).isEqualTo("AUTHENTICATED")
+        assertThat(afterStepUp["currentAcr"]).isEqualTo("loa2")
+
+        // Calling methods again now succeeds directly (loa2 already satisfied this session).
+        val retried = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/methods")
+        assertThat(retried.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+    }
+
+    @Test
+    fun manageMethodsStepUp_reIdentifyingAsADifferentPerson_isRejected() {
+        registerAndAuthenticate()
+        val loginStart = post("/orchestrator/api/v1/app/channels")
+        val newChannelSessionId = loginStart["channelSessionId"] as String
+        val (authTan, authActivation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/auth-sms")
+        }
+        val authToolSessionId = authActivation["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
+
+        post("/orchestrator/api/v1/app/channels/$newChannelSessionId/methods")
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+
+        // A different KVNR resolves to a different person/account - must not silently take over
+        // this session's account.
+        val exception = assertThrows<HttpClientErrorException> {
+            patch(
+                "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+                """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
+            )
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+    }
+
+    /** Registers via ident-fsc -> enroll-email -> enroll-password, returns the confirmed email. */
+    private fun registerWithEmailAndPassword(password: String = "correct-horse-battery"): String {
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val channelSessionId = channelResponse["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        val email = enrollEmail(channelSessionId)
+        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"$password"}""")
+        return email
+    }
+
+    @Test
+    fun lookupLogin_viaPassword_authenticatesIntoExistingAccountAndRelinksTheDevice() {
+        val email = registerWithEmailAndPassword()
+
+        // Same mocked device, but intent=login forces lookup-based login regardless of the
+        // DeviceAccountLink this device already has from registerWithEmailAndPassword above
+        // (docs/04-orchestrierung.md, lookup-based login).
+        val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+        val channelSessionId = loginStart["channelSessionId"] as String
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
+
+        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-password-lookup")["toolSessionId"] as String
+        val authenticated = patch(
+            "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
+            """{"email":"$email","password":"correct-horse-battery"}"""
+        )
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+        assertThat(channel["state"]).isEqualTo("AUTHENTICATED")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(channel["currentAmr"] as List<String>).contains("password")
+
+        // DeviceAccountLink re-written by the lookup login (idempotent here, same account) -
+        // a subsequent plain intent=auto channel on this device goes straight to LOGIN again,
+        // never REGISTRATION.
+        val nextAuto = post("/orchestrator/api/v1/app/channels")
+        assertThat(nextAuto["state"]).isNotEqualTo("REGISTERING")
+    }
+
+    @Test
+    fun lookupLogin_viaSms_authenticatesIntoExistingAccount() {
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+        val channelSessionId = channelResponse["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-sms")["toolSessionId"] as String
+        val (enrollTan, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+        }
+        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$enrollTan"}""")
+        val email = enrollEmail(channelSessionId)
+
+        val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+        val lookupChannelSessionId = loginStart["channelSessionId"] as String
+        val lookupToolSessionId = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/tool-activate/auth-sms-lookup")["toolSessionId"] as String
+
+        val (loginTan, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"email":"$email"}""")
+        }
+        val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"tan":"$loginTan"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
+        assertThat(channel["state"]).isEqualTo("AUTHENTICATED")
+    }
+
+    /**
+     * activeMethods (ChannelResponse) is the account's full standing method list, distinct from
+     * currentAmr (session evidence, docs/10-frontend.md). A device-bound LOGIN that only needs
+     * ONE active method to satisfy the default loa1 floor never re-proves the account's other
+     * methods - activeMethods must still report them, so the UI can offer to manage (e.g.
+     * deactivate) a method the current session never touched.
+     */
+    @Test
+    fun channelResponse_activeMethods_includesMethodsNotProvenThisSession() {
+        val channelSessionId = post("/orchestrator/api/v1/app/channels")["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/ident-fsc")["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+        enrollEmail(channelSessionId)
+        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/enroll-password")["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
+
+        deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId")
+
+        // Fresh device-bound LOGIN (same device, DeviceAccountLink still points here): default
+        // loa1 floor is satisfied by a single method, so this proves ONLY password.
+        val loginStart = post("/orchestrator/api/v1/app/channels")
+        val loginChannelSessionId = loginStart["channelSessionId"] as String
+        val authToolSessionId = post("/orchestrator/api/v1/app/channels/$loginChannelSessionId/tool-activate/auth-password")["toolSessionId"] as String
+        val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val channel = get("/orchestrator/api/v1/app/channels/$loginChannelSessionId")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(channel["currentAmr"] as List<String>).containsExactly("password")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(channel["activeMethods"] as List<String>).containsExactlyInAnyOrder("email", "password")
+    }
+
+    @Test
+    fun lookupLogin_viaEmail_authenticatesIntoExistingAccount() {
+        val email = registerWithEmailAndPassword()
+
+        val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+        val lookupChannelSessionId = loginStart["channelSessionId"] as String
+        val lookupToolSessionId = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/tool-activate/auth-email-lookup")["toolSessionId"] as String
+
+        val (loginCode, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"email":"$email"}""")
+        }
+        val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"code":"$loginCode"}""")
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+
+        val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
+        assertThat(channel["state"]).isEqualTo("AUTHENTICATED")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(channel["currentAmr"] as List<String>).contains("email")
+    }
+
+    @Test
+    fun lookupLogin_withUnknownEmail_failsIndistinguishablyFromAWrongCredential() {
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+        val channelSessionId = channelResponse["channelSessionId"] as String
+        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tool-activate/auth-password-lookup")["toolSessionId"] as String
+
+        // Same shape as a wrong password against a real account (200, Failed -> retry offered)
+        // - never a distinct HTTP error for "unknown email" (enumeration protection).
+        val response = patch(
+            "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
+            """{"email":"nobody@example.com","password":"whatever12"}"""
+        )
+        assertThat(response.stepData()["error"]).isNotNull()
+        assertThat(response.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-password-lookup", "step" to "auth"))
+    }
+
+    @Test
+    fun lookupLoginIntent_onNeverLinkedDevice_offersLookupToolsNotRegistration() {
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+        @Suppress("UNCHECKED_CAST")
+        assertThat(channelResponse.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
+    }
+
+    @Test
+    fun registerIntent_onAlreadyLinkedDevice_startsFreshRegistrationInstead() {
+        registerAndAuthenticate()
+
+        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")
+        assertThat(channelResponse["state"]).isEqualTo("REGISTERING")
+        assertThat(channelResponse.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
     }
 
     companion object {

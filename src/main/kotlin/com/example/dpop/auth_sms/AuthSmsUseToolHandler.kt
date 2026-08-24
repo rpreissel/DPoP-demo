@@ -10,6 +10,7 @@ import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
+import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -34,7 +35,7 @@ class AuthSmsUseToolHandler(
     override val category = ToolCategory.AUTH
     override val method = "sms"
     override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa2"
+    override val maxAcr = "loa1"
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
@@ -60,7 +61,7 @@ class AuthSmsUseToolHandler(
 
         // demoTan: this is a demo, not a real SMS gateway - showing it in the UI means testers
         // don't need server-log access (docs/06-ablaeufe.md #3).
-        return ToolOutcome.InProgress(nextStep = "auth", data = mapOf("missingFields" to listOf("tan"), "demoTan" to issued.plainTan))
+        return ToolOutcome.InProgress(nextStep = "auth", data = mapOf("missingFields" to listOf("tan"), demoData("tan" to issued.plainTan)))
     }
 
     /** Called directly by AuthSmsToolController, not generically dispatched (docs/08-projektrahmen.md A11). */

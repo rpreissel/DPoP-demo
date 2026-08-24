@@ -34,7 +34,7 @@ class ProcessCancellationService(private val sessionManagementService: SessionMa
                 channelSession.state = ChannelState.ANONYMOUS
                 sessionManagementService.updateChannelSession(channelSession)
             }
-            ProcessPurpose.STEP_UP -> sessionManagementService.updateChannelState(
+            ProcessPurpose.STEP_UP, ProcessPurpose.MANAGE_METHODS -> sessionManagementService.updateChannelState(
                 channelSession.channelSessionId!!, ChannelState.AUTHENTICATED
             )
             ProcessPurpose.LOGIN, null -> Unit // channel state was never advanced past its pre-login value

@@ -27,6 +27,14 @@ class Account(
     @JdbcTypeCode(SqlTypes.JSON)
     var authenticationMethods: MutableList<AuthenticationMethod> = mutableListOf()
 
+    /**
+     * Direct scalar fields, not routed through the generic authenticationMethods/enrollmentRef
+     * indirection - same treatment as [personId]: a single canonical account attribute, not a
+     * swappable per-enrollment credential (unlike phoneNumber/username, which stay module-owned).
+     */
+    var email: String? = null
+    var emailConfirmedAt: Instant? = null
+
     fun addIdentification(identification: AccountIdentification) {
         identifications.add(identification)
     }

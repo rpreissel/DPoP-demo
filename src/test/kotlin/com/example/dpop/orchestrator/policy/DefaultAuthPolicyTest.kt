@@ -45,23 +45,23 @@ class DefaultAuthPolicyTest {
     @Test
     fun isSatisfied_requiresOnlyLevel_belowLoa3() {
         val evidence = AuthEvidence(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION))
-        assertThat(policy.isSatisfied(evidence, "loa2")).isTrue()
-        assertThat(policy.isSatisfied(evidence, "loa1")).isTrue()
+        assertThat(policy.isSatisfied(evidence, "loa2", account = null)).isTrue()
+        assertThat(policy.isSatisfied(evidence, "loa1", account = null)).isTrue()
     }
 
     @Test
     fun isSatisfied_atLoa3_requiresTwoDistinctFactorTypes() {
         val singleFactor = AuthEvidence(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION))
-        assertThat(policy.isSatisfied(singleFactor, "loa3")).isFalse()
+        assertThat(policy.isSatisfied(singleFactor, "loa3", account = null)).isFalse()
 
         val twoFactors = AuthEvidence(amr = listOf("passkey"), factorTypes = setOf(FactorType.POSSESSION, FactorType.INHERENCE))
-        assertThat(policy.isSatisfied(twoFactors, "loa3")).isTrue()
+        assertThat(policy.isSatisfied(twoFactors, "loa3", account = null)).isTrue()
     }
 
     @Test
     fun twoSameFactorProofs_neverSatisfyMfa() {
         val evidence = AuthEvidence(amr = listOf("sms", "someOtherPossessionMethod"), factorTypes = setOf(FactorType.POSSESSION))
-        assertThat(policy.isSatisfied(evidence, "loa3")).isFalse()
+        assertThat(policy.isSatisfied(evidence, "loa3", account = null)).isFalse()
     }
 
     @Test
@@ -106,8 +106,35 @@ class DefaultAuthPolicyTest {
 
     @Test
     fun resolveAcr_reflectsTheHighestMaxAcrAmongProvenAmrMethods() {
-        assertThat(policy.resolveAcr(AuthEvidence(emptyList(), emptySet()))).isEqualTo("none")
-        assertThat(policy.resolveAcr(AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))).isEqualTo("loa2")
-        assertThat(policy.resolveAcr(AuthEvidence(listOf("passkey"), setOf(FactorType.POSSESSION, FactorType.INHERENCE)))).isEqualTo("loa3")
+        assertThat(policy.resolveAcr(AuthEvidence(emptyList(), emptySet()), account = null)).isEqualTo("none")
+        assertThat(policy.resolveAcr(AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), account = null)).isEqualTo("loa2")
+        assertThat(policy.resolveAcr(AuthEvidence(listOf("passkey"), setOf(FactorType.POSSESSION, FactorType.INHERENCE)), account = null)).isEqualTo("loa3")
+    }
+
+    @Test
+    fun mfaBump_isCappedByTheHighestLoaAnyCombiningMethodWasEnrolledUnder() {
+        // Two loa1-only knowledge/possession factors, distinct from the shared registry's sms/fsc/passkey.
+        val tokenA = descriptor("auth-a", ToolCategory.AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
+        val tokenB = descriptor("auth-b", ToolCategory.AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
+        val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
+        val evidence = AuthEvidence(amr = listOf("a", "b"), factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE))
+
+        // Both were set up in a loa1-only session - nothing vouches for loa2, so the combination
+        // stays at loa1 (docs/06-ablaeufe.md #1 escalation concern, extended to combinations: a
+        // compromised weak session must not be able to self-escalate by adding a 2nd weak factor).
+        val bothWeak = account(method("a", enrolledUnderAcr = "loa1"), method("b", enrolledUnderAcr = "loa1"))
+        assertThat(localPolicy.resolveAcr(evidence, bothWeak)).isEqualTo("loa1")
+        assertThat(localPolicy.isSatisfied(evidence, "loa2", bothWeak)).isFalse()
+        assertThat(localPolicy.canAccountReach(bothWeak, "loa2")).isFalse()
+
+        // One of the two was set up right after a loa2-level session (e.g. an identification) -
+        // that vouches for the pair reaching loa2 together.
+        val oneVouched = account(method("a", enrolledUnderAcr = "loa2"), method("b", enrolledUnderAcr = "loa1"))
+        assertThat(localPolicy.resolveAcr(evidence, oneVouched)).isEqualTo("loa2")
+        assertThat(localPolicy.isSatisfied(evidence, "loa2", oneVouched)).isTrue()
+        assertThat(localPolicy.canAccountReach(oneVouched, "loa2")).isTrue()
+
+        // Without any account to check enrolledUnderAcr against, the bump is conservatively withheld.
+        assertThat(localPolicy.resolveAcr(evidence, account = null)).isEqualTo("loa1")
     }
 }

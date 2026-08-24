@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.session.ManageMethodsProcessSession
 import com.example.dpop.orchestrator.session.ProcessSession
 import com.example.dpop.orchestrator.session.RegistrationProcessSession
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -119,8 +120,18 @@ class ToolOutcomeProcessor(
         processSession: ProcessSession,
         channelSession: ChannelSession,
         method: String
+    ): String? = when (processSession) {
+        is RegistrationProcessSession -> handleIdentifiedDuringRegistration(outcome, processSession, channelSession, method)
+        is StepUpProcessSession -> handleIdentifiedDuringStepUp(outcome, processSession, channelSession, method)
+        else -> error("Identified is only valid during REGISTRATION or STEP_UP")
+    }
+
+    private fun handleIdentifiedDuringRegistration(
+        outcome: ToolOutcome.Completed.Identified,
+        processSession: RegistrationProcessSession,
+        channelSession: ChannelSession,
+        method: String
     ): String? {
-        require(processSession is RegistrationProcessSession) { "Identified is only valid during REGISTRATION" }
         processSession.personId = outcome.personId
 
         val account = accountService.findOrCreateAccount(outcome.personId)
@@ -145,6 +156,40 @@ class ToolOutcomeProcessor(
         return outcome.achievedAcr
     }
 
+    /**
+     * Re-identification as a step-up path (docs/04-orchestrierung.md, MANAGE_METHODS): unlike
+     * REGISTRATION, the account is already known here - this must only ever CONFIRM that known
+     * account, never switch to a different one. Without the personId check, a session that
+     * merely proves loa1 could smuggle in someone else's KVNR/FSC and hijack a different account
+     * outright, which is worse than the self-lockout this whole feature exists to close.
+     */
+    private fun handleIdentifiedDuringStepUp(
+        outcome: ToolOutcome.Completed.Identified,
+        processSession: StepUpProcessSession,
+        channelSession: ChannelSession,
+        method: String
+    ): String? {
+        val accountId = checkNotNull(processSession.accountId ?: channelSession.accountId) {
+            "Identified during STEP_UP without a known account"
+        }
+        val account = checkNotNull(accountService.findAccount(accountId)) { "Account not found: $accountId" }
+        if (account.personId != outcome.personId) {
+            throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
+        }
+        processSession.accountId = accountId
+
+        accountService.addIdentification(
+            accountId,
+            method,
+            outcome.achievedAcr,
+            outcome.auditDetails.orEmpty() + mapOf(
+                "channel" to channelSession.channel?.name,
+                "processSessionId" to processSession.processSessionId.toString()
+            )
+        )
+        return outcome.achievedAcr
+    }
+
     private fun handleEnrolled(
         outcome: ToolOutcome.Completed.Enrolled,
         processSession: ProcessSession,
@@ -155,17 +200,36 @@ class ToolOutcomeProcessor(
         val authContextId = checkNotNull(channelSession.authContextId) { "Enrolled outcome without an AuthContext bound to the channel" }
         val authContext = checkNotNull(authContextService.getAuthContext(authContextId)) { "AuthContext not found: $authContextId" }
 
+        // email is a deliberate exception (docs/02-domaenenmodell.md #5): its confirmed value
+        // lives directly on Account, not in a module-owned enrollment row, so it must not also
+        // be duplicated into the generic authenticationMethods[].details JSON blob.
+        val email = outcome.auditDetails?.get("email") as? String
+        val detailsForAccount = outcome.auditDetails.orEmpty().minus("email") + mapOf(
+            "enrolledUnderAmr" to authContext.currentAmr,
+            "channel" to channelSession.channel?.name
+        )
+
         // Conditions of the setup - known only to the orchestrator, not the module.
         accountService.addAuthenticationMethod(
             accountId,
             method,
             outcome.enrollmentRef,
             enrolledUnderAcr = authContext.currentAcr,
-            details = outcome.auditDetails.orEmpty() + mapOf(
-                "enrolledUnderAmr" to authContext.currentAmr,
-                "channel" to channelSession.channel?.name
-            )
+            details = detailsForAccount
         )
+        if (method == "email" && email != null) {
+            accountService.confirmEmail(accountId, email)
+        }
+        // A real, provable credential now exists - a future new channel on this device can be
+        // recognized and offered LOGIN, which still requires proving it (TAN/password/...) via
+        // the normal auth-* flow; this link grants no trust by itself. Deliberately NOT done at
+        // mere Identified (docs discussion): identification alone leaves nothing to challenge
+        // the device with, so that must still force full re-identification. Deliberately NOT
+        // gated on canAccountReach/isSatisfied for the CURRENT channel's own requiredAcr either:
+        // whether ONE method is enough for some elevated floor is an orthogonal question the
+        // normal MFA/candidateTools loop already answers once LOGIN starts - it must not block
+        // recognizing the device at all just because this one channel happens to want more.
+        sessionManagementService.linkDeviceToAccount(channelSession.bindingKeyRef!!, accountId)
         return outcome.achievedAcr
     }
 
@@ -175,14 +239,28 @@ class ToolOutcomeProcessor(
         channelSession: ChannelSession,
         method: String
     ): String? {
-        val accountId = checkNotNull(processSession.accountId ?: channelSession.accountId) { "Authenticated outcome without a known account" }
+        // outcome.accountId is set ONLY by lookup-based auth-*-lookup tools (docs/04-orchestrierung.md,
+        // lookup-based login), which resolve the account themselves from a submitted email -
+        // ordinary device-bound auth-* tools leave it null because the account is already known
+        // from the channel/process by the time they can even activate.
+        val accountId = outcome.accountId
+            ?: checkNotNull(processSession.accountId ?: channelSession.accountId) { "Authenticated outcome without a known account" }
         processSession.accountId = accountId
+        channelSession.accountId = accountId
 
         if (channelSession.authContextId == null) {
             // Fresh login: start a new evidence trail rather than reuse a stale one.
             val authContext = authContextService.createForAccount(accountId)
             channelSession.authContextId = authContext.authContextId
-            sessionManagementService.updateChannelSession(channelSession)
+        }
+        sessionManagementService.updateChannelSession(channelSession)
+
+        if (outcome.accountId != null) {
+            // A real credential just got proven for a device that wasn't previously linked to
+            // this account - link it now, same hook as handleEnrolled's DeviceAccountLink write,
+            // so a future channel on this device is recognized straight into ordinary LOGIN
+            // instead of needing another lookup.
+            sessionManagementService.linkDeviceToAccount(channelSession.bindingKeyRef!!, accountId)
         }
 
         // Capping: a method can never authenticate to more trust than it was enrolled under.
@@ -200,26 +278,38 @@ class ToolOutcomeProcessor(
 
         val result = when (outcome) {
             is ToolOutcome.Completed.Identified ->
-                // findOrCreateAccount (docs/05-api.md #2) reuses an existing account for a KVNR
-                // that already went through registration before. If that account can already
-                // reach requiredAcr via a method it has active, there is nothing left to enroll -
-                // offer proving that existing method instead of enrollmentCandidates, which would
-                // come back empty and dead-end the process (docs/04-orchestrierung.md #1).
-                if (authPolicy.canAccountReach(account, requiredAcr)) {
+                if (processSession is StepUpProcessSession && authPolicy.isSatisfied(evidence, requiredAcr, account)) {
+                    // Re-identification during a step-up (MANAGE_METHODS) already prices in its
+                    // own full trust level - once that alone satisfies the floor, there is
+                    // nothing left to prove, unlike REGISTRATION where identification is never
+                    // sufficient by itself.
+                    finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
+                } else if (authPolicy.canAccountReach(account, requiredAcr)) {
+                    // findOrCreateAccount (docs/05-api.md #2) reuses an existing account for a KVNR
+                    // that already went through registration before. If that account can already
+                    // reach requiredAcr via a method it has active, there is nothing left to enroll -
+                    // offer proving that existing method instead of enrollmentCandidates, which would
+                    // come back empty and dead-end the process (docs/04-orchestrierung.md #1).
                     offerCandidates(authPolicy.candidateTools(evidence, requiredAcr, account), "auth")
                 } else {
                     offerCandidates(authPolicy.enrollmentCandidates(account, requiredAcr), "enrollment")
                 }
 
             is ToolOutcome.Completed.Enrolled ->
-                if (authPolicy.canAccountReach(account, requiredAcr) && authPolicy.isSatisfied(evidence, requiredAcr)) {
+                if (processSession is ManageMethodsProcessSession) {
+                    // Voluntary enrollment (docs/04-orchestrierung.md): finishing never depends
+                    // on canAccountReach/isSatisfied - the channel was already AUTHENTICATED
+                    // before this started. One Enrolled outcome ends it; add another by calling
+                    // POST .../methods again.
+                    finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
+                } else if (authPolicy.canAccountReach(account, requiredAcr) && authPolicy.isSatisfied(evidence, requiredAcr, account)) {
                     finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
                 } else {
                     offerCandidates(authPolicy.enrollmentCandidates(account, requiredAcr), "enrollment")
                 }
 
             is ToolOutcome.Completed.Authenticated ->
-                if (authPolicy.isSatisfied(evidence, requiredAcr)) {
+                if (authPolicy.isSatisfied(evidence, requiredAcr, account)) {
                     finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
                 } else {
                     offerCandidates(authPolicy.candidateTools(evidence, requiredAcr, account), "auth")
