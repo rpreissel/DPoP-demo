@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
+import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.orchestration.Next
 import com.example.dpop.orchestrator.orchestration.ToolOutcomeProcessor
@@ -63,7 +64,7 @@ class ToolSwitchController(
         @PathVariable toolId: String,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
         controllerSupport.requireCurrentTool(context, toolId)
@@ -74,14 +75,22 @@ class ToolSwitchController(
 
         val category = toolRegistry.descriptorOf(toolId).category
         val reoffer = toolOutcomeProcessor.reofferForCategory(category, context.processSession, context.channel)
-        val outcome: Pair<Next, Map<String, Any?>?> = if (reoffer != null) {
-            reoffer.next to reoffer.stepData
+        val response = if (reoffer != null) {
+            // Reoffering only touches the ProcessSession, not the channel itself - context.channel
+            // (loaded moments ago by loadContext) is still current. Tool-level responses never
+            // carry currentAcr/currentAmr/activeMethods (docs/05-api.md #2) - the client fetches
+            // those explicitly if/when it needs them, same as any other on-demand screen data.
+            val channelBlock = channelService.buildChannelBlock(context.channel)
+            ChannelResponse(channel = channelBlock, next = reoffer.next, stepData = reoffer.stepData)
         } else {
             val channelId = context.channel.channelSessionId!!
             val cancelled = channelService.cancelActiveProcess(channelId, bindingKeyRef)
-            (cancelled.next ?: Next.flow("registration", "selectIdentificationMethod")) to cancelled.stepData
+            // cancelActiveProcess loads and mutates its OWN ChannelSession instance, distinct from
+            // context.channel - its response already carries the fresh channel block, so reuse it
+            // rather than building one from context.channel's now-stale state.
+            cancelled.copy(next = cancelled.next ?: Next.flow("registration", "selectIdentificationMethod"))
         }
 
-        return ResponseEntity.ok(ToolStateResponse(toolSessionId, outcome.second, outcome.first))
+        return ResponseEntity.ok(response)
     }
 }

@@ -3,6 +3,9 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
+import com.example.dpop.orchestrator.api.v1.channel.ChannelService
+import com.example.dpop.orchestrator.api.v1.channel.DemoInfo
 import com.example.dpop.orchestrator.orchestration.Next
 import com.example.dpop.orchestrator.orchestration.ToolOutcomeProcessor
 import com.example.dpop.orchestrator.orchestration.ToolSteps
@@ -18,6 +21,8 @@ import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.util.UriComponentsBuilder
+import java.net.URI
 import java.time.Duration
 import java.util.UUID
 
@@ -36,9 +41,14 @@ class ToolControllerSupport(
     private val channelAccessGuard: ChannelAccessGuard,
     private val toolRegistry: ToolHandlerRegistry,
     private val accountService: AccountService,
-    private val loginThrottleService: LoginThrottleService
+    private val loginThrottleService: LoginThrottleService,
+    private val channelService: ChannelService
 ) {
     data class Context(val toolSession: ToolSession, val processSession: ProcessSession, val channel: ChannelSession)
+
+    /** The `Location` of a just-created tool resource (docs/05-api.md #2) - identical across every tool's activate(), centralized so 10 controllers don't each rebuild the same URI. */
+    fun activationLocation(uriBuilder: UriComponentsBuilder, toolSessionId: UUID, toolId: String): URI =
+        uriBuilder.replacePath("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}").buildAndExpand(toolSessionId, toolId).toUri()
 
     /**
      * Validates that [toolId] is actually due next for this channel and mints its ToolSession
@@ -123,19 +133,26 @@ class ToolControllerSupport(
             context.processSession.nextToolSessionId == context.toolSession.toolSessionId
 
     fun currentProcessNext(processSession: ProcessSession): Next = when (processSession.nextType) {
-        "tool" -> Next.tool(processSession.nextToolId!!, processSession.nextStep!!)
+        "tool" -> Next.tool(processSession.nextToolId!!, processSession.nextStep!!, processSession.nextToolSessionId)
         "flow" -> Next.flow(processSession.nextContext!!, processSession.nextStep!!)
         else -> throw IllegalStateException("Process has no routing state")
     }
 
-    /** InProgress/Failed/Completed -> persisted next + API response, incl. the retry rule (docs/04-orchestrierung.md #1). */
-    fun applyOutcome(toolId: String, outcome: ToolOutcome, context: Context): ToolStateResponse {
+    /**
+     * InProgress/Failed/Completed -> persisted next + API response, incl. the retry rule
+     * (docs/04-orchestrierung.md #1). Returns the same [ChannelResponse] envelope as every other
+     * endpoint (docs/05-api.md #2): [context.channel] is the same mutable entity
+     * [ToolOutcomeProcessor] just updated in place (state/accountId/authContextId on Completed),
+     * so [ChannelService.buildChannelBlock] reflects the post-outcome state without a separate
+     * `GET /channels` round-trip.
+     */
+    fun applyOutcome(toolId: String, outcome: ToolOutcome, context: Context): ChannelResponse {
         val category = toolRegistry.descriptorOf(toolId).category
         val (next, stepData) = when (outcome) {
             is ToolOutcome.InProgress -> {
                 context.processSession.setNextTool(toolId, outcome.nextStep, context.toolSession.toolSessionId)
                 sessionManagementService.updateProcessSession(context.processSession)
-                Next.tool(toolId, outcome.nextStep) to outcome.data
+                Next.tool(toolId, outcome.nextStep, context.toolSession.toolSessionId) to outcome.data
             }
 
             is ToolOutcome.Failed -> {
@@ -161,21 +178,32 @@ class ToolControllerSupport(
         @Suppress("UNCHECKED_CAST")
         val demoValues = stepData?.get(DEMO_DATA_KEY) as? Map<String, Any?>
         val cleanedStepData = stepData?.minus(DEMO_DATA_KEY)?.ifEmpty { null }
-        return ToolStateResponse(
-            context.toolSession.toolSessionId!!,
-            cleanedStepData,
-            next,
-            demoInfo(context.processSession, next, demoValues)
+        // currentAcr/currentAmr/activeMethods are never part of a tool response (docs/05-api.md
+        // #2) - the only production reader is the security-summary screen, which the client
+        // reaches via `next` alone and then fetches explicitly (GET /channels, GET .../methods),
+        // like any screen would fetch its own data on demand rather than have every response
+        // carry it "just in case".
+        return ChannelResponse(
+            channel = channelService.buildChannelBlock(context.channel),
+            next = next,
+            stepData = cleanedStepData,
+            demo = demoInfo(context.processSession, next, demoValues)
         )
     }
 
     /** For GET: only the still-current tool's freshly rebuilt InProgress state is shown (docs/06-ablaeufe.md #2, step 4). */
-    fun buildReadResponse(toolSessionId: UUID, toolId: String, context: Context, freshOutcome: ToolOutcome.InProgress?): ToolStateResponse =
-        if (freshOutcome != null) {
-            ToolStateResponse(toolSessionId, freshOutcome.data, Next.tool(toolId, context.processSession.nextStep ?: freshOutcome.nextStep))
+    fun buildReadResponse(toolSessionId: UUID, toolId: String, context: Context, freshOutcome: ToolOutcome.InProgress?): ChannelResponse {
+        val next = if (freshOutcome != null) {
+            Next.tool(toolId, context.processSession.nextStep ?: freshOutcome.nextStep, toolSessionId)
         } else {
-            ToolStateResponse(toolSessionId, null, currentProcessNext(context.processSession))
+            currentProcessNext(context.processSession)
         }
+        return ChannelResponse(
+            channel = channelService.buildChannelBlock(context.channel),
+            next = next,
+            stepData = freshOutcome?.data
+        )
+    }
 
     private fun handleFailed(reason: String, context: Context): Pair<Next, Map<String, Any?>?> {
         val updated = sessionManagementService.registerFailedToolAttempt(context.toolSession.toolSessionId!!)

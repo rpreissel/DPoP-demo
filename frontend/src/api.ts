@@ -1,5 +1,5 @@
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ChannelResponse, ToolStateResponse } from './types'
+import type { ChannelResponse } from './types'
 
 /** Carries the server's own error/message (docs/07-betrieb.md #1) instead of a raw fetch string. */
 export class ApiError extends Error {
@@ -96,12 +96,12 @@ export function getChannel(dpop: DpopKeyPair, channelSessionId: string): Promise
 }
 
 export function raiseRequiredAcr(dpop: DpopKeyPair, channelSessionId: string, requiredAcr: string): Promise<ChannelResponse> {
-  return call(dpop, 'PATCH', `/orchestrator/api/v1/app/channels/${channelSessionId}`, { requiredAcr })
+  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/step-ups`, { requiredAcr })
 }
 
 /** Abandons the active REGISTRATION/LOGIN/STEP_UP process; the response already offers a fresh start where applicable. */
 export function cancelProcess(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/cancel`)
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/process`)
 }
 
 /** Ends this channel for good (docs/02-domaenenmodell.md #3: logout, terminal) - cancels any active process and discards the AuthContext. Call createChannel again afterwards for a new session. */
@@ -109,9 +109,14 @@ export function logoutChannel(dpop: DpopKeyPair, channelSessionId: string): Prom
   return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}`)
 }
 
+/** The account's active authentication methods, addressable as their own resource (docs/05-api.md #2). */
+export function getMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<{ methods: string[] }> {
+  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods`)
+}
+
 /** Voluntary enrollment on an already-AUTHENTICATED channel (ProcessPurpose.MANAGE_METHODS) - offers the existing enroll-* tools, finishes after exactly one. Call again to add another. */
 export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods`)
+  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/enrollments`)
 }
 
 /** Deactivates an active method; rejected (409) if it would drop the account below this channel's required level. */
@@ -120,8 +125,8 @@ export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, me
 }
 
 /** toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by the client. */
-export function activateTool(dpop: DpopKeyPair, channelSessionId: string, toolId: string): Promise<ToolStateResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/tool-activate/${toolId}`)
+export function activateTool(dpop: DpopKeyPair, channelSessionId: string, toolId: string): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/tools/${toolId}`)
 }
 
 export function patchTool(
@@ -129,10 +134,10 @@ export function patchTool(
   toolSessionId: string,
   toolId: string,
   body: Record<string, unknown>
-): Promise<ToolStateResponse> {
+): Promise<ChannelResponse> {
   return call(dpop, 'PATCH', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`, body)
 }
 
-export function getTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string): Promise<ToolStateResponse> {
+export function getTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string): Promise<ChannelResponse> {
   return call(dpop, 'GET', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`)
 }

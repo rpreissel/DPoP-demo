@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
-import type { DemoInfo, Next, StepData } from './types'
+import type { ChannelResponse, DemoInfo, Next, StepData } from './types'
 import { getUIComponent } from './routing.ts'
 import {
   activateTool,
@@ -104,54 +104,39 @@ function App() {
     setActiveTool(null)
   }
 
-  function applyChannelResponse(response: {
-    channelSessionId: string
-    state: string
-    currentAcr?: string
-    currentAmr?: string[]
-    activeMethods?: string[]
-    stepData?: StepData
-    next?: Next
-  }) {
-    setChannelSessionId(response.channelSessionId)
-    storeChannelSessionId(response.channelSessionId)
-    setRememberedChannelSessionId(response.channelSessionId)
-    setChannelState(response.state)
-    setCurrentAcr(response.currentAcr)
-    setCurrentAmr(response.currentAmr)
-    setActiveMethods(response.activeMethods)
-    setNext(response.next)
-    setStepData(response.stepData)
-    setActiveTool(null)
-  }
-
   /**
-   * `response.toolSessionId` is always the tool that was just acted on (`actedToolId`) - NOT
-   * necessarily `response.next.toolId`. A Completed outcome can hand off straight to a different,
-   * not-yet-activated tool (e.g. ident-fsc -> auth-sms on single-candidate skip); pairing that
-   * new toolId with the old toolSessionId would make the auto-activate effect below think the new
-   * tool is already active and never actually activate it (no request ever fires, no TAN issued).
+   * The one apply-function for every endpoint's response (docs/05-api.md #2: unified envelope) -
+   * channel-level and tool-level alike carry the same `{channel, next, stepData, demo}` shape, so
+   * there's no more separate tool-response path. `currentAcr`/`currentAmr`/`activeMethods` are
+   * the one exception: tool responses never carry them (not core flow data, only the security-
+   * summary screen reads them) - the effect below fetches them on demand exactly when that screen
+   * is reached, the same way any real screen would load its own data rather than have every
+   * response carry it "just in case".
+   *
+   * [actedToolId], when given, is the tool that was just acted on. `next.toolSessionId` (set
+   * whenever a ToolSession exists for the due step) tells us whether that's still the active
+   * tool or the response already handed off to a different, not-yet-activated one (e.g.
+   * ident-fsc -> auth-sms on single-candidate skip) - pairing the wrong toolId with a session
+   * would make the auto-activate effect below think the new tool is already active and never
+   * actually activate it (no request ever fires, no TAN issued).
    */
-  async function applyToolResponse(
-    keyPair: DpopKeyPair,
-    channelId: string,
-    response: { toolSessionId: string; stepData?: StepData; next: Next; demo?: DemoInfo },
-    actedToolId: string
-  ) {
+  function applyResponse(response: ChannelResponse, actedToolId?: string) {
+    setChannelSessionId(response.channel.channelSessionId)
+    storeChannelSessionId(response.channel.channelSessionId)
+    setRememberedChannelSessionId(response.channel.channelSessionId)
+    setChannelState(response.channel.state)
+    setCurrentAcr(response.channel.currentAcr)
+    setCurrentAmr(response.channel.currentAmr)
+    setActiveMethods(response.channel.activeMethods)
     setNext(response.next)
     setStepData(response.stepData)
     setDemo(response.demo)
 
-    if (response.next.type === 'tool' && response.next.toolId === actedToolId) {
-      setActiveTool({ toolSessionId: response.toolSessionId, toolId: response.next.toolId })
-      return
-    }
-
-    setActiveTool(null)
-    if (response.next.type === 'flow' && response.next.context === 'authentication' && response.next.step === 'authenticated') {
-      // Tool responses don't carry channel-level info (currentAcr/currentAmr/state) - refresh it.
-      const channel = await getChannel(keyPair, channelId)
-      applyChannelResponse(channel)
+    const next = response.next
+    if (actedToolId && next?.type === 'tool' && next.toolId === actedToolId && next.toolSessionId) {
+      setActiveTool({ toolSessionId: next.toolSessionId, toolId: actedToolId })
+    } else {
+      setActiveTool(null)
     }
   }
 
@@ -187,16 +172,48 @@ function App() {
     if (activeTool?.toolId === next.toolId) return
     if (activatingToolIdRef.current === next.toolId) return
 
+    // A resumed process already has a running ToolSession for this step (docs/05-api.md #2:
+    // next.toolSessionId) - activating again would start a NEW attempt from scratch (e.g. a
+    // second TAN for enroll-sms), discarding whatever was already entered.
+    if (next.toolSessionId) {
+      setActiveTool({ toolSessionId: next.toolSessionId, toolId: next.toolId })
+      return
+    }
+
     const toolId = next.toolId
     activatingToolIdRef.current = toolId
     activateTool(dpop, channelSessionId, toolId)
-      .then((response) => applyToolResponse(dpop, channelSessionId, response, toolId))
+      .then((response) => applyResponse(response, toolId))
       .catch((err) => setError(describeError('Tool activation failed', err)))
       .finally(() => {
         if (activatingToolIdRef.current === toolId) activatingToolIdRef.current = null
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpop, channelSessionId, next, activeTool])
+
+  /**
+   * Fetches currentAcr/currentAmr/activeMethods on demand when the security-summary screen
+   * (`AuthenticationCompletedView`) is actually reached - tool responses never carry them
+   * (docs/05-api.md #2), only the real channel resource does. `currentAcr === undefined` is a
+   * reliable trigger: applyResponse always clears it on every tool response (whether or not that
+   * response settled `next` into authenticated), so it's only left set once this effect has
+   * already backfilled it for the CURRENT authenticated state - a later re-authentication (e.g.
+   * after a step-up) clears it again via applyResponse first, firing this effect anew.
+   */
+  useEffect(() => {
+    if (!dpop || !channelSessionId) return
+    if (next?.type !== 'flow' || next.context !== 'authentication' || next.step !== 'authenticated') return
+    if (currentAcr !== undefined) return
+
+    getChannel(dpop, channelSessionId)
+      .then((response) => {
+        setCurrentAcr(response.channel.currentAcr)
+        setCurrentAmr(response.channel.currentAmr)
+        setActiveMethods(response.channel.activeMethods)
+      })
+      .catch((err) => setError(describeError('Sicherheitsdetails laden fehlgeschlagen', err)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dpop, channelSessionId, next, currentAcr])
 
   /**
    * Every explicit way a channel comes into existence (docs/04-orchestrierung.md, lookup-based
@@ -213,7 +230,7 @@ function App() {
         if (!rememberedId) return
         try {
           const response = await getChannel(dpop, rememberedId)
-          applyChannelResponse(response)
+          applyResponse(response)
         } catch (err) {
           forgetChannelSessionId()
           setRememberedChannelSessionId(null)
@@ -223,7 +240,7 @@ function App() {
       }
       const intent = mode === 'auto' ? undefined : mode
       const response = await createChannel(dpop, requiredAcr || undefined, intent)
-      applyChannelResponse(response)
+      applyResponse(response)
     } catch (err) {
       setError(describeError('Start fehlgeschlagen', err))
     }
@@ -282,7 +299,7 @@ function App() {
     try {
       setError('')
       const response = await raiseRequiredAcr(dpop, channelSessionId, requiredAcr)
-      applyChannelResponse(response)
+      applyResponse(response)
     } catch (err) {
       setError(describeError('Step-up fehlgeschlagen', err))
     }
@@ -294,7 +311,7 @@ function App() {
     try {
       setError('')
       const response = await startManageMethods(dpop, channelSessionId)
-      applyChannelResponse(response)
+      applyResponse(response)
     } catch (err) {
       setError(describeError('Hinzufügen fehlgeschlagen', err))
     }
@@ -305,7 +322,7 @@ function App() {
     try {
       setError('')
       const response = await deactivateMethod(dpop, channelSessionId, method)
-      applyChannelResponse(response)
+      applyResponse(response)
     } catch (err) {
       setError(describeError('Deaktivieren fehlgeschlagen', err))
     }
@@ -315,7 +332,7 @@ function App() {
     if (!dpop || !channelSessionId) return
     try {
       const response = await cancelProcess(dpop, channelSessionId)
-      applyChannelResponse(response)
+      applyResponse(response)
     } catch (err) {
       setError(describeError('Cancel failed', err))
     }
@@ -325,7 +342,7 @@ function App() {
     if (!dpop || !channelSessionId) return
     try {
       const response = await activateTool(dpop, channelSessionId, toolId)
-      await applyToolResponse(dpop, channelSessionId, response, toolId)
+      applyResponse(response, toolId)
     } catch (err) {
       setError(describeError('Tool activation failed', err))
     }
@@ -335,7 +352,7 @@ function App() {
     if (!dpop || !channelSessionId || !activeTool) return
     try {
       const response = await patchTool(dpop, activeTool.toolSessionId, activeTool.toolId, body)
-      await applyToolResponse(dpop, channelSessionId, response, activeTool.toolId)
+      applyResponse(response, activeTool.toolId)
     } catch (err) {
       setError(describeError('Request failed', err))
     }

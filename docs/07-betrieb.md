@@ -57,7 +57,7 @@ Umgang mit den Referenzen:
 
 `LoginAttemptThrottle` (Entität) + `LoginThrottleService` (`src/main/kotlin/com/example/dpop/orchestrator/session/`) sperren einen Account **account-bezogen**, nicht sitzungsbezogen — bewusst unabhängig vom bereits bestehenden `ToolSession.retryCount` (Abschnitt 3, Retry-Regel in [Orchestrierung](04-orchestrierung.md) Abschnitt 1).
 
-- Warum zusätzlich zu `retryCount` nötig: `retryCount` liegt auf der `ToolSession` und zählt deshalb nur innerhalb *eines* Tool-Anlaufs. Ein Client kann per `tool-activate` jederzeit einen neuen Anlauf starten und damit einen frischen Zähler bei `0` — das allein schließt keinen Angriff aus, der beliebig viele Anläufe gegen denselben Account startet, insbesondere sobald ein geräteunabhängiger, lookup-basierter Login existiert (noch offener Punkt).
+- Warum zusätzlich zu `retryCount` nötig: `retryCount` liegt auf der `ToolSession` und zählt deshalb nur innerhalb *eines* Tool-Anlaufs. Ein Client kann per erneutem `POST .../tools/{toolId}` jederzeit einen neuen Anlauf starten und damit einen frischen Zähler bei `0` — das allein schließt keinen Angriff aus, der beliebig viele Anläufe gegen denselben Account startet, insbesondere sobald ein geräteunabhängiger, lookup-basierter Login existiert (noch offener Punkt).
 - Geprüft nur für Kategorie `AUTH` (`ToolControllerSupport.beginActivation`/`applyOutcome`): IDENT-/ENROLL-Fehlschläge sind kein Brute-Force-Ziel im selben Sinn, da dort kein Credential erraten, sondern eine Identität festgestellt oder ein neues Mittel eingerichtet wird.
 - Schwellwerte: `MAX_FAILURES = 5`, `LOCKOUT_DURATION = 15 Minuten`.
 - Gesperrter Account: `423 Locked` (`OrchestratorException.accountLocked()`, Fehlercode `ACCOUNT_LOCKED`, Abschnitt 1).

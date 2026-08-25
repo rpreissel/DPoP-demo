@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.account.AccountService
 import com.example.dpop.auth_password.AuthPasswordUseToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
+import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.util.UriComponentsBuilder
 import java.util.UUID
 
 private const val AUTH_PASSWORD_TOOL_ID = "auth-password"
@@ -46,13 +48,14 @@ class AuthPasswordToolController(
     private val controllerSupport: ToolControllerSupport
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/auth-password")
+    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-password")
     @Operation(summary = "Activate auth-password", description = "No request body: toolId already carries kind and method.")
     fun activate(
         @PathVariable channelSessionId: UUID,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+        httpRequest: HttpServletRequest,
+        uriBuilder: UriComponentsBuilder
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, AUTH_PASSWORD_TOOL_ID, ToolCategory.AUTH)
 
@@ -62,7 +65,9 @@ class AuthPasswordToolController(
             ?: throw UnresolvableReferenceException("Keine aktive Password-Methode fuer diesen Account")
         val outcome = handler.start(context.toolSession.toolSessionId!!, enrollmentRef)
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(controllerSupport.applyOutcome(AUTH_PASSWORD_TOOL_ID, outcome, context))
+        val response = controllerSupport.applyOutcome(AUTH_PASSWORD_TOOL_ID, outcome, context)
+        val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, AUTH_PASSWORD_TOOL_ID)
+        return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password")
@@ -72,7 +77,7 @@ class AuthPasswordToolController(
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         @RequestBody(required = false) request: AuthPasswordPatchRequest?,
         httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
         controllerSupport.requireCurrentTool(context, AUTH_PASSWORD_TOOL_ID)
@@ -89,7 +94,7 @@ class AuthPasswordToolController(
         @PathVariable toolSessionId: UUID,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
         val outcome = if (controllerSupport.isCurrentTool(context, AUTH_PASSWORD_TOOL_ID)) {

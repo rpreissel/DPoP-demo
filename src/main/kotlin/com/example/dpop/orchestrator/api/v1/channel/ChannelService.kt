@@ -69,6 +69,13 @@ class ChannelService(
     fun getChannel(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse =
         resumeChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
 
+    /** Same data as ChannelResponse.activeMethods, addressable as its own resource (docs/05-api.md #2). */
+    fun getMethods(channelSessionId: UUID, bindingKeyRef: String): MethodsResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val methods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
+        return MethodsResponse(methods ?: emptyList())
+    }
+
     private fun resumeChannel(channel: ChannelSession): ChannelResponse {
         // A logged-out channel stays logged out (docs/02-domaenenmodell.md #3: LOGGED_OUT is
         // terminal) - without this, GET on an old channelSessionId after logout would silently
@@ -312,22 +319,41 @@ class ChannelService(
     }
 
     private fun buildResponseForChannel(channel: ChannelSession, stepData: Map<String, Any?>? = null): ChannelResponse {
-        val authContext = channel.authContextId?.let { authContextService.getAuthContext(it) }
         val active = sessionManagementService.findActiveProcessSession(channel.channelSessionId!!)
         val next = when {
-            active?.nextType == "tool" -> Next.tool(active.nextToolId!!, active.nextStep!!)
+            active?.nextType == "tool" -> Next.tool(active.nextToolId!!, active.nextStep!!, active.nextToolSessionId)
             active?.nextType == "flow" -> Next.flow(active.nextContext!!, active.nextStep!!)
             channel.state == ChannelState.AUTHENTICATED -> Next.flow("authentication", "authenticated")
             else -> null
         }
-        return ChannelResponse(
+        return ChannelResponse(channel = buildChannelBlock(channel, includeAccountFields = true), next = next, stepData = stepData)
+    }
+
+    /**
+     * The channel-level block shared by every response, channel- and tool-level alike
+     * (docs/05-api.md #2) - public so [com.example.dpop.orchestrator.api.v1.tool.ToolControllerSupport]
+     * and [com.example.dpop.orchestrator.api.v1.tool.ToolSwitchController] can attach it to tool
+     * responses without a separate `GET /channels` round-trip.
+     *
+     * [includeAccountFields] gates `currentAcr`/`currentAmr`/`activeMethods`, default `false`:
+     * tool controllers (10 today, and growing) are the common caller and never need them - the
+     * security-summary screen that reads these fields is fetched on demand, not something a tool
+     * flow lands on automatically, so it never belongs in the core flow contract. Only the real
+     * channel resource (`GET`/`POST /channels`, `step-ups`, `enrollments`,
+     * `DELETE .../methods/{method}`) opts in explicitly with `true` - the few endpoints whose
+     * actual purpose is reporting or mutating that data.
+     */
+    fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
+        if (!includeAccountFields) {
+            return ChannelBlock(channelSessionId = channel.channelSessionId!!, state = channel.state?.name ?: ChannelState.ANONYMOUS.name)
+        }
+        val authContext = channel.authContextId?.let { authContextService.getAuthContext(it) }
+        return ChannelBlock(
             channelSessionId = channel.channelSessionId!!,
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
             currentAcr = authContext?.currentAcr,
             currentAmr = authContext?.currentAmr,
-            activeMethods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods },
-            stepData = stepData,
-            next = next
+            activeMethods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
         )
     }
 

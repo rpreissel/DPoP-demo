@@ -4,6 +4,8 @@ export interface Next {
   toolId?: string
   context?: string
   step: string
+  /** The tool resource's full address; set once a ToolSession exists for this step (not right after a selection page). */
+  toolSessionId?: string
 }
 
 /** Whatever the current step needs to render: missing fields, selection options, or a retry reason. */
@@ -14,15 +16,13 @@ export interface StepData {
   [key: string]: unknown
 }
 
-export interface ChannelResponse {
+export interface ChannelBlock {
   channelSessionId: string
   state: string
   currentAcr?: string
   currentAmr?: string[]
   /** All active methods on the account, regardless of whether this session proved them - distinct from currentAmr (session evidence). */
   activeMethods?: string[]
-  stepData?: StepData
-  next?: Next
 }
 
 /** Demo-only values, never part of the production contract (docs/05-api.md #2). */
@@ -37,9 +37,10 @@ export interface DemoInfo {
   email?: string
 }
 
-export interface ToolStateResponse {
-  toolSessionId: string
+/** The one response envelope for every endpoint, channel- and tool-level alike (docs/05-api.md #2). */
+export interface ChannelResponse {
+  channel: ChannelBlock
+  next?: Next
   stepData?: StepData
-  next: Next
   demo?: DemoInfo
 }

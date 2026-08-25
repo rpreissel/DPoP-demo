@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.api.v1.channel
 
 import com.example.dpop.orchestrator.orchestration.Next
+import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
 import java.util.UUID
@@ -29,7 +30,7 @@ data class ChannelPatchRequest(
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-data class ChannelResponse(
+data class ChannelBlock(
     val channelSessionId: UUID,
     val state: String,
     val currentAcr: String? = null,
@@ -39,7 +40,38 @@ data class ChannelResponse(
             "currentAmr proved them. Distinct from currentAmr on purpose: currentAmr is session evidence (what THIS " +
             "channel actually proved), activeMethods is the account's full standing method list (docs/10-frontend.md)."
     )
-    val activeMethods: List<String>? = null,
+    val activeMethods: List<String>? = null
+)
+
+/**
+ * The one response envelope for every endpoint of every layer (docs/05-api.md #2) - channel-
+ * level and tool-level alike, so the client needs exactly one apply-function and never a follow-
+ * up `GET /channels` after a tool completes. `channel` carries what used to be flat top-level
+ * fields; `next.toolSessionId` is now the only carrier of a tool's session id (no more separate
+ * top-level `toolSessionId`).
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ChannelResponse(
+    val channel: ChannelBlock,
+    val next: Next? = null,
     val stepData: Map<String, Any?>? = null,
-    val next: Next? = null
+    @field:Schema(description = "Demo-only correlation IDs, never part of the production contract (docs/05-api.md #2).")
+    val demo: DemoInfo? = null
+)
+
+@Schema(description = "The account's active authentication methods (docs/05-api.md #2). Never contains fsc.")
+data class MethodsResponse(
+    val methods: List<String>
+)
+
+/**
+ * [values] is whatever a tool handler attached via `demoData(...)` (tool_spi.DEMO_DATA_KEY) -
+ * e.g. `tan`, `password` - flattened directly into the JSON object alongside accountId/personId
+ * so the frontend contract stays `demo.tan`/`demo.password` regardless of which tool produced it.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class DemoInfo(
+    val accountId: Long? = null,
+    val personId: Long? = null,
+    @get:JsonAnyGetter val values: Map<String, Any?> = emptyMap()
 )

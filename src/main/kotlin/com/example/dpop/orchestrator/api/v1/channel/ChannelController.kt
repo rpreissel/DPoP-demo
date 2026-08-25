@@ -8,10 +8,11 @@ import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.util.UriComponentsBuilder
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -42,10 +43,14 @@ class ChannelController(
     fun createChannel(
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         @RequestBody(required = false) request: ChannelCreateRequest?,
-        httpRequest: HttpServletRequest
+        httpRequest: HttpServletRequest,
+        uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        return ResponseEntity.ok(channelService.initializeChannel(bindingKeyRef, request?.requiredAcr, request?.intent))
+        val response = channelService.initializeChannel(bindingKeyRef, request?.requiredAcr, request?.intent)
+        val location = uriBuilder.replacePath("/orchestrator/api/v1/app/channels/{channelSessionId}")
+            .buildAndExpand(response.channel.channelSessionId).toUri()
+        return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
     @GetMapping("/{channelSessionId}")
@@ -62,7 +67,7 @@ class ChannelController(
         return ResponseEntity.ok(channelService.getChannel(channelSessionId, bindingKeyRef))
     }
 
-    @PatchMapping("/{channelSessionId}")
+    @PostMapping("/{channelSessionId}/step-ups")
     @Operation(
         summary = "Raise the channel's required ACR floor",
         description = "The App channel's step-up trigger (docs/05-api.md #9). Only raises, never lowers."
@@ -77,7 +82,7 @@ class ChannelController(
         return ResponseEntity.ok(channelService.raiseRequiredAcr(channelSessionId, bindingKeyRef, request.requiredAcr))
     }
 
-    @PostMapping("/{channelSessionId}/cancel")
+    @DeleteMapping("/{channelSessionId}/process")
     @Operation(
         summary = "Cancel the current process",
         description = "Abandons the active REGISTRATION/LOGIN/STEP_UP process; the response already offers a fresh start where applicable."
@@ -109,7 +114,24 @@ class ChannelController(
         return ResponseEntity.noContent().build()
     }
 
-    @PostMapping("/{channelSessionId}/methods")
+    @GetMapping("/{channelSessionId}/methods")
+    @Operation(
+        summary = "Read the account's active authentication methods",
+        description = "The methods collection as a real readable resource - identical data to ChannelResponse's " +
+            "activeMethods (docs/05-api.md #2), just addressable on its own. Never includes fsc (identification " +
+            "lives in identifications, not authenticationMethods). Empty list, not an error, when no account is " +
+            "known yet for this channel."
+    )
+    fun getMethods(
+        @PathVariable channelSessionId: UUID,
+        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<MethodsResponse> {
+        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
+        return ResponseEntity.ok(channelService.getMethods(channelSessionId, bindingKeyRef))
+    }
+
+    @PostMapping("/{channelSessionId}/enrollments")
     @Operation(
         summary = "Voluntarily add another authentication method",
         description = "Channel must already be AUTHENTICATED. Offers AuthPolicy.enrollmentCandidates via the " +

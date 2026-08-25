@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1.tool
 
 import com.example.dpop.auth_sms.EnrollSmsToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
+import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.ToolCategory
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.util.UriComponentsBuilder
 import java.util.UUID
 
 private const val ENROLL_SMS_TOOL_ID = "enroll-sms"
@@ -43,17 +45,20 @@ class EnrollSmsToolController(
     private val controllerSupport: ToolControllerSupport
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tool-activate/enroll-sms")
+    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/enroll-sms")
     @Operation(summary = "Activate enroll-sms", description = "No request body: toolId already carries kind and method.")
     fun activate(
         @PathVariable channelSessionId: UUID,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+        httpRequest: HttpServletRequest,
+        uriBuilder: UriComponentsBuilder
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID, ToolCategory.ENROLL)
         val outcome = handler.start(context.toolSession.toolSessionId!!)
-        return ResponseEntity.status(HttpStatus.CREATED).body(controllerSupport.applyOutcome(ENROLL_SMS_TOOL_ID, outcome, context))
+        val response = controllerSupport.applyOutcome(ENROLL_SMS_TOOL_ID, outcome, context)
+        val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, ENROLL_SMS_TOOL_ID)
+        return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
@@ -66,7 +71,7 @@ class EnrollSmsToolController(
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         @RequestBody(required = false) request: EnrollSmsPatchRequest?,
         httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
         controllerSupport.requireCurrentTool(context, ENROLL_SMS_TOOL_ID)
@@ -83,7 +88,7 @@ class EnrollSmsToolController(
         @PathVariable toolSessionId: UUID,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         httpRequest: HttpServletRequest
-    ): ResponseEntity<ToolStateResponse> {
+    ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
         val outcome = if (controllerSupport.isCurrentTool(context, ENROLL_SMS_TOOL_ID)) {
