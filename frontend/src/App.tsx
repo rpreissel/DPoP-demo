@@ -33,6 +33,8 @@ import { SelectMethodView } from './components/SelectMethodView'
 import { SessionStatusView } from './components/SessionStatusView'
 import { SmsEnrollForm } from './components/SmsEnrollForm'
 import { TanInputForm } from './components/TanInputForm'
+import { DeviceEnrollForm } from './components/DeviceEnrollForm'
+import { DeviceAuthForm } from './components/DeviceAuthForm'
 
 interface ActiveTool {
   toolSessionId: string
@@ -496,6 +498,24 @@ function App() {
               error={stepData?.error}
               demoPassword={demo?.password}
               demoEmail={demo?.email}
+            />
+          )}
+
+          {uiComponent === 'device-enroll-form' && activeTool && (
+            <DeviceEnrollForm
+              toolSessionId={activeTool.toolSessionId}
+              toolId={activeTool.toolId}
+              onSubmit={(body) => handlePatch(body)}
+              error={stepData?.error}
+            />
+          )}
+
+          {uiComponent === 'device-auth-form' && activeTool && (
+            <DeviceAuthForm
+              toolSessionId={activeTool.toolSessionId}
+              toolId={activeTool.toolId}
+              onSubmit={(body) => handlePatch(body)}
+              error={stepData?.error}
             />
           )}
 

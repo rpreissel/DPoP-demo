@@ -12,6 +12,11 @@ describe('getUIComponent', () => {
     expect(getUIComponent(next)).toBe('sms-enroll-form')
   })
 
+  it('maps enroll-device/enroll and auth-device/auth to the device forms', () => {
+    expect(getUIComponent({ type: 'tool', toolId: 'enroll-device', step: 'enroll' })).toBe('device-enroll-form')
+    expect(getUIComponent({ type: 'tool', toolId: 'auth-device', step: 'auth' })).toBe('device-auth-form')
+  })
+
   it('maps a known flow selection to select-method', () => {
     const next: Next = { type: 'flow', context: 'enrollment', step: 'selectMethod' }
     expect(getUIComponent(next)).toBe('select-method')

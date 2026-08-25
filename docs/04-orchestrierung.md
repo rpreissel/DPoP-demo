@@ -74,7 +74,7 @@ interface AuthPolicy {
 
 Zwei Bedingungen müssen zusammen erfüllt sein:
 
-1. **Niveau**: `resolveAcr(evidence) >= requiredAcr`. Die Abbildung von `amr`-Kombinationen auf `acr`-Werte ist fachlich/regulatorisch offen und hier bewusst nicht endgültig festgeschrieben.
+1. **Niveau**: `resolveAcr(evidence) >= requiredAcr`. Die Abbildung von `amr`-Kombinationen auf `acr`-Werte ist fachlich/regulatorisch offen und hier bewusst nicht endgültig festgeschrieben. RFC 8176 definiert zwar eine IANA-Registry für `amr`-Werte (`pwd`, `otp`, `hwk`/`swk`, `user`, `face`, `fpt`, `mfa`, ...), aber welche Kombination welches Vertrauensniveau (eIDAS/BSI/NIST je nach Kontext) ergibt, ist damit noch nicht festgelegt — das bleibt die hier offen gehaltene Politik-Entscheidung. Die `amr`-Strings dieses Projekts (`sms`, `password`, `email`, `fsc`, `device`, `pin`, `biometric`) folgen deshalb der eigenen, methodennamen-nahen Konvention statt RFC 8176 direkt zu übernehmen.
 2. **Faktorvielfalt**: Für MFA-Stufen mindestens zwei **verschiedene** Faktorarten — gezählt wird die Vereinigung der `factorTypes` über alle abgeschlossenen Tools, nie die Tool-Anzahl. Ein einzelnes Tool, das selbst schon zwei Faktorarten meldet (z. B. ein Passkey mit User Verification), erfüllt MFA im Alleingang.
 
 Wichtige Einschränkung: Ein Tool darf nur Faktoren melden, die es dem Server gegenüber tatsächlich **nachweisen** kann. Eine nur lokal geprüfte App-PIN schützt das Gerät, nicht die Anfrage — dafür gehört nur `{possession}` in den Descriptor.

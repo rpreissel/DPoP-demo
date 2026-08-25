@@ -20,7 +20,8 @@ abstract class DpopBaseController(
         return jwkThumbprintService.computeThumbprint(proof.publicKey)
     }
 
-    private fun buildRequestUrl(request: HttpServletRequest): String = buildString {
+    /** Also reused by device-proof validation (auth-device/enroll-device) - same htu shape, not DPoP-specific. */
+    protected fun buildRequestUrl(request: HttpServletRequest): String = buildString {
         append(request.scheme).append("://").append(request.serverName)
         val port = request.serverPort
         val scheme = request.scheme

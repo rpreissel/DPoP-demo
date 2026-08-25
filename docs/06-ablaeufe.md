@@ -72,3 +72,17 @@ Fehlerfall zusätzlich zum allgemeinen Vertrag ([Betrieb](07-betrieb.md)): unbek
 Wie `auth-sms`, aber der `AuthSmsEnrollment`-Datensatz entsteht hier neu — und zwar erst **nach** erfolgreicher TAN-Prüfung, nie beim ersten `PATCH` mit der Telefonnummer (die ist ja noch unbestätigt). Nach Abschluss legt der Orchestrator gemäß [Orchestrierung](04-orchestrierung.md) Abschnitt 1 den `account.authenticationMethods`-Eintrag an (inkl. `enrolledUnderAcr` aus dem aktuellen `AuthContext`).
 
 Fehlerfall zusätzlich zum allgemeinen Vertrag: ungültige Telefonnummer (Formatfehler) -> `400`.
+
+---
+
+## 5) `enroll-device` / `auth-device`
+
+Anders als `sms`/`email`/`password` gibt es kein serverseitig ausgestelltes Geheimnis (keine TAN, kein Code): das Credential *ist* ein auf dem Gerät erzeugtes, nicht-extrahierbares ECDSA-P-256-Schlüsselpaar, unabhängig vom DPoP-Kanal-Schlüssel. Der Client weist Besitz nach, indem er einen selbstsignierten `device-proof+jwt` erzeugt — strukturell identisch zu einem DPoP-Proof (`jwk` im Header, `htm`/`htu`/`iat`/`jti`), aber mit eigenem `typ` und einem zusätzlichen `accessMeans`-Claim (`pin` oder `biometric`), den der (im Demo gemockte) System-PIN/Biometrie-Prompt pro Versuch bestimmt. `DeviceProofValidator` prüft ihn serverseitig eigenständig (bewusst kein Ausbau von `DpopValidator` — zwei kleine, unabhängig lesbare Prüfungen statt eine generisch gemachte, [Projektrahmen](08-projektrahmen.md) A11), verwendet dafür aber dieselben generischen Bausteine (`JwkThumbprintService`, Replay-Schutz per Thumbprint+`jti`).
+
+Kein Server-Nonce nötig: `htu` bindet den Proof bereits an die konkrete, einmalige `toolSessionId`-URL — dasselbe Modell, das gewöhnliche DPoP-Proofs in dieser App schon verwenden.
+
+- **`enroll-device`**: Der Controller validiert den Proof, reicht nur die verifizierten Public-Key-Felder (`DevicePublicKey`: `kty`/`crv`/`x`/`y`/`thumbprint`, nicht die rohe `JWK`) an den Handler weiter — das Modul bekommt nie ein Nimbus-/Krypto-Objekt, nur Strings ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2). Legt einen neuen `device_enrollment`-Datensatz an; `EnrollmentRef(type="device_enrollment", id=...)`.
+- **`auth-device`**: Löst die aktive Enrollment-Referenz auf (wie `auth-sms`), vergleicht den Thumbprint des präsentierten Schlüssels mit dem gespeicherten — bei Abweichung `Failed("Geraet nicht erkannt")`, ohne zu verraten, welches Gerät stattdessen erwartet wurde.
+- **loa2 in einem Schritt**: `maxAcr=loa2`, `factorTypes={possession,knowledge,inherence}` — Besitz des Schlüssels plus Wissen (PIN) oder Inhärenz (Biometrie) aus demselben Durchlauf, der bislang nur hypothetische Passkey-Fall aus [03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1. Die loa2-Voraussetzung für ein Enrollment (`enrolledUnderAcr` darf nicht höher liegen als das, was die Session tatsächlich schon bewiesen hat) ist bereits durch bestehende Gates abgedeckt, nicht durch neuen Code: `ident-fsc` liefert während REGISTRATION immer zuerst `loa2`, und `MANAGE_METHODS_REQUIRED_ACR=loa2` erzwingt denselben Nachweis vor jedem nachträglichen Enrollment.
+
+Fehlerfall zusätzlich zum allgemeinen Vertrag: fehlender/ungültiger `deviceProof` (Signatur, Replay, `htm`/`htu`/`iat`) -> `401` (derselbe `DpopValidationException`-Pfad wie bei DPoP-Proofs); falscher Schlüssel bei `auth-device` -> `Failed`, kein Fehlerstatus (Retry-Fall wie bei falscher TAN).

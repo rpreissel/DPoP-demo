@@ -211,13 +211,13 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         @Suppress("UNCHECKED_CAST")
         assertThat(afterNames.stepData()["missingFields"] as List<String>).containsExactly("fsc")
 
-        // 4) Supply the valid FSC -> identified; two enroll candidates exist (sms, email), so
-        // the process offers a selection page instead of skipping straight to one of them.
+        // 4) Supply the valid FSC -> identified; three enroll candidates exist (sms, email, device),
+        // so the process offers a selection page instead of skipping straight to one of them.
         // enroll-password isn't offered yet - it requires a confirmed account email first.
         val identified = patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
         assertThat(identified.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
-        assertThat(identified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email")
+        assertThat(identified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email", "enroll-device")
 
         // 5) Activate enroll-sms
         val enrollActivation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms")
@@ -490,13 +490,13 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val channelSessionId = identify()
         val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
 
-        // Two enrollment methods are actually offerable at this point (enroll-password needs a
+        // Three enrollment methods are actually offerable at this point (enroll-password needs a
         // confirmed email first), so switching away re-offers the selection page - but the OLD
         // tool session is abandoned either way.
         val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
         assertThat(result.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
-        assertThat(result.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email")
+        assertThat(result.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email", "enroll-device")
 
         // The abandoned tool session is gone even though we re-activate the same toolId.
         val exception = assertThrows<HttpClientErrorException> {
@@ -603,9 +603,12 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
         val afterSms = patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-        // Only enroll-email is left as a candidate (sms is already active, password still needs a
-        // confirmed email first) - single-candidate skip goes straight to it.
-        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+        // Two candidates are left (enroll-email, enroll-device; sms is already active, password
+        // still needs a confirmed email first) - a selection page is offered, not a single-
+        // candidate skip.
+        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(afterSms.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
 
         // Second factor (email): sms+email are BOTH possession, so this alone still doesn't
         // reach loa2 - but it unlocks enroll-password (requiresConfirmedEmail).
@@ -656,7 +659,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
     @Test
     fun deviceLink_isWrittenAssoonAsOneAuthMethodExists_notOnlyOnceTheChannelsOwnFloorIsReached() {
         // Channel requires loa2, so a single loa1-rated method isn't enough for THIS channel -
-        // registration doesn't finish yet, it offers enroll-email next.
+        // registration doesn't finish yet, it offers a selection page next (enroll-email/-device).
         val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
         val channelSessionId = channelResponse.channel()["channelSessionId"] as String
         val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
@@ -669,9 +672,10 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
         val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
 
-        // Abandon here (never enroll email/password, never reach this channel's own loa2 floor) -
+        // Abandon here (never enroll email/password/device, never reach this channel's own loa2
+        // floor) -
         // a fresh app session (new channel, plain default loa1 floor) must still recognize this
         // device via the sms method already on file, not fall back to ident-fsc.
         val newChannel = post("/orchestrator/api/v1/app/channels")
@@ -899,8 +903,11 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val channelSessionId = registerAndAuthenticate()
 
         val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-        // sms already active; email is offered (password still needs a confirmed email first).
-        assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+        // sms already active; email and device are offered (password still needs a confirmed
+        // email first) - two candidates means a selection page, not a single-candidate skip.
+        assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
 
         val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
         val email = "manage-methods-${UUID.randomUUID()}@example.com"
@@ -919,7 +926,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
     }
 
     @Test
-    fun manageMethods_withNoRemainingCandidates_reportsNothingToAddInsteadOfErroring() {
+    fun manageMethods_offersTheLastRemainingCandidate_afterSmsEmailAndPasswordAreActive() {
         val channelSessionId = registerAndAuthenticate()
         post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
         enrollEmail(channelSessionId)
@@ -928,10 +935,11 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
         patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
 
-        // sms, email and password are now all active - nothing left in the catalog to offer.
+        // sms, email and password are now active - enroll-device is the one remaining catalog
+        // candidate (single-candidate skip goes straight to it; the "nothing left" message is
+        // covered once device is also enrolled, see DeviceBindingIntegrationTest).
         val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-        assertThat(started["stepData"]).isEqualTo(mapOf("message" to "Keine weiteren Mittel verfuegbar"))
-        assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-device", "step" to "enroll"))
     }
 
     @Test
@@ -957,7 +965,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
         assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
-        assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-password")
+        assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-password", "enroll-device")
     }
 
     @Test
@@ -996,9 +1004,12 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         assertThat(afterStepUp.channel()["state"]).isEqualTo("AUTHENTICATED")
         assertThat(afterStepUp.channel()["currentAcr"]).isEqualTo("loa2")
 
-        // Calling methods again now succeeds directly (loa2 already satisfied this session).
+        // Calling methods again now succeeds directly (loa2 already satisfied this session) -
+        // email and device both remain as candidates, so a selection page is offered.
         val retried = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-        assertThat(retried.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+        assertThat(retried.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(retried.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
     }
 
     @Test

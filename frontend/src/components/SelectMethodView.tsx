@@ -26,6 +26,8 @@ const TOOL_META: Record<string, ToolMeta> = {
   'enroll-email': { icon: '✉️', label: 'E-Mail', hint: 'Bestätigungscode an eine E-Mail-Adresse' },
   'auth-email': { icon: '✉️', label: 'E-Mail', hint: 'Code an die bestätigte E-Mail-Adresse' },
   'auth-email-lookup': { icon: '✉️', label: 'E-Mail', hint: 'E-Mail-Adresse + Bestätigungscode' },
+  'enroll-device': { icon: '📲', label: 'Gerät', hint: 'Geräteeigener Schlüssel + PIN/Biometrie' },
+  'auth-device': { icon: '📲', label: 'Gerät', hint: 'Geräteeigener Schlüssel + PIN/Biometrie' },
 }
 
 function metaFor(toolId: string): ToolMeta {

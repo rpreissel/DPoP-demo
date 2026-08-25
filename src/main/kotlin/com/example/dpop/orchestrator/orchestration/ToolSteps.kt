@@ -11,7 +11,9 @@ object ToolSteps {
         "enroll-email" to "enroll",
         "auth-email" to "auth",
         "auth-sms-lookup" to "auth",
-        "auth-password-lookup" to "auth"
+        "auth-password-lookup" to "auth",
+        "enroll-device" to "enroll",
+        "auth-device" to "auth"
     )
 
     fun startStepFor(toolId: String): String = startStepByToolId[toolId] ?: "start"

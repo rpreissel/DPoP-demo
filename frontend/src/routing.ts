@@ -15,6 +15,8 @@ const toolRoutes: Record<string, Record<string, string>> = {
   'auth-sms-lookup': { auth: 'email-lookup-form', tanInput: 'tan-input-form' },
   'auth-password-lookup': { auth: 'email-password-lookup-form' },
   'auth-email-lookup': { auth: 'email-code-lookup-form', codeInput: 'email-code-input-form' },
+  'enroll-device': { enroll: 'device-enroll-form' },
+  'auth-device': { auth: 'device-auth-form' },
 }
 
 const flowRoutes: Record<string, Record<string, string>> = {
