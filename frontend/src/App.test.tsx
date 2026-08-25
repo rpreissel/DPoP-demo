@@ -88,7 +88,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
           state: 'AUTHENTICATED',
           currentAcr: 'loa1',
           currentAmr: ['sms'],
-          activeMethods: ['sms'],
+          activeMethods: [{ id: 'method-1', method: 'sms' }],
         },
         next: { type: 'flow', context: 'authentication', step: 'authenticated' },
       })
@@ -120,7 +120,10 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
           state: 'AUTHENTICATED',
           currentAcr: 'loa2',
           currentAmr: ['sms', 'password'],
-          activeMethods: ['sms', 'password'],
+          activeMethods: [
+            { id: 'method-1', method: 'sms' },
+            { id: 'method-2', method: 'password' },
+          ],
         },
         next: { type: 'flow', context: 'authentication', step: 'authenticated' },
       })

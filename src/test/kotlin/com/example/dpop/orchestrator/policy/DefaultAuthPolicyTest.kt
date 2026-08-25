@@ -4,7 +4,8 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodFamily
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -17,20 +18,20 @@ import org.junit.jupiter.api.Test
  */
 class DefaultAuthPolicyTest {
 
-    private fun descriptor(id: String, category: ToolCategory, method: String, factorTypes: Set<FactorType>, maxAcr: String): ToolDescriptor =
+    private fun descriptor(id: String, role: MethodRole, method: String, factorTypes: Set<FactorType>, maxAcr: String): ToolDescriptor =
         object : ToolDescriptor {
             override val toolId = id
-            override val category = category
-            override val method = method
+            override val role = role
+            override val methodFamily = MethodFamily(method)
             override val factorTypes = factorTypes
             override val maxAcr = maxAcr
         }
 
-    private val identFsc = descriptor("ident-fsc", ToolCategory.IDENT, "fsc", setOf(FactorType.POSSESSION), "loa2")
-    private val enrollSms = descriptor("enroll-sms", ToolCategory.ENROLL, "sms", setOf(FactorType.POSSESSION), "loa2")
-    private val authSms = descriptor("auth-sms", ToolCategory.AUTH, "sms", setOf(FactorType.POSSESSION), "loa2")
-    private val authPasskey = descriptor("auth-passkey", ToolCategory.AUTH, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
-    private val enrollPasskey = descriptor("enroll-passkey", ToolCategory.ENROLL, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
+    private val identFsc = descriptor("ident-fsc", MethodRole.IDENTIFICATION, "fsc", setOf(FactorType.POSSESSION), "loa2")
+    private val enrollSms = descriptor("enroll-sms", MethodRole.ENROLLMENT, "sms", setOf(FactorType.POSSESSION), "loa2")
+    private val authSms = descriptor("auth-sms", MethodRole.DEVICE_AUTH, "sms", setOf(FactorType.POSSESSION), "loa2")
+    private val authPasskey = descriptor("auth-passkey", MethodRole.DEVICE_AUTH, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
+    private val enrollPasskey = descriptor("enroll-passkey", MethodRole.ENROLLMENT, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
 
     private val registry = ToolHandlerRegistry(listOf(identFsc, enrollSms, authSms, authPasskey, enrollPasskey))
     private val policy = DefaultAuthPolicy(registry)
@@ -40,7 +41,7 @@ class DefaultAuthPolicyTest {
     )
 
     private fun method(method: String, enrolledUnderAcr: String, active: Boolean = true) =
-        AuthMethodView(method, active, null, enrolledUnderAcr, null)
+        AuthMethodView(id = "$method-instance", method = method, active = active, createdAt = null, enrolledUnderAcr = enrolledUnderAcr, details = null)
 
     @Test
     fun isSatisfied_requiresOnlyLevel_belowLoa3() {
@@ -98,10 +99,10 @@ class DefaultAuthPolicyTest {
     fun candidateTools_excludeMethodsAlreadyUsedThisSession() {
         val acc = account(method("sms", "loa2"))
         val fresh = AuthEvidence(emptyList(), emptySet())
-        assertThat(policy.candidateTools(fresh, "loa2", acc)).containsExactly("auth-sms")
+        assertThat(policy.candidateTools(fresh, "loa2", acc, "test-binding-key")).containsExactly("auth-sms")
 
         val alreadyUsedSms = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION))
-        assertThat(policy.candidateTools(alreadyUsedSms, "loa2", acc)).isEmpty()
+        assertThat(policy.candidateTools(alreadyUsedSms, "loa2", acc, "test-binding-key")).isEmpty()
     }
 
     @Test
@@ -114,8 +115,8 @@ class DefaultAuthPolicyTest {
     @Test
     fun mfaBump_isCappedByTheHighestLoaAnyCombiningMethodWasEnrolledUnder() {
         // Two loa1-only knowledge/possession factors, distinct from the shared registry's sms/fsc/passkey.
-        val tokenA = descriptor("auth-a", ToolCategory.AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
-        val tokenB = descriptor("auth-b", ToolCategory.AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
+        val tokenA = descriptor("auth-a", MethodRole.DEVICE_AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
+        val tokenB = descriptor("auth-b", MethodRole.DEVICE_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
         val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
         val evidence = AuthEvidence(amr = listOf("a", "b"), factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE))
 

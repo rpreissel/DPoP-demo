@@ -11,8 +11,13 @@ interface AuthPolicy {
      */
     fun isSatisfied(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile?): Boolean
 
-    /** Which of the account's AUTH tools could close the remaining gap right now? */
-    fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile): List<String>
+    /**
+     * Which of the account's AUTH tools could close the remaining gap right now? [bindingKeyRef]
+     * (the calling channel's DPoP-proven device fingerprint) is needed to filter multi-instance
+     * methods (device) down to the one instance that actually lives on THIS physical device -
+     * offering one that doesn't would guarantee failure (docs/04-orchestrierung.md).
+     */
+    fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String): List<String>
 
     /**
      * Which IDENT tools (re-identification, e.g. ident-fsc) could ALSO close the remaining gap

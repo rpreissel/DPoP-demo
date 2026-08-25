@@ -5,7 +5,7 @@ import com.example.dpop.auth_email.internal.AuthEmailLookupToolDataRepository
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -28,11 +28,10 @@ class AuthEmailLookupToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "auth-email-lookup"
-    override val category = ToolCategory.AUTH
-    override val method = "email"
+    override val role = MethodRole.LOOKUP_AUTH
+    override val methodFamily = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
-    override val deviceBound = false
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {

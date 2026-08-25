@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1.channel
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
+import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.orchestration.CandidateOffering
@@ -73,8 +74,11 @@ class ChannelService(
     fun getMethods(channelSessionId: UUID, bindingKeyRef: String): MethodsResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val methods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
-        return MethodsResponse(methods ?: emptyList())
+        return MethodsResponse(toActiveMethodViews(methods))
     }
+
+    private fun toActiveMethodViews(methods: List<AuthMethodView>?): List<ActiveMethodView> =
+        methods.orEmpty().map { ActiveMethodView(requireNotNull(it.id) { "Active method without an id" }, it.method, it.label) }
 
     private fun resumeChannel(channel: ChannelSession): ChannelResponse {
         // A logged-out channel stays logged out (docs/02-domaenenmodell.md #3: LOGGED_OUT is
@@ -178,12 +182,18 @@ class ChannelService(
     }
 
     /**
-     * Deactivates an active method on an already-AUTHENTICATED channel. Guarded against
+     * Deactivates an active method instance on an already-AUTHENTICATED channel. Guarded against
      * self-lockout: rejected if the account could no longer reach its own channel's required
      * floor afterwards. Same loa2-in-this-session requirement as [startManageMethods] - removing
      * a factor is at least as sensitive as adding one.
+     *
+     * Addressed by [methodInstanceId], never by method name (docs/03-tool-architektur.md,
+     * allowsMultipleInstances): several active entries can share a method name (e.g. two
+     * devices), so a name alone can't tell them apart. Deliberately not filtered to "only devices
+     * belonging to THIS physical device" either - a lost/stolen device's credential must be
+     * removable from any authenticated session, not only from that device itself.
      */
-    fun deactivateMethod(channelSessionId: UUID, bindingKeyRef: String, method: String): ChannelResponse {
+    fun deactivateMethod(channelSessionId: UUID, bindingKeyRef: String, methodInstanceId: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         if (channel.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to manage methods")
@@ -194,23 +204,22 @@ class ChannelService(
 
         requireManageMethodsAssurance(channel, account)?.let { return it }
 
-        if (account.authenticationMethods.none { it.active && it.method == method }) {
-            throw OrchestratorException.notFound("No active method '$method' for this account")
-        }
+        val target = account.authenticationMethods.firstOrNull { it.active && it.id == methodInstanceId }
+            ?: throw OrchestratorException.notFound("No active method '$methodInstanceId' for this account")
 
         val afterRemoval = account.copy(
             authenticationMethods = account.authenticationMethods.map {
-                if (it.method == method) it.copy(active = false) else it
+                if (it.id == methodInstanceId) it.copy(active = false) else it
             }
         )
         val floor = channel.requiredAcr ?: AcrLevels.DEFAULT_REQUIRED_ACR
         if (!authPolicy.canAccountReach(afterRemoval, floor)) {
             throw OrchestratorException.invalidState(
-                "Deaktivieren von '$method' wuerde das Mindestniveau dieses Kanals unterschreiten"
+                "Deaktivieren von '${target.method}' wuerde das Mindestniveau dieses Kanals unterschreiten"
             )
         }
 
-        accountService.deactivateAuthenticationMethod(accountId, method)
+        accountService.deactivateAuthenticationMethod(accountId, methodInstanceId)
         return buildResponseForChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
     }
 
@@ -260,7 +269,7 @@ class ChannelService(
         // AUTHENTICATED from a previous session.
         sessionManagementService.updateChannelState(channelId, ChannelState.ANONYMOUS)
         val processSession = sessionManagementService.createLoginProcessSession(channelId, PROCESS_TTL)
-        val offer = CandidateOffering.resolve(authPolicy.candidateTools(evidence, floor, account), "auth")
+        val offer = CandidateOffering.resolve(authPolicy.candidateTools(evidence, floor, account, channel.bindingKeyRef!!), "auth")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -300,7 +309,7 @@ class ChannelService(
         val evidence = currentEvidence(channel)
         val processSession = sessionManagementService.createStepUpProcessSession(channelId, requiredAcr, PROCESS_TTL)
         processSession.startingAcr = authPolicy.resolveAcr(evidence, account)
-        val candidates = authPolicy.candidateTools(evidence, requiredAcr, account) +
+        val candidates = authPolicy.candidateTools(evidence, requiredAcr, account, channel.bindingKeyRef!!) +
             if (allowReIdent) authPolicy.reIdentCandidates(evidence, requiredAcr) else emptyList()
         val offer = CandidateOffering.resolve(candidates, "auth")
         applyNext(processSession, offer.next)
@@ -340,7 +349,7 @@ class ChannelService(
      * security-summary screen that reads these fields is fetched on demand, not something a tool
      * flow lands on automatically, so it never belongs in the core flow contract. Only the real
      * channel resource (`GET`/`POST /channels`, `step-ups`, `enrollments`,
-     * `DELETE .../methods/{method}`) opts in explicitly with `true` - the few endpoints whose
+     * `DELETE .../methods/{methodInstanceId}`) opts in explicitly with `true` - the few endpoints whose
      * actual purpose is reporting or mutating that data.
      */
     fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
@@ -353,7 +362,7 @@ class ChannelService(
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
             currentAcr = authContext?.currentAcr,
             currentAmr = authContext?.currentAmr,
-            activeMethods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
+            activeMethods = toActiveMethodViews(channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods })
         )
     }
 

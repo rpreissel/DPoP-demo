@@ -7,7 +7,7 @@ import com.example.dpop.auth_password.internal.EnrollPasswordToolDataRepository
 import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -33,8 +33,8 @@ class EnrollPasswordToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "enroll-password"
-    override val category = ToolCategory.ENROLL
-    override val method = "password"
+    override val role = MethodRole.ENROLLMENT
+    override val methodFamily = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
     override val requiresConfirmedEmail = true

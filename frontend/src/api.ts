@@ -1,5 +1,5 @@
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ChannelResponse } from './types'
+import type { ActiveMethodView, ChannelResponse } from './types'
 
 /** Carries the server's own error/message (docs/07-betrieb.md #1) instead of a raw fetch string. */
 export class ApiError extends Error {
@@ -110,7 +110,7 @@ export function logoutChannel(dpop: DpopKeyPair, channelSessionId: string): Prom
 }
 
 /** The account's active authentication methods, addressable as their own resource (docs/05-api.md #2). */
-export function getMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<{ methods: string[] }> {
+export function getMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<{ methods: ActiveMethodView[] }> {
   return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods`)
 }
 
@@ -119,9 +119,9 @@ export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string):
   return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/enrollments`)
 }
 
-/** Deactivates an active method; rejected (409) if it would drop the account below this channel's required level. */
-export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, method: string): Promise<ChannelResponse> {
-  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods/${method}`)
+/** Deactivates an active method instance (addressed by its own id, not by method name - a method can have several active instances, e.g. multiple devices); rejected (409) if it would drop the account below this channel's required level. */
+export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, methodInstanceId: string): Promise<ChannelResponse> {
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods/${methodInstanceId}`)
 }
 
 /** toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by the client. */

@@ -6,7 +6,7 @@ import com.example.dpop.auth_email.internal.EnrollEmailToolDataRepository
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -37,8 +37,8 @@ class EnrollEmailToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "enroll-email"
-    override val category = ToolCategory.ENROLL
-    override val method = "email"
+    override val role = MethodRole.ENROLLMENT
+    override val methodFamily = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 

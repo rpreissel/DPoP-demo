@@ -13,6 +13,9 @@ object AcrLevels {
 
     fun rank(acr: String?): Int = acr?.let { order.indexOf(it) }?.takeIf { it >= 0 } ?: 0
 
+    /** Inverse of [rank] - the level name at a given rank, "none" if out of range. */
+    fun levelAt(rank: Int): String = order.getOrElse(rank) { "none" }
+
     fun max(a: String?, b: String?): String {
         if (a == null) return b ?: "none"
         if (b == null) return a

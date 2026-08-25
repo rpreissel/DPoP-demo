@@ -7,7 +7,7 @@ import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -30,11 +30,10 @@ class AuthPasswordLookupToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "auth-password-lookup"
-    override val category = ToolCategory.AUTH
-    override val method = "password"
+    override val role = MethodRole.LOOKUP_AUTH
+    override val methodFamily = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
-    override val deviceBound = false
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {

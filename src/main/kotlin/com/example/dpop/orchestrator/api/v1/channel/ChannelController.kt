@@ -147,19 +147,21 @@ class ChannelController(
         return ResponseEntity.ok(channelService.startManageMethods(channelSessionId, bindingKeyRef))
     }
 
-    @DeleteMapping("/{channelSessionId}/methods/{method}")
+    @DeleteMapping("/{channelSessionId}/methods/{methodInstanceId}")
     @Operation(
-        summary = "Deactivate an authentication method",
-        description = "Channel must already be AUTHENTICATED and the method currently active. Rejected (409) if " +
-            "removing it would drop the account below this channel's own required level."
+        summary = "Deactivate an authentication method instance",
+        description = "Channel must already be AUTHENTICATED and the instance currently active. Addressed by its " +
+            "own id (GET .../methods), never by method name - a method can have several active instances (e.g. " +
+            "multiple devices). Rejected (409) if removing it would drop the account below this channel's own " +
+            "required level."
     )
     fun deactivateMethod(
         @PathVariable channelSessionId: UUID,
-        @PathVariable method: String,
+        @PathVariable methodInstanceId: String,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        return ResponseEntity.ok(channelService.deactivateMethod(channelSessionId, bindingKeyRef, method))
+        return ResponseEntity.ok(channelService.deactivateMethod(channelSessionId, bindingKeyRef, methodInstanceId))
     }
 }

@@ -4,7 +4,7 @@ import com.example.dpop.auth_email.internal.AuthEmailUseToolData
 import com.example.dpop.auth_email.internal.AuthEmailUseToolDataRepository
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -26,8 +26,8 @@ class AuthEmailUseToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "auth-email"
-    override val category = ToolCategory.AUTH
-    override val method = "email"
+    override val role = MethodRole.DEVICE_AUTH
+    override val methodFamily = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 

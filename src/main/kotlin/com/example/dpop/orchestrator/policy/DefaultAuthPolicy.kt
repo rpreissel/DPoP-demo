@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.policy
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
 import org.springframework.stereotype.Component
@@ -51,7 +52,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             ?: "none"
         val distinctMethods = active.map { it.method }.distinct().size
         val combinable = distinctMethods >= 2 && factorTypesUnion.size >= 2
-        val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { levelAt(it) } ?: "none"
+        val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
         val effectiveAcr = if (combinable) {
             AcrLevels.max(bestAcr, AcrLevels.min(AcrLevels.bump(bestAcr), maxEnrolledUnderAcr))
         } else {
@@ -67,12 +68,15 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val activeMethods = account.authenticationMethods.filter { it.active }.map { it.method }.toSet()
         return toolRegistry.descriptors()
             .filter { it.category == ToolCategory.ENROLL }
-            .filter { it.method !in activeMethods }
+            // Singleton methods disappear from the offer once active; multi-instance methods
+            // (device) keep being offered - a NEW physical device can always add its own instance
+            // even though other devices already have theirs (docs/03-tool-architektur.md).
+            .filter { it.method !in activeMethods || it.allowsMultipleInstances }
             .filter { !it.requiresConfirmedEmail || account.emailConfirmed }
             .map { it.toolId }
     }
 
-    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile): List<String> {
+    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String): List<String> {
         val usedMethods = evidence.amr.toSet()
         val active = account.authenticationMethods.filter { it.active }
         val remaining = active.filter { it.method !in usedMethods }
@@ -88,12 +92,23 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         }
 
         return remaining.mapNotNull { m ->
-            // deviceBound: a session with an already-known account must always be offered the
-            // device-bound tool for a method, never a "-lookup" sibling that expects to resolve
-            // the account itself from a submitted email (docs/03-tool-architektur.md).
+            // A session with an already-known account must always be offered the DEVICE_AUTH tool
+            // for a method, never a LOOKUP_AUTH sibling that expects to resolve the account itself
+            // from a submitted email (docs/03-tool-architektur.md). role (not category) is the
+            // key that actually distinguishes the two - category=AUTH alone matches both.
             val descriptor = toolRegistry.descriptors()
-                .firstOrNull { it.category == ToolCategory.AUTH && it.method == m.method && it.deviceBound }
+                .firstOrNull { it.role == MethodRole.DEVICE_AUTH && it.method == m.method }
                 ?: return@mapNotNull null
+
+            // A multi-instance method's AUTH tool must only ever be offered on the exact physical
+            // device that holds the matching credential - a non-extractable device key
+            // structurally cannot exist anywhere else, so offering it elsewhere would guarantee
+            // failure (docs/04-orchestrierung.md). Read straight off THIS already-resolved,
+            // unambiguous AUTH descriptor - never re-looked-up by method name alone, which could
+            // land on a different tool sharing the same method (docs/03-tool-architektur.md).
+            if (descriptor.allowsMultipleInstances && m.details?.get("deviceBindingKeyRef") != bindingKeyRef) {
+                return@mapNotNull null
+            }
 
             val cappedAcr = AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)
             val projectedAmr = evidence.amr + m.method
@@ -103,7 +118,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             val helpsMfa = !singleMethodSuffices && (descriptor.factorTypes - evidence.factorTypes).isNotEmpty()
 
             descriptor.toolId.takeIf { helpsLevel || helpsMfa }
-        }
+        }.distinct() // a multi-instance method can contribute more than one `remaining` entry (several devices) but must only offer its AUTH tool once
     }
 
     override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String> {
@@ -121,7 +136,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .filter { it.method in methods }
             .maxOfOrNull { AcrLevels.rank(it.maxAcr) }
             ?: return "none"
-        return levelAt(reachable)
+        return AcrLevels.levelAt(reachable)
     }
 
     /**
@@ -136,7 +151,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      */
     private fun applyMfaBump(base: String, methods: Collection<String>, account: AccountProfile?): String {
         val authDescriptors = toolRegistry.descriptors().filter { it.category == ToolCategory.AUTH && it.method in methods }
-        val authBase = authDescriptors.maxOfOrNull { AcrLevels.rank(it.maxAcr) }?.let { levelAt(it) } ?: "none"
+        val authBase = authDescriptors.maxOfOrNull { AcrLevels.rank(it.maxAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
         val distinctAuthMethods = authDescriptors.map { it.method }.distinct().size
         val authFactorTypes = authDescriptors.flatMap { it.factorTypes }.toSet()
         val combinable = distinctAuthMethods >= 2 && authFactorTypes.size >= 2
@@ -146,7 +161,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val maxEnrolledUnderAcr = account?.authenticationMethods
             ?.filter { it.active && it.method in authMethodNames }
             ?.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }
-            ?.let { levelAt(it) }
+            ?.let { AcrLevels.levelAt(it) }
             ?: "none"
         val bumpedAuthBase = AcrLevels.max(authBase, AcrLevels.min(AcrLevels.bump(authBase), maxEnrolledUnderAcr))
         return AcrLevels.max(base, bumpedAuthBase)
@@ -156,10 +171,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 
     private fun requiresMfa(requiredAcr: String) = AcrLevels.rank(requiredAcr) >= AcrLevels.rank(MFA_FROM_ACR)
 
-    private fun levelAt(rank: Int): String = LEVELS_BY_RANK.getOrElse(rank) { "none" }
-
     companion object {
-        private val LEVELS_BY_RANK = listOf("none", "loa1", "loa2", "loa3")
         private const val MFA_FROM_ACR = "loa3"
     }
 }

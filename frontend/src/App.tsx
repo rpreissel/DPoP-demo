@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
-import type { ChannelResponse, DemoInfo, Next, StepData } from './types'
+import type { ActiveMethodView, ChannelResponse, DemoInfo, Next, StepData } from './types'
 import { getUIComponent } from './routing.ts'
 import {
   activateTool,
@@ -61,7 +61,7 @@ function App() {
   const [channelState, setChannelState] = useState<string | undefined>()
   const [currentAcr, setCurrentAcr] = useState<string | undefined>()
   const [currentAmr, setCurrentAmr] = useState<string[] | undefined>()
-  const [activeMethods, setActiveMethods] = useState<string[] | undefined>()
+  const [activeMethods, setActiveMethods] = useState<ActiveMethodView[] | undefined>()
   const [next, setNext] = useState<Next | undefined>()
   const [stepData, setStepData] = useState<StepData | undefined>()
   const [demo, setDemo] = useState<DemoInfo | undefined>()
@@ -319,11 +319,11 @@ function App() {
     }
   }
 
-  async function handleDeactivateMethod(method: string) {
+  async function handleDeactivateMethod(methodInstanceId: string) {
     if (!dpop || !channelSessionId) return
     try {
       setError('')
-      const response = await deactivateMethod(dpop, channelSessionId, method)
+      const response = await deactivateMethod(dpop, channelSessionId, methodInstanceId)
       applyResponse(response)
     } catch (err) {
       setError(describeError('Deaktivieren fehlgeschlagen', err))

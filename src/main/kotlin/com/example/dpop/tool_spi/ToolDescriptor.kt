@@ -7,9 +7,21 @@ package com.example.dpop.tool_spi
 interface ToolDescriptor {
     /** e.g. "auth-sms" */
     val toolId: String
+    /** The shared credential family this tool belongs to (see [MethodFamily]) - object identity, not a re-typed string literal, is what connects enroll-sms/auth-sms/auth-sms-lookup. */
+    val methodFamily: MethodFamily
+    /** e.g. "sms" - never parsed out of toolId. */
+    val method: String get() = methodFamily.method
+    /** The role this tool plays for [method] - see [MethodRole] for why this replaced category+deviceBound. */
+    val role: MethodRole
+
+    /** Coarse routing/selection-context grouping, fully derived from [role] - never set independently, so it can't drift out of sync. */
     val category: ToolCategory
-    /** e.g. "sms" - connects enroll-sms and auth-sms; never parsed out of toolId. */
-    val method: String
+        get() = when (role) {
+            MethodRole.IDENTIFICATION -> ToolCategory.IDENT
+            MethodRole.ENROLLMENT -> ToolCategory.ENROLL
+            MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> ToolCategory.AUTH
+        }
+
     val factorTypes: Set<FactorType>
     /** Highest level this procedure can carry, e.g. "loa2". */
     val maxAcr: String
@@ -25,16 +37,15 @@ interface ToolDescriptor {
         get() = false
 
     /**
-     * True for every tool except the `-lookup` AUTH variants (docs/04-orchestrierung.md,
-     * lookup-based login): a device-bound tool assumes the account is already resolved via the
-     * channel/process before it activates. A `-lookup` tool resolves the account ITSELF from a
-     * submitted email and is therefore only ever reachable through the dedicated lookup-login
-     * entry point, never through AuthPolicy.candidateTools' generic per-method resolution -
-     * without this flag, a lookup tool sharing the same `method` as its device-bound sibling
-     * (both genuinely prove the same underlying credential) could be picked arbitrarily by that
-     * resolution for an ordinary already-authenticated session, which expects the body-less
-     * device-bound activation shape.
+     * True only for `enroll-device`/`auth-device` today: several active instances of this method
+     * can coexist on one account (one per physical device, each carrying its own credential and
+     * user-chosen label) rather than the usual one-active-at-a-time rule
+     * (docs/03-tool-architektur.md). `AccountService.addAuthenticationMethod` skips its normal
+     * deactivate-the-old-one dedup when this is true; `AuthPolicy.enrollmentCandidates` keeps
+     * offering the ENROLL tool even once one instance already exists. Declared independently per
+     * tool variant, same as maxAcr/factorTypes - not forced to agree across every tool sharing a
+     * method (docs/03-tool-architektur.md).
      */
-    val deviceBound: Boolean
-        get() = true
+    val allowsMultipleInstances: Boolean
+        get() = false
 }

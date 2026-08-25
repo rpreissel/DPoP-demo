@@ -7,7 +7,7 @@ import com.example.dpop.auth_sms.internal.EnrollSmsToolDataRepository
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -29,8 +29,8 @@ class EnrollSmsToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "enroll-sms"
-    override val category = ToolCategory.ENROLL
-    override val method = "sms"
+    override val role = MethodRole.ENROLLMENT
+    override val methodFamily = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 

@@ -29,6 +29,19 @@ data class ChannelPatchRequest(
     val requiredAcr: String
 )
 
+@Schema(
+    description = "One active authentication method instance. `id` addresses it for DELETE .../methods/{id} - " +
+        "method name alone isn't unique when a method allows multiple instances (docs/03-tool-architektur.md, " +
+        "e.g. several active `device` entries, one per physical device). `label` is a user-chosen display name, " +
+        "set only for multi-instance methods - null for singleton ones (email/sms/password), which the client " +
+        "labels from `method` itself."
+)
+data class ActiveMethodView(
+    val id: String,
+    val method: String,
+    val label: String? = null
+)
+
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChannelBlock(
     val channelSessionId: UUID,
@@ -38,9 +51,11 @@ data class ChannelBlock(
     @field:Schema(
         description = "All active authentication methods on the account, regardless of whether this session's " +
             "currentAmr proved them. Distinct from currentAmr on purpose: currentAmr is session evidence (what THIS " +
-            "channel actually proved), activeMethods is the account's full standing method list (docs/10-frontend.md)."
+            "channel actually proved), activeMethods is the account's full standing method list (docs/10-frontend.md). " +
+            "Deliberately unfiltered by device - a lost/stolen device's credential must be removable from ANY " +
+            "authenticated session, not only from that device itself."
     )
-    val activeMethods: List<String>? = null
+    val activeMethods: List<ActiveMethodView>? = null
 )
 
 /**
@@ -61,7 +76,7 @@ data class ChannelResponse(
 
 @Schema(description = "The account's active authentication methods (docs/05-api.md #2). Never contains fsc.")
 data class MethodsResponse(
-    val methods: List<String>
+    val methods: List<ActiveMethodView>
 )
 
 /**

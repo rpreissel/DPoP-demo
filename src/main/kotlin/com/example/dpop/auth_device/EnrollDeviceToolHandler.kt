@@ -7,7 +7,7 @@ import com.example.dpop.auth_device.internal.EnrollDeviceToolDataRepository
 import com.example.dpop.tool_spi.DevicePublicKey
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
@@ -33,10 +33,11 @@ class EnrollDeviceToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "enroll-device"
-    override val category = ToolCategory.ENROLL
-    override val method = "device"
+    override val role = MethodRole.ENROLLMENT
+    override val methodFamily = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = "loa2"
+    override val allowsMultipleInstances = true
 
     /** Called directly by EnrollDeviceToolController; nothing needs resolving before this can start. */
     @Transactional
@@ -49,27 +50,35 @@ class EnrollDeviceToolHandler(
      * Called directly by EnrollDeviceToolController, not generically dispatched
      * (docs/08-projektrahmen.md A11). [devicePublicKey]/[accessMeans] arrive already verified by
      * DeviceProofValidator at the call site - this module never parses a raw proof or JWK itself.
+     * [deviceBindingKeyRef] is the enrolling channel's own DPoP-proven device fingerprint,
+     * threaded through so later AUTH candidate resolution can offer/resolve this credential only
+     * on the exact physical device that holds it (docs/04-orchestrierung.md).
      */
     @Transactional
-    fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, accessMeans: String): ToolOutcome {
+    fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, accessMeans: String, deviceBindingKeyRef: String, label: String?): ToolOutcome {
         checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-device tool session: $toolSessionId" }
 
-        val enrollment = enrollmentRepository.save(
-            DeviceEnrollment(
-                kty = devicePublicKey.kty,
-                crv = devicePublicKey.crv,
-                x = devicePublicKey.x,
-                y = devicePublicKey.y,
-                thumbprint = devicePublicKey.thumbprint
+        // Idempotent: getOrCreateDeviceKeyPair() on the client always returns the SAME key once
+        // generated, so re-enrolling on the same device (e.g. after a rename or a lost link)
+        // would resubmit the same thumbprint - reuse that row instead of a second INSERT, which
+        // would violate the UNIQUE constraint on device_enrollment.thumbprint.
+        val enrollment = enrollmentRepository.findByThumbprint(devicePublicKey.thumbprint)
+            ?: enrollmentRepository.save(
+                DeviceEnrollment(
+                    kty = devicePublicKey.kty,
+                    crv = devicePublicKey.crv,
+                    x = devicePublicKey.x,
+                    y = devicePublicKey.y,
+                    thumbprint = devicePublicKey.thumbprint
+                )
             )
-        )
 
         return ToolOutcome.Completed.Enrolled(
             enrollmentRef = EnrollmentRef(type = "device_enrollment", id = enrollment.id.toString()),
             amr = listOf("device", accessMeans),
             achievedAcr = maxAcr,
             factorTypes = factorTypesFor(accessMeans),
-            auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint)
+            auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint, "deviceBindingKeyRef" to deviceBindingKeyRef, "label" to label)
         )
     }
 

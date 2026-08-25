@@ -59,8 +59,8 @@ class AuthDeviceToolController(
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val enrollmentRef = resolveEnrollmentRef(context.channel.accountId)
-            ?: throw UnresolvableReferenceException("Keine aktive Geraete-Methode fuer diesen Account")
+        val enrollmentRef = resolveEnrollmentRef(context.channel.accountId, bindingKeyRef)
+            ?: throw UnresolvableReferenceException("Keine aktive Geraete-Methode fuer dieses Geraet")
         val outcome = handler.start(context.toolSession.toolSessionId!!, enrollmentRef)
 
         val response = controllerSupport.applyOutcome(AUTH_DEVICE_TOOL_ID, outcome, context)
@@ -108,8 +108,18 @@ class AuthDeviceToolController(
         return ResponseEntity.ok(controllerSupport.buildReadResponse(toolSessionId, AUTH_DEVICE_TOOL_ID, context, outcome))
     }
 
-    private fun resolveEnrollmentRef(accountId: Long?): EnrollmentRef? {
-        val method = accountId?.let { accountService.findActiveMethod(it, handler.method) } ?: return null
+    /**
+     * Unlike other auth-* tools' single-active-instance lookup, `device` can have several active
+     * instances at once (one per physical device) - must pick the ONE whose
+     * `deviceBindingKeyRef` matches THIS channel's own binding key, never just "any active
+     * device method", or a device could be offered a credential it structurally cannot use
+     * (docs/04-orchestrierung.md).
+     */
+    private fun resolveEnrollmentRef(accountId: Long?, bindingKeyRef: String): EnrollmentRef? {
+        val method = accountId
+            ?.let { accountService.findActiveMethods(it, handler.method) }
+            ?.firstOrNull { it.details?.get("deviceBindingKeyRef") == bindingKeyRef }
+            ?: return null
         val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
         val type = raw["type"] as? String ?: return null
         val id = raw["id"] as? String ?: return null

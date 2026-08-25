@@ -1,9 +1,13 @@
 package com.example.dpop.orchestrator.orchestration
 
+import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.policy.ConfirmedEmailRequiredAction
+import com.example.dpop.orchestrator.policy.RequiredAction
+import com.example.dpop.orchestrator.policy.SufficientLoginMethodRequiredAction
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
@@ -35,6 +39,9 @@ class ToolOutcomeProcessor(
 ) {
     data class Result(val next: Next, val stepData: Map<String, Any?>? = null)
 
+    private val sufficientLoginMethod = SufficientLoginMethodRequiredAction(authPolicy)
+    private val confirmedEmail = ConfirmedEmailRequiredAction()
+
     fun process(
         toolId: String,
         outcome: ToolOutcome.Completed,
@@ -45,7 +52,7 @@ class ToolOutcomeProcessor(
 
         val effectiveAcr: String? = when (outcome) {
             is ToolOutcome.Completed.Identified -> handleIdentified(outcome, processSession, channelSession, method)
-            is ToolOutcome.Completed.Enrolled -> handleEnrolled(outcome, processSession, channelSession, method)
+            is ToolOutcome.Completed.Enrolled -> handleEnrolled(outcome, processSession, channelSession, method, toolId)
             is ToolOutcome.Completed.Authenticated -> handleAuthenticated(outcome, processSession, channelSession, method)
         }
 
@@ -108,7 +115,7 @@ class ToolOutcomeProcessor(
 
         return when (category) {
             ToolCategory.ENROLL -> CandidateQuery(authPolicy.enrollmentCandidates(account, requiredAcr), "enrollment")
-            ToolCategory.AUTH -> CandidateQuery(authPolicy.candidateTools(evidence, requiredAcr, account), "auth")
+            ToolCategory.AUTH -> CandidateQuery(authPolicy.candidateTools(evidence, requiredAcr, account, channelSession.bindingKeyRef!!), "auth")
             ToolCategory.IDENT -> error("unreachable: guarded above")
         }
     }
@@ -194,7 +201,8 @@ class ToolOutcomeProcessor(
         outcome: ToolOutcome.Completed.Enrolled,
         processSession: ProcessSession,
         channelSession: ChannelSession,
-        method: String
+        method: String,
+        toolId: String
     ): String? {
         val accountId = checkNotNull(processSession.accountId) { "Enrolled outcome without an account bound to the process" }
         val authContextId = checkNotNull(channelSession.authContextId) { "Enrolled outcome without an AuthContext bound to the channel" }
@@ -202,9 +210,12 @@ class ToolOutcomeProcessor(
 
         // email is a deliberate exception (docs/02-domaenenmodell.md #5): its confirmed value
         // lives directly on Account, not in a module-owned enrollment row, so it must not also
-        // be duplicated into the generic authenticationMethods[].details JSON blob.
+        // be duplicated into the generic authenticationMethods[].details JSON blob. `label` is
+        // similarly lifted out into its own AuthenticationMethod field rather than staying inside
+        // the generic details blob, so the API can surface it without clients reaching into details.
         val email = outcome.auditDetails?.get("email") as? String
-        val detailsForAccount = outcome.auditDetails.orEmpty().minus("email") + mapOf(
+        val label = outcome.auditDetails?.get("label") as? String
+        val detailsForAccount = outcome.auditDetails.orEmpty().minus("email").minus("label") + mapOf(
             "enrolledUnderAmr" to authContext.currentAmr,
             "channel" to channelSession.channel?.name
         )
@@ -215,7 +226,9 @@ class ToolOutcomeProcessor(
             method,
             outcome.enrollmentRef,
             enrolledUnderAcr = authContext.currentAcr,
-            details = detailsForAccount
+            details = detailsForAccount,
+            allowsMultipleInstances = toolRegistry.descriptorOf(toolId).allowsMultipleInstances,
+            label = label
         )
         if (method == "email" && email != null) {
             accountService.confirmEmail(accountId, email)
@@ -292,7 +305,27 @@ class ToolOutcomeProcessor(
                     // reach requiredAcr via a method it has active, there is nothing left to enroll -
                     // offer proving that existing method instead of enrollmentCandidates, which would
                     // come back empty and dead-end the process (docs/04-orchestrierung.md #1).
-                    offerCandidates(authPolicy.candidateTools(evidence, requiredAcr, account), "auth")
+                    //
+                    // Deliberately NOT routed through resolveRequiredActionsOrFinish: mere
+                    // Identified evidence (amr=["fsc"]) already trivially satisfies most
+                    // requiredAcr floors on its own (ident-fsc's own maxAcr is loa2), which would
+                    // make SufficientLoginMethodRequiredAction.isSatisfied look true before any
+                    // credential was actually (re-)proven this session - exactly the case the
+                    // StepUpProcessSession branch above exists to price in deliberately and no
+                    // other process purpose may skip past.
+                    //
+                    // canAccountReach is device-agnostic on purpose (it only asks "could the
+                    // account reach this AT ALL"), so it can be true purely because of a
+                    // multi-instance method (device) enrolled on a DIFFERENT physical device -
+                    // candidateTools then correctly filters that instance out and comes back
+                    // empty for THIS device. Falling through to enrollmentCandidates (e.g. this
+                    // device's own enroll-device) instead of dead-ending on an empty AUTH offer.
+                    val authCandidates = authPolicy.candidateTools(evidence, requiredAcr, account, channelSession.bindingKeyRef!!)
+                    if (authCandidates.isNotEmpty()) {
+                        offerCandidates(authCandidates, "auth")
+                    } else {
+                        offerCandidates(authPolicy.enrollmentCandidates(account, requiredAcr), "enrollment")
+                    }
                 } else {
                     offerCandidates(authPolicy.enrollmentCandidates(account, requiredAcr), "enrollment")
                 }
@@ -302,20 +335,15 @@ class ToolOutcomeProcessor(
                     // Voluntary enrollment (docs/04-orchestrierung.md): finishing never depends
                     // on canAccountReach/isSatisfied - the channel was already AUTHENTICATED
                     // before this started. One Enrolled outcome ends it; add another by calling
-                    // POST .../methods again.
-                    finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
-                } else if (authPolicy.canAccountReach(account, requiredAcr) && authPolicy.isSatisfied(evidence, requiredAcr, account)) {
+                    // POST .../methods again. Required Actions are a REGISTRATION-only concept
+                    // (docs/04-orchestrierung.md #2) - deliberately not consulted here.
                     finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
                 } else {
-                    offerCandidates(authPolicy.enrollmentCandidates(account, requiredAcr), "enrollment")
+                    resolveRequiredActionsOrFinish(processSession, channelSession, authContext.currentAcr, account, evidence, requiredAcr)
                 }
 
             is ToolOutcome.Completed.Authenticated ->
-                if (authPolicy.isSatisfied(evidence, requiredAcr, account)) {
-                    finishAsAuthenticated(processSession, channelSession, authContext.currentAcr)
-                } else {
-                    offerCandidates(authPolicy.candidateTools(evidence, requiredAcr, account), "auth")
-                }
+                resolveRequiredActionsOrFinish(processSession, channelSession, authContext.currentAcr, account, evidence, requiredAcr)
         }
 
         // The response's `next` must match what's persisted, or the next request (which reads
@@ -329,6 +357,35 @@ class ToolOutcomeProcessor(
     private fun offerCandidates(candidates: List<String>, context: String): Result {
         val offer = CandidateOffering.resolve(candidates, context)
         return Result(offer.next, offer.stepData)
+    }
+
+    /**
+     * Required Actions this [processSession] must resolve before it may finish
+     * (docs/04-orchestrierung.md #2, Keycloak's "Required Action" concept). Only REGISTRATION
+     * carries the confirmed-email requirement - LOGIN/STEP_UP keep today's behaviour unchanged
+     * (sufficient-login-method alone), and existing accounts without a confirmed email are never
+     * retroactively blocked from those.
+     */
+    private fun requiredActionsFor(processSession: ProcessSession): List<RequiredAction> =
+        if (processSession is RegistrationProcessSession) listOf(sufficientLoginMethod, confirmedEmail)
+        else listOf(sufficientLoginMethod)
+
+    /** First unresolved Required Action wins (offered to the client); once all are satisfied, the process finishes. */
+    private fun resolveRequiredActionsOrFinish(
+        processSession: ProcessSession,
+        channelSession: ChannelSession,
+        achievedAcr: String?,
+        account: AccountProfile,
+        evidence: AuthEvidence,
+        requiredAcr: String
+    ): Result {
+        for (action in requiredActionsFor(processSession)) {
+            if (!action.isSatisfied(account, evidence, requiredAcr)) {
+                val (candidates, context) = action.candidates(account, evidence, requiredAcr, channelSession.bindingKeyRef!!)
+                return offerCandidates(candidates, context)
+            }
+        }
+        return finishAsAuthenticated(processSession, channelSession, achievedAcr)
     }
 
     private fun finishAsAuthenticated(processSession: ProcessSession, channelSession: ChannelSession, achievedAcr: String?): Result {

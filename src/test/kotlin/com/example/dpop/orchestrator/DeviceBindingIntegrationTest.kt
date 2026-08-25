@@ -119,6 +119,10 @@ class DeviceBindingIntegrationTest {
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any?>.stepData(): Map<String, Any?> = this["stepData"] as Map<String, Any?>
 
+    /** activeMethods entries are {id, method, label} objects - pulls just the method names. */
+    @Suppress("UNCHECKED_CAST")
+    private fun List<*>.methodNames(): List<String> = (this as List<Map<String, Any?>>).map { it["method"] as String }
+
     private fun captureMockTan(block: () -> Map<String, Any?>): Pair<String, Map<String, Any?>> {
         val original = System.out
         val buffer = ByteArrayOutputStream()
@@ -183,7 +187,7 @@ class DeviceBindingIntegrationTest {
         @Suppress("UNCHECKED_CAST")
         assertThat(channel.channel()["currentAmr"] as List<String>).contains("device", "biometric")
         @Suppress("UNCHECKED_CAST")
-        assertThat(channel.channel()["activeMethods"] as List<String>).contains("device")
+        assertThat((channel.channel()["activeMethods"] as List<*>).methodNames()).contains("device")
     }
 
     @Test

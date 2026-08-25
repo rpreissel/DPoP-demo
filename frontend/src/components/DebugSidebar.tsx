@@ -1,3 +1,5 @@
+import type { ActiveMethodView } from '../types'
+
 export interface DebugEvent {
   id: number
   time: string
@@ -13,7 +15,7 @@ interface DebugSidebarProps {
     channelState?: string
     currentAcr?: string
     currentAmr?: string[]
-    activeMethods?: string[]
+    activeMethods?: ActiveMethodView[]
     next?: unknown
     stepData?: unknown
     demo?: unknown

@@ -4,7 +4,7 @@ import com.example.dpop.id_fsc.internal.FscCodeRepository
 import com.example.dpop.id_fsc.internal.IdFscToolData
 import com.example.dpop.id_fsc.internal.IdFscToolDataRepository
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
@@ -34,8 +34,8 @@ class IdentFscToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "ident-fsc"
-    override val category = ToolCategory.IDENT
-    override val method = "fsc"
+    override val role = MethodRole.IDENTIFICATION
+    override val methodFamily = FSC_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa2"
 

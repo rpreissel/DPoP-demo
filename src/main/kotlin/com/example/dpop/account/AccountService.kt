@@ -9,6 +9,7 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.util.UUID
 
 @Service
 class AccountService(private val accountRepository: AccountRepository) {
@@ -32,32 +33,54 @@ class AccountService(private val accountRepository: AccountRepository) {
         return toProfile(accountRepository.save(account))
     }
 
+    /**
+     * [allowsMultipleInstances] (docs/03-tool-architektur.md, ToolDescriptor - currently only
+     * `device`): when true, an existing active entry for the same [method] is left untouched
+     * instead of being deactivated - several physical devices can each hold their own active
+     * `device` credential at once. [label] is a user-chosen display name, meaningful only for
+     * multi-instance methods (null for singleton ones - the frontend labels those from the
+     * method name itself).
+     */
     @Transactional
     fun addAuthenticationMethod(
         accountId: Long,
         method: String,
         enrollmentRef: EnrollmentRef,
         enrolledUnderAcr: String?,
-        details: Map<String, Any?>
+        details: Map<String, Any?>,
+        allowsMultipleInstances: Boolean = false,
+        label: String? = null
     ): AccountProfile {
         val account = getOrThrow(accountId)
-        // Re-enrolling a method (e.g. a new phone number/email) REPLACES the old credential
-        // rather than shadowing it - without this, two "active" entries for the same method
-        // could coexist (nothing elsewhere ever deactivates a superseded one), and
-        // canAccountReach/candidateTools/resolveAcr would inconsistently see both.
-        account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }
+        // Re-enrolling a SINGLETON method (e.g. a new phone number/email) REPLACES the old
+        // credential rather than shadowing it - without this, two "active" entries for the same
+        // method could coexist (nothing elsewhere ever deactivates a superseded one), and
+        // canAccountReach/candidateTools/resolveAcr would inconsistently see both. Multi-instance
+        // methods are exempt on purpose - that coexistence is the whole point there.
+        if (!allowsMultipleInstances) {
+            account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }
+        }
         val mergedDetails = details + mapOf("enrollmentRef" to mapOf("type" to enrollmentRef.type, "id" to enrollmentRef.id))
         account.addAuthenticationMethod(
-            AuthenticationMethod(method, true, Instant.now(), enrolledUnderAcr, mergedDetails)
+            AuthenticationMethod(method, true, Instant.now(), enrolledUnderAcr, mergedDetails).apply {
+                id = UUID.randomUUID().toString()
+                this.label = label
+            }
         )
         return toProfile(accountRepository.save(account))
     }
 
-    /** Called only for an account-initiated deactivation (MANAGE_METHODS) - the caller must already have verified this won't drop the account below its channel's required floor. */
+    /**
+     * Called only for an account-initiated deactivation (MANAGE_METHODS) - the caller must
+     * already have verified this won't drop the account below its channel's required floor.
+     * Addressed by the entry's own [methodInstanceId], never by method name: several active
+     * entries can share the same method name (multiple devices), so name alone can't tell them
+     * apart, and deactivating by name would risk silently switching off ALL of them at once.
+     */
     @Transactional
-    fun deactivateAuthenticationMethod(accountId: Long, method: String): AccountProfile {
+    fun deactivateAuthenticationMethod(accountId: Long, methodInstanceId: String): AccountProfile {
         val account = getOrThrow(accountId)
-        account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }
+        account.authenticationMethods.filter { it.id == methodInstanceId && it.active }.forEach { it.active = false }
         return toProfile(accountRepository.save(account))
     }
 
@@ -85,9 +108,10 @@ class AccountService(private val accountRepository: AccountRepository) {
     fun findActiveMethod(accountId: Long, method: String): AuthMethodView? =
         findAccount(accountId)?.authenticationMethods?.firstOrNull { it.active && it.method == method }
 
+    /** All active instances of [method] - plural sibling of [findActiveMethod] for multi-instance methods (e.g. several active `device` entries, one per physical device). */
     @Transactional(readOnly = true)
-    fun findActiveMethods(accountId: Long): List<AuthMethodView> =
-        findAccount(accountId)?.authenticationMethods?.filter { it.active } ?: emptyList()
+    fun findActiveMethods(accountId: Long, method: String): List<AuthMethodView> =
+        findAccount(accountId)?.authenticationMethods?.filter { it.active && it.method == method } ?: emptyList()
 
     private fun getOrThrow(accountId: Long): Account =
         accountRepository.findByIdOrNull(accountId)
@@ -100,7 +124,7 @@ class AccountService(private val accountRepository: AccountRepository) {
             IdentificationView(it.method.orEmpty(), it.loa, it.identifiedAt, it.details)
         },
         authenticationMethods = account.authenticationMethods.map {
-            AuthMethodView(it.method.orEmpty(), it.active, it.createdAt, it.enrolledUnderAcr, it.details)
+            AuthMethodView(it.id, it.method.orEmpty(), it.active, it.createdAt, it.enrolledUnderAcr, it.details, it.label)
         },
         email = account.email,
         emailConfirmedAt = account.emailConfirmedAt

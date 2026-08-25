@@ -87,6 +87,14 @@ Daraus folgt eine Deckelungskette über drei Stufen: `identifications[].loa` beg
 
 Kandidatenermittlung: nur aktive Methoden, deren `enrolledUnderAcr` das geforderte Niveau zulässt und deren `maxAcr` die Lücke schließen könnte; bereits in dieser Session verwendete Methoden (und bei MFA-Bedarf: bereits erbrachte Faktorarten) fallen heraus. Bei genau einem Kandidaten überspringt der Orchestrator die Auswahlseite ([API](05-api.md)).
 
+### Required Actions: mehr als nur ACR-Sufficiency
+
+Registrierung kann nicht abschließen, sobald `canAccountReach`/`isSatisfied` grün sind — es gibt zusätzlich eine geordnete Liste von **Required Actions** (Keycloak-Begriff: pro Nutzer abzuarbeitende Pflicht-Schritte wie `VERIFY_EMAIL`, die vor Abschluss der Session erledigt sein müssen). Die Verallgemeinerung dahinter: die ACR-Sufficiency-Prüfung selbst ist bereits die erste Required Action ("ausreichendes Login-Verfahren eingerichtet") — `RequiredAction` (`orchestrator/policy/RequiredAction.kt`) ist ein kleines Interface (`isSatisfied`, `candidates`), `SufficientLoginMethodRequiredAction` delegiert dafür 1:1 an `AuthPolicy`. Für REGISTRATION kommt `ConfirmedEmailRequiredAction` hinzu: ein Account ohne bestätigte E-Mail könnte sonst über einen einzigen `loa1`-Faktor (z. B. `sms`) fertig registrieren und `enroll-password` (das eine bestätigte E-Mail als Identifikator braucht) dauerhaft nie erreichen.
+
+Beide Required Actions sind bewusst aus vorhandenem Zustand **abgeleitet** (`authenticationMethods`, `emailConfirmedAt`), nicht als eigenes, am Account gespeichertes Feld — eine gespeicherte Liste würde nur Drift-Risiko einführen, ohne dass aktuell eine Required Action existiert, die das bräuchte. Ein späteres, nicht-ableitbares Required Action (z. B. eine administrativ zugewiesene Einzelaufgabe) bekäme eine eigene `RequiredAction`-Implementierung mit echtem Account-Feld, ohne dass sich das Interface oder die bestehenden zwei Implementierungen ändern müssten.
+
+Scope-Grenze: Die Required-Action-Liste ist **prozessabhängig** — nur `RegistrationProcessSession` bekommt `ConfirmedEmail` zusätzlich; `StepUpProcessSession`/`LoginProcessSession` prüfen weiterhin nur `SufficientLoginMethod` (unverändertes Verhalten). `MANAGE_METHODS` konsultiert die Liste gar nicht (Abschnitt 3: ein einziges `Enrolled` beendet dort immer sofort). Bereits bestehende Accounts ohne bestätigte E-Mail werden dadurch **nicht** rückwirkend von LOGIN/STEP_UP ausgeschlossen.
+
 ---
 
 ## 3) MANAGE_METHODS: freiwillige Methodenverwaltung ohne Policy-Ziel

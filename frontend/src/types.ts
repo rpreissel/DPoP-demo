@@ -16,13 +16,25 @@ export interface StepData {
   [key: string]: unknown
 }
 
+/**
+ * One active authentication method instance. `id` addresses it for DELETE .../methods/{id} -
+ * method name alone isn't unique when a method allows multiple instances (docs/03-tool-architektur.md,
+ * e.g. several active `device` entries, one per physical device). `label` is a user-chosen display
+ * name, set only for multi-instance methods - undefined for singleton ones (email/sms/password).
+ */
+export interface ActiveMethodView {
+  id: string
+  method: string
+  label?: string
+}
+
 export interface ChannelBlock {
   channelSessionId: string
   state: string
   currentAcr?: string
   currentAmr?: string[]
   /** All active methods on the account, regardless of whether this session proved them - distinct from currentAmr (session evidence). */
-  activeMethods?: string[]
+  activeMethods?: ActiveMethodView[]
 }
 
 /** Demo-only values, never part of the production contract (docs/05-api.md #2). */

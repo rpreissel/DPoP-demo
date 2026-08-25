@@ -52,7 +52,13 @@ class AuthenticationMethod(
     /** Level in force when this method was set up; caps what it can ever authenticate to. */
     var enrolledUnderAcr: String? = null,
     var details: Map<String, Any?>? = null
-)
+) {
+    /** Stable per-instance id (UUID, assigned on creation) - the only thing DELETE .../methods/{id} addresses by, since a method NAME (e.g. "device") may have several active instances (docs/03-tool-architektur.md, allowsMultipleInstances). */
+    var id: String? = null
+
+    /** User-chosen label, set only for multi-instance methods (device) - null for singleton methods, which the frontend labels from the method name itself instead. */
+    var label: String? = null
+}
 
 /** Matches account.identifications[] in docs/06-ablaeufe.md #1. */
 class AccountIdentification(

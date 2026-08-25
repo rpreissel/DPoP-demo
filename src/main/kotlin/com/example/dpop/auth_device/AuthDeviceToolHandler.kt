@@ -6,7 +6,7 @@ import com.example.dpop.auth_device.internal.DeviceEnrollmentRepository
 import com.example.dpop.tool_spi.DevicePublicKey
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
@@ -36,10 +36,17 @@ class AuthDeviceToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "auth-device"
-    override val category = ToolCategory.AUTH
-    override val method = "device"
+    override val role = MethodRole.DEVICE_AUTH
+    override val methodFamily = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = "loa2"
+    // Declared independently per tool variant, same as maxAcr/factorTypes - not a fact that must
+    // be identical across every tool sharing this method (a future LOOKUP_AUTH sibling, for
+    // instance, could legitimately answer differently). Callers that need this for a SPECIFIC
+    // tool resolve its own descriptor unambiguously by (method, role) - MethodRole, unlike
+    // category, fully distinguishes DEVICE_AUTH from LOOKUP_AUTH - never an arbitrary descriptor
+    // picked by method name alone (DefaultAuthPolicy.candidateTools).
+    override val allowsMultipleInstances = true
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {

@@ -1,13 +1,25 @@
-import type { DemoInfo } from '../types'
+import type { ActiveMethodView, DemoInfo } from '../types'
+
+/** Display name for a method with no user-chosen label (singleton methods - email/sms/password). */
+const DEFAULT_METHOD_LABELS: Record<string, string> = {
+  sms: 'SMS',
+  email: 'E-Mail',
+  password: 'Passwort',
+  device: 'Gerät',
+}
+
+function labelFor(method: ActiveMethodView): string {
+  return method.label ?? DEFAULT_METHOD_LABELS[method.method] ?? method.method
+}
 
 interface AuthenticationCompletedViewProps {
   currentAcr?: string
   currentAmr?: string[]
   /** All active methods on the account - distinct from currentAmr, which is only what THIS session proved. */
-  activeMethods?: string[]
+  activeMethods?: ActiveMethodView[]
   demo?: DemoInfo
   onAddMethod: () => void
-  onDeactivateMethod: (method: string) => void
+  onDeactivateMethod: (methodInstanceId: string) => void
   onStepUp: (requiredAcr: string) => void
   manageError?: string
   infoMessage?: string
@@ -82,9 +94,9 @@ export function AuthenticationCompletedView({
       {activeMethods && activeMethods.length > 0 && (
         <ul className="status-list">
           {activeMethods.map((method) => (
-            <li key={method}>
-              <span className="label">{method}</span>
-              <button className="secondary" onClick={() => onDeactivateMethod(method)}>
+            <li key={method.id}>
+              <span className="label">{labelFor(method)}</span>
+              <button className="secondary" onClick={() => onDeactivateMethod(method.id)}>
                 Deaktivieren
               </button>
             </li>

@@ -27,7 +27,11 @@ import java.util.UUID
 
 private const val ENROLL_DEVICE_TOOL_ID = "enroll-device"
 
-data class DeviceProofPatchRequest(val deviceProof: String? = null)
+data class DeviceProofPatchRequest(
+    val deviceProof: String? = null,
+    /** User-chosen display name for this device credential (docs/03-tool-architektur.md, allowsMultipleInstances) - purely a display metadatum, never signed, no security relevance. */
+    val label: String? = null
+)
 
 /**
  * toolId=enroll-device (docs/03-tool-architektur.md): registers a device-bound key pair,
@@ -78,7 +82,7 @@ class EnrollDeviceToolController(
         controllerSupport.requireCurrentTool(context, ENROLL_DEVICE_TOOL_ID)
 
         val proof = deviceProofValidator.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
-        val outcome = handler.patch(toolSessionId, proof.toDevicePublicKey(), proof.accessMeans)
+        val outcome = handler.patch(toolSessionId, proof.toDevicePublicKey(), proof.accessMeans, bindingKeyRef, request?.label)
 
         return ResponseEntity.ok(controllerSupport.applyOutcome(ENROLL_DEVICE_TOOL_ID, outcome, context))
     }

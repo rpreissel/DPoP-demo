@@ -14,22 +14,23 @@ Was der Orchestrator mit diesen Meldungen macht, steht in [04-orchestrierung.md]
 
 Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregation der Selbstauskünfte aller Module (`ToolDescriptor`, Abschnitt 2):
 
-| toolId | Kategorie | method | factorTypes | maxAcr | deviceBound |
+| toolId | role | method | factorTypes | maxAcr | allowsMultipleInstances |
 |---|---|---|---|---|---|
-| `ident-fsc` | Identifikation | `fsc` | `{possession}` | `loa2` | — |
-| `enroll-sms` / `auth-sms` | Enrollment / Auth | `sms` | `{possession}` | `loa1` | `true` |
-| `enroll-password` / `auth-password` | Enrollment / Auth | `password` | `{knowledge}` | `loa1` | `true` |
-| `enroll-email` / `auth-email` | Enrollment / Auth | `email` | `{possession}` | `loa1` | `true` |
-| `auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup` | Auth | `sms`/`password`/`email` | wie Zwilling | `loa1` | `false` |
-| `enroll-device` / `auth-device` | Enrollment / Auth | `device` | `{possession,knowledge,inherence}` | `loa2` | `true` |
+| `ident-fsc` | `IDENTIFICATION` | `fsc` | `{possession}` | `loa2` | — |
+| `enroll-sms` / `auth-sms` | `ENROLLMENT` / `DEVICE_AUTH` | `sms` | `{possession}` | `loa1` | `false` |
+| `enroll-password` / `auth-password` | `ENROLLMENT` / `DEVICE_AUTH` | `password` | `{knowledge}` | `loa1` | `false` |
+| `enroll-email` / `auth-email` | `ENROLLMENT` / `DEVICE_AUTH` | `email` | `{possession}` | `loa1` | `false` |
+| `auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup` | `LOOKUP_AUTH` | `sms`/`password`/`email` | wie Zwilling | `loa1` | `false` |
+| `enroll-device` / `auth-device` | `ENROLLMENT` / `DEVICE_AUTH` | `device` | `{possession,knowledge,inherence}` | `loa2` | `true` |
 
 Entscheidungen dahinter:
 
 - Jedes Modul liefert Kategorie/Methode/Faktorart/Niveau selbst — es weiß am besten, was sein Verfahren maximal trägt. Ein neues Modul bringt seine Beschreibung mit; niemand muss eine zentrale Liste nachpflegen.
 - `method` wird **nicht** aus `toolId` geparst (der Name ist ein Bezeichner, kein strukturiertes Datum) und trägt echte Information: `enroll-sms`/`auth-sms` melden dieselbe `method`, worüber ein Auth-Tool die passende Zeile in `account.authenticationMethods` findet.
 - `factorTypes` ist die Grundlage für MFA-Prüfungen ([Orchestrierung](04-orchestrierung.md)) — eine **Menge**, weil ein einzelnes Verfahren mehrere Faktoren zugleich erbringen kann. `enroll-device`/`auth-device` ist genau der Fall, der hier lange nur als Hypothese stand ("ein hypothetischer Passkey mit User Verification wäre Besitz *und* Inhärenz und erfüllte MFA im Alleingang"): ein gerätegebundenes, nicht-extrahierbares Schlüsselpaar, dessen Nutzung durch einen (im Demo gemockten) System-PIN/Biometrie-Prompt gattet ist, meldet direkt `loa2` und zwei Faktorarten aus einem einzigen Durchlauf — Besitz des Schlüssels plus Wissen (PIN) oder Inhärenz (Biometrie), je nachdem, was der Prompt pro Versuch bestätigt (nicht fest beim Enrollment verdrahtet — reale Geräte legen sich darauf auch nicht fest).
-- `requiresConfirmedEmail` (bislang nur `enroll-password`) wird an zwei Stellen unabhängig geprüft: bei der Kandidatenermittlung (`AuthPolicy.enrollmentCandidates`) und nochmals bei der Aktivierung selbst (`ToolControllerSupport.validatePreconditions`) — letzteres, weil die Aktivierungsprüfung sonst nur die Tool-*Kategorie* gegen den Auswahlkontext prüft, nicht den konkreten Kandidaten, und einen direkten Aufruf unter Umgehung der Kandidatenliste sonst durchließe.
-- `deviceBound=false` markiert die `-lookup`-Zwillinge: Sie melden bewusst dieselbe `method` wie ihr geräte-gebundenes Geschwister (dasselbe Credential, nur ein anderer Weg, es zu präsentieren) und lösen den Account selbst über eine eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen ([Orchestrierung](04-orchestrierung.md) Abschnitt 4). Ohne den Filter könnte die normale Kandidatenermittlung für eine ganz gewöhnliche, bereits Account-gebundene Session mehrdeutig auf den `-lookup`-Zwilling statt das Original treffen.
+- `requiresConfirmedEmail` (bislang nur `enroll-password`) wird an zwei Stellen unabhängig geprüft: bei der Kandidatenermittlung (`AuthPolicy.enrollmentCandidates`) und nochmals bei der Aktivierung selbst (`ToolControllerSupport.validatePreconditions`) — letzteres, weil die Aktivierungsprüfung sonst nur die Tool-*Kategorie* gegen den Auswahlkontext prüft, nicht den konkreten Kandidaten, und einen direkten Aufruf unter Umgehung der Kandidatenliste sonst durchließe. Genau deshalb ist `enroll-email` die aktuell einzige konkrete zusätzliche Required Action bei der Registrierung ([Orchestrierung](04-orchestrierung.md) #2) — ohne bestätigte E-Mail bliebe `enroll-password` sonst dauerhaft unerreichbar, selbst wenn ein anderer Faktor das ACR-Ziel längst erfüllt.
+- `role=LOOKUP_AUTH` markiert die `-lookup`-Zwillinge: Sie melden bewusst dieselbe `method` wie ihr `DEVICE_AUTH`-Geschwister (dasselbe Credential, nur ein anderer Weg, es zu präsentieren) und lösen den Account selbst über eine eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen ([Orchestrierung](04-orchestrierung.md) Abschnitt 4). Ohne diese Unterscheidung könnte die normale Kandidatenermittlung für eine ganz gewöhnliche, bereits Account-gebundene Session mehrdeutig auf den `-lookup`-Zwilling statt das Original treffen — `category=AUTH` allein reicht dafür nicht, `role` schon.
+- `allowsMultipleInstances=true` (bislang nur `device`): mehrere aktive Instanzen derselben Methode dürfen gleichzeitig existieren, eine pro physischem Gerät, statt der sonst üblichen "eine aktive Instanz, neu enrollen ersetzt die alte"-Regel (`AccountService.addAuthenticationMethod`). Jede Instanz bekommt eine stabile `id` und einen vom Nutzer vergebenen `label` — ohne `id` ließe sich beim Deaktivieren nicht sagen, welches von mehreren gleichnamigen Geräten gemeint ist. `AuthPolicy.candidateTools` filtert `auth-device` zusätzlich auf die Instanz, deren `deviceBindingKeyRef` (das DPoP-bewiesene Geräte-Fingerprint des aufrufenden Kanals) zum anfragenden physischen Gerät passt — ein nicht-extrahierbarer Schlüssel kann strukturell nirgends sonst liegen, ihn anderswo anzubieten würde garantiert scheitern. Auf beiden Geschwistern (`enroll-device` UND `auth-device`) unabhängig deklariert, genau wie `maxAcr`/`factorTypes` — keine erzwungene Gleichheit zwischen Tool-Varianten (ein künftiger `LOOKUP_AUTH`-Zwilling dürfte hier legitim abweichen). Gelesen wird das Flag deshalb nie über eine mehrdeutige, nur-nach-Methodenname suchende Zuordnung, sondern stets vom bereits eindeutig per `(method, role)` aufgelösten Descriptor des konkret betrachteten Tools.
 
 Zentral bleibt nur, was ein einzelnes Modul nicht wissen *kann*: welches Niveau sich aus einer **Kombination** von Nachweisen ergibt, und welches Niveau eine Ressource fordert — Sache der `AuthPolicy` ([Orchestrierung](04-orchestrierung.md)).
 
@@ -41,15 +42,26 @@ Jeder Handler beschreibt sich selbst; der Orchestrator sammelt diese Descriptors
 
 ```kotlin
 interface ToolDescriptor {
-    val toolId: String                     // "auth-sms"
-    val category: ToolCategory             // IDENT | ENROLL | AUTH
-    val method: String                     // "sms" — verbindet enroll-sms und auth-sms
+    val toolId: String                     // "auth-sms" — frei vergeben, nie aus role/method abgeleitet (öffentlicher API-Vertrag)
+    val methodFamily: MethodFamily         // Objekt-Identität statt erneut getippten Strings - verbindet enroll-sms/auth-sms/auth-sms-lookup
+    val method: String get() = methodFamily.method  // "sms" - reines Wire-/Storage-Format
+    val role: MethodRole                   // IDENTIFICATION | ENROLLMENT | DEVICE_AUTH | LOOKUP_AUTH
+    val category: ToolCategory             // IDENT | ENROLL | AUTH — abgeleitet aus role, nie unabhängig gesetzt
+        get() = when (role) {
+            MethodRole.IDENTIFICATION -> ToolCategory.IDENT
+            MethodRole.ENROLLMENT -> ToolCategory.ENROLL
+            MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> ToolCategory.AUTH
+        }
     val factorTypes: Set<FactorType>
     val maxAcr: String
     val requiresConfirmedEmail: Boolean get() = false
-    val deviceBound: Boolean get() = true
+    val allowsMultipleInstances: Boolean get() = false
 }
 ```
+
+`(methodFamily, role)` ist der eigentliche, eindeutige Schlüssel für "das konkrete Verfahren dieser Art für dieses Credential" — `(method, category)` allein ist es **nicht**: `DEVICE_AUTH` und `LOOKUP_AUTH` teilen sich `category=AUTH`. Genau diese Mehrdeutigkeit ersetzt `role` (vormals ein separates `deviceBound: Boolean`, das `category` nicht widersprechen konnte, aber auch nichts über die Eindeutigkeit der Kombination aussagte). `ToolHandlerRegistry` prüft beim Einsammeln der Descriptors, dass kein `(methodFamily, role)`-Paar doppelt vorkommt — ein Duplikat bräche sonst beim erstenmal still auf einen beliebigen Treffer zusammen, statt laut beim Start zu scheitern.
+
+`methodFamily: MethodFamily` (ein bloßer `data class MethodFamily(val method: String)`-Wrapper in `tool_spi`) ersetzt den früher unabhängig in jedem Geschwister erneut getippten String-Literal `"sms"`. `tool_spi` selbst kennt dabei **keine** konkreten Methoden — jedes Modul deklariert seine eigene Instanz (z. B. `auth_sms/SmsMethod.kt`: `internal val SMS_METHOD = MethodFamily("sms")`), referenziert von allen eigenen Geschwistern. Das hält den Katalog bei seinem Grundprinzip (Abschnitt 1: keine zentral gepflegte Liste) — ein neues Modul bringt seine Familie selbst mit, statt eine gemeinsame Datei zu erweitern. `toolId` bleibt bewusst *nicht* aus `(methodFamily, role)` abgeleitet: es ist der öffentliche API-Vertrag (URL-Pfade, Frontend-Routing) und darf nicht von einer internen Umbenennung (z. B. eines `MethodRole`-Namens) mitgerissen werden, auch wenn die aktuellen Werte durchgängig dem Muster `{role-präfix}-{method}[-lookup]` folgen.
 
 `maxAcr`/`factorTypes` sind statisch und dienen der Vorauswahl (kann dieses Tool eine Lücke überhaupt schließen?); was ein konkreter Durchlauf tatsächlich erbracht hat, meldet `Completed` — nie mehr, als der Descriptor zulässt.
 

@@ -6,7 +6,7 @@ import com.example.dpop.auth_sms.internal.AuthSmsUseToolDataRepository
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
@@ -32,8 +32,8 @@ class AuthSmsUseToolHandler(
 ) : ToolDescriptor {
 
     override val toolId = "auth-sms"
-    override val category = ToolCategory.AUTH
-    override val method = "sms"
+    override val role = MethodRole.DEVICE_AUTH
+    override val methodFamily = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 
