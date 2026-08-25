@@ -78,10 +78,10 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
      └─────────┘   └──────────┘   └──────────┘   └──────────────────┘
 ```
 
-- Der `orchestrator` ist das einzige Modul, das die anderen Module referenzieren darf.
-- Die Module `id_fsc`, `auth_sms`, `account` und `ext_stammdaten` sind voneinander entkoppelt.
+- Der `orchestrator` referenziert alle anderen Module; ein Methodenmodul erreicht ihn nur über `tool_spi`.
+- Die Methodenmodule sind voneinander entkoppelt — **eine** deklarierte Ausnahme: `auth_email` darf `account` nutzen, weil die bestätigte E-Mail der Konto-*Identifikator* ist (Unique-Index, Lookup-Login für sms/password, `requiresConfirmedEmail`) und nicht ein austauschbares Credential. Begründung im KDoc von `auth_email/ModuleMetadata.kt`; kein Präzedenzfall für weitere Module.
 - `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
-- Die Package-Grenzen werden durch `@ApplicationModule` (Spring Modulith) abgesichert.
+- Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build namentlich. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` und damit ein Java-Sourceset sind nicht nötig.
 - Das Frontend kommuniziert ausschließlich über den `orchestrator` mit dem Backend.
 
 ### Anforderungen an die Modulstruktur

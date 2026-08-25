@@ -1,5 +1,6 @@
 package com.example.dpop.auth_email
 
+import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.auth_email.internal.EnrollEmailToolData
 import com.example.dpop.auth_email.internal.EnrollEmailToolDataRepository
@@ -24,16 +25,20 @@ import java.util.UUID
  * enrollment table referenced via EnrollmentRef - it lives directly on Account (deliberate
  * exception, same treatment as Account.personId: a single canonical account attribute, not a
  * swappable per-enrollment credential). [enrollmentRef] returned here is therefore a fixed,
- * inert placeholder; ToolOutcomeProcessor.handleEnrolled writes the actual email onto Account
- * via the "email" key in [ToolOutcome.Completed.Enrolled.auditDetails].
+ * inert placeholder.
  *
- * [emailTaken] is resolved by the controller at the call site (cross-module existence check -
- * this module never queries `account` itself), same pattern as EnrollmentRef resolution
- * elsewhere (docs/03-tool-architektur.md #2).
+ * This module writes that value onto Account **itself**, via the declared `auth_email -> account`
+ * dependency (see [ModuleMetadata] for why this one module is exempt). Previously the generic
+ * [com.example.dpop.orchestrator.orchestration.ToolOutcomeProcessor] did it behind an
+ * `if (method == "email")` branch, fed by an `"email"` key smuggled through `auditDetails` - the
+ * coupling existed either way, it was just invisible and sat in the one layer that is supposed to
+ * treat all methods alike. The email deliberately does NOT travel in `auditDetails` any more: it
+ * must not be duplicated into the generic `authenticationMethods[].details` blob.
  */
 @Component
 class EnrollEmailToolHandler(
-    private val toolDataRepository: EnrollEmailToolDataRepository
+    private val toolDataRepository: EnrollEmailToolDataRepository,
+    private val accountService: AccountService
 ) : ToolDescriptor {
 
     override val toolId = "enroll-email"
@@ -49,24 +54,30 @@ class EnrollEmailToolHandler(
         return ToolOutcome.InProgress(nextStep = "enroll", data = mapOf("missingFields" to listOf("email"), demoData("email" to DEMO_EMAIL)))
     }
 
-    /** Called directly by EnrollEmailToolController, not generically dispatched (docs/08-projektrahmen.md A11). */
+    /**
+     * Called directly by EnrollEmailToolController, not generically dispatched
+     * (docs/08-projektrahmen.md A11). [accountId] is the account the enrolling process is bound
+     * to - needed because the confirmed address is written onto it right here.
+     */
     @Transactional
-    fun patch(toolSessionId: UUID, email: String?, code: String?, emailTaken: Boolean): ToolOutcome {
+    fun patch(toolSessionId: UUID, email: String?, code: String?, accountId: Long): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-email tool session: $toolSessionId" }
 
         if (code != null) {
-            if (data.email == null) {
-                return ToolOutcome.InProgress(nextStep = "enroll", data = mapOf("missingFields" to listOf("email"), demoData("email" to DEMO_EMAIL)))
-            }
+            val confirmed = data.email
+                ?: return ToolOutcome.InProgress(nextStep = "enroll", data = mapOf("missingFields" to listOf("email"), demoData("email" to DEMO_EMAIL)))
             if (!EmailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
                 return ToolOutcome.Failed("Code ungueltig oder abgelaufen")
             }
+            // Must happen before the Enrolled outcome is processed, not after: the orchestrator's
+            // resolveNext re-reads the account to evaluate ConfirmedEmailRequiredAction, so a
+            // later write would leave REGISTRATION looping on enroll-email forever.
+            accountService.confirmEmail(accountId, confirmed)
             return ToolOutcome.Completed.Enrolled(
                 enrollmentRef = EnrollmentRef(type = "account_email", id = "self"),
                 amr = listOf("email"),
                 achievedAcr = maxAcr,
-                factorTypes = factorTypes,
-                auditDetails = mapOf("email" to data.email)
+                factorTypes = factorTypes
             )
         }
 
@@ -76,7 +87,9 @@ class EnrollEmailToolHandler(
         if (!EMAIL_PATTERN.matches(normalized)) {
             throw IllegalArgumentException("Ungueltige E-Mail-Adresse")
         }
-        if (emailTaken) {
+        // Queried directly rather than handed in pre-resolved by the controller - the declared
+        // `account` dependency makes the indirection pointless ceremony (see [ModuleMetadata]).
+        if (accountService.existsByEmail(normalized)) {
             return ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
         }
 

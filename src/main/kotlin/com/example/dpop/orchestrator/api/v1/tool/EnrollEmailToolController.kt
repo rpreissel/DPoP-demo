@@ -1,6 +1,5 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.EnrollEmailToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
@@ -43,7 +43,6 @@ class EnrollEmailToolController(
     dpopValidator: DpopValidator,
     jwkThumbprintService: JwkThumbprintService,
     private val handler: EnrollEmailToolHandler,
-    private val accountService: AccountService,
     private val controllerSupport: ToolControllerSupport
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
@@ -68,6 +67,11 @@ class EnrollEmailToolController(
         summary = "Supply email, then the confirmation code",
         description = "First call with email triggers the code send; a second call with code confirms it."
     )
+    // The only tool PATCH that spans a transaction: the handler writes the confirmed address onto
+    // Account, and applyOutcome then records the authentication method. Without this bracket the
+    // two commit separately, and a failure in between would leave a confirmed email on an account
+    // that has no email method to show for it.
+    @Transactional
     fun patch(
         @PathVariable toolSessionId: UUID,
         @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
@@ -79,10 +83,8 @@ class EnrollEmailToolController(
         controllerSupport.requireCurrentTool(context, ENROLL_EMAIL_TOOL_ID)
 
         val body = request ?: EnrollEmailPatchRequest()
-        // Cross-module existence check resolved HERE, at the call site - the handler never
-        // reads `account` itself (docs/03-tool-architektur.md #2: module decoupling).
-        val emailTaken = body.email?.let { accountService.existsByEmail(it.trim().lowercase()) } ?: false
-        val outcome = handler.patch(toolSessionId, body.email, body.code, emailTaken)
+        val accountId = checkNotNull(context.processSession.accountId) { "enroll-email without an account bound to the process" }
+        val outcome = handler.patch(toolSessionId, body.email, body.code, accountId)
 
         return ResponseEntity.ok(controllerSupport.applyOutcome(ENROLL_EMAIL_TOOL_ID, outcome, context))
     }

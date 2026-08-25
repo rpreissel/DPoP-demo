@@ -95,7 +95,12 @@ class AccountService(private val accountRepository: AccountRepository) {
     @Transactional(readOnly = true)
     fun existsByEmail(email: String): Boolean = accountRepository.existsByEmail(email)
 
-    /** Called only by ToolOutcomeProcessor when a Completed.Enrolled for method="email" is processed. */
+    /**
+     * Called by `EnrollEmailToolHandler` on the one procedure that can establish a confirmed
+     * address. `auth_email` is the single method module allowed to reach into this module for
+     * exactly this reason - the confirmed email is the account's identifier, not a swappable
+     * credential (see that module's `ModuleMetadata`, enforced by Spring Modulith).
+     */
     @Transactional
     fun confirmEmail(accountId: Long, email: String): AccountProfile {
         val account = getOrThrow(accountId)

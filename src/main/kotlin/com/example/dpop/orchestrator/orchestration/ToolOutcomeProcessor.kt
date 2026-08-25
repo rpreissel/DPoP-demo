@@ -208,14 +208,10 @@ class ToolOutcomeProcessor(
         val authContextId = checkNotNull(channelSession.authContextId) { "Enrolled outcome without an AuthContext bound to the channel" }
         val authContext = checkNotNull(authContextService.getAuthContext(authContextId)) { "AuthContext not found: $authContextId" }
 
-        // email is a deliberate exception (docs/02-domaenenmodell.md #5): its confirmed value
-        // lives directly on Account, not in a module-owned enrollment row, so it must not also
-        // be duplicated into the generic authenticationMethods[].details JSON blob. `label` is
-        // similarly lifted out into its own AuthenticationMethod field rather than staying inside
+        // `label` is lifted out into its own AuthenticationMethod field rather than staying inside
         // the generic details blob, so the API can surface it without clients reaching into details.
-        val email = outcome.auditDetails?.get("email") as? String
         val label = outcome.auditDetails?.get("label") as? String
-        val detailsForAccount = outcome.auditDetails.orEmpty().minus("email").minus("label") + mapOf(
+        val detailsForAccount = outcome.auditDetails.orEmpty().minus("label") + mapOf(
             "enrolledUnderAmr" to authContext.currentAmr,
             "channel" to channelSession.channel?.name
         )
@@ -230,9 +226,6 @@ class ToolOutcomeProcessor(
             allowsMultipleInstances = toolRegistry.descriptorOf(toolId).allowsMultipleInstances,
             label = label
         )
-        if (method == "email" && email != null) {
-            accountService.confirmEmail(accountId, email)
-        }
         // A real, provable credential now exists - a future new channel on this device can be
         // recognized and offered LOGIN, which still requires proving it (TAN/password/...) via
         // the normal auth-* flow; this link grants no trust by itself. Deliberately NOT done at
