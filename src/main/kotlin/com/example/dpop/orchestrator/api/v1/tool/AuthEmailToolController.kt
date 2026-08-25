@@ -1,6 +1,5 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.AuthEmailUseToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
@@ -41,7 +40,6 @@ class AuthEmailToolController(
     dpopValidator: DpopValidator,
     jwkThumbprintService: JwkThumbprintService,
     private val handler: AuthEmailUseToolHandler,
-    private val accountService: AccountService,
     private val controllerSupport: ToolControllerSupport
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
@@ -56,11 +54,12 @@ class AuthEmailToolController(
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID, ToolCategory.AUTH)
 
-        // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
-        // value (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val email = resolveConfirmedEmail(context.channel.accountId)
-            ?: throw UnresolvableReferenceException("Keine bestaetigte E-Mail-Adresse fuer diesen Account")
-        val outcome = handler.start(context.toolSession.toolSessionId!!, email)
+        // Only the accountId is resolved here, so the handler never sees a nullable parameter
+        // (docs/03-tool-architektur.md #2); the confirmed address itself is the handler's own
+        // lookup, same 422 either way.
+        val accountId = context.channel.accountId
+            ?: throw UnresolvableReferenceException("Kein Konto fuer diesen Kanal")
+        val outcome = handler.start(context.toolSession.toolSessionId!!, accountId)
 
         val response = controllerSupport.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context)
         val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, AUTH_EMAIL_TOOL_ID)
@@ -102,11 +101,5 @@ class AuthEmailToolController(
             null
         }
         return ResponseEntity.ok(controllerSupport.buildReadResponse(toolSessionId, AUTH_EMAIL_TOOL_ID, context, outcome))
-    }
-
-    private fun resolveConfirmedEmail(accountId: Long?): String? {
-        val account = accountId?.let { accountService.findAccount(it) } ?: return null
-        if (!account.emailConfirmed) return null
-        return account.email
     }
 }

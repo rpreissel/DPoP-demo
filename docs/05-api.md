@@ -137,7 +137,7 @@ Folgen demselben Muster wie `ident-fsc`/`enroll-sms`/`auth-sms` oben, mit diesen
 
 ### Lookup-basierter Login (`auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup`, "Login ohne DPoP")
 
-Erreichbar nur über `POST /channels` mit `intent: "login"` — nie über die normale Kandidatenermittlung einer bereits Account-gebundenen Session (`ToolDescriptor.deviceBound = false`). Löst den Account selbst über die eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen:
+Erreichbar nur über `POST /channels` mit `intent: "login"` — nie über die normale Kandidatenermittlung einer bereits Account-gebundenen Session (`MethodRole.LOOKUP_AUTH`; `AuthPolicy.candidateTools` wählt ausschließlich `DEVICE_AUTH`). Löst den Account selbst über die eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen:
 
 - `auth-sms-lookup`/`auth-email-lookup` folgen dem Zwei-`PATCH`-Muster: erst `{"email": "..."}` (löst den Account auf, verschickt bei Erfolg TAN/Code), dann `{"tan"/"code": "..."}`.
 - `auth-password-lookup` erwartet `{"email": "...", "password": "..."}` in einem einzigen `PATCH`.

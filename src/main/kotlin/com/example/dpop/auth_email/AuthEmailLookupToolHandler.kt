@@ -1,5 +1,6 @@
 package com.example.dpop.auth_email
 
+import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.internal.AuthEmailLookupToolData
 import com.example.dpop.auth_email.internal.AuthEmailLookupToolDataRepository
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
@@ -17,14 +18,15 @@ import java.util.UUID
 /**
  * toolId=auth-email-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - proves possession of
  * the account's confirmed email address without the account already being known via the
- * channel. Unlike [AuthEmailUseToolHandler], this module cannot resolve the account itself
- * (auth_email may only depend on tool_spi, docs/08-projektrahmen.md A11) - the controller
- * resolves [submitEmail]'s [accountId]/[confirmedEmail] from the submitted email via
- * AccountService, mirroring AuthSmsLookupToolHandler.
+ * channel. [submitEmail] resolves the account from the submitted address itself, via the declared
+ * `auth_email -> account` dependency (see [ModuleMetadata]) - unlike AuthSmsLookupToolHandler,
+ * which still receives a pre-resolved accountId because it only needs an opaque account handle,
+ * not the email semantics this module owns.
  */
 @Component
 class AuthEmailLookupToolHandler(
-    private val toolDataRepository: AuthEmailLookupToolDataRepository
+    private val toolDataRepository: AuthEmailLookupToolDataRepository,
+    private val accountService: AccountService
 ) : ToolDescriptor {
 
     override val toolId = "auth-email-lookup"
@@ -40,17 +42,25 @@ class AuthEmailLookupToolHandler(
     }
 
     /**
-     * [accountId]/[confirmedEmail] are null when the submitted email is unknown or not (yet)
-     * confirmed on any account - handled identically to a resolved account with an (inevitably)
-     * wrong code afterwards, so the response shape never reveals whether the email exists
-     * (enumeration protection, docs/04-orchestrierung.md).
+     * Resolves [email] against the account store itself (declared `auth_email -> account`
+     * dependency, see [ModuleMetadata]).
+     *
+     * **Enumeration protection** (docs/04-orchestrierung.md): an unknown or not-yet-confirmed
+     * address must be indistinguishable from a known one. Both branches below therefore issue a
+     * code, persist the same shape and return the same `codeInput` step - only the actual send is
+     * skipped when there is no address to send to, and the stored accountId stays null so the
+     * later code check inevitably fails. Keep both paths structurally identical when changing
+     * this; a difference in response, timing or step name would leak account existence.
      */
     @Transactional
-    fun submitEmail(toolSessionId: UUID, accountId: Long?, confirmedEmail: String?): ToolOutcome {
+    fun submitEmail(toolSessionId: UUID, email: String): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-email-lookup tool session: $toolSessionId" }
 
+        val account = accountService.findAccountByEmail(email)
+        val confirmedEmail = account?.takeIf { it.emailConfirmed }?.email
+
         val issued = EmailCodeGenerator.issue()
-        data.accountId = accountId.takeIf { confirmedEmail != null }
+        data.accountId = account?.accountId.takeIf { confirmedEmail != null }
         data.issuedCodeHash = issued.hash
         data.codeExpiresAt = issued.expiresAt
         toolDataRepository.save(data)

@@ -1,5 +1,6 @@
 package com.example.dpop.auth_email
 
+import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.internal.AuthEmailUseToolData
 import com.example.dpop.auth_email.internal.AuthEmailUseToolDataRepository
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
@@ -7,6 +8,7 @@ import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_spi.UnresolvableReferenceException
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -15,14 +17,17 @@ import java.util.UUID
 
 /**
  * toolId=auth-email (device-linked case only for now - see docs/03-tool-architektur.md).
- * [start]'s [email] is the account's own confirmed address, resolved and null-checked by
- * AuthEmailToolController before calling this (never null here) - this module never reads
- * `account` itself, matching AuthSmsUseToolHandler's pattern. No EnrollmentRef involved: the
- * email lives directly on Account, so there is nothing to resolve beyond the string itself.
+ *
+ * No EnrollmentRef involved: the confirmed address lives directly on Account, so [start] reads it
+ * from there itself via the declared `auth_email -> account` dependency (see [ModuleMetadata]).
+ * Where AuthSmsUseToolHandler resolves an EnrollmentRef into its own enrollment row, this tool
+ * resolves an accountId into the account's address - the same shape, against the store that
+ * actually holds this credential.
  */
 @Component
 class AuthEmailUseToolHandler(
-    private val toolDataRepository: AuthEmailUseToolDataRepository
+    private val toolDataRepository: AuthEmailUseToolDataRepository,
+    private val accountService: AccountService
 ) : ToolDescriptor {
 
     override val toolId = "auth-email"
@@ -31,8 +36,19 @@ class AuthEmailUseToolHandler(
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 
+    /**
+     * Resolves the account's confirmed address itself and fails with the same
+     * [UnresolvableReferenceException] its siblings raise for an unresolvable EnrollmentRef
+     * (-> 422). auth-email has no EnrollmentRef to resolve - the address IS the credential and
+     * lives on Account - so this lookup is the exact analogue, and doing it here rather than in
+     * the controller makes the tool consistent with auth-sms/auth-password/auth-device.
+     */
     @Transactional
-    fun start(toolSessionId: UUID, email: String): ToolOutcome {
+    fun start(toolSessionId: UUID, accountId: Long): ToolOutcome {
+        val account = accountService.findAccount(accountId)
+        val email = account?.takeIf { it.emailConfirmed }?.email
+            ?: throw UnresolvableReferenceException("Keine bestaetigte E-Mail-Adresse fuer diesen Account")
+
         val issued = EmailCodeGenerator.issue()
         toolDataRepository.save(
             AuthEmailUseToolData(toolSessionId = toolSessionId, issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)

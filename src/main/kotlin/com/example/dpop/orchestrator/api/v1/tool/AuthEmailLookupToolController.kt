@@ -1,6 +1,5 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.AuthEmailLookupToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
@@ -41,7 +40,6 @@ class AuthEmailLookupToolController(
     dpopValidator: DpopValidator,
     jwkThumbprintService: JwkThumbprintService,
     private val handler: AuthEmailLookupToolHandler,
-    private val accountService: AccountService,
     private val controllerSupport: ToolControllerSupport
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
@@ -80,12 +78,7 @@ class AuthEmailLookupToolController(
         val outcome = if (body.code != null) {
             handler.patch(toolSessionId, body.code)
         } else if (body.email != null) {
-            // Resolved HERE, at the call site - auth_email may not depend on `account`
-            // (docs/08-projektrahmen.md A11). Both null when the email is unknown or unconfirmed;
-            // the handler treats that identically to a wrong code (enumeration protection).
-            val account = accountService.findAccountByEmail(body.email)
-            val confirmedEmail = account?.takeIf { it.emailConfirmed }?.email
-            handler.submitEmail(toolSessionId, account?.accountId, confirmedEmail)
+            handler.submitEmail(toolSessionId, body.email)
         } else {
             handler.patch(toolSessionId, null)
         }

@@ -1243,6 +1243,28 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         assertThat(response.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-password-lookup", "step" to "auth"))
     }
 
+    /**
+     * Covers auth-email-lookup specifically: its account resolution lives in the handler (the one
+     * module allowed to read `account`), unlike auth-password-lookup's, which the controller still
+     * feeds in. Both must stay indistinguishable to a caller probing for existing addresses.
+     */
+    @Test
+    fun lookupLoginViaEmail_withUnknownEmail_isIndistinguishableFromAKnownOne() {
+        val knownEmail = registerWithEmailAndPassword()
+
+        fun submit(email: String): Map<String, Any?> {
+            val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""").channel()["channelSessionId"] as String
+            val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
+            return patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email-lookup", """{"email":"$email"}""").next()
+        }
+
+        // Identical `next` for both - a different step, toolId or error would reveal whether the
+        // address exists. Only the (invisible) mail send and the stored accountId differ.
+        assertThat(submit("nobody@example.com"))
+            .isEqualTo(submit(knownEmail))
+            .isEqualTo(mapOf("type" to "tool", "toolId" to "auth-email-lookup", "step" to "codeInput"))
+    }
+
     @Test
     fun lookupLoginIntent_onNeverLinkedDevice_offersLookupToolsNotRegistration() {
         val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")

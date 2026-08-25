@@ -61,7 +61,7 @@ Besonderheiten gegenüber dem allgemeinen Muster in [05-api.md](05-api.md): Zwei
 
 ## 3) `auth-sms` (und `auth-password`/`auth-email` analog)
 
-Der Orchestrator liest die aktive Enrollment-Referenz des Accounts (`details.enrollmentRef`) und übergibt sie an den Handler — **nur der Orchestrator referenziert `account`**, nie das Methodenmodul selbst (Modulith-Grenze, [Projektrahmen](08-projektrahmen.md) A11). `auth_sms` löst die Referenz auf ein bestehendes Enrollment auf, erzeugt/versendet/prüft die TAN, verändert das Enrollment aber nie.
+Der Orchestrator liest die aktive Enrollment-Referenz des Accounts (`details.enrollmentRef`) und übergibt sie an den Handler — `auth_sms` referenziert `account` nicht selbst, sondern bekommt eine opake `EnrollmentRef` gereicht (Modulith-Grenze, [Projektrahmen](08-projektrahmen.md)). Das gilt für jedes Methodenmodul außer `auth_email`, das als einzige deklarierte Ausnahme direkt auf `account` zugreifen darf ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2). `auth_sms` löst die Referenz auf ein bestehendes Enrollment auf, erzeugt/versendet/prüft die TAN, verändert das Enrollment aber nie.
 
 Fehlerfall zusätzlich zum allgemeinen Vertrag ([Betrieb](07-betrieb.md)): unbekannte `enrollmentRef` oder fehlendes Enrollment -> `422`.
 
