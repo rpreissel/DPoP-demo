@@ -686,6 +686,40 @@ class RegistrationLoginStepUpFlowIntegrationTest {
     }
 
     @Test
+    fun deviceLink_isAlsoWrittenWhenReIdentifyingIntoAnAlreadyEnrolledAccount_notOnlyOnFirstEnrollment() {
+        // Register+enroll fully on binding key #1 (writes the DeviceAccountLink for key #1).
+        registerAndAuthenticate()
+
+        // Simulate a device whose key isn't linked yet (e.g. a fresh browser profile, or the
+        // original key was lost) - "auto" correctly falls back to ident-fsc since key #2 has no
+        // link yet.
+        currentBindingKeyRef = "binding-" + UUID.randomUUID()
+        val reidentified = post("/orchestrator/api/v1/app/channels")
+        assertThat(reidentified.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+        val channelSessionId = reidentified.channel()["channelSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        )
+
+        // The account already has sms enrolled from before, so this offers ordinary auth-sms
+        // (not enrollment) - proving it is a ToolOutcome.Completed.Authenticated with
+        // outcome.accountId == null (account was already known from the channel, not resolved
+        // via lookup). Without also linking here, this device's key #2 would never get a
+        // DeviceAccountLink and would be forced back through ident-fsc on every future connect.
+        val (tan, activation) = captureMockTan {
+            post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+        }
+        val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
+
+        // A third, brand-new channel on the SAME key #2 must now skip straight to LOGIN too.
+        val thirdChannel = post("/orchestrator/api/v1/app/channels")
+        assertThat(thirdChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
+    }
+
+    @Test
     fun logout_endsTheChannelForGood_aNewOneStartsAFreshLoginViaTheDeviceLink() {
         val channelSessionId = registerAndAuthenticate()
         val beforeLogout = get("/orchestrator/api/v1/app/channels/$channelSessionId")

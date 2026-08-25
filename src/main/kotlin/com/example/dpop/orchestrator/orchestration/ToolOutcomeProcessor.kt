@@ -255,13 +255,15 @@ class ToolOutcomeProcessor(
         }
         sessionManagementService.updateChannelSession(channelSession)
 
-        if (outcome.accountId != null) {
-            // A real credential just got proven for a device that wasn't previously linked to
-            // this account - link it now, same hook as handleEnrolled's DeviceAccountLink write,
-            // so a future channel on this device is recognized straight into ordinary LOGIN
-            // instead of needing another lookup.
-            sessionManagementService.linkDeviceToAccount(channelSession.bindingKeyRef!!, accountId)
-        }
+        // A real credential just got proven for this device - link it now, same hook as
+        // handleEnrolled's DeviceAccountLink write, so a future channel on this device is
+        // recognized straight into ordinary LOGIN. Unconditional (not just outcome.accountId !=
+        // null / lookup-based logins): a device that re-identified via ident-fsc and then proved
+        // an ALREADY-enrolled method never goes through handleEnrolled either, so without this it
+        // would never get linked and would be forced back through ident-fsc on every future
+        // "auto" connect - linkDeviceToAccount is idempotent, so re-linking an already-linked
+        // device here is a harmless no-op.
+        sessionManagementService.linkDeviceToAccount(channelSession.bindingKeyRef!!, accountId)
 
         // Capping: a method can never authenticate to more trust than it was enrolled under.
         val usedMethod = checkNotNull(accountService.findActiveMethod(accountId, method)) { "No active method '$method' found for account $accountId" }
