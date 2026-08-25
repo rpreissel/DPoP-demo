@@ -22,6 +22,24 @@ interface ToolDescriptor {
             MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> ToolCategory.AUTH
         }
 
+    /**
+     * The step a freshly activated tool session starts on - the very value this tool's own first
+     * `ToolOutcome.InProgress(nextStep = ...)` returns (docs/06-ablaeufe.md). Lives here, next to
+     * that literal, rather than in a central toolId->step table in the orchestrator: such a table
+     * has to be extended for every new tool and silently degrades to a wrong-but-plausible default
+     * when someone forgets - which is exactly what had happened to `auth-email-lookup`.
+     *
+     * The [role]-derived default is correct for every tool today, so no module has to declare
+     * anything; a tool whose first step is genuinely named differently overrides it, and that
+     * override then sits in the same file as the `nextStep` literal it has to agree with.
+     */
+    val startStep: String
+        get() = when (role) {
+            MethodRole.IDENTIFICATION -> "input"
+            MethodRole.ENROLLMENT -> "enroll"
+            MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> "auth"
+        }
+
     val factorTypes: Set<FactorType>
     /** Highest level this procedure can carry, e.g. "loa2". */
     val maxAcr: String

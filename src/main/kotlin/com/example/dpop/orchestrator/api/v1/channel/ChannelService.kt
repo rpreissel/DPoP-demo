@@ -17,6 +17,7 @@ import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.ProcessSession
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -174,7 +175,7 @@ class ChannelService(
 
         val processSession = sessionManagementService.createManageMethodsProcessSession(channelSessionId, PROCESS_TTL)
         processSession.accountId = accountId
-        val offer = CandidateOffering.resolve(candidates, "enrollment")
+        val offer = CandidateOffering.resolve(toolRegistry, candidates, "enrollment")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -244,7 +245,7 @@ class ChannelService(
         // Same skip-if-single-candidate rule as ENROLL/AUTH (docs/04-orchestrierung.md #1): with
         // exactly one ident method, there is nothing to choose between.
         val identOptions = toolRegistry.descriptors().filter { it.category == ToolCategory.IDENT }.map { it.toolId }
-        val offer = CandidateOffering.resolve(identOptions, "registration", "selectIdentificationMethod")
+        val offer = CandidateOffering.resolve(toolRegistry, identOptions, "registration", "selectIdentificationMethod")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -269,7 +270,7 @@ class ChannelService(
         // AUTHENTICATED from a previous session.
         sessionManagementService.updateChannelState(channelId, ChannelState.ANONYMOUS)
         val processSession = sessionManagementService.createLoginProcessSession(channelId, PROCESS_TTL)
-        val offer = CandidateOffering.resolve(authPolicy.candidateTools(evidence, floor, account, channel.bindingKeyRef!!), "auth")
+        val offer = CandidateOffering.resolve(toolRegistry, authPolicy.candidateTools(evidence, floor, account, channel.bindingKeyRef!!), "auth")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -287,13 +288,18 @@ class ChannelService(
      * intent="login" entry point (docs/04-orchestrierung.md, lookup-based login): unlike
      * [resumeOrStartLogin], the account is NOT known yet - `channel.accountId` is null here even
      * if the device happens to be linked, because [initializeChannel] deliberately suppressed
-     * the link lookup for this intent. Offers the fixed `-lookup` tool set directly rather than
+     * the link lookup for this intent. Offers the LOOKUP_AUTH tools directly rather than
      * AuthPolicy.candidateTools, which needs an already-resolved account it cannot have yet.
      */
     private fun startLookupLogin(channel: ChannelSession): ChannelResponse {
         val channelId = channel.channelSessionId!!
         val processSession = sessionManagementService.createLoginProcessSession(channelId, PROCESS_TTL)
-        val offer = CandidateOffering.resolve(LOOKUP_LOGIN_TOOL_IDS, "auth")
+        // The offered set IS "every tool that can resolve the account itself", i.e. exactly
+        // MethodRole.LOOKUP_AUTH - derived rather than listed, so a new lookup tool joins the
+        // login page by declaring its role and nothing else (docs/03-tool-architektur.md #1:
+        // the aggregation of all descriptors IS the catalog).
+        val lookupTools = toolRegistry.descriptors().filter { it.role == MethodRole.LOOKUP_AUTH }.map { it.toolId }
+        val offer = CandidateOffering.resolve(toolRegistry, lookupTools, "auth")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -311,7 +317,7 @@ class ChannelService(
         processSession.startingAcr = authPolicy.resolveAcr(evidence, account)
         val candidates = authPolicy.candidateTools(evidence, requiredAcr, account, channel.bindingKeyRef!!) +
             if (allowReIdent) authPolicy.reIdentCandidates(evidence, requiredAcr) else emptyList()
-        val offer = CandidateOffering.resolve(candidates, "auth")
+        val offer = CandidateOffering.resolve(toolRegistry, candidates, "auth")
         applyNext(processSession, offer.next)
         sessionManagementService.updateProcessSession(processSession)
 
@@ -372,6 +378,5 @@ class ChannelService(
         private val CHANNEL_TTL: Duration = Duration.ofHours(24)
         private val PROCESS_TTL: Duration = Duration.ofMinutes(60)
         private const val MANAGE_METHODS_REQUIRED_ACR = "loa2"
-        private val LOOKUP_LOGIN_TOOL_IDS = listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
     }
 }

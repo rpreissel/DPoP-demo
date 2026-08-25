@@ -8,7 +8,6 @@ import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.api.v1.channel.DemoInfo
 import com.example.dpop.orchestrator.orchestration.Next
 import com.example.dpop.orchestrator.orchestration.ToolOutcomeProcessor
-import com.example.dpop.orchestrator.orchestration.ToolSteps
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.ProcessSession
@@ -73,7 +72,7 @@ class ToolControllerSupport(
         // last wins; the other becomes an orphan that isCurrentTool now correctly rejects.
         // Always the tool's own start step, whether it was offered directly (nextType "tool") or
         // reached via a selection page (nextType "flow", nextStep "selectMethod" - not this tool's step).
-        processSession.setNextTool(toolId, ToolSteps.startStepFor(toolId), toolSession.toolSessionId)
+        processSession.setNextTool(toolId, toolRegistry.descriptorOf(toolId).startStep, toolSession.toolSessionId)
         sessionManagementService.updateProcessSession(processSession)
 
         return Context(toolSession, processSession, channel)

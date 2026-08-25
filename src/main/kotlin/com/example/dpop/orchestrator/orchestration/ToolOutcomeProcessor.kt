@@ -355,7 +355,7 @@ class ToolOutcomeProcessor(
     }
 
     private fun offerCandidates(candidates: List<String>, context: String): Result {
-        val offer = CandidateOffering.resolve(candidates, context)
+        val offer = CandidateOffering.resolve(toolRegistry, candidates, context)
         return Result(offer.next, offer.stepData)
     }
 
