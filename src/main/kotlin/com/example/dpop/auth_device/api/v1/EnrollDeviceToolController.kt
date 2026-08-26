@@ -1,7 +1,7 @@
-package com.example.dpop.orchestrator.api.v1.tool
+package com.example.dpop.auth_device.api.v1
 
 import com.example.dpop.auth_device.EnrollDeviceToolHandler
-import com.example.dpop.orchestrator.dpop.buildRequestUrl
+import com.example.dpop.tool_api.buildRequestUrl
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DeviceProofs

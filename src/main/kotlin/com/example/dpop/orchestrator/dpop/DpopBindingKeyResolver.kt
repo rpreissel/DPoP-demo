@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.dpop
 
 import com.example.dpop.tool_api.BindingKey
+import com.example.dpop.tool_api.buildRequestUrl
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
