@@ -17,7 +17,7 @@ import org.springframework.modulith.ApplicationModule
 @ApplicationModule(
     allowedDependencies = [
         "tool_spi", "tool_api", "account", "ext_stammdaten",
-        "auth_sms", "auth_password", "auth_email"
+        "auth_password", "auth_email"
     ]
 )
 internal class ModuleMetadata

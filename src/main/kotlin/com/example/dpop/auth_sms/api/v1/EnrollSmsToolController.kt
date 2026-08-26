@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1.tool
+package com.example.dpop.auth_sms.api.v1
 
 import com.example.dpop.auth_sms.EnrollSmsToolHandler
 import com.example.dpop.tool_api.BindingKey
