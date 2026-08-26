@@ -57,7 +57,7 @@ class IdentFscToolHandler(
         return if (verifyFsc(resolvedPersonId, resolvedFsc)) {
             ToolOutcome.Completed.Identified(
                 personId = resolvedPersonId,
-                amr = listOf("fsc"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
                 auditDetails = mapOf(

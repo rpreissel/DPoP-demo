@@ -45,7 +45,7 @@ class EnrollPasswordToolHandler(
         val enrollment = enrollmentRepository.save(AuthPasswordEnrollment(passwordHash = PasswordHasher.hash(value)))
         return ToolOutcome.Completed.Enrolled(
             enrollmentRef = EnrollmentRef(type = "auth_password_enrollment", id = enrollment.id.toString()),
-            amr = listOf("password"),
+            amr = listOf(descriptor.method),
             achievedAcr = descriptor.maxAcr,
             factorTypes = descriptor.factorTypes
         )

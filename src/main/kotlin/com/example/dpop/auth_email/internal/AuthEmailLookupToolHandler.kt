@@ -85,7 +85,7 @@ class AuthEmailLookupToolHandler(
         val accountId = data.accountId
         return if (accountId != null && EmailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
-                amr = listOf("email"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
                 accountId = accountId

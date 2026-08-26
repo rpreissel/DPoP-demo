@@ -62,7 +62,7 @@ class AuthSmsUseToolHandler(
 
         return if (TanGenerator.matches(tanValue, data.issuedTanHash, data.tanExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
-                amr = listOf("sms"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes
             )

@@ -60,7 +60,7 @@ class AuthEmailUseToolHandler(
 
         return if (EmailCodeGenerator.matches(codeValue, data.issuedCodeHash, data.codeExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
-                amr = listOf("email"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes
             )

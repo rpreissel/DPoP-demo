@@ -66,7 +66,7 @@ class AuthDeviceToolHandler(
         }
 
         return ToolOutcome.Completed.Authenticated(
-            amr = listOf("device", accessMeans),
+            amr = listOf(descriptor.method, accessMeans),
             achievedAcr = descriptor.maxAcr,
             factorTypes = factorTypesFor(accessMeans)
         )

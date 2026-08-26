@@ -57,7 +57,7 @@ class AuthPasswordLookupToolHandler(
 
         return if (accountId != null && enrollment != null && PasswordHasher.matches(password!!, enrollment.passwordHash)) {
             ToolOutcome.Completed.Authenticated(
-                amr = listOf("password"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
                 accountId = accountId

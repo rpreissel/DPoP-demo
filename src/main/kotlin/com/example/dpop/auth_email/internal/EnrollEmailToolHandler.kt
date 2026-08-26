@@ -62,7 +62,7 @@ class EnrollEmailToolHandler(
             accountService.confirmEmail(accountId, confirmed)
             return ToolOutcome.Completed.Enrolled(
                 enrollmentRef = EnrollmentRef(type = "account_email", id = "self"),
-                amr = listOf("email"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes
             )

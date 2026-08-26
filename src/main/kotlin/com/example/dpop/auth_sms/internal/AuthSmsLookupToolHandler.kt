@@ -82,7 +82,7 @@ class AuthSmsLookupToolHandler(
         val accountId = data.accountId
         return if (accountId != null && TanGenerator.matches(tan, data.issuedTanHash, data.tanExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
-                amr = listOf("sms"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
                 accountId = accountId

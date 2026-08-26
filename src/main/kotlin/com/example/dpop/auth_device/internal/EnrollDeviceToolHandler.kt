@@ -59,7 +59,7 @@ class EnrollDeviceToolHandler(
 
         return ToolOutcome.Completed.Enrolled(
             enrollmentRef = EnrollmentRef(type = "device_enrollment", id = enrollment.id.toString()),
-            amr = listOf("device", accessMeans),
+            amr = listOf(descriptor.method, accessMeans),
             achievedAcr = descriptor.maxAcr,
             factorTypes = factorTypesFor(accessMeans),
             auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint, "deviceBindingKeyRef" to deviceBindingKeyRef, "label" to label)

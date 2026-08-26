@@ -44,7 +44,7 @@ class EnrollSmsToolHandler(
             val enrollment = enrollmentRepository.save(AuthSmsEnrollment(data.phoneNumber))
             return ToolOutcome.Completed.Enrolled(
                 enrollmentRef = EnrollmentRef(type = "auth_sms_enrollment", id = enrollment.id.toString()),
-                amr = listOf("sms"),
+                amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
                 auditDetails = mapOf("smsProvider" to "sms-gw", "providerMsgId" to "MSG-$toolSessionId")
