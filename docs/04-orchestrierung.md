@@ -80,17 +80,18 @@ nächstes?". Beide beantwortet dieselbe Funktion (Abschnitt 4).
 
 #### Zwei Sorten von Übergang
 
-Zustände einer Journey stehen in einer Reihenfolge, und sie wird auf zwei sehr verschiedene Arten
-verlassen:
+Einen erfolgreichen Nachweis behandeln alle Zustände gleich: Er bringt die Journey weiter. Sie
+unterscheiden sich darin, was **Ablehnen** bewirkt:
 
-- Ein **Fallback-Zustand** wird verlassen, wenn der Nutzer ihn ablehnt oder er scheitert. Er
-  fragt: „Geht es so? Nein? Dann anders." Mehrere davon hintereinander bilden eine
-  **Fallback-Kette**, geordnet vom bequemsten zum aufwendigsten Weg — so ist `FAST` gebaut.
-- Ein **zielgetriebener Zustand** wird verlassen, wenn seine Bedingung erfüllt ist. Er fragt:
-  „Ist die Pflicht erledigt?" Ablehnen hilft hier nicht weiter.
+- In einem **Fallback-Zustand** führt Ablehnen weiter — zum nächsten, aufwendigeren Weg. Mehrere
+  davon hintereinander bilden eine **Fallback-Kette**, geordnet vom bequemsten zum aufwendigsten
+  Weg; so ist `FAST` gebaut. Ist nichts Aufwendigeres mehr da, endet die Journey.
+- In einem **zielgetriebenen Zustand** führt Ablehnen nirgendwohin. Die Pflicht bleibt bestehen,
+  die volle Auswahl kommt zurück — auch das gerade verworfene Verfahren. Nur Erfüllen bringt
+  weiter.
 
-Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und die Unterscheidung gehört
-sichtbar in den Code, nicht in einen Kommentar.
+Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und welche Sorte ein Zustand ist,
+gehört sichtbar in den Code, nicht in einen Kommentar.
 
 ### Tool
 

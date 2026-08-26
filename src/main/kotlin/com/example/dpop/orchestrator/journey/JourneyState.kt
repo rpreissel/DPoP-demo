@@ -55,7 +55,11 @@ sealed interface OfferingState : JourneyState {
 
     override fun activatable(): Set<String> = offered.toSet() - declined
 
-    /** True once nothing is left here - a fallback state then moves on, a goal-driven one gives up. */
+    /**
+     * True once every offer here has been declined. Only fallback states ever reach this: a
+     * goal-driven state re-offers its full set instead of narrowing it, so `declined` never grows
+     * there (see FastStrategy.reoffer).
+     */
     val exhausted: Boolean
         get() = activatable().isEmpty()
 }

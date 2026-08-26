@@ -10,12 +10,14 @@ import org.springframework.stereotype.Component
  * Into a login on this device as fast as possible - and in a way that works again next time
  * (docs/04-orchestrierung.md #3).
  *
- * States 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) are a
- * FALLBACK chain: declining moves on. States 4-5 ([FastState.ConfirmingEmail],
- * [FastState.Enrolling]) are GOAL-DRIVEN: only fulfilling moves on.
+ * A successful proof moves every state on alike; what separates them is what DECLINING does.
+ * States 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) form a
+ * FALLBACK chain: declining moves to the next, more laborious way in, and once nothing is left
+ * the journey ends. States 4-5 ([FastState.ConfirmingEmail], [FastState.Enrolling]) are
+ * GOAL-DRIVEN: declining re-offers the same full choice, so only fulfilling moves on.
  *
- * Registration is not a separate intent, it is the third state of this one. Whether identifying created an
- * account or found an existing one is decided afterwards by `findOrCreateAccount` - an
+ * Registration is not a separate intent, it is the third state of this one. Whether identifying
+ * created an account or found an existing one is decided afterwards by `findOrCreateAccount` - an
  * observation about the path taken, never a goal chosen up front.
  */
 @Component
