@@ -9,8 +9,22 @@ Vorausgesetzt wird der `ToolOutcome`-Vertrag aus [03-tool-architektur.md](03-too
 
 ## 1) Begriffe
 
-Fünf Begriffe tragen dieses Kapitel. Sie bauen aufeinander auf, deshalb hier in der Reihenfolge,
-in der sie voneinander abhängen.
+Sieben Wörter haben in diesem Kapitel eine feste Bedeutung:
+
+| Begriff | Bedeutung | Im Code |
+|---|---|---|
+| **Intent** | Ziel des Nutzers samt Strategie, die ihn dorthin führt | `AuthIntent` |
+| **Journey** | ein laufender Durchlauf eines Intents | `AuthJourney` |
+| **Zustand** | Position auf dem Weg, samt der dort geltenden Attribute | `JourneyState` |
+| **Etappe** | ein Zustand in seiner Rolle als Position in einer *Reihenfolge* | `stage` |
+| **Tool** | ein einzelnes Verfahren, das der Nutzer durchläuft | `toolId` |
+| **Schritt** | ein Schritt *innerhalb* eines Tools | `next.step` |
+| **Niveau** | Vertrauensniveau (`loa1`/`loa2`/`loa3`) | `acr` |
+
+Die ersten fünf tragen das Kapitel und werden unten ausgeführt; sie bauen aufeinander auf, daher
+diese Reihenfolge. Die letzten beiden stehen hier nur, damit sie nicht mit den anderen verwechselt
+werden — insbesondere sind **Etappe**, **Schritt** und **Niveau** drei verschiedene Dinge und nie
+Synonyme.
 
 ### Intent
 
@@ -38,7 +52,7 @@ immer höchstens eine Journey aktiv.
 Die Journey hält, was den ganzen Weg über gilt (Intent, Account, Budget, Lebenszyklus). Wo auf
 dem Weg der Nutzer gerade steht, hält sie **nicht** selbst — das ist der `JourneyState`.
 
-### JourneyState
+### Zustand (`JourneyState`)
 
 Der **`JourneyState`** ist die Position auf dem Weg — und trägt die Attribute, die genau an dieser
 Position gelten. Zwei Beispiele, die den Unterschied zu einem bloßen Statuswort zeigen: Der
@@ -56,9 +70,9 @@ nächstes?". Beide beantwortet dieselbe Funktion (Abschnitt 4).
 
 ### Etappe
 
-Eine **Etappe** ist ein Zustand, verstanden als Position in einer Reihenfolge. Im Code heißt sie
-`stage`. Der Begriff existiert, weil zwei sehr verschiedene Reihenfolge-Regeln nebeneinander
-vorkommen:
+Eine **Etappe** ist derselbe Zustand, nur unter einer anderen Frage betrachtet: nicht „wo stehe
+ich?", sondern „was kommt davor und danach?". Der Begriff existiert, weil zwei sehr verschiedene
+Reihenfolge-Regeln nebeneinander vorkommen:
 
 - Eine **Fallback-Etappe** wird verlassen, wenn der Nutzer sie ablehnt oder sie scheitert. Sie
   fragt: „Geht es so? Nein? Dann anders." Die Reihenfolge geht vom bequemsten zum aufwendigsten
@@ -69,10 +83,6 @@ vorkommen:
 Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und die Unterscheidung gehört
 sichtbar in den Code, nicht in einen Kommentar.
 
-Nicht zu verwechseln mit **Stufe**, was in diesem Projekt durchgehend das Vertrauensniveau meint
-(`loa1`/`loa2`/`loa3`), und mit **Schritt**, was der Schritt *innerhalb* eines Tools ist
-(`next.step`).
-
 ### Tool
 
 Ein **Tool** ist ein einzelnes Verfahren (`ident-fsc`, `enroll-sms`, `auth-device`, …), das der
@@ -80,7 +90,7 @@ Nutzer durchläuft. Ein Tool weiß nichts über Journeys, Intents oder Reihenfol
 sein Ergebnis als `ToolOutcome` ([Tool-Architektur](03-tool-architektur.md)). Was dieses Ergebnis
 bedeutet, entscheidet der Intent.
 
-### Die Ebenen im Zusammenhang
+### Die Session-Ebenen im Zusammenhang
 
 ```mermaid
 flowchart LR
@@ -259,7 +269,7 @@ vergessen werden.
 **Enumeration-Schutz**: Eine unbekannte E-Mail liefert exakt dieselbe Antwortform wie ein korrekt
 aufgelöster Account mit falschem Credential — nie eine eigene Fehlerform, auch nicht im Timing
 der Demo-Werte ([API](05-api.md)). Bewusst nicht weiter gehärtet (kein künstliches
-Timing-Padding); in einem Produktivsystem der nächste Schritt.
+Timing-Padding); in einem Produktivsystem wäre das der nächste Ausbau.
 
 ### `STEP_UP`
 
@@ -575,7 +585,7 @@ Zwei Bedingungen müssen zusammen erfüllt sein:
    nach Kontext) ergibt, ist damit nicht festgelegt. Die `amr`-Strings dieses Projekts (`sms`,
    `password`, `email`, `fsc`, `device`, `pin`, `biometric`) folgen deshalb einer eigenen,
    methodennamen-nahen Konvention.
-2. **Faktorvielfalt**: Für MFA-Stufen mindestens zwei **verschiedene** Faktorarten — gezählt wird
+2. **Faktorvielfalt**: Für MFA-Niveaus mindestens zwei **verschiedene** Faktorarten — gezählt wird
    die Vereinigung der `factorTypes` über alle abgeschlossenen Tools, nie die Tool-Anzahl. Ein
    einzelnes Tool, das selbst schon zwei Faktorarten meldet (z. B. ein Passkey mit User
    Verification), erfüllt MFA im Alleingang.
@@ -592,7 +602,7 @@ Enrollment-Etappe lautet sie „kommt der Nutzer damit *künftig wieder herein*?
 Auth-Methode ist: `ident-fsc` zählt für `AuthContext.currentFactorTypes` dieser Session, landet
 aber in `account.identifications`, nicht in `account.authenticationMethods`.
 
-Daraus folgt eine Deckelungskette über drei Ebenen: `identifications[].loa` begrenzt, was ein
+Daraus folgt eine Deckelungskette über drei Größen: `identifications[].loa` begrenzt, was ein
 Account überhaupt je erreichen kann; `authenticationMethods[].enrolledUnderAcr` begrenzt, was eine
 einzelne Methode liefern darf; `Completed.achievedAcr` meldet, was der konkrete Durchlauf erreicht
 hat. Praktische Folge: Ein Kanal, der `loa3` verlangt, braucht bereits ein `loa3`-fähiges
@@ -600,7 +610,9 @@ Ident-Verfahren — wurde nur mit `loa2` identifiziert, bleiben auch alle danach
 Methoden auf `loa2` gedeckelt. Deshalb ist die Untergrenze schon beim Anlegen des Kanals setzbar
 ([API](05-api.md)).
 
-### Zwei Ebenen für das geforderte Niveau
+### Untergrenze des Kanals gegen Ziel eines Laufs
+
+Zwei Größen, die leicht als dasselbe Feld gelesen werden und deshalb verschieden heißen:
 
 - **`ChannelSession.acrFloor`** — die *dauerhafte Untergrenze* des Kanals. Ein Fachverfahren
   fordert „auf diesem Kanal nie unter `loa3`". Gilt für jede Journey darauf, auch für spätere, und
@@ -612,7 +624,7 @@ Untergrenze, nie eine Erlaubnis: Das Backend setzt `max(Policy-Anforderung, Clie
 
 ### Pflichten sind Zustände
 
-Keycloak kennt „Required Actions": pro Nutzer abzuarbeitende Pflicht-Schritte wie `VERIFY_EMAIL`,
+Keycloak kennt „Required Actions": pro Nutzer abzuarbeitende Pflichten wie `VERIFY_EMAIL`,
 die vor Abschluss der Session erledigt sein müssen. Hier sind sie kein eigenes Konzept, sondern
 zielgetriebene Etappen: „ausreichendes Login-Verfahren eingerichtet" *ist* `Enrolling`,
 „bestätigte E-Mail" *ist* `ConfirmingEmail`. Eine offene Pflicht ist definitionsgemäß eine
@@ -621,7 +633,7 @@ Position auf dem Weg.
 Die Reihenfolge der Pflichten ist die Reihenfolge der Etappen — und sie lautet: erst ein
 ausreichendes Login-Verfahren, dann die bestätigte E-Mail. Umgekehrt würde ein bestimmtes
 Verfahren erzwungen, bevor der Nutzer überhaupt eines gewählt hat, obwohl `enroll-email` eine der
-Wahlmöglichkeiten ist, die beide Pflichten in einem Schritt erledigt.
+Wahlmöglichkeiten ist, die beide Pflichten auf einmal erledigt.
 
 Der Geltungsbereich ergibt sich daraus, welcher Weg zu der Etappe geführt hat: Die E-Mail-Pflicht
 gilt nur für einen Lauf, der über `Identifying` kam, also einen Account angelegt oder übernommen
