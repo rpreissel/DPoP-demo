@@ -2,16 +2,21 @@ package com.example.dpop.tool_api
 
 import com.example.dpop.tool_spi.DevicePublicKey
 
-/** What a controller may learn from a validated device-proof - never the raw JWK it was signed with. */
+/** The outcome of a successfully validated device-binding proof. */
 data class VerifiedDeviceProof(val publicKey: DevicePublicKey, val accessMeans: String)
 
-/**
- * Verifies device-binding proofs (typ="device-proof+jwt") for auth-device/enroll-device
- * (docs/03-tool-architektur.md). Implemented directly by the orchestrator's `DeviceProofValidator`
- * - the crypto/replay-protection machinery stays there, only the verified, opaque result crosses
- * into a method module. A missing or invalid proof throws (mirrors `DpopBindingKeyResolver`'s
- * `DpopValidationException` -> 401, docs/04-orchestrierung.md #5).
- */
+/** Validates device-binding proofs sent by an app client for device-bound tools. */
 interface DeviceProofs {
+    /**
+     * Validates a device-binding proof JWT (`typ="device-proof+jwt"`) against the current request.
+     *
+     * @param deviceProof the raw proof JWT from the request header, or `null` if absent.
+     * @param httpMethod the HTTP method of the current request, e.g. `"POST"`.
+     * @param httpUrl the full URL of the current request (see [buildRequestUrl]).
+     * @return the verified device public key and the access means (e.g. `"pin"`, `"biometric"`)
+     * the proof was created with.
+     * @throws RuntimeException if [deviceProof] is missing or fails validation; this is mapped to
+     * `401 Unauthorized` by the application's error handling.
+     */
     fun validate(deviceProof: String?, httpMethod: String, httpUrl: String): VerifiedDeviceProof
 }

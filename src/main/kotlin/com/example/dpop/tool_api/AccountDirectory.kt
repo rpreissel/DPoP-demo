@@ -3,27 +3,34 @@ package com.example.dpop.tool_api
 import com.example.dpop.tool_spi.EnrollmentRef
 
 /**
- * The only account knowledge a tool controller may have: opaque handles, resolved by the
- * orchestrator, never a profile or its stored details (docs/03-tool-architektur.md #2,
- * docs/04-orchestrierung.md #5). A controller asks "which account, which credential" - what an
- * account actually contains, and how a credential reference is stored inside it, stays inside the
- * `account` module.
+ * Read-only account and credential lookups for a tool controller.
  *
- * Implemented directly by `AccountService` (the `account` module depending on `tool_api` is safe:
- * `tool_api` is the shared SPI, not a method module, so this creates no cycle) - there is no
- * separate orchestrator-side wrapper for this port.
+ * Inject this directly into a tool controller's constructor. Results are opaque ids and
+ * enrollment references only - never account profile data.
  */
 interface AccountDirectory {
-    /** Lookup-based tools (auth-*-lookup) resolve the account themselves from a submitted identifier. */
+    /**
+     * Resolves the account that has [email] as its confirmed address.
+     *
+     * @return the account id, or `null` if no account has this address confirmed.
+     */
     fun resolveAccountByEmail(email: String): Long?
 
-    /** The account's active, enrolled credential for [method] - null if none is set up. */
+    /**
+     * The account's currently active credential for [method] (e.g. `"sms"`, `"password"`).
+     *
+     * @return the enrollment reference, or `null` if the account has no active credential for
+     * this method.
+     */
     fun activeEnrollment(accountId: Long, method: String): EnrollmentRef?
 
     /**
-     * The one active instance of a multi-instance method (docs/03-tool-architektur.md,
-     * allowsMultipleInstances) that lives on THIS physical device - never just any instance, or a
-     * device could be offered a credential it structurally cannot use.
+     * The account's active credential for [method] on the specific device identified by
+     * [deviceBindingKeyRef]. Use this instead of [activeEnrollment] for methods that can have
+     * multiple simultaneous active instances (e.g. `"device"`), where more than one instance may
+     * exist and only the one bound to the requesting device is a valid match.
+     *
+     * @return the enrollment reference, or `null` if no matching credential exists for this device.
      */
     fun activeDeviceEnrollment(accountId: Long, method: String, deviceBindingKeyRef: String): EnrollmentRef?
 }

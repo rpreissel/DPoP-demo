@@ -5,68 +5,91 @@ import java.net.URI
 import java.util.UUID
 
 /**
- * The flat handle a tool controller actually needs (docs/04-orchestrierung.md #5). A controller
- * never reads more than these four scalars off its context - checked against all twelve
- * controllers before this interface was cut. It deliberately does NOT carry the real
- * AuthJourney/ChannelSession/ToolSession: those are orchestrator-internal, and a method module
- * must never see them, only the account ids and the running tool session's id.
- *
- * [toolId] is the caller's own asserted toolId (a compile-time constant in every tool controller,
- * a `@PathVariable` in [ToolSwitchController]) - set once at [ToolEndpoint.beginActivation]/
- * [ToolEndpoint.loadContext] instead of being re-passed to every subsequent [ToolEndpoint] call.
+ * The handle a tool controller holds for one request. Obtained from [ToolEndpoint.beginActivation]
+ * or [ToolEndpoint.loadContext] and passed to every other [ToolEndpoint] call afterwards - a
+ * controller never needs to re-supply `toolId` or `toolSessionId` once it has one.
  */
 interface ToolContext {
+    /** The toolId this context was obtained for. */
     val toolId: String
     val toolSessionId: UUID
+    /** The account id the current journey is working towards, or `null` if none is set yet. */
     val journeyAccountId: Long?
+    /** The account id already bound to this channel, or `null` for an anonymous channel. */
     val channelAccountId: Long?
 }
 
 /**
- * The one thing a tool controller talks to instead of the orchestrator directly
- * (docs/04-orchestrierung.md #5) - binding check, journey-offer validation, retry/throttle
- * bookkeeping and the response envelope, all centralized so no controller can silently diverge.
+ * The API a tool controller uses instead of talking to the orchestrator directly: activation,
+ * binding checks, journey transitions and the response envelope.
  *
- * Implemented by the orchestrator (`ToolControllerSupport`); a method module only ever sees this
- * interface plus [ToolContext] - never a concrete orchestrator type. What is deliberately NOT
- * here: any knowledge of which tool may run when. That is a question about the journey's current
- * state, which the implementation answers - a controller only finds out by trying.
- *
- * Every method beyond the two that construct a [ToolContext] takes `(context, [one domain
- * object])` - never a bare `toolId`/`toolSessionId` again, since the caller already put both into
- * the context it is holding.
+ * Inject this into a tool controller's constructor. A typical controller:
+ * 1. calls [beginActivation] (POST) or [loadContext] (PATCH/GET) to get a [ToolContext],
+ * 2. optionally calls [requireCurrentTool] to reject a stale/wrong tool session,
+ * 3. runs its own tool-specific logic to produce a [ToolOutcome],
+ * 4. calls [applyOutcome] to turn that outcome into a [ChannelResponse].
  */
 interface ToolEndpoint {
-    /** Mints the ToolSession and rejects [toolId] if the journey does not currently offer it. */
+    /**
+     * Activates [toolId] for the given channel: creates a new tool session and advances the
+     * journey to it.
+     *
+     * @param channelSessionId the channel this tool is being activated on.
+     * @param bindingKeyRef the caller's resolved DPoP binding key (see [BindingKey]).
+     * @throws RuntimeException if the channel/binding is invalid, or if the journey does not
+     * currently offer [toolId].
+     */
     fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): ToolContext
 
+    /**
+     * Loads the context for an existing tool session, for a PATCH or GET call.
+     *
+     * @param toolSessionId the tool session being addressed, from the request path.
+     * @param bindingKeyRef the caller's resolved DPoP binding key (see [BindingKey]).
+     * @param toolId the toolId the caller expects this session to be for - use
+     * [requireCurrentTool] or [isCurrentTool] afterwards to actually check it.
+     * @throws RuntimeException if the tool session does not exist or the binding key does not
+     * match its channel.
+     */
     fun loadContext(toolSessionId: UUID, bindingKeyRef: String, toolId: String): ToolContext
 
     /**
-     * The `Location` of a just-created tool resource - identical across every tool's activate().
-     * [baseUri] is the scheme/host/port the client actually reached (`uriBuilder.build().toUri()`
-     * in the controller) - the path itself is fixed and owned by the implementation, never by the
-     * caller, which is why this takes a plain `java.net.URI` rather than a Spring
-     * `UriComponentsBuilder`: this SPI must not require a method module to depend on Spring Web.
+     * The `Location` header value for a just-created tool resource.
+     *
+     * @param baseUri the scheme/host/port the client actually reached, e.g.
+     * `uriBuilder.build().toUri()` from the controller's own `UriComponentsBuilder`.
      */
     fun activationLocation(context: ToolContext, baseUri: URI): URI
 
+    /**
+     * @throws RuntimeException if [context]'s toolId is not the journey's current tool.
+     */
     fun requireCurrentTool(context: ToolContext)
 
+    /** @return whether [context]'s toolId is still the journey's current tool. */
     fun isCurrentTool(context: ToolContext): Boolean
 
     /**
-     * "Back"/"Switch": abandon the currently activated tool. What happens then is entirely the
-     * journey's decision - moving along a fallback chain, narrowing a mandatory offer, or ending
-     * like a cancel once nothing is left. The caller only decides that there IS an abandonment;
-     * it never touches the journey to make that decision itself, which is why this - and not just
-     * [applyOutcome] - is part of the SPI: it is the one effect that is not a tool outcome at all.
+     * Abandons the currently activated tool ("Back"/"Switch"). What happens next - falling back
+     * to another candidate, narrowing a mandatory offer, or ending the journey - is decided by the
+     * journey's current state, not by the caller.
      */
     fun abandon(context: ToolContext): ChannelResponse
 
-    /** InProgress/Failed/Completed -> journey transition + the response envelope. */
+    /**
+     * Applies a tool's [outcome] to the journey and builds the resulting response.
+     *
+     * Call this after running the tool's own logic, regardless of whether the outcome is
+     * `InProgress`, `Failed`, or `Completed` - each is handled accordingly.
+     */
     fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse
 
-    /** For GET: only the still-current tool's freshly rebuilt InProgress state is shown. */
+    /**
+     * Builds the response for a GET call.
+     *
+     * @param freshOutcome the tool's freshly rebuilt `InProgress` state, or `null` if [context]'s
+     * tool is no longer the journey's current one (see [isCurrentTool]) - in which case the
+     * response reflects the journey's actual current step instead.
+     */
     fun buildReadResponse(context: ToolContext, freshOutcome: ToolOutcome.InProgress?): ChannelResponse
 }

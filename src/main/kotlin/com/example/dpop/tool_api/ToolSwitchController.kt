@@ -11,19 +11,11 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 /**
- * "Back"/"Switch": abandon the currently activated tool. What happens then is entirely the
- * journey's decision - on a fallback state it moves along the chain, on a mandatory one it only
- * narrows what is left, and on the last thing this journey could offer it ends like a cancel.
- * This controller makes none of that decision itself: whether there is anything to go back to is
- * a property of the current state, not of the tool's category.
- *
- * Lives here rather than in the orchestrator, and is the reason [ToolEndpoint] carries [abandon]
- * as its own method rather than leaving this controller to reach for orchestrator internals: once
- * that one effect is behind the SPI, this controller needs nothing else - no handler, no
- * orchestrator type, not even DPoP validation directly (`@BindingKey` resolves it). It ships once,
- * here, and every method module gets Back/Switch for free instead of reimplementing it
- * (docs/08-projektrahmen.md A11: this is the one truly generic, toolId-keyed case, not a
- * precedent for per-tool dispatch).
+ * `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` - "Back"/"Switch": abandons the
+ * currently activated tool. The single generic, toolId-keyed endpoint in this API; every other
+ * tool operation has its own tool-specific controller. What happens next - falling back to
+ * another candidate, narrowing a mandatory offer, or ending the journey - is decided by the
+ * journey's current state, not by this controller.
  */
 @RestController
 @RequestMapping("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}")
