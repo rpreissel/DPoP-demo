@@ -11,7 +11,7 @@ import java.util.UUID
 
 /**
  * Audit trail entry, decoupled from the sessions it describes (docs/07-betrieb.md #3):
- * channelSessionId/processSessionId are historical values, not foreign keys, and
+ * channelSessionId/journeyId are historical values, not foreign keys, and
  * are expected to point into nothing once the referenced session is gone.
  */
 @Entity
@@ -20,8 +20,8 @@ class SessionEvent(
     @Column(name = "channel_session_id")
     var channelSessionId: UUID? = null,
 
-    @Column(name = "process_session_id")
-    var processSessionId: UUID? = null,
+    @Column(name = "journey_id")
+    var journeyId: UUID? = null,
 
     @Column(name = "event_type", nullable = false, length = 100)
     var eventType: String? = null,

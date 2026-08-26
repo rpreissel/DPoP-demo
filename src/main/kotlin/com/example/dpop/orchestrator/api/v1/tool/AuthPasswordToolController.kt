@@ -7,7 +7,6 @@ import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
@@ -57,7 +56,7 @@ class AuthPasswordToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, AUTH_PASSWORD_TOOL_ID, ToolCategory.AUTH)
+        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, AUTH_PASSWORD_TOOL_ID)
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).

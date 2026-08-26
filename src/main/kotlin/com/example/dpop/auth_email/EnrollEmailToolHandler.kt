@@ -46,6 +46,7 @@ class EnrollEmailToolHandler(
     override val methodFamily = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
+    override val confirmsAccountEmail = true
 
     /** Called directly by EnrollEmailToolController; nothing needs resolving before this can start. */
     @Transactional

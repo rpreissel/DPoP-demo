@@ -6,7 +6,6 @@ import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
-import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -58,7 +57,7 @@ class IdentFscToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, IDENT_FSC_TOOL_ID, ToolCategory.IDENT)
+        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, IDENT_FSC_TOOL_ID)
         val outcome = handler.start(context.toolSession.toolSessionId!!)
         val response = controllerSupport.applyOutcome(IDENT_FSC_TOOL_ID, outcome, context)
         val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, IDENT_FSC_TOOL_ID)

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.nimbus.jose.jwt)
     implementation(libs.kotlin.reflect)
+    implementation(libs.jackson.module.kotlin)
     implementation(libs.springdoc.openapi.starter.webmvc.ui)
     runtimeOnly(libs.h2)
     // Spring Boot 4's modular autoconfigure split the H2 console out of the core autoconfigure

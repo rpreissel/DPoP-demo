@@ -11,12 +11,13 @@ Der Kern des Modells sind drei ineinander geschachtelte Sessions mit fallender L
 | Ebene | Steht für | Lebensdauer |
 |---|---|---|
 | `ChannelSession` | Der Kanal (App oder Web), DPoP-gebunden | langlebig, überdauert einzelne Verfahren |
-| `ProcessSession` | Ein fachliches Verfahren: Registrierung, Login, Step-up | so lange das Verfahren läuft |
+| `AuthJourney` | Ein Durchlauf eines `AuthIntent`: eine geführte Wegstrecke mit einem Ziel | so lange die Journey läuft |
 | `ToolSession` | Ein einzelner Tool-Durchlauf, z. B. die TAN-Eingabe | kurz, oft Minuten |
 
-Ein Verfahren durchläuft dabei beliebig viele Tools: Eine Registrierung ist etwa
-`ident-fsc` -> `enroll-sms`; verlangt der Kanal ein Mehr-Faktor-Niveau, kommen weitere
-Schritte hinzu, bis die Policy erfüllt ist.
+Eine Journey durchläuft dabei beliebig viele Tools: Der Weg über die Identifizierung ist etwa
+`ident-fsc` -> `enroll-sms`; verlangt der Kanal ein Mehr-Faktor-Niveau, kommen weitere Schritte
+hinzu, bis die Policy erfüllt ist. Welche Verfahren in welcher Reihenfolge angeboten werden,
+entscheidet der Intent ([04-orchestrierung.md](04-orchestrierung.md)).
 
 Details: [02-domaenenmodell.md](02-domaenenmodell.md)
 
@@ -69,24 +70,24 @@ Details: [04-orchestrierung.md](04-orchestrierung.md)
 ### App (Orchestrator-first)
 
 1. App sendet Request mit DPoP -> Backend erstellt/liest `ChannelSession(APP)`.
-2. Für Erstzugang startet Backend `ProcessSession(REGISTRATION|LOGIN)`.
-3. Orchestrator führt fachliche Verfahren aus (FSC/SMS/eID).
+2. Backend startet eine `AuthJourney` mit dem Intent des Kanals (Default `FAST`).
+3. Orchestrator bietet die Verfahren an, die der aktuelle Zustand der Journey zulässt (FSC/SMS/eID).
 4. Bei Erfolg erzeugt Backend den `AuthContext` (Keycloak-Tokenfluss serverseitig).
 5. `ChannelSession.state` wechselt auf `AUTHENTICATED`.
 6. Braucht die App ein höheres Niveau, hebt sie es per `PATCH /app/channels/{channelSessionId}` mit `requiredAcr` an ([05-api.md](05-api.md), App-Fassade Beispiel 9). Alternativ ist die Untergrenze schon beim Anlegen des Kanals gesetzt.
-7. Backend vergleicht die Forderung mit `currentAcr`/`currentAmr` aus dem `AuthContext`. Reicht es nicht: `STEP_UP_REQUIRED` -> neue `ProcessSession(STEP_UP)`, und die Antwort enthält direkt den fälligen `next`-Schritt.
+7. Backend vergleicht die Forderung mit `currentAcr`/`currentAmr` aus dem `AuthContext`. Reicht es nicht: `STEP_UP_REQUIRED` -> neue `AuthJourney(STEP_UP)`, und die Antwort enthält direkt den fälligen `next`-Schritt.
 
 ### Web (Keycloak-first)
 
 1. Browser/BFF hat Keycloak-Session.
 2. Keycloak-Authenticator startet bei Bedarf Step-up beim Orchestrator.
-3. Backend erstellt `ProcessSession(STEP_UP)` und referenziert die `ChannelSession(WEB)`.
+3. Backend erstellt eine `AuthJourney(STEP_UP)` und referenziert die `ChannelSession(WEB)`.
 4. Nach fachlichem Erfolg aktualisiert Keycloak den IAM-Kontext.
 5. Backend synchronisiert `AuthContext.currentAcr/currentAmr`.
 6. `ChannelSession.state` bleibt oder wird wieder `AUTHENTICATED`.
 
 Beide Kanäle nutzen nach dem Start dieselben kanalneutralen Tool-URLs. Nur der Einstieg
-unterscheidet sich: Die App legt einen Kanal an, Keycloak startet einen Prozess.
+unterscheidet sich: Die App legt einen Kanal an, Keycloak startet eine Journey.
 
 Details: [05-api.md](05-api.md)
 

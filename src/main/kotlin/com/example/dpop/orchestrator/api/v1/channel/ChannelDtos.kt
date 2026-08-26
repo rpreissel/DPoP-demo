@@ -23,6 +23,12 @@ data class ChannelCreateRequest(
     val intent: String? = null
 )
 
+@Schema(description = "Answer to the device-binding offer of a lookup login (docs/04-orchestrierung.md #3).")
+data class DeviceBindingRequest(
+    @field:Schema(description = "true remembers this device for future logins, false leaves it unlinked.")
+    val accept: Boolean
+)
+
 @Schema(description = "Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md #9).")
 data class ChannelPatchRequest(
     @field:Schema(example = "loa3")

@@ -55,6 +55,16 @@ interface ToolDescriptor {
         get() = false
 
     /**
+     * True for the one ENROLLMENT tool whose successful run leaves the account with a CONFIRMED
+     * email - the precondition [requiresConfirmedEmail] names from the other side. Declared here
+     * rather than matched by toolId in the orchestrator, so the goal-driven "confirm the email
+     * first" stage (docs/04-orchestrierung.md #3) stays derived from the catalog like every other
+     * offer.
+     */
+    val confirmsAccountEmail: Boolean
+        get() = false
+
+    /**
      * True only for `enroll-device`/`auth-device` today: several active instances of this method
      * can coexist on one account (one per physical device, each carrying its own credential and
      * user-chosen label) rather than the usual one-active-at-a-time rule

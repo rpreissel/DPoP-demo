@@ -35,7 +35,7 @@ class OrchestratorExceptionHandler {
         ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "NOT_FOUND", "message" to (e.message ?: "")))
 
     /**
-     * Two requests raced on the same ProcessSession/@Version row (e.g. a double tool-activation) -
+     * Two requests raced on the same AuthJourney/@Version row (e.g. a double tool-activation) -
      * docs/07-betrieb.md #1: 409, "concurrent process on same channel session". The loser should
      * retry against freshly-read state rather than see an unhandled 500.
      */

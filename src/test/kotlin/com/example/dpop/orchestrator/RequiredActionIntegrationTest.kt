@@ -57,7 +57,7 @@ class RequiredActionIntegrationTest {
         listOf(
             "id_fsc_tool_data", "enroll_sms_tool_data", "auth_sms_use_tool_data",
             "enroll_email_tool_data", "auth_email_use_tool_data",
-            "tool_session", "process_session", "session_event",
+            "tool_session", "auth_journey", "session_event",
             "channel_session", "auth_context", "account", "auth_sms",
             "device_account_link", "login_attempt_throttle"
         ).forEach { jdbcTemplate.update("DELETE FROM $it") }
@@ -188,7 +188,7 @@ class RequiredActionIntegrationTest {
             patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"email":"$email"}""")
         }
         val enrolled = patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"code":"$code"}""")
-        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
         @Suppress("UNCHECKED_CAST")
@@ -208,10 +208,10 @@ class RequiredActionIntegrationTest {
         patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
         // Registration is now stuck offering enroll-email (by design) - directly flip the account
         // to AUTHENTICATED without it, via SQL, to reproduce a pre-existing account that predates
-        // this Required Action (the scope this test guards: LOGIN/MANAGE_METHODS must never
+        // this Required Action (the scope this test guards: a plain login and MANAGE must never
         // retroactively enforce it).
         jdbcTemplate.update("UPDATE channel_session SET state = 'AUTHENTICATED' WHERE channel_session_id = ?", channelSessionId)
-        jdbcTemplate.update("UPDATE process_session SET state = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
+        jdbcTemplate.update("UPDATE auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
 
         // A fresh channel on the same device recognizes the account via DeviceAccountLink and logs
         // in via the existing sms method - no email confirmation demanded.
@@ -224,10 +224,10 @@ class RequiredActionIntegrationTest {
         }
         val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
-        // MANAGE_METHODS itself always demands loa2 session evidence first (unrelated to Required
-        // Actions - ChannelService.MANAGE_METHODS_REQUIRED_ACR); this session only proved sms
+        // MANAGE itself always demands loa2 session evidence first (unrelated to Required
+        // Actions - ManageStrategy.REQUIRED_ACR); this session only proved sms
         // (loa1), so it forces a step-up via re-identification first.
         val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
         assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
@@ -236,17 +236,14 @@ class RequiredActionIntegrationTest {
             "/orchestrator/api/v1/tools/$stepUpIdentToolSessionId/ident-fsc",
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
         )
-        assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
-
-        // NOW retry - loa2 is satisfied this session, so MANAGE_METHODS offers enroll-email as a
-        // normal (not forced) candidate alongside enroll-device - a selection page, not an
-        // automatic skip straight into enroll-email. enroll-password is correctly excluded (still
-        // requires a confirmed email first, which this account deliberately doesn't have) - proves
-        // the Required Action's absence here doesn't quietly waive OTHER, unrelated preconditions.
-        val retried = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-        assertThat(retried.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        // The step-up sub-journey ends here and the parked wish resumes at once: MANAGE offers
+        // enroll-email as a normal (not forced) candidate alongside enroll-device - a selection
+        // page, not an automatic skip into enroll-email. enroll-password stays correctly excluded
+        // (it still needs a confirmed email, which this account deliberately doesn't have),
+        // proving the absent obligation does not quietly waive other, unrelated preconditions.
+        assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
-        assertThat(retried.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
+        assertThat(reIdentified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
     }
 
     companion object {

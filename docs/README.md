@@ -37,8 +37,10 @@ Projektkontext. Wer nur einen Client baut, kommt mit 01, 05 und 10 aus.
 Drei Session-Ebenen mit fallender Lebensdauer:
 
 - **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web), nie direkt fachlicher Challenge-State.
-- **ProcessSession**: kurzlebiger fachlicher Verfahrens-Kontext (Registration, Login, Step-up); läuft über ein oder mehrere Tools.
-- **ToolSession**: ein einzelner Tool-Durchlauf innerhalb eines Verfahrens (z. B. die TAN-Eingabe bei `auth-sms`); trägt nur Lifecycle-Metadaten, die Fachdaten liegen im Modul.
+- **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird (`FAST`, `REGISTER`, `LOGIN_LOOKUP`, `STEP_UP`, `MANAGE`).
+- **AuthJourney**: ein laufender Durchlauf eines Intents; läuft über ein oder mehrere Tools.
+- **JourneyState**: die Position auf diesem Weg samt ihrer Attribute (was angeboten wurde, was abgelehnt ist, welches Tool läuft); je Intent eine eigene versiegelte Zustandsmenge.
+- **ToolSession**: ein einzelner Tool-Durchlauf innerhalb einer Journey (z. B. die TAN-Eingabe bei `auth-sms`); trägt nur Lifecycle-Metadaten, die Fachdaten liegen im Modul.
 - **AuthContext**: serverseitig gespeicherter IAM-Kontext inkl. Keycloak-Token-Referenz und `acr`/`amr`.
 - **binding_key_ref**: Binding-Referenz aus DPoP-Keymaterial für App-Bindung.
 - **toolId**: flacher technischer Bezeichner einer konkreten Ident-/Enroll-/Auth-Methode (z. B. `enroll-sms`); ersetzt in der API die getrennte Kind-/Methode-Aufteilung.
@@ -56,7 +58,7 @@ Keycloak-Anbindung — sie ist explizit außerhalb dieses Umbaus.
 
 ## Umsetzungsstatus
 
-1. **Domänenmodell** ✅: `ChannelSession`, `ProcessSession` (+Subklassen), `AuthContext`, `SessionEvent`, `ToolSession`.
+1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (+`JourneyState` je Intent), `AuthContext`, `SessionEvent`, `ToolSession`.
 2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool (`ident-fsc`, `enroll-sms`, `auth-sms`, `enroll-password`, `auth-password`, `enroll-email`, `auth-email`).
 3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Cancel (`POST .../cancel`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
 4. **Keycloak-Fassade** 🔲: `/orchestrator/api/v1/kc/...` mit Step-up-Start/Confirm — bewusst nicht umgesetzt.

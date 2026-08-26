@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.journey.AuthIntent
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -46,9 +47,22 @@ class ChannelSession(
     @JoinColumn(name = "auth_context_id", insertable = false, updatable = false)
     var authContext: AuthContext? = null
 
-    /** Durable lower bound of the channel (docs/02-domaenenmodell.md #5); survives individual processes. */
-    @Column(name = "required_acr", length = 50)
-    var requiredAcr: String? = null
+    /**
+     * The channel's DURABLE lower bound; survives individual journeys. Distinct from a single
+     * step-up run's target, which lives in that run's own state (docs/04-orchestrierung.md #8) -
+     * the two used to share a name and were easy to confuse for one field.
+     */
+    @Column(name = "acr_floor", length = 50)
+    var acrFloor: String? = null
+
+    /**
+     * The intent this channel was entered with. Persisted because resume and cancel must restart
+     * the SAME intent: without it, an abandoned lookup login would silently fall back to whatever
+     * the device happens to be linked to.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "entry_intent", nullable = false, length = 20)
+    var entryIntent: AuthIntent = AuthIntent.FAST
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null

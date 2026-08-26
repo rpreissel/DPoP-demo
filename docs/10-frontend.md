@@ -36,9 +36,9 @@ Die zugrundeliegende API beschreibt [05-api.md](05-api.md), die Schlüsselerzeug
 | FE-16 | Solange ein Tool aktiv Eingaben erwartet — oder der Nutzer zwischen mehreren Tools wählt —, wird auf eine einzige naheliegende Aktion reduziert. | Nur „Abbrechen" bleibt sichtbar; Logout und Umstiegs-Links sind an der Session-Status-Karte gruppiert und nur außerhalb dieses Modus sichtbar, Logout zusätzlich nur wenn `AUTHENTICATED` |
 | FE-17 | Die „Anmeldeverfahren verwalten"-Liste zeigt den vollständigen Methodenbestand des Kontos, nicht nur das, was diese Sitzung selbst nachgewiesen hat. | Sourced aus `activeMethods` ([API](05-api.md)), nicht aus `currentAmr` — sonst wäre eine Methode, die zwar aktiv ist, aber diese Sitzung nie geprüft hat (z. B. `email` bei einem Login, der nur `sms`+`password` brauchte), weder sichtbar noch verwaltbar |
 
-### Anmeldeverfahren verwalten & Step-up (MANAGE_METHODS)
+### Anmeldeverfahren verwalten & Step-up (AuthIntent.MANAGE)
 
-Nach erfolgreicher Anmeldung zeigt die Ansicht zwei getrennte, aber verwandte Abschnitte: „Sicherheitsniveau erhöhen" (FE-15, vom Nutzer selbst ausgelöster Step-up) und „Anmeldeverfahren verwalten" (FE-17, Hinzufügen/Deaktivieren über MANAGE_METHODS, [Orchestrierung](04-orchestrierung.md) Abschnitt 3). Beide Wege enden in derselben `STEP_UP_IN_PROGRESS`-Mechanik und derselben Tool-Navigation — nur der Auslöser unterscheidet sich (`PATCH /channels` vs. ein `409` bei `POST .../methods`).
+Nach erfolgreicher Anmeldung zeigt die Ansicht zwei getrennte, aber verwandte Abschnitte: „Sicherheitsniveau erhöhen" (FE-15, vom Nutzer selbst ausgelöster Step-up) und „Anmeldeverfahren verwalten" (FE-17, Hinzufügen/Deaktivieren über `AuthIntent.MANAGE`, [Orchestrierung](04-orchestrierung.md) Abschnitt 3). Beide Wege enden in derselben `STEP_UP_IN_PROGRESS`-Mechanik und derselben Tool-Navigation — nur der Auslöser unterscheidet sich (`PATCH /channels` vs. ein `409` bei `POST .../methods`).
 
 ### Login ohne DPoP
 
@@ -52,7 +52,7 @@ Das Frontend nutzt eine **feste lokale Routing-Tabelle** und trifft UI-Entscheid
 ausschließlich anhand von `next` — nie anhand von URLs, Action-Namen oder eigener
 Ableitung aus dem Sessionzustand.
 
-- **Backend liefert**: `next.type` (`tool` oder `flow`), dazu `next.toolId` bzw. `next.context`, sowie `next.step`. Auswahloptionen stehen in `stepData.options`, fehlende Felder in `stepData.missingFields`.
+- **Backend liefert**: `next.type` (`tool` oder `orchestrator` — beide benennen, wem der nächste Screen gehört und welchen Endpunkt der Client als nächstes ruft), dazu `next.toolId` bzw. `next.context`, sowie `next.step`. Auswahloptionen stehen in `stepData.options`, fehlende Felder in `stepData.missingFields`.
 - **Frontend entscheidet**: Eine lokale Routing-Tabelle (`routing.ts`), Schlüssel `(type, toolId|context, step)`, bildet das auf eine UI-Komponente ab — nie auf ein URL-Muster.
 - Der Client konstruiert **niemals** eine `toolId` selbst; sie kommt entweder aus `next.toolId` oder als gewählter Eintrag aus `stepData.options`.
 

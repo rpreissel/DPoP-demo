@@ -19,11 +19,15 @@ const toolRoutes: Record<string, Record<string, string>> = {
   'auth-device': { auth: 'device-auth-form' },
 }
 
-const flowRoutes: Record<string, Record<string, string>> = {
+/** Screens the orchestrator itself owns - selection pages, confirmations, the finished screen. */
+const orchestratorRoutes: Record<string, Record<string, string>> = {
   registration: { selectIdentificationMethod: 'select-method' },
   enrollment: { selectMethod: 'select-method' },
   auth: { selectMethod: 'select-method' },
-  authentication: { authenticated: 'authentication-completed' },
+  authentication: {
+    authenticated: 'authentication-completed',
+    offerDeviceBinding: 'device-binding-offer',
+  },
 }
 
 /** Determines which UI component to show, based solely on `next` - never on a URL. */
@@ -32,8 +36,8 @@ export function getUIComponent(next: Next | undefined): string | null {
   if (next.type === 'tool' && next.toolId) {
     return toolRoutes[next.toolId]?.[next.step] ?? null
   }
-  if (next.type === 'flow' && next.context) {
-    return flowRoutes[next.context]?.[next.step] ?? null
+  if (next.type === 'orchestrator' && next.context) {
+    return orchestratorRoutes[next.context]?.[next.step] ?? null
   }
   return null
 }

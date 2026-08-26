@@ -67,7 +67,7 @@ class MultiDeviceCredentialIntegrationTest {
     fun resetDatabase() {
         listOf(
             "auth_device_tool_data", "enroll_device_tool_data", "device_enrollment",
-            "id_fsc_tool_data", "tool_session", "process_session", "session_event",
+            "id_fsc_tool_data", "tool_session", "auth_journey", "session_event",
             "channel_session", "auth_context", "account", "device_account_link", "login_attempt_throttle"
         ).forEach { jdbcTemplate.update("DELETE FROM $it") }
     }
@@ -197,7 +197,7 @@ class MultiDeviceCredentialIntegrationTest {
         )
         // sms/email/enroll-device are all still legitimate candidates (only "device" is active on
         // this account, on a key device B doesn't hold) - a selection page, never auth-device.
-        assertThat(reidentified.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(reidentified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         val options = reidentified["stepData"].let { (it as Map<String, Any?>)["options"] as List<String> }
         assertThat(options).contains("enroll-device").doesNotContain("auth-device")

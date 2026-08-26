@@ -18,12 +18,12 @@ describe('getUIComponent', () => {
   })
 
   it('maps a known flow selection to select-method', () => {
-    const next: Next = { type: 'flow', context: 'enrollment', step: 'selectMethod' }
+    const next: Next = { type: 'orchestrator', context: 'enrollment', step: 'selectMethod' }
     expect(getUIComponent(next)).toBe('select-method')
   })
 
   it('maps the authenticated flow completion to authentication-completed', () => {
-    const next: Next = { type: 'flow', context: 'authentication', step: 'authenticated' }
+    const next: Next = { type: 'orchestrator', context: 'authentication', step: 'authenticated' }
     expect(getUIComponent(next)).toBe('authentication-completed')
   })
 

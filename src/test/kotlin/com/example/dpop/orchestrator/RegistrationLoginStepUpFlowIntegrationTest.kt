@@ -72,7 +72,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "enroll_password_tool_data", "auth_password_use_tool_data",
             "enroll_email_tool_data", "auth_email_use_tool_data",
             "auth_sms_lookup_tool_data", "auth_password_lookup_tool_data",
-            "tool_session", "process_session", "session_event",
+            "tool_session", "auth_journey", "session_event",
             "channel_session", "auth_context", "account", "auth_sms", "auth_password",
             "device_account_link", "login_attempt_throttle"
         ).forEach { jdbcTemplate.update("DELETE FROM $it") }
@@ -225,7 +225,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // so the process offers a selection page instead of skipping straight to one of them.
         // enroll-password isn't offered yet - it requires a confirmed account email first.
         val identified = patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
-        assertThat(identified.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(identified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(identified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email", "enroll-device")
 
@@ -274,7 +274,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val loginStart = post("/orchestrator/api/v1/app/channels")
         val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
         assertThat(newChannelSessionId).isNotEqualTo(channelSessionId)
-        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
 
@@ -284,7 +284,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
 
         val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin.channel()["state"]).isEqualTo("AUTHENTICATED")
@@ -436,7 +436,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // LOGIN cancel doesn't force a channel-state change (docs: only REGISTERING/STEP_UP do);
         // the response re-offers candidates from scratch - two active methods (sms, email) now
         // exist, so that's a selection page, not the single auth-sms tool directly.
-        assertThat(cancelled.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(cancelled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(cancelled.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
     }
@@ -460,7 +460,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // enroll. Offer proving one of those existing methods instead of dead-ending (previously:
         // 410 PROCESS_ABORTED, since enrollmentCandidates came back empty -
         // docs/04-orchestrierung.md #1). Two candidates -> a selection page, not a direct skip.
-        assertThat(identified.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(identified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(identified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
     }
@@ -492,7 +492,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         @Suppress("UNCHECKED_CAST")
         val secondTan = (secondActivation["demo"] as Map<String, Any?>)["tan"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$secondToolSessionId/auth-sms", """{"tan":"$secondTan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
     }
 
     @Test
@@ -518,7 +518,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // confirmed email first), so switching away re-offers the selection page - but the OLD
         // tool session is abandoned either way.
         val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
-        assertThat(result.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(result.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(result.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email", "enroll-device")
 
@@ -553,7 +553,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password",
             """{"password":"correct-horse-battery"}"""
         )
-        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
         assertThat(finalChannel.channel()["state"]).isEqualTo("AUTHENTICATED")
@@ -565,7 +565,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val loginStart = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
         val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
         // Neither email nor password alone reaches loa2 - the login offers a pick between both.
-        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-email", "auth-password")
 
@@ -592,7 +592,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         }
         val authEmailToolSessionId = activation.nextRaw()["toolSessionId"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$authEmailToolSessionId/auth-email", """{"code":"$code"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin.channel()["state"]).isEqualTo("AUTHENTICATED")
@@ -630,7 +630,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // Two candidates are left (enroll-email, enroll-device; sms is already active, password
         // still needs a confirmed email first) - a selection page is offered, not a single-
         // candidate skip.
-        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(afterSms.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
 
@@ -644,7 +644,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
             """{"password":"correct-horse-battery"}"""
         )
-        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
         assertThat(finalChannel.channel()["currentAcr"]).isEqualTo("loa2")
@@ -655,7 +655,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val loginStart = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
         val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
         // No single method alone reaches loa2, so the login offers a pick among all three.
-        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email", "auth-password")
 
@@ -674,7 +674,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "/orchestrator/api/v1/tools/$authPasswordToolSessionId/auth-password",
             """{"password":"correct-horse-battery"}"""
         )
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa2")
@@ -696,7 +696,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
         val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(afterSms.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
 
         // Abandon here (never enroll email/password/device, never reach this channel's own loa2
         // floor) -
@@ -710,7 +710,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         }
         val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
     }
 
     @Test
@@ -745,7 +745,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // A third, brand-new channel on the SAME key #2 must now skip straight to LOGIN too -
         // two active methods (sms, email) means a selection page, not a direct skip.
         val thirdChannel = post("/orchestrator/api/v1/app/channels")
-        assertThat(thirdChannel.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(thirdChannel.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(thirdChannel.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
     }
@@ -773,7 +773,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val newChannel = post("/orchestrator/api/v1/app/channels")
         val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
         assertThat(newChannelSessionId).isNotEqualTo(channelSessionId)
-        assertThat(newChannel.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(newChannel.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(newChannel.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
 
@@ -782,7 +782,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         }
         val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin.channel()["state"]).isEqualTo("AUTHENTICATED")
@@ -862,19 +862,18 @@ class RegistrationLoginStepUpFlowIntegrationTest {
     @Test
     fun accountLevelThrottle_locksAfterRepeatedFailedAuthAttempts_acrossFreshToolSessions() {
         registerAndAuthenticate()
-        // Fresh app session on the same device - each iteration below mints its OWN ToolSession
-        // (a fresh per-session retryCount every time), proving the account-level throttle catches
-        // what the per-session retry counter alone cannot.
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-
+        // Each iteration is a FRESH channel and therefore a fresh journey with a fresh attempt
+        // budget - which is precisely what the journey-local budget cannot catch and the
+        // account-level throttle must (docs/04-orchestrierung.md #7).
         repeat(5) {
-            val activation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
-            val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+            val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+            val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
             patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
         }
 
+        val lockedChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
         val exception = assertThrows<HttpClientErrorException> {
-            post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+            post("/orchestrator/api/v1/app/channels/$lockedChannelSessionId/tools/auth-sms")
         }
         assertThat(exception.statusCode.value()).isEqualTo(423)
     }
@@ -882,31 +881,32 @@ class RegistrationLoginStepUpFlowIntegrationTest {
     @Test
     fun accountLevelThrottle_resetsOnSuccessfulAuth() {
         registerAndAuthenticate()
-        val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-
         // A few failures, but not enough to lock - then a genuine success should clear the counter.
+        // Each failure gets its own channel: the journey-local attempt budget would otherwise end
+        // the journey before the account-level counter is anywhere near its own threshold.
         repeat(3) {
-            val activation = post("/orchestrator/api/v1/app/channels/$freshChannelSessionId/tools/auth-sms")
-            val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+            val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+            val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
             patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
         }
+        val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
         val (tan, activation) = captureMockTan {
             post("/orchestrator/api/v1/app/channels/$freshChannelSessionId/tools/auth-sms")
         }
         val toolSessionId = activation.nextRaw()["toolSessionId"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         // Confirm the counter was actually reset, not just "not yet locked": two more fresh
         // failures on ANOTHER new session right after a success should NOT be treated as
         // already at 3/5 - they still land on the same account via the device link.
-        val nextChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
         repeat(2) {
-            val retryActivation = post("/orchestrator/api/v1/app/channels/$nextChannelSessionId/tools/auth-sms")
-            val retryToolSessionId = retryActivation.nextRaw()["toolSessionId"] as String
+            val retryChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+            val retryToolSessionId = post("/orchestrator/api/v1/app/channels/$retryChannelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
             patch("/orchestrator/api/v1/tools/$retryToolSessionId/auth-sms", """{"tan":"000000"}""")
         }
         // Still allowed - only 2 failures since the reset, well under the lock threshold.
+        val nextChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
         val stillAllowed = post("/orchestrator/api/v1/app/channels/$nextChannelSessionId/tools/auth-sms")
         assertThat(stillAllowed.nextRaw()["toolSessionId"]).isNotNull()
     }
@@ -935,15 +935,15 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
         // sms and email already active (email via the REGISTRATION Required Action); password and
         // device are offered - two candidates means a selection page, not a single-candidate skip.
-        assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(started.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-password", "enroll-device")
 
         val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
         val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
         // Finishes immediately after ONE enrollment, regardless of whether some higher floor was
-        // reached - unlike REGISTRATION, MANAGE_METHODS never depends on canAccountReach.
-        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        // reached - unlike the identification path, MANAGE never depends on canAccountReach.
+        assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
         assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")
@@ -1015,7 +1015,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // sms is a candidate again now that it was deactivated - email is already confirmed, so
         // password is ALSO now a valid candidate, hence a selection page rather than a skip.
         val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-        assertThat(started.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
+        assertThat(started.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-password", "enroll-device")
     }
@@ -1038,7 +1038,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
 
         // The account has only sms enrolled - no second AUTH method exists to combine with, so
         // without re-identification this would be a dead end (the bug this test guards against).
-        // MANAGE_METHODS must offer ident-fsc as a way to reach loa2 instead of erroring out.
+        // MANAGE must offer ident-fsc as a way to reach loa2 instead of erroring out.
         val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
         assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
         assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
@@ -1048,21 +1048,15 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
         )
-        // Re-identification alone already reaches loa2 - MANAGE_METHODS resumes immediately,
-        // finishing back to AUTHENTICATED rather than demanding a further factor.
-        assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        // Re-identification alone already reaches loa2, so the step-up sub-journey ends - and the
+        // ORIGINAL wish resumes right there. The user does not have to ask for the enrollment a
+        // second time; that is the whole point of parking the wish rather than replacing it.
+        assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(reIdentified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-password", "enroll-device")
 
         val afterStepUp = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
-        assertThat(afterStepUp.channel()["state"]).isEqualTo("AUTHENTICATED")
         assertThat(afterStepUp.channel()["currentAcr"]).isEqualTo("loa2")
-
-        // Calling methods again now succeeds directly (loa2 already satisfied this session) -
-        // password and device both remain as candidates (sms+email already active from
-        // registerAndAuthenticate), so a selection page is offered.
-        val retried = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-        assertThat(retried.next()).isEqualTo(mapOf("type" to "flow", "context" to "enrollment", "step" to "selectMethod"))
-        @Suppress("UNCHECKED_CAST")
-        assertThat(retried.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-password", "enroll-device")
     }
 
     @Test
@@ -1114,7 +1108,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         // (docs/04-orchestrierung.md, lookup-based login).
         val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
         val channelSessionId = loginStart.channel()["channelSessionId"] as String
-        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "flow", "context" to "auth", "step" to "selectMethod"))
+        assertThat(loginStart.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
         @Suppress("UNCHECKED_CAST")
         assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
 
@@ -1123,16 +1117,19 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
             """{"email":"$email","password":"correct-horse-battery"}"""
         )
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(
+            mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
+        )
+
+        post("/orchestrator/api/v1/app/channels/$channelSessionId/device-binding", """{"accept":true}""")
 
         val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
         assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")
         @Suppress("UNCHECKED_CAST")
         assertThat(channel.channel()["currentAmr"] as List<String>).contains("password")
 
-        // DeviceAccountLink re-written by the lookup login (idempotent here, same account) -
-        // a subsequent plain intent=auto channel on this device goes straight to LOGIN again,
-        // never REGISTRATION.
+        // Accepting is what writes DeviceAccountLink - a subsequent FAST channel on this device
+        // is then recognized instead of having to identify again.
         val nextAuto = post("/orchestrator/api/v1/app/channels")
         assertThat(nextAuto.channel()["state"]).isNotEqualTo("REGISTERING")
     }
@@ -1161,11 +1158,47 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"email":"$email"}""")
         }
         val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"tan":"$loginTan"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        // A lookup login does not finish on the proof itself: the device binding is offered
+        // explicitly, because this intent is chosen by people who want no device binding.
+        assertThat(authenticated.next()).isEqualTo(
+            mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
+        )
+
+        val done = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/device-binding", """{"accept":true}""")
+        assertThat(done.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
         assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")
     }
+
+    @Test
+    fun lookupLogin_decliningTheBindingOffer_leavesTheDeviceUnlinked() {
+        val email = registerWithEmailAndPassword()
+
+        // A DIFFERENT physical device: it has never been linked, so whether a link exists
+        // afterwards is decided purely by the answer to the binding offer.
+        currentBindingKeyRef = "binding-" + UUID.randomUUID()
+
+        val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+        val channelSessionId = loginStart.channel()["channelSessionId"] as String
+        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
+        patch(
+            "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
+            """{"email":"$email","password":"correct-horse-battery"}"""
+        )
+
+        post("/orchestrator/api/v1/app/channels/$channelSessionId/device-binding", """{"accept":false}""")
+        assertThat(linkedAccountsFor(currentBindingKeyRef)).isZero()
+
+        // And a plain FAST channel on this device consequently still has to identify.
+        val nextAuto = post("/orchestrator/api/v1/app/channels")
+        assertThat(nextAuto.channel()["state"]).isEqualTo("REGISTERING")
+    }
+
+    private fun linkedAccountsFor(bindingKeyRef: String): Int =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM device_account_link WHERE binding_key_ref = ?", Int::class.java, bindingKeyRef
+        ) ?: 0
 
     /**
      * activeMethods (ChannelResponse) is the account's full standing method list, distinct from
@@ -1198,7 +1231,7 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         val loginChannelSessionId = loginStart.channel()["channelSessionId"] as String
         val authToolSessionId = post("/orchestrator/api/v1/app/channels/$loginChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
         val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val channel = get("/orchestrator/api/v1/app/channels/$loginChannelSessionId")
         @Suppress("UNCHECKED_CAST")
@@ -1219,7 +1252,10 @@ class RegistrationLoginStepUpFlowIntegrationTest {
             patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"email":"$email"}""")
         }
         val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"code":"$loginCode"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(
+            mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
+        )
+        post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/device-binding", """{"accept":true}""")
 
         val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
         assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")

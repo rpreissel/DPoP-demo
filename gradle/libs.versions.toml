@@ -29,4 +29,6 @@ flyway-core = { module = "org.flywaydb:flyway-core" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version = "10.2" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
+# Jackson 3 Kotlin module: JourneyState is persisted as JSON (data classes + sealed hierarchies).
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi" }

@@ -78,7 +78,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
     api.patchTool.mockResolvedValue(
       channelResponse({
         channel: { channelSessionId: 'chan-1', state: 'AUTHENTICATED' },
-        next: { type: 'flow', context: 'authentication', step: 'authenticated' },
+        next: { type: 'orchestrator', context: 'authentication', step: 'authenticated' },
       })
     )
     api.getChannel.mockResolvedValue(
@@ -90,7 +90,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
           currentAmr: ['sms'],
           activeMethods: [{ id: 'method-1', method: 'sms' }],
         },
-        next: { type: 'flow', context: 'authentication', step: 'authenticated' },
+        next: { type: 'orchestrator', context: 'authentication', step: 'authenticated' },
       })
     )
 
@@ -125,7 +125,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
             { id: 'method-2', method: 'password' },
           ],
         },
-        next: { type: 'flow', context: 'authentication', step: 'authenticated' },
+        next: { type: 'orchestrator', context: 'authentication', step: 'authenticated' },
       })
     )
 

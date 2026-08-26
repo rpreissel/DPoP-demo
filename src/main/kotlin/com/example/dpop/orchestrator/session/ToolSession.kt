@@ -14,13 +14,15 @@ import java.util.UUID
  * Third and shortest-lived session level (docs/03-tool-architektur.md #1). A single
  * concrete class, no subtypes: it carries only technical lifecycle metadata. Neither
  * toolId nor stepData live here - toolId comes from the route, stepData is rebuilt
- * per response from the module's own data.
+ * per response from the module's own data. No retry counter either: the attempt budget spans the
+ * whole AuthJourney (docs/04-orchestrierung.md #7), because a tool-local counter cannot stop
+ * brute force that simply moves on to the next stage.
  */
 @Entity
 @Table(name = "tool_session")
 class ToolSession(
-    @Column(name = "process_session_id", nullable = false)
-    var processSessionId: UUID? = null,
+    @Column(name = "journey_id", nullable = false)
+    var journeyId: UUID? = null,
 
     @Column(name = "expires_at", nullable = false)
     var expiresAt: Instant? = null
@@ -33,19 +35,12 @@ class ToolSession(
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null
 
-    @Column(name = "retry_count", nullable = false)
-    var retryCount: Int = 0
-
     @Version
     @Column(name = "version", nullable = false)
     var version: Long? = null
 
     init {
         createdAt = Instant.now()
-    }
-
-    fun registerFailedAttempt() {
-        retryCount += 1
     }
 
     val isExpired: Boolean

@@ -114,6 +114,23 @@ class ChannelController(
         return ResponseEntity.noContent().build()
     }
 
+    @PostMapping("/{channelSessionId}/device-binding")
+    @Operation(
+        summary = "Answer the optional device-binding offer",
+        description = "Only meaningful right after a lookup login (next.step=offerDeviceBinding). Agreeing is the " +
+            "ONLY way such a login ever makes this device recognizable for future logins - it never happens as a " +
+            "side effect, because this intent is chosen precisely by people who want no device binding."
+    )
+    fun answerDeviceBinding(
+        @PathVariable channelSessionId: UUID,
+        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        @RequestBody request: DeviceBindingRequest,
+        httpRequest: HttpServletRequest
+    ): ResponseEntity<ChannelResponse> {
+        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
+        return ResponseEntity.ok(channelService.answerDeviceBinding(channelSessionId, bindingKeyRef, request.accept))
+    }
+
     @GetMapping("/{channelSessionId}/methods")
     @Operation(
         summary = "Read the account's active authentication methods",

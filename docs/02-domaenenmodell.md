@@ -15,18 +15,19 @@ classDiagram
     long accountId
     UUID authContextId
     ChannelState state
-    string requiredAcr
+    string acrFloor
+    AuthIntent entryIntent
   }
-  class ProcessSession {
-    <<abstract>>
-    UUID processSessionId
-    ProcessPurpose purpose
-    ProcessState state
+  class AuthJourney {
+    UUID journeyId
+    AuthIntent intent
+    JourneyLifecycle lifecycle
     long accountId
-    string nextType/nextToolId/nextContext/nextStep
+    string stateType
+    json state
+    int attemptBudget
+    UUID parentJourneyId
   }
-  class RegistrationProcessSession { long personId }
-  class StepUpProcessSession { string requiredAcr/startingAcr/achievedAcr }
   class DeviceAccountLink { string bindingKeyRef; long accountId }
   class AuthContext {
     UUID authContextId
@@ -37,11 +38,10 @@ classDiagram
   }
   class SessionEvent { UUID channelSessionId/processSessionId; string eventType }
 
-  ProcessSession <|-- RegistrationProcessSession
-  ProcessSession <|-- StepUpProcessSession
-  ChannelSession "1" --> "0..*" ProcessSession : has
+  ChannelSession "1" --> "0..*" AuthJourney : has
+  AuthJourney "0..1" --> "0..*" AuthJourney : sub-journey of
   ChannelSession "0..1" --> "1" AuthContext : points-to
-  ProcessSession "0..1" --> "1" AuthContext : updates
+  AuthJourney "0..1" --> "1" AuthContext : updates
   ChannelSession "1" --> "0..*" SessionEvent : audited-by
 ```
 
@@ -49,11 +49,12 @@ classDiagram
 
 ---
 
-## 2) Prozessklassen statt flachem Objekt
+## 2) Zustand statt Vererbung
 
-- `ProcessSession` ist die abstrakte Basis mit gemeinsamem Lifecycle, Account-Bezug und Routing-Zustand; konkrete Subklassen (`RegistrationProcessSession`, `LoginProcessSession`, `StepUpProcessSession`, `ManageMethodsProcessSession`) tragen nur, was ihr jeweiliger Prozesstyp zusätzlich braucht. `LoginProcessSession`/`ManageMethodsProcessSession` sind leere Marker-Subklassen — kein eigenes Feld nötig, aber ein eigener Typ (erschöpfendes `when`, offen für später).
-- Bewusst **nicht** auf der `ProcessSession`: gewählte Methode und laufende Challenge. Das gewählte Tool steckt im Routing-Zustand (`nextToolId`), die Challenge ausschließlich im jeweiligen Methodenmodul (strikte Regel in [Tool-Architektur](03-tool-architektur.md)).
-- Persistenz darf physisch eine Tabelle nutzen (Single-Table-Vererbung), aber das Domain-Modell arbeitet mit konkreten Typen statt einem großen, flachen JSON-Objekt.
+- `AuthJourney` ist eine flache Entity ohne Subklassen. Was sich je Intent unterscheidet, steckt nicht in Feldern der Entity, sondern im `JourneyState` — einer versiegelten Zustandsmenge **pro Intent** ([Orchestrierung](04-orchestrierung.md)). Verhalten braucht Services (`AuthPolicy`, `AccountService`, Tool-Katalog), die eine JPA-Entity nicht halten darf; es lebt deshalb in einer `IntentStrategy` je Intent.
+- Persistiert wird der Zustand als `stateType` (abfragbarer Diskriminator) plus `state` (JSON der Attribute). Eigene Spalten je Attribut wären eine breite Tabelle aus überwiegend leeren Feldern — genau die formlose Routing-Ablage, die dieses Modell ersetzt.
+- Bewusst **nicht** auf der `AuthJourney`: die laufende Challenge. Das gewählte Tool steckt als `ToolRef` im `JourneyState`, die Challenge ausschließlich im jeweiligen Methodenmodul (strikte Regel in [Tool-Architektur](03-tool-architektur.md)).
+- Ebenfalls bewusst **nicht** vorhanden: gespeicherte `next*`-Felder. `next` ist eine reine Funktion des Zustands; eine zweite Ablage derselben Wahrheit könnte nur auseinanderlaufen.
 
 ---
 
@@ -77,16 +78,18 @@ stateDiagram-v2
   EXPIRED --> [*]
 ```
 
-### ProcessSession-Zustände
+### AuthJourney-Lebenszyklus
 
-Der Prozess läuft über beliebig viele Tools (z. B. `ident-fsc` -> `enroll-sms`); die einzelnen Tool-Schritte gehören zu `ToolState`, nicht hierher.
+Der Lebenszyklus sagt nur, **ob** die Journey noch läuft. Wo auf dem Weg sie steht, sagt der intent-eigene `JourneyState` ([Orchestrierung](04-orchestrierung.md)); die Schritte innerhalb eines Tools gehören zu `ToolState`.
 
 ```mermaid
 stateDiagram-v2
   [*] --> STARTED
   STARTED --> STARTED: tool completed, weiteres Tool nötig
+  STARTED --> SUSPENDED: wartet auf eine Sub-Journey
+  SUSPENDED --> STARTED: Sub-Journey abgeschlossen
   STARTED --> SUCCEEDED: letztes benötigtes Tool erfolgreich
-  STARTED --> FAILED: Retry-Limit erreicht
+  STARTED --> FAILED: Versuchsbudget erschöpft
   STARTED --> CANCELLED: explicit cancel
   STARTED --> EXPIRED: ttl reached
   SUCCEEDED --> CONSUMED: result applied to channel/auth context
@@ -102,8 +105,8 @@ stateDiagram-v2
 
 - `Channel`: `APP`, `WEB`
 - `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`, `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
-- `ProcessPurpose`: `REGISTRATION`, `LOGIN`, `STEP_UP`, `MANAGE_METHODS` (freiwillige Kontoverwaltung, [Orchestrierung](04-orchestrierung.md) Abschnitt 3)
-- `ProcessState`: `STARTED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`
+- `AuthIntent`: `FAST`, `REGISTER`, `LOGIN_LOOKUP`, `STEP_UP`, `MANAGE` — Ziel *samt* Führungsstrategie ([Orchestrierung](04-orchestrierung.md) Abschnitt 1)
+- `JourneyLifecycle`: `STARTED`, `SUSPENDED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`
 - `ToolCategory`: `IDENT`, `ENROLL`, `AUTH` — Selbstauskunft des Moduls ([Tool-Architektur](03-tool-architektur.md))
 - `FactorType`: `KNOWLEDGE`, `POSSESSION`, `INHERENCE` — ebenfalls Selbstauskunft, Grundlage der MFA-Prüfung ([Orchestrierung](04-orchestrierung.md))
 
@@ -112,9 +115,9 @@ stateDiagram-v2
 ## 5) Persistenz-Regeln
 
 - `ChannelSession.channelSessionId` ist stabil und opaque; App/Web kennen nur diese technische Referenz.
-- Routing-Metadaten (`nextType`, `nextToolId`, `nextContext`, `nextStep`) liegen in der `ProcessSession`; `stepData` wird vom konkreten Handler aus dem methodenspezifischen Zustand aufgebaut und nirgends zentral gespeichert.
-- `accountId` mit klarer Rollenteilung: `ProcessSession.accountId` wird während des laufenden Prozesses ermittelt; `ChannelSession.accountId` wird erst bei erfolgreichem Prozessabschluss daraus übernommen und gilt nur für diesen (kurzlebigen) Kanal. Die tatsächlich langlebige Zuordnung Gerät -> Account liegt in `DeviceAccountLink`, unabhängig von einer einzelnen `ChannelSession` ([DPoP-Bindung](09-dpop.md) Abschnitt 3).
+- Routing wird **nicht** gespeichert: `next` folgt aus dem `JourneyState` ([Orchestrierung](04-orchestrierung.md) Abschnitt 4). `stepData` wird vom konkreten Handler aus dem methodenspezifischen Zustand aufgebaut und ebenfalls nirgends zentral gespeichert.
+- `accountId` mit klarer Rollenteilung: `AuthJourney.accountId` wird während der laufenden Journey ermittelt; `ChannelSession.accountId` wird erst bei erfolgreichem Prozessabschluss daraus übernommen und gilt nur für diesen (kurzlebigen) Kanal. Die tatsächlich langlebige Zuordnung Gerät -> Account liegt in `DeviceAccountLink`, unabhängig von einer einzelnen `ChannelSession` ([DPoP-Bindung](09-dpop.md) Abschnitt 3).
 - `ChannelSession` ist bewusst kurzlebig (TTL in [08-projektrahmen.md](08-projektrahmen.md)) und wird **nie** über `bindingKeyRef` gesucht oder wiederverwendet — der Key beweist nur, welches Gerät spricht, nie welche Session fortzusetzen ist. Fortsetzen verlangt die vom Client gemerkte `channelSessionId` (`GET`); ein Kanaleinstieg ohne bekannte ID legt daher immer eine neue `ChannelSession` an. `DeviceAccountLink` sorgt trotzdem dafür, dass ein bereits registriertes Gerät direkt bei LOGIN statt bei `ident-fsc` landet.
 - `currentFactorTypes` wird neben `currentAmr` geführt, nicht daraus abgeleitet: `amr`-Werte benennen Verfahren, nicht Faktorarten (ein Wert wie `user` bei WebAuthn ließe sich nicht eindeutig zurückführen) — die Faktorarten meldet das Tool direkt.
-- Zwei Ebenen für `requiredAcr`: `ChannelSession.requiredAcr` ist die **dauerhafte Untergrenze** des Kanals (überlebt einzelne Prozesse); `StepUpProcessSession.requiredAcr` ist das **Ziel des konkreten Laufs** und kann höher liegen. Gating rechnet mit dem Maximum beider Werte.
+- Zwei Ebenen, bewusst verschieden benannt, damit sie nicht wie dasselbe Feld aussehen: `ChannelSession.acrFloor` ist die **dauerhafte Untergrenze** des Kanals (überlebt einzelne Journeys); `StepUpState.targetAcr` ist das **Ziel des konkreten Laufs** und kann höher liegen. Gating rechnet mit dem Maximum beider Werte.
 - Ein vom Client genanntes `requiredAcr` ist stets eine Untergrenze, nie eine Erlaubnis: Das Backend setzt `max(Policy-Anforderung, Client-Wunsch)` — ein Client kann sein Niveau anheben, aber nie eine Policy unterlaufen.

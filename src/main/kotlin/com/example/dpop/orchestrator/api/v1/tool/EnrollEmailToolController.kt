@@ -5,7 +5,6 @@ import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
-import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -55,7 +54,7 @@ class EnrollEmailToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, ENROLL_EMAIL_TOOL_ID, ToolCategory.ENROLL)
+        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, ENROLL_EMAIL_TOOL_ID)
         val outcome = handler.start(context.toolSession.toolSessionId!!)
         val response = controllerSupport.applyOutcome(ENROLL_EMAIL_TOOL_ID, outcome, context)
         val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, ENROLL_EMAIL_TOOL_ID)
@@ -83,7 +82,7 @@ class EnrollEmailToolController(
         controllerSupport.requireCurrentTool(context, ENROLL_EMAIL_TOOL_ID)
 
         val body = request ?: EnrollEmailPatchRequest()
-        val accountId = checkNotNull(context.processSession.accountId) { "enroll-email without an account bound to the process" }
+        val accountId = checkNotNull(context.journey.accountId) { "enroll-email without an account bound to the journey" }
         val outcome = handler.patch(toolSessionId, body.email, body.code, accountId)
 
         return ResponseEntity.ok(controllerSupport.applyOutcome(ENROLL_EMAIL_TOOL_ID, outcome, context))

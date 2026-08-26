@@ -1,6 +1,7 @@
 /** Pure address, never mixed with content (docs/05-api.md #2). */
 export interface Next {
-  type: 'tool' | 'flow'
+  /** Both values name the owner of the next screen, and thus which endpoint to call next. */
+  type: 'tool' | 'orchestrator'
   toolId?: string
   context?: string
   step: string

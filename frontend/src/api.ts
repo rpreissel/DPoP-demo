@@ -99,7 +99,7 @@ export function raiseRequiredAcr(dpop: DpopKeyPair, channelSessionId: string, re
   return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/step-ups`, { requiredAcr })
 }
 
-/** Abandons the active REGISTRATION/LOGIN/STEP_UP process; the response already offers a fresh start where applicable. */
+/** Abandons the running AuthJourney; the response already offers a fresh start where applicable. */
 export function cancelProcess(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/process`)
 }
@@ -114,7 +114,7 @@ export function getMethods(dpop: DpopKeyPair, channelSessionId: string): Promise
   return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods`)
 }
 
-/** Voluntary enrollment on an already-AUTHENTICATED channel (ProcessPurpose.MANAGE_METHODS) - offers the existing enroll-* tools, finishes after exactly one. Call again to add another. */
+/** Voluntary enrollment on an already-AUTHENTICATED channel (AuthIntent.MANAGE) - offers the existing enroll-* tools, finishes after exactly one. Call again to add another. */
 export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
   return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/enrollments`)
 }
@@ -122,6 +122,19 @@ export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string):
 /** Deactivates an active method instance (addressed by its own id, not by method name - a method can have several active instances, e.g. multiple devices); rejected (409) if it would drop the account below this channel's required level. */
 export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, methodInstanceId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods/${methodInstanceId}`)
+}
+
+/** Answers the optional device-binding offer of a lookup login (docs/04-orchestrierung.md #3). */
+export function answerDeviceBinding(dpop: DpopKeyPair, channelSessionId: string, accept: boolean): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/device-binding`, { accept })
+}
+
+/**
+ * Declines the currently running tool without giving up the journey (docs/04-orchestrierung.md):
+ * on a fallback stage the ladder moves on, on a goal-driven stage the full choice comes back.
+ */
+export function abandonTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string): Promise<ChannelResponse> {
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`)
 }
 
 /** toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by the client. */

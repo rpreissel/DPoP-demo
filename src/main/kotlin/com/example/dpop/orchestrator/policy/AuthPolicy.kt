@@ -25,7 +25,7 @@ interface AuthPolicy {
      * identification's own maxAcr already prices in its full trust level (ident-fsc alone is
      * loa2) regardless of what the account has enrolled, so unlike AUTH candidates it isn't
      * gated by any per-account enrollment state - only callers that explicitly want to offer
-     * re-identification as a step-up path (docs/04-orchestrierung.md, MANAGE_METHODS) opt in by
+     * re-identification as a step-up path (docs/04-orchestrierung.md, the MANAGE gate) opt in by
      * calling this at all; ordinary LOGIN/STEP_UP candidate resolution never does.
      */
     fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String>

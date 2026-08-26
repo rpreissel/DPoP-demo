@@ -4,7 +4,9 @@ import './App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, Next, StepData } from './types'
 import { getUIComponent } from './routing.ts'
 import {
+  abandonTool,
   activateTool,
+  answerDeviceBinding,
   ApiError,
   cancelProcess,
   createChannel,
@@ -34,6 +36,7 @@ import { SessionStatusView } from './components/SessionStatusView'
 import { SmsEnrollForm } from './components/SmsEnrollForm'
 import { TanInputForm } from './components/TanInputForm'
 import { DeviceEnrollForm } from './components/DeviceEnrollForm'
+import { DeviceBindingOfferView } from './components/DeviceBindingOfferView'
 import { DeviceAuthForm } from './components/DeviceAuthForm'
 
 interface ActiveTool {
@@ -204,7 +207,7 @@ function App() {
    */
   useEffect(() => {
     if (!dpop || !channelSessionId) return
-    if (next?.type !== 'flow' || next.context !== 'authentication' || next.step !== 'authenticated') return
+    if (next?.type !== 'orchestrator' || next.context !== 'authentication' || next.step !== 'authenticated') return
     if (currentAcr !== undefined) return
 
     getChannel(dpop, channelSessionId)
@@ -307,6 +310,21 @@ function App() {
     }
   }
 
+  /**
+   * The one lookup-login screen that is not a tool: whether this device gets remembered. Both
+   * answers continue the journey - declining is a valid outcome, not a cancel.
+   */
+  async function handleDeviceBinding(accept: boolean) {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      const response = await answerDeviceBinding(dpop, channelSessionId, accept)
+      applyResponse(response)
+    } catch (err) {
+      setError(describeError('Geräte-Bindung fehlgeschlagen', err))
+    }
+  }
+
   /** Voluntary enrollment on an already-AUTHENTICATED channel - offers a new enroll-* tool, which the auto-activate effect below then picks up. */
   async function handleAddMethod() {
     if (!dpop || !channelSessionId) return
@@ -327,6 +345,24 @@ function App() {
       applyResponse(response)
     } catch (err) {
       setError(describeError('Deaktivieren fehlgeschlagen', err))
+    }
+  }
+
+  /**
+   * Declines the running tool - the ladder's own action, distinct from Abbrechen. On a FAST
+   * fallback stage this moves down the ladder (other auth methods, then identification); on a
+   * goal-driven stage it just brings the full choice back. Abbrechen, by contrast, ends the whole
+   * journey and therefore restarts the SAME intent - which on a fallback stage means landing right
+   * back where you were.
+   */
+  async function handleAbandonTool() {
+    if (!dpop || !activeTool) return
+    try {
+      setError('')
+      const response = await abandonTool(dpop, activeTool.toolSessionId, activeTool.toolId)
+      applyResponse(response)
+    } catch (err) {
+      setError(describeError('Wechsel fehlgeschlagen', err))
     }
   }
 
@@ -362,7 +398,7 @@ function App() {
 
   const uiComponent = getUIComponent(next)
   // Nothing to cancel before a process even started, or once it's already finished.
-  const canCancel = !!next && !(next.type === 'flow' && next.context === 'authentication' && next.step === 'authenticated')
+  const canCancel = !!next && !(next.type === 'orchestrator' && next.context === 'authentication' && next.step === 'authenticated')
   // Once a tool is actively awaiting input - or the user is choosing WHICH tool, i.e.
   // select-method - every other action (bail into a different flow, logout, ...) just competes
   // for attention with the one that matters: Abbrechen.
@@ -407,6 +443,11 @@ function App() {
               {inToolMode ? (
                 canCancel && (
                   <div className="controls">
+                    {activeTool && (
+                      <button className="secondary" onClick={handleAbandonTool}>
+                        Anderes Verfahren
+                      </button>
+                    )}
                     <button className="secondary" onClick={handleCancel}>
                       Abbrechen
                     </button>
@@ -517,6 +558,10 @@ function App() {
               onSubmit={(body) => handlePatch(body)}
               error={stepData?.error}
             />
+          )}
+
+          {uiComponent === 'device-binding-offer' && (
+            <DeviceBindingOfferView onAnswer={handleDeviceBinding} />
           )}
 
           {uiComponent === 'authentication-completed' && (

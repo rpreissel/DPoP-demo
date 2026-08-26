@@ -12,7 +12,6 @@ import java.util.UUID
 @Transactional
 class SessionManagementService(
     private val channelSessionRepository: ChannelSessionRepository,
-    private val processSessionRepository: ProcessSessionRepository,
     private val toolSessionRepository: ToolSessionRepository,
     private val sessionEventRepository: SessionEventRepository,
     private val deviceAccountLinkRepository: DeviceAccountLinkRepository
@@ -60,10 +59,10 @@ class SessionManagementService(
      * Compared against the EFFECTIVE floor (default applied), not the raw nullable column -
      * otherwise an explicit "loa1" would silently undercut the implicit loa2 baseline.
      */
-    fun raiseChannelRequiredAcr(channelSessionId: UUID, requiredAcr: String) {
+    fun raiseChannelAcrFloor(channelSessionId: UUID, requiredAcr: String) {
         channelSessionRepository.findByIdOrNull(channelSessionId)?.let { session ->
-            val effectiveFloor = session.requiredAcr ?: AcrLevels.DEFAULT_REQUIRED_ACR
-            session.requiredAcr = AcrLevels.max(effectiveFloor, requiredAcr)
+            val effectiveFloor = session.acrFloor ?: AcrLevels.DEFAULT_REQUIRED_ACR
+            session.acrFloor = AcrLevels.max(effectiveFloor, requiredAcr)
             session.touch()
             channelSessionRepository.save(session)
         }
@@ -84,7 +83,7 @@ class SessionManagementService(
     fun findLinkedAccountId(bindingKeyRef: String): Long? =
         deviceAccountLinkRepository.findByIdOrNull(bindingKeyRef)?.accountId
 
-    /** Idempotent: called every time a channel reaches AUTHENTICATED, regardless of purpose. */
+    /** Idempotent: called every time a channel reaches AUTHENTICATED, regardless of intent. */
     fun linkDeviceToAccount(bindingKeyRef: String, accountId: Long) {
         val existing = deviceAccountLinkRepository.findByIdOrNull(bindingKeyRef)
         if (existing == null) {
@@ -96,61 +95,14 @@ class SessionManagementService(
         }
     }
 
-    // ProcessSession management -------------------------------------------------
-
-    fun createRegistrationProcessSession(channelSessionId: UUID, ttl: Duration): RegistrationProcessSession =
-        processSessionRepository.save(RegistrationProcessSession(channelSessionId, Instant.now().plus(ttl)))
-
-    fun createLoginProcessSession(channelSessionId: UUID, ttl: Duration): LoginProcessSession =
-        processSessionRepository.save(LoginProcessSession(channelSessionId, Instant.now().plus(ttl)))
-
-    fun createStepUpProcessSession(channelSessionId: UUID, requiredAcr: String, ttl: Duration): StepUpProcessSession =
-        processSessionRepository.save(StepUpProcessSession(channelSessionId, requiredAcr, Instant.now().plus(ttl)))
-
-    fun createManageMethodsProcessSession(channelSessionId: UUID, ttl: Duration): ManageMethodsProcessSession =
-        processSessionRepository.save(ManageMethodsProcessSession(channelSessionId, Instant.now().plus(ttl)))
-
-    fun findProcessSessionById(processSessionId: UUID): ProcessSession? =
-        processSessionRepository.findByIdOrNull(processSessionId)
-            ?.takeIf { !it.isExpired }
-
-    fun findActiveProcessSession(channelSessionId: UUID): ProcessSession? =
-        processSessionRepository.findFirstByChannelSessionIdAndStateOrderByCreatedAtDesc(
-            channelSessionId, ProcessState.STARTED
-        )?.takeIf { !it.isExpired }
-
-    fun updateProcessSession(session: ProcessSession): ProcessSession =
-        processSessionRepository.save(session)
-
-    fun consumeProcessSession(processSessionId: UUID) {
-        processSessionRepository.findByIdOrNull(processSessionId)?.let { session ->
-            session.consume()
-            processSessionRepository.save(session)
-        }
-    }
-
-    fun failProcessSession(processSessionId: UUID) {
-        processSessionRepository.findByIdOrNull(processSessionId)?.let { session ->
-            session.fail()
-            processSessionRepository.save(session)
-        }
-    }
-
     // ToolSession management -----------------------------------------------------
 
-    fun createToolSession(processSessionId: UUID, ttl: Duration): ToolSession =
-        toolSessionRepository.save(ToolSession(processSessionId, Instant.now().plus(ttl)))
+    fun createToolSession(journeyId: UUID, ttl: Duration): ToolSession =
+        toolSessionRepository.save(ToolSession(journeyId, Instant.now().plus(ttl)))
 
     fun findToolSessionById(toolSessionId: UUID): ToolSession? =
         toolSessionRepository.findByIdOrNull(toolSessionId)
             ?.takeIf { !it.isExpired }
-
-    fun registerFailedToolAttempt(toolSessionId: UUID): ToolSession {
-        val session = toolSessionRepository.findByIdOrNull(toolSessionId)
-            ?: throw IllegalArgumentException("Tool session not found: $toolSessionId")
-        session.registerFailedAttempt()
-        return toolSessionRepository.save(session)
-    }
 
     /**
      * Invalidates an abandoned tool session immediately (Back/Switch) rather than waiting for
@@ -169,13 +121,13 @@ class SessionManagementService(
 
     fun recordEvent(
         channelSessionId: UUID?,
-        processSessionId: UUID?,
+        journeyId: UUID?,
         eventType: String,
         source: String,
         payload: Any? = null
     ) {
         val payloadHash = payload?.let { hashPayload(it.toString()) }
-        sessionEventRepository.save(SessionEvent(channelSessionId, processSessionId, eventType, source, payloadHash))
+        sessionEventRepository.save(SessionEvent(channelSessionId, journeyId, eventType, source, payloadHash))
     }
 
     private fun hashPayload(payload: String): String =

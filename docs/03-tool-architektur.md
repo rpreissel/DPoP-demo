@@ -10,7 +10,7 @@ Was der Orchestrator mit diesen Meldungen macht, steht in [04-orchestrierung.md]
 
 ## 1) Tool-Katalog
 
-`ToolSession` ist die dritte und kurzlebigste Session-Ebene (`ChannelSession` -> `ProcessSession` -> `ToolSession`) und steht für genau einen Durchlauf eines Tools; sie trägt nur technische Lifecycle-Metadaten, keine Kind-Subtypen. `toolId` (z. B. `ident-fsc`, `enroll-sms`, `auth-sms`) identifiziert Kind und Methode zusammen in einem flachen Bezeichner — kein persistiertes Feld, sondern ergibt sich aus der Route und wählt darüber Handler und Moduldaten-Klasse.
+`ToolSession` ist die dritte und kurzlebigste Ebene (`ChannelSession` -> `AuthJourney` -> `ToolSession`) und steht für genau einen Durchlauf eines Tools; sie trägt nur technische Lifecycle-Metadaten, keine Kind-Subtypen. `toolId` (z. B. `ident-fsc`, `enroll-sms`, `auth-sms`) identifiziert Kind und Methode zusammen in einem flachen Bezeichner — kein persistiertes Feld, sondern ergibt sich aus der Route und wählt darüber Handler und Moduldaten-Klasse.
 
 Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregation der Selbstauskünfte aller Module (`ToolDescriptor`, Abschnitt 2):
 

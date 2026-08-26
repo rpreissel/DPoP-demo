@@ -104,7 +104,11 @@ CREATE TABLE channel_session (
     account_id BIGINT,
     auth_context_id UUID,
     state VARCHAR(50) NOT NULL DEFAULT 'ANONYMOUS',
-    required_acr VARCHAR(50),
+    -- Durable lower bound of the channel; distinct from a single step-up run's targetAcr
+    -- (docs/04-orchestrierung.md, "Zwei Ebenen für das geforderte Niveau").
+    acr_floor VARCHAR(50),
+    -- The intent this channel was entered with; resume and cancel restart the same one.
+    entry_intent VARCHAR(20) NOT NULL DEFAULT 'FAST',
     created_at TIMESTAMP NOT NULL,
     last_accessed_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
@@ -114,48 +118,51 @@ CREATE TABLE channel_session (
 CREATE INDEX idx_channel_session_binding_key_ref ON channel_session(binding_key_ref);
 CREATE INDEX idx_channel_session_state ON channel_session(state);
 
-CREATE TABLE process_session (
-    process_session_id UUID PRIMARY KEY,
+-- One run of one AuthIntent (docs/04-orchestrierung.md). `state_type`/`state` hold the
+-- intent-specific JourneyState: the discriminator stays queryable, the attributes travel as
+-- JSON. There is deliberately no next_* column - `next` is derived from the state.
+CREATE TABLE auth_journey (
+    journey_id UUID PRIMARY KEY,
     channel_session_id UUID NOT NULL,
-    purpose VARCHAR(20) NOT NULL,
-    state VARCHAR(20) NOT NULL,
+    intent VARCHAR(20) NOT NULL,
+    lifecycle VARCHAR(20) NOT NULL,
     account_id BIGINT,
-    person_id BIGINT,
-    required_acr VARCHAR(50),
-    starting_acr VARCHAR(50),
-    achieved_acr VARCHAR(50),
-    next_type VARCHAR(10),
-    next_tool_id VARCHAR(50),
-    next_context VARCHAR(50),
-    next_step VARCHAR(50),
+    state_type VARCHAR(50) NOT NULL,
+    state JSON NOT NULL,
+    attempt_budget INT NOT NULL,
+    -- Set on a journey started as the precondition of another one; the parent is SUSPENDED
+    -- meanwhile, so at most one STARTED journey per channel remains the invariant.
+    parent_journey_id UUID,
     created_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     consumed_at TIMESTAMP,
     version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_process_session_channel_session FOREIGN KEY (channel_session_id) REFERENCES channel_session(channel_session_id)
+    CONSTRAINT fk_auth_journey_channel_session FOREIGN KEY (channel_session_id) REFERENCES channel_session(channel_session_id)
 );
-CREATE INDEX idx_process_session_channel_session_id ON process_session(channel_session_id);
-CREATE INDEX idx_process_session_state ON process_session(state);
+CREATE INDEX idx_auth_journey_channel_session_id ON auth_journey(channel_session_id);
+CREATE INDEX idx_auth_journey_lifecycle ON auth_journey(lifecycle);
+CREATE INDEX idx_auth_journey_parent ON auth_journey(parent_journey_id);
 
 CREATE TABLE session_event (
     event_id UUID PRIMARY KEY,
     channel_session_id UUID,
-    process_session_id UUID,
+    journey_id UUID,
     event_type VARCHAR(100) NOT NULL,
     source VARCHAR(100) NOT NULL,
     payload_hash VARCHAR(128),
     created_at TIMESTAMP NOT NULL
 );
 CREATE INDEX idx_session_event_channel_session_id ON session_event(channel_session_id);
-CREATE INDEX idx_session_event_process_session_id ON session_event(process_session_id);
+CREATE INDEX idx_session_event_journey_id ON session_event(journey_id);
 
+-- No retry_count: the attempt budget spans the whole journey, not a single tool
+-- (docs/04-orchestrierung.md, Versuchsbudget).
 CREATE TABLE tool_session (
     tool_session_id UUID PRIMARY KEY,
-    process_session_id UUID NOT NULL,
+    journey_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
-    retry_count INT NOT NULL DEFAULT 0,
     version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_tool_session_process_session FOREIGN KEY (process_session_id) REFERENCES process_session(process_session_id)
+    CONSTRAINT fk_tool_session_journey FOREIGN KEY (journey_id) REFERENCES auth_journey(journey_id)
 );
-CREATE INDEX idx_tool_session_process_session_id ON tool_session(process_session_id);
+CREATE INDEX idx_tool_session_journey_id ON tool_session(journey_id);

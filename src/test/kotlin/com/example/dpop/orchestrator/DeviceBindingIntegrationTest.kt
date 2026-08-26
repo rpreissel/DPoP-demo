@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.nimbusds.jose.JOSEObjectType
@@ -70,7 +71,7 @@ class DeviceBindingIntegrationTest {
         listOf(
             "auth_device_tool_data", "enroll_device_tool_data", "device_enrollment",
             "auth_sms_use_tool_data", "enroll_sms_tool_data", "auth_sms",
-            "id_fsc_tool_data", "tool_session", "process_session", "session_event",
+            "id_fsc_tool_data", "tool_session", "auth_journey", "session_event",
             "channel_session", "auth_context", "account", "device_account_link", "login_attempt_throttle"
         ).forEach { jdbcTemplate.update("DELETE FROM $it") }
     }
@@ -101,6 +102,10 @@ class DeviceBindingIntegrationTest {
 
     private fun patch(url: String, body: String): Map<String, Any?> =
         restTemplate.exchange("http://localhost:$port$url", HttpMethod.PATCH, HttpEntity(body, headers()), MAP_TYPE)
+            .let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
+
+    private fun delete(url: String): Map<String, Any?> =
+        restTemplate.exchange("http://localhost:$port$url", HttpMethod.DELETE, HttpEntity<Void>(headers()), MAP_TYPE)
             .let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
 
     private fun get(url: String): Map<String, Any?> =
@@ -145,6 +150,24 @@ class DeviceBindingIntegrationTest {
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
         )
         return channelSessionId
+    }
+
+    private fun enrollSms(channelSessionId: String) {
+        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+        val (tan, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+        }
+        patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"tan":"$tan"}""")
+    }
+
+    private fun enrollEmail(channelSessionId: String) {
+        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
+        // The mock email gateway words its log line differently from the SMS one, so this reads
+        // the code out of the response's demo block instead of the captured output.
+        val sent = patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-email", """{"email":"$DEMO_EMAIL"}""")
+        @Suppress("UNCHECKED_CAST")
+        val code = (sent["demo"] as Map<String, Any?>)["tan"] as String
+        patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-email", """{"code":"$code"}""")
     }
 
     /** Self-signed device-proof JWT (typ=device-proof+jwt), same shape DeviceProofValidator expects. */
@@ -205,12 +228,43 @@ class DeviceBindingIntegrationTest {
         val authPatchUrl = "/orchestrator/api/v1/tools/$authToolSessionId/auth-device"
         val proof = signDeviceProof(deviceKey, "http://localhost:$port$authPatchUrl", "pin")
         val authenticated = patch(authPatchUrl, """{"deviceProof":"$proof"}""")
-        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "flow", "context" to "authentication", "step" to "authenticated"))
+        assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
         val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa2")
         @Suppress("UNCHECKED_CAST")
         assertThat(afterLogin.channel()["currentAmr"] as List<String>).containsExactlyInAnyOrder("device", "pin")
+    }
+
+    @Test
+    fun authDevice_declinedOnAFreshChannel_fallsThroughToTheRemainingAuthMethods() {
+        // Registration enrols sms (and the email obligation adds email), then a device credential
+        // on top - so declining the device leaves genuine alternatives to choose from.
+        val channelSessionId = identify()
+        enrollSms(channelSessionId)
+        enrollEmail(channelSessionId)
+        // sms + confirmed email already finish the journey, so the device credential is added
+        // afterwards through MANAGE - the loa2 gate is satisfied by this session's own ident-fsc.
+        post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+        enrollDevice(channelSessionId)
+
+        // Fresh session on the same device: stage 1 of the FAST ladder, the device method.
+        val newChannel = post("/orchestrator/api/v1/app/channels")
+        val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
+        assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
+
+        // Declining stage 1 is NOT cancelling the journey: the ladder falls through to the other
+        // methods the account actually has, which is a real choice rather than the same screen.
+        val toolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
+        val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-device")
+        assertThat(afterDecline.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
+        @Suppress("UNCHECKED_CAST")
+        assertThat(afterDecline.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
+
+        // Cancelling the whole journey, by contrast, restarts the SAME intent - and therefore
+        // legitimately lands back on stage 1. The two actions are not interchangeable.
+        val afterCancel = delete("/orchestrator/api/v1/app/channels/$newChannelSessionId/process")
+        assertThat(afterCancel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
     }
 
     @Test
@@ -299,8 +353,8 @@ class DeviceBindingIntegrationTest {
         val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
         assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa1")
 
-        // MANAGE_METHODS with enroll-device as the goal must still force the loa2 step-up gate
-        // first (ChannelService.MANAGE_METHODS_REQUIRED_ACR) - the session's own loa1 evidence is
+        // MANAGE with enroll-device as the goal must still force the loa2 step-up gate
+        // first (ManageStrategy.REQUIRED_ACR) - the session's own loa1 evidence is
         // not enough to add a loa2-capable credential on its own authority.
         val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
         assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
