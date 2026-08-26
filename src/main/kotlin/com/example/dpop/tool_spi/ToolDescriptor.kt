@@ -15,11 +15,8 @@ interface ToolDescriptor {
     /** Convenience accessor for `methodFamily.method`, e.g. `"sms"`. */
     val method: String get() = methodFamily.method
 
-    /** The role this tool plays for [method]. See [MethodRole]. */
+    /** The role this tool plays for [method]. See [MethodRole]. Its [MethodRole.category] is the tool's coarse grouping. */
     val role: MethodRole
-
-    /** Coarse grouping; a passthrough of [role]'s own [MethodRole.category]. Do not override. */
-    val category: ToolCategory get() = role.category
 
     /**
      * The step name a freshly activated tool session starts on. Must match the `nextStep` this
@@ -63,7 +60,7 @@ interface ToolDescriptor {
  */
 data class MethodFamily(val method: String)
 
-/** Coarse grouping of a tool. See [MethodRole.category]/[ToolDescriptor.category]. */
+/** Coarse grouping of a tool. See [MethodRole.category]. */
 enum class ToolCategory {
     IDENT,
     ENROLL,

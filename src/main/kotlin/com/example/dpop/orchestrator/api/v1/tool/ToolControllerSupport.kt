@@ -80,7 +80,7 @@ class ToolControllerSupport(
         validatePreconditions(toolId, channel.accountId)
         // Only AUTH tools authenticate an EXISTING account against a submitted credential -
         // IDENT/ENROLL failures aren't a brute-force target the same way (no credential guessed).
-        if (descriptor.category == ToolCategory.AUTH) {
+        if (descriptor.role.category == ToolCategory.AUTH) {
             channel.accountId?.let { loginThrottleService.assertNotLocked(it) }
         }
 
@@ -149,7 +149,7 @@ class ToolControllerSupport(
     override fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse {
         val ctx = context as Context
         val descriptor = toolRegistry.descriptorOf(ctx.toolId)
-        if (descriptor.category == ToolCategory.AUTH && outcome !is ToolOutcome.InProgress) {
+        if (descriptor.role.category == ToolCategory.AUTH && outcome !is ToolOutcome.InProgress) {
             ctx.channel.accountId?.let {
                 if (outcome is ToolOutcome.Completed) loginThrottleService.recordSuccess(it)
                 else loginThrottleService.recordFailure(it)

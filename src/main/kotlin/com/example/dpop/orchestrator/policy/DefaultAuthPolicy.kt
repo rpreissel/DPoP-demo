@@ -67,7 +67,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     override fun enrollmentCandidates(account: AccountProfile, requiredAcr: String): List<String> {
         val activeMethods = account.authenticationMethods.filter { it.active }.map { it.method }.toSet()
         return toolRegistry.descriptors()
-            .filter { it.category == ToolCategory.ENROLL }
+            .filter { it.role.category == ToolCategory.ENROLL }
             // Singleton methods disappear from the offer once active; multi-instance methods
             // (device) keep being offered - a NEW physical device can always add its own instance
             // even though other devices already have theirs (docs/03-tool-architektur.md).
@@ -124,7 +124,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String> {
         val usedMethods = evidence.amr.toSet()
         return toolRegistry.descriptors()
-            .filter { it.category == ToolCategory.IDENT }
+            .filter { it.role.category == ToolCategory.IDENT }
             .filter { it.method !in usedMethods }
             .filter { AcrLevels.rank(it.maxAcr) >= AcrLevels.rank(requiredAcr) }
             .map { it.toolId }
@@ -150,7 +150,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * must stay loa2, not overshoot to loa3 merely because sms+password happen to also combine).
      */
     private fun applyMfaBump(base: String, methods: Collection<String>, account: AccountProfile?): String {
-        val authDescriptors = toolRegistry.descriptors().filter { it.category == ToolCategory.AUTH && it.method in methods }
+        val authDescriptors = toolRegistry.descriptors().filter { it.role.category == ToolCategory.AUTH && it.method in methods }
         val authBase = authDescriptors.maxOfOrNull { AcrLevels.rank(it.maxAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
         val distinctAuthMethods = authDescriptors.map { it.method }.distinct().size
         val authFactorTypes = authDescriptors.flatMap { it.factorTypes }.toSet()

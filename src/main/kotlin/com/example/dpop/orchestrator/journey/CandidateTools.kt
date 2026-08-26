@@ -16,7 +16,7 @@ import com.example.dpop.tool_spi.ToolCategory
 internal object CandidateTools {
 
     fun forIdentification(ctx: JourneyContext): List<String> =
-        ctx.catalog.descriptors().filter { it.category == ToolCategory.IDENT }.map { it.toolId }
+        ctx.catalog.descriptors().filter { it.role.category == ToolCategory.IDENT }.map { it.toolId }
 
     /** Every tool that resolves the account itself from a submitted identifier. */
     fun forLookupLogin(ctx: JourneyContext): List<String> =
