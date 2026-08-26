@@ -11,8 +11,15 @@ Aufbau einer kompilier- und startfähigen **Spring Boot Modulith**-Applikation z
 eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 
 - Ein React/TypeScript-Frontend, das einen DPoP-Proof erzeugt und mit dem Backend kommuniziert.
-- Einen `orchestrator`, der Session-Zustände verwaltet und Identifikation sowie Authentifizierung orchestriert.
-- Mehrere fachliche Module (`id_fsc`, `auth_sms`, `account`, `ext_stammdaten`), die über definierte Schnittstellen vom Orchestrator genutzt werden.
+- Einen `orchestrator`, der Session- und Journey-Zustände verwaltet und die fachliche Richtigkeit
+  (Policy, Retry, DPoP-Bindung) durchsetzt, ohne die Methodenmodule selbst zu kennen.
+- Mehrere fachliche Module (`id_fsc`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`),
+  die ihre eigenen Tool-Endpunkte mitbringen und den Orchestrator ausschließlich über die
+  gemeinsame Schnittstelle `tool_api` erreichen ([Tool-Architektur](03-tool-architektur.md)
+  Abschnitt 4).
+- Zwei Datenmodule (`account`, `ext_stammdaten`), die Konto- bzw. Personendaten halten und
+  ebenfalls Teile von `tool_api` implementieren, statt vom Orchestrator direkt aufgerufen zu
+  werden.
 - Persistenz in einer H2-Datenbank mit Flyway-Migrationen.
 
 ### Qualitätsziele
@@ -51,13 +58,15 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 
 | Nr. | Modul | Verantwortung |
 |-----|-------|---------------|
-| M1 | `orchestrator` | Koordiniert Abläufe über die anderen Module; stellt die REST-API für das Frontend bereit |
-| M2 | `id_fsc` | Identifizierungsfunktionalität (Tool `ident-fsc`) |
-| M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms` und `auth-sms`) |
-| M4 | `account` | Verwaltung von Konten, Identifikationen und Authentifizierungsmethoden |
-| M5 | `ext_stammdaten` | Zugriff auf externe Stammdaten; verwaltet `Person`-Entitäten mit Adressdaten |
-| M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password` und `auth-password`), voraussetzungsgebunden über `ToolDescriptor.requiresConfirmedEmail` ([Tool-Architektur](03-tool-architektur.md)) |
-| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email` und `auth-email`); bewusst eigenständiges Modul statt Teil von `auth_sms` (eigener `EmailCodeGenerator`, [Tool-Architektur](03-tool-architektur.md)) |
+| M1 | `orchestrator` | Verwaltet Session-/Journey-Zustand, Policy und Retry; stellt die Channel-REST-API für das Frontend bereit und implementiert die `tool_api`-Ports `ToolEndpoint`/`DeviceProofs` |
+| M2 | `id_fsc` | Identifizierungsfunktionalität (Tool `ident-fsc`); bringt den eigenen `@RestController` mit |
+| M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); bringt die eigenen `@RestController` mit |
+| M4 | `account` | Verwaltung von Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
+| M5 | `ext_stammdaten` | Zugriff auf externe Stammdaten; verwaltet `Person`-Entitäten mit Adressdaten; implementiert den `tool_api`-Port `PersonDirectory` |
+| M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`), voraussetzungsgebunden über `ToolDescriptor.requiresConfirmedEmail` ([Tool-Architektur](03-tool-architektur.md)) |
+| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`); bewusst eigenständiges Modul statt Teil von `auth_sms` (eigener `EmailCodeGenerator`, [Tool-Architektur](03-tool-architektur.md)) |
+| M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …); außerdem der generische, tool-lose `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
+| M9 | `tool_spi` | Reine Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -65,24 +74,41 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
          ┌─────────────┐
          │   Browser   │
          └──────┬──────┘
-                │ HTTP / REST
+                │ HTTP / REST (ein Port, ein Pfadraum: /orchestrator/api/v1/...)
                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        orchestrator                         │
-│              (REST-API: /orchestrator/api/v1)               │
-└──────────┬─────────────┬──────────────┬─────────────────────┘
-           │             │              │                     │
-           ▼             ▼              ▼                     ▼
-     ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────────┐
-     │ id_fsc  │   │ auth_sms │   │ account  │   │ ext_stammdaten   │
-     └─────────┘   └──────────┘   └──────────┘   └──────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│  @RestController - verteilt über mehrere Module, URLs unverändert       │
+│                                                                          │
+│   orchestrator          id_fsc / auth_sms / auth_password /             │
+│   (Channel-Endpunkte,    auth_email / auth_device                       │
+│    Journey/Policy)       (jeweils die eigenen Tool-Endpunkte)           │
+│                                                                          │
+│                    tool_api.ToolSwitchController (generisch, toolId-los)│
+└───────────────────────────────┬──────────────────────────────────────┬─┘
+                                 │ implementiert / ruft auf              │
+                                 ▼                                      ▼
+                     ┌────────────────────────────┐         ┌───────────────────┐
+                     │           tool_api          │◄────────│   tool_spi        │
+                     │ ToolEndpoint, AccountDirect- │        │ ToolDescriptor,   │
+                     │ ory, PersonDirectory,        │        │ ToolOutcome, ...  │
+                     │ DeviceProofs, Envelope-DTOs   │        └───────────────────┘
+                     └───────────▲──────────────────┘
+                                 │ implementieren die Ports
+              ┌──────────────────┼───────────────────┐
+              │                  │                    │
+       ┌─────────────┐   ┌─────────────┐      ┌───────────────────┐
+       │ orchestrator │   │   account   │      │  ext_stammdaten   │
+       │ (ToolEndpoint,│   │(AccountDir- │      │ (PersonDirectory) │
+       │  DeviceProofs)│   │  ectory)    │      │                    │
+       └─────────────┘   └─────────────┘      └───────────────────┘
 ```
 
-- Der `orchestrator` referenziert alle anderen Module; ein Methodenmodul erreicht ihn nur über `tool_spi`.
+- Kein Methodenmodul referenziert den `orchestrator` mehr, und der `orchestrator` referenziert kein Methodenmodul mehr (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten"]`). Die einzige gemeinsame Kante zwischen Orchestrator und Methodenmodulen ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
+- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind identisch geblieben; nur die Kotlin-Package-Zugehörigkeit des jeweiligen `@RestController` hat sich geändert (`id_fsc.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package.
 - Die Methodenmodule sind voneinander entkoppelt — **eine** deklarierte Ausnahme: `auth_email` darf `account` nutzen, weil die bestätigte E-Mail der Konto-*Identifikator* ist (Unique-Index, Lookup-Login für sms/password, `requiresConfirmedEmail`) und nicht ein austauschbares Credential. Begründung im KDoc von `auth_email/ModuleMetadata.kt`; kein Präzedenzfall für weitere Module.
 - `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
 - Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build namentlich. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` und damit ein Java-Sourceset sind nicht nötig.
-- Das Frontend kommuniziert ausschließlich über den `orchestrator` mit dem Backend.
+- Das Frontend kommuniziert ausschließlich über HTTP mit der Applikation als Ganzes — welches Modul einen gegebenen Endpunkt implementiert, ist für das Frontend nicht sichtbar und nicht relevant.
 
 ### Anforderungen an die Modulstruktur
 
@@ -90,7 +116,7 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 |----|-------------|-----------|
 | M-1 | Jedes Modul besitzt ein eigenes Package. | Package-Struktur unter `com.example.dpop.<modul>` |
 | M-2 | Jedes Modul enthält mindestens eine Service-Klasse. | `@Service` in jedem Modul vorhanden |
-| M-3 | Der `orchestrator` orchestriert alle anderen Module. | Konstruktor-Injection aller Modul-Services |
+| M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` gekoppelt, nie direkt. | Konstruktor-Injection ausschließlich gegen `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator`, und `orchestrator` importiert kein Methodenmodul |
 | M-4 | Die Modulstruktur ist verifizierbar. | `ApplicationModules.verify()` in Tests |
 
 ---
