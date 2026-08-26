@@ -248,12 +248,12 @@ class DeviceBindingIntegrationTest {
         post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
         enrollDevice(channelSessionId)
 
-        // Fresh session on the same device: the first state of the FAST ladder, the device method.
+        // Fresh session on the same device: the first state of the FAST fallback chain, the device method.
         val newChannel = post("/orchestrator/api/v1/app/channels")
         val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
         assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
 
-        // Declining it is NOT cancelling the journey: the ladder falls through to the other
+        // Declining it is NOT cancelling the journey: the chain falls through to the other
         // methods the account actually has, which is a real choice rather than the same screen.
         val toolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
         val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-device")

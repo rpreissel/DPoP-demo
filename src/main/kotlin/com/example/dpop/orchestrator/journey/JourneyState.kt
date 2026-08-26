@@ -63,7 +63,7 @@ sealed interface OfferingState : JourneyState {
 // FAST ----------------------------------------------------------------------
 
 /**
- * The ladder from the most convenient to the most laborious way in, followed by the mandatory
+ * The fallback chain from the most convenient to the most laborious way in, followed by the mandatory
  * states that make sure the next login works again (docs/04-orchestrierung.md #3).
  *
  * Two deliberately DIFFERENT transition rules live in one hierarchy, and that difference is named

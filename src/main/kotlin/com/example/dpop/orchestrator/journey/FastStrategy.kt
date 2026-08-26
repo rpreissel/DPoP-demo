@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
  * (docs/04-orchestrierung.md #3).
  *
  * States 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) are a
- * FALLBACK ladder: declining moves on. States 4-5 ([FastState.ConfirmingEmail],
+ * FALLBACK chain: declining moves on. States 4-5 ([FastState.ConfirmingEmail],
  * [FastState.Enrolling]) are GOAL-DRIVEN: only fulfilling moves on.
  *
  * Registration is not a separate intent, it is the third state of this one. Whether identifying created an
@@ -82,7 +82,7 @@ open class FastStrategy : IntentStrategy<FastState> {
     // Offers -------------------------------------------------------------------
 
     /**
-     * The first state of the ladder. REGISTER overrides exactly this and nothing else: it is FAST minus
+     * Where the fallback chain starts. REGISTER overrides exactly this and nothing else: it is FAST minus
      * the shortcuts, entering at the identification state.
      */
     protected open fun firstOffer(ctx: JourneyContext): Decision {

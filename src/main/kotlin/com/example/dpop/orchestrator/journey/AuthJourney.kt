@@ -62,7 +62,7 @@ class AuthJourney(
 
     /**
      * Attempts left across the WHOLE journey, not per tool. A tool-local counter cannot cover
-     * this: once an exhausted state moves on instead of terminating, brute force over the ladder
+     * this: once an exhausted state moves on instead of terminating, brute force along the chain
      * gets cheaper (docs/04-orchestrierung.md #7).
      */
     @Column(name = "attempt_budget", nullable = false)

@@ -23,7 +23,7 @@ import java.util.UUID
 
 /**
  * "Back"/"Switch": abandon the currently activated tool. What happens then is entirely the
- * journey's decision - on a fallback state it moves down the ladder, on a goal-driven one it only
+ * journey's decision - on a fallback state it moves along the chain, on a goal-driven one it only
  * narrows what is left, and on the last thing this journey could offer it ends like a cancel.
  *
  * This controller deliberately makes none of that decision itself: whether there is anything to

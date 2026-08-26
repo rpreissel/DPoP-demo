@@ -31,7 +31,7 @@ import java.util.UUID
 
 /**
  * The properties that only exist because the model is a per-intent state machine
- * (docs/04-orchestrierung.md): the FAST fallback ladder and its memory of what was declined,
+ * (docs/04-orchestrierung.md): the FAST fallback chain and its memory of what was declined,
  * identification as a LOGIN path when nothing else is left, the states LOGIN_LOOKUP structurally
  * does not have, and the journey-wide attempt budget.
  *
@@ -40,7 +40,7 @@ import java.util.UUID
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class JourneyLadderIntegrationTest {
+class JourneyFallbackChainIntegrationTest {
 
     @LocalServerPort
     private var port: Int = 0
@@ -89,10 +89,10 @@ class JourneyLadderIntegrationTest {
 
     private var currentBindingKeyRef: String = ""
 
-    // Ladder ------------------------------------------------------------------
+    // Fallback chain -----------------------------------------------------------
 
     @Test
-    fun fastLadder_decliningTheAuthStage_fallsThroughToIdentification() {
+    fun fastChain_decliningTheAuthState_fallsThroughToIdentification() {
         registerWithSms()
 
         // Fresh session on the same device: the link routes straight to the existing sms method.
@@ -100,7 +100,7 @@ class JourneyLadderIntegrationTest {
         val next = get("/orchestrator/api/v1/app/channels/$channelSessionId").next()
         assertThat(next).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
 
-        // Backing out of the only remaining auth method is not a dead end: the ladder falls
+        // Backing out of the only remaining auth method is not a dead end: the chain falls
         // through to its last state, identification - which is exactly what the old model could
         // not express, because an empty candidate list aborted the whole process.
         val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
@@ -109,7 +109,7 @@ class JourneyLadderIntegrationTest {
     }
 
     @Test
-    fun fastLadder_identifyingAfterDecliningAuth_logsIntoTheSameAccountWithoutRegisteringAgain() {
+    fun fastChain_identifyingAfterDecliningAuth_logsIntoTheSameAccountWithoutRegisteringAgain() {
         val accountId = registerWithSms()
 
         val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String

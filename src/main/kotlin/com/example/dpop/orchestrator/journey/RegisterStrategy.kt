@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
  * intent rather than a boolean on FAST.
  *
  * Its states ARE FAST's states from the identification one on, so it shares [FastState] instead of
- * duplicating it. The only thing it changes is where the ladder starts: [firstOffer] skips the first two states
+ * duplicating it. The only thing it changes is where the fallback chain starts: [firstOffer] skips the first two states
  * and 2, which is precisely what this intent means. Everything after identification - the email
  * obligation, the enrolment state, the finish condition - is FAST's behaviour unchanged.
  */

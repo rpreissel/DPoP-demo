@@ -27,7 +27,7 @@ verwechselt werden — drei verschiedene Dinge, nie Synonyme.
 Bewusst **kein** eigenes Wort für „Zustand als Position in einer Reihenfolge": Das ist derselbe
 Zustand, nur unter einer anderen Frage betrachtet, und ein zweiter Begriff dafür hätte im Modell
 keine Entsprechung. Wo die Reihenfolge gemeint ist, sagt der Text es als Eigenschaft des Zustands
-(*Fallback-Zustand*, *zielgetriebener Zustand*) oder benennt gleich die Leiter.
+(*Fallback-Zustand*, *zielgetriebener Zustand*) oder benennt gleich die Kette.
 
 ### Intent
 
@@ -84,8 +84,8 @@ Zustände einer Journey stehen in einer Reihenfolge, und sie wird auf zwei sehr 
 verlassen:
 
 - Ein **Fallback-Zustand** wird verlassen, wenn der Nutzer ihn ablehnt oder er scheitert. Er
-  fragt: „Geht es so? Nein? Dann anders." Die Reihenfolge geht vom bequemsten zum aufwendigsten
-  Weg — daher die Leiter-Vorstellung bei `FAST`.
+  fragt: „Geht es so? Nein? Dann anders." Mehrere davon hintereinander bilden eine
+  **Fallback-Kette**, geordnet vom bequemsten zum aufwendigsten Weg — so ist `FAST` gebaut.
 - Ein **zielgetriebener Zustand** wird verlassen, wenn seine Bedingung erfüllt ist. Er fragt:
   „Ist die Pflicht erledigt?" Ablehnen hilft hier nicht weiter.
 
@@ -125,9 +125,9 @@ flowchart LR
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE` | Auth-Mittel hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
 
-Registrierung ist **kein eigener Intent**, sondern ein Pfad innerhalb von `FAST`: der letzte
-Zustand der Leiter, wenn kein vorhandenes Verfahren mehr greift. Ob dabei ein Account entsteht oder ein
-bestehender wiedergefunden wird, entscheidet `findOrCreateAccount` im Nachhinein.
+Registrierung ist **kein eigener Intent**, sondern ein Pfad innerhalb von `FAST`: das Ende der
+Fallback-Kette, wenn kein vorhandenes Verfahren mehr greift. Ob dabei ein Account entsteht oder
+ein bestehender wiedergefunden wird, entscheidet `findOrCreateAccount` im Nachhinein.
 
 `REGISTER` ist trotzdem ein eigener Intent, weil „ich will hier bewusst neu identifizieren" ein
 anderes Nutzerziel ist als „bring mich rein": es unterdrückt den `DeviceAccountLink`-Lookup und
@@ -152,8 +152,8 @@ abschließt. Ein zusätzlicher Endzustand wäre eine zweite Darstellung derselbe
 
 ### `FAST`
 
-Die Leiter vom bequemsten zum aufwendigsten Weg — und danach die Pflichtzustände, die dafür
-sorgen, dass der nächste Login wieder klappt.
+Erst die Fallback-Kette vom bequemsten zum aufwendigsten Weg, danach die Pflichtzustände, die
+dafür sorgen, dass der nächste Login wieder klappt.
 
 ```mermaid
 stateDiagram-v2
@@ -220,8 +220,8 @@ zurück, das gerade verworfene Verfahren eingeschlossen.
 
 Dieselben Zustände wie `FAST` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
 `DeviceAccountLink`-Lookup. Weil es wörtlich dieselben sind, teilt sich `REGISTER` auch
-die Zustandsmenge `FastState`; die Strategie überschreibt genau eine Methode — wo die Leiter
-beginnt.
+die Zustandsmenge `FastState`; die Strategie überschreibt genau eine Methode — wo die
+Fallback-Kette einsetzt.
 
 ```mermaid
 stateDiagram-v2
@@ -476,8 +476,8 @@ Entscheidungen dahinter:
   (`activatable()`), also *ist* `Advance` auf diesen Zustand das Angebot. Eine zusätzliche
   `Offer`-Variante wäre dieselbe Information zweimal.
 - **`Abort` ist eine Entscheidung der Strategie**, kein Automatismus der Kandidatenauflösung.
-  Eine leere Kandidatenliste muss „nächster Zustand" bedeuten dürfen, sonst ist eine Fallback-Leiter
-  nicht formulierbar.
+  Eine leere Kandidatenliste muss „nächster Zustand" bedeuten dürfen, sonst ist eine
+  Fallback-Kette gar nicht formulierbar.
 - **Die Strategie bekommt nie Services**, nur einen lesenden `JourneyContext` (Account, Evidence,
   Untergrenze, Gerätebezug, Katalogabfragen). Sie entscheidet, sie wirkt nicht.
 
@@ -556,7 +556,7 @@ unabhängig davon, in welchem Zustand oder in welchem Tool. Bei `0` endet die **
 (`410`) — auch wenn noch Zustände übrig wären.
 
 Das ist eine Sicherheitsanforderung: Sobald erschöpfte Versuche einen Zustand weiterrücken statt zu
-terminieren, wird Brute-Force über die Leiter billiger. Ein tool-lokaler Zähler kann das
+terminieren, wird Brute-Force entlang der Kette billiger. Ein tool-lokaler Zähler kann das
 strukturell nicht abdecken.
 
 Die Retry-Regel selbst: Ein fehlgeschlagener Versuch mit verbleibendem Budget ist **kein**
