@@ -1,6 +1,6 @@
 # Orchestrierung und Policy
 
-Wie ein Nutzer zu seinem Ziel geführt wird — und wer entscheidet, welches Verfahren wann
+Wie ein Nutzer zu seinem Ziel geführt wird — und wer entscheidet, welches Tool wann
 angeboten wird.
 
 Vorausgesetzt wird der `ToolOutcome`-Vertrag aus [03-tool-architektur.md](03-tool-architektur.md).
@@ -9,20 +9,30 @@ Vorausgesetzt wird der `ToolOutcome`-Vertrag aus [03-tool-architektur.md](03-too
 
 ## 1) Begriffe
 
-Sechs Wörter haben in diesem Kapitel eine feste Bedeutung:
+Sieben Wörter haben in diesem Kapitel eine feste Bedeutung:
 
 | Begriff | Bedeutung | Im Code |
 |---|---|---|
 | **Intent** | Ziel des Nutzers samt Strategie, die ihn dorthin führt | `AuthIntent` |
 | **Journey** | ein laufender Durchlauf eines Intents | `AuthJourney` |
 | **Zustand** | Position auf dem Weg, samt der dort geltenden Attribute | `JourneyState` |
-| **Tool** | ein einzelnes Verfahren, das der Nutzer durchläuft | `toolId` |
+| **Tool** | ein einzelner Ablauf, den der Nutzer durchläuft | `toolId` |
+| **Methode** | was am Konto eingerichtet ist und einen Login ermöglicht | `method` |
 | **Schritt** | ein Schritt *innerhalb* eines Tools | `next.step` |
 | **Niveau** | Vertrauensniveau (`loa1`/`loa2`/`loa3`) | `acr` |
 
-Die ersten vier tragen das Kapitel und werden unten ausgeführt; sie bauen aufeinander auf, daher
-diese Reihenfolge. **Schritt** und **Niveau** stehen hier nur, damit sie nicht mit **Zustand**
-verwechselt werden — drei verschiedene Dinge, nie Synonyme.
+**Intent**, **Journey**, **Zustand** und **Tool** tragen das Kapitel und werden unten ausgeführt;
+sie bauen aufeinander auf, daher diese Reihenfolge. **Methode**, **Schritt** und **Niveau** stehen
+hier nur, damit sie nicht mit ihnen verwechselt werden.
+
+**Tool** und **Methode** ebenso: `enroll-sms` und `auth-sms` sind zwei Tools für *eine* Methode
+(`sms`). Ein Konto hat Methoden; angeboten und aktiviert werden Tools. Das Wort „Verfahren" kommt
+für beides nicht mehr vor.
+
+Drei weitere Wörter sehen ähnlich aus, meinen aber verschiedene Dinge und stehen bewusst
+nebeneinander: **Kandidaten** liefert der Katalog beziehungsweise die Policy; daraus wird das
+**Angebot**, das ein Zustand hält (`activatable()` — Kandidaten minus bereits Abgelehntes); und
+eine **Auswahlseite** zeigt der Client nur, wenn das Angebot mehr als einen Eintrag hat.
 
 Bewusst **kein** eigenes Wort für „Zustand als Position in einer Reihenfolge": Das ist derselbe
 Zustand, nur unter einer anderen Frage betrachtet, und ein zweiter Begriff dafür hätte im Modell
@@ -33,11 +43,11 @@ keine Entsprechung. Wo die Reihenfolge gemeint ist, sagt der Text es als Eigensc
 
 Ein **Intent** ist das Ziel des Nutzers *zusammen mit* der Strategie, nach der er dorthin geführt
 wird. Beides gehört untrennbar zusammen: „bring mich rein" und „biete zuerst das Gerät an, dann
-andere Verfahren, notfalls eine Identifizierung" sind nicht zwei Entscheidungen, sondern eine.
+andere Auth-Tools, notfalls eine Identifizierung" sind nicht zwei Entscheidungen, sondern eine.
 
 Der Intent ist damit die Antwort auf drei Fragen, die sich je Ziel unterschiedlich beantworten:
 
-- Welche Verfahren dürfen hier überhaupt angeboten werden — und in welcher Reihenfolge?
+- Welche Tools dürfen hier überhaupt angeboten werden — und in welcher Reihenfolge?
 - Was bedeutet ein abgeschlossenes Tool in diesem Kontext? Derselbe erfolgreiche `ident-fsc`
   heißt an einer Stelle „lege einen Account an" und an anderer „bestätige den bekannten Account".
 - Wann ist das Ziel erreicht?
@@ -48,8 +58,8 @@ gelaufenen Weg — kein Ziel, das man vorab wählt.
 
 ### Journey
 
-Eine **`AuthJourney`** ist ein laufender Durchlauf eines Intents: eine geführte Wegstrecke mit
-einem Ziel. Sie gehört zu genau einer `ChannelSession` und lebt kürzer als diese; pro Kanal ist
+Eine **`AuthJourney`** ist ein laufender Durchlauf eines Intents: ein geführter Weg mit einem
+Ziel. Sie gehört zu genau einer `ChannelSession` und lebt kürzer als diese; pro Kanal ist
 immer höchstens eine Journey aktiv.
 
 Die Journey hält, was den ganzen Weg über gilt (Intent, Account, Budget, Lebenszyklus). Wo auf
@@ -66,12 +76,12 @@ Identität, Lebensdauer, Account, Budget und Zustand; der Intent ist ein Wert oh
 
 Der **`JourneyState`** ist die Position auf dem Weg — und trägt die Attribute, die genau an dieser
 Position gelten. Zwei Beispiele, die den Unterschied zu einem bloßen Statuswort zeigen: Der
-Zustand „Nutzer wählt unter mehreren Auth-Verfahren" trägt, *welche* angeboten wurden und
+Zustand „Nutzer wählt unter mehreren Auth-Tools" trägt, *welche* angeboten wurden und
 *welche* er bereits verworfen hat. Der Zustand „ein Tool läuft gerade" trägt, *welche*
 `ToolSession` dafür autorisiert ist.
 
 Jeder Intent hat seine eigene, versiegelte Zustandsmenge — die Zustände von `MANAGE` ergeben für
-`LOGIN_LOOKUP` keinen Sinn und sind dort nicht formulierbar. Eine vergessene Position ist damit
+`LOGIN_LOOKUP` keinen Sinn und sind dort nicht formulierbar. Ein vergessener Zustand ist damit
 ein Compile-Fehler, kein plausibel aussehender Laufzeit-Default.
 
 Der `JourneyState` ist außerdem die einzige Quelle für zwei Fragen, die sonst leicht auseinander
@@ -86,15 +96,15 @@ unterscheiden sich darin, was **Ablehnen** bewirkt:
 - In einem **Fallback-Zustand** führt Ablehnen weiter — zum nächsten, aufwendigeren Weg. Mehrere
   davon hintereinander bilden eine **Fallback-Kette**, geordnet vom bequemsten zum aufwendigsten
   Weg; so ist `FAST` gebaut. Ist nichts Aufwendigeres mehr da, endet die Journey.
-- In einem **Pflichtzustand** führt Ablehnen nirgendwohin. Die Pflicht bleibt bestehen, die
-  volle Auswahl kommt zurück — auch das gerade verworfene Verfahren. Nur Erfüllen bringt weiter.
+- In einem **Pflichtzustand** führt Ablehnen nirgendwohin. Die Pflicht bleibt bestehen, das
+  volle Angebot kommt zurück — auch das gerade verworfene Tool. Nur Erfüllen bringt weiter.
 
 Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und welche Sorte ein Zustand ist,
 gehört sichtbar in den Code, nicht in einen Kommentar.
 
 ### Tool
 
-Ein **Tool** ist ein einzelnes Verfahren (`ident-fsc`, `enroll-sms`, `auth-device`, …), das der
+Ein **Tool** ist ein einzelner Ablauf (`ident-fsc`, `enroll-sms`, `auth-device`, …), den der
 Nutzer durchläuft. Ein Tool weiß nichts über Journeys, Intents oder Reihenfolgen — es meldet nur
 sein Ergebnis als `ToolOutcome` ([Tool-Architektur](03-tool-architektur.md)). Was dieses Ergebnis
 bedeutet, entscheidet der Intent.
@@ -123,10 +133,10 @@ flowchart LR
 | `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /channels` mit `intent=register` |
 | `LOGIN_LOOKUP` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=login` |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
-| `MANAGE` | Auth-Mittel hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
+| `MANAGE` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
 
-Registrierung ist **kein eigener Intent**, sondern ein Pfad innerhalb von `FAST`: das Ende der
-Fallback-Kette, wenn kein vorhandenes Verfahren mehr greift. Ob dabei ein Account entsteht oder
+Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST`: das Ende der
+Fallback-Kette, wenn keine vorhandene Methode mehr greift. Ob dabei ein Account entsteht oder
 ein bestehender wiedergefunden wird, entscheidet `findOrCreateAccount` im Nachhinein.
 
 `REGISTER` ist trotzdem ein eigener Intent, weil „ich will hier bewusst neu identifizieren" ein
@@ -159,11 +169,11 @@ dafür sorgen, dass der nächste Login wieder klappt.
 stateDiagram-v2
   [*] --> Start
   Start --> PreferredAuth: verknüpftes Gerät mit Device-Methode
-  Start --> AuthChoice: Account bekannt, andere Verfahren vorhanden
+  Start --> AuthChoice: Account bekannt, andere Methoden vorhanden
   Start --> Identifying: nichts Vorhandenes greift
 
   PreferredAuth --> AuthChoice: abgelehnt
-  AuthChoice --> AuthChoice: ein Verfahren abgelehnt, weitere übrig
+  AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
   AuthChoice --> Identifying: alle abgelehnt
 
   PreferredAuth --> Finished: Nachweis reicht für das geforderte Niveau
@@ -172,7 +182,7 @@ stateDiagram-v2
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
   Identifying --> Enrolling: Identität festgestellt
 
-  Enrolling --> Enrolling: Mittel eingerichtet, Niveau reicht noch nicht
+  Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
   Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
   ConfirmingEmail --> Finished: E-Mail bestätigt
@@ -194,7 +204,7 @@ sealed interface FastState : JourneyState {
     data object Start : FastState
     /** Verknüpftes Gerät mit passender Device-Methode: genau ein Default-Vorschlag. */
     data class PreferredAuth(val toolId: String, val active: ToolRef?) : FastState
-    /** Weitere vorhandene Auth-Verfahren. */
+    /** Auth-Tools für die weiteren Methoden des Kontos. */
     data class AuthChoice(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
     /** Letzter Fallback-Zustand: Identifizierung - hier für Login *und* Registrierung. */
     data class Identifying(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
@@ -208,26 +218,26 @@ sealed interface FastState : JourneyState {
 `Identifying` ist gleichzeitig Login-Notausgang und Registrierungseinstieg. Eine
 `REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im Zustandsmodell keinen eigenen Zustand
 hätte: Welches von beidem es war, entscheidet erst `findOrCreateAccount` danach. Genau deshalb
-darf eine leere Kandidatenliste hier auch nicht abbrechen — „keine Auth-Verfahren vorhanden" ist
+darf eine leere Kandidatenliste hier auch nicht abbrechen — „keine Methode vorhanden" ist
 der Grund, aus dem `Identifying` als Login-Weg überhaupt erlaubt wird.
 
-In einem Fallback-Zustand sammelt `declined` die verworfenen Verfahren, bis nichts mehr übrig ist
+In einem Fallback-Zustand sammelt `declined` die verworfenen Tools, bis nichts mehr übrig ist
 und der nächste dran ist. In einem Pflichtzustand passiert das **nicht**: Wer dort
-zurückgeht, wählt anders, gibt aber die Pflicht nicht auf — deshalb kommt die volle Auswahl
-zurück, das gerade verworfene Verfahren eingeschlossen.
+zurückgeht, wählt anders, gibt aber die Pflicht nicht auf — deshalb kommt das volle Angebot
+zurück, das gerade verworfene Tool eingeschlossen.
 
 ### `REGISTER`
 
 Dieselben Zustände wie `FAST` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
 `DeviceAccountLink`-Lookup. Weil es wörtlich dieselben sind, teilt sich `REGISTER` auch
-die Zustandsmenge `FastState`; die Strategie überschreibt genau eine Methode — wo die
+die Zustandsmenge `FastState`; die Strategie überschreibt genau eine Funktion — wo die
 Fallback-Kette einsetzt.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Identifying
   Identifying --> Enrolling: Identität festgestellt
-  Enrolling --> Enrolling: Mittel eingerichtet, Niveau reicht noch nicht
+  Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
   Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
   ConfirmingEmail --> Finished: E-Mail bestätigt
@@ -237,14 +247,14 @@ stateDiagram-v2
 ### `LOGIN_LOOKUP`
 
 Anmelden ohne gepaartes Gerät: Der Nutzer nennt einen Identifikator (E-Mail) und weist ein
-Credential nach. Angeboten wird der abgeleitete Satz aller `MethodRole.LOOKUP_AUTH`-Tools — nicht
+seiner Methoden nach. Angeboten wird der abgeleitete Satz aller `MethodRole.LOOKUP_AUTH`-Tools — nicht
 `AuthPolicy.candidateTools`, das einen bereits aufgelösten Account bräuchte, den es hier noch
 nicht geben kann.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Credential
-  Credential --> Credential: ein Verfahren abgelehnt, weitere übrig
+  Credential --> Credential: ein Tool abgelehnt, weitere übrig
   Credential --> OfferBinding: Nachweis erbracht
   OfferBinding --> Finished: Nutzer stimmt zu -> Gerät wird wiedererkannt
   OfferBinding --> Finished: Nutzer lehnt ab -> keine Bindung
@@ -272,11 +282,11 @@ eine dauerhafte Zuordnung Gerät → Account und darf nicht als Nebenwirkung ein
 den der Nutzer gerade deshalb gewählt hat, weil er ohne Gerätebindung auskommen wollte.
 
 Dass es kein `Identifying` gibt, ist keine zusätzliche Prüfung, sondern eine fehlende Möglichkeit:
-Kein Zustand dieses Intents bietet je ein Ident-Verfahren an, also kann auch keine Prüfung
+Kein Zustand dieses Intents bietet je ein Ident-Tool an, also kann auch keine Prüfung
 vergessen werden.
 
 **Enumeration-Schutz**: Eine unbekannte E-Mail liefert exakt dieselbe Antwortform wie ein korrekt
-aufgelöster Account mit falschem Credential — nie eine eigene Fehlerform, auch nicht im Timing
+aufgelöster Account mit fehlgeschlagenem Nachweis — nie eine eigene Fehlerform, auch nicht im Timing
 der Demo-Werte ([API](05-api.md)). Bewusst nicht weiter gehärtet (kein künstliches
 Timing-Padding); in einem Produktivsystem wäre das der nächste Ausbau.
 
@@ -285,8 +295,8 @@ Timing-Padding); in einem Produktivsystem wäre das der nächste Ausbau.
 ```mermaid
 stateDiagram-v2
   [*] --> AuthChoice
-  AuthChoice --> AuthChoice: ein Verfahren abgelehnt, weitere übrig
-  AuthChoice --> ReIdentifying: kein kombinierbares Verfahren übrig
+  AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
+  AuthChoice --> ReIdentifying: keine kombinierbare Methode übrig
   AuthChoice --> Finished: targetAcr erreicht
   ReIdentifying --> Finished: Identität bestätigt, loa2 im Alleingang
   Finished --> [*]
@@ -306,12 +316,13 @@ sealed interface StepUpState : JourneyState {
 ```
 
 `ReIdentifying` ist der Notausgang aus dem **Ein-Methoden-Fall**: Ein Account mit genau einer
-aktiven Auth-Methode hätte nach einem frischen gerätegebundenen Login (nur `loa1`) sonst keinen
+aktiven Methode hätte nach einem frischen gerätegebundenen Login (nur `loa1`) sonst keinen
 Weg zu `loa2` — es gibt keine zweite Methode zum Kombinieren. `ident-fsc` erreicht `loa2` im
 Alleingang. Bewusst ein eigener Zustand und nicht Teil von `AuthChoice`: Re-Identifizierung soll
 nie als generische Login-Abkürzung erscheinen, nur als Ausweg aus dieser einen Sackgasse. Sie wird
 deshalb ausschließlich angeboten, solange dieser Step-up als Vorbedingung eines anderen Intents
-läuft (Abschnitt 6) — ein gewöhnlicher Step-up bietet weiterhin nur eingerichtete Verfahren an.
+läuft (Abschnitt 6) — ein gewöhnlicher Step-up bietet weiterhin nur Tools für bereits
+eingerichtete Methoden an.
 Die neu festgestellte Person muss zum angemeldeten Account passen (`409` bei Abweichung), sonst
 könnte eine `loa1`-Session eine fremde Identität einschleusen.
 
@@ -319,16 +330,16 @@ könnte eine `loa1`-Session eine fremde Identität einschleusen.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> AddRequested: Mittel hinzufügen
-  [*] --> RemoveRequested: Mittel entfernen
+  [*] --> AddRequested: Methode hinzufügen
+  [*] --> RemoveRequested: Methode entfernen
 
   AddRequested --> AddRequested: Step-up nötig, danach erneut geprüft
   RemoveRequested --> RemoveRequested: Step-up nötig, danach erneut geprüft
 
   AddRequested --> Enrolling: loa2 nachgewiesen
-  RemoveRequested --> Finished: loa2 nachgewiesen, Mittel deaktiviert
-  Enrolling --> Enrolling: anderes Verfahren gewählt
-  Enrolling --> Finished: ein Mittel eingerichtet
+  RemoveRequested --> Finished: loa2 nachgewiesen, Methode deaktiviert
+  Enrolling --> Enrolling: anderes Tool gewählt
+  Enrolling --> Finished: eine Methode eingerichtet
   Finished --> [*]
 
   note right of AddRequested
@@ -340,7 +351,7 @@ stateDiagram-v2
 
 ```kotlin
 sealed interface ManageState : JourneyState {
-    /** Der Wunsch, bevor das loa2-Gate ausgewertet ist - und der Parkzustand während des Step-ups. */
+    /** Der Wunsch, bevor die loa2-Vorbedingung geprüft ist - und der Parkzustand während des Step-ups. */
     data object AddRequested : ManageState
     data class RemoveRequested(val methodInstanceId: String) : ManageState
     data class Enrolling(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : ManageState
@@ -349,18 +360,18 @@ sealed interface ManageState : JourneyState {
 
 `MANAGE` ist der einzige Intent ohne Policy-Ziel: **ein** erfolgreiches Enrollment beendet ihn,
 unabhängig vom erreichten Niveau — der Kanal war ja bereits `AUTHENTICATED`. Um ein zweites
-Mittel hinzuzufügen, startet man eine neue Journey.
+Methode hinzuzufügen, startet man eine neue Journey.
 
 Es gibt bewusst **keinen** eigenen „wartet auf Step-up"-Zustand: Die Journey bleibt schlicht in
 `AddRequested`/`RemoveRequested` stehen, während die Kind-Journey läuft. Dass gewartet wird, sagen
 bereits `JourneyLifecycle.SUSPENDED` und die `parentJourneyId` der Kind-Journey — eine zweite
 Kopie derselben Information könnte nur auseinanderlaufen. Genau dieses Parken ist der Grund,
 weshalb der Wunsch den Step-up überlebt: Nach dessen Abschluss wird derselbe Zustand erneut
-ausgewertet, prüft das Gate neu und führt aus, was ursprünglich verlangt war.
+ausgewertet, prüft die Vorbedingung neu und führt aus, was ursprünglich verlangt war.
 
-Das `loa2`-Gate selbst folgt derselben Anti-Selbsteskalations-Logik wie die
+Die `loa2`-Vorbedingung selbst folgt derselben Anti-Selbsteskalations-Logik wie die
 `enrolledUnderAcr`-Deckelung (Abschnitt 8): Eine gekaperte `loa1`-Session darf nicht aus eigener
-Kraft Credentials hinzufügen oder entfernen. Das Entfernen prüft zusätzlich, dass der Account
+Kraft Methoden hinzufügen oder entfernen. Das Entfernen prüft zusätzlich, dass der Account
 danach die Untergrenze des Kanals noch erreichen kann (`409`, Selbstsperrschutz).
 
 ### Lebenszyklus, unabhängig vom Intent
@@ -457,7 +468,7 @@ sealed interface Decision {
     data object Finish : Decision
     /** Der Nutzer gibt auf - endet wie ein ausdrückliches Abbrechen, nicht als Fehler. */
     data object Cancel : Decision
-    /** Der einzige Effekt einer Strategie, der kein Tool-Lauf ist: Mittel deaktivieren. */
+    /** Der einzige Effekt einer Strategie, der kein Tool-Lauf ist: Methode deaktivieren. */
     data class Remove(val methodInstanceId: String) : Decision
     /** Es geht gar nicht weiter (410) - nie bloß „keine Kandidaten mehr". */
     data class Abort(val reason: String) : Decision
@@ -483,7 +494,7 @@ Entscheidungen dahinter:
 
 Welche Tools für ein Angebot überhaupt in Frage kommen, beantwortet `CandidateTools` — abgeleitet
 aus den Descriptors, die die Module registrieren. Dort steht keine einzige `toolId`; ein neues
-Verfahren tritt einem Angebot bei, indem es seine Rolle deklariert.
+Tool tritt einem Angebot bei, indem es seine Rolle deklariert.
 
 ### `Interpretation` — Bedeutung als Wert
 
@@ -607,15 +618,15 @@ gehört nur `{possession}` in den Descriptor.
 
 In einem Auth-Zustand lautet die Frage „reicht das *jetzt*?" (`isSatisfied`). Auf einer
 in einem Enrollment-Zustand lautet sie „kommt der Nutzer damit *künftig wieder herein*?"
-(`canAccountReach`) — verschiedene Fragen, weil ein Identifikationsverfahren keine dauerhafte
-Auth-Methode ist: `ident-fsc` zählt für `AuthContext.currentFactorTypes` dieser Session, landet
+(`canAccountReach`) — verschiedene Fragen, weil eine Identifizierung keine dauerhafte
+Methode ist: `ident-fsc` zählt für `AuthContext.currentFactorTypes` dieser Session, landet
 aber in `account.identifications`, nicht in `account.authenticationMethods`.
 
 Daraus folgt eine Deckelungskette über drei Größen: `identifications[].loa` begrenzt, was ein
 Account überhaupt je erreichen kann; `authenticationMethods[].enrolledUnderAcr` begrenzt, was eine
 einzelne Methode liefern darf; `Completed.achievedAcr` meldet, was der konkrete Durchlauf erreicht
 hat. Praktische Folge: Ein Kanal, der `loa3` verlangt, braucht bereits ein `loa3`-fähiges
-Ident-Verfahren — wurde nur mit `loa2` identifiziert, bleiben auch alle danach eingerichteten
+Ident-Tool — wurde nur mit `loa2` identifiziert, bleiben auch alle danach eingerichteten
 Methoden auf `loa2` gedeckelt. Deshalb ist die Untergrenze schon beim Anlegen des Kanals setzbar
 ([API](05-api.md)).
 
@@ -623,7 +634,7 @@ Methoden auf `loa2` gedeckelt. Deshalb ist die Untergrenze schon beim Anlegen de
 
 Zwei Größen, die leicht als dasselbe Feld gelesen werden und deshalb verschieden heißen:
 
-- **`ChannelSession.acrFloor`** — die *dauerhafte Untergrenze* des Kanals. Ein Fachverfahren
+- **`ChannelSession.acrFloor`** — die *dauerhafte Untergrenze* des Kanals. Eine Fachanwendung
   fordert „auf diesem Kanal nie unter `loa3`". Gilt für jede Journey darauf, auch für spätere, und
   trägt den Selbstsperrschutz beim Entfernen einer Methode.
 - **`StepUpState.targetAcr`** — das *Ziel dieses einen Durchlaufs*. Nur `STEP_UP` hat eins.
@@ -635,13 +646,13 @@ Untergrenze, nie eine Erlaubnis: Das Backend setzt `max(Policy-Anforderung, Clie
 
 Keycloak kennt „Required Actions": pro Nutzer abzuarbeitende Pflichten wie `VERIFY_EMAIL`,
 die vor Abschluss der Session erledigt sein müssen. Hier sind sie kein eigenes Konzept, sondern
-Pflichtzustände: „ausreichendes Login-Verfahren eingerichtet" *ist* `Enrolling`,
+Pflichtzustände: „ausreichende Login-Methode eingerichtet" *ist* `Enrolling`,
 „bestätigte E-Mail" *ist* `ConfirmingEmail`. Eine offene Pflicht ist definitionsgemäß eine
 Position auf dem Weg.
 
-Die Reihenfolge der Pflichten ist die Reihenfolge der Zustände — und sie lautet: erst ein
-ausreichendes Login-Verfahren, dann die bestätigte E-Mail. Umgekehrt würde ein bestimmtes
-Verfahren erzwungen, bevor der Nutzer überhaupt eines gewählt hat, obwohl `enroll-email` eine der
+Die Reihenfolge der Pflichten ist die Reihenfolge der Zustände — und sie lautet: erst eine
+ausreichende Login-Methode, dann die bestätigte E-Mail. Umgekehrt würde ein bestimmtes
+Tool erzwungen, bevor der Nutzer überhaupt eines gewählt hat, obwohl `enroll-email` eine der
 Wahlmöglichkeiten ist, die beide Pflichten auf einmal erledigt.
 
 Der Geltungsbereich ergibt sich daraus, welcher Weg zu dem Zustand geführt hat: Die E-Mail-Pflicht
