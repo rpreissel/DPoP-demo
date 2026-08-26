@@ -78,7 +78,7 @@ class AuthDeviceToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val proof = deviceProofs.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
-        val outcome = handler.patch(toolSessionId, proof.publicKey, proof.accessMeans)
+        val outcome = handler.patch(toolSessionId, proof.publicKey, proof.userVerification)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

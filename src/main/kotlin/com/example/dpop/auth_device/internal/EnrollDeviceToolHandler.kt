@@ -1,7 +1,8 @@
 package com.example.dpop.auth_device.internal
 
 import com.example.dpop.auth_device.EnrollDeviceDescriptor
-import com.example.dpop.tool_spi.DevicePublicKey
+import com.example.dpop.tool_api.DevicePublicKey
+import com.example.dpop.tool_api.UserVerification
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
@@ -32,14 +33,14 @@ class EnrollDeviceToolHandler(
 
     /**
      * Called directly by EnrollDeviceToolController, not generically dispatched
-     * (docs/08-projektrahmen.md A11). [devicePublicKey]/[accessMeans] arrive already verified by
+     * (docs/08-projektrahmen.md A11). [devicePublicKey]/[userVerification] arrive already verified by
      * DeviceProofValidator at the call site - this module never parses a raw proof or JWK itself.
      * [deviceBindingKeyRef] is the enrolling channel's own DPoP-proven device fingerprint,
      * threaded through so later AUTH candidate resolution can offer/resolve this credential only
      * on the exact physical device that holds it (docs/04-orchestrierung.md).
      */
     @Transactional
-    fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, accessMeans: String, deviceBindingKeyRef: String, label: String?): ToolOutcome {
+    fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, userVerification: UserVerification, deviceBindingKeyRef: String, label: String?): ToolOutcome {
         checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-device tool session: $toolSessionId" }
 
         // Idempotent: getOrCreateDeviceKeyPair() on the client always returns the SAME key once
@@ -59,9 +60,9 @@ class EnrollDeviceToolHandler(
 
         return ToolOutcome.Completed.Enrolled(
             enrollmentRef = EnrollmentRef(type = "device_enrollment", id = enrollment.id.toString()),
-            amr = listOf(descriptor.method, accessMeans),
+            amr = listOf(descriptor.method, userVerification.wireValue),
             achievedAcr = descriptor.maxAcr,
-            factorTypes = factorTypesFor(accessMeans),
+            factorTypes = factorTypesFor(userVerification),
             auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint, "deviceBindingKeyRef" to deviceBindingKeyRef, "label" to label)
         )
     }
@@ -72,9 +73,8 @@ class EnrollDeviceToolHandler(
         return ToolOutcome.InProgress(nextStep = "enroll")
     }
 
-    private fun factorTypesFor(accessMeans: String): Set<FactorType> = when (accessMeans) {
-        "pin" -> setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
-        "biometric" -> setOf(FactorType.POSSESSION, FactorType.INHERENCE)
-        else -> error("Unsupported accessMeans: $accessMeans")
+    private fun factorTypesFor(userVerification: UserVerification): Set<FactorType> = when (userVerification) {
+        UserVerification.PIN -> setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
+        UserVerification.BIOMETRIC -> setOf(FactorType.POSSESSION, FactorType.INHERENCE)
     }
 }

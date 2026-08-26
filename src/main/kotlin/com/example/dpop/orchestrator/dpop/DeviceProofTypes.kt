@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.dpop
 
-import com.example.dpop.tool_spi.DevicePublicKey
+import com.example.dpop.tool_api.DevicePublicKey
+import com.example.dpop.tool_api.UserVerification
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import java.time.Instant
@@ -14,7 +15,7 @@ import java.time.Instant
 data class DeviceProof(
     val jwk: JWK,
     val thumbprint: String,
-    val accessMeans: String,
+    val userVerification: UserVerification,
     val jti: String,
     val issuedAt: Instant
 ) {

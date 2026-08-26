@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.dpop
 
 import com.example.dpop.tool_api.DeviceProofs
+import com.example.dpop.tool_api.UserVerification
 import com.example.dpop.tool_api.VerifiedDeviceProof
 import com.nimbusds.jose.JOSEException
 import com.nimbusds.jose.JWSAlgorithm
@@ -36,7 +37,7 @@ class DeviceProofValidator(
     /** The [DeviceProofs] contract - hands back only the opaque, verified result. */
     override fun validate(deviceProof: String?, httpMethod: String, httpUrl: String): VerifiedDeviceProof {
         val proof = verify(deviceProof, httpMethod, httpUrl)
-        return VerifiedDeviceProof(proof.toDevicePublicKey(), proof.accessMeans)
+        return VerifiedDeviceProof(proof.toDevicePublicKey(), proof.userVerification)
     }
 
     private fun verify(deviceProof: String?, httpMethod: String, httpUrl: String): DeviceProof {
@@ -66,14 +67,14 @@ class DeviceProofValidator(
 
         validateSignature(signedJWT, jwk)
         validateClaims(claims, httpMethod, httpUrl)
-        val accessMeans = validateAccessMeans(claims)
+        val userVerification = validateUserVerification(claims)
 
         val thumbprint = jwkThumbprintService.computeThumbprint(jwk)
         val issuedAt = claims.issueTime.toInstant()
         val replayKeyExpiresAt = issuedAt.plus(maxProofAgeSeconds + maxClockSkewSeconds, ChronoUnit.SECONDS)
         replayProtectionService.validateAndStore(thumbprint, claims.getJWTID(), replayKeyExpiresAt)
 
-        return DeviceProof(jwk, thumbprint, accessMeans, claims.getJWTID(), issuedAt)
+        return DeviceProof(jwk, thumbprint, userVerification, claims.getJWTID(), issuedAt)
     }
 
     private fun validateHeader(header: JWSHeader) {
@@ -134,16 +135,15 @@ class DeviceProofValidator(
         }
     }
 
-    private fun validateAccessMeans(claims: JWTClaimsSet): String {
-        val accessMeans = try {
+    /** The "accessMeans" claim name is the wire contract with the client and stays as-is. */
+    private fun validateUserVerification(claims: JWTClaimsSet): UserVerification {
+        val rawValue = try {
             claims.getStringClaim("accessMeans")
         } catch (e: ParseException) {
             throw DpopValidationException("Invalid device proof claims", e)
         }
-        if (accessMeans !in SUPPORTED_ACCESS_MEANS) {
-            throw DpopValidationException("Unsupported or missing accessMeans claim: $accessMeans")
-        }
-        return accessMeans
+        return UserVerification.fromWireValue(rawValue)
+            ?: throw DpopValidationException("Unsupported or missing accessMeans claim: $rawValue")
     }
 
     private fun normalizeUrl(url: String): String {
@@ -160,6 +160,5 @@ class DeviceProofValidator(
             JWSAlgorithm.ES384,
             JWSAlgorithm.ES512
         )
-        private val SUPPORTED_ACCESS_MEANS: Set<String> = setOf("pin", "biometric")
     }
 }

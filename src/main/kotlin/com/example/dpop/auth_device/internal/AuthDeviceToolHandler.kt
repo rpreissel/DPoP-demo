@@ -1,7 +1,8 @@
 package com.example.dpop.auth_device.internal
 
 import com.example.dpop.auth_device.AuthDeviceDescriptor
-import com.example.dpop.tool_spi.DevicePublicKey
+import com.example.dpop.tool_api.DevicePublicKey
+import com.example.dpop.tool_api.UserVerification
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
@@ -52,11 +53,11 @@ class AuthDeviceToolHandler(
 
     /**
      * Called directly by AuthDeviceToolController, not generically dispatched
-     * (docs/08-projektrahmen.md A11). [devicePublicKey]/[accessMeans] arrive already verified by
+     * (docs/08-projektrahmen.md A11). [devicePublicKey]/[userVerification] arrive already verified by
      * DeviceProofValidator at the call site.
      */
     @Transactional
-    fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, accessMeans: String): ToolOutcome {
+    fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, userVerification: UserVerification): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-device tool session: $toolSessionId" }
         val enrollmentId = checkNotNull(data.enrollmentRefId?.toLongOrNull()) { "auth-device tool session without enrollment ref: $toolSessionId" }
         val enrollment = checkNotNull(enrollmentRepository.findByIdOrNull(enrollmentId)) { "Geraete-Enrollment nicht gefunden: $enrollmentId" }
@@ -66,9 +67,9 @@ class AuthDeviceToolHandler(
         }
 
         return ToolOutcome.Completed.Authenticated(
-            amr = listOf(descriptor.method, accessMeans),
+            amr = listOf(descriptor.method, userVerification.wireValue),
             achievedAcr = descriptor.maxAcr,
-            factorTypes = factorTypesFor(accessMeans)
+            factorTypes = factorTypesFor(userVerification)
         )
     }
 
@@ -78,9 +79,8 @@ class AuthDeviceToolHandler(
         return ToolOutcome.InProgress(nextStep = "auth")
     }
 
-    private fun factorTypesFor(accessMeans: String): Set<FactorType> = when (accessMeans) {
-        "pin" -> setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
-        "biometric" -> setOf(FactorType.POSSESSION, FactorType.INHERENCE)
-        else -> error("Unsupported accessMeans: $accessMeans")
+    private fun factorTypesFor(userVerification: UserVerification): Set<FactorType> = when (userVerification) {
+        UserVerification.PIN -> setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
+        UserVerification.BIOMETRIC -> setOf(FactorType.POSSESSION, FactorType.INHERENCE)
     }
 }

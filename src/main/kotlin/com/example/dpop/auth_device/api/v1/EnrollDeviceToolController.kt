@@ -74,7 +74,7 @@ class EnrollDeviceToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val proof = deviceProofs.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
-        val outcome = handler.patch(toolSessionId, proof.publicKey, proof.accessMeans, bindingKeyRef, request?.label)
+        val outcome = handler.patch(toolSessionId, proof.publicKey, proof.userVerification, bindingKeyRef, request?.label)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
