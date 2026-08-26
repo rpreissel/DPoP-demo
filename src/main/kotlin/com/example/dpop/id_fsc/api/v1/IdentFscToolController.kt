@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1.tool
+package com.example.dpop.id_fsc.api.v1
 
 import com.example.dpop.id_fsc.IdentFscToolHandler
 import com.example.dpop.tool_api.BindingKey
