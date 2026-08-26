@@ -1,14 +1,10 @@
 package com.example.dpop.orchestrator.api.v1.channel
 
-import com.example.dpop.orchestrator.api.v1.DpopBaseController
-import com.example.dpop.orchestrator.dpop.DpopValidator
-import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
-import jakarta.servlet.http.HttpServletRequest
 import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -17,7 +13,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
@@ -28,10 +23,8 @@ import org.springframework.web.util.UriComponentsBuilder
 @Tag(name = "App channels", description = "Orchestrator-first entry point for the App channel")
 @SecurityRequirement(name = "dpop")
 class ChannelController(
-    dpopValidator: DpopValidator,
-    jwkThumbprintService: JwkThumbprintService,
     private val channelService: ChannelService
-) : DpopBaseController(dpopValidator, jwkThumbprintService) {
+) {
 
     @PostMapping
     @Operation(
@@ -42,12 +35,10 @@ class ChannelController(
             "fresh ident-fsc. To end a previous session first (logout), call DELETE on it before this."
     )
     fun createChannel(
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: ChannelCreateRequest?,
-        httpRequest: HttpServletRequest,
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val response = channelService.initializeChannel(bindingKeyRef, request?.requiredAcr, request?.intent)
         val location = uriBuilder.replacePath("/orchestrator/api/v1/app/channels/{channelSessionId}")
             .buildAndExpand(response.channel.channelSessionId).toUri()
@@ -61,10 +52,8 @@ class ChannelController(
     )
     fun getChannel(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.getChannel(channelSessionId, bindingKeyRef))
     }
 
@@ -75,11 +64,9 @@ class ChannelController(
     )
     fun raiseRequiredAcr(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        @RequestBody request: ChannelPatchRequest,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String,
+        @RequestBody request: ChannelPatchRequest
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.raiseRequiredAcr(channelSessionId, bindingKeyRef, request.requiredAcr))
     }
 
@@ -90,10 +77,8 @@ class ChannelController(
     )
     fun cancel(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.cancelActiveProcess(channelSessionId, bindingKeyRef))
     }
 
@@ -107,10 +92,8 @@ class ChannelController(
     )
     fun logout(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<Void> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         channelService.logout(channelSessionId, bindingKeyRef)
         return ResponseEntity.noContent().build()
     }
@@ -124,11 +107,9 @@ class ChannelController(
     )
     fun answerDeviceBinding(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        @RequestBody request: DeviceBindingRequest,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String,
+        @RequestBody request: DeviceBindingRequest
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.answerDeviceBinding(channelSessionId, bindingKeyRef, request.accept))
     }
 
@@ -142,10 +123,8 @@ class ChannelController(
     )
     fun getMethods(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<MethodsResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.getMethods(channelSessionId, bindingKeyRef))
     }
 
@@ -158,10 +137,8 @@ class ChannelController(
     )
     fun manageMethods(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.startManageMethods(channelSessionId, bindingKeyRef))
     }
 
@@ -176,10 +153,8 @@ class ChannelController(
     fun deactivateMethod(
         @PathVariable channelSessionId: UUID,
         @PathVariable methodInstanceId: String,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         return ResponseEntity.ok(channelService.deactivateMethod(channelSessionId, bindingKeyRef, methodInstanceId))
     }
 }

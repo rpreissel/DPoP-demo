@@ -1317,6 +1317,24 @@ class RegistrationLoginStepUpFlowIntegrationTest {
         assertThat(channelResponse.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
     }
 
+    /**
+     * DpopValidator is mocked everywhere else in this suite, so this is the one path that
+     * genuinely exercises DpopBindingKeyResolver rather than the mock: a missing header is caught
+     * before the mocked validator is ever called (docs/04-orchestrierung.md #5, DPoP-demo-2tm.3).
+     * Same 401 the deleted DpopBaseController produced.
+     */
+    @Test
+    fun missingDpopHeader_isRejectedAsUnauthorized_beforeAnyControllerLogicRuns() {
+        val headersWithoutDpop = HttpHeaders().apply { set("Content-Type", "application/json") }
+        val exception = assertThrows<HttpClientErrorException> {
+            restTemplate.exchange(
+                "http://localhost:$port/orchestrator/api/v1/app/channels", HttpMethod.POST,
+                HttpEntity("{}", headersWithoutDpop), MAP_TYPE
+            )
+        }
+        assertThat(exception.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
     companion object {
         @Suppress("UNCHECKED_CAST")
         private val MAP_TYPE = Map::class.java as Class<Map<String, Any?>>

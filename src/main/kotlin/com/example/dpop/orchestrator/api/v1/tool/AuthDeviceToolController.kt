@@ -2,20 +2,19 @@ package com.example.dpop.orchestrator.api.v1.tool
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.auth_device.AuthDeviceToolHandler
-import com.example.dpop.orchestrator.api.v1.DpopBaseController
+import com.example.dpop.orchestrator.dpop.DeviceProofValidator
+import com.example.dpop.orchestrator.dpop.buildRequestUrl
+import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.orchestrator.dpop.DeviceProofValidator
-import com.example.dpop.orchestrator.dpop.DpopValidator
-import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
+import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -23,10 +22,8 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
-import java.util.UUID
 
 private const val AUTH_DEVICE_TOOL_ID = "auth-device"
 
@@ -38,23 +35,19 @@ private const val AUTH_DEVICE_TOOL_ID = "auth-device"
 @Tag(name = "Tool: auth-device", description = "Device-key based authentication (login/step-up)")
 @SecurityRequirement(name = "dpop")
 class AuthDeviceToolController(
-    dpopValidator: DpopValidator,
-    jwkThumbprintService: JwkThumbprintService,
     private val deviceProofValidator: DeviceProofValidator,
     private val handler: AuthDeviceToolHandler,
     private val accountService: AccountService,
     private val toolEndpoint: ToolEndpoint
-) : DpopBaseController(dpopValidator, jwkThumbprintService) {
+) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-device")
     @Operation(summary = "Activate auth-device", description = "No request body: toolId already carries kind and method.")
     fun activate(
         @PathVariable channelSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest,
+        @BindingKey bindingKeyRef: String,
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, AUTH_DEVICE_TOOL_ID)
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
@@ -75,11 +68,10 @@ class AuthDeviceToolController(
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
+        @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: DeviceProofPatchRequest?,
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
         toolEndpoint.requireCurrentTool(context, AUTH_DEVICE_TOOL_ID)
 
@@ -93,10 +85,8 @@ class AuthDeviceToolController(
     @Operation(summary = "Read the current auth-device state")
     fun read(
         @PathVariable toolSessionId: UUID,
-        @Parameter(hidden = true) @RequestHeader("DPoP") dpopProof: String,
-        httpRequest: HttpServletRequest
+        @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
         val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
         val outcome = if (toolEndpoint.isCurrentTool(context, AUTH_DEVICE_TOOL_ID)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
@@ -115,7 +105,10 @@ class AuthDeviceToolController(
      * device method", or a device could be offered a credential it structurally cannot use
      * (docs/04-orchestrierung.md).
      */
-    private fun resolveEnrollmentRef(accountId: Long?, bindingKeyRef: String): EnrollmentRef? {
+    private fun resolveEnrollmentRef(
+        accountId: Long?,
+        bindingKeyRef: String
+    ): EnrollmentRef? {
         val method = accountId
             ?.let { accountService.findActiveMethods(it, handler.method) }
             ?.firstOrNull { it.details?.get("deviceBindingKeyRef") == bindingKeyRef }

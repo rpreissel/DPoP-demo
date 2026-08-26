@@ -33,13 +33,10 @@ import java.util.UUID
  * silently diverge between tools.
  *
  * Implements [ToolEndpoint] - the SPI a tool controller is written against once it moves into its
- * own method module (DPoP-demo-2tm). [Context] deliberately implements [ToolContext] rather than
- * being a different type handed across the boundary: [loadContext]/[beginActivation] declare it
- * as their return type (a valid covariant override of the interface's `ToolContext`), so
- * [ToolSwitchController] - which stays here and genuinely needs the real journey/channel - keeps
- * reading `context.journey`/`context.channel` unchanged, while every other caller sees only the
- * flat [ToolContext] the interface promises. The four methods whose interface signature takes
- * `context: ToolContext` cast it back to [Context] internally; that cast is safe because this
+ * own method module (DPoP-demo-2tm). [Context] implements [ToolContext] but is never exposed as
+ * more than that interface to any caller (not even `ToolSwitchController`, which now lives in
+ * `tool_api` and only ever sees [ToolContext] too - see [abandon]); the methods whose interface
+ * signature takes `context: ToolContext` cast it back to [Context] internally, safe because this
  * class is the only place a [Context] is ever constructed.
  *
  * What is deliberately NOT here any more: any knowledge of which tool may run when. That is a
@@ -125,6 +122,22 @@ class ToolControllerSupport(
     override fun isCurrentTool(context: ToolContext, toolId: String): Boolean {
         val ctx = context as Context
         return journeyService.isCurrent(ctx.journey, toolId, ctx.toolSession.toolSessionId!!)
+    }
+
+    /**
+     * "Back"/"Switch". Invalidates the ToolSession immediately rather than waiting for its TTL: a
+     * re-offered candidate can be the same toolId as the one being abandoned, so toolId matching
+     * alone can't tell the abandoned session and a freshly re-activated one apart.
+     */
+    override fun abandon(context: ToolContext, toolId: String): ChannelResponse {
+        val ctx = context as Context
+        sessionManagementService.expireToolSession(ctx.toolSessionId)
+        val step = journeyService.abandon(ctx.journey, ctx.channel, toolRegistry.descriptorOf(toolId))
+        return ChannelResponse(
+            channel = channelService.buildChannelBlock(ctx.channel),
+            next = step.next,
+            stepData = step.stepData
+        )
     }
 
     /**

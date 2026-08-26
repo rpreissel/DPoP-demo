@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.orchestrator.dpop.DpopValidationException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -10,6 +11,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 /** Maps the error contract from docs/07-betrieb.md #1 onto exceptions raised anywhere in the call chain. */
 @RestControllerAdvice
 class OrchestratorExceptionHandler {
+
+    /**
+     * Missing/invalid DPoP - docs/07-betrieb.md #1: 401. Thrown by [DpopBindingKeyResolver] during
+     * argument resolution, before any controller method body runs; a `@RestControllerAdvice`
+     * catches that same as an exception thrown from inside the method (used to be a per-controller
+     * `@ExceptionHandler` on the now-deleted `DpopBaseController` - one central place instead of
+     * one copy per controller).
+     */
+    @ExceptionHandler(DpopValidationException::class)
+    fun handleDpopValidation(e: DpopValidationException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
 
     @ExceptionHandler(OrchestratorException::class)
     fun handleOrchestratorException(ex: OrchestratorException): ResponseEntity<Map<String, Any>> =

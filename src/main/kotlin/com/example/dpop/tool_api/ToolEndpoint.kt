@@ -46,6 +46,15 @@ interface ToolEndpoint {
 
     fun isCurrentTool(context: ToolContext, toolId: String): Boolean
 
+    /**
+     * "Back"/"Switch": abandon the currently activated tool. What happens then is entirely the
+     * journey's decision - moving along a fallback chain, narrowing a mandatory offer, or ending
+     * like a cancel once nothing is left. The caller only decides that there IS an abandonment;
+     * it never touches the journey to make that decision itself, which is why this - and not just
+     * [applyOutcome] - is part of the SPI: it is the one effect that is not a tool outcome at all.
+     */
+    fun abandon(context: ToolContext, toolId: String): ChannelResponse
+
     /** InProgress/Failed/Completed -> journey transition + the response envelope. */
     fun applyOutcome(toolId: String, outcome: ToolOutcome, context: ToolContext): ChannelResponse
 
