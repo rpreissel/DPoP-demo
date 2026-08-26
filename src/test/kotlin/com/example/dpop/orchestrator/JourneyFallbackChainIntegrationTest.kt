@@ -1,19 +1,11 @@
 package com.example.dpop.orchestrator
 
-import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
-import com.nimbusds.jose.jwk.JWK
+import com.ninjasquad.springmockk.MockkBean
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
 import org.springframework.http.HttpStatus
-import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.web.client.HttpClientErrorException
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
-import java.time.Instant
 import java.util.UUID
 
 /**
@@ -27,29 +19,12 @@ import java.util.UUID
  */
 class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
 
-    @MockitoBean
+    @MockkBean
     private lateinit var jwkThumbprintService: JwkThumbprintService
 
     init {
-        beforeEach {
-            val fakeJwk = mock(JWK::class.java)
-            `when`(dpopValidator.validate(anyString(), anyString(), anyString())).thenAnswer {
-                DpopProof(
-                    token = "mock-token",
-                    publicKey = fakeJwk,
-                    jti = UUID.randomUUID().toString(),
-                    htm = "POST",
-                    htu = "http://localhost/mock",
-                    issuedAt = Instant.now(),
-                    nonce = null
-                )
-            }
-            currentBindingKeyRef = "binding-" + UUID.randomUUID()
-            `when`(jwkThumbprintService.computeThumbprint(fakeJwk)).thenAnswer { currentBindingKeyRef }
-        }
+        beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
-
-    // Helpers ------------------------------------------------------------------
 
     /** Registers the seeded test person with sms only and returns the resulting accountId. */
     private fun registerWithSms(): Long {
@@ -66,22 +41,6 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
         patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
         return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java)!!
     }
-
-    /** The mock SMS/email gateway prints the code to stdout; capture it the same way the flow test does. */
-    private fun <T> captureMockTan(block: () -> T): Pair<String, T> {
-        val buffer = ByteArrayOutputStream()
-        val original = System.out
-        System.setOut(PrintStream(buffer, true))
-        val result = try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        val tan = Regex("""\b(\d{6})\b""").find(buffer.toString())?.groupValues?.get(1)
-            ?: error("No TAN found in captured output: $buffer")
-        return tan to result
-    }
-
 
     init {
         given("the per-intent state machine's fallback chain, attempt budget, and entry intent") {

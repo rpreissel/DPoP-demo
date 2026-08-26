@@ -1,6 +1,5 @@
 package com.example.dpop.orchestrator
 
-import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
@@ -11,9 +10,8 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import io.mockk.every
 import org.assertj.core.api.Assertions.assertThat
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.Mockito.`when`
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -40,42 +38,18 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
     init {
         beforeEach {
-            `when`(dpopValidator.validate(anyString(), anyString(), anyString())).thenAnswer {
-                DpopProof(
-                    token = "mock-token",
-                    publicKey = channelKey.toPublicJWK(),
-                    jti = UUID.randomUUID().toString(),
-                    htm = "POST",
-                    htu = "http://localhost/mock",
-                    issuedAt = Instant.now(),
-                    nonce = null
-                )
-            }
+            every { dpopValidator.validate(any(), any(), any()) } returns DpopProof(
+                token = "mock-token",
+                publicKey = channelKey.toPublicJWK(),
+                jti = UUID.randomUUID().toString(),
+                htm = "POST",
+                htu = "http://localhost/mock",
+                issuedAt = Instant.now(),
+                nonce = null
+            )
         }
     }
 
-    private fun captureMockTan(block: () -> Map<String, Any?>): Pair<String, Map<String, Any?>> {
-        val original = System.out
-        val buffer = ByteArrayOutputStream()
-        System.setOut(PrintStream(buffer))
-        val response = try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        val tan = Regex("""TAN (\d{6}) an""").find(buffer.toString())?.groupValues?.get(1)
-            ?: error("No mock TAN found in captured output: ${buffer}")
-        return tan to response
-    }
-    private fun identify(): String {
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
-            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-        )
-        return channelSessionId
-    }
     private fun enrollSms(channelSessionId: String) {
         val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
         val (tan, _) = captureMockTan {
@@ -83,15 +57,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
         }
         patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"tan":"$tan"}""")
     }
-    private fun enrollEmail(channelSessionId: String) {
-        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
-        // The mock email gateway words its log line differently from the SMS one, so this reads
-        // the code out of the response's demo block instead of the captured output.
-        val sent = patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-email", """{"email":"$DEMO_EMAIL"}""")
-        @Suppress("UNCHECKED_CAST")
-        val code = (sent["demo"] as Map<String, Any?>)["tan"] as String
-        patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-email", """{"code":"$code"}""")
-    }
+
     /** Self-signed device-proof JWT (typ=device-proof+jwt), same shape DeviceProofValidator expects. */
     private fun signDeviceProof(deviceKey: ECKey, htu: String, userVerification: String, issuedAt: Date = Date()): String {
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)

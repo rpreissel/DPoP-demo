@@ -10,9 +10,8 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import io.mockk.every
 import org.assertj.core.api.Assertions.assertThat
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.Mockito.`when`
 import java.time.Instant
 import java.util.Date
 import java.util.UUID
@@ -34,7 +33,9 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
 
     init {
         beforeEach {
-            `when`(dpopValidator.validate(anyString(), anyString(), anyString())).thenAnswer {
+            // Lazy on purpose: currentChannelKey is reassigned mid-test to simulate a second
+            // physical device, and every subsequent call must see the NEW key.
+            every { dpopValidator.validate(any(), any(), any()) } answers {
                 DpopProof(
                     token = "mock-token",
                     publicKey = currentChannelKey.toPublicJWK(),
@@ -48,15 +49,6 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
         }
     }
 
-    private fun identify(): String {
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
-            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-        )
-        return channelSessionId
-    }
     private fun signDeviceProof(deviceKey: ECKey, htu: String, userVerification: String, issuedAt: Date = Date()): String {
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType("device-proof+jwt"))

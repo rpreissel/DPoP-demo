@@ -1,16 +1,8 @@
 package com.example.dpop.orchestrator
 
-import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
-import com.nimbusds.jose.jwk.JWK
+import com.ninjasquad.springmockk.MockkBean
 import org.assertj.core.api.Assertions.assertThat
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
-import org.springframework.test.context.bean.override.mockito.MockitoBean
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
-import java.time.Instant
 import java.util.UUID
 
 /**
@@ -21,58 +13,11 @@ import java.util.UUID
  */
 class RequiredActionIntegrationTest : IntegrationTestSupport() {
 
-    @MockitoBean
+    @MockkBean
     private lateinit var jwkThumbprintService: JwkThumbprintService
 
     init {
-        beforeEach {
-            val fakeJwk = mock(JWK::class.java)
-            `when`(dpopValidator.validate(anyString(), anyString(), anyString())).thenAnswer {
-                DpopProof(
-                    token = "mock-token",
-                    publicKey = fakeJwk,
-                    jti = UUID.randomUUID().toString(),
-                    htm = "POST",
-                    htu = "http://localhost/mock",
-                    issuedAt = Instant.now(),
-                    nonce = null
-                )
-            }
-            currentBindingKeyRef = "binding-" + UUID.randomUUID()
-            `when`(jwkThumbprintService.computeThumbprint(fakeJwk)).thenAnswer { currentBindingKeyRef }
-        }
-    }
-
-    private fun captureMockTan(block: () -> Map<String, Any?>): Pair<String, Map<String, Any?>> {
-        val original = System.out
-        val buffer = ByteArrayOutputStream()
-        System.setOut(PrintStream(buffer))
-        val response = try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        val tan = Regex("""(?:TAN|Code) (\d{6}) an""").find(buffer.toString())?.groupValues?.get(1)
-            ?: error("No mock TAN/code found in captured output: $buffer")
-        return tan to response
-    }
-    private fun identify(): String {
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
-            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-        )
-        return channelSessionId
-    }
-    private fun enrollEmail(channelSessionId: String): String {
-        val email = "required-action-${UUID.randomUUID()}@example.com"
-        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
-        val (code, _) = captureMockTan {
-            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"email":"$email"}""")
-        }
-        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"code":"$code"}""")
-        return email
+        beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
 
     init {
