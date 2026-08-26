@@ -3,17 +3,19 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
-import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
-import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
-import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.ToolSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.DemoInfo
+import com.example.dpop.tool_api.Next
+import com.example.dpop.tool_api.ToolContext
+import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
@@ -30,6 +32,16 @@ import java.util.UUID
  * (docs/08-projektrahmen.md A11); only this cross-cutting part is centralized so it can't
  * silently diverge between tools.
  *
+ * Implements [ToolEndpoint] - the SPI a tool controller is written against once it moves into its
+ * own method module (DPoP-demo-2tm). [Context] deliberately implements [ToolContext] rather than
+ * being a different type handed across the boundary: [loadContext]/[beginActivation] declare it
+ * as their return type (a valid covariant override of the interface's `ToolContext`), so
+ * [ToolSwitchController] - which stays here and genuinely needs the real journey/channel - keeps
+ * reading `context.journey`/`context.channel` unchanged, while every other caller sees only the
+ * flat [ToolContext] the interface promises. The four methods whose interface signature takes
+ * `context: ToolContext` cast it back to [Context] internally; that cast is safe because this
+ * class is the only place a [Context] is ever constructed.
+ *
  * What is deliberately NOT here any more: any knowledge of which tool may run when. That is a
  * question about the journey's current state, and [JourneyService] is the only thing that answers
  * it.
@@ -44,19 +56,25 @@ class ToolControllerSupport(
     private val loginThrottleService: LoginThrottleService,
     private val channelService: ChannelService,
     private val journeyService: JourneyService
-) {
-    data class Context(val toolSession: ToolSession, val journey: AuthJourney, val channel: ChannelSession)
+) : ToolEndpoint {
+    data class Context(val toolSession: ToolSession, val journey: AuthJourney, val channel: ChannelSession) : ToolContext {
+        override val toolSessionId: UUID get() = toolSession.toolSessionId!!
+        override val journeyAccountId: Long? get() = journey.accountId
+        override val channelAccountId: Long? get() = channel.accountId
+    }
 
-    /** The `Location` of a just-created tool resource - identical across every tool's activate(). */
-    fun activationLocation(uriBuilder: UriComponentsBuilder, toolSessionId: UUID, toolId: String): URI =
-        uriBuilder.replacePath("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}").buildAndExpand(toolSessionId, toolId).toUri()
+    override fun activationLocation(baseUri: URI, toolSessionId: UUID, toolId: String): URI =
+        UriComponentsBuilder.fromUri(baseUri)
+            .replacePath("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}")
+            .buildAndExpand(toolSessionId, toolId)
+            .toUri()
 
     /**
      * Mints the ToolSession and lets the journey decide whether [toolId] may run at all. The
      * check is membership in the current state's own offer, so a tool that was never offered
      * cannot be activated by naming it.
      */
-    fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
+    override fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val journey = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState("No active journey for this channel")
@@ -89,7 +107,7 @@ class ToolControllerSupport(
         }
     }
 
-    fun loadContext(toolSessionId: UUID, bindingKeyRef: String): Context {
+    override fun loadContext(toolSessionId: UUID, bindingKeyRef: String): Context {
         val toolSession = sessionManagementService.findToolSessionById(toolSessionId)
             ?: throw OrchestratorException.notFound("Tool session not found: $toolSessionId")
         val journey = journeyService.findById(toolSession.journeyId!!)
@@ -98,14 +116,16 @@ class ToolControllerSupport(
         return Context(toolSession, journey, channel)
     }
 
-    fun requireCurrentTool(context: Context, toolId: String) {
+    override fun requireCurrentTool(context: ToolContext, toolId: String) {
         if (!isCurrentTool(context, toolId)) {
             throw OrchestratorException.invalidState("$toolId is not the currently active tool for this journey")
         }
     }
 
-    fun isCurrentTool(context: Context, toolId: String): Boolean =
-        journeyService.isCurrent(context.journey, toolId, context.toolSession.toolSessionId!!)
+    override fun isCurrentTool(context: ToolContext, toolId: String): Boolean {
+        val ctx = context as Context
+        return journeyService.isCurrent(ctx.journey, toolId, ctx.toolSession.toolSessionId!!)
+    }
 
     /**
      * InProgress/Failed/Completed -> journey transition + API response. Returns the same
@@ -113,16 +133,17 @@ class ToolControllerSupport(
      * is the same mutable entity [JourneyService] just updated in place, so the block reflects
      * the post-outcome state without a separate `GET /channels`.
      */
-    fun applyOutcome(toolId: String, outcome: ToolOutcome, context: Context): ChannelResponse {
+    override fun applyOutcome(toolId: String, outcome: ToolOutcome, context: ToolContext): ChannelResponse {
+        val ctx = context as Context
         val descriptor = toolRegistry.descriptorOf(toolId)
         if (descriptor.category == ToolCategory.AUTH && outcome !is ToolOutcome.InProgress) {
-            context.channel.accountId?.let {
+            ctx.channel.accountId?.let {
                 if (outcome is ToolOutcome.Completed) loginThrottleService.recordSuccess(it)
                 else loginThrottleService.recordFailure(it)
             }
         }
 
-        val step = journeyService.applyOutcome(context.journey, context.channel, descriptor, outcome)
+        val step = journeyService.applyOutcome(ctx.journey, ctx.channel, descriptor, outcome)
 
         // The DEMO_DATA_KEY bag travels inside ToolOutcome.data like any other tool-internal
         // field, but never belongs in stepData (docs/05-api.md #2: production contract).
@@ -130,22 +151,28 @@ class ToolControllerSupport(
         val demoValues = step.stepData?.get(DEMO_DATA_KEY) as? Map<String, Any?>
         val cleanedStepData = step.stepData?.minus(DEMO_DATA_KEY)?.ifEmpty { null }
         return ChannelResponse(
-            channel = channelService.buildChannelBlock(context.channel),
+            channel = channelService.buildChannelBlock(ctx.channel),
             next = step.next,
             stepData = cleanedStepData,
-            demo = demoInfo(context.journey, step.next, demoValues)
+            demo = demoInfo(ctx.journey, step.next, demoValues)
         )
     }
 
     /** For GET: only the still-current tool's freshly rebuilt InProgress state is shown. */
-    fun buildReadResponse(toolSessionId: UUID, toolId: String, context: Context, freshOutcome: ToolOutcome.InProgress?): ChannelResponse {
+    override fun buildReadResponse(
+        toolSessionId: UUID,
+        toolId: String,
+        context: ToolContext,
+        freshOutcome: ToolOutcome.InProgress?
+    ): ChannelResponse {
+        val ctx = context as Context
         val next = if (freshOutcome != null) {
             Next.tool(toolId, freshOutcome.nextStep, toolSessionId)
         } else {
-            journeyService.nextOf(context.journey)
+            journeyService.nextOf(ctx.journey)
         }
         return ChannelResponse(
-            channel = channelService.buildChannelBlock(context.channel),
+            channel = channelService.buildChannelBlock(ctx.channel),
             next = next,
             stepData = freshOutcome?.data
         )

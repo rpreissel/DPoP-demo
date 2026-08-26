@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.auth_email.AuthEmailUseToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.ToolOutcome
@@ -39,7 +40,7 @@ class AuthEmailToolController(
     dpopValidator: DpopValidator,
     jwkThumbprintService: JwkThumbprintService,
     private val handler: AuthEmailUseToolHandler,
-    private val controllerSupport: ToolControllerSupport
+    private val toolEndpoint: ToolEndpoint
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-email")
@@ -51,17 +52,17 @@ class AuthEmailToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID)
+        val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID)
 
         // Only the accountId is resolved here, so the handler never sees a nullable parameter
         // (docs/03-tool-architektur.md #2); the confirmed address itself is the handler's own
         // lookup, same 422 either way.
-        val accountId = context.channel.accountId
+        val accountId = context.channelAccountId
             ?: throw UnresolvableReferenceException("Kein Konto fuer diesen Kanal")
-        val outcome = handler.start(context.toolSession.toolSessionId!!, accountId)
+        val outcome = handler.start(context.toolSessionId, accountId)
 
-        val response = controllerSupport.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context)
-        val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, AUTH_EMAIL_TOOL_ID)
+        val response = toolEndpoint.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context)
+        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, AUTH_EMAIL_TOOL_ID)
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -74,13 +75,13 @@ class AuthEmailToolController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
-        controllerSupport.requireCurrentTool(context, AUTH_EMAIL_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
+        toolEndpoint.requireCurrentTool(context, AUTH_EMAIL_TOOL_ID)
 
         val body = request ?: AuthEmailPatchRequest()
         val outcome = handler.patch(toolSessionId, body.code)
 
-        return ResponseEntity.ok(controllerSupport.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-email")
@@ -91,14 +92,14 @@ class AuthEmailToolController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (controllerSupport.isCurrentTool(context, AUTH_EMAIL_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
+        val outcome = if (toolEndpoint.isCurrentTool(context, AUTH_EMAIL_TOOL_ID)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(controllerSupport.buildReadResponse(toolSessionId, AUTH_EMAIL_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_EMAIL_TOOL_ID, context, outcome))
     }
 }

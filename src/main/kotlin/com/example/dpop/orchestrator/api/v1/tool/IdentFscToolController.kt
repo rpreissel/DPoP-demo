@@ -4,6 +4,7 @@ import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.id_fsc.IdentFscToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.ToolOutcome
@@ -45,7 +46,7 @@ class IdentFscToolController(
     jwkThumbprintService: JwkThumbprintService,
     private val handler: IdentFscToolHandler,
     private val extStammdatenService: ExtStammdatenService,
-    private val controllerSupport: ToolControllerSupport
+    private val toolEndpoint: ToolEndpoint
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/ident-fsc")
@@ -57,10 +58,10 @@ class IdentFscToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, IDENT_FSC_TOOL_ID)
-        val outcome = handler.start(context.toolSession.toolSessionId!!)
-        val response = controllerSupport.applyOutcome(IDENT_FSC_TOOL_ID, outcome, context)
-        val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, IDENT_FSC_TOOL_ID)
+        val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, IDENT_FSC_TOOL_ID)
+        val outcome = handler.start(context.toolSessionId)
+        val response = toolEndpoint.applyOutcome(IDENT_FSC_TOOL_ID, outcome, context)
+        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, IDENT_FSC_TOOL_ID)
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -76,15 +77,15 @@ class IdentFscToolController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
-        controllerSupport.requireCurrentTool(context, IDENT_FSC_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
+        toolEndpoint.requireCurrentTool(context, IDENT_FSC_TOOL_ID)
 
         val body = request ?: IdentFscPatchRequest()
         // Only the orchestrator may reference both id_fsc and ext_stammdaten (docs/08-projektrahmen.md #3).
         val personId = body.kvnr?.let { extStammdatenService.findPersonIdByKvnr(it) }
         val outcome = handler.patch(toolSessionId, body.kvnr, body.name, body.vorname, body.fsc, personId)
 
-        return ResponseEntity.ok(controllerSupport.applyOutcome(IDENT_FSC_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(IDENT_FSC_TOOL_ID, outcome, context))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-fsc")
@@ -95,14 +96,14 @@ class IdentFscToolController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (controllerSupport.isCurrentTool(context, IDENT_FSC_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
+        val outcome = if (toolEndpoint.isCurrentTool(context, IDENT_FSC_TOOL_ID)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(controllerSupport.buildReadResponse(toolSessionId, IDENT_FSC_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, IDENT_FSC_TOOL_ID, context, outcome))
     }
 }

@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.auth_password.EnrollPasswordToolHandler
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.tool_spi.ToolOutcome
@@ -40,7 +41,7 @@ class EnrollPasswordToolController(
     dpopValidator: DpopValidator,
     jwkThumbprintService: JwkThumbprintService,
     private val handler: EnrollPasswordToolHandler,
-    private val controllerSupport: ToolControllerSupport
+    private val toolEndpoint: ToolEndpoint
 ) : DpopBaseController(dpopValidator, jwkThumbprintService) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/enroll-password")
@@ -52,10 +53,10 @@ class EnrollPasswordToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.beginActivation(channelSessionId, bindingKeyRef, ENROLL_PASSWORD_TOOL_ID)
-        val outcome = handler.start(context.toolSession.toolSessionId!!)
-        val response = controllerSupport.applyOutcome(ENROLL_PASSWORD_TOOL_ID, outcome, context)
-        val location = controllerSupport.activationLocation(uriBuilder, context.toolSession.toolSessionId!!, ENROLL_PASSWORD_TOOL_ID)
+        val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, ENROLL_PASSWORD_TOOL_ID)
+        val outcome = handler.start(context.toolSessionId)
+        val response = toolEndpoint.applyOutcome(ENROLL_PASSWORD_TOOL_ID, outcome, context)
+        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, ENROLL_PASSWORD_TOOL_ID)
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -68,13 +69,13 @@ class EnrollPasswordToolController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
-        controllerSupport.requireCurrentTool(context, ENROLL_PASSWORD_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
+        toolEndpoint.requireCurrentTool(context, ENROLL_PASSWORD_TOOL_ID)
 
         val body = request ?: EnrollPasswordPatchRequest()
         val outcome = handler.patch(toolSessionId, body.password)
 
-        return ResponseEntity.ok(controllerSupport.applyOutcome(ENROLL_PASSWORD_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(ENROLL_PASSWORD_TOOL_ID, outcome, context))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-password")
@@ -85,14 +86,14 @@ class EnrollPasswordToolController(
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
         val bindingKeyRef = validateAndExtractBindingKeyRef(dpopProof, httpRequest)
-        val context = controllerSupport.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (controllerSupport.isCurrentTool(context, ENROLL_PASSWORD_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
+        val outcome = if (toolEndpoint.isCurrentTool(context, ENROLL_PASSWORD_TOOL_ID)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(controllerSupport.buildReadResponse(toolSessionId, ENROLL_PASSWORD_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, ENROLL_PASSWORD_TOOL_ID, context, outcome))
     }
 }
