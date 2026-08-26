@@ -26,6 +26,7 @@ Nicht Teil dieser Dokumentation:
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
 | [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
+| [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
 
 **Empfohlene Lesereihenfolge:** 01 -> 02 -> 03 -> 04 für das Fachkonzept; 08 für den
 Projektkontext. Wer nur einen Client baut, kommt mit 01, 05 und 10 aus.
