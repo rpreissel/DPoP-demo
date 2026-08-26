@@ -1,11 +1,10 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_sms.AuthSmsLookupToolHandler
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -35,7 +34,7 @@ data class AuthSmsLookupPatchRequest(val email: String? = null, val tan: String?
 @SecurityRequirement(name = "dpop")
 class AuthSmsLookupToolController(
     private val handler: AuthSmsLookupToolHandler,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
 
@@ -73,9 +72,9 @@ class AuthSmsLookupToolController(
             // Resolved HERE, at the call site - auth_sms may not depend on `account`
             // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no
             // active sms method; the handler treats that identically to a wrong TAN.
-            val account = accountService.findAccountByEmail(body.email)
-            val enrollmentRef = account?.accountId?.let { resolveEnrollmentRef(it) }
-            handler.submitEmail(toolSessionId, account?.accountId, enrollmentRef)
+            val accountId = accountDirectory.resolveAccountByEmail(body.email)
+            val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
+            handler.submitEmail(toolSessionId, accountId, enrollmentRef)
         } else {
             handler.patch(toolSessionId, null)
         }
@@ -98,15 +97,5 @@ class AuthSmsLookupToolController(
             null
         }
         return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_SMS_LOOKUP_TOOL_ID, context, outcome))
-    }
-
-    private fun resolveEnrollmentRef(
-        accountId: Long
-    ): EnrollmentRef? {
-        val method = accountService.findActiveMethod(accountId, handler.method) ?: return null
-        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
-        val type = raw["type"] as? String ?: return null
-        val id = raw["id"] as? String ?: return null
-        return EnrollmentRef(type, id)
     }
 }

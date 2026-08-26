@@ -1,9 +1,9 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.id_fsc.IdentFscToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
@@ -38,7 +38,7 @@ data class IdentFscPatchRequest(
 @SecurityRequirement(name = "dpop")
 class IdentFscToolController(
     private val handler: IdentFscToolHandler,
-    private val extStammdatenService: ExtStammdatenService,
+    private val personDirectory: PersonDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
 
@@ -70,8 +70,7 @@ class IdentFscToolController(
         toolEndpoint.requireCurrentTool(context, IDENT_FSC_TOOL_ID)
 
         val body = request ?: IdentFscPatchRequest()
-        // Only the orchestrator may reference both id_fsc and ext_stammdaten (docs/08-projektrahmen.md #3).
-        val personId = body.kvnr?.let { extStammdatenService.findPersonIdByKvnr(it) }
+        val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(it) }
         val outcome = handler.patch(toolSessionId, body.kvnr, body.name, body.vorname, body.fsc, personId)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(IDENT_FSC_TOOL_ID, outcome, context))

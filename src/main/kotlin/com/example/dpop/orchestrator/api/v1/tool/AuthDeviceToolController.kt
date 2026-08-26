@@ -1,13 +1,12 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_device.AuthDeviceToolHandler
-import com.example.dpop.orchestrator.dpop.DeviceProofValidator
 import com.example.dpop.orchestrator.dpop.buildRequestUrl
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.DeviceProofs
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
@@ -35,9 +34,9 @@ private const val AUTH_DEVICE_TOOL_ID = "auth-device"
 @Tag(name = "Tool: auth-device", description = "Device-key based authentication (login/step-up)")
 @SecurityRequirement(name = "dpop")
 class AuthDeviceToolController(
-    private val deviceProofValidator: DeviceProofValidator,
+    private val deviceProofs: DeviceProofs,
     private val handler: AuthDeviceToolHandler,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
 
@@ -52,7 +51,8 @@ class AuthDeviceToolController(
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val enrollmentRef = resolveEnrollmentRef(context.channelAccountId, bindingKeyRef)
+        val enrollmentRef = context.channelAccountId
+            ?.let { accountDirectory.activeDeviceEnrollment(it, handler.method, bindingKeyRef) }
             ?: throw UnresolvableReferenceException("Keine aktive Geraete-Methode fuer dieses Geraet")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
@@ -75,8 +75,8 @@ class AuthDeviceToolController(
         val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
         toolEndpoint.requireCurrentTool(context, AUTH_DEVICE_TOOL_ID)
 
-        val proof = deviceProofValidator.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
-        val outcome = handler.patch(toolSessionId, proof.toDevicePublicKey(), proof.accessMeans)
+        val proof = deviceProofs.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
+        val outcome = handler.patch(toolSessionId, proof.publicKey, proof.accessMeans)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_DEVICE_TOOL_ID, outcome, context))
     }
@@ -96,26 +96,5 @@ class AuthDeviceToolController(
             null
         }
         return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_DEVICE_TOOL_ID, context, outcome))
-    }
-
-    /**
-     * Unlike other auth-* tools' single-active-instance lookup, `device` can have several active
-     * instances at once (one per physical device) - must pick the ONE whose
-     * `deviceBindingKeyRef` matches THIS channel's own binding key, never just "any active
-     * device method", or a device could be offered a credential it structurally cannot use
-     * (docs/04-orchestrierung.md).
-     */
-    private fun resolveEnrollmentRef(
-        accountId: Long?,
-        bindingKeyRef: String
-    ): EnrollmentRef? {
-        val method = accountId
-            ?.let { accountService.findActiveMethods(it, handler.method) }
-            ?.firstOrNull { it.details?.get("deviceBindingKeyRef") == bindingKeyRef }
-            ?: return null
-        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
-        val type = raw["type"] as? String ?: return null
-        val id = raw["id"] as? String ?: return null
-        return EnrollmentRef(type, id)
     }
 }

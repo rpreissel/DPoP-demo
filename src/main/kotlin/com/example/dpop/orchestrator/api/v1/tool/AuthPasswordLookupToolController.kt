@@ -1,11 +1,10 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_password.AuthPasswordLookupToolHandler
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -35,7 +34,7 @@ data class AuthPasswordLookupPatchRequest(val email: String? = null, val passwor
 @SecurityRequirement(name = "dpop")
 class AuthPasswordLookupToolController(
     private val handler: AuthPasswordLookupToolHandler,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
 
@@ -67,9 +66,9 @@ class AuthPasswordLookupToolController(
         // Resolved HERE, at the call site - auth_password may not depend on `account`
         // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no active
         // password method; the handler treats that identically to a wrong password.
-        val account = body.email?.let { accountService.findAccountByEmail(it) }
-        val enrollmentRef = account?.accountId?.let { resolveEnrollmentRef(it) }
-        val outcome = handler.patch(toolSessionId, body.email, body.password, account?.accountId, enrollmentRef)
+        val accountId = body.email?.let { accountDirectory.resolveAccountByEmail(it) }
+        val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
+        val outcome = handler.patch(toolSessionId, body.email, body.password, accountId, enrollmentRef)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_PASSWORD_LOOKUP_TOOL_ID, outcome, context))
     }
@@ -89,15 +88,5 @@ class AuthPasswordLookupToolController(
             null
         }
         return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_PASSWORD_LOOKUP_TOOL_ID, context, outcome))
-    }
-
-    private fun resolveEnrollmentRef(
-        accountId: Long
-    ): EnrollmentRef? {
-        val method = accountService.findActiveMethod(accountId, handler.method) ?: return null
-        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
-        val type = raw["type"] as? String ?: return null
-        val id = raw["id"] as? String ?: return null
-        return EnrollmentRef(type, id)
     }
 }

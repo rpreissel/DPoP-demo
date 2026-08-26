@@ -4,15 +4,16 @@ import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountIdentification
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_spi.EnrollmentRef
+import java.time.Instant
+import java.util.UUID
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
-import java.util.UUID
 
 @Service
-class AccountService(private val accountRepository: AccountRepository) {
+class AccountService(private val accountRepository: AccountRepository) : AccountDirectory {
 
     /** Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md). */
     @Transactional
@@ -117,6 +118,26 @@ class AccountService(private val accountRepository: AccountRepository) {
     @Transactional(readOnly = true)
     fun findActiveMethods(accountId: Long, method: String): List<AuthMethodView> =
         findAccount(accountId)?.authenticationMethods?.filter { it.active && it.method == method } ?: emptyList()
+
+    // AccountDirectory (tool_api) -------------------------------------------------------------
+
+    override fun resolveAccountByEmail(email: String): Long? = findAccountByEmail(email)?.accountId
+
+    override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
+        findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it) }
+
+    override fun activeDeviceEnrollment(accountId: Long, method: String, deviceBindingKeyRef: String): EnrollmentRef? =
+        findActiveMethods(accountId, method)
+            .firstOrNull { it.details?.get("deviceBindingKeyRef") == deviceBindingKeyRef }
+            ?.let { extractEnrollmentRef(it) }
+
+    /** The inverse of [addAuthenticationMethod]'s `mergedDetails` write - reads the same shape back out. */
+    private fun extractEnrollmentRef(method: AuthMethodView): EnrollmentRef? {
+        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
+        val type = raw["type"] as? String ?: return null
+        val id = raw["id"] as? String ?: return null
+        return EnrollmentRef(type, id)
+    }
 
     private fun getOrThrow(accountId: Long): Account =
         accountRepository.findByIdOrNull(accountId)

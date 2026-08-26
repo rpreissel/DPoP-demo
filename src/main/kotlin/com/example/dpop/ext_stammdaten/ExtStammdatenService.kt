@@ -1,11 +1,12 @@
 package com.example.dpop.ext_stammdaten
 
 import com.example.dpop.ext_stammdaten.internal.PersonRepository
+import com.example.dpop.tool_api.PersonDirectory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
-class ExtStammdatenService(private val personRepository: PersonRepository) {
+class ExtStammdatenService(private val personRepository: PersonRepository) : PersonDirectory {
 
     fun fetchStammdaten(): String {
         val persons = personRepository.findAll()
@@ -17,7 +18,7 @@ class ExtStammdatenService(private val personRepository: PersonRepository) {
         }
     }
 
-    fun findPersonIdByKvnr(kvnr: String): Long? =
+    override fun findPersonIdByKvnr(kvnr: String): Long? =
         personRepository.findByKvnr(kvnr)?.id
 
     fun findPersonByKvnr(kvnr: String): PersonData? =

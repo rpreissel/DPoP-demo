@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.dpop
 
+import com.example.dpop.tool_api.DeviceProofs
+import com.example.dpop.tool_api.VerifiedDeviceProof
 import com.nimbusds.jose.JOSEException
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
@@ -8,11 +10,11 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.stereotype.Component
 import java.text.ParseException
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
 
 /**
  * Verifies device-binding proofs (typ="device-proof+jwt") for enroll-device/auth-device. Deliberately
@@ -29,9 +31,15 @@ class DeviceProofValidator(
     private val replayProtectionService: DpopReplayProtectionService,
     @Value("\${dpop.proof.max-clock-skew-seconds:30}") private val maxClockSkewSeconds: Long,
     @Value("\${dpop.proof.max-age-seconds:120}") private val maxProofAgeSeconds: Long
-) {
+) : DeviceProofs {
 
-    fun validate(deviceProof: String?, httpMethod: String, httpUrl: String): DeviceProof {
+    /** The [DeviceProofs] contract - hands back only the opaque, verified result. */
+    override fun validate(deviceProof: String?, httpMethod: String, httpUrl: String): VerifiedDeviceProof {
+        val proof = verify(deviceProof, httpMethod, httpUrl)
+        return VerifiedDeviceProof(proof.toDevicePublicKey(), proof.accessMeans)
+    }
+
+    private fun verify(deviceProof: String?, httpMethod: String, httpUrl: String): DeviceProof {
         if (deviceProof.isNullOrBlank()) {
             throw DpopValidationException("Missing device proof")
         }

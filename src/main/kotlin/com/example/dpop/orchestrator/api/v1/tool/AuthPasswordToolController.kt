@@ -1,11 +1,10 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_password.AuthPasswordUseToolHandler
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
@@ -37,7 +36,7 @@ data class AuthPasswordPatchRequest(
 @SecurityRequirement(name = "dpop")
 class AuthPasswordToolController(
     private val handler: AuthPasswordUseToolHandler,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
 
@@ -52,7 +51,7 @@ class AuthPasswordToolController(
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val enrollmentRef = resolveEnrollmentRef(context.channelAccountId)
+        val enrollmentRef = context.channelAccountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
             ?: throw UnresolvableReferenceException("Keine aktive Password-Methode fuer diesen Account")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
@@ -92,15 +91,5 @@ class AuthPasswordToolController(
             null
         }
         return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_PASSWORD_TOOL_ID, context, outcome))
-    }
-
-    private fun resolveEnrollmentRef(
-        accountId: Long?
-    ): EnrollmentRef? {
-        val method = accountId?.let { accountService.findActiveMethod(it, handler.method) } ?: return null
-        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
-        val type = raw["type"] as? String ?: return null
-        val id = raw["id"] as? String ?: return null
-        return EnrollmentRef(type, id)
     }
 }

@@ -1,10 +1,10 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
 import com.example.dpop.auth_device.EnrollDeviceToolHandler
-import com.example.dpop.orchestrator.dpop.DeviceProofValidator
 import com.example.dpop.orchestrator.dpop.buildRequestUrl
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.DeviceProofs
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
@@ -40,7 +40,7 @@ data class DeviceProofPatchRequest(
 @Tag(name = "Tool: enroll-device", description = "Device-key based enrollment (gerätebindung)")
 @SecurityRequirement(name = "dpop")
 class EnrollDeviceToolController(
-    private val deviceProofValidator: DeviceProofValidator,
+    private val deviceProofs: DeviceProofs,
     private val handler: EnrollDeviceToolHandler,
     private val toolEndpoint: ToolEndpoint
 ) {
@@ -73,8 +73,8 @@ class EnrollDeviceToolController(
         val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
         toolEndpoint.requireCurrentTool(context, ENROLL_DEVICE_TOOL_ID)
 
-        val proof = deviceProofValidator.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
-        val outcome = handler.patch(toolSessionId, proof.toDevicePublicKey(), proof.accessMeans, bindingKeyRef, request?.label)
+        val proof = deviceProofs.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
+        val outcome = handler.patch(toolSessionId, proof.publicKey, proof.accessMeans, bindingKeyRef, request?.label)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(ENROLL_DEVICE_TOOL_ID, outcome, context))
     }
