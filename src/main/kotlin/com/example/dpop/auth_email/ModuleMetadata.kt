@@ -14,7 +14,7 @@ import org.springframework.modulith.ApplicationModule
  * it. Six call sites across the app read it; exactly one procedure establishes it.
  *
  * That asymmetry is real, so the dependency it implies is modelled instead of hidden. It used to
- * be laundered through the orchestrator - `ToolOutcomeProcessor.handleEnrolled` carried an
+ * be laundered through the orchestrator - the generic outcome handler carried an
  * `if (method == "email")` branch, and this module received account facts pre-chewed as handler
  * parameters. The module already consumed account knowledge; only the edge was invisible.
  *

@@ -3,12 +3,12 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
-import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
+import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
-import com.example.dpop.orchestrator.api.v1.channel.DemoInfo
+import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
-import com.example.dpop.orchestrator.orchestration.Next
+import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.SessionManagementService

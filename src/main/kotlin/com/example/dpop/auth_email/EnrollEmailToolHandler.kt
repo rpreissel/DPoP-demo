@@ -29,7 +29,7 @@ import java.util.UUID
  *
  * This module writes that value onto Account **itself**, via the declared `auth_email -> account`
  * dependency (see [ModuleMetadata] for why this one module is exempt). Previously the generic
- * [com.example.dpop.orchestrator.orchestration.ToolOutcomeProcessor] did it behind an
+ * generic outcome handler did it behind an
  * `if (method == "email")` branch, fed by an `"email"` key smuggled through `auditDetails` - the
  * coupling existed either way, it was just invisible and sat in the one layer that is supposed to
  * treat all methods alike. The email deliberately does NOT travel in `auditDetails` any more: it

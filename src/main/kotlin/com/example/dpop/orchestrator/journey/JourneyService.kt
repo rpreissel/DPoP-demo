@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
-import com.example.dpop.orchestrator.orchestration.Next
+import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels

@@ -8,7 +8,6 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.journey.ManageState
 import com.example.dpop.orchestrator.journey.StepUpState
-import com.example.dpop.orchestrator.orchestration.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels
@@ -16,10 +15,14 @@ import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import com.example.dpop.tool_api.ActiveMethodView
+import com.example.dpop.tool_api.ChannelBlock
+import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.Next
 import java.time.Duration
 import java.util.UUID
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 /**
  * The channel-level entry points. Everything about WHICH tool comes next belongs to the journey

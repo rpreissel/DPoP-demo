@@ -16,7 +16,7 @@ import org.springframework.modulith.ApplicationModule
  */
 @ApplicationModule(
     allowedDependencies = [
-        "tool_spi", "account", "ext_stammdaten",
+        "tool_spi", "tool_api", "account", "ext_stammdaten",
         "id_fsc", "auth_sms", "auth_password", "auth_email", "auth_device"
     ]
 )

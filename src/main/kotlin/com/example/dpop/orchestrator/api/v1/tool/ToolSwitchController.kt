@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.api.v1.tool
 
 import com.example.dpop.orchestrator.api.v1.DpopBaseController
-import com.example.dpop.orchestrator.api.v1.channel.ChannelResponse
+import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
