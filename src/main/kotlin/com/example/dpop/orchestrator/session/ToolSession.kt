@@ -16,7 +16,7 @@ import java.util.UUID
  * toolId nor stepData live here - toolId comes from the route, stepData is rebuilt
  * per response from the module's own data. No retry counter either: the attempt budget spans the
  * whole AuthJourney (docs/04-orchestrierung.md #7), because a tool-local counter cannot stop
- * brute force that simply moves on to the next stage.
+ * brute force that simply moves on to the next state.
  */
 @Entity
 @Table(name = "tool_session")

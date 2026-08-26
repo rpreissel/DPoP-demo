@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
  * names an identifier and proves a credential.
  *
  * Two properties are structural here, not enforced by extra checks:
- * - There is no identification stage, because [LookupState] has no state that could offer one. A
+ * - There is no identification state at all: [LookupState] has none that could offer one. A
  *   check that could be forgotten is replaced by a state that cannot be reached.
  * - The device link is never a side effect. It arises only from [LookupState.OfferBinding], after
  *   the user agrees - this intent is chosen precisely by people who want no device binding.

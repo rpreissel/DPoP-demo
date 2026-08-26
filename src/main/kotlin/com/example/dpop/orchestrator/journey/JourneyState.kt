@@ -55,7 +55,7 @@ sealed interface OfferingState : JourneyState {
 
     override fun activatable(): Set<String> = offered.toSet() - declined
 
-    /** True once nothing is left on this stage - a fallback stage then moves on, a goal-driven one aborts. */
+    /** True once nothing is left here - a fallback state then moves on, a goal-driven one gives up. */
     val exhausted: Boolean
         get() = activatable().isEmpty()
 }
@@ -64,11 +64,11 @@ sealed interface OfferingState : JourneyState {
 
 /**
  * The ladder from the most convenient to the most laborious way in, followed by the mandatory
- * stages that make sure the next login works again (docs/04-orchestrierung.md #3).
+ * states that make sure the next login works again (docs/04-orchestrierung.md #3).
  *
  * Two deliberately DIFFERENT transition rules live in one hierarchy, and that difference is named
  * here rather than left to a comment:
- * - [PreferredAuth], [AuthChoice], [Identifying] are FALLBACK stages: declining moves on.
+ * - [PreferredAuth], [AuthChoice], [Identifying] are FALLBACK states: declining moves on.
  * - [ConfirmingEmail], [Enrolling] are GOAL-DRIVEN: only fulfilling moves on.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
@@ -107,7 +107,7 @@ sealed interface FastState : JourneyState {
     }
 
     /**
-     * Last fallback stage: identification - here for login AND registration alike. Which one it
+     * Last fallback state: identification - here for login AND registration alike. Which one it
      * was is decided afterwards by `findOrCreateAccount`, which is exactly why a single state
      * covers both.
      */
@@ -132,12 +132,12 @@ sealed interface FastState : JourneyState {
 
     /**
      * [emailObligation] records that this run passed through [Identifying], i.e. it created or
-     * adopted an account. Only then does the confirmed-email stage apply afterwards: a chosen
+     * adopted an account. Only then does the confirmed-email state apply afterwards: a chosen
      * password needs an identifier to hang off of, so such a run must not finish leaving
      * `enroll-password` permanently unreachable. A plain login is never blocked on it.
      *
-     * It is an attribute of THIS stage rather than a second state in front of it, because the
-     * obligation is checked when the enrollment stage is done - putting it first would take away
+     * It is an attribute of THIS state rather than a second one in front of it, because the
+     * obligation is checked when enrolment is done - putting it first would take away
      * the choice of which method to set up.
      */
     data class Enrolling(

@@ -34,13 +34,13 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
 
     override fun next(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is StepUpState.Start -> authStage(state.targetAcr, state.startingAcr, ctx)
+            is StepUpState.Start -> offerAuth(state.targetAcr, state.startingAcr, ctx)
 
             is StepUpState.AuthChoice -> when (event) {
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     if ((state.offered.toSet() - declined).isEmpty()) {
-                        reIdentStage(state.targetAcr, state.startingAcr, ctx) ?: Decision.Cancel
+                        offerReIdent(state.targetAcr, state.startingAcr, ctx) ?: Decision.Cancel
                     } else {
                         Decision.Advance(state.copy(declined = declined, active = null))
                     }
@@ -61,16 +61,16 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     private fun finishOrContinue(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Decision.Finish
-        return authStage(targetAcr, startingAcr, ctx)
+        return offerAuth(targetAcr, startingAcr, ctx)
     }
 
-    private fun authStage(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
+    private fun offerAuth(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()
         val candidates = CandidateTools.forAuth(account, targetAcr, ctx)
         if (candidates.isNotEmpty()) {
             return Decision.Advance(StepUpState.AuthChoice(targetAcr, startingAcr, candidates))
         }
-        return reIdentStage(targetAcr, startingAcr, ctx)
+        return offerReIdent(targetAcr, startingAcr, ctx)
             ?: Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
     }
 
@@ -78,7 +78,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
      * The way out of the one-method dead end - see [StepUpState.ReIdentifying]. Null when this is
      * an ordinary step-up, where re-identification must not appear as a generic shortcut.
      */
-    private fun reIdentStage(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {
+    private fun offerReIdent(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {
         if (!ctx.isSubJourney) return null
         val candidates = ctx.policy.reIdentCandidates(ctx.evidence, targetAcr)
         return candidates.takeIf { it.isNotEmpty() }

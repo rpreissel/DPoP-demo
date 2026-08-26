@@ -101,7 +101,7 @@ class JourneyLadderIntegrationTest {
         assertThat(next).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
 
         // Backing out of the only remaining auth method is not a dead end: the ladder falls
-        // through to its last stage, identification - which is exactly what the old model could
+        // through to its last state, identification - which is exactly what the old model could
         // not express, because an empty candidate list aborted the whole process.
         val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
         val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-sms")
@@ -124,7 +124,7 @@ class JourneyLadderIntegrationTest {
 
         // The same KVNR finds the SAME account again - "registration" versus "login" was never a
         // choice made up front, only an observation about which path was taken. So identifying on
-        // the last stage must not leave a second account behind.
+        // the last state must not leave a second account behind.
         assertThat(identified.next()["type"]).isNotNull()
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account", Int::class.java)).isEqualTo(1)
         assertThat(jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java)).isEqualTo(accountId)

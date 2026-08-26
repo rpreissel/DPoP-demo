@@ -40,7 +40,7 @@ class ManageStrategy : IntentStrategy<ManageState> {
 
     override fun next(state: ManageState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is ManageState.AddRequested -> gate(state, ctx) ?: enrollStage(ctx)
+            is ManageState.AddRequested -> gate(state, ctx) ?: offerEnrollment(ctx)
             is ManageState.RemoveRequested -> gate(state, ctx) ?: Decision.Remove(state.methodInstanceId)
 
             is ManageState.Enrolling -> when (event) {
@@ -60,7 +60,7 @@ class ManageStrategy : IntentStrategy<ManageState> {
         return Decision.RequireSubJourney(AuthIntent.STEP_UP, REQUIRED_ACR, resumeWith = requested)
     }
 
-    private fun enrollStage(ctx: JourneyContext): Decision {
+    private fun offerEnrollment(ctx: JourneyContext): Decision {
         val candidates = CandidateTools.forEnrollment(ctx.requireAccount(), ctx.acrFloor, ctx)
         return if (candidates.isEmpty()) {
             // Not an error, just nothing left to add (docs/07-betrieb.md #1: HTTP errors are for

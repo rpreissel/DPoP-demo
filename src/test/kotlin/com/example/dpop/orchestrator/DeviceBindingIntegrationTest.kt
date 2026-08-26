@@ -248,12 +248,12 @@ class DeviceBindingIntegrationTest {
         post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
         enrollDevice(channelSessionId)
 
-        // Fresh session on the same device: stage 1 of the FAST ladder, the device method.
+        // Fresh session on the same device: the first state of the FAST ladder, the device method.
         val newChannel = post("/orchestrator/api/v1/app/channels")
         val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
         assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
 
-        // Declining stage 1 is NOT cancelling the journey: the ladder falls through to the other
+        // Declining it is NOT cancelling the journey: the ladder falls through to the other
         // methods the account actually has, which is a real choice rather than the same screen.
         val toolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
         val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-device")
@@ -262,7 +262,7 @@ class DeviceBindingIntegrationTest {
         assertThat(afterDecline.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
 
         // Cancelling the whole journey, by contrast, restarts the SAME intent - and therefore
-        // legitimately lands back on stage 1. The two actions are not interchangeable.
+        // legitimately lands back on the first state. The two actions are not interchangeable.
         val afterCancel = delete("/orchestrator/api/v1/app/channels/$newChannelSessionId/process")
         assertThat(afterCancel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
     }

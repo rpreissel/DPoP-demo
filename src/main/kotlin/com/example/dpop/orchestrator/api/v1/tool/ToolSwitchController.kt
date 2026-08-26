@@ -23,7 +23,7 @@ import java.util.UUID
 
 /**
  * "Back"/"Switch": abandon the currently activated tool. What happens then is entirely the
- * journey's decision - on a fallback stage it moves down the ladder, on a goal-driven stage it only
+ * journey's decision - on a fallback state it moves down the ladder, on a goal-driven one it only
  * narrows what is left, and on the last thing this journey could offer it ends like a cancel.
  *
  * This controller deliberately makes none of that decision itself: whether there is anything to
@@ -51,7 +51,7 @@ class ToolSwitchController(
     @DeleteMapping
     @Operation(
         summary = "Abandon this tool attempt",
-        description = "Moves the journey on according to the stage it is standing on - to the next fallback option, " +
+        description = "Moves the journey on according to the state it is standing on - to the next fallback option, " +
             "back to the selection step, or to the end of the journey if nothing else could be offered."
     )
     fun switchAway(

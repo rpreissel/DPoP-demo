@@ -314,7 +314,7 @@ class JourneyService(
     /**
      * The attempt budget spans the whole journey (docs/04-orchestrierung.md #7). A failed attempt
      * with budget left is not an HTTP error - it behaves like missing input; only an exhausted
-     * budget ends things terminally, and it ends the JOURNEY, not just the stage.
+     * budget ends things terminally, and it ends the JOURNEY, not just the current state.
      */
     private fun chargeAttempt(journey: AuthJourney, reason: String): Step {
         journey.attemptBudget -= 1

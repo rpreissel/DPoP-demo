@@ -9,22 +9,25 @@ Vorausgesetzt wird der `ToolOutcome`-Vertrag aus [03-tool-architektur.md](03-too
 
 ## 1) Begriffe
 
-Sieben Wörter haben in diesem Kapitel eine feste Bedeutung:
+Sechs Wörter haben in diesem Kapitel eine feste Bedeutung:
 
 | Begriff | Bedeutung | Im Code |
 |---|---|---|
 | **Intent** | Ziel des Nutzers samt Strategie, die ihn dorthin führt | `AuthIntent` |
 | **Journey** | ein laufender Durchlauf eines Intents | `AuthJourney` |
 | **Zustand** | Position auf dem Weg, samt der dort geltenden Attribute | `JourneyState` |
-| **Etappe** | ein Zustand in seiner Rolle als Position in einer *Reihenfolge* | `stage` |
 | **Tool** | ein einzelnes Verfahren, das der Nutzer durchläuft | `toolId` |
 | **Schritt** | ein Schritt *innerhalb* eines Tools | `next.step` |
 | **Niveau** | Vertrauensniveau (`loa1`/`loa2`/`loa3`) | `acr` |
 
-Die ersten fünf tragen das Kapitel und werden unten ausgeführt; sie bauen aufeinander auf, daher
-diese Reihenfolge. Die letzten beiden stehen hier nur, damit sie nicht mit den anderen verwechselt
-werden — insbesondere sind **Etappe**, **Schritt** und **Niveau** drei verschiedene Dinge und nie
-Synonyme.
+Die ersten vier tragen das Kapitel und werden unten ausgeführt; sie bauen aufeinander auf, daher
+diese Reihenfolge. **Schritt** und **Niveau** stehen hier nur, damit sie nicht mit **Zustand**
+verwechselt werden — drei verschiedene Dinge, nie Synonyme.
+
+Bewusst **kein** eigenes Wort für „Zustand als Position in einer Reihenfolge": Das ist derselbe
+Zustand, nur unter einer anderen Frage betrachtet, und ein zweiter Begriff dafür hätte im Modell
+keine Entsprechung. Wo die Reihenfolge gemeint ist, sagt der Text es als Eigenschaft des Zustands
+(*Fallback-Zustand*, *zielgetriebener Zustand*) oder benennt gleich die Leiter.
 
 ### Intent
 
@@ -52,6 +55,13 @@ immer höchstens eine Journey aktiv.
 Die Journey hält, was den ganzen Weg über gilt (Intent, Account, Budget, Lebenszyklus). Wo auf
 dem Weg der Nutzer gerade steht, hält sie **nicht** selbst — das ist der `JourneyState`.
 
+Intent und Journey verhalten sich zueinander wie `ToolDescriptor` und `ToolSession`: der eine
+benennt die *Art*, der andere ist *ein Durchlauf* davon. Der Unterschied ist nicht akademisch —
+den Intent gibt es, bevor eine Journey existiert (der Client nennt ihn beim Anlegen des Kanals,
+und der Kanal merkt ihn sich), unzählige Journeys teilen sich denselben Intent, und ein Kanal kann
+nacheinander mehrere Journeys desselben Intents durchlaufen. Umgekehrt trägt nur die Journey
+Identität, Lebensdauer, Account, Budget und Zustand; der Intent ist ein Wert ohne all das.
+
 ### Zustand (`JourneyState`)
 
 Der **`JourneyState`** ist die Position auf dem Weg — und trägt die Attribute, die genau an dieser
@@ -68,16 +78,15 @@ Der `JourneyState` ist außerdem die einzige Quelle für zwei Fragen, die sonst 
 laufen: „welches Tool darf der Client jetzt aktivieren?" und „wohin schicke ich ihn als
 nächstes?". Beide beantwortet dieselbe Funktion (Abschnitt 4).
 
-### Etappe
+#### Zwei Sorten von Übergang
 
-Eine **Etappe** ist derselbe Zustand, nur unter einer anderen Frage betrachtet: nicht „wo stehe
-ich?", sondern „was kommt davor und danach?". Der Begriff existiert, weil zwei sehr verschiedene
-Reihenfolge-Regeln nebeneinander vorkommen:
+Zustände einer Journey stehen in einer Reihenfolge, und sie wird auf zwei sehr verschiedene Arten
+verlassen:
 
-- Eine **Fallback-Etappe** wird verlassen, wenn der Nutzer sie ablehnt oder sie scheitert. Sie
+- Ein **Fallback-Zustand** wird verlassen, wenn der Nutzer ihn ablehnt oder er scheitert. Er
   fragt: „Geht es so? Nein? Dann anders." Die Reihenfolge geht vom bequemsten zum aufwendigsten
   Weg — daher die Leiter-Vorstellung bei `FAST`.
-- Eine **zielgetriebene Etappe** wird verlassen, wenn ihre Bedingung erfüllt ist. Sie fragt:
+- Ein **zielgetriebener Zustand** wird verlassen, wenn seine Bedingung erfüllt ist. Er fragt:
   „Ist die Pflicht erledigt?" Ablehnen hilft hier nicht weiter.
 
 Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und die Unterscheidung gehört
@@ -116,8 +125,8 @@ flowchart LR
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE` | Auth-Mittel hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
 
-Registrierung ist **kein eigener Intent**, sondern ein Pfad innerhalb von `FAST`: die letzte
-Etappe, wenn kein vorhandenes Verfahren mehr greift. Ob dabei ein Account entsteht oder ein
+Registrierung ist **kein eigener Intent**, sondern ein Pfad innerhalb von `FAST`: der letzte
+Zustand der Leiter, wenn kein vorhandenes Verfahren mehr greift. Ob dabei ein Account entsteht oder ein
 bestehender wiedergefunden wird, entscheidet `findOrCreateAccount` im Nachhinein.
 
 `REGISTER` ist trotzdem ein eigener Intent, weil „ich will hier bewusst neu identifizieren" ein
@@ -135,7 +144,7 @@ wird und nicht stillschweigend zur Registrierung umschlägt.
 
 Gemeinsam für alle Diagramme: Ein Pfeil ist ein Übergang, ausgelöst durch ein `JourneyEvent`
 (Tool abgeschlossen, Tool abgebrochen, Kind-Journey fertig). `abgelehnt` steht für „gescheitert
-oder vom Nutzer verworfen, und es ist auf dieser Etappe nichts mehr übrig".
+oder vom Nutzer verworfen, und in diesem Zustand ist nichts mehr übrig".
 
 Terminale Zustände (`Finished`) sind eingezeichnet, existieren aber bewusst **nicht** als
 persistierter Zustand: Das Ende einer Journey ist die Entscheidung `Decision.Finish`, die sie
@@ -143,7 +152,7 @@ abschließt. Ein zusätzlicher Endzustand wäre eine zweite Darstellung derselbe
 
 ### `FAST`
 
-Die Leiter vom bequemsten zum aufwendigsten Weg — und danach die Pflichtetappen, die dafür
+Die Leiter vom bequemsten zum aufwendigsten Weg — und danach die Pflichtzustände, die dafür
 sorgen, dass der nächste Login wieder klappt.
 
 ```mermaid
@@ -171,11 +180,11 @@ stateDiagram-v2
   Finished --> [*]
 
   note right of Identifying
-    Etappen 1-3: Fallback.
+    Zustände 1-3: Fallback.
     Ablehnen führt weiter.
   end note
   note right of Enrolling
-    Etappen 4-5: zielgetrieben.
+    Zustände 4-5: zielgetrieben.
     Nur Erfüllen führt weiter.
   end note
 ```
@@ -187,7 +196,7 @@ sealed interface FastState : JourneyState {
     data class PreferredAuth(val toolId: String, val active: ToolRef?) : FastState
     /** Weitere vorhandene Auth-Verfahren. */
     data class AuthChoice(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
-    /** Letzte Fallback-Etappe: Identifizierung - hier für Login *und* Registrierung. */
+    /** Letzter Fallback-Zustand: Identifizierung - hier für Login *und* Registrierung. */
     data class Identifying(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
     data class ConfirmingEmail(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
     /** emailObligation merkt sich, dass dieser Lauf über Identifying kam - s. Abschnitt 8. */
@@ -202,15 +211,15 @@ hätte: Welches von beidem es war, entscheidet erst `findOrCreateAccount` danach
 darf eine leere Kandidatenliste hier auch nicht abbrechen — „keine Auth-Verfahren vorhanden" ist
 der Grund, aus dem `Identifying` als Login-Weg überhaupt erlaubt wird.
 
-Auf einer Fallback-Etappe sammelt `declined` die verworfenen Verfahren, bis nichts mehr übrig ist
-und die nächste Etappe dran ist. Auf einer zielgetriebenen Etappe passiert das **nicht**: Wer dort
+In einem Fallback-Zustand sammelt `declined` die verworfenen Verfahren, bis nichts mehr übrig ist
+und der nächste dran ist. In einem zielgetriebenen Zustand passiert das **nicht**: Wer dort
 zurückgeht, wählt anders, gibt aber die Pflicht nicht auf — deshalb kommt die volle Auswahl
 zurück, das gerade verworfene Verfahren eingeschlossen.
 
 ### `REGISTER`
 
-Dieselben Etappen wie `FAST` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
-`DeviceAccountLink`-Lookup. Weil es wörtlich dieselben Etappen sind, teilt sich `REGISTER` auch
+Dieselben Zustände wie `FAST` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
+`DeviceAccountLink`-Lookup. Weil es wörtlich dieselben sind, teilt sich `REGISTER` auch
 die Zustandsmenge `FastState`; die Strategie überschreibt genau eine Methode — wo die Leiter
 beginnt.
 
@@ -467,7 +476,7 @@ Entscheidungen dahinter:
   (`activatable()`), also *ist* `Advance` auf diesen Zustand das Angebot. Eine zusätzliche
   `Offer`-Variante wäre dieselbe Information zweimal.
 - **`Abort` ist eine Entscheidung der Strategie**, kein Automatismus der Kandidatenauflösung.
-  Eine leere Kandidatenliste muss „nächste Etappe" bedeuten dürfen, sonst ist eine Fallback-Leiter
+  Eine leere Kandidatenliste muss „nächster Zustand" bedeuten dürfen, sonst ist eine Fallback-Leiter
   nicht formulierbar.
 - **Die Strategie bekommt nie Services**, nur einen lesenden `JourneyContext` (Account, Evidence,
   Untergrenze, Gerätebezug, Katalogabfragen). Sie entscheidet, sie wirkt nicht.
@@ -521,10 +530,10 @@ Die **einzige** Berührungsfläche der Tool-Controller mit dem Journey-Modell: k
 Routing-Feldern, kein Typ-Switch auf einen Intent, keine Entscheidung darüber, welches Tool laufen
 darf. `Step` ist dabei schlicht `next` plus die Daten, die dieser Schritt zum Rendern braucht.
 
-Zwei Aktionen, die der Client sauber auseinanderhalten muss: `abandon` lehnt die aktuelle
-**Etappe** ab und führt die Journey weiter (`DELETE /tools/{toolSessionId}/{toolId}`); `cancel`
+Zwei Aktionen, die der Client sauber auseinanderhalten muss: `abandon` lehnt den aktuellen
+**Zustand** ab und führt die Journey weiter (`DELETE /tools/{toolSessionId}/{toolId}`); `cancel`
 gibt die **Journey** auf und startet den Entry-Intent neu (`DELETE .../process`). Wer nur
-letzteres anbietet, lässt den Nutzer auf einer Fallback-Etappe im Kreis laufen.
+letzteres anbietet, lässt den Nutzer in einem Fallback-Zustand im Kreis laufen.
 
 ---
 
@@ -543,10 +552,10 @@ werden.
 ## 7) Versuchsbudget
 
 `attemptBudget` liegt auf der `AuthJourney`, nicht auf der `ToolSession`. Jedes `Failed` zieht ab,
-unabhängig davon, auf welcher Etappe oder in welchem Tool. Bei `0` endet die **ganze Journey**
-(`410`) — auch wenn noch Etappen übrig wären.
+unabhängig davon, in welchem Zustand oder in welchem Tool. Bei `0` endet die **ganze Journey**
+(`410`) — auch wenn noch Zustände übrig wären.
 
-Das ist eine Sicherheitsanforderung: Sobald erschöpfte Versuche eine Etappe weiterrücken statt zu
+Das ist eine Sicherheitsanforderung: Sobald erschöpfte Versuche einen Zustand weiterrücken statt zu
 terminieren, wird Brute-Force über die Leiter billiger. Ein tool-lokaler Zähler kann das
 strukturell nicht abdecken.
 
@@ -596,8 +605,8 @@ gehört nur `{possession}` in den Descriptor.
 
 ### Session-Nachweis ist nicht gleich Account-Fähigkeit
 
-Auf einer Auth-Etappe lautet die Frage „reicht das *jetzt*?" (`isSatisfied`). Auf einer
-Enrollment-Etappe lautet sie „kommt der Nutzer damit *künftig wieder herein*?"
+In einem Auth-Zustand lautet die Frage „reicht das *jetzt*?" (`isSatisfied`). Auf einer
+in einem Enrollment-Zustand lautet sie „kommt der Nutzer damit *künftig wieder herein*?"
 (`canAccountReach`) — verschiedene Fragen, weil ein Identifikationsverfahren keine dauerhafte
 Auth-Methode ist: `ident-fsc` zählt für `AuthContext.currentFactorTypes` dieser Session, landet
 aber in `account.identifications`, nicht in `account.authenticationMethods`.
@@ -626,16 +635,16 @@ Untergrenze, nie eine Erlaubnis: Das Backend setzt `max(Policy-Anforderung, Clie
 
 Keycloak kennt „Required Actions": pro Nutzer abzuarbeitende Pflichten wie `VERIFY_EMAIL`,
 die vor Abschluss der Session erledigt sein müssen. Hier sind sie kein eigenes Konzept, sondern
-zielgetriebene Etappen: „ausreichendes Login-Verfahren eingerichtet" *ist* `Enrolling`,
+zielgetriebene Zustände: „ausreichendes Login-Verfahren eingerichtet" *ist* `Enrolling`,
 „bestätigte E-Mail" *ist* `ConfirmingEmail`. Eine offene Pflicht ist definitionsgemäß eine
 Position auf dem Weg.
 
-Die Reihenfolge der Pflichten ist die Reihenfolge der Etappen — und sie lautet: erst ein
+Die Reihenfolge der Pflichten ist die Reihenfolge der Zustände — und sie lautet: erst ein
 ausreichendes Login-Verfahren, dann die bestätigte E-Mail. Umgekehrt würde ein bestimmtes
 Verfahren erzwungen, bevor der Nutzer überhaupt eines gewählt hat, obwohl `enroll-email` eine der
 Wahlmöglichkeiten ist, die beide Pflichten auf einmal erledigt.
 
-Der Geltungsbereich ergibt sich daraus, welcher Weg zu der Etappe geführt hat: Die E-Mail-Pflicht
+Der Geltungsbereich ergibt sich daraus, welcher Weg zu dem Zustand geführt hat: Die E-Mail-Pflicht
 gilt nur für einen Lauf, der über `Identifying` kam, also einen Account angelegt oder übernommen
 hat — festgehalten im Attribut `Enrolling.emailObligation`. Wer sich lediglich anmeldet, wird nie
 rückwirkend auf eine fehlende E-Mail-Bestätigung festgenagelt.

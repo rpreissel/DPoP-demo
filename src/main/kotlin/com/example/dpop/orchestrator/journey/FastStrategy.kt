@@ -10,11 +10,11 @@ import org.springframework.stereotype.Component
  * Into a login on this device as fast as possible - and in a way that works again next time
  * (docs/04-orchestrierung.md #3).
  *
- * Stages 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) are a
- * FALLBACK ladder: declining moves on. Stages 4-5 ([FastState.ConfirmingEmail],
+ * States 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) are a
+ * FALLBACK ladder: declining moves on. States 4-5 ([FastState.ConfirmingEmail],
  * [FastState.Enrolling]) are GOAL-DRIVEN: only fulfilling moves on.
  *
- * Registration is not a separate intent, it is stage 3 of this one. Whether identifying created an
+ * Registration is not a separate intent, it is the third state of this one. Whether identifying created an
  * account or found an existing one is decided afterwards by `findOrCreateAccount` - an
  * observation about the path taken, never a goal chosen up front.
  */
@@ -41,7 +41,7 @@ open class FastStrategy : IntentStrategy<FastState> {
 
     override fun next(state: FastState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is FastState.Start -> firstStage(ctx)
+            is FastState.Start -> firstOffer(ctx)
             is FastState.PreferredAuth -> when (event) {
                 is JourneyEvent.Abandoned -> afterAuthDeclined(ctx, alreadyDeclined = setOf(state.toolId))
                 else -> afterProof(ctx)
@@ -57,7 +57,7 @@ open class FastStrategy : IntentStrategy<FastState> {
             }
 
             is FastState.Identifying -> when (event) {
-                is JourneyEvent.Abandoned -> declineOnLastStage(state, event)
+                is JourneyEvent.Abandoned -> giveUpOrReoffer(state, event)
                 // Deliberately never checks isSatisfied: identification evidence alone (amr=fsc)
                 // trivially clears most floors, which would let a run finish without a single
                 // durable credential ever being proven or created.
@@ -79,23 +79,23 @@ open class FastStrategy : IntentStrategy<FastState> {
 
     override fun onCancel(state: FastState): ChannelState = ChannelState.ANONYMOUS
 
-    // Stages ------------------------------------------------------------------
+    // Offers -------------------------------------------------------------------
 
     /**
-     * Stage 1 of the ladder. REGISTER overrides exactly this and nothing else: it is FAST minus
-     * the shortcuts, entering at the identification stage.
+     * The first state of the ladder. REGISTER overrides exactly this and nothing else: it is FAST minus
+     * the shortcuts, entering at the identification state.
      */
-    protected open fun firstStage(ctx: JourneyContext): Decision {
+    protected open fun firstOffer(ctx: JourneyContext): Decision {
         val account = ctx.account
         if (account != null) {
             CandidateTools.preferredDeviceAuth(account, ctx)?.let { return Decision.Advance(FastState.PreferredAuth(it)) }
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
             if (candidates.isNotEmpty()) return Decision.Advance(FastState.AuthChoice(candidates))
         }
-        return identifyStage(ctx)
+        return offerIdentification(ctx)
     }
 
-    /** Nothing (or nothing else) provable is left: fall through to the identification stage. */
+    /** Nothing (or nothing else) provable is left: fall through to the identification state. */
     private fun afterAuthDeclined(ctx: JourneyContext, alreadyDeclined: Set<String>): Decision {
         val account = ctx.account
         if (account != null) {
@@ -104,10 +104,10 @@ open class FastStrategy : IntentStrategy<FastState> {
                 return Decision.Advance(FastState.AuthChoice(remaining, declined = emptySet()))
             }
         }
-        return identifyStage(ctx)
+        return offerIdentification(ctx)
     }
 
-    protected fun identifyStage(ctx: JourneyContext): Decision {
+    protected fun offerIdentification(ctx: JourneyContext): Decision {
         val idents = CandidateTools.forIdentification(ctx)
         return if (idents.isEmpty()) {
             Decision.Abort("Kein Identifizierungsverfahren verfuegbar")
@@ -116,7 +116,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         }
     }
 
-    /** After a proof on stage 1 or 2: done, another factor, or - if the account can't reach the floor - enrollment. */
+    /** After a proof on the first or second state: done, another factor, or - if the account can't reach the floor - enrollment. */
     private fun afterProof(ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) return Decision.Finish
@@ -125,7 +125,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         if (candidates.isNotEmpty()) return Decision.Advance(FastState.AuthChoice(candidates))
         // No email obligation on this path: an existing account that merely logs in is never
         // retroactively blocked on a missing confirmed email (docs/04-orchestrierung.md #8).
-        return enrollStage(account, ctx, emailObligation = false)
+        return offerEnrollment(account, ctx, emailObligation = false)
     }
 
     private fun afterIdentification(ctx: JourneyContext): Decision {
@@ -136,11 +136,11 @@ open class FastStrategy : IntentStrategy<FastState> {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
             if (candidates.isNotEmpty()) return Decision.Advance(FastState.AuthChoice(candidates))
         }
-        return enrollStage(account, ctx, emailObligation = true)
+        return offerEnrollment(account, ctx, emailObligation = true)
     }
 
     /**
-     * The order of the goal-driven stages: a sufficient login method FIRST, the confirmed email
+     * The order of the goal-driven states: a sufficient login method FIRST, the confirmed email
      * after it. Reversing them would force one particular method before the user has chosen any,
      * even though setting up email is one of the choices that satisfies both at once.
      */
@@ -148,7 +148,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         val account = ctx.requireAccount()
         val reachable = ctx.policy.canAccountReach(account, ctx.acrFloor)
         if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
-            return enrollStage(account, ctx, emailObligation)
+            return offerEnrollment(account, ctx, emailObligation)
         }
         if (emailObligation && !account.emailConfirmed) {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
@@ -157,7 +157,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         return Decision.Finish
     }
 
-    private fun enrollStage(account: AccountProfile, ctx: JourneyContext, emailObligation: Boolean): Decision {
+    private fun offerEnrollment(account: AccountProfile, ctx: JourneyContext, emailObligation: Boolean): Decision {
         val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
         return if (candidates.isEmpty()) {
             Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
@@ -166,8 +166,8 @@ open class FastStrategy : IntentStrategy<FastState> {
         }
     }
 
-    /** Abandoning the last fallback stage is giving up on the journey, not an error. */
-    private fun declineOnLastStage(state: OfferingState, event: JourneyEvent.Abandoned): Decision {
+    /** Abandoning the last fallback state is giving up on the journey, not an error. */
+    private fun giveUpOrReoffer(state: OfferingState, event: JourneyEvent.Abandoned): Decision {
         val declined = state.declined + event.tool.toolId
         val remaining = state.offered.toSet() - declined
         return if (remaining.isEmpty()) {
@@ -178,9 +178,9 @@ open class FastStrategy : IntentStrategy<FastState> {
     }
 
     /**
-     * On a goal-driven stage, backing out of a tool is not declining the stage - the obligation
+     * On a goal-driven state, backing out of a tool is not declining it - the obligation
      * stands either way. So the FULL choice comes back, including the tool just abandoned: the
-     * user is picking differently, not giving up. Only fallback stages accumulate `declined`.
+     * user is picking differently, not giving up. Only fallback states accumulate `declined`.
      */
     private fun reoffer(state: FastState): Decision = Decision.Advance(state.withActive(null))
 }

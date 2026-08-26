@@ -10,15 +10,15 @@ import org.springframework.stereotype.Component
  * to identify myself anew here" is a different goal from "get me in", which is why it is its own
  * intent rather than a boolean on FAST.
  *
- * Its stages ARE FAST's stages from the identification one on, so it shares [FastState] instead of
- * duplicating it. The only thing it changes is where the ladder starts: [firstStage] skips stages 1
+ * Its states ARE FAST's states from the identification one on, so it shares [FastState] instead of
+ * duplicating it. The only thing it changes is where the ladder starts: [firstOffer] skips the first two states
  * and 2, which is precisely what this intent means. Everything after identification - the email
- * obligation, the enrollment stage, the finish condition - is FAST's behaviour unchanged.
+ * obligation, the enrolment state, the finish condition - is FAST's behaviour unchanged.
  */
 @Component
 class RegisterStrategy : FastStrategy() {
 
     override val intent: AuthIntent = AuthIntent.REGISTER
 
-    override fun firstStage(ctx: JourneyContext): Decision = identifyStage(ctx)
+    override fun firstOffer(ctx: JourneyContext): Decision = offerIdentification(ctx)
 }
