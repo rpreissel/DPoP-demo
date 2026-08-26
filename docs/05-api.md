@@ -35,6 +35,18 @@ Designentscheidung:
 - Öffentliche App-APIs verwenden nur `channelSessionId`; weder `purpose` noch die interne `processSessionId` werden vom Client vorgegeben.
 - Das `next`-Objekt ist reine Adresse und hat immer dieselbe schlanke Form: bei einem konkreten Tool-Schritt `{ "type": "tool", "toolId": "...", "step": "...", "toolSessionId": "..." }`, bei einer orchestrator-eigenen Seite (Auswahl, Bestätigung, Abschluss) `{ "type": "orchestrator", "context": "...", "step": "..." }` — niemals mit Inhalt vermischt. `toolSessionId` ist die vollständige Adresse der Tool-Ressource (`/tools/{toolSessionId}/{toolId}`) und ist gesetzt, sobald eine `ToolSession` für diesen Schritt existiert — insbesondere beim Resume (`GET /app/channels/{channelSessionId}`) mitten in einem laufenden Tool, damit der Client die laufende Session weiterbenutzt statt sie erneut zu aktivieren.
 - **Eine Antworthülle für alle Endpunkte aller Schichten** (`ChannelResponse`): `{ "channel": {channelSessionId, state, currentAcr, currentAmr, activeMethods}, "next": {...}, "stepData": {...}, "demo": {...} }`. `channel` ist ein benannter Block statt flacher Felder — als Block ist sofort erkennbar, was Kanalzustand und was Schrittzustand ist. `channelSessionId`/`state` stehen in jeder Antwort (werden durchgängig gebraucht, z. B. Statusanzeige, Cancel/Logout-Verfügbarkeit). `currentAcr`/`currentAmr`/`activeMethods` dagegen NIE in Tool-Antworten (`POST .../tools/{toolId}`, `PATCH`/`GET`/`DELETE` auf `/tools/...`) — sie sind keine Kerndaten des Ablaufs, sondern werden ausschließlich von der Sicherheits-Detailansicht gelesen, die der Client bei Bedarf gezielt nachlädt (`GET /app/channels/{channelSessionId}`), so wie jede echte Bildschirmansicht ihre eigenen Daten holt, statt dass jede Antwort sie prophylaktisch mitschleppt. Nur die echten Kanal-Endpunkte (`GET`/`POST /channels`, `step-ups`, `enrollments`, `DELETE .../methods/{methodInstanceId}`) liefern sie, weil genau das ihr Zweck ist.
+- **`channel.state`-Werte** — alles, was der Client aus `state` selbst ableiten kann, ohne einen Endpunkt aufzurufen:
+
+  | Wert | Bedeutung für den Client |
+  |---|---|
+  | `ANONYMOUS` | Kanal offen, noch kein Account bekannt — `next` zeigt auf `ident-fsc` oder Login |
+  | `REGISTERING` | Registrierung läuft; `DELETE .../process` (Cancel) bricht zurück auf `ANONYMOUS` |
+  | `AUTHENTICATED` | Account bekannt und aktuelles Niveau ausreichend; `logout`, `methods`, `enrollments` verfügbar |
+  | `STEP_UP_REQUIRED` / `STEP_UP_IN_PROGRESS` | Ein höheres Niveau ist nötig bzw. der Nachweis läuft bereits; `next` zeigt den fälligen Schritt, Cancel liefert direkt `AUTHENTICATED` zurück |
+  | `LOGGED_OUT` | Terminal — dieser Kanal ist tot, `next` fehlt, ein neuer Kanal braucht einen neuen `POST /channels` |
+  | `EXPIRED` | Terminal (TTL erreicht) — wie `LOGGED_OUT` aus Client-Sicht: neuer `POST /channels` nötig |
+
+  Vollständiges Zustandsdiagramm inkl. Übergängen: [Domänenmodell](02-domaenenmodell.md) Abschnitt 3 — für die API selbst reicht die Tabelle oben.
 - Auswahloptionen stehen nicht in `next`, sondern in `stepData.options` als vollständige `toolId`-Werte (z. B. `enroll-sms`), sodass der Client direkt den zugehörigen Endpunkt aufrufen kann.
 - Der Client darf `toolId` nie selbst konstruieren oder erraten; sie kommt entweder direkt in `next.toolId` oder als Eintrag in `stepData.options`.
 - Wenn genau eine Methode erlaubt ist, überspringt das Backend die Auswahlseite und liefert direkt den Tool-Schritt.
