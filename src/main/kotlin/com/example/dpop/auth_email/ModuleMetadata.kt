@@ -24,5 +24,14 @@ import org.springframework.modulith.ApplicationModule
  * Do not copy this exemption. If a second module needs it, that is a signal to revisit whether
  * the attribute belongs on `Account` at all - not a precedent (docs/03-tool-architektur.md #2).
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "account"])
+/**
+ * `tool_api` is safe alongside - it is the shared SPI, not a method module, and does not depend
+ * back on `account`. Its controllers (`auth_email.api.v1`) live here too, reaching the
+ * orchestrator through `tool_api.ToolEndpoint`/`AccountDirectory` alone
+ * (docs/04-orchestrierung.md #5, DPoP-demo-2tm) - the orchestrator no longer needs to know
+ * `auth_email` exists. The `account` exemption above is unaffected: it belongs to
+ * `EnrollEmailToolHandler` specifically, not to the controllers, and stays exactly as narrow as
+ * it was.
+ */
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "account"])
 internal class ModuleMetadata
