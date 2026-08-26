@@ -1,6 +1,7 @@
 package com.example.dpop.auth_password.api.v1
 
-import com.example.dpop.auth_password.AuthPasswordUseToolHandler
+import com.example.dpop.auth_password.AuthPasswordUseDescriptor
+import com.example.dpop.auth_password.internal.AuthPasswordUseToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -36,6 +37,7 @@ data class AuthPasswordPatchRequest(
 @SecurityRequirement(name = "dpop")
 class AuthPasswordToolController(
     private val handler: AuthPasswordUseToolHandler,
+    private val descriptor: AuthPasswordUseDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
@@ -51,7 +53,7 @@ class AuthPasswordToolController(
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val enrollmentRef = context.channelAccountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
+        val enrollmentRef = context.channelAccountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             ?: throw UnresolvableReferenceException("Keine aktive Password-Methode fuer diesen Account")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 

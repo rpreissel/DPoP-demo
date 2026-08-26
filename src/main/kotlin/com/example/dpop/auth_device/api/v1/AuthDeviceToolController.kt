@@ -1,6 +1,7 @@
 package com.example.dpop.auth_device.api.v1
 
-import com.example.dpop.auth_device.AuthDeviceToolHandler
+import com.example.dpop.auth_device.AuthDeviceDescriptor
+import com.example.dpop.auth_device.internal.AuthDeviceToolHandler
 import com.example.dpop.tool_api.buildRequestUrl
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
@@ -36,6 +37,7 @@ private const val AUTH_DEVICE_TOOL_ID = "auth-device"
 class AuthDeviceToolController(
     private val deviceProofs: DeviceProofs,
     private val handler: AuthDeviceToolHandler,
+    private val descriptor: AuthDeviceDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
@@ -52,7 +54,7 @@ class AuthDeviceToolController(
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
         val enrollmentRef = context.channelAccountId
-            ?.let { accountDirectory.activeDeviceEnrollment(it, handler.method, bindingKeyRef) }
+            ?.let { accountDirectory.activeDeviceEnrollment(it, descriptor.method, bindingKeyRef) }
             ?: throw UnresolvableReferenceException("Keine aktive Geraete-Methode fuer dieses Geraet")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 

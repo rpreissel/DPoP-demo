@@ -1,14 +1,8 @@
-package com.example.dpop.auth_password
+package com.example.dpop.auth_password.internal
 
-import com.example.dpop.auth_password.internal.AuthPasswordEnrollment
-import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
-import com.example.dpop.auth_password.internal.EnrollPasswordToolData
-import com.example.dpop.auth_password.internal.EnrollPasswordToolDataRepository
-import com.example.dpop.auth_password.internal.PasswordHasher
+import com.example.dpop.auth_password.DEMO_PASSWORD
+import com.example.dpop.auth_password.EnrollPasswordDescriptor
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -19,25 +13,16 @@ import java.util.UUID
 /**
  * toolId=enroll-password: registers a password as a knowledge factor, mirroring enroll-sms
  * (docs/06-ablaeufe.md #4) but without an out-of-band confirmation step - a chosen password is
- * self-verifying, so Completed.Enrolled fires directly from one PATCH. No identifier field: the
- * account's confirmed email is the identifier (requiresConfirmedEmail precondition), so this
- * tool only ever asks for the password itself.
- * Implements ToolDescriptor directly rather than through a wrapper interface
- * (docs/03-tool-architektur.md #2) - ToolHandlerRegistry collects `List<ToolDescriptor>`
- * straight from Spring.
+ * self-verifying, so Completed.Enrolled fires directly from one PATCH.
+ *
+ * Pure business logic; self-description lives in [EnrollPasswordDescriptor] (DPoP-demo-vun).
  */
 @Component
 class EnrollPasswordToolHandler(
+    private val descriptor: EnrollPasswordDescriptor,
     private val toolDataRepository: EnrollPasswordToolDataRepository,
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "enroll-password"
-    override val role = MethodRole.ENROLLMENT
-    override val methodFamily = PASSWORD_METHOD
-    override val factorTypes = setOf(FactorType.KNOWLEDGE)
-    override val maxAcr = "loa1"
-    override val requiresConfirmedEmail = true
+) {
 
     /** Called directly by EnrollPasswordToolController; nothing needs resolving before this can start. */
     @Transactional
@@ -61,8 +46,8 @@ class EnrollPasswordToolHandler(
         return ToolOutcome.Completed.Enrolled(
             enrollmentRef = EnrollmentRef(type = "auth_password_enrollment", id = enrollment.id.toString()),
             amr = listOf("password"),
-            achievedAcr = maxAcr,
-            factorTypes = factorTypes
+            achievedAcr = descriptor.maxAcr,
+            factorTypes = descriptor.factorTypes
         )
     }
 

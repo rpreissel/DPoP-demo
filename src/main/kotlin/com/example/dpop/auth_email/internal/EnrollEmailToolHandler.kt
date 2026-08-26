@@ -1,14 +1,9 @@
-package com.example.dpop.auth_email
+package com.example.dpop.auth_email.internal
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.auth_email.internal.EmailCodeGenerator
-import com.example.dpop.auth_email.internal.EnrollEmailToolData
-import com.example.dpop.auth_email.internal.EnrollEmailToolDataRepository
+import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -28,25 +23,16 @@ import java.util.UUID
  * inert placeholder.
  *
  * This module writes that value onto Account **itself**, via the declared `auth_email -> account`
- * dependency (see [ModuleMetadata] for why this one module is exempt). Previously the generic
- * generic outcome handler did it behind an
- * `if (method == "email")` branch, fed by an `"email"` key smuggled through `auditDetails` - the
- * coupling existed either way, it was just invisible and sat in the one layer that is supposed to
- * treat all methods alike. The email deliberately does NOT travel in `auditDetails` any more: it
- * must not be duplicated into the generic `authenticationMethods[].details` blob.
+ * dependency (see ModuleMetadata for why this one module is exempt).
+ *
+ * Pure business logic; self-description lives in [EnrollEmailDescriptor] (DPoP-demo-vun).
  */
 @Component
 class EnrollEmailToolHandler(
+    private val descriptor: EnrollEmailDescriptor,
     private val toolDataRepository: EnrollEmailToolDataRepository,
     private val accountService: AccountService
-) : ToolDescriptor {
-
-    override val toolId = "enroll-email"
-    override val role = MethodRole.ENROLLMENT
-    override val methodFamily = EMAIL_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
-    override val confirmsAccountEmail = true
+) {
 
     /** Called directly by EnrollEmailToolController; nothing needs resolving before this can start. */
     @Transactional
@@ -77,8 +63,8 @@ class EnrollEmailToolHandler(
             return ToolOutcome.Completed.Enrolled(
                 enrollmentRef = EnrollmentRef(type = "account_email", id = "self"),
                 amr = listOf("email"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes
             )
         }
 
@@ -89,7 +75,7 @@ class EnrollEmailToolHandler(
             throw IllegalArgumentException("Ungueltige E-Mail-Adresse")
         }
         // Queried directly rather than handed in pre-resolved by the controller - the declared
-        // `account` dependency makes the indirection pointless ceremony (see [ModuleMetadata]).
+        // `account` dependency makes the indirection pointless ceremony (see ModuleMetadata).
         if (accountService.existsByEmail(normalized)) {
             return ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
         }

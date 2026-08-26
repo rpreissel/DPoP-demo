@@ -1,6 +1,7 @@
 package com.example.dpop.auth_sms.api.v1
 
-import com.example.dpop.auth_sms.AuthSmsLookupToolHandler
+import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
+import com.example.dpop.auth_sms.internal.AuthSmsLookupToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -34,6 +35,7 @@ data class AuthSmsLookupPatchRequest(val email: String? = null, val tan: String?
 @SecurityRequirement(name = "dpop")
 class AuthSmsLookupToolController(
     private val handler: AuthSmsLookupToolHandler,
+    private val descriptor: AuthSmsLookupDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
@@ -73,7 +75,7 @@ class AuthSmsLookupToolController(
             // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no
             // active sms method; the handler treats that identically to a wrong TAN.
             val accountId = accountDirectory.resolveAccountByEmail(body.email)
-            val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
+            val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             handler.submitEmail(toolSessionId, accountId, enrollmentRef)
         } else {
             handler.patch(toolSessionId, null)

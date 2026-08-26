@@ -1,11 +1,6 @@
-package com.example.dpop.id_fsc
+package com.example.dpop.id_fsc.internal
 
-import com.example.dpop.id_fsc.internal.FscCodeRepository
-import com.example.dpop.id_fsc.internal.IdFscToolData
-import com.example.dpop.id_fsc.internal.IdFscToolDataRepository
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -21,23 +16,16 @@ import java.util.UUID
  * ext_stammdaten when a kvnr is supplied, since id_fsc must not depend on that module directly
  * (docs/08-projektrahmen.md #3: leaf modules stay decoupled from each other).
  *
- * Implements ToolDescriptor directly (docs/03-tool-architektur.md #2: "jeder Handler
- * beschreibt sich zusätzlich selbst") rather than exposing it through a separate wrapper
- * interface - ToolHandlerRegistry collects `List<ToolDescriptor>` straight from Spring.
+ * Pure business logic; self-description lives in [IdentFscDescriptor] (DPoP-demo-vun).
  * `start(toolSessionId)` is called directly by IdentFscToolController, same as `patch`/`read` -
  * typed parameters throughout, no generic map (docs/08-projektrahmen.md A11).
  */
 @Component
 class IdentFscToolHandler(
+    private val descriptor: IdentFscDescriptor,
     private val repository: IdFscToolDataRepository,
     private val fscCodeRepository: FscCodeRepository
-) : ToolDescriptor {
-
-    override val toolId = "ident-fsc"
-    override val role = MethodRole.IDENTIFICATION
-    override val methodFamily = FSC_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa2"
+) {
 
     /** Called directly by IdentFscToolController; nothing needs resolving before this can start. */
     @Transactional
@@ -70,8 +58,8 @@ class IdentFscToolHandler(
             ToolOutcome.Completed.Identified(
                 personId = resolvedPersonId,
                 amr = listOf("fsc"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes,
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
                 auditDetails = mapOf(
                     "provider" to "fsc-service",
                     "providerTxId" to "FSC-$toolSessionId",

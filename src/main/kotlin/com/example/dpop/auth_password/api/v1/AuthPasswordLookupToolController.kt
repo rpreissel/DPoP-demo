@@ -1,6 +1,7 @@
 package com.example.dpop.auth_password.api.v1
 
-import com.example.dpop.auth_password.AuthPasswordLookupToolHandler
+import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
+import com.example.dpop.auth_password.internal.AuthPasswordLookupToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -34,6 +35,7 @@ data class AuthPasswordLookupPatchRequest(val email: String? = null, val passwor
 @SecurityRequirement(name = "dpop")
 class AuthPasswordLookupToolController(
     private val handler: AuthPasswordLookupToolHandler,
+    private val descriptor: AuthPasswordLookupDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
@@ -67,7 +69,7 @@ class AuthPasswordLookupToolController(
         // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no active
         // password method; the handler treats that identically to a wrong password.
         val accountId = body.email?.let { accountDirectory.resolveAccountByEmail(it) }
-        val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
+        val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
         val outcome = handler.patch(toolSessionId, body.email, body.password, accountId, enrollmentRef)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_PASSWORD_LOOKUP_TOOL_ID, outcome, context))

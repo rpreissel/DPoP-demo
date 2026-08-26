@@ -1,12 +1,7 @@
-package com.example.dpop.auth_email
+package com.example.dpop.auth_email.internal
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.auth_email.internal.AuthEmailUseToolData
-import com.example.dpop.auth_email.internal.AuthEmailUseToolDataRepository
-import com.example.dpop.auth_email.internal.EmailCodeGenerator
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.auth_email.AuthEmailUseDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import com.example.dpop.tool_spi.demoData
@@ -19,22 +14,19 @@ import java.util.UUID
  * toolId=auth-email (device-linked case only for now - see docs/03-tool-architektur.md).
  *
  * No EnrollmentRef involved: the confirmed address lives directly on Account, so [start] reads it
- * from there itself via the declared `auth_email -> account` dependency (see [ModuleMetadata]).
+ * from there itself via the declared `auth_email -> account` dependency (see ModuleMetadata).
  * Where AuthSmsUseToolHandler resolves an EnrollmentRef into its own enrollment row, this tool
  * resolves an accountId into the account's address - the same shape, against the store that
  * actually holds this credential.
+ *
+ * Pure business logic; self-description lives in [AuthEmailUseDescriptor] (DPoP-demo-vun).
  */
 @Component
 class AuthEmailUseToolHandler(
+    private val descriptor: AuthEmailUseDescriptor,
     private val toolDataRepository: AuthEmailUseToolDataRepository,
     private val accountService: AccountService
-) : ToolDescriptor {
-
-    override val toolId = "auth-email"
-    override val role = MethodRole.DEVICE_AUTH
-    override val methodFamily = EMAIL_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+) {
 
     /**
      * Resolves the account's confirmed address itself and fails with the same
@@ -69,8 +61,8 @@ class AuthEmailUseToolHandler(
         return if (EmailCodeGenerator.matches(codeValue, data.issuedCodeHash, data.codeExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf("email"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes
             )
         } else {
             ToolOutcome.Failed("Code ungueltig oder abgelaufen")

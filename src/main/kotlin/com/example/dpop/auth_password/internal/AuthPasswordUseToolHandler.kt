@@ -1,13 +1,8 @@
-package com.example.dpop.auth_password
+package com.example.dpop.auth_password.internal
 
-import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
-import com.example.dpop.auth_password.internal.AuthPasswordUseToolData
-import com.example.dpop.auth_password.internal.AuthPasswordUseToolDataRepository
-import com.example.dpop.auth_password.internal.PasswordHasher
+import com.example.dpop.auth_password.AuthPasswordUseDescriptor
+import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import com.example.dpop.tool_spi.demoData
@@ -23,21 +18,14 @@ import java.util.UUID
  * module never reads `account` itself. Only the password itself is asked for: the account is
  * already resolved (device-linked case), same shape as auth-sms only needing the TAN.
  *
- * Implements ToolDescriptor directly rather than through a wrapper interface
- * (docs/03-tool-architektur.md #2) - ToolHandlerRegistry collects `List<ToolDescriptor>`
- * straight from Spring.
+ * Pure business logic; self-description lives in [AuthPasswordUseDescriptor] (DPoP-demo-vun).
  */
 @Component
 class AuthPasswordUseToolHandler(
+    private val descriptor: AuthPasswordUseDescriptor,
     private val toolDataRepository: AuthPasswordUseToolDataRepository,
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "auth-password"
-    override val role = MethodRole.DEVICE_AUTH
-    override val methodFamily = PASSWORD_METHOD
-    override val factorTypes = setOf(FactorType.KNOWLEDGE)
-    override val maxAcr = "loa1"
+) {
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
@@ -75,8 +63,8 @@ class AuthPasswordUseToolHandler(
         return if (PasswordHasher.matches(value, enrollment.passwordHash)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf("password"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes
             )
         } else {
             ToolOutcome.Failed("Passwort ungueltig")

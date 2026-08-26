@@ -1,14 +1,8 @@
-package com.example.dpop.auth_sms
+package com.example.dpop.auth_sms.internal
 
-import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
-import com.example.dpop.auth_sms.internal.AuthSmsLookupToolData
-import com.example.dpop.auth_sms.internal.AuthSmsLookupToolDataRepository
-import com.example.dpop.auth_sms.internal.TanGenerator
+import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -19,21 +13,18 @@ import java.util.UUID
 /**
  * toolId=auth-sms-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - proves possession of
  * an enrolled phone number without the account already being known via the channel. Unlike
- * [AuthSmsUseToolHandler], this module cannot resolve the account itself (auth_sms may only
+ * AuthSmsUseToolHandler, this module cannot resolve the account itself (auth_sms may only
  * depend on tool_spi, docs/08-projektrahmen.md A11) - the controller resolves [email] to an
  * accountId/EnrollmentRef via AccountService and passes the result into [submitEmail].
+ *
+ * Pure business logic; self-description lives in [AuthSmsLookupDescriptor] (DPoP-demo-vun).
  */
 @Component
 class AuthSmsLookupToolHandler(
+    private val descriptor: AuthSmsLookupDescriptor,
     private val toolDataRepository: AuthSmsLookupToolDataRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "auth-sms-lookup"
-    override val role = MethodRole.LOOKUP_AUTH
-    override val methodFamily = SMS_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
@@ -92,8 +83,8 @@ class AuthSmsLookupToolHandler(
         return if (accountId != null && TanGenerator.matches(tan, data.issuedTanHash, data.tanExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf("sms"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes,
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
                 accountId = accountId
             )
         } else {

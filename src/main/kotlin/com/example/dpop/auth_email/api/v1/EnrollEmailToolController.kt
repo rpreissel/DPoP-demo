@@ -1,6 +1,6 @@
 package com.example.dpop.auth_email.api.v1
 
-import com.example.dpop.auth_email.EnrollEmailToolHandler
+import com.example.dpop.auth_email.internal.EnrollEmailToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint

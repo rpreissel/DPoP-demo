@@ -1,6 +1,7 @@
 package com.example.dpop.auth_sms.api.v1
 
-import com.example.dpop.auth_sms.AuthSmsUseToolHandler
+import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.internal.AuthSmsUseToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -34,6 +35,7 @@ data class AuthSmsPatchRequest(val tan: String? = null)
 @SecurityRequirement(name = "dpop")
 class AuthSmsToolController(
     private val handler: AuthSmsUseToolHandler,
+    private val descriptor: AuthSmsUseDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
@@ -49,7 +51,7 @@ class AuthSmsToolController(
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val enrollmentRef = context.channelAccountId?.let { accountDirectory.activeEnrollment(it, handler.method) }
+        val enrollmentRef = context.channelAccountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             ?: throw UnresolvableReferenceException("Keine aktive SMS-Methode fuer diesen Account")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 

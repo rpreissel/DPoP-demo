@@ -1,13 +1,7 @@
-package com.example.dpop.auth_sms
+package com.example.dpop.auth_sms.internal
 
-import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
-import com.example.dpop.auth_sms.internal.AuthSmsUseToolData
-import com.example.dpop.auth_sms.internal.AuthSmsUseToolDataRepository
-import com.example.dpop.auth_sms.internal.TanGenerator
+import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import com.example.dpop.tool_spi.demoData
@@ -21,21 +15,15 @@ import java.util.UUID
  * active SMS enrollment reference - resolved and null-checked by AuthSmsToolController before
  * calling this (never null here), since this module never reads `account` itself.
  *
- * Implements ToolDescriptor directly rather than through a wrapper interface
- * (docs/03-tool-architektur.md #2) - ToolHandlerRegistry collects `List<ToolDescriptor>`
- * straight from Spring.
+ * Pure business logic; self-description lives in [AuthSmsUseDescriptor] (DPoP-demo-vun). Its
+ * only external caller is AuthSmsToolController, which lives in the same module.
  */
 @Component
 class AuthSmsUseToolHandler(
+    private val descriptor: AuthSmsUseDescriptor,
     private val toolDataRepository: AuthSmsUseToolDataRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "auth-sms"
-    override val role = MethodRole.DEVICE_AUTH
-    override val methodFamily = SMS_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+) {
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
@@ -75,8 +63,8 @@ class AuthSmsUseToolHandler(
         return if (TanGenerator.matches(tanValue, data.issuedTanHash, data.tanExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf("sms"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes
             )
         } else {
             ToolOutcome.Failed("TAN ungueltig oder abgelaufen")

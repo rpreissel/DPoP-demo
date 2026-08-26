@@ -1,14 +1,7 @@
-package com.example.dpop.auth_sms
+package com.example.dpop.auth_sms.internal
 
-import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
-import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
-import com.example.dpop.auth_sms.internal.EnrollSmsToolData
-import com.example.dpop.auth_sms.internal.EnrollSmsToolDataRepository
-import com.example.dpop.auth_sms.internal.TanGenerator
+import com.example.dpop.auth_sms.EnrollSmsDescriptor
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -18,21 +11,16 @@ import java.util.UUID
 
 /**
  * toolId=enroll-sms (docs/06-ablaeufe.md #4): registers a new phone number as a 2nd factor.
- * Implements ToolDescriptor directly rather than through a wrapper interface
- * (docs/03-tool-architektur.md #2) - ToolHandlerRegistry collects `List<ToolDescriptor>`
- * straight from Spring.
+ * Pure business logic; self-description lives in [EnrollSmsDescriptor] (DPoP-demo-vun). Its only
+ * external caller is EnrollSmsToolController, which lives in the same module, so this class only
+ * has to be visible within `auth_sms` - enforced by living under `internal` (docs/03-tool-architektur.md #2).
  */
 @Component
 class EnrollSmsToolHandler(
+    private val descriptor: EnrollSmsDescriptor,
     private val toolDataRepository: EnrollSmsToolDataRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "enroll-sms"
-    override val role = MethodRole.ENROLLMENT
-    override val methodFamily = SMS_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+) {
 
     /** Called directly by EnrollSmsToolController; nothing needs resolving before this can start. */
     @Transactional
@@ -57,8 +45,8 @@ class EnrollSmsToolHandler(
             return ToolOutcome.Completed.Enrolled(
                 enrollmentRef = EnrollmentRef(type = "auth_sms_enrollment", id = enrollment.id.toString()),
                 amr = listOf("sms"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes,
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
                 auditDetails = mapOf("smsProvider" to "sms-gw", "providerMsgId" to "MSG-$toolSessionId")
             )
         }

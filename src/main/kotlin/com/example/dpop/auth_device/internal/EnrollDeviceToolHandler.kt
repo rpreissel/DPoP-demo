@@ -1,14 +1,9 @@
-package com.example.dpop.auth_device
+package com.example.dpop.auth_device.internal
 
-import com.example.dpop.auth_device.internal.DeviceEnrollment
-import com.example.dpop.auth_device.internal.DeviceEnrollmentRepository
-import com.example.dpop.auth_device.internal.EnrollDeviceToolData
-import com.example.dpop.auth_device.internal.EnrollDeviceToolDataRepository
+import com.example.dpop.auth_device.EnrollDeviceDescriptor
 import com.example.dpop.tool_spi.DevicePublicKey
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -17,27 +12,16 @@ import java.util.UUID
 
 /**
  * toolId=enroll-device (docs/03-tool-architektur.md): registers a device-bound key pair as a new
- * credential. maxAcr=loa2 and factorTypes cover both possible access-means outcomes (pin=KNOWLEDGE,
- * biometric=INHERENCE, plus POSSESSION of the key itself) because a single successful run already
- * combines two factor types on its own - the same "hypothetical passkey with user verification"
- * case docs/03-tool-architektur.md already names.
+ * credential.
  *
- * Implements ToolDescriptor directly rather than through a wrapper interface
- * (docs/03-tool-architektur.md #2) - ToolHandlerRegistry collects `List<ToolDescriptor>` straight
- * from Spring.
+ * Pure business logic; self-description lives in [EnrollDeviceDescriptor] (DPoP-demo-vun).
  */
 @Component
 class EnrollDeviceToolHandler(
+    private val descriptor: EnrollDeviceDescriptor,
     private val toolDataRepository: EnrollDeviceToolDataRepository,
     private val enrollmentRepository: DeviceEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "enroll-device"
-    override val role = MethodRole.ENROLLMENT
-    override val methodFamily = DEVICE_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
-    override val maxAcr = "loa2"
-    override val allowsMultipleInstances = true
+) {
 
     /** Called directly by EnrollDeviceToolController; nothing needs resolving before this can start. */
     @Transactional
@@ -76,7 +60,7 @@ class EnrollDeviceToolHandler(
         return ToolOutcome.Completed.Enrolled(
             enrollmentRef = EnrollmentRef(type = "device_enrollment", id = enrollment.id.toString()),
             amr = listOf("device", accessMeans),
-            achievedAcr = maxAcr,
+            achievedAcr = descriptor.maxAcr,
             factorTypes = factorTypesFor(accessMeans),
             auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint, "deviceBindingKeyRef" to deviceBindingKeyRef, "label" to label)
         )

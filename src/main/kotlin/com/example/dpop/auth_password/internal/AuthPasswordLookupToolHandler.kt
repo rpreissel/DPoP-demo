@@ -1,14 +1,9 @@
-package com.example.dpop.auth_password
+package com.example.dpop.auth_password.internal
 
-import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
-import com.example.dpop.auth_password.internal.AuthPasswordLookupToolData
-import com.example.dpop.auth_password.internal.AuthPasswordLookupToolDataRepository
-import com.example.dpop.auth_password.internal.PasswordHasher
+import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
+import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.EnrollmentRef
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -18,22 +13,19 @@ import java.util.UUID
 
 /**
  * toolId=auth-password-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - single-step,
- * self-verifying like [AuthPasswordUseToolHandler], but takes email+password together since the
+ * self-verifying like AuthPasswordUseToolHandler, but takes email+password together since the
  * account isn't known via the channel yet. This module cannot resolve email itself (auth_password
  * may only depend on tool_spi, docs/08-projektrahmen.md A11) - the controller resolves it to an
  * accountId/EnrollmentRef via AccountService and passes the result into [patch].
+ *
+ * Pure business logic; self-description lives in [AuthPasswordLookupDescriptor] (DPoP-demo-vun).
  */
 @Component
 class AuthPasswordLookupToolHandler(
+    private val descriptor: AuthPasswordLookupDescriptor,
     private val toolDataRepository: AuthPasswordLookupToolDataRepository,
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
-) : ToolDescriptor {
-
-    override val toolId = "auth-password-lookup"
-    override val role = MethodRole.LOOKUP_AUTH
-    override val methodFamily = PASSWORD_METHOD
-    override val factorTypes = setOf(FactorType.KNOWLEDGE)
-    override val maxAcr = "loa1"
+) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
@@ -66,8 +58,8 @@ class AuthPasswordLookupToolHandler(
         return if (accountId != null && enrollment != null && PasswordHasher.matches(password!!, enrollment.passwordHash)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf("password"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes,
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
                 accountId = accountId
             )
         } else {

@@ -1,13 +1,8 @@
-package com.example.dpop.auth_email
+package com.example.dpop.auth_email.internal
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.auth_email.internal.AuthEmailLookupToolData
-import com.example.dpop.auth_email.internal.AuthEmailLookupToolDataRepository
-import com.example.dpop.auth_email.internal.EmailCodeGenerator
+import com.example.dpop.auth_email.AuthEmailLookupDescriptor
 import com.example.dpop.tool_spi.DEMO_EMAIL
-import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -19,21 +14,18 @@ import java.util.UUID
  * toolId=auth-email-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - proves possession of
  * the account's confirmed email address without the account already being known via the
  * channel. [submitEmail] resolves the account from the submitted address itself, via the declared
- * `auth_email -> account` dependency (see [ModuleMetadata]) - unlike AuthSmsLookupToolHandler,
+ * `auth_email -> account` dependency (see ModuleMetadata) - unlike AuthSmsLookupToolHandler,
  * which still receives a pre-resolved accountId because it only needs an opaque account handle,
  * not the email semantics this module owns.
+ *
+ * Pure business logic; self-description lives in [AuthEmailLookupDescriptor] (DPoP-demo-vun).
  */
 @Component
 class AuthEmailLookupToolHandler(
+    private val descriptor: AuthEmailLookupDescriptor,
     private val toolDataRepository: AuthEmailLookupToolDataRepository,
     private val accountService: AccountService
-) : ToolDescriptor {
-
-    override val toolId = "auth-email-lookup"
-    override val role = MethodRole.LOOKUP_AUTH
-    override val methodFamily = EMAIL_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
@@ -43,7 +35,7 @@ class AuthEmailLookupToolHandler(
 
     /**
      * Resolves [email] against the account store itself (declared `auth_email -> account`
-     * dependency, see [ModuleMetadata]).
+     * dependency, see ModuleMetadata).
      *
      * **Enumeration protection** (docs/04-orchestrierung.md): an unknown or not-yet-confirmed
      * address must be indistinguishable from a known one. Both branches below therefore issue a
@@ -94,8 +86,8 @@ class AuthEmailLookupToolHandler(
         return if (accountId != null && EmailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf("email"),
-                achievedAcr = maxAcr,
-                factorTypes = factorTypes,
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
                 accountId = accountId
             )
         } else {
