@@ -32,7 +32,7 @@ describe('createDeviceProof', () => {
     expect(header.jwk).toMatchObject({ kty: 'EC', crv: 'P-256' })
   })
 
-  it('carries htm/htu/accessMeans and a fresh jti per call', async () => {
+  it('carries htm/htu/userVerification and a fresh jti per call', async () => {
     const keyPair = await generateKeyPair()
     const htu = 'https://example.test/tools/abc/enroll-device'
     const proofA = await createDeviceProof(keyPair, 'PATCH', htu, 'biometric')
@@ -41,7 +41,7 @@ describe('createDeviceProof', () => {
     const payloadA = decodeSegment(proofA.split('.')[1])
     const payloadB = decodeSegment(proofB.split('.')[1])
 
-    expect(payloadA).toMatchObject({ htm: 'PATCH', htu, accessMeans: 'biometric' })
+    expect(payloadA).toMatchObject({ htm: 'PATCH', htu, userVerification: 'biometric' })
     expect(payloadA.jti).not.toBe(payloadB.jti)
   })
 

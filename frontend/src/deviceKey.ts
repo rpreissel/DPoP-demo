@@ -73,20 +73,20 @@ async function sign(payload: string, privateKey: CryptoKey): Promise<ArrayBuffer
 /**
  * Self-signed device-proof JWT (typ=device-proof+jwt), verified server-side by
  * DeviceProofValidator - structurally identical to a DPoP proof (own jwk in header, ES256,
- * htm/htu/iat/jti) but for the account-bound device credential, plus the accessMeans claim the
+ * htm/htu/iat/jti) but for the account-bound device credential, plus the userVerification claim the
  * (demo-mocked) PIN/biometric confirmation determined for this one attempt.
  */
 export async function createDeviceProof(
   keyPair: CryptoKeyPair,
   htm: string,
   htu: string,
-  accessMeans: 'pin' | 'biometric',
+  userVerification: 'pin' | 'biometric',
 ): Promise<string> {
   const publicJwk = await exportPublicJwk(keyPair)
   const header = { typ: 'device-proof+jwt', alg: 'ES256', jwk: publicJwk }
 
   const nowSeconds = Math.floor(Date.now() / 1000)
-  const payload = { jti: crypto.randomUUID(), iat: nowSeconds, htm, htu, accessMeans }
+  const payload = { jti: crypto.randomUUID(), iat: nowSeconds, htm, htu, userVerification }
 
   const encodedHeader = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)))
   const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)))

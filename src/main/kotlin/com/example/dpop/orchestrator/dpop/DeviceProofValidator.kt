@@ -135,15 +135,14 @@ class DeviceProofValidator(
         }
     }
 
-    /** The "accessMeans" claim name is the wire contract with the client and stays as-is. */
     private fun validateUserVerification(claims: JWTClaimsSet): UserVerification {
         val rawValue = try {
-            claims.getStringClaim("accessMeans")
+            claims.getStringClaim("userVerification")
         } catch (e: ParseException) {
             throw DpopValidationException("Invalid device proof claims", e)
         }
         return UserVerification.fromWireValue(rawValue)
-            ?: throw DpopValidationException("Unsupported or missing accessMeans claim: $rawValue")
+            ?: throw DpopValidationException("Unsupported or missing userVerification claim: $rawValue")
     }
 
     private fun normalizeUrl(url: String): String {

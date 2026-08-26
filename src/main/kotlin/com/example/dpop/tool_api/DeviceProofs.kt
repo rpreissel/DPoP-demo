@@ -26,7 +26,7 @@ data class DevicePublicKey(
  * creates the proof; the server does not and cannot verify how the unlock happened, only that a
  * valid proof was produced.
  *
- * @property wireValue the value as it appears in the proof JWT's `accessMeans` claim.
+ * @property wireValue the value as it appears in the proof JWT's `userVerification` claim.
  */
 enum class UserVerification(val wireValue: String) {
     PIN("pin"),

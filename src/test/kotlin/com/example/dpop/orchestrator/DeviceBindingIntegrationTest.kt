@@ -171,7 +171,7 @@ class DeviceBindingIntegrationTest {
     }
 
     /** Self-signed device-proof JWT (typ=device-proof+jwt), same shape DeviceProofValidator expects. */
-    private fun signDeviceProof(deviceKey: ECKey, htu: String, accessMeans: String, issuedAt: Date = Date()): String {
+    private fun signDeviceProof(deviceKey: ECKey, htu: String, userVerification: String, issuedAt: Date = Date()): String {
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType("device-proof+jwt"))
             .jwk(deviceKey.toPublicJWK())
@@ -181,18 +181,18 @@ class DeviceBindingIntegrationTest {
             .issueTime(issuedAt)
             .claim("htm", "PATCH")
             .claim("htu", htu)
-            .claim("accessMeans", accessMeans)
+            .claim("userVerification", userVerification)
             .build()
         val signedJWT = SignedJWT(header, claims)
         signedJWT.sign(ECDSASigner(deviceKey.toECPrivateKey()))
         return signedJWT.serialize()
     }
 
-    private fun enrollDevice(channelSessionId: String, accessMeans: String = "biometric"): ECKey {
+    private fun enrollDevice(channelSessionId: String, userVerification: String = "biometric"): ECKey {
         val deviceKey = ECKeyGenerator(Curve.P_256).generate()
         val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
         val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
-        val proof = signDeviceProof(deviceKey, "http://localhost:$port$patchUrl", accessMeans)
+        val proof = signDeviceProof(deviceKey, "http://localhost:$port$patchUrl", userVerification)
         patch(patchUrl, """{"deviceProof":"$proof"}""")
         return deviceKey
     }
@@ -200,7 +200,7 @@ class DeviceBindingIntegrationTest {
     @Test
     fun enrollDevice_reachesLoa2DirectlyWithGeraetAndAccessMeansInAmr() {
         val channelSessionId = identify()
-        val deviceKey = enrollDevice(channelSessionId, accessMeans = "biometric")
+        val deviceKey = enrollDevice(channelSessionId, userVerification = "biometric")
         assertThat(deviceKey).isNotNull()
 
         val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")

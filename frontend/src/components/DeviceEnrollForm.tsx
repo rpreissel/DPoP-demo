@@ -25,12 +25,12 @@ export function DeviceEnrollForm({ toolSessionId, toolId, onSubmit, error }: Dev
     setConfirmingName(false)
   }
 
-  async function handleConfirm(accessMeans: 'pin' | 'biometric') {
+  async function handleConfirm(userVerification: 'pin' | 'biometric') {
     setBusy(true)
     try {
       const { keyPair } = await getOrCreateDeviceKeyPair()
       const htu = `${window.location.origin}/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`
-      const deviceProof = await createDeviceProof(keyPair, 'PATCH', htu, accessMeans)
+      const deviceProof = await createDeviceProof(keyPair, 'PATCH', htu, userVerification)
       onSubmit({ deviceProof, label: label.trim() || 'Mein Gerät' })
     } finally {
       setBusy(false)

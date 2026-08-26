@@ -1,5 +1,5 @@
 interface DeviceAccessGateProps {
-  onConfirm: (accessMeans: 'pin' | 'biometric') => void
+  onConfirm: (userVerification: 'pin' | 'biometric') => void
   busy?: boolean
 }
 

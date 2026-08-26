@@ -123,7 +123,7 @@ class MultiDeviceCredentialIntegrationTest {
         return channelSessionId
     }
 
-    private fun signDeviceProof(deviceKey: ECKey, htu: String, accessMeans: String, issuedAt: Date = Date()): String {
+    private fun signDeviceProof(deviceKey: ECKey, htu: String, userVerification: String, issuedAt: Date = Date()): String {
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)
             .type(JOSEObjectType("device-proof+jwt"))
             .jwk(deviceKey.toPublicJWK())
@@ -133,7 +133,7 @@ class MultiDeviceCredentialIntegrationTest {
             .issueTime(issuedAt)
             .claim("htm", "PATCH")
             .claim("htu", htu)
-            .claim("accessMeans", accessMeans)
+            .claim("userVerification", userVerification)
             .build()
         val signedJWT = SignedJWT(header, claims)
         signedJWT.sign(ECDSASigner(deviceKey.toECPrivateKey()))

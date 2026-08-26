@@ -13,12 +13,12 @@ interface DeviceAuthFormProps {
 export function DeviceAuthForm({ toolSessionId, toolId, onSubmit, error }: DeviceAuthFormProps) {
   const [busy, setBusy] = useState(false)
 
-  async function handleConfirm(accessMeans: 'pin' | 'biometric') {
+  async function handleConfirm(userVerification: 'pin' | 'biometric') {
     setBusy(true)
     try {
       const { keyPair } = await getOrCreateDeviceKeyPair()
       const htu = `${window.location.origin}/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`
-      const deviceProof = await createDeviceProof(keyPair, 'PATCH', htu, accessMeans)
+      const deviceProof = await createDeviceProof(keyPair, 'PATCH', htu, userVerification)
       onSubmit({ deviceProof })
     } finally {
       setBusy(false)
