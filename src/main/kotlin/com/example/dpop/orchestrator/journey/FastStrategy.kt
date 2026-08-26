@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component
  * States 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) form a
  * FALLBACK chain: declining moves to the next, more laborious way in, and once nothing is left
  * the journey ends. States 4-5 ([FastState.ConfirmingEmail], [FastState.Enrolling]) are
- * GOAL-DRIVEN: declining re-offers the same full choice, so only fulfilling moves on.
+ * MANDATORY: declining re-offers the same full choice, so only fulfilling moves on.
  *
  * Registration is not a separate intent, it is the third state of this one. Whether identifying
  * created an account or found an existing one is decided afterwards by `findOrCreateAccount` - an
@@ -142,7 +142,7 @@ open class FastStrategy : IntentStrategy<FastState> {
     }
 
     /**
-     * The order of the goal-driven states: a sufficient login method FIRST, the confirmed email
+     * The order of the mandatory states: a sufficient login method FIRST, the confirmed email
      * after it. Reversing them would force one particular method before the user has chosen any,
      * even though setting up email is one of the choices that satisfies both at once.
      */
@@ -180,7 +180,7 @@ open class FastStrategy : IntentStrategy<FastState> {
     }
 
     /**
-     * On a goal-driven state, backing out of a tool is not declining it - the obligation
+     * On a mandatory state, backing out of a tool is not declining it - the obligation
      * stands either way. So the FULL choice comes back, including the tool just abandoned: the
      * user is picking differently, not giving up. Only fallback states accumulate `declined`.
      */

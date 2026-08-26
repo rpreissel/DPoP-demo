@@ -57,7 +57,7 @@ sealed interface OfferingState : JourneyState {
 
     /**
      * True once every offer here has been declined. Only fallback states ever reach this: a
-     * goal-driven state re-offers its full set instead of narrowing it, so `declined` never grows
+     * mandatory state re-offers its full set instead of narrowing it, so `declined` never grows
      * there (see FastStrategy.reoffer).
      */
     val exhausted: Boolean
@@ -73,7 +73,7 @@ sealed interface OfferingState : JourneyState {
  * Two deliberately DIFFERENT transition rules live in one hierarchy, and that difference is named
  * here rather than left to a comment:
  * - [PreferredAuth], [AuthChoice], [Identifying] are FALLBACK states: declining moves on.
- * - [ConfirmingEmail], [Enrolling] are GOAL-DRIVEN: only fulfilling moves on.
+ * - [ConfirmingEmail], [Enrolling] are MANDATORY: only fulfilling moves on.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(

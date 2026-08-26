@@ -27,7 +27,7 @@ verwechselt werden — drei verschiedene Dinge, nie Synonyme.
 Bewusst **kein** eigenes Wort für „Zustand als Position in einer Reihenfolge": Das ist derselbe
 Zustand, nur unter einer anderen Frage betrachtet, und ein zweiter Begriff dafür hätte im Modell
 keine Entsprechung. Wo die Reihenfolge gemeint ist, sagt der Text es als Eigenschaft des Zustands
-(*Fallback-Zustand*, *zielgetriebener Zustand*) oder benennt gleich die Kette.
+(*Fallback-Zustand*, *Pflichtzustand*) oder benennt gleich die Kette.
 
 ### Intent
 
@@ -86,9 +86,8 @@ unterscheiden sich darin, was **Ablehnen** bewirkt:
 - In einem **Fallback-Zustand** führt Ablehnen weiter — zum nächsten, aufwendigeren Weg. Mehrere
   davon hintereinander bilden eine **Fallback-Kette**, geordnet vom bequemsten zum aufwendigsten
   Weg; so ist `FAST` gebaut. Ist nichts Aufwendigeres mehr da, endet die Journey.
-- In einem **zielgetriebenen Zustand** führt Ablehnen nirgendwohin. Die Pflicht bleibt bestehen,
-  die volle Auswahl kommt zurück — auch das gerade verworfene Verfahren. Nur Erfüllen bringt
-  weiter.
+- In einem **Pflichtzustand** führt Ablehnen nirgendwohin. Die Pflicht bleibt bestehen, die
+  volle Auswahl kommt zurück — auch das gerade verworfene Verfahren. Nur Erfüllen bringt weiter.
 
 Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und welche Sorte ein Zustand ist,
 gehört sichtbar in den Code, nicht in einen Kommentar.
@@ -185,7 +184,7 @@ stateDiagram-v2
     Ablehnen führt weiter.
   end note
   note right of Enrolling
-    Zustände 4-5: zielgetrieben.
+    Zustände 4-5: Pflicht.
     Nur Erfüllen führt weiter.
   end note
 ```
@@ -213,7 +212,7 @@ darf eine leere Kandidatenliste hier auch nicht abbrechen — „keine Auth-Verf
 der Grund, aus dem `Identifying` als Login-Weg überhaupt erlaubt wird.
 
 In einem Fallback-Zustand sammelt `declined` die verworfenen Verfahren, bis nichts mehr übrig ist
-und der nächste dran ist. In einem zielgetriebenen Zustand passiert das **nicht**: Wer dort
+und der nächste dran ist. In einem Pflichtzustand passiert das **nicht**: Wer dort
 zurückgeht, wählt anders, gibt aber die Pflicht nicht auf — deshalb kommt die volle Auswahl
 zurück, das gerade verworfene Verfahren eingeschlossen.
 
@@ -636,7 +635,7 @@ Untergrenze, nie eine Erlaubnis: Das Backend setzt `max(Policy-Anforderung, Clie
 
 Keycloak kennt „Required Actions": pro Nutzer abzuarbeitende Pflichten wie `VERIFY_EMAIL`,
 die vor Abschluss der Session erledigt sein müssen. Hier sind sie kein eigenes Konzept, sondern
-zielgetriebene Zustände: „ausreichendes Login-Verfahren eingerichtet" *ist* `Enrolling`,
+Pflichtzustände: „ausreichendes Login-Verfahren eingerichtet" *ist* `Enrolling`,
 „bestätigte E-Mail" *ist* `ConfirmingEmail`. Eine offene Pflicht ist definitionsgemäß eine
 Position auf dem Weg.
 

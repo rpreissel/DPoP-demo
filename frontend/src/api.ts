@@ -131,7 +131,7 @@ export function answerDeviceBinding(dpop: DpopKeyPair, channelSessionId: string,
 
 /**
  * Declines the currently running tool without giving up the journey (docs/04-orchestrierung.md):
- * on a fallback state the chain moves on, on a goal-driven one the full choice comes back.
+ * on a fallback state the chain moves on, on a mandatory one the full choice comes back.
  */
 export function abandonTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`)

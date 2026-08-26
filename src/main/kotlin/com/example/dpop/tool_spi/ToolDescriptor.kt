@@ -57,7 +57,7 @@ interface ToolDescriptor {
     /**
      * True for the one ENROLLMENT tool whose successful run leaves the account with a CONFIRMED
      * email - the precondition [requiresConfirmedEmail] names from the other side. Declared here
-     * rather than matched by toolId in the orchestrator, so the goal-driven "confirm the email
+     * rather than matched by toolId in the orchestrator, so the mandatory "confirm the email
      * first" state (docs/04-orchestrierung.md #3) stays derived from the catalog like every other
      * offer.
      */

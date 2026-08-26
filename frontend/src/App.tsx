@@ -351,7 +351,7 @@ function App() {
   /**
    * Declines the running tool - the chain's own action, distinct from Abbrechen. On a FAST
    * fallback state this moves along the chain (other auth methods, then identification); on a
-   * goal-driven one it just brings the full choice back. Abbrechen, by contrast, ends the whole
+   * mandatory one it just brings the full choice back. Abbrechen, by contrast, ends the whole
    * journey and therefore restarts the SAME intent - which on a fallback state means landing right
    * back where you were.
    */
