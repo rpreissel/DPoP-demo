@@ -18,25 +18,16 @@ interface ToolDescriptor {
     /** The role this tool plays for [method]. See [MethodRole]. */
     val role: MethodRole
 
-    /** Coarse grouping derived from [role]; do not override. */
-    val category: ToolCategory
-        get() = when (role) {
-            MethodRole.IDENTIFICATION -> ToolCategory.IDENT
-            MethodRole.ENROLLMENT -> ToolCategory.ENROLL
-            MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> ToolCategory.AUTH
-        }
+    /** Coarse grouping; a passthrough of [role]'s own [MethodRole.category]. Do not override. */
+    val category: ToolCategory get() = role.category
 
     /**
      * The step name a freshly activated tool session starts on. Must match the `nextStep` this
-     * tool's own first `ToolOutcome.InProgress` actually returns. Defaults from [role]; override
-     * only if this tool's first step is genuinely named differently.
+     * tool's own first `ToolOutcome.InProgress` actually returns. Defaults to [role]'s own
+     * [MethodRole.defaultStartStep]; override only if this tool's first step is genuinely named
+     * differently.
      */
-    val startStep: String
-        get() = when (role) {
-            MethodRole.IDENTIFICATION -> "input"
-            MethodRole.ENROLLMENT -> "enroll"
-            MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> "auth"
-        }
+    val startStep: String get() = role.defaultStartStep
 
     /** The factor kinds this tool can provide at most. */
     val factorTypes: Set<FactorType>
@@ -72,37 +63,37 @@ interface ToolDescriptor {
  */
 data class MethodFamily(val method: String)
 
+/** Coarse grouping of a tool. See [MethodRole.category]/[ToolDescriptor.category]. */
+enum class ToolCategory {
+    IDENT,
+    ENROLL,
+    AUTH
+}
+
 /**
  * The role a tool plays with respect to its [MethodFamily]. `(methodFamily, role)` together
  * uniquely identify a concrete procedure - `(methodFamily, category)` alone does not, since
  * [MethodRole.DEVICE_AUTH] and [MethodRole.LOOKUP_AUTH] share `category=AUTH`.
  */
-enum class MethodRole {
+enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) {
     /** Resolves identity (e.g. `ident-fsc`) - never establishes a durable credential. */
-    IDENTIFICATION,
+    IDENTIFICATION(ToolCategory.IDENT, "input"),
 
     /** Creates a new credential for the method (e.g. `enroll-sms`). */
-    ENROLLMENT,
+    ENROLLMENT(ToolCategory.ENROLL, "enroll"),
 
     /**
      * Proves a credential for an account already known via the current channel/process (e.g.
      * `auth-sms`, `auth-device`).
      */
-    DEVICE_AUTH,
+    DEVICE_AUTH(ToolCategory.AUTH, "auth"),
 
     /**
      * Proves the same underlying credential as its [DEVICE_AUTH] sibling, but resolves the
      * account itself from a submitted identifier (e.g. `auth-sms-lookup`) instead of relying on
      * the channel already knowing it.
      */
-    LOOKUP_AUTH
-}
-
-/** Coarse grouping of a tool, derived from [ToolDescriptor.role]; see [ToolDescriptor.category]. */
-enum class ToolCategory {
-    IDENT,
-    ENROLL,
-    AUTH
+    LOOKUP_AUTH(ToolCategory.AUTH, "auth")
 }
 
 /** A kind of authentication factor a method can provide. */
