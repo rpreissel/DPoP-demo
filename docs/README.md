@@ -28,8 +28,24 @@ Nicht Teil dieser Dokumentation:
 | [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
 
-**Empfohlene Lesereihenfolge:** 01 -> 02 -> 03 -> 04 für das Fachkonzept; 08 für den
-Projektkontext. Wer nur einen Client baut, kommt mit 01, 05 und 10 aus.
+### Lesepfade je Zielgruppe
+
+Die Nummerierung 01-12 ist keine verbindliche Leserichtung — sie folgt nur der Reihenfolge, in
+der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
+
+- **Architekt/Stakeholder/Reviewer** — großes Bild, Kompromisse, kein Implementierungsdetail:
+  [01](01-ueberblick.md) -> [12](12-entscheidungen.md) -> [08](08-projektrahmen.md) ->
+  [02](02-domaenenmodell.md) Abschnitt 1 (nur das Klassendiagramm). Überspringen: 06, 07, 09, 10 —
+  das sind Implementierungsanleitungen, keine Entscheidungen.
+- **Backend-Entwickler** — Konzepte *und* Implementierungsmuster, praktisch die volle Liste:
+  [01](01-ueberblick.md) -> [02](02-domaenenmodell.md) -> [03](03-tool-architektur.md) ->
+  [04](04-orchestrierung.md) -> [06](06-ablaeufe.md) -> [09](09-dpop.md) ->
+  [07](07-betrieb.md) -> [08](08-projektrahmen.md), [12](12-entscheidungen.md) bei Bedarf für das
+  Warum einer bestehenden Entscheidung. Überspringen: 10 (reines Frontend-Kapitel).
+- **App-Frontend-Entwickler** — hauptsächlich die APIs, kein Domänenmodell-Detail:
+  [01](01-ueberblick.md) -> [05](05-api.md) -> [10](10-frontend.md). Bei Bedarf ergänzend
+  [README.md](README.md#begriffe) für die Session-Begriffe, die 05 voraussetzt. Überspringen: 02,
+  03, 04, 06, 07, 09 — das sind Backend-interne Konzepte, die die API bereits gekapselt hat.
 
 ---
 
