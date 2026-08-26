@@ -58,8 +58,8 @@ class AuthDeviceToolController(
             ?: throw UnresolvableReferenceException("Keine aktive Geraete-Methode fuer dieses Geraet")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
-        val response = toolEndpoint.applyOutcome(AUTH_DEVICE_TOOL_ID, outcome, context)
-        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, AUTH_DEVICE_TOOL_ID)
+        val response = toolEndpoint.applyOutcome(context, outcome)
+        val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -74,13 +74,13 @@ class AuthDeviceToolController(
         @RequestBody(required = false) request: DeviceProofPatchRequest?,
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        toolEndpoint.requireCurrentTool(context, AUTH_DEVICE_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_DEVICE_TOOL_ID)
+        toolEndpoint.requireCurrentTool(context)
 
         val proof = deviceProofs.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
         val outcome = handler.patch(toolSessionId, proof.publicKey, proof.accessMeans)
 
-        return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_DEVICE_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-device")
@@ -89,14 +89,14 @@ class AuthDeviceToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (toolEndpoint.isCurrentTool(context, AUTH_DEVICE_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_DEVICE_TOOL_ID)
+        val outcome = if (toolEndpoint.isCurrentTool(context)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_DEVICE_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(context, outcome))
     }
 }

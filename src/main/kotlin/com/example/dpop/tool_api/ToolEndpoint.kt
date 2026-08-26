@@ -6,12 +6,17 @@ import java.util.UUID
 
 /**
  * The flat handle a tool controller actually needs (docs/04-orchestrierung.md #5). A controller
- * never reads more than these three scalars off its context - checked against all twelve
+ * never reads more than these four scalars off its context - checked against all twelve
  * controllers before this interface was cut. It deliberately does NOT carry the real
  * AuthJourney/ChannelSession/ToolSession: those are orchestrator-internal, and a method module
  * must never see them, only the account ids and the running tool session's id.
+ *
+ * [toolId] is the caller's own asserted toolId (a compile-time constant in every tool controller,
+ * a `@PathVariable` in [ToolSwitchController]) - set once at [ToolEndpoint.beginActivation]/
+ * [ToolEndpoint.loadContext] instead of being re-passed to every subsequent [ToolEndpoint] call.
  */
 interface ToolContext {
+    val toolId: String
     val toolSessionId: UUID
     val journeyAccountId: Long?
     val channelAccountId: Long?
@@ -26,8 +31,17 @@ interface ToolContext {
  * interface plus [ToolContext] - never a concrete orchestrator type. What is deliberately NOT
  * here: any knowledge of which tool may run when. That is a question about the journey's current
  * state, which the implementation answers - a controller only finds out by trying.
+ *
+ * Every method beyond the two that construct a [ToolContext] takes `(context, [one domain
+ * object])` - never a bare `toolId`/`toolSessionId` again, since the caller already put both into
+ * the context it is holding.
  */
 interface ToolEndpoint {
+    /** Mints the ToolSession and rejects [toolId] if the journey does not currently offer it. */
+    fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): ToolContext
+
+    fun loadContext(toolSessionId: UUID, bindingKeyRef: String, toolId: String): ToolContext
+
     /**
      * The `Location` of a just-created tool resource - identical across every tool's activate().
      * [baseUri] is the scheme/host/port the client actually reached (`uriBuilder.build().toUri()`
@@ -35,16 +49,11 @@ interface ToolEndpoint {
      * caller, which is why this takes a plain `java.net.URI` rather than a Spring
      * `UriComponentsBuilder`: this SPI must not require a method module to depend on Spring Web.
      */
-    fun activationLocation(baseUri: URI, toolSessionId: UUID, toolId: String): URI
+    fun activationLocation(context: ToolContext, baseUri: URI): URI
 
-    /** Mints the ToolSession and rejects [toolId] if the journey does not currently offer it. */
-    fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): ToolContext
+    fun requireCurrentTool(context: ToolContext)
 
-    fun loadContext(toolSessionId: UUID, bindingKeyRef: String): ToolContext
-
-    fun requireCurrentTool(context: ToolContext, toolId: String)
-
-    fun isCurrentTool(context: ToolContext, toolId: String): Boolean
+    fun isCurrentTool(context: ToolContext): Boolean
 
     /**
      * "Back"/"Switch": abandon the currently activated tool. What happens then is entirely the
@@ -53,16 +62,11 @@ interface ToolEndpoint {
      * it never touches the journey to make that decision itself, which is why this - and not just
      * [applyOutcome] - is part of the SPI: it is the one effect that is not a tool outcome at all.
      */
-    fun abandon(context: ToolContext, toolId: String): ChannelResponse
+    fun abandon(context: ToolContext): ChannelResponse
 
     /** InProgress/Failed/Completed -> journey transition + the response envelope. */
-    fun applyOutcome(toolId: String, outcome: ToolOutcome, context: ToolContext): ChannelResponse
+    fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse
 
     /** For GET: only the still-current tool's freshly rebuilt InProgress state is shown. */
-    fun buildReadResponse(
-        toolSessionId: UUID,
-        toolId: String,
-        context: ToolContext,
-        freshOutcome: ToolOutcome.InProgress?
-    ): ChannelResponse
+    fun buildReadResponse(context: ToolContext, freshOutcome: ToolOutcome.InProgress?): ChannelResponse
 }

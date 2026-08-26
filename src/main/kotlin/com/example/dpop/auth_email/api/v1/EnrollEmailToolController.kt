@@ -48,8 +48,8 @@ class EnrollEmailToolController(
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, ENROLL_EMAIL_TOOL_ID)
         val outcome = handler.start(context.toolSessionId)
-        val response = toolEndpoint.applyOutcome(ENROLL_EMAIL_TOOL_ID, outcome, context)
-        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, ENROLL_EMAIL_TOOL_ID)
+        val response = toolEndpoint.applyOutcome(context, outcome)
+        val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -68,14 +68,14 @@ class EnrollEmailToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: EnrollEmailPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        toolEndpoint.requireCurrentTool(context, ENROLL_EMAIL_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_EMAIL_TOOL_ID)
+        toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: EnrollEmailPatchRequest()
         val accountId = checkNotNull(context.journeyAccountId) { "enroll-email without an account bound to the journey" }
         val outcome = handler.patch(toolSessionId, body.email, body.code, accountId)
 
-        return ResponseEntity.ok(toolEndpoint.applyOutcome(ENROLL_EMAIL_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-email")
@@ -84,14 +84,14 @@ class EnrollEmailToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (toolEndpoint.isCurrentTool(context, ENROLL_EMAIL_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_EMAIL_TOOL_ID)
+        val outcome = if (toolEndpoint.isCurrentTool(context)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, ENROLL_EMAIL_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(context, outcome))
     }
 }

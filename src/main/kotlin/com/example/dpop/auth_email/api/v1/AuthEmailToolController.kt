@@ -52,8 +52,8 @@ class AuthEmailToolController(
             ?: throw UnresolvableReferenceException("Kein Konto fuer diesen Kanal")
         val outcome = handler.start(context.toolSessionId, accountId)
 
-        val response = toolEndpoint.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context)
-        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, AUTH_EMAIL_TOOL_ID)
+        val response = toolEndpoint.applyOutcome(context, outcome)
+        val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -64,13 +64,13 @@ class AuthEmailToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthEmailPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        toolEndpoint.requireCurrentTool(context, AUTH_EMAIL_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID)
+        toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: AuthEmailPatchRequest()
         val outcome = handler.patch(toolSessionId, body.code)
 
-        return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_EMAIL_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-email")
@@ -79,14 +79,14 @@ class AuthEmailToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (toolEndpoint.isCurrentTool(context, AUTH_EMAIL_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID)
+        val outcome = if (toolEndpoint.isCurrentTool(context)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_EMAIL_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(context, outcome))
     }
 }

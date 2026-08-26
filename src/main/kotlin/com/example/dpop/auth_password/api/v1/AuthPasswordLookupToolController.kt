@@ -49,8 +49,8 @@ class AuthPasswordLookupToolController(
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, AUTH_PASSWORD_LOOKUP_TOOL_ID)
         val outcome = handler.start(context.toolSessionId)
-        val response = toolEndpoint.applyOutcome(AUTH_PASSWORD_LOOKUP_TOOL_ID, outcome, context)
-        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, AUTH_PASSWORD_LOOKUP_TOOL_ID)
+        val response = toolEndpoint.applyOutcome(context, outcome)
+        val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -61,8 +61,8 @@ class AuthPasswordLookupToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthPasswordLookupPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        toolEndpoint.requireCurrentTool(context, AUTH_PASSWORD_LOOKUP_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_PASSWORD_LOOKUP_TOOL_ID)
+        toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: AuthPasswordLookupPatchRequest()
         // Resolved HERE, at the call site - auth_password may not depend on `account`
@@ -72,7 +72,7 @@ class AuthPasswordLookupToolController(
         val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
         val outcome = handler.patch(toolSessionId, body.email, body.password, accountId, enrollmentRef)
 
-        return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_PASSWORD_LOOKUP_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup")
@@ -81,14 +81,14 @@ class AuthPasswordLookupToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (toolEndpoint.isCurrentTool(context, AUTH_PASSWORD_LOOKUP_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_PASSWORD_LOOKUP_TOOL_ID)
+        val outcome = if (toolEndpoint.isCurrentTool(context)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_PASSWORD_LOOKUP_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(context, outcome))
     }
 }

@@ -55,8 +55,8 @@ class AuthSmsToolController(
             ?: throw UnresolvableReferenceException("Keine aktive SMS-Methode fuer diesen Account")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
-        val response = toolEndpoint.applyOutcome(AUTH_SMS_TOOL_ID, outcome, context)
-        val location = toolEndpoint.activationLocation(uriBuilder.build().toUri(), context.toolSessionId, AUTH_SMS_TOOL_ID)
+        val response = toolEndpoint.applyOutcome(context, outcome)
+        val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
@@ -67,13 +67,13 @@ class AuthSmsToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthSmsPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        toolEndpoint.requireCurrentTool(context, AUTH_SMS_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_SMS_TOOL_ID)
+        toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: AuthSmsPatchRequest()
         val outcome = handler.patch(toolSessionId, body.tan)
 
-        return ResponseEntity.ok(toolEndpoint.applyOutcome(AUTH_SMS_TOOL_ID, outcome, context))
+        return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms")
@@ -82,14 +82,14 @@ class AuthSmsToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef)
-        val outcome = if (toolEndpoint.isCurrentTool(context, AUTH_SMS_TOOL_ID)) {
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_SMS_TOOL_ID)
+        val outcome = if (toolEndpoint.isCurrentTool(context)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {
             null
         }
-        return ResponseEntity.ok(toolEndpoint.buildReadResponse(toolSessionId, AUTH_SMS_TOOL_ID, context, outcome))
+        return ResponseEntity.ok(toolEndpoint.buildReadResponse(context, outcome))
     }
 }

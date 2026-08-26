@@ -54,16 +54,16 @@ class ToolControllerSupport(
     private val channelService: ChannelService,
     private val journeyService: JourneyService
 ) : ToolEndpoint {
-    data class Context(val toolSession: ToolSession, val journey: AuthJourney, val channel: ChannelSession) : ToolContext {
+    data class Context(override val toolId: String, val toolSession: ToolSession, val journey: AuthJourney, val channel: ChannelSession) : ToolContext {
         override val toolSessionId: UUID get() = toolSession.toolSessionId!!
         override val journeyAccountId: Long? get() = journey.accountId
         override val channelAccountId: Long? get() = channel.accountId
     }
 
-    override fun activationLocation(baseUri: URI, toolSessionId: UUID, toolId: String): URI =
+    override fun activationLocation(context: ToolContext, baseUri: URI): URI =
         UriComponentsBuilder.fromUri(baseUri)
             .replacePath("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}")
-            .buildAndExpand(toolSessionId, toolId)
+            .buildAndExpand(context.toolSessionId, context.toolId)
             .toUri()
 
     /**
@@ -86,7 +86,7 @@ class ToolControllerSupport(
 
         val toolSession = sessionManagementService.createToolSession(journey.journeyId!!, TOOL_TTL)
         journeyService.activate(journey, descriptor, toolSession.toolSessionId!!)
-        return Context(toolSession, journey, channel)
+        return Context(toolId, toolSession, journey, channel)
     }
 
     /**
@@ -104,24 +104,24 @@ class ToolControllerSupport(
         }
     }
 
-    override fun loadContext(toolSessionId: UUID, bindingKeyRef: String): Context {
+    override fun loadContext(toolSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
         val toolSession = sessionManagementService.findToolSessionById(toolSessionId)
             ?: throw OrchestratorException.notFound("Tool session not found: $toolSessionId")
         val journey = journeyService.findById(toolSession.journeyId!!)
             ?: throw OrchestratorException.processGone("Journey for this tool session is gone")
         val channel = channelAccessGuard.requireChannel(journey.channelSessionId!!, bindingKeyRef)
-        return Context(toolSession, journey, channel)
+        return Context(toolId, toolSession, journey, channel)
     }
 
-    override fun requireCurrentTool(context: ToolContext, toolId: String) {
-        if (!isCurrentTool(context, toolId)) {
-            throw OrchestratorException.invalidState("$toolId is not the currently active tool for this journey")
+    override fun requireCurrentTool(context: ToolContext) {
+        if (!isCurrentTool(context)) {
+            throw OrchestratorException.invalidState("${context.toolId} is not the currently active tool for this journey")
         }
     }
 
-    override fun isCurrentTool(context: ToolContext, toolId: String): Boolean {
+    override fun isCurrentTool(context: ToolContext): Boolean {
         val ctx = context as Context
-        return journeyService.isCurrent(ctx.journey, toolId, ctx.toolSession.toolSessionId!!)
+        return journeyService.isCurrent(ctx.journey, ctx.toolId, ctx.toolSession.toolSessionId!!)
     }
 
     /**
@@ -129,10 +129,10 @@ class ToolControllerSupport(
      * re-offered candidate can be the same toolId as the one being abandoned, so toolId matching
      * alone can't tell the abandoned session and a freshly re-activated one apart.
      */
-    override fun abandon(context: ToolContext, toolId: String): ChannelResponse {
+    override fun abandon(context: ToolContext): ChannelResponse {
         val ctx = context as Context
         sessionManagementService.expireToolSession(ctx.toolSessionId)
-        val step = journeyService.abandon(ctx.journey, ctx.channel, toolRegistry.descriptorOf(toolId))
+        val step = journeyService.abandon(ctx.journey, ctx.channel, toolRegistry.descriptorOf(ctx.toolId))
         return ChannelResponse(
             channel = channelService.buildChannelBlock(ctx.channel),
             next = step.next,
@@ -146,9 +146,9 @@ class ToolControllerSupport(
      * is the same mutable entity [JourneyService] just updated in place, so the block reflects
      * the post-outcome state without a separate `GET /channels`.
      */
-    override fun applyOutcome(toolId: String, outcome: ToolOutcome, context: ToolContext): ChannelResponse {
+    override fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse {
         val ctx = context as Context
-        val descriptor = toolRegistry.descriptorOf(toolId)
+        val descriptor = toolRegistry.descriptorOf(ctx.toolId)
         if (descriptor.category == ToolCategory.AUTH && outcome !is ToolOutcome.InProgress) {
             ctx.channel.accountId?.let {
                 if (outcome is ToolOutcome.Completed) loginThrottleService.recordSuccess(it)
@@ -172,15 +172,10 @@ class ToolControllerSupport(
     }
 
     /** For GET: only the still-current tool's freshly rebuilt InProgress state is shown. */
-    override fun buildReadResponse(
-        toolSessionId: UUID,
-        toolId: String,
-        context: ToolContext,
-        freshOutcome: ToolOutcome.InProgress?
-    ): ChannelResponse {
+    override fun buildReadResponse(context: ToolContext, freshOutcome: ToolOutcome.InProgress?): ChannelResponse {
         val ctx = context as Context
         val next = if (freshOutcome != null) {
-            Next.tool(toolId, freshOutcome.nextStep, toolSessionId)
+            Next.tool(ctx.toolId, freshOutcome.nextStep, ctx.toolSessionId)
         } else {
             journeyService.nextOf(ctx.journey)
         }
