@@ -1,9 +1,8 @@
 package com.example.dpop.orchestrator.tool
 
 import com.example.dpop.tool_spi.ToolDescriptor
-import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.maps.shouldContainExactly
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 
@@ -21,9 +20,9 @@ import org.springframework.test.context.ActiveProfiles
  */
 @SpringBootTest
 @ActiveProfiles("test")
-class ToolCatalogStartStepTest(@Autowired private val toolRegistry: ToolHandlerRegistry) {
+class ToolCatalogStartStepTest(toolRegistry: ToolHandlerRegistry) : BehaviorSpec({
 
-    private val expectedStartSteps = mapOf(
+    val expectedStartSteps = mapOf(
         "ident-fsc" to "input",
         "enroll-sms" to "enroll",
         "auth-sms" to "auth",
@@ -38,9 +37,10 @@ class ToolCatalogStartStepTest(@Autowired private val toolRegistry: ToolHandlerR
         "auth-device" to "auth"
     )
 
-    @Test
-    fun `every registered tool starts on its documented step`() {
-        val actual = toolRegistry.descriptors().associate { it.toolId to it.startStep }
-        assertThat(actual).containsExactlyInAnyOrderEntriesOf(expectedStartSteps)
+    given("the real Spring-collected tool catalog") {
+        then("every registered tool starts on its documented step") {
+            val actual = toolRegistry.descriptors().associate { it.toolId to it.startStep }
+            actual shouldContainExactly expectedStartSteps
+        }
     }
-}
+})

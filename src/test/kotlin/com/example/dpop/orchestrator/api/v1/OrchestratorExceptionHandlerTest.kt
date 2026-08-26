@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.api.v1
 
-import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Test
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
 import org.springframework.http.HttpStatus
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 
@@ -11,17 +11,20 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException
  * at commit time. Without this mapping that fell through as an unhandled 500; docs/07-betrieb.md
  * #1 already documents 409 for "concurrent process on same channel session".
  */
-class OrchestratorExceptionHandlerTest {
+class OrchestratorExceptionHandlerTest : BehaviorSpec({
 
-    private val handler = OrchestratorExceptionHandler()
+    given("an OrchestratorExceptionHandler") {
+        val handler = OrchestratorExceptionHandler()
 
-    @Test
-    fun concurrentModification_mapsToConflict() {
-        val response = handler.handleConcurrentModification(
-            ObjectOptimisticLockingFailureException("process_session", "some-id")
-        )
+        `when`("two requests race on the same AuthJourney and Hibernate throws ObjectOptimisticLockingFailureException") {
+            val response = handler.handleConcurrentModification(
+                ObjectOptimisticLockingFailureException("process_session", "some-id")
+            )
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(response.body?.get("error")).isEqualTo("CONCURRENT_MODIFICATION")
+            then("it maps to 409 Conflict with error CONCURRENT_MODIFICATION") {
+                response.statusCode shouldBe HttpStatus.CONFLICT
+                response.body?.get("error") shouldBe "CONCURRENT_MODIFICATION"
+            }
+        }
     }
-}
+})
