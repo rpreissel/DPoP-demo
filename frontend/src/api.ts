@@ -84,8 +84,13 @@ async function call<T>(dpop: DpopKeyPair, method: string, path: string, body?: u
  * lookup-based login (email + credential), even on an already linked device; "register" always
  * starts fresh REGISTRATION, even on an already linked device (a second account on this device).
  */
-export function createChannel(dpop: DpopKeyPair, requiredAcr?: string, intent?: string): Promise<ChannelResponse> {
-  const body: Record<string, string> = {}
+export function createChannel(
+  dpop: DpopKeyPair,
+  requiredAcr?: string,
+  intent?: string,
+  availableTools?: string[],
+): Promise<ChannelResponse> {
+  const body: Record<string, unknown> = { availableTools }
   if (requiredAcr) body.requiredAcr = requiredAcr
   if (intent) body.intent = intent
   return call(dpop, 'POST', '/orchestrator/api/v1/app/channels', body)
@@ -153,4 +158,35 @@ export function patchTool(
 
 export function getTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string): Promise<ChannelResponse> {
   return call(dpop, 'GET', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`)
+}
+
+export interface ToolAvailabilityEntry {
+  toolId: string
+  method: string
+  enabled: boolean
+  reason?: string
+}
+
+/** No DPoP: these endpoints (docs/03-tool-architektur.md, availability) aren't bound to a device or channel. */
+async function callPlain<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!response.ok) throw new ApiError(response.status, undefined, `${method} ${path} failed: ${response.status}`)
+  if (response.status === 204) return undefined as T
+  return (await response.json()) as T
+}
+
+export function fetchToolCatalog(): Promise<{ toolId: string; method: string; role: string }[]> {
+  return callPlain('GET', '/orchestrator/api/v1/tools/catalog')
+}
+
+export function fetchToolAvailability(): Promise<ToolAvailabilityEntry[]> {
+  return callPlain('GET', '/orchestrator/api/v1/admin/tools/availability')
+}
+
+export function setToolAvailability(toolId: string, enabled: boolean, reason?: string): Promise<void> {
+  return callPlain('PUT', `/orchestrator/api/v1/admin/tools/${toolId}/availability`, { enabled, reason })
 }

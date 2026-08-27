@@ -62,7 +62,7 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     val remaining = state.copy(declined = declined, active = null)
-                    if (remaining.exhausted) afterAuthDeclined(ctx, declined) else Decision.Advance(remaining)
+                    if (remaining.exhausted(ctx.availableTools)) afterAuthDeclined(ctx, declined) else Decision.Advance(remaining)
                 }
                 else -> afterProof(ctx)
             }

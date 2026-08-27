@@ -102,7 +102,7 @@ Konsistenzregel: Pro `channelSessionId` darf es höchstens einen aktiven öffent
 
 Registrierung mit `ident-fsc` -> `enroll-sms`:
 
-1. `POST /app/channels` (optional `{"requiredAcr": "loa2", "intent": "auto"}`) liefert eine neue `channelSessionId` (im `channel`-Block) und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode registriert, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId` in `next`).
+1. `POST /app/channels` (`{"requiredAcr": "loa2", "intent": "auto", "availableTools": ["ident-fsc", "enroll-sms", ...]}` - `availableTools` ist Pflicht, siehe unten) liefert eine neue `channelSessionId` (im `channel`-Block) und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode registriert, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId` in `next`).
 2. `POST .../tools/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"missingFields":["kvnr","name","vorname"]}` und `next.toolSessionId` gesetzt.
 3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem FSC. Solange Felder fehlen: `200` mit aktualisiertem `stepData.missingFields`, `next` unverändert auf `ident-fsc`. Nach erfolgreicher Verifikation: `stepData={"options":["enroll-sms"]}`, `next={"type":"orchestrator","context":"enrollment","step":"selectMethod"}` (bzw. direkt `{"type":"tool","toolId":"enroll-sms",...}` bei nur einer erlaubten Methode).
 4. `POST .../tools/enroll-sms` liefert `stepData={"missingFields":["phoneNumber"]}`.
@@ -125,6 +125,8 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 - `register`: erzwingt eine frische REGISTRATION — auch auf einem bereits verlinkten Gerät (Zweitaccount). Übersteht der Kanal die Registrierung, überschreibt sie den bestehenden `DeviceAccountLink`.
 
 `requiredAcr` (optional) erspart der App den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up. Der Wert wirkt nur nach oben: Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
+
+`availableTools` (Pflicht) erklärt, welche toolIds dieser Client aktivieren kann — was er rendern kann, minus was der Nutzer lokal deaktiviert hat. Fest für die Lebensdauer des Kanals, kein Update danach. Ein Tool außerhalb dieser Menge wird nie angeboten und auch bei direkter Aktivierung abgelehnt (`docs/03-tool-architektur.md`, Verfügbarkeit) — zusätzlich zu dieser Client-Achse kann das Backend jedes Tool global und zur Laufzeit sperren (`GET`/`PUT /admin/tools/.../availability`, kein Redeploy nötig).
 
 ### `GET /app/channels/{channelSessionId}`
 

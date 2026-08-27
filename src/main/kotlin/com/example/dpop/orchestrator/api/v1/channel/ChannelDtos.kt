@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1.channel
 
 import com.example.dpop.tool_api.ActiveMethodView
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.constraints.NotEmpty
 
 @Schema(
     description = "requiredAcr is a lower bound only. Always creates a brand-new ChannelSession for this device " +
@@ -17,7 +18,15 @@ data class ChannelCreateRequest(
         example = "auto",
         allowableValues = ["auto", "login", "register"]
     )
-    val intent: String? = null
+    val intent: String? = null,
+    @field:NotEmpty
+    @field:Schema(
+        description = "toolIds this client supports and has enabled (docs/03-tool-architektur.md, availability) - " +
+            "e.g. GET /tools/catalog minus whatever the user turned off locally. Fixed for this channel's whole " +
+            "lifetime; a candidate list never offers a toolId outside this set, and activating one directly fails too.",
+        example = "[\"ident-fsc\", \"enroll-sms\", \"auth-sms\"]"
+    )
+    val availableTools: List<String> = emptyList()
 )
 
 @Schema(

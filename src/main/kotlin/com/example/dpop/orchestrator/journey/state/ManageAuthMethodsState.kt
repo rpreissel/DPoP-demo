@@ -25,14 +25,14 @@ sealed interface ManageAuthMethodsState : JourneyState {
      */
     data object AddRequested : ManageAuthMethodsState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
     }
 
     data class RemoveRequested(val methodInstanceId: String) : ManageAuthMethodsState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
     }

@@ -48,7 +48,12 @@ class ChannelService(
      * restart the same one. Only FAST consults the durable [DeviceAccountLink] - REGISTER and
      * LOGIN_LOOKUP both mean "not the account this device already knows".
      */
-    fun initializeChannel(bindingKeyRef: String, requestedAcrFloor: String?, intent: String? = null): ChannelResponse {
+    fun initializeChannel(
+        bindingKeyRef: String,
+        requestedAcrFloor: String?,
+        intent: String? = null,
+        availableTools: List<String> = emptyList()
+    ): ChannelResponse {
         val entryIntent = AuthIntent.fromRequest(intent)
             ?: throw OrchestratorException.invalidState("Unbekannter intent: $intent")
         if (!entryIntent.isEntryIntent) {
@@ -63,6 +68,9 @@ class ChannelService(
         val channel = sessionManagementService
             .createChannelSession(bindingKeyRef, ChannelSession.Channel.APP, CHANNEL_TTL, linkedAccountId)
         channel.entryIntent = entryIntent
+        // Fixed for the channel's whole lifetime (docs/03-tool-architektur.md, availability) - never
+        // updated again, unlike the backend-wide kill-switch which is read live on every step.
+        channel.availableClientTools = availableTools.toMutableSet()
         sessionManagementService.updateChannelSession(channel)
         requestedAcrFloor?.let { sessionManagementService.raiseChannelAcrFloor(channel.channelSessionId!!, it) }
 
@@ -89,7 +97,7 @@ class ChannelService(
         if (channel.state == ChannelState.LOGGED_OUT) return respond(channel)
 
         val channelId = channel.channelSessionId!!
-        journeyService.findActive(channelId)?.let { return respond(channel, journeyService.nextOf(it)) }
+        journeyService.findActive(channelId)?.let { return respond(channel, journeyService.nextOf(it, channel)) }
         if (channel.state == ChannelState.AUTHENTICATED) return respond(channel)
 
         return startEntryJourney(channel)
@@ -188,7 +196,7 @@ class ChannelService(
     }
 
     private fun respond(channel: ChannelSession, next: Next? = null, stepData: Map<String, Any?>? = null): ChannelResponse {
-        val resolved = next ?: journeyService.findActive(channel.channelSessionId!!)?.let { journeyService.nextOf(it) }
+        val resolved = next ?: journeyService.findActive(channel.channelSessionId!!)?.let { journeyService.nextOf(it, channel) }
             ?: if (channel.state == ChannelState.AUTHENTICATED) Next.orchestrator("authentication", "authenticated") else null
         return ChannelResponse(
             channel = buildChannelBlock(channel, includeAccountFields = true),

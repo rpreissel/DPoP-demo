@@ -15,7 +15,7 @@ sealed interface StepUpState : JourneyState {
 
     data class Start(override val targetAcr: String, val startingAcr: String) : StepUpState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "auth"
     }

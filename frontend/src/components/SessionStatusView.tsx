@@ -1,5 +1,6 @@
 import type { Next } from '../types'
 import { shorten } from '../format'
+import { metaFor } from '../toolMeta'
 
 interface SessionStatusViewProps {
   channelSessionId?: string
@@ -16,6 +17,21 @@ const PHASE_LABELS: Record<string, string> = {
   STEP_UP_IN_PROGRESS: 'Step-up läuft',
   LOGGED_OUT: 'Abgemeldet',
   EXPIRED: 'Abgelaufen',
+}
+
+/** Orchestrator-owned pages (docs/04-orchestrierung.md) - not a tool, so toolMeta doesn't cover them. */
+const ORCHESTRATOR_STEP_LABELS: Record<string, string> = {
+  'auth/selectMethod': 'Verfahren wählen',
+  'enrollment/selectMethod': 'Verfahren wählen',
+  'registration/selectIdentificationMethod': 'Verfahren wählen',
+  'authentication/authenticated': 'Angemeldet',
+  'authentication/offerDeviceBinding': 'Gerät für nächstes Mal merken?',
+}
+
+/** In plain language, what `next` is currently waiting on - never the raw toolId/context+step pair. */
+function describeNext(next: Next): string {
+  if (next.type === 'tool' && next.toolId) return metaFor(next.toolId).label
+  return ORCHESTRATOR_STEP_LABELS[`${next.context}/${next.step}`] ?? `${next.context ?? next.toolId} / ${next.step}`
 }
 
 export function SessionStatusView({ channelSessionId, state, next, onClear }: SessionStatusViewProps) {
@@ -44,10 +60,8 @@ export function SessionStatusView({ channelSessionId, state, next, onClear }: Se
         )}
         {next && (
           <li>
-            <span className="label">Nächster Schritt</span>
-            <span className="value">
-              {next.type === 'tool' ? `${next.toolId} / ${next.step}` : `${next.context} / ${next.step}`}
-            </span>
+            <span className="label">Aktueller Schritt</span>
+            <span className="value value-plain">{describeNext(next)}</span>
           </li>
         )}
       </ul>

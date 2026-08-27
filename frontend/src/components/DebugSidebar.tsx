@@ -22,56 +22,70 @@ interface DebugSidebarProps {
     activeTool?: unknown
   }
   log: DebugEvent[]
+  open: boolean
+  onToggle: () => void
 }
 
 /**
- * Always-visible inspector, docked to the right edge and using the full viewport height - not a
- * togglable section, since a demo app's whole point is showing what's happening under the hood at
- * every step. Identity (JWK thumbprint) already has its own card in the main view, so it isn't
- * duplicated here. Request headers (incl. the DPoP proof) are omitted from the log - noisy and
- * not relevant to following the demo; URL, method and body are what matters.
+ * Docked to the right edge, full viewport height, visible by default - a demo app's whole point is
+ * showing what's happening under the hood at every step. Collapsible (App.tsx's `debugOpen`) so a
+ * first-time visitor isn't confronted with raw JSON as the first thing taking up half the screen;
+ * the explanatory intro line says what this panel even is before showing any of it. Identity (JWK
+ * thumbprint) already has its own card in the main view, so it isn't duplicated here. Request
+ * headers (incl. the DPoP proof) are omitted from the log - noisy and not relevant to following the
+ * demo; URL, method and body are what matters.
  */
-export function DebugSidebar({ channel, log }: DebugSidebarProps) {
+export function DebugSidebar({ channel, log, open, onToggle }: DebugSidebarProps) {
   return (
-    <aside className="debug-sidebar">
-      <h2>Debug</h2>
+    <aside className={`debug-sidebar${open ? '' : ' collapsed'}`}>
+      <div className="debug-sidebar-header">
+        <h2>Technischer Einblick</h2>
+        <button className="icon-button" onClick={onToggle} aria-label={open ? 'Technischen Einblick einklappen' : 'Technischen Einblick ausklappen'}>
+          {open ? '»' : '«'}
+        </button>
+      </div>
+      {open && (
+        <>
+          <p className="debug-sidebar-intro">Jeder API-Aufruf, den die Oberfläche gerade macht - so sieht das Backend-Protokoll live aus.</p>
 
-      <section>
-        <h3>Kanal</h3>
-        <pre>{JSON.stringify(channel, null, 2)}</pre>
-      </section>
+          <section>
+            <h3>Kanal</h3>
+            <pre>{JSON.stringify(channel, null, 2)}</pre>
+          </section>
 
-      <section>
-        <h3>Verlauf ({log.length})</h3>
-        <ul className="debug-log">
-          {log.map((entry) => (
-            <li key={entry.id}>
-              <div className="debug-log-header">
-                <span className="debug-log-time">{entry.time}</span>
-                <span className="debug-log-label">{entry.label}</span>
-              </div>
-              {entry.request !== undefined && (
-                <div className="debug-log-block">
-                  <span className="debug-log-block-label">Request</span>
-                  <pre>{JSON.stringify(entry.request, null, 2)}</pre>
-                </div>
-              )}
-              {entry.response !== undefined && (
-                <div className="debug-log-block">
-                  <span className="debug-log-block-label">Response</span>
-                  <pre>{JSON.stringify(entry.response, null, 2)}</pre>
-                </div>
-              )}
-              {entry.error && (
-                <div className="debug-log-block">
-                  <span className="debug-log-block-label">Fehler</span>
-                  <pre>{entry.error}</pre>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
+          <section>
+            <h3>Verlauf ({log.length})</h3>
+            <ul className="debug-log">
+              {log.map((entry) => (
+                <li key={entry.id}>
+                  <div className="debug-log-header">
+                    <span className="debug-log-time">{entry.time}</span>
+                    <span className="debug-log-label">{entry.label}</span>
+                  </div>
+                  {entry.request !== undefined && (
+                    <div className="debug-log-block">
+                      <span className="debug-log-block-label">Request</span>
+                      <pre>{JSON.stringify(entry.request, null, 2)}</pre>
+                    </div>
+                  )}
+                  {entry.response !== undefined && (
+                    <div className="debug-log-block">
+                      <span className="debug-log-block-label">Response</span>
+                      <pre>{JSON.stringify(entry.response, null, 2)}</pre>
+                    </div>
+                  )}
+                  {entry.error && (
+                    <div className="debug-log-block">
+                      <span className="debug-log-block-label">Fehler</span>
+                      <pre>{entry.error}</pre>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
     </aside>
   )
 }

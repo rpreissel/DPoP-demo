@@ -30,6 +30,14 @@ const orchestratorRoutes: Record<string, Record<string, string>> = {
   },
 }
 
+/**
+ * The toolIds this client has a form for - what it can honestly declare as `availableTools` on
+ * channel creation (docs/03-tool-architektur.md, availability). Derived from the routing table
+ * itself rather than duplicated: a tool this client can't render is not "available" here, whatever
+ * the backend catalog says.
+ */
+export const knownToolIds: string[] = Object.keys(toolRoutes)
+
 /** Determines which UI component to show, based solely on `next` - never on a URL. */
 export function getUIComponent(next: Next | undefined): string | null {
   if (!next) return null

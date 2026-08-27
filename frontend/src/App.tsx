@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, Next, StepData } from './types'
-import { getUIComponent } from './routing.ts'
+import { getUIComponent, knownToolIds } from './routing.ts'
 import {
   abandonTool,
   activateTool,
@@ -38,6 +38,9 @@ import { TanInputForm } from './components/TanInputForm'
 import { DeviceEnrollForm } from './components/DeviceEnrollForm'
 import { DeviceBindingOfferView } from './components/DeviceBindingOfferView'
 import { DeviceAuthForm } from './components/DeviceAuthForm'
+import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
+import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
+import { WelcomeIntro } from './components/WelcomeIntro'
 
 interface ActiveTool {
   toolSessionId: string
@@ -69,6 +72,13 @@ function App() {
   const [stepData, setStepData] = useState<StepData | undefined>()
   const [demo, setDemo] = useState<DemoInfo | undefined>()
   const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
+  // How many OTHER candidates existed when the current activeTool was reached - "Anderes
+  // Verfahren" only makes sense to offer when this is > 0, otherwise abandoning would just
+  // re-offer the very same tool (a mandatory single-candidate step is its own only fallback).
+  // Set at the two places a tool actually becomes active: handleSelectMethod (the user just saw
+  // the full candidate list) and the auto-activate effect (0 for a direct single-candidate skip,
+  // since the backend only ever collapses straight to a tool when nothing else was on offer).
+  const [alternativesCount, setAlternativesCount] = useState(0)
   const [error, setError] = useState('')
   // Only takes effect on the next channel-creating action (Verbinden/Login ohne DPoP/Registrieren
   // below) - needed to reach enroll-password at all: it requires a confirmed email first, but a
@@ -76,6 +86,11 @@ function App() {
   // could ever be offered - only requesting loa2 up front keeps the flow going long enough to
   // chain sms/email -> password.
   const [requiredAcr, setRequiredAcr] = useState('')
+  // Client capability declaration (docs/03-tool-architektur.md, availability) - starts as
+  // "everything this client can render" and is only narrowed by unchecking in the demo selector.
+  const [availableTools, setAvailableTools] = useState<string[]>(knownToolIds)
+  const [showAdmin, setShowAdmin] = useState(false)
+  const [debugOpen, setDebugOpen] = useState(true)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
   // Drives the "Sitzung fortsetzen" button's visibility on the "no channel" screen - kept in
@@ -107,6 +122,7 @@ function App() {
     setStepData(undefined)
     setDemo(undefined)
     setActiveTool(null)
+    setAlternativesCount(0)
   }
 
   /**
@@ -181,11 +197,15 @@ function App() {
     // next.toolSessionId) - activating again would start a NEW attempt from scratch (e.g. a
     // second TAN for enroll-sms), discarding whatever was already entered.
     if (next.toolSessionId) {
+      // Resuming (e.g. after a reload) - whether alternatives existed originally is lost, so
+      // conservatively assume none rather than offer a switch that might be a no-op.
+      setAlternativesCount(0)
       setActiveTool({ toolSessionId: next.toolSessionId, toolId: next.toolId })
       return
     }
 
     const toolId = next.toolId
+    setAlternativesCount(0)
     activatingToolIdRef.current = toolId
     activateTool(dpop, channelSessionId, toolId)
       .then((response) => applyResponse(response, toolId))
@@ -244,7 +264,7 @@ function App() {
         return
       }
       const intent = mode === 'auto' ? undefined : mode
-      const response = await createChannel(dpop, requiredAcr || undefined, intent)
+      const response = await createChannel(dpop, requiredAcr || undefined, intent, availableTools)
       applyResponse(response)
     } catch (err) {
       setError(describeError('Start fehlgeschlagen', err))
@@ -379,6 +399,8 @@ function App() {
   async function handleSelectMethod(toolId: string) {
     if (!dpop || !channelSessionId) return
     try {
+      // The options just shown minus the one being picked = how many real alternatives remain.
+      setAlternativesCount(Math.max(0, (stepData?.options?.length ?? 1) - 1))
       const response = await activateTool(dpop, channelSessionId, toolId)
       applyResponse(response, toolId)
     } catch (err) {
@@ -409,9 +431,18 @@ function App() {
       <div className="app-main">
         <div className="app">
           <header className="app-header">
+            <button
+              className="admin-toggle"
+              onClick={() => setShowAdmin((v) => !v)}
+              title={showAdmin ? 'Zurück zur App' : 'Entwickler-Werkzeug: Tools serverseitig sperren/freigeben, um Ausfälle zu simulieren'}
+            >
+              {showAdmin ? '← Zurück zur App' : '⚙️ Admin'}
+            </button>
             <h1>DPoP Demo</h1>
-            <p>React {React.version} + TypeScript + Spring Boot Modulith</p>
+            <p>Geräte-gebundene Step-up-Authentifizierung zum Ausprobieren</p>
           </header>
+
+          {showAdmin && <AdminToolAvailabilityView />}
 
           {error && (
             <div className="card error-card">
@@ -420,6 +451,8 @@ function App() {
             </div>
           )}
 
+          {!showAdmin && (
+          <>
           <div className="card">
             <h2>Geräte-Identität</h2>
             <ul className="status-list">
@@ -440,61 +473,106 @@ function App() {
           {channelSessionId ? (
             <>
               <SessionStatusView channelSessionId={channelSessionId} state={channelState} next={next} onClear={handleClearChannel} />
-              {inToolMode ? (
-                canCancel && (
-                  <div className="controls">
-                    {activeTool && (
-                      <button className="secondary" onClick={handleAbandonTool}>
-                        Anderes Verfahren
-                      </button>
-                    )}
-                    <button className="secondary" onClick={handleCancel}>
-                      Abbrechen
-                    </button>
-                  </div>
-                )
-              ) : (
-                <>
-                  <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />
-                  <div className="controls">
-                    {canCancel && (
-                      <button className="secondary" onClick={handleCancel}>
-                        Abbrechen
-                      </button>
-                    )}
-                    {channelState === 'AUTHENTICATED' && (
-                      <button className="secondary" onClick={handleLogout}>
-                        Logout
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
+              {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
+              <div className="controls sticky-actions">
+                {inToolMode && activeTool && alternativesCount > 0 && (
+                  <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode).">
+                    Anderes Verfahren
+                  </button>
+                )}
+                {canCancel && (
+                  <button className="secondary" onClick={handleCancel} title="Startet diesen Vorgang von vorne, mit demselben Ziel (z. B. erneut identifizieren).">
+                    Vorgang neu starten
+                  </button>
+                )}
+                {channelState !== 'AUTHENTICATED' && (
+                  <button className="secondary" onClick={handleClearChannel} title="Verlässt den Vorgang ganz und geht zurück zur Startauswahl.">
+                    Zur Startseite
+                  </button>
+                )}
+                {!inToolMode && channelState === 'AUTHENTICATED' && (
+                  <button className="secondary" onClick={handleLogout}>
+                    Logout
+                  </button>
+                )}
+              </div>
             </>
           ) : (
-            <div className="card">
-              <h2>Kein Kanal aktiv</h2>
-              <p>Es passiert nichts automatisch - wählen Sie, wie der Kanal starten soll.</p>
-              <label className="field-row">
-                Startniveau:
-                <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
-                  <option value="">loa1 (Standard)</option>
-                  <option value="loa2">loa2 (MFA - mehrere Enrollments)</option>
-                </select>
-              </label>
-              <div className="form-actions stacked">
-                {rememberedChannelSessionId && (
-                  <button onClick={() => handleStart('resume')}>Sitzung fortsetzen ({shorten(rememberedChannelSessionId)})</button>
-                )}
-                <button onClick={() => handleStart('auto')}>Verbinden (automatisch)</button>
-                <button className="secondary" onClick={() => handleStart('login')}>
-                  Login ohne DPoP
-                </button>
-                <button className="secondary" onClick={() => handleStart('register')}>
-                  Neuen Account registrieren
-                </button>
+            <>
+              <WelcomeIntro />
+              <div className="card">
+                <h2>Wie möchten Sie starten?</h2>
+                <ul className="method-choice-list">
+                  {rememberedChannelSessionId && (
+                    <li>
+                      <button
+                        className="method-choice"
+                        onClick={() => handleStart('resume')}
+                        aria-label={`Sitzung fortsetzen (${shorten(rememberedChannelSessionId)})`}
+                      >
+                        <span className="method-choice-icon" aria-hidden="true">
+                          🔁
+                        </span>
+                        <span className="method-choice-text">
+                          <span className="method-choice-label">Sitzung fortsetzen</span>
+                          <span className="method-choice-hint">
+                            Dort weitermachen, wo Sie aufgehört haben ({shorten(rememberedChannelSessionId)})
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  )}
+                  <li>
+                    <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Verbinden (automatisch)">
+                      <span className="method-choice-icon" aria-hidden="true">
+                        🚀
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">Verbinden (automatisch)</span>
+                        <span className="method-choice-hint">
+                          Empfohlen: Kennt dieses Gerät schon einen Account, meldet es sich direkt an - sonst startet eine
+                          Registrierung.
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                  <li>
+                    <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neuen Account registrieren">
+                      <span className="method-choice-icon" aria-hidden="true">
+                        ✨
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">Neuen Account registrieren</span>
+                        <span className="method-choice-hint">Immer einen frischen Demo-Account anlegen, auch auf diesem Gerät.</span>
+                      </span>
+                    </button>
+                  </li>
+                  <li>
+                    <button className="method-choice" onClick={() => handleStart('login')} aria-label="Login ohne DPoP">
+                      <span className="method-choice-icon" aria-hidden="true">
+                        🌐
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">Login ohne DPoP</span>
+                        <span className="method-choice-hint">Auf einem neuen/anderen Gerät anmelden, per E-Mail statt Geräte-Schlüssel.</span>
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+
+                <details className="advanced-options">
+                  <summary>Erweiterte Optionen</summary>
+                  <label className="field-row">
+                    Startniveau:
+                    <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
+                      <option value="">loa1 (Standard)</option>
+                      <option value="loa2">loa2 (MFA - mehrere Enrollments)</option>
+                    </select>
+                  </label>
+                  <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
+                </details>
               </div>
-            </div>
+            </>
           )}
 
           {uiComponent === 'select-method' && stepData?.options && (
@@ -577,12 +655,16 @@ function App() {
               infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}
             />
           )}
+          </>
+          )}
         </div>
       </div>
 
       <DebugSidebar
         channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
         log={debugLog}
+        open={debugOpen}
+        onToggle={() => setDebugOpen((v) => !v)}
       />
     </div>
   )

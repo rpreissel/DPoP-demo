@@ -5,6 +5,7 @@ import com.example.dpop.tool_api.ChannelResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -36,10 +37,10 @@ class ChannelController(
     )
     fun createChannel(
         @BindingKey bindingKeyRef: String,
-        @RequestBody(required = false) request: ChannelCreateRequest?,
+        @Valid @RequestBody request: ChannelCreateRequest,
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
-        val response = channelService.initializeChannel(bindingKeyRef, request?.requiredAcr, request?.intent)
+        val response = channelService.initializeChannel(bindingKeyRef, request.requiredAcr, request.intent, request.availableTools)
         val location = uriBuilder.replacePath("/orchestrator/api/v1/app/channels/{channelSessionId}")
             .buildAndExpand(response.channel.channelSessionId).toUri()
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)

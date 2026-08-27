@@ -1,10 +1,13 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.orchestrator.journey.AuthIntent
+import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
+import jakarta.persistence.ElementCollection
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -63,6 +66,16 @@ class ChannelSession(
     @Enumerated(EnumType.STRING)
     @Column(name = "entry_intent", nullable = false, length = 20)
     var entryIntent: AuthIntent = AuthIntent.FAST_ACCESS
+
+    /**
+     * The toolIds this client declared support for at channel creation - fixed for the channel's
+     * whole lifetime, never updated afterwards (docs/03-tool-architektur.md, availability). One
+     * axis of tool availability; the other is the backend-wide ToolAvailabilityService kill-switch.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "channel_session_available_tools", joinColumns = [JoinColumn(name = "channel_session_id")])
+    @Column(name = "tool_id")
+    var availableClientTools: MutableSet<String> = mutableSetOf()
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null

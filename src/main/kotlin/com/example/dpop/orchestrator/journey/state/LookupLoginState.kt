@@ -18,7 +18,7 @@ sealed interface LookupLoginState : JourneyState {
 
     data object Start : LookupLoginState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "auth"
     }
@@ -39,7 +39,7 @@ sealed interface LookupLoginState : JourneyState {
      */
     data class OfferBinding(val accountId: Long) : LookupLoginState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "authentication"
         override val selectionStep: String get() = "offerDeviceBinding"

@@ -149,7 +149,8 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 then("the response is 201 with a Location header pointing at it") {
 
                 val response = restTemplate.exchange(
-                    "http://localhost:$port/orchestrator/api/v1/app/channels", HttpMethod.POST, HttpEntity("{}", headers()), mapType
+                    "http://localhost:$port/orchestrator/api/v1/app/channels", HttpMethod.POST,
+                    HttpEntity("""{"availableTools":["ident-fsc"]}""", headers()), mapType
                 )
                 assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
                 val channelSessionId = response.body!!.channel()["channelSessionId"] as String

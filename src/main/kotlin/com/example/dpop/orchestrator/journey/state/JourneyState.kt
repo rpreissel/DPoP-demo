@@ -18,8 +18,14 @@ import java.util.UUID
  * [activatable] - see [JourneyService.nextOf].
  */
 sealed interface JourneyState {
-    /** Empty for states that wait on something other than a tool (e.g. a sub-journey). */
-    fun activatable(): Set<String>
+    /**
+     * Empty for states that wait on something other than a tool (e.g. a sub-journey). [availableTools]
+     * is applied here, and only here (docs/03-tool-architektur.md, availability) - so a tool that
+     * became unavailable after this state was written (backend kill-switch flipped while the state
+     * sat unread) disappears from every caller (next-resolution, stepData.options, activation
+     * membership check) without the state itself ever being recomputed.
+     */
+    fun activatable(availableTools: Set<String>): Set<String>
 
     /** The tool that is actually running, once one has been activated. */
     val active: ToolRef?
@@ -53,15 +59,16 @@ sealed interface OfferingState : JourneyState {
     val offered: List<String>
     val declined: Set<String>
 
-    override fun activatable(): Set<String> = offered.toSet() - declined
+    override fun activatable(availableTools: Set<String>): Set<String> = (offered.toSet() - declined) intersect availableTools
 
     /**
-     * True once every offer here has been declined. Only fallback states ever reach this: a
-     * mandatory state re-offers its full set instead of narrowing it, so `declined` never grows
-     * there (see FastAccessStrategy.reoffer).
+     * True once every offer here has been declined OR none of what's left is available. Only
+     * fallback states ever reach this via decline (a mandatory state re-offers its full set instead
+     * of narrowing it, so `declined` never grows there - see FastAccessStrategy.reoffer); the
+     * availability half can also make a MANDATORY state's single remaining offer vanish, which is
+     * exactly why every caller of [exhausted] falls back through the same chain as a decline would.
      */
-    val exhausted: Boolean
-        get() = activatable().isEmpty()
+    fun exhausted(availableTools: Set<String>): Boolean = activatable(availableTools).isEmpty()
 }
 
 /**

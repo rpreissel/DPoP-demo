@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.ninjasquad.springmockk.MockkBean
 import com.nimbusds.jose.jwk.JWK
 import io.kotest.core.spec.style.BehaviorSpec
@@ -50,6 +51,9 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     @Autowired
     protected lateinit var jdbcTemplate: JdbcTemplate
 
+    @Autowired
+    protected lateinit var toolRegistry: ToolHandlerRegistry
+
     // The JDK's default request factory can't send PATCH; HttpClient5 (already a test dep) can.
     protected val restTemplate = RestTemplate(HttpComponentsClientHttpRequestFactory())
 
@@ -68,8 +72,8 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
                 "auth_password_lookup_tool_data", "enroll_email_tool_data", "auth_email_use_tool_data",
                 "auth_device_tool_data", "enroll_device_tool_data", "device_enrollment",
                 "tool_session", "auth_journey", "session_event",
-                "channel_session", "auth_context", "account", "auth_sms", "auth_password",
-                "device_account_link", "login_attempt_throttle"
+                "channel_session_available_tools", "channel_session", "auth_context", "account", "auth_sms", "auth_password",
+                "device_account_link", "login_attempt_throttle", "tool_availability"
             ).forEach { jdbcTemplate.update("DELETE FROM $it") }
         }
     }
@@ -107,13 +111,35 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     protected fun post(url: String, body: String = "{}"): Map<String, Any?> =
         restTemplate.exchange(
-            "http://localhost:$port$url", HttpMethod.POST, HttpEntity(body, headers()), mapType
+            "http://localhost:$port$url", HttpMethod.POST, HttpEntity(withDefaultAvailableTools(url, body), headers()), mapType
         ).let { assertThat(it.statusCode.is2xxSuccessful).isTrue(); it.body!! }
+
+    /**
+     * `availableTools` is a required field on `POST /channels` (docs/03-tool-architektur.md,
+     * availability) - every one of the ~60 call sites across these suites would otherwise need it
+     * spelled out by hand. Centralized here instead: unless a test already declares its own
+     * `availableTools` (to test a restricted set), it gets the full catalog, i.e. "this client
+     * supports everything" - the neutral default for flows not about availability itself.
+     */
+    private fun withDefaultAvailableTools(url: String, body: String): String {
+        if (url != "/orchestrator/api/v1/app/channels" || body.contains("availableTools")) return body
+        val allToolIds = toolRegistry.descriptors().joinToString(",", "[", "]") { "\"${it.toolId}\"" }
+        return if (body.isBlank() || body.trim() == "{}") {
+            """{"availableTools":$allToolIds}"""
+        } else {
+            body.trim().removeSuffix("}") + ""","availableTools":$allToolIds}"""
+        }
+    }
 
     protected fun patch(url: String, body: String): Map<String, Any?> =
         restTemplate.exchange(
             "http://localhost:$port$url", HttpMethod.PATCH, HttpEntity(body, headers()), mapType
         ).let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
+
+    protected fun put(url: String, body: String): HttpStatus =
+        restTemplate.exchange(
+            "http://localhost:$port$url", HttpMethod.PUT, HttpEntity(body, headers()), Void::class.java
+        ).statusCode as HttpStatus
 
     protected fun get(url: String): Map<String, Any?> =
         restTemplate.exchange(

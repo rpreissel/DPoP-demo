@@ -68,7 +68,14 @@ data class JourneyContext(
     /** True while this journey runs as another one's precondition (docs/04-orchestrierung.md #6). */
     val isSubJourney: Boolean,
     val policy: AuthPolicy,
-    val catalog: ToolHandlerRegistry
+    val catalog: ToolHandlerRegistry,
+    /**
+     * toolIds this channel may currently offer: the client's own declared support intersected with
+     * whatever the backend hasn't killed-switched off (docs/03-tool-architektur.md, availability).
+     * [CandidateTools] filters every candidate list through this - never derive an offer from
+     * [catalog] alone.
+     */
+    val availableTools: Set<String>
 ) {
     fun requireAccount(): AccountProfile =
         checkNotNull(account) { "Strategy asked for an account before one was resolved" }

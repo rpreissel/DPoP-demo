@@ -13,6 +13,7 @@ import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
+import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
@@ -42,7 +43,8 @@ class JourneyService(
     private val authContextService: AuthContextService,
     private val sessionManagementService: SessionManagementService,
     private val toolRegistry: ToolHandlerRegistry,
-    private val authPolicy: AuthPolicy
+    private val authPolicy: AuthPolicy,
+    private val toolAvailabilityService: ToolAvailabilityService
 ) {
     /** `next` plus whatever the step needs to render - the pair every caller wants back. */
     data class Step(val next: Next, val stepData: Map<String, Any?>? = null)
@@ -134,25 +136,33 @@ class JourneyService(
      * [JourneyState.activatable] that answers "may this tool be activated" also decides where the
      * client goes - one function, so the two can never disagree.
      */
-    fun nextOf(journey: AuthJourney): Next = nextFor(codec.read(journey))
+    fun nextOf(journey: AuthJourney, channel: ChannelSession): Next = nextFor(codec.read(journey), availableToolsOf(channel))
 
-    private fun nextFor(state: JourneyState): Next {
+    private fun nextFor(state: JourneyState, availableTools: Set<String>): Next {
         state.active?.let { return Next.tool(it.toolId, it.step, it.toolSessionId) }
-        val activatable = state.activatable()
+        val activatable = state.activatable(availableTools)
         return if (activatable.size == 1) {
             val toolId = activatable.single()
             Next.tool(toolId, toolRegistry.descriptorOf(toolId).startStep)
         } else {
             // Several candidates open a selection page; none means an orchestrator-owned page
-            // that is not a choice at all (a confirmation, the finished screen).
+            // that is not a choice at all (a confirmation, the finished screen) - OR, now that
+            // availability is live-filtered here too, a state whose only offer just became
+            // unavailable while nobody was looking. The latter surfaces as an orchestrator page
+            // with an empty option list rather than a silent auto-pick; it resolves itself as soon
+            // as the client's next real action (abandon/activate) drives an actual transition.
             Next.orchestrator(state.selectionContext, state.selectionStep)
         }
     }
 
-    private fun stepFor(state: JourneyState): Step {
-        val options = state.activatable()
-        return Step(nextFor(state), if (options.size > 1) mapOf("options" to options.toList()) else null)
+    private fun stepFor(state: JourneyState, availableTools: Set<String>): Step {
+        val options = state.activatable(availableTools)
+        return Step(nextFor(state, availableTools), if (options.size > 1) mapOf("options" to options.toList()) else null)
     }
+
+    /** Live, never cached: a backend disable must take effect on the very next step of an already-running journey. */
+    private fun availableToolsOf(channel: ChannelSession): Set<String> =
+        channel.availableClientTools - toolAvailabilityService.disabledToolIds()
 
     // Tool interaction ---------------------------------------------------------
 
@@ -161,9 +171,9 @@ class JourneyService(
      * state does not offer - which is why LOGIN_LOOKUP cannot be talked into an identification:
      * no state of that intent ever lists one.
      */
-    fun activate(journey: AuthJourney, tool: ToolDescriptor, toolSessionId: UUID) {
+    fun activate(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, toolSessionId: UUID) {
         val state = codec.read(journey)
-        if (tool.toolId !in state.activatable()) {
+        if (tool.toolId !in state.activatable(availableToolsOf(channel))) {
             throw OrchestratorException.invalidState("${tool.toolId} is not offered in the current step")
         }
         // A concurrent/duplicate activation mints its own ToolSession too; only the one that lands
@@ -189,7 +199,7 @@ class JourneyService(
             Step(Next.tool(tool.toolId, outcome.nextStep, active.toolSessionId), outcome.data)
         }
 
-        is ToolOutcome.Failed -> chargeAttempt(journey, outcome.reason)
+        is ToolOutcome.Failed -> chargeAttempt(journey, channel, outcome.reason)
 
         is ToolOutcome.Completed -> {
             val effectiveAcr = applyInterpretation(journey, channel, tool, outcome)
@@ -234,7 +244,7 @@ class JourneyService(
             is Decision.Advance -> {
                 codec.write(journey, decision.to)
                 journeyRepository.save(journey)
-                stepFor(decision.to)
+                stepFor(decision.to, availableToolsOf(channel))
             }
 
             is Decision.RequireSubJourney -> {
@@ -330,7 +340,7 @@ class JourneyService(
      * with budget left is not an HTTP error - it behaves like missing input; only an exhausted
      * budget ends things terminally, and it ends the JOURNEY, not just the current state.
      */
-    private fun chargeAttempt(journey: AuthJourney, reason: String): Step {
+    private fun chargeAttempt(journey: AuthJourney, channel: ChannelSession, reason: String): Step {
         journey.attemptBudget -= 1
         if (journey.attemptBudget <= 0) {
             journey.fail()
@@ -338,7 +348,7 @@ class JourneyService(
             throw OrchestratorException.processAborted("Retry-Limit erreicht: $reason")
         }
         journeyRepository.save(journey)
-        return Step(nextOf(journey), mapOf("error" to reason))
+        return Step(nextOf(journey, channel), mapOf("error" to reason))
     }
 
     // Interpretation execution --------------------------------------------------
@@ -490,7 +500,8 @@ class JourneyService(
             linkedAccountId = channel.bindingKeyRef?.let { sessionManagementService.findLinkedAccountId(it) },
             isSubJourney = journey.parentJourneyId != null,
             policy = authPolicy,
-            catalog = toolRegistry
+            catalog = toolRegistry,
+            availableTools = availableToolsOf(channel)
         )
     }
 

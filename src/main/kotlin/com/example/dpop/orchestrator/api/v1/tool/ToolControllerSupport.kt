@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.ToolSession
+import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
@@ -52,7 +53,8 @@ class ToolControllerSupport(
     private val accountService: AccountService,
     private val loginThrottleService: LoginThrottleService,
     private val channelService: ChannelService,
-    private val journeyService: JourneyService
+    private val journeyService: JourneyService,
+    private val toolAvailabilityService: ToolAvailabilityService
 ) : ToolEndpoint {
     data class Context(override val toolId: String, val toolSession: ToolSession, val journey: AuthJourney, val channel: ChannelSession) : ToolContext {
         override val toolSessionId: UUID get() = toolSession.toolSessionId!!
@@ -77,7 +79,7 @@ class ToolControllerSupport(
             ?: throw OrchestratorException.invalidState("No active journey for this channel")
         val descriptor = toolRegistry.descriptorOf(toolId)
 
-        validatePreconditions(toolId, channel.accountId)
+        validatePreconditions(toolId, channel)
         // Only AUTH tools authenticate an EXISTING account against a submitted credential -
         // IDENT/ENROLL failures aren't a brute-force target the same way (no credential guessed).
         if (descriptor.role.category == ToolCategory.AUTH) {
@@ -85,7 +87,7 @@ class ToolControllerSupport(
         }
 
         val toolSession = sessionManagementService.createToolSession(journey.journeyId!!, TOOL_TTL)
-        journeyService.activate(journey, descriptor, toolSession.toolSessionId!!)
+        journeyService.activate(journey, channel, descriptor, toolSession.toolSessionId!!)
         return Context(toolId, toolSession, journey, channel)
     }
 
@@ -95,10 +97,18 @@ class ToolControllerSupport(
      * a client could activate a gated tool (enroll-password, which needs a confirmed email)
      * directly, bypassing the fact that the candidate list silently excluded it.
      */
-    private fun validatePreconditions(toolId: String, accountId: Long?) {
+    private fun validatePreconditions(toolId: String, channel: ChannelSession) {
+        // Same reasoning as requiresConfirmedEmail below: JourneyService.activate only checks
+        // membership in the current state's offer, which already excludes unavailable tools - but a
+        // direct activation call must be re-checked here, defensively, against both availability
+        // axes (docs/03-tool-architektur.md, availability).
+        if (toolId !in channel.availableClientTools || !toolAvailabilityService.isEnabled(toolId)) {
+            throw OrchestratorException.invalidState("$toolId is not available on this channel")
+        }
+
         val descriptor = toolRegistry.descriptorOf(toolId)
         if (!descriptor.requiresConfirmedEmail) return
-        val confirmed = accountId?.let { accountService.findAccount(it)?.emailConfirmed } ?: false
+        val confirmed = channel.accountId?.let { accountService.findAccount(it)?.emailConfirmed } ?: false
         if (!confirmed) {
             throw OrchestratorException.invalidState("$toolId requires a confirmed account email first")
         }
@@ -177,7 +187,7 @@ class ToolControllerSupport(
         val next = if (freshOutcome != null) {
             Next.tool(ctx.toolId, freshOutcome.nextStep, ctx.toolSessionId)
         } else {
-            journeyService.nextOf(ctx.journey)
+            journeyService.nextOf(ctx.journey, ctx.channel)
         }
         return ChannelResponse(
             channel = channelService.buildChannelBlock(ctx.channel),

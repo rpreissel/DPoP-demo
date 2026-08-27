@@ -19,6 +19,7 @@ export function EntryChoiceLinks({ channelState, onChooseIntent }: EntryChoiceLi
 
   return (
     <div className="entry-choice-links">
+      <p className="entry-choice-hint">Anderes Gerät oder anderer Account? Jede Wahl bricht den aktuellen Vorgang ab und startet neu:</p>
       <button className="secondary" onClick={() => onChooseIntent('login')}>
         Ich habe schon einen Account (Login ohne DPoP)
       </button>

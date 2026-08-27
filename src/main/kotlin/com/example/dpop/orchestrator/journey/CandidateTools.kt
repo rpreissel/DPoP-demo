@@ -15,12 +15,21 @@ import com.example.dpop.tool_spi.ToolCategory
  */
 internal object CandidateTools {
 
+    /**
+     * Availability (docs/03-tool-architektur.md) is applied here, at computation time, in addition
+     * to [JourneyState.activatable] applying it again live on every read: this layer is what makes
+     * a STRATEGY DECISION correct (e.g. "fall through to identification because nothing else is
+     * left" vs. "offer these two") - activatable() alone can only re-narrow an already-chosen
+     * state's offer, it cannot retroactively pick a different state shape.
+     */
+    private fun JourneyContext.filterAvailable(ids: List<String>): List<String> = ids.filter { it in availableTools }
+
     fun forIdentification(ctx: JourneyContext): List<String> =
-        ctx.catalog.descriptors().filter { it.role.category == ToolCategory.IDENT }.map { it.toolId }
+        ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role.category == ToolCategory.IDENT }.map { it.toolId })
 
     /** Every tool that resolves the account itself from a submitted identifier. */
     fun forLookupLogin(ctx: JourneyContext): List<String> =
-        ctx.catalog.descriptors().filter { it.role == MethodRole.LOOKUP_AUTH }.map { it.toolId }
+        ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role == MethodRole.LOOKUP_AUTH }.map { it.toolId })
 
     /**
      * The enrollment tool that turns an unconfirmed account email into a confirmed one - declared
@@ -28,7 +37,7 @@ internal object CandidateTools {
      * matched by toolId here.
      */
     fun forEmailConfirmation(ctx: JourneyContext): List<String> =
-        ctx.catalog.descriptors().filter { it.confirmsAccountEmail }.map { it.toolId }
+        ctx.filterAvailable(ctx.catalog.descriptors().filter { it.confirmsAccountEmail }.map { it.toolId })
 
     /**
      * The device-bound AUTH tool for a credential that lives on THIS physical device, if the
@@ -39,16 +48,20 @@ internal object CandidateTools {
     fun preferredDeviceAuth(account: AccountProfile, ctx: JourneyContext): String? {
         val deviceAuthTools = ctx.catalog.descriptors()
             .filter { it.role == MethodRole.DEVICE_AUTH && it.allowsMultipleInstances }
-        return deviceAuthTools.firstOrNull { descriptor ->
+        val preferred = deviceAuthTools.firstOrNull { descriptor ->
             account.activeAuthenticationMethods.any {
                 it.method == descriptor.method && it.details?.get("deviceBindingKeyRef") == ctx.bindingKeyRef
             }
         }?.toolId
+        return preferred?.takeIf { it in ctx.availableTools }
     }
 
     fun forAuth(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
-        ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef)
+        ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef))
 
     fun forEnrollment(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
-        ctx.policy.enrollmentCandidates(account, targetAcr)
+        ctx.filterAvailable(ctx.policy.enrollmentCandidates(account, targetAcr))
+
+    fun forReIdentification(targetAcr: String, ctx: JourneyContext): List<String> =
+        ctx.filterAvailable(ctx.policy.reIdentCandidates(ctx.evidence, targetAcr))
 }

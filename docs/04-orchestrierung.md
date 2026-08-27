@@ -31,8 +31,12 @@ für beides nicht mehr vor.
 
 Drei weitere Wörter sehen ähnlich aus, meinen aber verschiedene Dinge und stehen bewusst
 nebeneinander: **Kandidaten** liefert der Katalog beziehungsweise die Policy; daraus wird das
-**Angebot**, das ein Zustand hält (`activatable()` — Kandidaten minus bereits Abgelehntes); und
-eine **Auswahlseite** zeigt der Client nur, wenn das Angebot mehr als einen Eintrag hat.
+**Angebot**, das ein Zustand hält (`activatable()` — Kandidaten minus bereits Abgelehntes minus
+aktuell nicht Verfügbares, [Tool-Architektur](03-tool-architektur.md) Verfügbarkeit); und
+eine **Auswahlseite** zeigt der Client nur, wenn das Angebot mehr als einen Eintrag hat. Bleibt
+davon nichts übrig, greift derselbe Fallback wie beim vollständigen Ablehnen aller Kandidaten
+(Rückfall auf Identifikation bzw. `exhausted`/Cancel) — kein eigener Fehlerzustand für
+Nichtverfügbarkeit.
 
 Bewusst **kein** eigenes Wort für „Zustand als Position in einer Reihenfolge": Das ist derselbe
 Zustand, nur unter einer anderen Frage betrachtet, und ein zweiter Begriff dafür hätte im Modell

@@ -91,7 +91,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
      */
     private fun offerReIdent(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {
         if (!ctx.isSubJourney) return null
-        val candidates = ctx.policy.reIdentCandidates(ctx.evidence, targetAcr)
+        val candidates = CandidateTools.forReIdentification(targetAcr, ctx)
         return candidates.takeIf { it.isNotEmpty() }
             ?.let { Decision.Advance(StepUpState.ReIdentifying(targetAcr, startingAcr, it)) }
     }
