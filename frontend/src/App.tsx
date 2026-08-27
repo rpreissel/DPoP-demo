@@ -439,7 +439,7 @@ function App() {
               {showAdmin ? '← Zurück zur App' : '⚙️ Admin'}
             </button>
             <h1>DPoP Demo</h1>
-            <p>Geräte-gebundene Step-up-Authentifizierung zum Ausprobieren</p>
+            <p>DPoP-gesicherte Step-up-Authentifizierung zum Ausprobieren</p>
           </header>
 
           {showAdmin && <AdminToolAvailabilityView />}

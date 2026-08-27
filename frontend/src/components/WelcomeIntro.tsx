@@ -9,10 +9,10 @@ export function WelcomeIntro() {
     <div className="card welcome-card">
       <h2>Worum geht es hier?</h2>
       <p>
-        Diese Demo zeigt eine Anmeldung, die an <strong>dieses Gerät</strong> gebunden ist (DPoP): statt
-        eines Passworts allein beweist Ihr Browser den Besitz eines Schlüssels, der nur hier existiert.
-        Zusätzliche Nachweise - SMS, E-Mail, Passwort, Geräte-PIN - lassen sich kombinieren, um ein
-        höheres Sicherheitsniveau zu erreichen (Step-up), ganz ohne erneuten Login.
+        Jede Anfrage in dieser Demo ist kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) - das
+        schützt vor gestohlenen Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen. Ihre
+        Identität selbst weisen Sie klassisch nach: per SMS, E-Mail, Passwort oder einem geräteeigenen
+        Schlüssel, einzeln oder kombiniert für ein höheres Sicherheitsniveau (Step-up).
       </p>
       <p className="welcome-cta">👇 Wählen Sie unten, wie Sie starten möchten - es passiert nichts automatisch.</p>
     </div>
