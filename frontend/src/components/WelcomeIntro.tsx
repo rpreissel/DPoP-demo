@@ -1,15 +1,10 @@
-import { JourneyDiagram } from './JourneyDiagram'
-
 /**
  * Plain-language orientation for a first-time visitor - shown only before any channel exists
  * (App.tsx), gone once the actual flow starts so it never competes with a real step. Everything
  * technical (DPoP, ACR, AMR, toolId) is explained once, here, in an approachable way instead of
- * being assumed knowledge on every later screen.
- *
- * The three diagrams are a representative SHAPE, not a spec - the backend decides the real order
- * case by case (docs/04-orchestrierung.md); e.g. registration can chain more than one factor
- * before email confirmation, and "Verbinden (automatisch)" falls through to identification on an
- * unlinked device. Kept deliberately simple (no branching) to match what a first glance needs.
+ * being assumed knowledge on every later screen. The per-journey diagrams live as hover previews
+ * on the choice cards themselves (App.tsx, DiagramHint) rather than here - permanently occupying
+ * space next to text most visitors only read once.
  */
 export function WelcomeIntro() {
   return (
@@ -27,12 +22,10 @@ export function WelcomeIntro() {
         Oberfläche, sondern das Backend anhand des jeweiligen Vorgangs (Registrierung, Login, Step-up,
         Verwaltung) - jeder dieser Vorgänge läuft als eigene, serverseitig gesteuerte Journey.
       </p>
-      <div className="journey-diagram-list">
-        <JourneyDiagram title="Verbinden (automatisch)" steps={['Gerät erkannt?', 'Faktor bestätigen', 'Fertig']} />
-        <JourneyDiagram title="Neuen Account registrieren" steps={['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Fertig']} />
-        <JourneyDiagram title="Login ohne DPoP" steps={['E-Mail + Code/Passwort', 'Gerät merken? (optional)', 'Fertig']} />
-      </div>
-      <p className="welcome-cta">👇 Wählen Sie unten, wie Sie starten möchten - es passiert nichts automatisch.</p>
+      <p className="welcome-cta">
+        👇 Wählen Sie unten, wie Sie starten möchten - es passiert nichts automatisch. Beim Zeigen auf eine
+        Karte sehen Sie deren Ablauf als Diagramm.
+      </p>
     </div>
   )
 }

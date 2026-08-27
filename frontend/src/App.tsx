@@ -41,6 +41,8 @@ import { DeviceAuthForm } from './components/DeviceAuthForm'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
 import { WelcomeIntro } from './components/WelcomeIntro'
+import { DiagramHint } from './components/DiagramHint'
+import { JOURNEY_DIAGRAMS } from './journeyDiagrams'
 
 interface ActiveTool {
   toolSessionId: string
@@ -72,6 +74,10 @@ function App() {
   const [stepData, setStepData] = useState<StepData | undefined>()
   const [demo, setDemo] = useState<DemoInfo | undefined>()
   const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
+  // Which entry choice started the current channel - drives the journey-shape hover hint in
+  // SessionStatusView. Unknown after a resume (a prior session's choice isn't remembered), so no
+  // hint is offered there rather than guessing.
+  const [journeyKind, setJourneyKind] = useState<'auto' | 'register' | 'login' | undefined>()
   // How many OTHER candidates existed when the current activeTool was reached - "Anderes
   // Verfahren" only makes sense to offer when this is > 0, otherwise abandoning would just
   // re-offer the very same tool (a mandatory single-candidate step is its own only fallback).
@@ -123,6 +129,7 @@ function App() {
     setDemo(undefined)
     setActiveTool(null)
     setAlternativesCount(0)
+    setJourneyKind(undefined)
   }
 
   /**
@@ -264,6 +271,7 @@ function App() {
         return
       }
       const intent = mode === 'auto' ? undefined : mode
+      setJourneyKind(mode)
       const response = await createChannel(dpop, requiredAcr || undefined, intent, availableTools)
       applyResponse(response)
     } catch (err) {
@@ -475,7 +483,13 @@ function App() {
 
           {channelSessionId ? (
             <>
-              <SessionStatusView channelSessionId={channelSessionId} state={channelState} next={next} onClear={handleClearChannel} />
+              <SessionStatusView
+                channelSessionId={channelSessionId}
+                state={channelState}
+                next={next}
+                journeyKind={journeyKind}
+                onClear={handleClearChannel}
+              />
               {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
               <div className="controls sticky-actions">
                 {inToolMode && activeTool && alternativesCount > 0 && (
@@ -526,40 +540,46 @@ function App() {
                     </li>
                   )}
                   <li>
-                    <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Verbinden (automatisch)">
-                      <span className="method-choice-icon" aria-hidden="true">
-                        🚀
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">Verbinden (automatisch)</span>
-                        <span className="method-choice-hint">
-                          Empfohlen: Kennt dieses Gerät schon einen Account, meldet es sich direkt an - sonst startet eine
-                          Registrierung.
+                    <DiagramHint spec={JOURNEY_DIAGRAMS.auto}>
+                      <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Verbinden (automatisch)">
+                        <span className="method-choice-icon" aria-hidden="true">
+                          🚀
                         </span>
-                      </span>
-                    </button>
+                        <span className="method-choice-text">
+                          <span className="method-choice-label">Verbinden (automatisch)</span>
+                          <span className="method-choice-hint">
+                            Empfohlen: Kennt dieses Gerät schon einen Account, meldet es sich direkt an - sonst startet eine
+                            Registrierung.
+                          </span>
+                        </span>
+                      </button>
+                    </DiagramHint>
                   </li>
                   <li>
-                    <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neuen Account registrieren">
-                      <span className="method-choice-icon" aria-hidden="true">
-                        ✨
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">Neuen Account registrieren</span>
-                        <span className="method-choice-hint">Immer einen frischen Demo-Account anlegen, auch auf diesem Gerät.</span>
-                      </span>
-                    </button>
+                    <DiagramHint spec={JOURNEY_DIAGRAMS.register}>
+                      <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neuen Account registrieren">
+                        <span className="method-choice-icon" aria-hidden="true">
+                          ✨
+                        </span>
+                        <span className="method-choice-text">
+                          <span className="method-choice-label">Neuen Account registrieren</span>
+                          <span className="method-choice-hint">Immer einen frischen Demo-Account anlegen, auch auf diesem Gerät.</span>
+                        </span>
+                      </button>
+                    </DiagramHint>
                   </li>
                   <li>
-                    <button className="method-choice" onClick={() => handleStart('login')} aria-label="Login ohne DPoP">
-                      <span className="method-choice-icon" aria-hidden="true">
-                        🌐
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">Login ohne DPoP</span>
-                        <span className="method-choice-hint">Auf einem neuen/anderen Gerät anmelden, per E-Mail statt Geräte-Schlüssel.</span>
-                      </span>
-                    </button>
+                    <DiagramHint spec={JOURNEY_DIAGRAMS.login}>
+                      <button className="method-choice" onClick={() => handleStart('login')} aria-label="Login ohne DPoP">
+                        <span className="method-choice-icon" aria-hidden="true">
+                          🌐
+                        </span>
+                        <span className="method-choice-text">
+                          <span className="method-choice-label">Login ohne DPoP</span>
+                          <span className="method-choice-hint">Auf einem neuen/anderen Gerät anmelden, per E-Mail statt Geräte-Schlüssel.</span>
+                        </span>
+                      </button>
+                    </DiagramHint>
                   </li>
                 </ul>
 

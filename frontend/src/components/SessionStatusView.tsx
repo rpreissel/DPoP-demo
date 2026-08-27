@@ -1,11 +1,14 @@
 import type { Next } from '../types'
 import { shorten } from '../format'
 import { metaFor } from '../toolMeta'
+import { DiagramHint } from './DiagramHint'
+import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 
 interface SessionStatusViewProps {
   channelSessionId?: string
   state?: string
   next?: Next
+  journeyKind?: 'auto' | 'register' | 'login'
   onClear: () => void
 }
 
@@ -34,12 +37,21 @@ function describeNext(next: Next): string {
   return ORCHESTRATOR_STEP_LABELS[`${next.context}/${next.step}`] ?? `${next.context ?? next.toolId} / ${next.step}`
 }
 
-export function SessionStatusView({ channelSessionId, state, next, onClear }: SessionStatusViewProps) {
+export function SessionStatusView({ channelSessionId, state, next, journeyKind, onClear }: SessionStatusViewProps) {
   const badgeVariant = state === 'AUTHENTICATED' ? 'authentication' : 'registration'
 
   return (
     <div className="card">
-      <h2>Session-Status</h2>
+      <h2>
+        Session-Status
+        {journeyKind && (
+          <DiagramHint spec={JOURNEY_DIAGRAMS[journeyKind]} inline>
+            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf dieses Vorgangs als Diagramm anzeigen">
+              ℹ️
+            </span>
+          </DiagramHint>
+        )}
+      </h2>
       <ul className="status-list">
         <li>
           <span className="label">Kanalstatus</span>
