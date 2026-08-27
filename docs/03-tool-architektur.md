@@ -40,18 +40,13 @@ Zentral bleibt nur, was ein einzelnes Modul nicht wissen *kann*: welches Niveau 
 
 Jedes Tool bringt eine eigene, kleine Descriptor-Bean mit (`object EnrollSmsDescriptor : ToolDescriptor`, gebündelt mit ihren Geschwistern in `Descriptors.kt` je Modul) statt dass der Handler das Interface selbst implementiert — reine Selbstbeschreibung ohne Dependencies, getrennt von der Geschäftslogik, die dafür ungehindert in `internal` liegen kann (DPoP-demo-vun). Kein Aufrufer ruft je eine Handler-Methode über die `ToolDescriptor`-Referenz auf; `maxAcr`/`factorTypes` liest der Handler intern über eine injizierte Referenz auf seinen eigenen Descriptor. Kotlin `object` + `@Component` wird von Spring ab 5.3 als Singleton-Bean ohne Reflection erkannt. Der Orchestrator sammelt diese Descriptors beim Start ein und aggregiert daraus den Katalog aus Abschnitt 1:
 
-```kotlin
-interface ToolDescriptor {
-    val toolId: String                     // "auth-sms" — frei vergeben, nie aus role/method abgeleitet (öffentlicher API-Vertrag)
-    val method: String                     // "sms" - verbindet enroll-sms/auth-sms/auth-sms-lookup
-    val role: MethodRole                   // IDENTIFICATION | ENROLLMENT | DEVICE_AUTH | LOOKUP_AUTH
-                                            // role.category (IDENT | ENROLL | AUTH) wird direkt gelesen, nicht auf dem Descriptor dupliziert
-    val factorTypes: Set<FactorType>
-    val maxAcr: String
-    val requiresConfirmedEmail: Boolean get() = false
-    val allowsMultipleInstances: Boolean get() = false
-}
-```
+| Feld | Bedeutung |
+|---|---|
+| `toolId` | z. B. `"auth-sms"` — frei vergeben, nie aus `role`/`method` abgeleitet (öffentlicher API-Vertrag) |
+| `method` | z. B. `"sms"` — verbindet `enroll-sms`/`auth-sms`/`auth-sms-lookup` |
+| `role` | `IDENTIFICATION` \| `ENROLLMENT` \| `DEVICE_AUTH` \| `LOOKUP_AUTH`; `role.category` (`IDENT`/`ENROLL`/`AUTH`) wird direkt gelesen, nicht auf dem Descriptor dupliziert |
+| `factorTypes`, `maxAcr` | statische Obergrenzen dieses Tools |
+| `requiresConfirmedEmail`, `allowsMultipleInstances` | beide `false` per Default |
 
 `(method, role)` ist der eigentliche, eindeutige Schlüssel für "das konkrete Verfahren dieser Art für dieses Credential" — `(method, role.category)` allein ist es **nicht**: `DEVICE_AUTH` und `LOOKUP_AUTH` teilen sich `category=AUTH`. Genau diese Mehrdeutigkeit ersetzt `role` (vormals ein separates `deviceBound: Boolean`, das `category` nicht widersprechen konnte, aber auch nichts über die Eindeutigkeit der Kombination aussagte). `ToolHandlerRegistry` prüft beim Einsammeln der Descriptors, dass kein `(method, role)`-Paar doppelt vorkommt — ein Duplikat bräche sonst beim erstenmal still auf einen beliebigen Treffer zusammen, statt laut beim Start zu scheitern.
 
@@ -59,28 +54,20 @@ interface ToolDescriptor {
 
 `maxAcr`/`factorTypes` sind statisch und dienen der Vorauswahl (kann dieses Tool eine Lücke überhaupt schließen?); was ein konkreter Durchlauf tatsächlich erbracht hat, meldet `Completed` — nie mehr, als der Descriptor zulässt.
 
-Über die Modulgrenze geht ausschließlich `ToolOutcome` — läuft noch, abgeschlossen, oder fehlgeschlagen:
+Über die Modulgrenze geht ausschließlich `ToolOutcome` — läuft noch, abgeschlossen, oder
+fehlgeschlagen:
 
-```kotlin
-sealed interface ToolOutcome {
-    /** Läuft weiter; `data` ist client-gerichtet und wird unverändert als `stepData` durchgereicht. */
-    data class InProgress(val nextStep: String, val data: Map<String, Any?>? = null) : ToolOutcome
+| Variante | Bedeutung |
+|---|---|
+| `InProgress(nextStep, data)` | läuft weiter; `data` ist client-gerichtet und wird unverändert als `stepData` durchgereicht |
+| `Failed(reason)` | Versuch fehlgeschlagen; Retry-Regel siehe [Orchestrierung](04-orchestrierung.md) |
+| `Completed.Identified(personId, ...)` | Person identifiziert |
+| `Completed.Enrolled(enrollmentRef, ...)` | Methode eingerichtet |
+| `Completed.Authenticated(accountId?, ...)` | Nachweis erbracht — `accountId` nur bei `-lookup`-Tools gesetzt |
 
-    /** Versuch fehlgeschlagen; Retry-Regel siehe 04-orchestrierung.md. */
-    data class Failed(val reason: String) : ToolOutcome
-
-    /** Abgeschlossen. Die Variante *ist* die Kategorie und legt fest, was der Orchestrator tut. */
-    sealed interface Completed : ToolOutcome {
-        val amr: List<String>                  // nachgewiesene Methoden, für AuthContext.currentAmr
-        val achievedAcr: String?
-        val factorTypes: Set<FactorType>        // Teilmenge von ToolDescriptor.factorTypes
-
-        data class Identified(val personId: Long, val auditDetails: Map<String, Any?>? = null, ...) : Completed
-        data class Enrolled(val enrollmentRef: EnrollmentRef, val auditDetails: Map<String, Any?>? = null, ...) : Completed
-        data class Authenticated(val accountId: Long? = null, ...) : Completed
-    }
-}
-```
+Jede `Completed`-Variante trägt zusätzlich `amr` (nachgewiesene Methoden, für
+`AuthContext.currentAmr`), `achievedAcr` und `factorTypes` (Teilmenge der `ToolDescriptor.factorTypes`).
+Die Variante *ist* die Kategorie und legt fest, was der Orchestrator tut.
 
 - `InProgress.data` ist **client-gerichtet** (der Nutzer muss es sehen, z. B. `missingFields`); `Completed`/`Failed` sind **orchestrator-gerichtet** und werden nie direkt an den Client durchgereicht (siehe [Orchestrierung](04-orchestrierung.md)). Ein Erfolgs-Bool wäre redundant — der Erfolg steckt schon im Typ.
 - `amr`/`achievedAcr` liefert jedes Tool selbst, weil dasselbe Verfahren je nach Ausführung unterschiedliche Niveaus erreichen kann.

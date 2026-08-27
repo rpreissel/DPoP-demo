@@ -35,8 +35,9 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
 
 - **Architekt/Stakeholder/Reviewer** — großes Bild, Kompromisse, kein Implementierungsdetail:
   [01](01-ueberblick.md) -> [12](12-entscheidungen.md) -> [08](08-projektrahmen.md) ->
-  [02](02-domaenenmodell.md) Abschnitt 1 (nur das Klassendiagramm). Überspringen: 06, 07, 09, 10 —
-  das sind Implementierungsanleitungen, keine Entscheidungen.
+  [02](02-domaenenmodell.md) Abschnitt 1 (nur das Klassendiagramm) -> [04](04-orchestrierung.md)
+  (Zustandsdiagramme und Policy-Regeln, ohne Code lesbar). Überspringen: 06, 07, 09, 10 — das sind
+  Implementierungsanleitungen, keine Entscheidungen.
 - **Backend-Entwickler** — Konzepte *und* Implementierungsmuster, praktisch die volle Liste:
   [01](01-ueberblick.md) -> [02](02-domaenenmodell.md) -> [03](03-tool-architektur.md) ->
   [04](04-orchestrierung.md) -> [06](06-ablaeufe.md) -> [09](09-dpop.md) ->

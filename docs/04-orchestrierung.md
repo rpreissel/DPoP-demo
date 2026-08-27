@@ -199,21 +199,11 @@ stateDiagram-v2
   end note
 ```
 
-```kotlin
-sealed interface FastAccessState : JourneyState {
-    data object Start : FastAccessState
-    /** Verknüpftes Gerät mit passender Device-Methode: genau ein Default-Vorschlag. */
-    data class PreferredAuth(val toolId: String, val active: ToolRef?) : FastAccessState
-    /** Auth-Tools für die weiteren Methoden des Kontos. */
-    data class AuthChoice(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastAccessState
-    /** Letzter Fallback-Zustand: Identifizierung - hier für Login *und* Registrierung. */
-    data class Identifying(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastAccessState
-    data class ConfirmingEmail(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastAccessState
-    /** emailObligation merkt sich, dass dieser Lauf über Identifying kam - s. Abschnitt 8. */
-    data class Enrolling(val offered: List<String>, val declined: Set<String>,
-                         val active: ToolRef?, val emailObligation: Boolean) : FastAccessState
-}
-```
+`PreferredAuth` trägt genau die eine vorgeschlagene `toolId`; `AuthChoice`/`Identifying`/
+`ConfirmingEmail`/`Enrolling` tragen jeweils, was angeboten wurde und was bereits abgelehnt ist
+(Fallback- bzw. Pflichtsemantik, s. o.). `Enrolling` trägt zusätzlich `emailObligation`: ein Merker,
+dass dieser Lauf über `Identifying` kam (Account neu angelegt oder übernommen) — nur dann gilt die
+E-Mail-Pflicht danach (Abschnitt 8).
 
 `Identifying` ist gleichzeitig Login-Notausgang und Registrierungseinstieg. Eine
 `REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im Zustandsmodell keinen eigenen Zustand
@@ -230,8 +220,7 @@ zurück, das gerade verworfene Tool eingeschlossen.
 
 Dieselben Zustände wie `FAST_ACCESS` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
 `DeviceAccountLink`-Lookup. Weil es wörtlich dieselben sind, teilt sich `REGISTER` auch
-die Zustandsmenge `FastAccessState`; die Strategie überschreibt genau eine Funktion — wo die
-Fallback-Kette einsetzt.
+die Zustandsmenge von `FAST_ACCESS`; die Strategie überschreibt nur, wo die Fallback-Kette einsetzt.
 
 ```mermaid
 stateDiagram-v2
@@ -268,15 +257,10 @@ stateDiagram-v2
   end note
 ```
 
-```kotlin
-sealed interface LookupLoginState : JourneyState {
-    data object Start : LookupLoginState
-    data class Credential(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : LookupLoginState
-    /** Ausdrücklich und optional: „Dieses Gerät für künftige Logins wiedererkennen?" - AnswerableState
-     *  macht das ohne Import dieses konkreten Zustands fuer JourneyService erkennbar. */
-    data class OfferBinding(val accountId: Long) : LookupLoginState, AnswerableState
-}
-```
+`OfferBinding` fragt ausdrücklich und optional: „Dieses Gerät für künftige Logins wiedererkennen?" —
+und erfüllt zusätzlich das generische `AnswerableState`-Markerinterface (Abschnitt 5), damit die
+Maschinerie diesen Zustand erkennt, ohne den konkreten Typ `LookupLoginState.OfferBinding` selbst
+zu kennen.
 
 Die Gerätewiedererkennung (`DeviceAccountLink`) entsteht hier **nur** nach Zustimmung. Sie ist
 eine dauerhafte Zuordnung Gerät → Account und darf nicht als Nebenwirkung eines Logins entstehen,
@@ -303,18 +287,9 @@ stateDiagram-v2
   Finished --> [*]
 ```
 
-```kotlin
-sealed interface StepUpState : JourneyState {
-    /** Das Ziel dieses Laufs - nicht zu verwechseln mit der dauerhaften Untergrenze des Kanals. */
-    val targetAcr: String
-
-    data class Start(override val targetAcr: String, val startingAcr: String) : StepUpState
-    data class AuthChoice(override val targetAcr: String, val startingAcr: String,
-                          val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : StepUpState
-    data class ReIdentifying(override val targetAcr: String, val startingAcr: String,
-                             val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : StepUpState
-}
-```
+Jeder Zustand trägt `targetAcr` (das Ziel dieses Laufs, nicht zu verwechseln mit der dauerhaften
+Untergrenze des Kanals, Abschnitt 8) und `startingAcr`; `AuthChoice`/`ReIdentifying` zusätzlich
+Angebot und Ablehnungen wie oben.
 
 `ReIdentifying` ist der Notausgang aus dem **Ein-Methoden-Fall**: Ein Account mit genau einer
 aktiven Methode hätte nach einem frischen gerätegebundenen Login (nur `loa1`) sonst keinen
@@ -350,14 +325,9 @@ stateDiagram-v2
   end note
 ```
 
-```kotlin
-sealed interface ManageAuthMethodsState : JourneyState {
-    /** Der Wunsch, bevor die loa2-Vorbedingung geprüft ist - und der Parkzustand während des Step-ups. */
-    data object AddRequested : ManageAuthMethodsState
-    data class RemoveRequested(val methodInstanceId: String) : ManageAuthMethodsState
-    data class Enrolling(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : ManageAuthMethodsState
-}
-```
+`AddRequested`/`RemoveRequested` (Letzterer trägt die `methodInstanceId`) sind zugleich der Wunsch
+vor der loa2-Prüfung und der Parkzustand während eines dafür nötigen Step-ups; `Enrolling` trägt
+wie gewohnt Angebot und Ablehnungen.
 
 `MANAGE_AUTH_METHODS` ist der einzige Intent ohne Policy-Ziel: **ein** erfolgreiches Enrollment beendet ihn,
 unabhängig vom erreichten Niveau — der Kanal war ja bereits `AUTHENTICATED`. Um ein zweites
@@ -400,19 +370,9 @@ stateDiagram-v2
 
 ## 4) `next` folgt aus dem Zustand
 
-Alle Zustände erfüllen einen gemeinsamen Vertrag:
-
-```kotlin
-sealed interface JourneyState {
-    /** Was in diesem Zustand aktivierbar ist. Leer für terminale und wartende Zustände. */
-    fun activatable(): Set<String>
-    /** Das gerade laufende Tool, falls eines aktiviert wurde. */
-    val active: ToolRef?
-    /** `next.context`/`next.step` der orchestrator-eigenen Seite dieses Zustands. */
-    val selectionContext: String
-    val selectionStep: String
-}
-```
+Alle Zustände erfüllen einen gemeinsamen Vertrag: Jeder weiß, welche `toolId`s hier aktivierbar
+sind (leer für terminale und wartende Zustände), ob und welches Tool gerade läuft, und welche
+orchestrator-eigene Seite (`next.context`/`next.step`) er anzeigt, falls keine Auswahl nötig ist.
 
 Daraus folgt **eine** Ableitungstabelle:
 
@@ -439,51 +399,32 @@ Bei genau einem Kandidaten entfällt die Auswahlseite — bei einer Wahl ist nic
 ### `IntentStrategy` — der SPI
 
 Symmetrisch zu `tool_spi`: dort beschreiben sich Tools selbst, hier beschreiben sich Intents
-selbst.
+selbst. Jede Strategie beantwortet für ihren eigenen Zustandstyp vier Fragen — wo sie beginnt
+(direkt, oder als Sub-Journey mit einem vorgegebenen Zielniveau statt dem des Kanals), was ein
+abgeschlossenes Tool bedeutet, wie sie auf ein Ereignis reagiert, und wohin der Kanal bei Abbruch
+zurückfällt.
 
-```kotlin
-interface IntentStrategy<S : JourneyState> {
-    val intent: AuthIntent
-    fun initialState(ctx: JourneyContext): S
+Ein `JourneyEvent` ist, was der Journey gerade passiert ist:
 
-    /** Einstieg als Sub-Journey (Decision.RequireSubJourney) statt direkt - braucht das Zielniveau,
-     *  das eine direkt gestartete Journey stattdessen aus JourneyContext bekäme. Default wirft. */
-    fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): S = error("...")
+| Event | Bedeutung |
+|---|---|
+| `Started` | Journey wurde eben angelegt, braucht ihr erstes Angebot |
+| `Completed(tool, outcome)` | ein Tool wurde erfolgreich abgeschlossen |
+| `Abandoned(tool)` | „Zurück"/„Wechseln": das aktivierte Tool wurde ohne Abschluss verworfen |
+| `SubJourneyFinished(achievedAcr)` | eine als Vorbedingung gestartete Kind-Journey ist fertig |
+| `Answered(answer)` | eine ausdrückliche Antwort auf einen `AnswerableState` statt eines Tool-Laufs — `answer` ist ein String, nicht `Boolean`: eine künftige Aktion kann mehr als zwei Antworten haben |
 
-    /** Bedeutung eines abgeschlossenen Tools - ein reiner Wert, keine Ausführung. */
-    fun interpret(state: S, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation
+Eine `Decision` ist, was als Nächstes passieren soll:
 
-    /** Der einzige Übergang: ein erschöpfendes `when` über state x event. */
-    fun next(state: S, event: JourneyEvent, ctx: JourneyContext): Decision
-
-    /** Wohin der Kanal beim Abbruch zurückfällt. */
-    fun onCancel(state: S): ChannelState
-}
-
-sealed interface JourneyEvent {
-    data object Started : JourneyEvent
-    data class Completed(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed) : JourneyEvent
-    data class Abandoned(val tool: ToolDescriptor) : JourneyEvent
-    data class SubJourneyFinished(val achievedAcr: String?) : JourneyEvent
-    /** Ja/Nein (oder mehr) auf das, was ein AnswerableState erwartet, statt eines Tool-Laufs -
-     *  answer ist ein String, nicht Boolean: eine kuenftige Aktion kann mehr als zwei Antworten haben. */
-    data class Answered(val answer: String) : JourneyEvent
-}
-
-sealed interface Decision {
-    data class Advance(val to: JourneyState) : Decision
-    data class RequireSubJourney(val intent: AuthIntent, val targetAcr: String, val resumeWith: JourneyState) : Decision
-    data object Finish : Decision
-    /** Der Nutzer gibt auf - endet wie ein ausdrückliches Abbrechen, nicht als Fehler. */
-    data object Cancel : Decision
-    /** Effekt einer Strategie, der kein Tool-Lauf ist: Methode deaktivieren. */
-    data class Remove(val methodInstanceId: String) : Decision
-    /** Effekt einer Strategie, der kein Tool-Lauf ist: Geraet verknuepfen, dann beenden. */
-    data class FinishWithDeviceLink(val accountId: Long) : Decision
-    /** Es geht gar nicht weiter (410) - nie bloß „keine Kandidaten mehr". */
-    data class Abort(val reason: String) : Decision
-}
-```
+| Decision | Bedeutung |
+|---|---|
+| `Advance(to)` | weiter zu diesem Zustand — der Zustand trägt sein Angebot bereits selbst, es gibt kein separates „biete diese Tools an" |
+| `RequireSubJourney(intent, targetAcr, resumeWith)` | erst einen anderen Intent laufen lassen, danach hier bei `resumeWith` weiter |
+| `Finish` | Ziel erreicht, Journey wird konsumiert |
+| `Cancel` | Nutzer gibt auf — endet wie ein ausdrückliches Abbrechen, nicht als Fehler |
+| `Remove(methodInstanceId)` | Effekt, der kein Tool-Lauf ist: Methode deaktivieren |
+| `FinishWithDeviceLink(accountId)` | Effekt, der kein Tool-Lauf ist: Gerät verknüpfen, dann beenden |
+| `Abort(reason)` | es geht gar nicht weiter (410) — nie bloß „keine Kandidaten mehr" |
 
 Entscheidungen dahinter:
 
@@ -508,17 +449,12 @@ Tool tritt einem Angebot bei, indem es seine Rolle deklariert.
 
 ### `Interpretation` — Bedeutung als Wert
 
-```kotlin
-sealed interface Interpretation {
-    /** FAST_ACCESS/REGISTER: findOrCreateAccount + dauerhafte Identifikations-Historie. */
-    data object AdoptIdentity : Interpretation
-    /** STEP_UP/MANAGE_AUTH_METHODS: muss zum bereits bekannten Account passen, sonst 409. */
-    data object ConfirmIdentity : Interpretation
-    data class AdoptCredential(val bindDevice: Boolean) : Interpretation
-    /** useOutcomeAccount: nur LOOKUP_LOGIN traut einem Tool zu, den Account selbst aufzulösen. */
-    data class AcceptProof(val useOutcomeAccount: Boolean, val bindDevice: Boolean) : Interpretation
-}
-```
+| Interpretation | Bedeutung |
+|---|---|
+| `AdoptIdentity` | `FAST_ACCESS`/`REGISTER`: Account finden oder anlegen, dauerhafte Identifikations-Historie |
+| `ConfirmIdentity` | `STEP_UP`/`MANAGE_AUTH_METHODS`: muss zum bereits bekannten Account passen, sonst `409` |
+| `AdoptCredential(bindDevice)` | eine neue Methode wurde eingerichtet |
+| `AcceptProof(useOutcomeAccount, bindDevice)` | ein Nachweis wurde erbracht; `useOutcomeAccount`: nur `LOOKUP_LOGIN` traut einem Tool zu, den Account selbst aufzulösen |
 
 Damit steht die zentrale Asymmetrie im Typsystem: Derselbe `ident-fsc`-Abschluss heißt in `FAST_ACCESS`
 „Account finden oder anlegen" und in `STEP_UP`/`MANAGE_AUTH_METHODS` „bestätige den bekannten Account, sonst
@@ -537,19 +473,11 @@ Zentral und für Strategien nicht erreichbar bleiben: Nachweis in den `AuthConte
 
 ### `JourneyApi` — was Tool-Controller sehen
 
-```kotlin
-interface JourneyApi {
-    fun activate(journey: AuthJourney, tool: ToolDescriptor, toolSessionId: UUID)  // prüft und übernimmt
-    fun applyOutcome(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, outcome: ToolOutcome): Step
-    fun abandon(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor): Step
-    fun cancel(journey: AuthJourney, channel: ChannelSession)
-    fun nextOf(journey: AuthJourney): Next
-}
-```
-
-Die **einzige** Berührungsfläche der Tool-Controller mit dem Journey-Modell: kein Setzen von
-Routing-Feldern, kein Typ-Switch auf einen Intent, keine Entscheidung darüber, welches Tool laufen
-darf. `Step` ist dabei schlicht `next` plus die Daten, die dieser Schritt zum Rendern braucht.
+Fünf Operationen — `activate` (prüft und übernimmt eine `ToolSession`), `applyOutcome`, `abandon`,
+`cancel`, `nextOf` — sind die **einzige** Berührungsfläche der Tool-Controller mit dem
+Journey-Modell: kein Setzen von Routing-Feldern, kein Typ-Switch auf einen Intent, keine
+Entscheidung darüber, welches Tool laufen darf. `Step` ist dabei schlicht `next` plus die Daten,
+die dieser Schritt zum Rendern braucht.
 
 Zwei Aktionen, die der Client sauber auseinanderhalten muss: `abandon` lehnt den aktuellen
 **Zustand** ab und führt die Journey weiter (`DELETE /tools/{toolSessionId}/{toolId}`); `cancel`
@@ -593,18 +521,10 @@ hinweg. Das Budget ist journey-lokal und dazu orthogonal.
 ## 8) AuthPolicy: Mehr-Faktor-Entscheidung
 
 Die Strategien fragen die `AuthPolicy`, statt selbst zu entscheiden, was genug ist — sie ist die
-einzige Stelle mit diesem Wissen.
-
-```kotlin
-interface AuthPolicy {
-    fun isSatisfied(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile?): Boolean
-    fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String): List<String>
-    fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String>
-    fun canAccountReach(account: AccountProfile, requiredAcr: String): Boolean
-    fun enrollmentCandidates(account: AccountProfile, requiredAcr: String): List<String>
-    fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): String
-}
-```
+einzige Stelle mit diesem Wissen: ob vorhandene Nachweise reichen (`isSatisfied`), welches Niveau
+sich aus ihnen ergibt (`resolveAcr`), welche Tools als Nachweis, Re-Identifizierung oder Enrollment
+noch in Frage kommen, und ob ein Account ein Niveau grundsätzlich erreichen kann
+(`canAccountReach`) — unabhängig davon, ob die aktuelle Session das schon bewiesen hat.
 
 Zwei Bedingungen müssen zusammen erfüllt sein:
 
