@@ -5,9 +5,9 @@ export interface JourneyDiagramSpec {
   branch?: { atIndex: number; mainLabel: string; label: string; steps: string[] }
 }
 
-const BOX_HEIGHT = 40
+const BOX_HEIGHT = 44
 const ROW_GAP = 30
-const CHAR_WIDTH = 7.2
+const CHAR_WIDTH = 7.8
 const PADDING_X = 16
 const MIN_BOX_WIDTH = 88
 const MARGIN = 4
@@ -66,7 +66,7 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
   return (
     <figure className="journey-diagram">
       <figcaption>{title}</figcaption>
-      <svg viewBox={`0 0 ${totalWidth} ${totalHeight}`} role="img" aria-label={label}>
+      <svg width={totalWidth} height={totalHeight} viewBox={`0 0 ${totalWidth} ${totalHeight}`} role="img" aria-label={label}>
         <defs>
           <marker id={markerId} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L8,4 L0,8 Z" fill="currentColor" />
@@ -86,14 +86,14 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
               ) : (
                 <rect x={box.x} y={row1Y} width={box.width} height={BOX_HEIGHT} rx={8} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
               )}
-              <text x={box.x + box.width / 2} y={row1CenterY} textAnchor="middle" dominantBaseline="middle" fontSize="11" fill={isLast ? '#fff' : 'currentColor'}>
+              <text x={box.x + box.width / 2} y={row1CenterY} textAnchor="middle" dominantBaseline="middle" fontSize="13" fill={isLast ? '#fff' : 'currentColor'}>
                 {steps[i]}
               </text>
               {i < boxes.length - 1 && (
                 <>
                   <line x1={box.x + box.width} y1={row1CenterY} x2={boxes[i + 1].x - 2} y2={row1CenterY} stroke="currentColor" markerEnd={`url(#${markerId})`} />
                   {box.isDecision && (
-                    <text x={(box.x + box.width + boxes[i + 1].x) / 2} y={row1CenterY - 6} textAnchor="middle" fontSize="10" fill="currentColor">
+                    <text x={(box.x + box.width + boxes[i + 1].x) / 2} y={row1CenterY - 6} textAnchor="middle" fontSize="11" fill="currentColor">
                       {branch!.mainLabel}
                     </text>
                   )}
@@ -106,7 +106,7 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
         {branch && (
           <>
             <line x1={branchStartX} y1={row1CenterY + BOX_HEIGHT / 2} x2={branchStartX} y2={row2CenterY} stroke="currentColor" markerEnd={`url(#${markerId})`} />
-            <text x={branchStartX + 6} y={row1CenterY + BOX_HEIGHT / 2 + 12} fontSize="10" fill="currentColor">
+            <text x={branchStartX + 6} y={row1CenterY + BOX_HEIGHT / 2 + 12} fontSize="11" fill="currentColor">
               {branch.label}
             </text>
             {branchBoxes.map((box, i) => {
@@ -114,7 +114,7 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
               return (
                 <g key={i}>
                   <rect x={box.x} y={row2Y} width={box.width} height={BOX_HEIGHT} rx={8} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
-                  <text x={box.x + box.width / 2} y={row2CenterY} textAnchor="middle" dominantBaseline="middle" fontSize="11" fill={isLast ? '#fff' : 'currentColor'}>
+                  <text x={box.x + box.width / 2} y={row2CenterY} textAnchor="middle" dominantBaseline="middle" fontSize="13" fill={isLast ? '#fff' : 'currentColor'}>
                     {branch.steps[i]}
                   </text>
                   {i < branchBoxes.length - 1 && (
