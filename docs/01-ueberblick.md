@@ -70,7 +70,7 @@ Details: [04-orchestrierung.md](04-orchestrierung.md)
 ### App (Orchestrator-first)
 
 1. App sendet Request mit DPoP -> Backend erstellt/liest `ChannelSession(APP)`.
-2. Backend startet eine `AuthJourney` mit dem Intent des Kanals (Default `FAST`).
+2. Backend startet eine `AuthJourney` mit dem Intent des Kanals (Default `FAST_ACCESS`).
 3. Orchestrator bietet die Verfahren an, die der aktuelle Zustand der Journey zulässt (FSC/SMS/eID).
 4. Bei Erfolg erzeugt Backend den `AuthContext` (Keycloak-Tokenfluss serverseitig).
 5. `ChannelSession.state` wechselt auf `AUTHENTICATED`.

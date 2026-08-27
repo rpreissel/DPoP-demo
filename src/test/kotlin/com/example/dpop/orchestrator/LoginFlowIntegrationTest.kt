@@ -202,7 +202,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
                 )
 
-                post("/orchestrator/api/v1/app/channels/$channelSessionId/device-binding", """{"accept":true}""")
+                post("/orchestrator/api/v1/app/channels/$channelSessionId/answer", """{"answer":"accept"}""")
 
                 val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
                 assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")
@@ -251,7 +251,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
                 )
 
-                val done = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/device-binding", """{"accept":true}""")
+                val done = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
                 assertThat(done.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
                 val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
@@ -280,7 +280,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     """{"email":"$email","password":"correct-horse-battery"}"""
                 )
 
-                post("/orchestrator/api/v1/app/channels/$channelSessionId/device-binding", """{"accept":false}""")
+                post("/orchestrator/api/v1/app/channels/$channelSessionId/answer", """{"answer":"decline"}""")
                 assertThat(linkedAccountsFor(currentBindingKeyRef)).isZero()
 
                 // And a plain FAST channel on this device consequently still has to identify.
@@ -348,7 +348,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 assertThat(authenticated.next()).isEqualTo(
                     mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
                 )
-                post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/device-binding", """{"accept":true}""")
+                post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
 
                 val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
                 assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")

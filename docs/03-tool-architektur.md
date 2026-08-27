@@ -43,15 +43,9 @@ Jedes Tool bringt eine eigene, kleine Descriptor-Bean mit (`object EnrollSmsDesc
 ```kotlin
 interface ToolDescriptor {
     val toolId: String                     // "auth-sms" — frei vergeben, nie aus role/method abgeleitet (öffentlicher API-Vertrag)
-    val methodFamily: MethodFamily         // Objekt-Identität statt erneut getippten Strings - verbindet enroll-sms/auth-sms/auth-sms-lookup
-    val method: String get() = methodFamily.method  // "sms" - reines Wire-/Storage-Format
+    val method: String                     // "sms" - verbindet enroll-sms/auth-sms/auth-sms-lookup
     val role: MethodRole                   // IDENTIFICATION | ENROLLMENT | DEVICE_AUTH | LOOKUP_AUTH
-    val category: ToolCategory             // IDENT | ENROLL | AUTH — abgeleitet aus role, nie unabhängig gesetzt
-        get() = when (role) {
-            MethodRole.IDENTIFICATION -> ToolCategory.IDENT
-            MethodRole.ENROLLMENT -> ToolCategory.ENROLL
-            MethodRole.DEVICE_AUTH, MethodRole.LOOKUP_AUTH -> ToolCategory.AUTH
-        }
+                                            // role.category (IDENT | ENROLL | AUTH) wird direkt gelesen, nicht auf dem Descriptor dupliziert
     val factorTypes: Set<FactorType>
     val maxAcr: String
     val requiresConfirmedEmail: Boolean get() = false
@@ -59,9 +53,9 @@ interface ToolDescriptor {
 }
 ```
 
-`(methodFamily, role)` ist der eigentliche, eindeutige Schlüssel für "das konkrete Verfahren dieser Art für dieses Credential" — `(method, category)` allein ist es **nicht**: `DEVICE_AUTH` und `LOOKUP_AUTH` teilen sich `category=AUTH`. Genau diese Mehrdeutigkeit ersetzt `role` (vormals ein separates `deviceBound: Boolean`, das `category` nicht widersprechen konnte, aber auch nichts über die Eindeutigkeit der Kombination aussagte). `ToolHandlerRegistry` prüft beim Einsammeln der Descriptors, dass kein `(methodFamily, role)`-Paar doppelt vorkommt — ein Duplikat bräche sonst beim erstenmal still auf einen beliebigen Treffer zusammen, statt laut beim Start zu scheitern.
+`(method, role)` ist der eigentliche, eindeutige Schlüssel für "das konkrete Verfahren dieser Art für dieses Credential" — `(method, role.category)` allein ist es **nicht**: `DEVICE_AUTH` und `LOOKUP_AUTH` teilen sich `category=AUTH`. Genau diese Mehrdeutigkeit ersetzt `role` (vormals ein separates `deviceBound: Boolean`, das `category` nicht widersprechen konnte, aber auch nichts über die Eindeutigkeit der Kombination aussagte). `ToolHandlerRegistry` prüft beim Einsammeln der Descriptors, dass kein `(method, role)`-Paar doppelt vorkommt — ein Duplikat bräche sonst beim erstenmal still auf einen beliebigen Treffer zusammen, statt laut beim Start zu scheitern.
 
-`methodFamily: MethodFamily` (ein bloßer `data class MethodFamily(val method: String)`-Wrapper in `tool_spi`) ersetzt den früher unabhängig in jedem Geschwister erneut getippten String-Literal `"sms"`. `tool_spi` selbst kennt dabei **keine** konkreten Methoden — jedes Modul deklariert seine eigene Instanz (z. B. `auth_sms/Descriptors.kt`: `internal val SMS_METHOD = MethodFamily("sms")`), referenziert von allen eigenen Descriptor-Objekten. Das hält den Katalog bei seinem Grundprinzip (Abschnitt 1: keine zentral gepflegte Liste) — ein neues Modul bringt seine Familie selbst mit, statt eine gemeinsame Datei zu erweitern. `toolId` bleibt bewusst *nicht* aus `(methodFamily, role)` abgeleitet: es ist der öffentliche API-Vertrag (URL-Pfade, Frontend-Routing) und darf nicht von einer internen Umbenennung (z. B. eines `MethodRole`-Namens) mitgerissen werden, auch wenn die aktuellen Werte durchgängig dem Muster `{role-präfix}-{method}[-lookup]` folgen.
+`method: String` ersetzt den früher unabhängig in jedem Geschwister erneut getippten String-Literal `"sms"` — ein früherer `MethodFamily`-Wrapper-Typ wurde entfernt, weil er als `data class` ohnehin nur strukturelle Gleichheit hatte und damit keinen Unterschied zu einem rohen `String` machte. `tool_spi` selbst kennt dabei **keine** konkreten Methoden — jedes Modul deklariert seine eigene Konstante (z. B. `auth_sms/Descriptors.kt`: `internal const val SMS_METHOD = "sms"`), referenziert von allen eigenen Descriptor-Objekten. Das hält den Katalog bei seinem Grundprinzip (Abschnitt 1: keine zentral gepflegte Liste) — ein neues Modul bringt seine Methode selbst mit, statt eine gemeinsame Datei zu erweitern. `toolId` bleibt bewusst *nicht* aus `(method, role)` abgeleitet: es ist der öffentliche API-Vertrag (URL-Pfade, Frontend-Routing) und darf nicht von einer internen Umbenennung (z. B. eines `MethodRole`-Namens) mitgerissen werden, auch wenn die aktuellen Werte durchgängig dem Muster `{role-präfix}-{method}[-lookup]` folgen.
 
 `maxAcr`/`factorTypes` sind statisch und dienen der Vorauswahl (kann dieses Tool eine Lücke überhaupt schließen?); was ein konkreter Durchlauf tatsächlich erbracht hat, meldet `Completed` — nie mehr, als der Descriptor zulässt.
 

@@ -103,12 +103,12 @@ CREATE TABLE channel_session (
     binding_key_ref VARCHAR(64) NOT NULL,
     account_id BIGINT,
     auth_context_id UUID,
-    state VARCHAR(50) NOT NULL DEFAULT 'ANONYMOUS',
+    state VARCHAR(50) NOT NULL,
     -- Durable lower bound of the channel; distinct from a single step-up run's targetAcr
     -- (docs/04-orchestrierung.md, "Zwei Ebenen für das geforderte Niveau").
     acr_floor VARCHAR(50),
     -- The intent this channel was entered with; resume and cancel restart the same one.
-    entry_intent VARCHAR(20) NOT NULL DEFAULT 'FAST',
+    entry_intent VARCHAR(20) NOT NULL,
     created_at TIMESTAMP NOT NULL,
     last_accessed_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,

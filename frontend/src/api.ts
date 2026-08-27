@@ -124,9 +124,9 @@ export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, me
   return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods/${methodInstanceId}`)
 }
 
-/** Answers the optional device-binding offer of a lookup login (docs/04-orchestrierung.md #3). */
+/** Answers the optional device-binding offer of a lookup login (docs/04-orchestrierung.md #3) via the generic answer endpoint. */
 export function answerDeviceBinding(dpop: DpopKeyPair, channelSessionId: string, accept: boolean): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/device-binding`, { accept })
+  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/answer`, { answer: accept ? 'accept' : 'decline' })
 }
 
 /**

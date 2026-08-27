@@ -76,13 +76,13 @@ Tool-Namespace:
 
 ### Cancel
 
-`DELETE .../process` bricht die laufende `AuthJourney` ab und rollt `ChannelSession.state` zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). Danach startet der Kanal **denselben Intent** erneut, mit dem er eröffnet wurde — deshalb wird ein abgebrochener Lookup-Login wieder ein Lookup-Login und nicht stillschweigend eine Registrierung. `STEP_UP`- und `MANAGE`-Abbruch liefern direkt `authenticated`. Account-Bindung und `AuthContext` werden dabei aus der dauerhaften Wahrheit neu abgeleitet (`DeviceAccountLink`), nicht blind behalten oder blind verworfen; ein zuvor per `ident-fsc` angelegter Account bleibt unangetastet und wird bei erneuter Identifikation wiedergefunden.
+`DELETE .../process` bricht die laufende `AuthJourney` ab und rollt `ChannelSession.state` zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). Danach startet der Kanal **denselben Intent** erneut, mit dem er eröffnet wurde — deshalb wird ein abgebrochener Lookup-Login wieder ein Lookup-Login und nicht stillschweigend eine Registrierung. `STEP_UP`- und `MANAGE_AUTH_METHODS`-Abbruch liefern direkt `authenticated`. Account-Bindung und `AuthContext` werden dabei aus der dauerhaften Wahrheit neu abgeleitet (`DeviceAccountLink`), nicht blind behalten oder blind verworfen; ein zuvor per `ident-fsc` angelegter Account bleibt unangetastet und wird bei erneuter Identifikation wiedergefunden.
 
 ### Logout
 
 `DELETE /app/channels/{channelSessionId}` beendet den Kanal endgültig (`AUTHENTICATED -> LOGGED_OUT`, terminal, `204`): bricht wie Cancel einen aktiven Prozess ab und verwirft zusätzlich den `AuthContext`. Anders als Cancel lebt diese `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Geräte-Bindung bleibt trotzdem nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` auf einen neuen Kanal das Gerät wiedererkennt und direkt LOGIN statt `ident-fsc` anbietet.
 
-### Methoden verwalten (AuthIntent.MANAGE)
+### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)
 
 Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst vom policy-getriebenen REGISTRATION/STEP_UP-Ablauf ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).
 

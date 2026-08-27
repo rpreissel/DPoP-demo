@@ -98,19 +98,21 @@ class ChannelController(
         return ResponseEntity.noContent().build()
     }
 
-    @PostMapping("/{channelSessionId}/device-binding")
+    @PostMapping("/{channelSessionId}/answer")
     @Operation(
-        summary = "Answer the optional device-binding offer",
-        description = "Only meaningful right after a lookup login (next.step=offerDeviceBinding). Agreeing is the " +
-            "ONLY way such a login ever makes this device recognizable for future logins - it never happens as a " +
-            "side effect, because this intent is chosen precisely by people who want no device binding."
+        summary = "Answer whatever the current step is waiting on",
+        description = "Generic answer endpoint for a state that pauses for an explicit choice instead of a tool " +
+            "run - today only the optional device-binding offer right after a lookup login " +
+            "(next.step=offerDeviceBinding), answer=\"accept\"/\"decline\". Agreeing is the ONLY way such a login " +
+            "ever makes this device recognizable for future logins - it never happens as a side effect, because " +
+            "this intent is chosen precisely by people who want no device binding."
     )
-    fun answerDeviceBinding(
+    fun answer(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
-        @RequestBody request: DeviceBindingRequest
+        @RequestBody request: AnswerRequest
     ): ResponseEntity<ChannelResponse> {
-        return ResponseEntity.ok(channelService.answerDeviceBinding(channelSessionId, bindingKeyRef, request.accept))
+        return ResponseEntity.ok(channelService.answer(channelSessionId, bindingKeyRef, request.answer))
     }
 
     @GetMapping("/{channelSessionId}/methods")

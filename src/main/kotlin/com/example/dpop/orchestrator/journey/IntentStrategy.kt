@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.ChannelState
@@ -13,14 +14,26 @@ import com.example.dpop.tool_spi.ToolOutcome
  *
  * A strategy DECIDES, it never ACTS: it gets a read-only [JourneyContext] and returns values
  * ([Interpretation], [Decision]). Everything with a side effect - creating accounts, recording
- * evidence, writing device links, capping ACR - is executed centrally by [JourneyMachine] and is
+ * evidence, writing device links, capping ACR - is executed centrally by [JourneyService] and is
  * not reachable from here.
  */
 interface IntentStrategy<S : JourneyState> {
     val intent: AuthIntent
 
     /** Where a fresh journey of this intent begins, before any event has been seen. */
-    fun initial(ctx: JourneyContext): S
+    fun initialState(ctx: JourneyContext): S
+
+    /**
+     * Where this intent begins when entered as another journey's precondition
+     * ([Decision.RequireSubJourney]) instead of directly. Needs [targetAcr] because a
+     * sub-journey's goal is set by whoever demanded it - a directly entered journey gets its goal
+     * from [JourneyContext] via [initialState] instead.
+     *
+     * The default is a runtime error, not a compile error: nothing here can check statically that
+     * only intents actually named in some [Decision.RequireSubJourney] override this.
+     */
+    fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): S =
+        error("$intent cannot be entered as a sub-journey")
 
     /**
      * What a completed tool MEANS here - a pure value, no execution. The same successful
@@ -72,11 +85,19 @@ sealed interface JourneyEvent {
     data class Abandoned(val tool: ToolDescriptor) : JourneyEvent
 
     data class SubJourneyFinished(val achievedAcr: String?) : JourneyEvent
+
+    /**
+     * An explicit answer to whatever an [AnswerableState] is waiting on, instead of a tool run -
+     * see [JourneyService.answer]. [answer] is a plain string, not a boolean: today's only case is
+     * accept/decline, but nothing here should have to change the day some future action needs more
+     * than two choices - the owning intent's own `next` alone decides which values are valid.
+     */
+    data class Answered(val answer: String) : JourneyEvent
 }
 
 /**
  * What should happen next. Deliberately NOT a `Next` - the skip-if-single-candidate rule and the
- * routing derivation live once in [JourneyMachine], not once per intent.
+ * routing derivation live once in [JourneyService], not once per intent.
  *
  * There is no separate "offer these tools" variant: a state already carries what it offers
  * ([JourneyState.activatable]), so [Advance] to that state IS the offer.
@@ -102,10 +123,17 @@ sealed interface Decision {
     data object Cancel : Decision
 
     /**
-     * Deactivate a method instance and finish. MANAGE is the one intent with an effect that is
-     * not a tool run; the strategy decides it, the machine executes it (rejecting self-lockout).
+     * Deactivate a method instance and finish. An effect that is not a tool run; the strategy
+     * decides it, the machine executes it (rejecting self-lockout).
      */
     data class Remove(val methodInstanceId: String) : Decision
+
+    /**
+     * Link the current device to [accountId], then finish - the effect an accepted device-binding
+     * offer asks for (see [JourneyEvent.Answered]). Like [Remove], a non-tool effect the strategy
+     * decides and the machine executes.
+     */
+    data class FinishWithDeviceLink(val accountId: Long) : Decision
 
     /** No way forward at all. Ends the journey with 410 - never a mere "no candidates left". */
     data class Abort(val reason: String) : Decision

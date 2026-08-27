@@ -6,8 +6,7 @@ import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
-import com.example.dpop.orchestrator.journey.ManageState
-import com.example.dpop.orchestrator.journey.StepUpState
+import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels
@@ -56,7 +55,7 @@ class ChannelService(
             throw OrchestratorException.invalidState("$entryIntent kann keinen Kanal eroeffnen")
         }
 
-        val linkedAccountId = if (entryIntent == AuthIntent.FAST) {
+        val linkedAccountId = if (entryIntent == AuthIntent.FAST_ACCESS) {
             sessionManagementService.findLinkedAccountId(bindingKeyRef)
         } else {
             null
@@ -110,10 +109,11 @@ class ChannelService(
         val account = refreshed.accountId?.let { accountService.findAccount(it) }
         if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) return respond(refreshed)
 
-        val step = journeyService.start(
+        val step = journeyService.startTowardAcr(
             refreshed,
             AuthIntent.STEP_UP,
-            seed = StepUpState.Start(floor, startingAcr = authPolicy.resolveAcr(currentEvidence(refreshed), account))
+            targetAcr = floor,
+            startingAcr = authPolicy.resolveAcr(currentEvidence(refreshed), account)
         )
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
@@ -151,7 +151,7 @@ class ChannelService(
      * replaced by it.
      */
     fun startManageMethods(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse =
-        startManage(channelSessionId, bindingKeyRef, ManageState.AddRequested)
+        startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.AddRequested)
 
     /**
      * Deactivate an active method instance. Addressed by [methodInstanceId], never by method name
@@ -160,25 +160,25 @@ class ChannelService(
      * device's own instances - a lost or stolen device must be removable from any session.
      */
     fun deactivateMethod(channelSessionId: UUID, bindingKeyRef: String, methodInstanceId: String): ChannelResponse =
-        startManage(channelSessionId, bindingKeyRef, ManageState.RemoveRequested(methodInstanceId))
+        startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.RemoveRequested(methodInstanceId))
 
-    private fun startManage(channelSessionId: UUID, bindingKeyRef: String, wish: ManageState): ChannelResponse {
+    private fun startManage(channelSessionId: UUID, bindingKeyRef: String, wish: ManageAuthMethodsState): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         if (channel.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to manage methods")
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
-        val step = journeyService.start(channel, AuthIntent.MANAGE, seed = wish)
+        val step = journeyService.start(channel, AuthIntent.MANAGE_AUTH_METHODS, seed = wish)
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
-    /** The user's answer to the optional device-binding offer of a lookup login. */
-    fun answerDeviceBinding(channelSessionId: UUID, bindingKeyRef: String, accept: Boolean): ChannelResponse {
+    /** The user's answer to whatever the current step is waiting on instead of a tool run. */
+    fun answer(channelSessionId: UUID, bindingKeyRef: String, answer: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val active = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState("No active journey for this channel")
-        val step = journeyService.answerBinding(active, channel, accept)
+        val step = journeyService.answer(active, channel, answer)
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 

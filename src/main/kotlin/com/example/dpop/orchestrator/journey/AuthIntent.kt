@@ -11,30 +11,30 @@ package com.example.dpop.orchestrator.journey
  */
 enum class AuthIntent {
     /** Into a login on this device as fast as possible - and in a way that works again next time. */
-    FAST,
+    FAST_ACCESS,
 
     /** Deliberately fresh identification, even on an already linked device. */
     REGISTER,
 
     /** Log into an existing account without a paired device (classic web login). */
-    LOGIN_LOOKUP,
+    LOOKUP_LOGIN,
 
     /** Raise the level. Only on an AUTHENTICATED channel. */
     STEP_UP,
 
     /** Add or remove authentication methods. Only on an AUTHENTICATED channel. */
-    MANAGE;
+    MANAGE_AUTH_METHODS;
 
-    /** The three intents a client may name when entering a channel; STEP_UP/MANAGE are reached from an authenticated one. */
+    /** The three intents a client may name when entering a channel; STEP_UP/MANAGE_AUTH_METHODS are reached from an authenticated one. */
     val isEntryIntent: Boolean
-        get() = this == FAST || this == REGISTER || this == LOGIN_LOOKUP
+        get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN
 
     companion object {
         /** `null` means the default. Unknown values are rejected by the caller, never silently mapped. */
         fun fromRequest(value: String?): AuthIntent? = when (value?.lowercase()) {
-            null, "auto", "fast" -> FAST
+            null, "auto", "fast" -> FAST_ACCESS
             "register" -> REGISTER
-            "login" -> LOGIN_LOOKUP
+            "login" -> LOOKUP_LOGIN
             else -> null
         }
     }

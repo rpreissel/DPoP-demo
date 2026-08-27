@@ -94,7 +94,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
 
             // MANAGE itself always demands loa2 session evidence first (unrelated to Required
-            // Actions - ManageStrategy.REQUIRED_ACR); this session only proved sms
+            // Actions - ManageAuthMethodsStrategy.REQUIRED_ACR); this session only proved sms
             // (loa1), so it forces a step-up via re-identification first.
             val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
             assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))

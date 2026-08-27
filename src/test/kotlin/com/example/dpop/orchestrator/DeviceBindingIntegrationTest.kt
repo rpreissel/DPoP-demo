@@ -230,7 +230,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa1")
 
             // MANAGE with enroll-device as the goal must still force the loa2 step-up gate
-            // first (ManageStrategy.REQUIRED_ACR) - the session's own loa1 evidence is
+            // first (ManageAuthMethodsStrategy.REQUIRED_ACR) - the session's own loa1 evidence is
             // not enough to add a loa2-capable credential on its own authority.
             val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
             assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")

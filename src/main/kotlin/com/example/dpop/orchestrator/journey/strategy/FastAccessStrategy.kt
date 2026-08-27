@@ -1,6 +1,15 @@
-package com.example.dpop.orchestrator.journey
+package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.journey.CandidateTools
+import com.example.dpop.orchestrator.journey.Decision
+import com.example.dpop.orchestrator.journey.state.FastAccessState
+import com.example.dpop.orchestrator.journey.IntentStrategy
+import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.JourneyContext
+import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
@@ -11,9 +20,9 @@ import org.springframework.stereotype.Component
  * (docs/04-orchestrierung.md #3).
  *
  * A successful proof moves every state on alike; what separates them is what DECLINING does.
- * States 1-3 ([FastState.PreferredAuth], [FastState.AuthChoice], [FastState.Identifying]) form a
+ * States 1-3 ([FastAccessState.PreferredAuth], [FastAccessState.AuthChoice], [FastAccessState.Identifying]) form a
  * FALLBACK chain: declining moves to the next, more laborious way in, and once nothing is left
- * the journey ends. States 4-5 ([FastState.ConfirmingEmail], [FastState.Enrolling]) are
+ * the journey ends. States 4-5 ([FastAccessState.ConfirmingEmail], [FastAccessState.Enrolling]) are
  * MANDATORY: declining re-offers the same full choice, so only fulfilling moves on.
  *
  * Registration is not a separate intent, it is the third state of this one. Whether identifying
@@ -21,13 +30,13 @@ import org.springframework.stereotype.Component
  * observation about the path taken, never a goal chosen up front.
  */
 @Component
-open class FastStrategy : IntentStrategy<FastState> {
+open class FastAccessStrategy : IntentStrategy<FastAccessState> {
 
-    override val intent: AuthIntent = AuthIntent.FAST
+    override val intent: AuthIntent = AuthIntent.FAST_ACCESS
 
-    override fun initial(ctx: JourneyContext): FastState = FastState.Start
+    override fun initialState(ctx: JourneyContext): FastAccessState = FastAccessState.Start
 
-    override fun interpret(state: FastState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: FastAccessState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
         when (outcome) {
             // The account may be brand new or an existing one found again by KVNR; both are the
             // same decision here, which is why registration needs no state of its own.
@@ -41,15 +50,15 @@ open class FastStrategy : IntentStrategy<FastState> {
                 Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = true)
         }
 
-    override fun next(state: FastState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun next(state: FastAccessState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is FastState.Start -> firstOffer(ctx)
-            is FastState.PreferredAuth -> when (event) {
+            is FastAccessState.Start -> firstOffer(ctx)
+            is FastAccessState.PreferredAuth -> when (event) {
                 is JourneyEvent.Abandoned -> afterAuthDeclined(ctx, alreadyDeclined = setOf(state.toolId))
                 else -> afterProof(ctx)
             }
 
-            is FastState.AuthChoice -> when (event) {
+            is FastAccessState.AuthChoice -> when (event) {
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     val remaining = state.copy(declined = declined, active = null)
@@ -58,7 +67,7 @@ open class FastStrategy : IntentStrategy<FastState> {
                 else -> afterProof(ctx)
             }
 
-            is FastState.Identifying -> when (event) {
+            is FastAccessState.Identifying -> when (event) {
                 is JourneyEvent.Abandoned -> giveUpOrReoffer(state, event)
                 // Deliberately never checks isSatisfied: identification evidence alone (amr=fsc)
                 // trivially clears most floors, which would let a run finish without a single
@@ -66,20 +75,20 @@ open class FastStrategy : IntentStrategy<FastState> {
                 else -> afterIdentification(ctx)
             }
 
-            is FastState.ConfirmingEmail -> when (event) {
+            is FastAccessState.ConfirmingEmail -> when (event) {
                 is JourneyEvent.Abandoned -> reoffer(state)
                 // The obligation is discharged by getting here successfully, so the re-check
                 // below can only ever send the run on to enrollment or to the end.
                 else -> afterEnrollment(ctx, emailObligation = false)
             }
 
-            is FastState.Enrolling -> when (event) {
+            is FastAccessState.Enrolling -> when (event) {
                 is JourneyEvent.Abandoned -> reoffer(state)
                 else -> afterEnrollment(ctx, state.emailObligation)
             }
         }
 
-    override fun onCancel(state: FastState): ChannelState = ChannelState.ANONYMOUS
+    override fun onCancel(state: FastAccessState): ChannelState = ChannelState.ANONYMOUS
 
     // Offers -------------------------------------------------------------------
 
@@ -90,9 +99,9 @@ open class FastStrategy : IntentStrategy<FastState> {
     protected open fun firstOffer(ctx: JourneyContext): Decision {
         val account = ctx.account
         if (account != null) {
-            CandidateTools.preferredDeviceAuth(account, ctx)?.let { return Decision.Advance(FastState.PreferredAuth(it)) }
+            CandidateTools.preferredDeviceAuth(account, ctx)?.let { return Decision.Advance(FastAccessState.PreferredAuth(it)) }
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
-            if (candidates.isNotEmpty()) return Decision.Advance(FastState.AuthChoice(candidates))
+            if (candidates.isNotEmpty()) return Decision.Advance(FastAccessState.AuthChoice(candidates))
         }
         return offerIdentification(ctx)
     }
@@ -103,7 +112,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         if (account != null) {
             val remaining = CandidateTools.forAuth(account, ctx.acrFloor, ctx) - alreadyDeclined
             if (remaining.isNotEmpty()) {
-                return Decision.Advance(FastState.AuthChoice(remaining, declined = emptySet()))
+                return Decision.Advance(FastAccessState.AuthChoice(remaining, declined = emptySet()))
             }
         }
         return offerIdentification(ctx)
@@ -114,7 +123,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         return if (idents.isEmpty()) {
             Decision.Abort("Kein Identifizierungsverfahren verfuegbar")
         } else {
-            Decision.Advance(FastState.Identifying(idents))
+            Decision.Advance(FastAccessState.Identifying(idents))
         }
     }
 
@@ -124,7 +133,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) return Decision.Finish
 
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
-        if (candidates.isNotEmpty()) return Decision.Advance(FastState.AuthChoice(candidates))
+        if (candidates.isNotEmpty()) return Decision.Advance(FastAccessState.AuthChoice(candidates))
         // No email obligation on this path: an existing account that merely logs in is never
         // retroactively blocked on a missing confirmed email (docs/04-orchestrierung.md #8).
         return offerEnrollment(account, ctx, emailObligation = false)
@@ -136,7 +145,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         // existing method to prove beats an enrollment list that would come back empty.
         if (ctx.policy.canAccountReach(account, ctx.acrFloor)) {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
-            if (candidates.isNotEmpty()) return Decision.Advance(FastState.AuthChoice(candidates))
+            if (candidates.isNotEmpty()) return Decision.Advance(FastAccessState.AuthChoice(candidates))
         }
         return offerEnrollment(account, ctx, emailObligation = true)
     }
@@ -154,7 +163,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         }
         if (emailObligation && !account.emailConfirmed) {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
-                ?.let { return Decision.Advance(FastState.ConfirmingEmail(it)) }
+                ?.let { return Decision.Advance(FastAccessState.ConfirmingEmail(it)) }
         }
         return Decision.Finish
     }
@@ -164,7 +173,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         return if (candidates.isEmpty()) {
             Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
         } else {
-            Decision.Advance(FastState.Enrolling(candidates, emailObligation = emailObligation))
+            Decision.Advance(FastAccessState.Enrolling(candidates, emailObligation = emailObligation))
         }
     }
 
@@ -175,7 +184,7 @@ open class FastStrategy : IntentStrategy<FastState> {
         return if (remaining.isEmpty()) {
             Decision.Cancel
         } else {
-            Decision.Advance(FastState.Identifying(state.offered, declined))
+            Decision.Advance(FastAccessState.Identifying(state.offered, declined))
         }
     }
 
@@ -184,5 +193,5 @@ open class FastStrategy : IntentStrategy<FastState> {
      * stands either way. So the FULL choice comes back, including the tool just abandoned: the
      * user is picking differently, not giving up. Only fallback states accumulate `declined`.
      */
-    private fun reoffer(state: FastState): Decision = Decision.Advance(state.withActive(null))
+    private fun reoffer(state: FastAccessState): Decision = Decision.Advance(state.withActive(null))
 }

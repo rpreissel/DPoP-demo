@@ -54,7 +54,7 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
 Drei Session-Ebenen mit fallender Lebensdauer:
 
 - **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web), nie direkt fachlicher Challenge-State.
-- **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird (`FAST`, `REGISTER`, `LOGIN_LOOKUP`, `STEP_UP`, `MANAGE`).
+- **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird (`FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS`).
 - **AuthJourney**: ein laufender Durchlauf eines Intents; läuft über ein oder mehrere Tools.
 - **JourneyState**: die Position auf diesem Weg samt ihrer Attribute (was angeboten wurde, was abgelehnt ist, welches Tool läuft); je Intent eine eigene versiegelte Zustandsmenge.
 - **ToolSession**: ein einzelner Tool-Durchlauf innerhalb einer Journey (z. B. die TAN-Eingabe bei `auth-sms`); trägt nur Lifecycle-Metadaten, die Fachdaten liegen im Modul.

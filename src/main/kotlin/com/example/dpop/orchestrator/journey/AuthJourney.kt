@@ -24,7 +24,7 @@ import java.util.UUID
  * [IntentStrategy] bean per intent instead.
  *
  * Deliberately absent: any `next*` routing column. `next` is derived from [state]
- * ([JourneyMachine.nextFor]) - storing it as well would be a second copy of the same truth, free
+ * ([JourneyService.nextOf]) - storing it as well would be a second copy of the same truth, free
  * to drift.
  */
 @Entity

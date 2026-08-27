@@ -1,5 +1,13 @@
-package com.example.dpop.orchestrator.journey
+package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.journey.CandidateTools
+import com.example.dpop.orchestrator.journey.Decision
+import com.example.dpop.orchestrator.journey.IntentStrategy
+import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.JourneyContext
+import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
@@ -18,8 +26,11 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
 
     override val intent = AuthIntent.STEP_UP
 
-    /** Never entered without a target; [JourneyService] seeds the real one. */
-    override fun initial(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = "none")
+    /** Never entered without a target; only reachable as a sub-journey, which seeds the real one. */
+    override fun initialState(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = "none")
+
+    override fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): StepUpState =
+        StepUpState.Start(targetAcr, startingAcr)
 
     override fun interpret(state: StepUpState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
         when (outcome) {

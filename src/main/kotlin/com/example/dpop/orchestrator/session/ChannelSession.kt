@@ -62,7 +62,7 @@ class ChannelSession(
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "entry_intent", nullable = false, length = 20)
-    var entryIntent: AuthIntent = AuthIntent.FAST
+    var entryIntent: AuthIntent = AuthIntent.FAST_ACCESS
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null

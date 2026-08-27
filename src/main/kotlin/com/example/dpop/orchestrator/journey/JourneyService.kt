@@ -2,6 +2,9 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.journey.state.AnswerableState
+import com.example.dpop.orchestrator.journey.state.JourneyState
+import com.example.dpop.orchestrator.journey.state.ToolRef
 import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
@@ -56,7 +59,7 @@ class JourneyService(
     /**
      * Starts a journey and immediately produces its first offer. [seed] lets a caller name the
      * concrete wish the journey exists for (a step-up target, a method to remove) - without it
-     * the strategy's own [IntentStrategy.initial] applies.
+     * the strategy's own [IntentStrategy.initialState] applies.
      */
     fun start(
         channel: ChannelSession,
@@ -74,13 +77,21 @@ class JourneyService(
             sessionManagementService.updateChannelSession(channel)
         }
         val strategy = strategyFor(intent)
-        codec.write(journey, seed ?: strategy.initial(contextFor(journey, channel)))
+        codec.write(journey, seed ?: strategy.initialState(contextFor(journey, channel)))
         journeyRepository.save(journey)
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "JOURNEY_STARTED:$intent", "orchestrator"
         )
         return advance(journey, channel, JourneyEvent.Started)
     }
+
+    /**
+     * Starts [intent] seeded toward [targetAcr] - the same seed a sub-journey of this intent would
+     * get ([IntentStrategy.initialStateForSubJourneyAcr]), just entered directly (e.g. the App
+     * channel's own step-up trigger) instead of as another journey's precondition.
+     */
+    fun startTowardAcr(channel: ChannelSession, intent: AuthIntent, targetAcr: String, startingAcr: String): Step =
+        start(channel, intent, seed = strategyFor(intent).initialStateForSubJourneyAcr(targetAcr, startingAcr))
 
     /**
      * Starts (or restarts) whatever intent this channel was entered with. The intent lives on the
@@ -200,18 +211,17 @@ class JourneyService(
     }
 
     /**
-     * The answer to [LookupState.OfferBinding]. Agreeing is the ONLY way a lookup login ever
-     * produces a device link - it must never arise as a side effect of the login itself.
+     * An answer to whatever the current state is waiting on ([AnswerableState]) instead of a tool
+     * run. One generic entry point for every such action, present and future: which state
+     * implements [AnswerableState], which [answer] values are valid, and what its strategy's
+     * `next` decides for them can all change without this method ever changing.
      */
-    fun answerBinding(journey: AuthJourney, channel: ChannelSession, accept: Boolean): Step {
+    fun answer(journey: AuthJourney, channel: ChannelSession, answer: String): Step {
         val state = codec.read(journey)
-        if (state !is LookupState.OfferBinding) {
-            throw OrchestratorException.invalidState("No device binding is currently being offered")
+        if (state !is AnswerableState) {
+            throw OrchestratorException.invalidState("Nothing is currently waiting for an answer")
         }
-        if (accept) {
-            sessionManagementService.linkDeviceToAccount(channel.bindingKeyRef!!, state.accountId)
-        }
-        return advance(journey, channel, JourneyEvent.SubJourneyFinished(null))
+        return advance(journey, channel, JourneyEvent.Answered(answer))
     }
 
     // Decisions ----------------------------------------------------------------
@@ -243,6 +253,14 @@ class JourneyService(
 
             is Decision.Finish -> finish(journey, channel)
 
+            is Decision.FinishWithDeviceLink -> {
+                sessionManagementService.linkDeviceToAccount(
+                    checkNotNull(channel.bindingKeyRef) { "FinishWithDeviceLink without a bindingKeyRef" },
+                    decision.accountId
+                )
+                finish(journey, channel)
+            }
+
             is Decision.Remove -> {
                 removeMethod(journey, channel, decision.methodInstanceId)
                 finish(journey, channel)
@@ -263,12 +281,8 @@ class JourneyService(
         }
     }
 
-    private fun seedFor(decision: Decision.RequireSubJourney, channel: ChannelSession): JourneyState? =
-        if (decision.intent == AuthIntent.STEP_UP) {
-            StepUpState.Start(decision.targetAcr, startingAcr = currentAcrOf(channel))
-        } else {
-            null
-        }
+    private fun seedFor(decision: Decision.RequireSubJourney, channel: ChannelSession): JourneyState =
+        strategyFor(decision.intent).initialStateForSubJourneyAcr(decision.targetAcr, currentAcrOf(channel))
 
     private fun finish(journey: AuthJourney, channel: ChannelSession): Step {
         journey.consume()
@@ -451,7 +465,7 @@ class JourneyService(
         channel.state = target
         if (target != ChannelState.AUTHENTICATED) {
             channel.authContextId = null
-            channel.accountId = if (channel.entryIntent == AuthIntent.FAST) {
+            channel.accountId = if (channel.entryIntent == AuthIntent.FAST_ACCESS) {
                 sessionManagementService.findLinkedAccountId(channel.bindingKeyRef!!)
             } else {
                 null

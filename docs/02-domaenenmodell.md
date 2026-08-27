@@ -105,7 +105,7 @@ stateDiagram-v2
 
 - `Channel`: `APP`, `WEB`
 - `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`, `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
-- `AuthIntent`: `FAST`, `REGISTER`, `LOGIN_LOOKUP`, `STEP_UP`, `MANAGE` — Ziel *samt* Führungsstrategie ([Orchestrierung](04-orchestrierung.md) Abschnitt 1)
+- `AuthIntent`: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS` — Ziel *samt* Führungsstrategie ([Orchestrierung](04-orchestrierung.md) Abschnitt 1)
 - `JourneyLifecycle`: `STARTED`, `SUSPENDED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`
 - `ToolCategory`: `IDENT`, `ENROLL`, `AUTH` — Selbstauskunft des Moduls ([Tool-Architektur](03-tool-architektur.md))
 - `FactorType`: `KNOWLEDGE`, `POSSESSION`, `INHERENCE` — ebenfalls Selbstauskunft, Grundlage der MFA-Prüfung ([Orchestrierung](04-orchestrierung.md))

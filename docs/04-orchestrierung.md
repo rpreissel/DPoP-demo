@@ -80,8 +80,8 @@ Zustand „Nutzer wählt unter mehreren Auth-Tools" trägt, *welche* angeboten w
 *welche* er bereits verworfen hat. Der Zustand „ein Tool läuft gerade" trägt, *welche*
 `ToolSession` dafür autorisiert ist.
 
-Jeder Intent hat seine eigene, versiegelte Zustandsmenge — die Zustände von `MANAGE` ergeben für
-`LOGIN_LOOKUP` keinen Sinn und sind dort nicht formulierbar. Ein vergessener Zustand ist damit
+Jeder Intent hat seine eigene, versiegelte Zustandsmenge — die Zustände von `MANAGE_AUTH_METHODS` ergeben für
+`LOOKUP_LOGIN` keinen Sinn und sind dort nicht formulierbar. Ein vergessener Zustand ist damit
 ein Compile-Fehler, kein plausibel aussehender Laufzeit-Default.
 
 Der `JourneyState` ist außerdem die einzige Quelle für zwei Fragen, die sonst leicht auseinander
@@ -95,11 +95,11 @@ unterscheiden sich darin, was **Ablehnen** bewirkt:
 
 - In einem **Fallback-Zustand** führt Ablehnen weiter — zum nächsten, aufwendigeren Weg. Mehrere
   davon hintereinander bilden eine **Fallback-Kette**, geordnet vom bequemsten zum aufwendigsten
-  Weg; so ist `FAST` gebaut. Ist nichts Aufwendigeres mehr da, endet die Journey.
+  Weg; so ist `FAST_ACCESS` gebaut. Ist nichts Aufwendigeres mehr da, endet die Journey.
 - In einem **Pflichtzustand** führt Ablehnen nirgendwohin. Die Pflicht bleibt bestehen, das
   volle Angebot kommt zurück — auch das gerade verworfene Tool. Nur Erfüllen bringt weiter.
 
-Beide kommen in derselben Zustandsmenge vor (etwa in `FAST`), und welche Sorte ein Zustand ist,
+Beide kommen in derselben Zustandsmenge vor (etwa in `FAST_ACCESS`), und welche Sorte ein Zustand ist,
 gehört sichtbar in den Code, nicht in einen Kommentar.
 
 ### Tool
@@ -129,13 +129,13 @@ flowchart LR
 
 | `AuthIntent` | Ziel | Einstieg |
 |---|---|---|
-| `FAST` | So schnell wie möglich in einen Login auf diesem Gerät — und so, dass es künftig wieder klappt | `POST /channels` (Default) |
+| `FAST_ACCESS` | So schnell wie möglich in einen Login auf diesem Gerät — und so, dass es künftig wieder klappt | `POST /channels` (Default) |
 | `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /channels` mit `intent=register` |
-| `LOGIN_LOOKUP` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=login` |
+| `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=login` |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
-| `MANAGE` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
+| `MANAGE_AUTH_METHODS` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
 
-Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST`: das Ende der
+Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST_ACCESS`: das Ende der
 Fallback-Kette, wenn keine vorhandene Methode mehr greift. Ob dabei ein Account entsteht oder
 ein bestehender wiedergefunden wird, entscheidet `findOrCreateAccount` im Nachhinein.
 
@@ -160,7 +160,7 @@ Terminale Zustände (`Finished`) sind eingezeichnet, existieren aber bewusst **n
 persistierter Zustand: Das Ende einer Journey ist die Entscheidung `Decision.Finish`, die sie
 abschließt. Ein zusätzlicher Endzustand wäre eine zweite Darstellung derselben Tatsache.
 
-### `FAST`
+### `FAST_ACCESS`
 
 Erst die Fallback-Kette vom bequemsten zum aufwendigsten Weg, danach die Pflichtzustände, die
 dafür sorgen, dass der nächste Login wieder klappt.
@@ -200,18 +200,18 @@ stateDiagram-v2
 ```
 
 ```kotlin
-sealed interface FastState : JourneyState {
-    data object Start : FastState
+sealed interface FastAccessState : JourneyState {
+    data object Start : FastAccessState
     /** Verknüpftes Gerät mit passender Device-Methode: genau ein Default-Vorschlag. */
-    data class PreferredAuth(val toolId: String, val active: ToolRef?) : FastState
+    data class PreferredAuth(val toolId: String, val active: ToolRef?) : FastAccessState
     /** Auth-Tools für die weiteren Methoden des Kontos. */
-    data class AuthChoice(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
+    data class AuthChoice(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastAccessState
     /** Letzter Fallback-Zustand: Identifizierung - hier für Login *und* Registrierung. */
-    data class Identifying(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
-    data class ConfirmingEmail(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastState
+    data class Identifying(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastAccessState
+    data class ConfirmingEmail(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : FastAccessState
     /** emailObligation merkt sich, dass dieser Lauf über Identifying kam - s. Abschnitt 8. */
     data class Enrolling(val offered: List<String>, val declined: Set<String>,
-                         val active: ToolRef?, val emailObligation: Boolean) : FastState
+                         val active: ToolRef?, val emailObligation: Boolean) : FastAccessState
 }
 ```
 
@@ -228,9 +228,9 @@ zurück, das gerade verworfene Tool eingeschlossen.
 
 ### `REGISTER`
 
-Dieselben Zustände wie `FAST` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
+Dieselben Zustände wie `FAST_ACCESS` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
 `DeviceAccountLink`-Lookup. Weil es wörtlich dieselben sind, teilt sich `REGISTER` auch
-die Zustandsmenge `FastState`; die Strategie überschreibt genau eine Funktion — wo die
+die Zustandsmenge `FastAccessState`; die Strategie überschreibt genau eine Funktion — wo die
 Fallback-Kette einsetzt.
 
 ```mermaid
@@ -244,7 +244,7 @@ stateDiagram-v2
   Finished --> [*]
 ```
 
-### `LOGIN_LOOKUP`
+### `LOOKUP_LOGIN`
 
 Anmelden ohne gepaartes Gerät: Der Nutzer nennt einen Identifikator (E-Mail) und weist ein
 seiner Methoden nach. Angeboten wird der abgeleitete Satz aller `MethodRole.LOOKUP_AUTH`-Tools — nicht
@@ -269,11 +269,12 @@ stateDiagram-v2
 ```
 
 ```kotlin
-sealed interface LookupState : JourneyState {
-    data object Start : LookupState
-    data class Credential(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : LookupState
-    /** Ausdrücklich und optional: „Dieses Gerät für künftige Logins wiedererkennen?" */
-    data class OfferBinding(val accountId: Long) : LookupState
+sealed interface LookupLoginState : JourneyState {
+    data object Start : LookupLoginState
+    data class Credential(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : LookupLoginState
+    /** Ausdrücklich und optional: „Dieses Gerät für künftige Logins wiedererkennen?" - AnswerableState
+     *  macht das ohne Import dieses konkreten Zustands fuer JourneyService erkennbar. */
+    data class OfferBinding(val accountId: Long) : LookupLoginState, AnswerableState
 }
 ```
 
@@ -326,7 +327,7 @@ eingerichtete Methoden an.
 Die neu festgestellte Person muss zum angemeldeten Account passen (`409` bei Abweichung), sonst
 könnte eine `loa1`-Session eine fremde Identität einschleusen.
 
-### `MANAGE`
+### `MANAGE_AUTH_METHODS`
 
 ```mermaid
 stateDiagram-v2
@@ -350,15 +351,15 @@ stateDiagram-v2
 ```
 
 ```kotlin
-sealed interface ManageState : JourneyState {
+sealed interface ManageAuthMethodsState : JourneyState {
     /** Der Wunsch, bevor die loa2-Vorbedingung geprüft ist - und der Parkzustand während des Step-ups. */
-    data object AddRequested : ManageState
-    data class RemoveRequested(val methodInstanceId: String) : ManageState
-    data class Enrolling(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : ManageState
+    data object AddRequested : ManageAuthMethodsState
+    data class RemoveRequested(val methodInstanceId: String) : ManageAuthMethodsState
+    data class Enrolling(val offered: List<String>, val declined: Set<String>, val active: ToolRef?) : ManageAuthMethodsState
 }
 ```
 
-`MANAGE` ist der einzige Intent ohne Policy-Ziel: **ein** erfolgreiches Enrollment beendet ihn,
+`MANAGE_AUTH_METHODS` ist der einzige Intent ohne Policy-Ziel: **ein** erfolgreiches Enrollment beendet ihn,
 unabhängig vom erreichten Niveau — der Kanal war ja bereits `AUTHENTICATED`. Um ein zweites
 Methode hinzuzufügen, startet man eine neue Journey.
 
@@ -443,7 +444,11 @@ selbst.
 ```kotlin
 interface IntentStrategy<S : JourneyState> {
     val intent: AuthIntent
-    fun initial(ctx: JourneyContext): S
+    fun initialState(ctx: JourneyContext): S
+
+    /** Einstieg als Sub-Journey (Decision.RequireSubJourney) statt direkt - braucht das Zielniveau,
+     *  das eine direkt gestartete Journey stattdessen aus JourneyContext bekäme. Default wirft. */
+    fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): S = error("...")
 
     /** Bedeutung eines abgeschlossenen Tools - ein reiner Wert, keine Ausführung. */
     fun interpret(state: S, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation
@@ -460,6 +465,9 @@ sealed interface JourneyEvent {
     data class Completed(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed) : JourneyEvent
     data class Abandoned(val tool: ToolDescriptor) : JourneyEvent
     data class SubJourneyFinished(val achievedAcr: String?) : JourneyEvent
+    /** Ja/Nein (oder mehr) auf das, was ein AnswerableState erwartet, statt eines Tool-Laufs -
+     *  answer ist ein String, nicht Boolean: eine kuenftige Aktion kann mehr als zwei Antworten haben. */
+    data class Answered(val answer: String) : JourneyEvent
 }
 
 sealed interface Decision {
@@ -468,8 +476,10 @@ sealed interface Decision {
     data object Finish : Decision
     /** Der Nutzer gibt auf - endet wie ein ausdrückliches Abbrechen, nicht als Fehler. */
     data object Cancel : Decision
-    /** Der einzige Effekt einer Strategie, der kein Tool-Lauf ist: Methode deaktivieren. */
+    /** Effekt einer Strategie, der kein Tool-Lauf ist: Methode deaktivieren. */
     data class Remove(val methodInstanceId: String) : Decision
+    /** Effekt einer Strategie, der kein Tool-Lauf ist: Geraet verknuepfen, dann beenden. */
+    data class FinishWithDeviceLink(val accountId: Long) : Decision
     /** Es geht gar nicht weiter (410) - nie bloß „keine Kandidaten mehr". */
     data class Abort(val reason: String) : Decision
 }
@@ -500,18 +510,18 @@ Tool tritt einem Angebot bei, indem es seine Rolle deklariert.
 
 ```kotlin
 sealed interface Interpretation {
-    /** FAST/REGISTER: findOrCreateAccount + dauerhafte Identifikations-Historie. */
+    /** FAST_ACCESS/REGISTER: findOrCreateAccount + dauerhafte Identifikations-Historie. */
     data object AdoptIdentity : Interpretation
-    /** STEP_UP/MANAGE: muss zum bereits bekannten Account passen, sonst 409. */
+    /** STEP_UP/MANAGE_AUTH_METHODS: muss zum bereits bekannten Account passen, sonst 409. */
     data object ConfirmIdentity : Interpretation
     data class AdoptCredential(val bindDevice: Boolean) : Interpretation
-    /** useOutcomeAccount: nur LOGIN_LOOKUP traut einem Tool zu, den Account selbst aufzulösen. */
+    /** useOutcomeAccount: nur LOOKUP_LOGIN traut einem Tool zu, den Account selbst aufzulösen. */
     data class AcceptProof(val useOutcomeAccount: Boolean, val bindDevice: Boolean) : Interpretation
 }
 ```
 
-Damit steht die zentrale Asymmetrie im Typsystem: Derselbe `ident-fsc`-Abschluss heißt in `FAST`
-„Account finden oder anlegen" und in `STEP_UP`/`MANAGE` „bestätige den bekannten Account, sonst
+Damit steht die zentrale Asymmetrie im Typsystem: Derselbe `ident-fsc`-Abschluss heißt in `FAST_ACCESS`
+„Account finden oder anlegen" und in `STEP_UP`/`MANAGE_AUTH_METHODS` „bestätige den bekannten Account, sonst
 `409`".
 
 Enthalten ist nur, was sich je Intent tatsächlich **unterscheidet**. Alles Mechanische —
@@ -519,7 +529,7 @@ Enthalten ist nur, was sich je Intent tatsächlich **unterscheidet**. Alles Mech
 es hier zu doppeln hieße nur, es zweimal pflegen zu müssen.
 
 `bindDevice` macht die Gerätewiedererkennung zu einer sichtbaren Entscheidung je Intent:
-`FAST`/`REGISTER` setzen `true`, `LOGIN_LOOKUP` setzt `false` bis zur Zustimmung im
+`FAST_ACCESS`/`REGISTER` setzen `true`, `LOOKUP_LOGIN` setzt `false` bis zur Zustimmung im
 `OfferBinding`-Zustand.
 
 Zentral und für Strategien nicht erreichbar bleiben: Nachweis in den `AuthContext` übernehmen,

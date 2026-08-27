@@ -1,5 +1,8 @@
-package com.example.dpop.orchestrator.journey
+package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.journey.Decision
+import com.example.dpop.orchestrator.journey.JourneyContext
 import org.springframework.stereotype.Component
 
 /**
@@ -10,13 +13,13 @@ import org.springframework.stereotype.Component
  * to identify myself anew here" is a different goal from "get me in", which is why it is its own
  * intent rather than a boolean on FAST.
  *
- * Its states ARE FAST's states from the identification one on, so it shares [FastState] instead of
+ * Its states ARE FAST's states from the identification one on, so it shares [FastAccessState] instead of
  * duplicating it. The only thing it changes is where the fallback chain starts: [firstOffer] skips the first two states
  * and 2, which is precisely what this intent means. Everything after identification - the email
  * obligation, the enrolment state, the finish condition - is FAST's behaviour unchanged.
  */
 @Component
-class RegisterStrategy : FastStrategy() {
+class RegisterStrategy : FastAccessStrategy() {
 
     override val intent: AuthIntent = AuthIntent.REGISTER
 

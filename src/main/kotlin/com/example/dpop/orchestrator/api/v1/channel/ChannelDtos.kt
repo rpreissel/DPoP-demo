@@ -20,10 +20,14 @@ data class ChannelCreateRequest(
     val intent: String? = null
 )
 
-@Schema(description = "Answer to the device-binding offer of a lookup login (docs/04-orchestrierung.md #3).")
-data class DeviceBindingRequest(
-    @field:Schema(description = "true remembers this device for future logins, false leaves it unlinked.")
-    val accept: Boolean
+@Schema(
+    description = "An answer to whatever the current step is waiting on instead of a tool run " +
+        "(docs/04-orchestrierung.md #3) - e.g. \"accept\"/\"decline\" for the optional device-binding offer of a " +
+        "lookup login. Which values are valid depends on what next.step is currently offering."
+)
+data class AnswerRequest(
+    @field:Schema(example = "accept")
+    val answer: String
 )
 
 @Schema(description = "Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md #9).")

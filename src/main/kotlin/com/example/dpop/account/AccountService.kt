@@ -72,7 +72,7 @@ class AccountService(private val accountRepository: AccountRepository) : Account
     }
 
     /**
-     * Called only for an account-initiated deactivation (AuthIntent.MANAGE) - the caller must
+     * Called only for an account-initiated deactivation (AuthIntent.MANAGE_AUTH_METHODS) - the caller must
      * already have verified this won't drop the account below its channel's required floor.
      * Addressed by the entry's own [methodInstanceId], never by method name: several active
      * entries can share the same method name (multiple devices), so name alone can't tell them
