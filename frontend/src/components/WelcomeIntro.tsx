@@ -11,8 +11,14 @@ export function WelcomeIntro() {
       <p>
         Jede Anfrage in dieser Demo ist kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) - das
         schützt vor gestohlenen Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen. Ihre
-        Identität selbst weisen Sie klassisch nach: per SMS, E-Mail, Passwort oder einem geräteeigenen
-        Schlüssel, einzeln oder kombiniert für ein höheres Sicherheitsniveau (Step-up).
+        Identität selbst weisen Sie klassisch nach: durch Identifikation (Freischaltcode) oder
+        Authentifizierung per SMS, E-Mail, Passwort oder einem geräteeigenen Schlüssel - einzeln oder
+        kombiniert für ein höheres Sicherheitsniveau (Step-up).
+      </p>
+      <p>
+        Welche Verfahren dabei zur Wahl stehen und in welcher Reihenfolge, entscheidet nicht diese
+        Oberfläche, sondern das Backend anhand des jeweiligen Vorgangs (Registrierung, Login, Step-up,
+        Verwaltung) - jeder dieser Vorgänge läuft als eigene, serverseitig gesteuerte Journey.
       </p>
       <p className="welcome-cta">👇 Wählen Sie unten, wie Sie starten möchten - es passiert nichts automatisch.</p>
     </div>
