@@ -6,6 +6,7 @@ plugins {
     kotlin("plugin.jpa") version "2.2.21"
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.dependency.management)
+    alias(libs.plugins.kover)
 }
 
 group = "com.example"
