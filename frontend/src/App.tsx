@@ -438,7 +438,7 @@ function App() {
             >
               {showAdmin ? '← Zurück zur App' : '⚙️ Admin'}
             </button>
-            <h1>DPoP Journey</h1>
+            <h1>Identity Journey</h1>
             <p>
               Identifikation, Authentifizierung und Step-up zum Ausprobieren - mehrere Verfahren, deren
               Ablauf das Backend als Journey steuert (DPoP-gesichert).

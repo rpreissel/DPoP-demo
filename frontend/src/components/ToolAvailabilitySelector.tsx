@@ -21,7 +21,11 @@ export function ToolAvailabilitySelector({ availableTools, onChange }: ToolAvail
   return (
     <details className="tool-availability-selector">
       <summary>Verfügbare Tools auf diesem Client ({availableTools.length}/{knownToolIds.length})</summary>
-      <p>Abgewählte Tools werden dieser Journey nie angeboten - simuliert eine ältere Client-Version oder eine lokale Nutzer-Einstellung.</p>
+      <p>
+        Abgewählte Tools werden dieser Journey nie angeboten - simuliert eine ältere Client-Version oder eine
+        lokale Nutzer-Einstellung. Unabhängig davon kann das Backend Tools zusätzlich global sperren (siehe
+        "⚙️ Admin" oben) - beide Sperren wirken zusammen, keine hebt die andere auf.
+      </p>
       <div className="tool-availability-list">
         {knownToolIds.map((toolId) => (
           <label key={toolId} className="field-row">

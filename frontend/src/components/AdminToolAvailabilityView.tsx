@@ -43,7 +43,11 @@ export function AdminToolAvailabilityView() {
   return (
     <div className="card">
       <h2>Admin: Tool-Verfügbarkeit</h2>
-      <p>Globaler Kill-Switch pro Tool - wirkt sofort auf jede laufende Journey, kein Neustart nötig.</p>
+      <p>
+        Globaler Kill-Switch pro Tool - wirkt sofort auf jede laufende Journey, kein Neustart nötig. Das ist
+        unabhängig davon, welche Tools ein einzelner Client bei Kanal-Erzeugung selbst als verfügbar erklärt
+        (die Checkliste "Erweiterte Optionen" auf dem Start-Bildschirm) - beide Sperren wirken zusammen.
+      </p>
       {error && <p className="error-card">{error}</p>}
       {entries === null ? (
         <p>Lädt…</p>
