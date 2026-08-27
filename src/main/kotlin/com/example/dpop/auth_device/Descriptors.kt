@@ -1,13 +1,12 @@
 package com.example.dpop.auth_device
 
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodFamily
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-device/auth-device - the one place "device" is spelled out. */
-internal val DEVICE_METHOD = MethodFamily("device")
+internal const val DEVICE_METHOD = "device"
 
 /**
  * Self-description for every auth_device tool (docs/03-tool-architektur.md #1), one bean per
@@ -20,7 +19,7 @@ internal val DEVICE_METHOD = MethodFamily("device")
 object AuthDeviceDescriptor : ToolDescriptor {
     override val toolId = "auth-device"
     override val role = MethodRole.DEVICE_AUTH
-    override val methodFamily = DEVICE_METHOD
+    override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = "loa2"
     // Declared independently per tool variant, same as maxAcr/factorTypes - not a fact that must
@@ -42,7 +41,7 @@ object AuthDeviceDescriptor : ToolDescriptor {
 object EnrollDeviceDescriptor : ToolDescriptor {
     override val toolId = "enroll-device"
     override val role = MethodRole.ENROLLMENT
-    override val methodFamily = DEVICE_METHOD
+    override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = "loa2"
     override val allowsMultipleInstances = true

@@ -4,7 +4,6 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodFamily
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import io.kotest.core.spec.style.BehaviorSpec
@@ -25,7 +24,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
         object : ToolDescriptor {
             override val toolId = id
             override val role = role
-            override val methodFamily = MethodFamily(method)
+            override val method = method
             override val factorTypes = factorTypes
             override val maxAcr = maxAcr
         }

@@ -1,13 +1,12 @@
 package com.example.dpop.auth_password
 
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodFamily
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-password/auth-password/auth-password-lookup - the one place "password" is spelled out. */
-internal val PASSWORD_METHOD = MethodFamily("password")
+internal const val PASSWORD_METHOD = "password"
 
 /**
  * Self-description for every auth_password tool (docs/03-tool-architektur.md #1), one bean per
@@ -20,7 +19,7 @@ internal val PASSWORD_METHOD = MethodFamily("password")
 object EnrollPasswordDescriptor : ToolDescriptor {
     override val toolId = "enroll-password"
     override val role = MethodRole.ENROLLMENT
-    override val methodFamily = PASSWORD_METHOD
+    override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
     // No identifier field: the account's confirmed email is the identifier, so this tool only
@@ -32,7 +31,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
 object AuthPasswordUseDescriptor : ToolDescriptor {
     override val toolId = "auth-password"
     override val role = MethodRole.DEVICE_AUTH
-    override val methodFamily = PASSWORD_METHOD
+    override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
 }
@@ -41,7 +40,7 @@ object AuthPasswordUseDescriptor : ToolDescriptor {
 object AuthPasswordLookupDescriptor : ToolDescriptor {
     override val toolId = "auth-password-lookup"
     override val role = MethodRole.LOOKUP_AUTH
-    override val methodFamily = PASSWORD_METHOD
+    override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
 }

@@ -18,20 +18,20 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
     private val descriptorsByToolId: Map<String, ToolDescriptor> = descriptors.associateBy { it.toolId }
 
     init {
-        // (methodFamily, role) is meant to uniquely identify "the concrete procedure of this kind
-        // for this credential" (docs/03-tool-architektur.md, MethodRole/MethodFamily) - callers
-        // (e.g. DefaultAuthPolicy.candidateTools) resolve a single descriptor by exactly this key
-        // and trust the result unambiguously. A duplicate would silently resolve to whichever
+        // (method, role) is meant to uniquely identify "the concrete procedure of this kind for
+        // this credential" (docs/03-tool-architektur.md, MethodRole) - callers (e.g.
+        // DefaultAuthPolicy.candidateTools) resolve a single descriptor by exactly this key and
+        // trust the result unambiguously. A duplicate would silently resolve to whichever
         // descriptor happens to iterate first, not a loud error - fail at startup instead, since
         // nothing else here would ever catch it.
         val duplicates = descriptorsByToolId.values
-            .groupBy { it.methodFamily to it.role }
+            .groupBy { it.method to it.role }
             .filterValues { it.size > 1 }
         check(duplicates.isEmpty()) {
             val details = duplicates.entries.joinToString("; ") { (key, group) ->
-                "${key.first.method}/${key.second}: ${group.map { it.toolId }}"
+                "${key.first}/${key.second}: ${group.map { it.toolId }}"
             }
-            "Duplicate (methodFamily, role) in tool catalog: $details"
+            "Duplicate (method, role) in tool catalog: $details"
         }
     }
 

@@ -9,11 +9,12 @@ interface ToolDescriptor {
     /** The tool's public, stable identifier, e.g. `"auth-sms"`. Never derived from other fields. */
     val toolId: String
 
-    /** The credential family this tool belongs to. See [MethodFamily]. */
-    val methodFamily: MethodFamily
-
-    /** Convenience accessor for `methodFamily.method`, e.g. `"sms"`. */
-    val method: String get() = methodFamily.method
+    /**
+     * The credential family this tool belongs to, e.g. `"sms"`. Shared by several
+     * [ToolDescriptor]s that play different [MethodRole]s for the same underlying credential - an
+     * SMS enrollment tool, its device-auth tool, and its lookup-auth tool all use `method = "sms"`.
+     */
+    val method: String
 
     /** The role this tool plays for [method]. See [MethodRole]. Its [MethodRole.category] is the tool's coarse grouping. */
     val role: MethodRole
@@ -49,17 +50,6 @@ interface ToolDescriptor {
         get() = false
 }
 
-/**
- * Identifies a credential family shared by several [ToolDescriptor]s that play different
- * [MethodRole]s for the same underlying credential - e.g. an SMS enrollment tool, its device-auth
- * tool, and its lookup-auth tool all reference the same `MethodFamily("sms")` instance.
- *
- * Each module declares its own instance as a top-level `val` and references it from every
- * descriptor that shares the credential; `tool_spi` itself does not enumerate the possible
- * families.
- */
-data class MethodFamily(val method: String)
-
 /** Coarse grouping of a tool. See [MethodRole.category]. */
 enum class ToolCategory {
     IDENT,
@@ -68,8 +58,8 @@ enum class ToolCategory {
 }
 
 /**
- * The role a tool plays with respect to its [MethodFamily]. `(methodFamily, role)` together
- * uniquely identify a concrete procedure - `(methodFamily, category)` alone does not, since
+ * The role a tool plays with respect to its [ToolDescriptor.method]. `(method, role)` together
+ * uniquely identify a concrete procedure - `(method, category)` alone does not, since
  * [MethodRole.DEVICE_AUTH] and [MethodRole.LOOKUP_AUTH] share `category=AUTH`.
  */
 enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) {

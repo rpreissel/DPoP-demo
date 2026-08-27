@@ -1,13 +1,12 @@
 package com.example.dpop.auth_sms
 
 import com.example.dpop.tool_spi.FactorType
-import com.example.dpop.tool_spi.MethodFamily
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-sms/auth-sms/auth-sms-lookup - the one place "sms" is spelled out. */
-internal val SMS_METHOD = MethodFamily("sms")
+internal const val SMS_METHOD = "sms"
 
 /**
  * Self-description for every auth_sms tool (docs/03-tool-architektur.md #1), one bean per
@@ -21,7 +20,7 @@ internal val SMS_METHOD = MethodFamily("sms")
 object EnrollSmsDescriptor : ToolDescriptor {
     override val toolId = "enroll-sms"
     override val role = MethodRole.ENROLLMENT
-    override val methodFamily = SMS_METHOD
+    override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 }
@@ -30,7 +29,7 @@ object EnrollSmsDescriptor : ToolDescriptor {
 object AuthSmsUseDescriptor : ToolDescriptor {
     override val toolId = "auth-sms"
     override val role = MethodRole.DEVICE_AUTH
-    override val methodFamily = SMS_METHOD
+    override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 }
@@ -39,7 +38,7 @@ object AuthSmsUseDescriptor : ToolDescriptor {
 object AuthSmsLookupDescriptor : ToolDescriptor {
     override val toolId = "auth-sms-lookup"
     override val role = MethodRole.LOOKUP_AUTH
-    override val methodFamily = SMS_METHOD
+    override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = "loa1"
 }
