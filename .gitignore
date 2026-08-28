@@ -1,7 +1,6 @@
 # Gradle
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
@@ -10,6 +9,10 @@ build/
 *.jar
 *.war
 *.ear
+# Muss NACH *.jar stehen: in .gitignore gewinnt die spaetere Regel, und als Ausnahme weiter
+# oben war sie wirkungslos - der Wrapper fehlte im Repo und jeder Checkout ohne lokale Kopie
+# (CI, Docker-Build) scheiterte an "Unable to access jarfile".
+!gradle/wrapper/gradle-wrapper.jar
 
 # H2 database files
 *.mv.db
