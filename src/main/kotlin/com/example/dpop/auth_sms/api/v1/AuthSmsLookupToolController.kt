@@ -8,6 +8,10 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
@@ -23,7 +27,10 @@ import org.springframework.web.util.UriComponentsBuilder
 
 private const val AUTH_SMS_LOOKUP_TOOL_ID = "auth-sms-lookup"
 
-data class AuthSmsLookupPatchRequest(val email: String? = null, val tan: String? = null)
+data class AuthSmsLookupPatchRequest(
+    @field:Schema(example = "max.mustermann@example.com") val email: String? = null,
+    @field:Schema(example = "123456") val tan: String? = null
+)
 
 /**
  * toolId=auth-sms-lookup (docs/04-orchestrierung.md, lookup-based login). One controller owns
@@ -31,7 +38,7 @@ data class AuthSmsLookupPatchRequest(val email: String? = null, val tan: String?
  * dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: auth-sms-lookup", description = "Login ohne DPoP via email + SMS TAN")
+@Tag(name = "Tool: SMS", description = "Login ohne DPoP via email + SMS TAN")
 @SecurityRequirement(name = "dpop")
 class AuthSmsLookupToolController(
     private val handler: AuthSmsLookupToolHandler,
@@ -41,7 +48,21 @@ class AuthSmsLookupToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-sms-lookup")
-    @Operation(summary = "Activate auth-sms-lookup", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate auth-sms-lookup",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "auth-sms-lookup", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -57,7 +78,27 @@ class AuthSmsLookupToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms-lookup")
     @Operation(
         summary = "Supply email, then TAN",
-        description = "First call with email resolves the account and triggers the TAN send; a second call with tan confirms it."
+        description = "First call with email resolves the account and triggers the TAN send; a second call with tan confirms it.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [
+                    ExampleObject(name = "After email - TAN sent", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "tool", "toolId": "auth-sms-lookup", "step": "tanInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
+                          "demo": {"tan": "123456"}
+                        }
+                    """),
+                    ExampleObject(name = "After tan - logged in, device-binding offer", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["sms"]},
+                          "next": {"type": "orchestrator", "context": "authentication", "step": "offerDeviceBinding"}
+                        }
+                    """)
+                ])]
+            )
+        ]
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
@@ -85,7 +126,20 @@ class AuthSmsLookupToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms-lookup")
-    @Operation(summary = "Read the current auth-sms-lookup state")
+    @Operation(
+        summary = "Read the current auth-sms-lookup state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "auth-sms-lookup", "step": "tanInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

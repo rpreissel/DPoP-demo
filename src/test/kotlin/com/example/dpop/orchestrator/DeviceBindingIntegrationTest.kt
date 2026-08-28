@@ -151,7 +151,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             // Cancelling the whole journey, by contrast, restarts the SAME intent - and therefore
             // legitimately lands back on the first state. The two actions are not interchangeable.
-            val afterCancel = delete("/orchestrator/api/v1/app/channels/$newChannelSessionId/process")
+            val afterCancel = delete("/orchestrator/api/v1/app/channels/$newChannelSessionId/journey")
             afterCancel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Auth device signed with a different key is rejected as failed not as someone elses credential") {

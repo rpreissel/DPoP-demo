@@ -6,6 +6,10 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
@@ -22,8 +26,8 @@ import org.springframework.web.util.UriComponentsBuilder
 private const val ENROLL_SMS_TOOL_ID = "enroll-sms"
 
 data class EnrollSmsPatchRequest(
-    val phoneNumber: String? = null,
-    val tan: String? = null
+    @field:Schema(example = "+49 170 1234567") val phoneNumber: String? = null,
+    @field:Schema(example = "123456") val tan: String? = null
 )
 
 /**
@@ -31,7 +35,7 @@ data class EnrollSmsPatchRequest(
  * for this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: enroll-sms", description = "Registers a new phone number as a 2nd factor")
+@Tag(name = "Tool: SMS", description = "Registers a new phone number as a 2nd factor")
 @SecurityRequirement(name = "dpop")
 class EnrollSmsToolController(
     private val handler: EnrollSmsToolHandler,
@@ -39,7 +43,21 @@ class EnrollSmsToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/enroll-sms")
-    @Operation(summary = "Activate enroll-sms", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate enroll-sms",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "enroll-sms", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -55,7 +73,28 @@ class EnrollSmsToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
     @Operation(
         summary = "Supply phone number, then TAN",
-        description = "First call with phoneNumber triggers the TAN send; a second call with tan confirms it."
+        description = "First call with phoneNumber triggers the TAN send; a second call with tan confirms it.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [
+                    ExampleObject(name = "After phoneNumber - TAN sent", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "tool", "toolId": "enroll-sms", "step": "tanInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
+                          "demo": {"tan": "123456"}
+                        }
+                    """),
+                    ExampleObject(name = "After tan - enrolled, chain continues", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
+                          "stepData": {"options": ["enroll-email"]}
+                        }
+                    """)
+                ])]
+            )
+        ]
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
@@ -72,7 +111,20 @@ class EnrollSmsToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
-    @Operation(summary = "Read the current enroll-sms state")
+    @Operation(
+        summary = "Read the current enroll-sms state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "enroll-sms", "step": "tanInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

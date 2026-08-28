@@ -8,6 +8,10 @@ import com.example.dpop.tool_api.DeviceProofs
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
@@ -25,8 +29,10 @@ import org.springframework.web.util.UriComponentsBuilder
 private const val ENROLL_DEVICE_TOOL_ID = "enroll-device"
 
 data class DeviceProofPatchRequest(
+    @field:Schema(example = "eyJhbGciOiJFUzI1NiIsInR5cCI6ImRwb3Arand0In0.eyJodG0iOiJQQVRDSCIsImh0dSI6Ii4uLiJ9.MEUCIQ")
     val deviceProof: String? = null,
     /** User-chosen display name for this device credential (docs/03-tool-architektur.md, allowsMultipleInstances) - purely a display metadatum, never signed, no security relevance. */
+    @field:Schema(example = "Laptop")
     val label: String? = null
 )
 
@@ -37,7 +43,7 @@ data class DeviceProofPatchRequest(
  * generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: enroll-device", description = "Device-key based enrollment (gerätebindung)")
+@Tag(name = "Tool: Gerät", description = "Device-key based enrollment (gerätebindung)")
 @SecurityRequirement(name = "dpop")
 class EnrollDeviceToolController(
     private val deviceProofs: DeviceProofs,
@@ -46,7 +52,21 @@ class EnrollDeviceToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/enroll-device")
-    @Operation(summary = "Activate enroll-device", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate enroll-device",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
+                      "next": {"type": "tool", "toolId": "enroll-device", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -62,7 +82,18 @@ class EnrollDeviceToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-device")
     @Operation(
         summary = "Confirm device enrollment",
-        description = "Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after the user confirms the mocked PIN/biometric prompt."
+        description = "Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after the user confirms the mocked PIN/biometric prompt.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["password", "device"]},
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
@@ -80,7 +111,20 @@ class EnrollDeviceToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-device")
-    @Operation(summary = "Read the current enroll-device state")
+    @Operation(
+        summary = "Read the current enroll-device state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
+                      "next": {"type": "tool", "toolId": "enroll-device", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

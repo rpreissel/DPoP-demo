@@ -277,7 +277,7 @@ class JourneyService(
             }
 
             // Giving up on the last thing this journey could offer is the same outcome as an
-            // explicit DELETE .../process: the channel starts its own entry intent afresh.
+            // explicit DELETE .../journey: the channel starts its own entry intent afresh.
             is Decision.Cancel -> {
                 cancel(journey, channel)
                 startEntryJourney(channel)

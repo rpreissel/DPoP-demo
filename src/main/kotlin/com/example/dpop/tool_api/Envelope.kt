@@ -13,16 +13,22 @@ import java.util.UUID
         "(email/sms/password), which the client labels from `method` itself."
 )
 data class ActiveMethodView(
+    @field:Schema(example = "7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b")
     val id: String,
+    @field:Schema(example = "sms")
     val method: String,
+    @field:Schema(example = "Laptop")
     val label: String? = null
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChannelBlock(
     val channelSessionId: UUID,
+    @field:Schema(example = "AUTHENTICATED")
     val state: String,
+    @field:Schema(example = "loa2")
     val currentAcr: String? = null,
+    @field:Schema(example = "[\"sms\", \"password\"]")
     val currentAmr: List<String>? = null,
     @field:Schema(
         description = "All active authentication methods on the account, regardless of whether " +
@@ -43,6 +49,10 @@ data class ChannelBlock(
 data class ChannelResponse(
     val channel: ChannelBlock,
     val next: Next? = null,
+    @field:Schema(
+        description = "Whatever the current step needs to render: missing fields, selection options, or a retry reason.",
+        example = "{\"options\": [\"ident-fsc\", \"ident-eid\"]}"
+    )
     val stepData: Map<String, Any?>? = null,
     @field:Schema(description = "Demo-only correlation IDs, never part of the production contract.")
     val demo: DemoInfo? = null
@@ -55,7 +65,14 @@ data class ChannelResponse(
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class DemoInfo(
+    @field:Schema(example = "42")
     val accountId: Long? = null,
+    @field:Schema(example = "7")
     val personId: Long? = null,
+    @field:Schema(
+        description = "Flattened onto the parent object (e.g. demo.tan, demo.email) - whichever " +
+            "demo-only values the tool that just ran attached, e.g. a plaintext tan/code/password.",
+        example = "{\"tan\": \"123456\", \"email\": \"max.mustermann@example.com\"}"
+    )
     @get:JsonAnyGetter val values: Map<String, Any?> = emptyMap()
 )

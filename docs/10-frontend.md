@@ -42,7 +42,7 @@ Nach erfolgreicher Anmeldung zeigt die Ansicht zwei getrennte, aber verwandte Ab
 
 ### Login ohne DPoP
 
-`EntryChoiceLinks` bietet, solange der Kanal weder `AUTHENTICATED` noch `LOGGED_OUT` ist, den Wechsel auf `intent="login"`/`"register"` an — bewusst nicht nur auf den allerersten Bildschirm beschränkt, ein Nutzer darf auch mitten in einem mehrstufigen Ablauf anders neu starten. Für den Lookup-Login selbst existiert je Methode ein eigenes Formular (SMS/Passwort/E-Mail); die jeweilige Bestätigungseingabe (TAN/Code) teilt sich das Formular mit dem geräte-gebundenen Pendant, da beide denselben `next.step` nutzen.
+`EntryChoiceLinks` bietet, solange der Kanal weder `AUTHENTICATED` noch `LOGGED_OUT` ist, den Wechsel auf `intent="lookup_login"`/`"register"` an — bewusst nicht nur auf den allerersten Bildschirm beschränkt, ein Nutzer darf auch mitten in einem mehrstufigen Ablauf anders neu starten. Für den Lookup-Login selbst existiert je Methode ein eigenes Formular (SMS/Passwort/E-Mail); die jeweilige Bestätigungseingabe (TAN/Code) teilt sich das Formular mit dem geräte-gebundenen Pendant, da beide denselben `next.step` nutzen.
 
 ---
 

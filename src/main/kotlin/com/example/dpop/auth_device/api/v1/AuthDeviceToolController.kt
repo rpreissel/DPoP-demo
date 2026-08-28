@@ -11,6 +11,9 @@ import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
@@ -32,7 +35,7 @@ private const val AUTH_DEVICE_TOOL_ID = "auth-device"
  * GET for this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: auth-device", description = "Device-key based authentication (login/step-up)")
+@Tag(name = "Tool: Gerät", description = "Device-key based authentication (login/step-up)")
 @SecurityRequirement(name = "dpop")
 class AuthDeviceToolController(
     private val deviceProofs: DeviceProofs,
@@ -43,7 +46,21 @@ class AuthDeviceToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-device")
-    @Operation(summary = "Activate auth-device", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate auth-device",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
+                      "next": {"type": "tool", "toolId": "auth-device", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -66,7 +83,18 @@ class AuthDeviceToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-device")
     @Operation(
         summary = "Confirm device authentication",
-        description = "Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after the user confirms the mocked PIN/biometric prompt."
+        description = "Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after the user confirms the mocked PIN/biometric prompt.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["device"]},
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
@@ -84,7 +112,20 @@ class AuthDeviceToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-device")
-    @Operation(summary = "Read the current auth-device state")
+    @Operation(
+        summary = "Read the current auth-device state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
+                      "next": {"type": "tool", "toolId": "auth-device", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

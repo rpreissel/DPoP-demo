@@ -9,7 +9,7 @@ import {
   abandonTool,
   activateTool,
   answerDeviceBinding,
-  cancelProcess,
+  cancelJourney,
   createChannel,
   deactivateMethod,
   describeError,
@@ -233,8 +233,8 @@ function App() {
   /**
    * Every explicit way a channel comes into existence (docs/04-orchestrierung.md, lookup-based
    * login): "resume" reads a remembered channelSessionId (GET), the rest each mint a brand-new
-   * channel with the corresponding `intent` - "auto" omits it (today's default: DeviceAccountLink
-   * found -> LOGIN, else REGISTRATION).
+   * channel with the corresponding `intent` - the backend's AuthIntent name (AuthIntent.fromRequest),
+   * "auto" omits it (today's default: DeviceAccountLink found -> LOGIN, else REGISTRATION).
    */
   async function handleStart(mode: 'resume' | 'auto' | 'login' | 'register') {
     if (!dpop) return
@@ -253,7 +253,7 @@ function App() {
         }
         return
       }
-      const intent = mode === 'auto' ? undefined : mode
+      const intent = mode === 'auto' ? undefined : mode === 'login' ? 'lookup_login' : mode
       setJourneyKind(mode)
       const response = await createChannel(dpop, requiredAcr || undefined, intent, availableTools)
       applyResponse(response)
@@ -380,7 +380,7 @@ function App() {
   async function handleCancel() {
     if (!dpop || !channelSessionId) return
     try {
-      const response = await cancelProcess(dpop, channelSessionId)
+      const response = await cancelJourney(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
       setError(describeError('Cancel failed', err))

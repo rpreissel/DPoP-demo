@@ -148,7 +148,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 registerAndAuthenticate()
 
                 // Simulate a device whose key isn't linked yet (e.g. a fresh browser profile, or the
-                // original key was lost) - "auto" correctly falls back to ident-fsc since key #2 has no
+                // original key was lost) - the default (no intent) correctly falls back to ident-fsc since key #2 has no
                 // link yet.
                 currentBindingKeyRef = "binding-" + UUID.randomUUID()
                 val reidentified = post("/orchestrator/api/v1/app/channels")
@@ -189,10 +189,10 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val email = registerWithEmailAndPassword()
 
-                // Same mocked device, but intent=login forces lookup-based login regardless of the
+                // Same mocked device, but intent=lookup_login forces lookup-based login regardless of the
                 // DeviceAccountLink this device already has from registerWithEmailAndPassword above
                 // (docs/04-orchestrierung.md, lookup-based login).
-                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val channelSessionId = loginStart.channel()["channelSessionId"] as String
                 loginStart.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
@@ -242,7 +242,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$enrollTan"}""")
                 val email = enrollEmail(channelSessionId)
 
-                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
                 val lookupToolSessionId = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/tools/auth-sms-lookup").nextRaw()["toolSessionId"] as String
 
@@ -277,7 +277,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // afterwards is decided purely by the answer to the binding offer.
                 currentBindingKeyRef = "binding-" + UUID.randomUUID()
 
-                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val channelSessionId = loginStart.channel()["channelSessionId"] as String
                 val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
                 patch(
@@ -342,7 +342,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val email = registerWithEmailAndPassword()
 
-                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
                 val lookupToolSessionId = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
 
@@ -369,7 +369,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("submitting an unknown email to a lookup login") {
                 then("it fails in exactly the same shape as a wrong credential") {
 
-                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
                 val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
 
@@ -394,7 +394,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val knownEmail = registerWithEmailAndPassword()
 
                 fun submit(email: String): Map<String, Any?> {
-                    val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""").channel()["channelSessionId"] as String
+                    val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""").channel()["channelSessionId"] as String
                     val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
                     return patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email-lookup", """{"email":"$email"}""").next()
                 }
@@ -411,10 +411,10 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
         }
 
         given("a fresh channel") {
-            `when`("opening a channel with intent=login on a device that was never linked") {
+            `when`("opening a channel with intent=lookup_login on a device that was never linked") {
                 then("lookup tools are offered, not registration") {
 
-                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 @Suppress("UNCHECKED_CAST")
                 channelResponse.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
 

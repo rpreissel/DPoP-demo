@@ -9,6 +9,10 @@ import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
@@ -25,7 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder
 private const val AUTH_PASSWORD_TOOL_ID = "auth-password"
 
 data class AuthPasswordPatchRequest(
-    val password: String? = null
+    @field:Schema(example = "Passwort!23") val password: String? = null
 )
 
 /**
@@ -33,7 +37,7 @@ data class AuthPasswordPatchRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: auth-password", description = "Password-based authentication (login/step-up)")
+@Tag(name = "Tool: Passwort", description = "Password-based authentication (login/step-up)")
 @SecurityRequirement(name = "dpop")
 class AuthPasswordToolController(
     private val handler: AuthPasswordUseToolHandler,
@@ -43,7 +47,21 @@ class AuthPasswordToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-password")
-    @Operation(summary = "Activate auth-password", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate auth-password",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
+                      "next": {"type": "tool", "toolId": "auth-password", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -63,7 +81,20 @@ class AuthPasswordToolController(
     }
 
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password")
-    @Operation(summary = "Confirm the password against the account's enrolled credential")
+    @Operation(
+        summary = "Confirm the password against the account's enrolled credential",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["sms", "password"]},
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun patch(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -79,7 +110,20 @@ class AuthPasswordToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password")
-    @Operation(summary = "Read the current auth-password state")
+    @Operation(
+        summary = "Read the current auth-password state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
+                      "next": {"type": "tool", "toolId": "auth-password", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

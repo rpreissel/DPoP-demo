@@ -156,7 +156,7 @@ class ChannelService(
     }
 
     /** Abandons the running journey and offers a fresh start where applicable. */
-    fun cancelActiveProcess(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
+    fun cancelActiveJourney(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val active = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState("No active journey to cancel for this channel")
@@ -170,7 +170,7 @@ class ChannelService(
     /**
      * Ends this channel for good (docs/02-domaenenmodell.md #3: AUTHENTICATED -> LOGGED_OUT ->
      * terminal): cancels any running journey and discards this session's AuthContext. Unlike
-     * [cancelActiveProcess], a logged-out channel is never resurrected.
+     * [cancelActiveJourney], a logged-out channel is never resurrected.
      */
     fun logout(channelSessionId: UUID, bindingKeyRef: String) {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)

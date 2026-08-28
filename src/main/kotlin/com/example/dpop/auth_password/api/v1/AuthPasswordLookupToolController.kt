@@ -8,6 +8,10 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
@@ -23,7 +27,10 @@ import org.springframework.web.util.UriComponentsBuilder
 
 private const val AUTH_PASSWORD_LOOKUP_TOOL_ID = "auth-password-lookup"
 
-data class AuthPasswordLookupPatchRequest(val email: String? = null, val password: String? = null)
+data class AuthPasswordLookupPatchRequest(
+    @field:Schema(example = "max.mustermann@example.com") val email: String? = null,
+    @field:Schema(example = "Passwort!23") val password: String? = null
+)
 
 /**
  * toolId=auth-password-lookup (docs/04-orchestrierung.md, lookup-based login). One controller
@@ -31,7 +38,7 @@ data class AuthPasswordLookupPatchRequest(val email: String? = null, val passwor
  * toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: auth-password-lookup", description = "Login ohne DPoP via email + password")
+@Tag(name = "Tool: Passwort", description = "Login ohne DPoP via email + password")
 @SecurityRequirement(name = "dpop")
 class AuthPasswordLookupToolController(
     private val handler: AuthPasswordLookupToolHandler,
@@ -41,7 +48,21 @@ class AuthPasswordLookupToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-password-lookup")
-    @Operation(summary = "Activate auth-password-lookup", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate auth-password-lookup",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "auth-password-lookup", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -55,7 +76,21 @@ class AuthPasswordLookupToolController(
     }
 
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup")
-    @Operation(summary = "Supply email and password together (self-verifying, single call)")
+    @Operation(
+        summary = "Supply email and password together (self-verifying, single call)",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Correct email+password - logged in, offered the optional device-binding.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "offerDeviceBinding"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun patch(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -76,7 +111,20 @@ class AuthPasswordLookupToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup")
-    @Operation(summary = "Read the current auth-password-lookup state")
+    @Operation(
+        summary = "Read the current auth-password-lookup state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "auth-password-lookup", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

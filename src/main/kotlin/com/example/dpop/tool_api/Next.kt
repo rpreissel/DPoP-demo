@@ -1,6 +1,7 @@
 package com.example.dpop.tool_api
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import io.swagger.v3.oas.annotations.media.Schema
 import java.util.UUID
 
 /**
@@ -13,9 +14,13 @@ import java.util.UUID
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class Next(
+    @field:Schema(example = "tool")
     val type: String,
+    @field:Schema(example = "auth-sms")
     val toolId: String? = null,
+    @field:Schema(example = "authentication")
     val context: String? = null,
+    @field:Schema(example = "auth")
     val step: String,
     val toolSessionId: UUID? = null
 ) {

@@ -8,6 +8,10 @@ import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.time.LocalDate
@@ -25,15 +29,15 @@ import org.springframework.web.util.UriComponentsBuilder
 private const val IDENT_EID_TOOL_ID = "ident-eid"
 
 data class IdentEidPatchRequest(
-    val kvnr: String? = null,
-    val name: String? = null,
-    val vorname: String? = null,
-    val geburtsdatum: LocalDate? = null,
-    val strasse: String? = null,
-    val hausnummer: String? = null,
-    val plz: String? = null,
-    val ort: String? = null,
-    val pin: String? = null
+    @field:Schema(example = "A123456789") val kvnr: String? = null,
+    @field:Schema(example = "Muster") val name: String? = null,
+    @field:Schema(example = "Max") val vorname: String? = null,
+    @field:Schema(example = "1985-03-12") val geburtsdatum: LocalDate? = null,
+    @field:Schema(example = "Musterstraße") val strasse: String? = null,
+    @field:Schema(example = "1") val hausnummer: String? = null,
+    @field:Schema(example = "10117") val plz: String? = null,
+    @field:Schema(example = "Berlin") val ort: String? = null,
+    @field:Schema(example = "123456") val pin: String? = null
 )
 
 /**
@@ -41,7 +45,7 @@ data class IdentEidPatchRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: ident-eid", description = "KVNR/name/vorname lookup, simulated eID card read, PIN")
+@Tag(name = "Tool: eID", description = "KVNR/name/vorname lookup, simulated eID card read, PIN")
 @SecurityRequirement(name = "dpop")
 class IdentEidToolController(
     private val handler: IdentEidToolHandler,
@@ -50,7 +54,21 @@ class IdentEidToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/ident-eid")
-    @Operation(summary = "Activate ident-eid", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate ident-eid",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "ident-eid", "step": "input", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -66,7 +84,33 @@ class IdentEidToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-eid")
     @Operation(
         summary = "Supply KVNR/name/vorname, the simulated card's Ausweisdaten, and the PIN",
-        description = "Only the fields for the current step need to be sent; all of them together also resolves in one call."
+        description = "Only the fields for the current step need to be sent; all of them together also resolves in one call.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [
+                    ExampleObject(name = "After kvnr/name/vorname - card step", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "tool", "toolId": "ident-eid", "step": "card", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                        }
+                    """),
+                    ExampleObject(name = "After card data - pin step", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "tool", "toolId": "ident-eid", "step": "pin", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                        }
+                    """),
+                    ExampleObject(name = "After pin - identified, chain continues", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
+                          "stepData": {"options": ["enroll-sms", "enroll-device"]}
+                        }
+                    """)
+                ])]
+            )
+        ]
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
@@ -95,7 +139,20 @@ class IdentEidToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-eid")
-    @Operation(summary = "Read the current ident-eid state")
+    @Operation(
+        summary = "Read the current ident-eid state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "ident-eid", "step": "card", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

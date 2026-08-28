@@ -30,12 +30,17 @@ enum class AuthIntent {
         get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN
 
     companion object {
-        /** `null` means the default. Unknown values are rejected by the caller, never silently mapped. */
-        fun fromRequest(value: String?): AuthIntent? = when (value?.lowercase()) {
-            null, "auto", "fast" -> FAST_ACCESS
-            "register" -> REGISTER
-            "login" -> LOOKUP_LOGIN
-            else -> null
+        /**
+         * `null` means the default (FAST_ACCESS). Otherwise matches an entry intent's own name,
+         * case-insensitively (e.g. "register", "lookup_login") - no separate wire vocabulary to
+         * keep in sync by hand; a new entry intent is automatically requestable under its own
+         * name. STEP_UP/MANAGE_AUTH_METHODS are deliberately unreachable here (not entry intents,
+         * only reached from an already-authenticated channel). Unknown values are rejected by the
+         * caller, never silently mapped.
+         */
+        fun fromRequest(value: String?): AuthIntent? {
+            if (value == null) return FAST_ACCESS
+            return entries.firstOrNull { it.isEntryIntent && it.name.equals(value, ignoreCase = true) }
         }
     }
 }

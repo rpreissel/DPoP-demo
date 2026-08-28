@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   createChannel: vi.fn(),
   getChannel: vi.fn(),
   raiseRequiredAcr: vi.fn(),
-  cancelProcess: vi.fn(),
+  cancelJourney: vi.fn(),
   logoutChannel: vi.fn(),
   getMethods: vi.fn(),
   startManageMethods: vi.fn(),

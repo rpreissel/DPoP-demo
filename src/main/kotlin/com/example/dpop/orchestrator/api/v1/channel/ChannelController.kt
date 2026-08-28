@@ -3,6 +3,9 @@ package com.example.dpop.orchestrator.api.v1.channel
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -34,7 +37,20 @@ class ChannelController(
         description = "Always mints a brand-new ChannelSession for this DPoP-bound device (docs/02-domaenenmodell.md " +
             "#3: the key proves the device, never a lookup key for resuming a session - use GET with a remembered " +
             "channelSessionId to resume). A device that was already registered still gets offered LOGIN, not a " +
-            "fresh ident-fsc. To end a previous session first (logout), call DELETE on it before this."
+            "fresh ident-fsc. To end a previous session first (logout), call DELETE on it before this.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                description = "New channel - an unrecognized device lands on the identification choice.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "orchestrator", "context": "registration", "step": "selectIdentificationMethod"},
+                      "stepData": {"options": ["ident-fsc", "ident-eid"]}
+                    }
+                """)])]
+            )
+        ]
     )
     fun createChannel(
         @BindingKey bindingKeyRef: String,
@@ -50,7 +66,19 @@ class ChannelController(
     @GetMapping("/{channelSessionId}")
     @Operation(
         summary = "Read the current channel state",
-        description = "The guaranteed resume entry point (docs/05-api.md #2): next always reflects the currently due step."
+        description = "The guaranteed resume entry point (docs/05-api.md #2): next always reflects the currently due step.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Resumed mid-step-up, waiting on an SMS TAN.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
+                      "next": {"type": "tool", "toolId": "auth-sms", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
     )
     fun getChannel(
         @PathVariable channelSessionId: UUID,
@@ -62,7 +90,20 @@ class ChannelController(
     @PostMapping("/{channelSessionId}/step-ups")
     @Operation(
         summary = "Raise the channel's required ACR floor",
-        description = "The App channel's step-up trigger (docs/05-api.md #9). Only raises, never lowers."
+        description = "The App channel's step-up trigger (docs/05-api.md #9). Only raises, never lowers.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "loa3 requested, current evidence (loa2) doesn't satisfy it - offers the candidate methods.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa2"},
+                      "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},
+                      "stepData": {"options": ["auth-sms", "auth-password", "auth-device"]}
+                    }
+                """)])]
+            )
+        ]
     )
     fun raiseRequiredAcr(
         @PathVariable channelSessionId: UUID,
@@ -72,16 +113,28 @@ class ChannelController(
         return ResponseEntity.ok(channelService.raiseRequiredAcr(channelSessionId, bindingKeyRef, request.requiredAcr))
     }
 
-    @DeleteMapping("/{channelSessionId}/process")
+    @DeleteMapping("/{channelSessionId}/journey")
     @Operation(
-        summary = "Cancel the current process",
-        description = "Abandons the active REGISTRATION/LOGIN/STEP_UP process; the response already offers a fresh start where applicable."
+        summary = "Cancel the current journey",
+        description = "Abandons the currently running AuthJourney, whatever intent started it; the response already offers a fresh start where applicable.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "A cancelled REGISTER journey restarts the same entry intent from scratch.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "ident-fsc", "step": "input"}
+                    }
+                """)])]
+            )
+        ]
     )
     fun cancel(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        return ResponseEntity.ok(channelService.cancelActiveProcess(channelSessionId, bindingKeyRef))
+        return ResponseEntity.ok(channelService.cancelActiveJourney(channelSessionId, bindingKeyRef))
     }
 
     @DeleteMapping("/{channelSessionId}")
@@ -90,7 +143,8 @@ class ChannelController(
         description = "Ends this channel for good (docs/02-domaenenmodell.md #3: AUTHENTICATED -> LOGGED_OUT, " +
             "terminal) - cancels any active process and discards the AuthContext. Never resumes on this " +
             "channelSessionId afterwards; call POST .../channels again for a new session (a known device still " +
-            "skips straight to LOGIN there)."
+            "skips straight to LOGIN there).",
+        responses = [ApiResponse(responseCode = "204", description = "Logged out - no body.")]
     )
     fun logout(
         @PathVariable channelSessionId: UUID,
@@ -107,7 +161,19 @@ class ChannelController(
             "run - today only the optional device-binding offer right after a lookup login " +
             "(next.step=offerDeviceBinding), answer=\"accept\"/\"decline\". Agreeing is the ONLY way such a login " +
             "ever makes this device recognizable for future logins - it never happens as a side effect, because " +
-            "this intent is chosen precisely by people who want no device binding."
+            "this intent is chosen precisely by people who want no device binding.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Device binding accepted after a lookup login - journey settles into authenticated.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
     )
     fun answer(
         @PathVariable channelSessionId: UUID,
@@ -123,7 +189,20 @@ class ChannelController(
         description = "The methods collection as a real readable resource - identical data to ChannelResponse's " +
             "activeMethods (docs/05-api.md #2), just addressable on its own. Never includes fsc (identification " +
             "lives in identifications, not authenticationMethods). Empty list, not an error, when no account is " +
-            "known yet for this channel."
+            "known yet for this channel.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "methods": [
+                        {"id": "7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b", "method": "sms"},
+                        {"id": "b2d4f6a8-1c3e-4a5b-9d7f-8e0a1b2c3d4e", "method": "device", "label": "Laptop"}
+                      ]
+                    }
+                """)])]
+            )
+        ]
     )
     fun getMethods(
         @PathVariable channelSessionId: UUID,
@@ -137,7 +216,20 @@ class ChannelController(
         summary = "Voluntarily add another authentication method",
         description = "Channel must already be AUTHENTICATED. Offers AuthPolicy.enrollmentCandidates via the " +
             "existing enroll-* tools, unchanged; finishing does not require reaching any particular level - one " +
-            "successful enrollment ends this and returns to AUTHENTICATED. Call again to add another."
+            "successful enrollment ends this and returns to AUTHENTICATED. Call again to add another.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Already AUTHENTICATED with sms+password - offered the still-missing methods.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["sms", "password"]},
+                      "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
+                      "stepData": {"options": ["enroll-device", "enroll-email"]}
+                    }
+                """)])]
+            )
+        ]
     )
     fun manageMethods(
         @PathVariable channelSessionId: UUID,
@@ -152,7 +244,23 @@ class ChannelController(
         description = "Channel must already be AUTHENTICATED and the instance currently active. Addressed by its " +
             "own id (GET .../methods), never by method name - a method can have several active instances (e.g. " +
             "multiple devices). Rejected (409) if removing it would drop the account below this channel's own " +
-            "required level."
+            "required level.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The sms method instance was removed - password alone still satisfies loa1.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {
+                        "channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED",
+                        "currentAcr": "loa1", "currentAmr": ["password"],
+                        "activeMethods": [{"id": "7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b", "method": "password"}]
+                      },
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
     )
     fun deactivateMethod(
         @PathVariable channelSessionId: UUID,
@@ -169,7 +277,20 @@ class ChannelController(
             "needed. minValiditySeconds (default 15) is the caller's tolerance: if the current AccessToken still " +
             "has at least that much life left, it comes back unchanged; otherwise the backend mints a new one " +
             "(silently using the remembered RefreshToken where possible). The RefreshToken value itself is never " +
-            "returned - it's a credential and stays server-side."
+            "returned - it's a credential and stays server-side.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "accessToken": "eyJhbGciOiJub25lIn0.eyJzdWIiOiI0MiIsImFjciI6ImxvYTIiLCJhbXIiOlsic21zIl19.",
+                      "tokenType": "Bearer",
+                      "accessExpiresAt": "2026-08-28T18:05:00Z",
+                      "refreshExpiresAt": "2026-08-29T18:00:00Z"
+                    }
+                """)])]
+            )
+        ]
     )
     fun getToken(
         @PathVariable channelSessionId: UUID,
@@ -183,7 +304,22 @@ class ChannelController(
     @Operation(
         summary = "Get the fachliche ID-token claims",
         description = "Business-facing claims (accountId/personId/email/acr/amr/auth_time) - a separate resource " +
-            "from the AccessToken's own claims, not encoded into it."
+            "from the AccessToken's own claims, not encoded into it.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "accountId": 42,
+                      "personId": 7,
+                      "email": "max.mustermann@example.com",
+                      "acr": "loa2",
+                      "amr": ["sms", "password"],
+                      "auth_time": 1798567890
+                    }
+                """)])]
+            )
+        ]
     )
     fun getIdClaims(
         @PathVariable channelSessionId: UUID,

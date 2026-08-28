@@ -6,6 +6,10 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
@@ -23,8 +27,8 @@ import org.springframework.web.util.UriComponentsBuilder
 private const val ENROLL_EMAIL_TOOL_ID = "enroll-email"
 
 data class EnrollEmailPatchRequest(
-    val email: String? = null,
-    val code: String? = null
+    @field:Schema(example = "max.mustermann@example.com") val email: String? = null,
+    @field:Schema(example = "123456") val code: String? = null
 )
 
 /**
@@ -32,7 +36,7 @@ data class EnrollEmailPatchRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: enroll-email", description = "Registers a confirmed email address as a knowledge/possession factor")
+@Tag(name = "Tool: E-Mail", description = "Registers a confirmed email address as a knowledge/possession factor")
 @SecurityRequirement(name = "dpop")
 class EnrollEmailToolController(
     private val handler: EnrollEmailToolHandler,
@@ -40,7 +44,21 @@ class EnrollEmailToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/enroll-email")
-    @Operation(summary = "Activate enroll-email", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate enroll-email",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "enroll-email", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -56,7 +74,28 @@ class EnrollEmailToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-email")
     @Operation(
         summary = "Supply email, then the confirmation code",
-        description = "First call with email triggers the code send; a second call with code confirms it."
+        description = "First call with email triggers the code send; a second call with code confirms it.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [
+                    ExampleObject(name = "After email - code sent", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "tool", "toolId": "enroll-email", "step": "codeInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
+                          "demo": {"tan": "123456"}
+                        }
+                    """),
+                    ExampleObject(name = "After code - confirmed, chain continues", value = """
+                        {
+                          "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                          "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
+                          "stepData": {"options": ["enroll-password"]}
+                        }
+                    """)
+                ])]
+            )
+        ]
     )
     // The only tool PATCH that spans a transaction: the handler writes the confirmed address onto
     // Account, and applyOutcome then records the authentication method. Without this bracket the
@@ -79,7 +118,20 @@ class EnrollEmailToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-email")
-    @Operation(summary = "Read the current enroll-email state")
+    @Operation(
+        summary = "Read the current enroll-email state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "tool", "toolId": "enroll-email", "step": "codeInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

@@ -7,6 +7,10 @@ import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
@@ -22,14 +26,14 @@ import org.springframework.web.util.UriComponentsBuilder
 
 private const val AUTH_EMAIL_TOOL_ID = "auth-email"
 
-data class AuthEmailPatchRequest(val code: String? = null)
+data class AuthEmailPatchRequest(@field:Schema(example = "123456") val code: String? = null)
 
 /**
  * toolId=auth-email (device-linked case). One controller owns activation, PATCH and GET for
  * this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: auth-email", description = "Email-based authentication (login/step-up)")
+@Tag(name = "Tool: E-Mail", description = "Email-based authentication (login/step-up)")
 @SecurityRequirement(name = "dpop")
 class AuthEmailToolController(
     private val handler: AuthEmailUseToolHandler,
@@ -37,7 +41,21 @@ class AuthEmailToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-email")
-    @Operation(summary = "Activate auth-email", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate auth-email",
+        description = "No request body: toolId already carries kind and method.",
+        responses = [
+            ApiResponse(
+                responseCode = "201",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
+                      "next": {"type": "tool", "toolId": "auth-email", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -58,7 +76,20 @@ class AuthEmailToolController(
     }
 
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-email")
-    @Operation(summary = "Confirm the code sent to the account's confirmed email address")
+    @Operation(
+        summary = "Confirm the code sent to the account's confirmed email address",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["password", "email"]},
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun patch(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -74,7 +105,20 @@ class AuthEmailToolController(
     }
 
     @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-email")
-    @Operation(summary = "Read the current auth-email state")
+    @Operation(
+        summary = "Read the current auth-email state",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
+                      "next": {"type": "tool", "toolId": "auth-email", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                    }
+                """)])]
+            )
+        ]
+    )
     fun read(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String

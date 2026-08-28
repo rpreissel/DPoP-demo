@@ -53,7 +53,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
 
             is ManageAuthMethodsState.Enrolling -> when (event) {
                 // Backing out here means picking a different method, not abandoning the wish -
-                // the full choice comes back. Giving up entirely is DELETE .../process.
+                // the full choice comes back. Giving up entirely is DELETE .../journey.
                 is JourneyEvent.Abandoned -> Decision.Advance(state.copy(active = null))
                 else -> Decision.Finish
             }

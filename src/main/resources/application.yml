@@ -19,6 +19,14 @@ spring:
 server:
   port: 8080
 
+springdoc:
+  swagger-ui:
+    # "Try it out" can't work here: DPoP needs a fresh proof signed per request, bound to that
+    # exact method+URL and single-use (jti) - a value pasted into Authorize would just misfire as
+    # a 401 on every call after the first. Swagger UI stays read-only API reference; use the real
+    # frontend to exercise the API.
+    supported-submit-methods: []
+
 dpop:
   proof:
     max-clock-skew-seconds: 30

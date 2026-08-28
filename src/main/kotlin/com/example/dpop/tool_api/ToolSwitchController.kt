@@ -1,6 +1,9 @@
 package com.example.dpop.tool_api
 
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
@@ -27,7 +30,20 @@ class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {
     @Operation(
         summary = "Abandon this tool attempt",
         description = "Moves the journey on according to the state it is standing on - to the next fallback option, " +
-            "back to the selection step, or to the end of the journey if nothing else could be offered."
+            "back to the selection step, or to the end of the journey if nothing else could be offered.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "auth-sms abandoned during a fallback chain - offers the other loa2 candidates.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
+                      "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},
+                      "stepData": {"options": ["auth-password", "auth-device"]}
+                    }
+                """)])]
+            )
+        ]
     )
     fun switchAway(
         @PathVariable toolSessionId: UUID,

@@ -135,7 +135,7 @@ flowchart LR
 |---|---|---|
 | `FAST_ACCESS` | So schnell wie möglich in einen Login auf diesem Gerät — und so, dass es künftig wieder klappt | `POST /channels` (Default) |
 | `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /channels` mit `intent=register` |
-| `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=login` |
+| `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=lookup_login` |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE_AUTH_METHODS` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
 
@@ -485,7 +485,7 @@ die dieser Schritt zum Rendern braucht.
 
 Zwei Aktionen, die der Client sauber auseinanderhalten muss: `abandon` lehnt den aktuellen
 **Zustand** ab und führt die Journey weiter (`DELETE /tools/{toolSessionId}/{toolId}`); `cancel`
-gibt die **Journey** auf und startet den Entry-Intent neu (`DELETE .../process`). Wer nur
+gibt die **Journey** auf und startet den Entry-Intent neu (`DELETE .../journey`). Wer nur
 letzteres anbietet, lässt den Nutzer in einem Fallback-Zustand im Kreis laufen.
 
 ---

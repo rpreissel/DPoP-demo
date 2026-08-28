@@ -79,10 +79,11 @@ async function call<T>(dpop: DpopKeyPair, method: string, path: string, body?: u
 
 /**
  * Always creates a brand-new channel for this device (docs/02-domaenenmodell.md #3) - never a
- * resume. [intent] (docs/04-orchestrierung.md, lookup-based login): omitted/"auto" keeps today's
- * behaviour (DeviceAccountLink found -> LOGIN, else REGISTRATION); "login" always offers
- * lookup-based login (email + credential), even on an already linked device; "register" always
- * starts fresh REGISTRATION, even on an already linked device (a second account on this device).
+ * resume. [intent] is the backend's AuthIntent name, case-insensitively (docs/04-orchestrierung.md,
+ * lookup-based login): omitted/"fast_access" keeps today's behaviour (DeviceAccountLink found ->
+ * LOGIN, else REGISTRATION); "lookup_login" always offers lookup-based login (email + credential),
+ * even on an already linked device; "register" always starts fresh REGISTRATION, even on an
+ * already linked device (a second account on this device).
  */
 export function createChannel(
   dpop: DpopKeyPair,
@@ -105,8 +106,8 @@ export function raiseRequiredAcr(dpop: DpopKeyPair, channelSessionId: string, re
 }
 
 /** Abandons the running AuthJourney; the response already offers a fresh start where applicable. */
-export function cancelProcess(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
-  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/process`)
+export function cancelJourney(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/journey`)
 }
 
 /** Ends this channel for good (docs/02-domaenenmodell.md #3: logout, terminal) - cancels any active process and discards the AuthContext. Call createChannel again afterwards for a new session. */

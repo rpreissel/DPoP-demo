@@ -11,13 +11,15 @@ import java.time.Instant
         "a previous session first (logout), call DELETE .../channels/{channelSessionId} before this."
 )
 data class ChannelCreateRequest(
+    @field:Schema(example = "loa2")
     val requiredAcr: String? = null,
     @field:Schema(
-        description = "auto (default): DeviceAccountLink found -> LOGIN, else REGISTRATION. " +
-            "login: always offers lookup-based login (email + credential), even on a linked device. " +
+        description = "The entry intent's own name, case-insensitively (AuthIntent.fromRequest) - no separate wire " +
+            "vocabulary. Omitted/fast_access (default): DeviceAccountLink found -> LOGIN, else REGISTRATION. " +
+            "lookup_login: always offers lookup-based login (email + credential), even on a linked device. " +
             "register: always starts fresh REGISTRATION, even on a linked device (second account).",
-        example = "auto",
-        allowableValues = ["auto", "login", "register"]
+        example = "register",
+        allowableValues = ["fast_access", "register", "lookup_login"]
     )
     val intent: String? = null,
     @field:NotEmpty
@@ -58,8 +60,11 @@ data class MethodsResponse(
         "server-side; refreshExpiresAt is the only thing about it exposed."
 )
 data class TokenResponse(
+    @field:Schema(example = "eyJhbGciOiJub25lIn0.eyJzdWIiOiI0MiIsImFjciI6ImxvYTIiLCJhbXIiOlsic21zIl19.")
     val accessToken: String,
     val tokenType: String = "Bearer",
+    @field:Schema(example = "2026-08-28T18:05:00Z")
     val accessExpiresAt: Instant,
+    @field:Schema(example = "2026-08-29T18:00:00Z")
     val refreshExpiresAt: Instant
 )

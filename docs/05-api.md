@@ -40,7 +40,7 @@ Designentscheidung:
   | Wert | Bedeutung für den Client |
   |---|---|
   | `ANONYMOUS` | Kanal offen, noch kein Account bekannt — `next` zeigt auf `ident-fsc` oder Login |
-  | `REGISTERING` | Registrierung läuft; `DELETE .../process` (Cancel) bricht zurück auf `ANONYMOUS` |
+  | `REGISTERING` | Registrierung läuft; `DELETE .../journey` (Cancel) bricht zurück auf `ANONYMOUS` |
   | `AUTHENTICATED` | Account bekannt und aktuelles Niveau ausreichend; `logout`, `methods`, `enrollments` verfügbar |
   | `STEP_UP_REQUIRED` / `STEP_UP_IN_PROGRESS` | Ein höheres Niveau ist nötig bzw. der Nachweis läuft bereits; `next` zeigt den fälligen Schritt, Cancel liefert direkt `AUTHENTICATED` zurück |
   | `LOGGED_OUT` | Terminal — dieser Kanal ist tot, `next` fehlt, ein neuer Kanal braucht einen neuen `POST /channels` |
@@ -57,7 +57,7 @@ Pfadkonvention:
 - Einstieg: `POST /orchestrator/api/v1/app/channels` — `201` mit `Location: .../app/channels/{channelSessionId}` (immer eine neue Ressource, nie ein Resume).
 - Kanalzustand lesen: `GET /orchestrator/api/v1/app/channels/{channelSessionId}`
 - Niveau anheben (Step-up-Auslöser): `POST .../{channelSessionId}/step-ups` mit `{"requiredAcr": "..."}`
-- Prozess abbrechen: `DELETE .../{channelSessionId}/process` (kein Body)
+- Journey abbrechen: `DELETE .../{channelSessionId}/journey` (kein Body)
 - Logout: `DELETE .../{channelSessionId}` (kein Body)
 - Methodenbestand lesen: `GET .../{channelSessionId}/methods`
 - Methode hinzufügen (startet Enrollment): `POST .../{channelSessionId}/enrollments` (kein Body)
@@ -76,7 +76,7 @@ Tool-Namespace:
 
 ### Cancel
 
-`DELETE .../process` bricht die laufende `AuthJourney` ab und rollt `ChannelSession.state` zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). Danach startet der Kanal **denselben Intent** erneut, mit dem er eröffnet wurde — deshalb wird ein abgebrochener Lookup-Login wieder ein Lookup-Login und nicht stillschweigend eine Registrierung. `STEP_UP`- und `MANAGE_AUTH_METHODS`-Abbruch liefern direkt `authenticated`. Account-Bindung und `AuthContext` werden dabei aus der dauerhaften Wahrheit neu abgeleitet (`DeviceAccountLink`), nicht blind behalten oder blind verworfen; ein zuvor per `ident-fsc` angelegter Account bleibt unangetastet und wird bei erneuter Identifikation wiedergefunden.
+`DELETE .../journey` bricht die laufende `AuthJourney` ab und rollt `ChannelSession.state` zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). Danach startet der Kanal **denselben Intent** erneut, mit dem er eröffnet wurde — deshalb wird ein abgebrochener Lookup-Login wieder ein Lookup-Login und nicht stillschweigend eine Registrierung. `STEP_UP`- und `MANAGE_AUTH_METHODS`-Abbruch liefern direkt `authenticated`. Account-Bindung und `AuthContext` werden dabei aus der dauerhaften Wahrheit neu abgeleitet (`DeviceAccountLink`), nicht blind behalten oder blind verworfen; ein zuvor per `ident-fsc` angelegter Account bleibt unangetastet und wird bei erneuter Identifikation wiedergefunden.
 
 ### Logout
 
@@ -102,7 +102,7 @@ Konsistenzregel: Pro `channelSessionId` darf es höchstens einen aktiven öffent
 
 Registrierung mit `ident-fsc` -> `enroll-sms`:
 
-1. `POST /app/channels` (`{"requiredAcr": "loa2", "intent": "auto", "availableTools": ["ident-fsc", "enroll-sms", ...]}` - `availableTools` ist Pflicht, siehe unten) liefert eine neue `channelSessionId` (im `channel`-Block) und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode in `availableTools` enthalten, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId` in `next`). Erklärt dieser Client stattdessen auch `ident-eid` als verfügbar, liefert derselbe `POST` einen Auswahlschritt: `next={"type":"orchestrator","context":"registration","step":"selectIdentificationMethod"}`, `stepData={"options":["ident-fsc","ident-eid"]}` — der Client aktiviert dann direkt das gewählte Tool, wie in Schritt 2.
+1. `POST /app/channels` (`{"requiredAcr": "loa2", "availableTools": ["ident-fsc", "enroll-sms", ...]}` - `intent` weggelassen (Default `fast_access`), `availableTools` ist Pflicht, siehe unten) liefert eine neue `channelSessionId` (im `channel`-Block) und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode in `availableTools` enthalten, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId` in `next`). Erklärt dieser Client stattdessen auch `ident-eid` als verfügbar, liefert derselbe `POST` einen Auswahlschritt: `next={"type":"orchestrator","context":"registration","step":"selectIdentificationMethod"}`, `stepData={"options":["ident-fsc","ident-eid"]}` — der Client aktiviert dann direkt das gewählte Tool, wie in Schritt 2.
 2. `POST .../tools/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"missingFields":["kvnr","name","vorname"]}` und `next.toolSessionId` gesetzt.
 3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem FSC. Solange Felder fehlen: `200` mit aktualisiertem `stepData.missingFields`, `next` unverändert auf `ident-fsc`. Nach erfolgreicher Verifikation: `stepData={"options":["enroll-sms"]}`, `next={"type":"orchestrator","context":"enrollment","step":"selectMethod"}` (bzw. direkt `{"type":"tool","toolId":"enroll-sms",...}` bei nur einer erlaubten Methode).
 4. `POST .../tools/enroll-sms` liefert `stepData={"missingFields":["phoneNumber"]}`.
@@ -118,10 +118,10 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 
 ### `POST /app/channels`: `intent`-Parameter
 
-`intent` (optional, Default `"auto"`) steuert, welcher Prozess auf DIESEM Kanal startet, unabhängig vom durch `DeviceAccountLink` erkannten Gerät:
+`intent` (optional, Default `fast_access`) ist der Name des `AuthIntent`-Werts, case-insensitiv (`AuthIntent.fromRequest`) - keine separate Wire-Vokabel; unbekannte Werte werden abgelehnt, nie still gemappt. Steuert, welcher Prozess auf DIESEM Kanal startet, unabhängig vom durch `DeviceAccountLink` erkannten Gerät:
 
-- `auto`: heutiges Verhalten — `DeviceAccountLink` gefunden -> LOGIN mit vorbefülltem Account, sonst REGISTRATION.
-- `login`: erzwingt lookup-basierten Login (E-Mail + Credential, siehe unten) — auch auf einem bereits verlinkten Gerät. Der Link-Lookup wird für diesen Kanal komplett übersprungen.
+- `fast_access` (Default, auch bei weggelassenem `intent`): heutiges Verhalten — `DeviceAccountLink` gefunden -> LOGIN mit vorbefülltem Account, sonst REGISTRATION.
+- `lookup_login`: erzwingt lookup-basierten Login (E-Mail + Credential, siehe unten) — auch auf einem bereits verlinkten Gerät. Der Link-Lookup wird für diesen Kanal komplett übersprungen.
 - `register`: erzwingt eine frische REGISTRATION — auch auf einem bereits verlinkten Gerät (Zweitaccount). Übersteht der Kanal die Registrierung, überschreibt sie den bestehenden `DeviceAccountLink`.
 
 `requiredAcr` (optional) erspart der App den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up. Der Wert wirkt nur nach oben: Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
@@ -151,12 +151,12 @@ Folgen demselben Muster wie `ident-fsc`/`enroll-sms`/`auth-sms` oben, mit diesen
 
 ### Lookup-basierter Login (`auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup`, "Login ohne DPoP")
 
-Erreichbar nur über `POST /channels` mit `intent: "login"` — nie über die normale Kandidatenermittlung einer bereits Account-gebundenen Session (`MethodRole.LOOKUP_AUTH`; `AuthPolicy.candidateTools` wählt ausschließlich `DEVICE_AUTH`). Löst den Account selbst über die eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen:
+Erreichbar nur über `POST /channels` mit `intent: "lookup_login"` — nie über die normale Kandidatenermittlung einer bereits Account-gebundenen Session (`MethodRole.LOOKUP_AUTH`; `AuthPolicy.candidateTools` wählt ausschließlich `DEVICE_AUTH`). Löst den Account selbst über die eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen:
 
 - `auth-sms-lookup`/`auth-email-lookup` folgen dem Zwei-`PATCH`-Muster: erst `{"email": "..."}` (löst den Account auf, verschickt bei Erfolg TAN/Code), dann `{"tan"/"code": "..."}`.
 - `auth-password-lookup` erwartet `{"email": "...", "password": "..."}` in einem einzigen `PATCH`.
 - Enumeration-Schutz: Eine unbekannte oder unbestätigte E-Mail verhält sich in Form und Timing identisch zu einem korrekt aufgelösten Account mit falschem Credential — nie eine eigene Fehlerform. Das gilt auch für die demo-Werte: `demo.email`/`demo.password` sind feste Konstanten, unabhängig vom tatsächlich aufgelösten Account, verraten also nichts.
-- Bei Erfolg schreibt der Orchestrator `DeviceAccountLink` für dieses Gerät neu — ein danach mit `intent: "auto"` angelegter Kanal erkennt das Gerät und bietet direkt den gewöhnlichen geräte-gebundenen LOGIN an.
+- Bei Erfolg schreibt der Orchestrator `DeviceAccountLink` für dieses Gerät neu — ein danach ohne `intent` (Default `fast_access`) angelegter Kanal erkennt das Gerät und bietet direkt den gewöhnlichen geräte-gebundenen LOGIN an.
 
 ---
 

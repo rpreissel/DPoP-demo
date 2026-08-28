@@ -92,7 +92,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
         then("Lookup login cannot be talked into an identification") {
             registerWithSms()
 
-            val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+            val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 .channel()["channelSessionId"] as String
 
             // No state of this intent ever offers an identification, so naming the tool directly is
@@ -128,14 +128,14 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             registerWithSms()
             currentBindingKeyRef = "binding-" + UUID.randomUUID()
 
-            val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"login"}""")
+            val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 .channel()["channelSessionId"] as String
             val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms-lookup").nextRaw()["toolSessionId"] as String
 
             // The channel remembers WHICH intent it was entered with, so abandoning does not silently
             // turn a "log me into my existing account" into "let's register you".
             delete("/orchestrator/api/v1/tools/$toolSessionId/auth-sms-lookup")
-            val afterCancel = delete("/orchestrator/api/v1/app/channels/$channelSessionId/process")
+            val afterCancel = delete("/orchestrator/api/v1/app/channels/$channelSessionId/journey")
             afterCancel.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
             afterCancel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")

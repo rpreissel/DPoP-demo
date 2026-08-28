@@ -40,7 +40,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
 
-                val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/process")
+                val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/journey")
                 // ChannelState diagram (docs/02-domaenenmodell.md #3): REGISTERING -> ANONYMOUS -> a
                 // fresh registration is offered immediately, so the response already shows REGISTERING
                 // again; two ident candidates exist, so a selection page is offered (same as the
@@ -71,7 +71,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
 
-                val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/process")
+                val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/journey")
                 // LOGIN cancel doesn't force a channel-state change (docs: only REGISTERING/STEP_UP do);
                 // the response re-offers candidates from scratch - two active methods (sms, email) now
                 // exist, so that's a selection page, not the single auth-sms tool directly.
