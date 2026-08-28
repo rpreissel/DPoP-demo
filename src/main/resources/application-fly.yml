@@ -3,6 +3,22 @@
 # Der einzige Unterschied zum lokalen Lauf ist, wo die H2-Datei liegt: nicht unter ./data im
 # Arbeitsverzeichnis, sondern auf dem gemounteten Volume. Alles andere - Flyway, ddl-auto,
 # Konsole - bleibt bewusst identisch, damit die Demo online dasselbe zeigt wie lokal.
+server:
+  # OHNE DAS FUNKTIONIERT KEIN EINZIGER DPoP-REQUEST HINTER DEM FLY-PROXY.
+  #
+  # buildRequestUrl() baut den htu-Vergleichswert aus scheme/serverName/serverPort. Fly
+  # terminiert TLS am Rand und spricht intern http zum Container, also sieht die Anwendung
+  # "http://dpop-demo.fly.dev:8080/..." waehrend der Browser "https://dpop-demo.fly.dev/..."
+  # signiert hat - jeder Proof scheitert mit "DPoP htu claim does not match request URL".
+  #
+  # "framework" haengt Springs ForwardedHeaderFilter davor, das scheme/host/port aus
+  # X-Forwarded-* rekonstruiert, bevor irgendein Controller oder Argument-Resolver laeuft.
+  #
+  # Bewusst NUR in diesem Profil: X-Forwarded-* zu vertrauen ist nur richtig, wenn ein Proxy
+  # davorsteht, der die Header selbst setzt und vom Client gesendete ueberschreibt. Fly tut
+  # das. Lokal steht kein Proxy davor, dort waeren die Header faelschbar.
+  forward-headers-strategy: framework
+
 spring:
   datasource:
     # /data ist der Mountpunkt des Fly-Volumes (fly.toml, [mounts]). Ohne Volume liefe die
