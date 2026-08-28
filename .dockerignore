@@ -1,0 +1,20 @@
+# Der Build-Kontext geht komplett zu Fly hoch - alles hier draussen ist Uploadzeit.
+.git/
+.gradle/
+build/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+# Die lokale H2-Datei. Sie im Image zu haben waere nicht nur unnoetig, sondern falsch:
+# in Produktion liegt die DB auf dem gemounteten Volume.
+data/
+.beads/
+.opencode/
+.idea/
+.vscode/
+.kotlin/
+docs/
+*.md
+!frontend/README.md
+.DS_Store

@@ -1,0 +1,45 @@
+app = "dpop-demo"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  SPRING_PROFILES_ACTIVE = "fly"
+
+# Die H2-Datei liegt auf einem Volume, nicht im Container-Dateisystem. Das ist die
+# Entscheidung, die alles Weitere hier erklaert: ein Volume haengt an GENAU EINER Maschine in
+# EINER Region, also laeuft die App als Einzelinstanz.
+[mounts]
+  source = "dpop_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+
+  # Auf null herunterfahren, wenn niemand die Demo benutzt, und beim naechsten Request wieder
+  # hochfahren. Fuer eine Demo ist das der Unterschied zwischen "kostet fast nichts" und
+  # "laeuft rund um die Uhr"; der Preis ist ein Kaltstart von einigen Sekunden auf den ersten
+  # Request (Maschinenstart plus JVM). Wer das nicht will, setzt min_machines_running = 1.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # Genau eine Maschine. Mehr koennen es nicht werden, weil sie sich das Volume nicht teilen
+  # koennten - und zwei Instanzen mit je eigener H2-Datei waeren zwei getrennte Wahrheiten.
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+[deploy]
+  # Ein Volume kann nicht gleichzeitig an alter und neuer Maschine haengen, also kein Rolling
+  # Update: die Maschine wird gestoppt und neu gestartet. Kostet ein paar Sekunden Downtime
+  # pro Deploy - fuer eine Demo der richtige Tausch gegen den Zustand auf der Platte.
+  strategy = "immediate"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # 512 MB, nicht 256: die JVM nimmt sich davon per MaxRAMPercentage=75 rund 384 MB Heap.
+  memory = "512mb"

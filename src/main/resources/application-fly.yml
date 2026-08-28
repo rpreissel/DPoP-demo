@@ -1,0 +1,17 @@
+# Aktiv nur auf Fly (SPRING_PROFILES_ACTIVE=fly, gesetzt in fly.toml).
+#
+# Der einzige Unterschied zum lokalen Lauf ist, wo die H2-Datei liegt: nicht unter ./data im
+# Arbeitsverzeichnis, sondern auf dem gemounteten Volume. Alles andere - Flyway, ddl-auto,
+# Konsole - bleibt bewusst identisch, damit die Demo online dasselbe zeigt wie lokal.
+spring:
+  datasource:
+    # /data ist der Mountpunkt des Fly-Volumes (fly.toml, [mounts]). Ohne Volume liefe die
+    # Datei ins Container-Dateisystem und waere bei jedem Deploy weg.
+    url: jdbc:h2:file:/data/dpopdb
+    username: sa
+    password:
+
+# Die H2-Konsole bleibt auch hier an (siehe application.yml). Erreichbar ist sie damit
+# trotzdem nur aus der Maschine selbst, weil web-allow-others auf dem Default false steht:
+# von aussen kommt man an /h2-console also nicht heran. Wer hineinsehen will, tunnelt:
+#   fly ssh console -C "..."  bzw.  fly proxy 8080:8080
