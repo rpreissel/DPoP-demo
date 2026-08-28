@@ -33,6 +33,12 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
             person.ort == claimed.ort
     }
 
+    override fun matchesName(personId: Long, name: String, vorname: String): Boolean {
+        val person = personRepository.findByIdOrNull(personId) ?: return false
+        return person.name.equals(name.trim(), ignoreCase = true) &&
+            person.vorname.equals(vorname.trim(), ignoreCase = true)
+    }
+
     fun findPersonByKvnr(kvnr: String): PersonData? =
         personRepository.findByKvnr(kvnr)
             ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname) }

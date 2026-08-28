@@ -133,7 +133,9 @@ class IdentEidToolController(
             ort = body.ort,
             pin = body.pin
         )
-        val outcome = handler.patch(toolSessionId, fields, personId)
+        // Folded into the handler's ordinary failure rather than raised - see
+        // ToolEndpoint.isIdentLockedOut: a distinguishable lock would leak which KVNRs exist.
+        val outcome = handler.patch(toolSessionId, fields, personId, toolEndpoint.isIdentLockedOut(personId))
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

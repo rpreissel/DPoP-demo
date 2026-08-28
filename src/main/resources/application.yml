@@ -13,8 +13,19 @@ spring:
     enabled: true
   h2:
     console:
+      # Bewusst an und bewusst auch aus dem Netz erreichbar - erklaerte Projektentscheidung.
+      #
+      # Damit die Abwaegung dokumentiert bleibt: es gibt kein Spring Security im Classpath, also
+      # bewacht NICHTS diesen Pfad. Mit web-allow-others=true faellt auch die Localhost-Schranke,
+      # d.h. jeder, der den Port erreicht, hat vollen Lese-/Schreibzugriff auf die Datei-DB -
+      # inklusive Passwort-Hashes (auth_password), Geraeteschluesseln (device_enrollment),
+      # Freischaltcodes (fsc_code) und allen Sessions. Das ist fuer eine Demo-/Lehr-Instanz
+      # gewollt; eine so konfigurierte Instanz gehoert in kein erreichbares Netz und darf keine
+      # echten Daten fuehren.
       enabled: true
       path: /h2-console
+      settings:
+        web-allow-others: true
 
 server:
   port: 8080
@@ -31,3 +42,11 @@ dpop:
   proof:
     max-clock-skew-seconds: 30
     max-age-seconds: 120
+  secrets:
+    # Pepper for the short-lived SMS/e-mail OTP hashes. A six-digit code has only 10^6 possible
+    # preimages, so a bare digest of it is reversible on sight by anyone who can read the table;
+    # this key is what such a reader does not have.
+    # Blank (the default) means a fresh random pepper per boot - nothing to check in and forget.
+    # A restart then invalidates codes still in flight (they live five minutes) and two instances
+    # cannot verify each other's, so set this explicitly for any multi-instance deployment.
+    otp-pepper: ""

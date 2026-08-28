@@ -1,6 +1,7 @@
 package com.example.dpop.auth_email.api.v1
 
 import com.example.dpop.auth_email.internal.AuthEmailLookupToolHandler
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
@@ -40,6 +41,7 @@ data class AuthEmailLookupPatchRequest(
 @SecurityRequirement(name = "dpop")
 class AuthEmailLookupToolController(
     private val handler: AuthEmailLookupToolHandler,
+    private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {
 
@@ -108,7 +110,12 @@ class AuthEmailLookupToolController(
         val outcome = if (body.code != null) {
             handler.patch(toolSessionId, body.code)
         } else if (body.email != null) {
-            handler.submitEmail(toolSessionId, body.email)
+            // Resolved here only to key the throttle - the handler still owns the e-mail
+            // semantics (confirmed vs. merely known) via its declared `auth_email -> account`
+            // dependency. A locked account is passed as `throttled` rather than raised as an
+            // error, so the response stays indistinguishable from an unknown address.
+            val throttled = toolEndpoint.isLockedOut(accountDirectory.resolveAccountByEmail(body.email))
+            handler.submitEmail(toolSessionId, body.email, throttled)
         } else {
             handler.patch(toolSessionId, null)
         }

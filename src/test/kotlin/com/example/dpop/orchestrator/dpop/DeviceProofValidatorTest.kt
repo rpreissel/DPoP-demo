@@ -13,19 +13,24 @@ import com.nimbusds.jwt.SignedJWT
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
+import org.springframework.dao.DataIntegrityViolationException
 import java.util.Date
 import java.util.UUID
 
 /**
  * Pure unit test: no Spring context, no HTTP layer. JwkThumbprintService/DpopReplayProtectionService
  * are used as real instances (fast, no external dependencies) rather than mocked, so replay
- * detection is genuinely exercised rather than assumed.
+ * detection is genuinely exercised rather than assumed. The service is DB-backed now, so its
+ * repository is stubbed by [inMemoryReplayRepository] - which reproduces the one behaviour the
+ * detection actually rests on: a duplicate primary key raises DataIntegrityViolationException.
  */
 class DeviceProofValidatorTest : BehaviorSpec({
 
     val validator = DeviceProofValidator(
         jwkThumbprintService = JwkThumbprintService(),
-        replayProtectionService = DpopReplayProtectionService(),
+        replayProtectionService = DpopReplayProtectionService(inMemoryReplayRepository()),
         maxClockSkewSeconds = 30,
         maxProofAgeSeconds = 120
     )
@@ -139,3 +144,21 @@ class DeviceProofValidatorTest : BehaviorSpec({
         }
     }
 })
+
+/**
+ * The smallest stub that still makes replay detection real: a map plus the primary-key
+ * violation. Only `saveAndFlush` is stubbed because that is the only method the service calls -
+ * the check IS the insert.
+ */
+private fun inMemoryReplayRepository(): DpopProofReplayRepository {
+    val seen = mutableSetOf<String>()
+    val repository = mockk<DpopProofReplayRepository>()
+    every { repository.saveAndFlush(any()) } answers {
+        val entry = firstArg<DpopProofReplay>()
+        if (!seen.add(entry.proofKey!!)) {
+            throw DataIntegrityViolationException("duplicate proof_key ${entry.proofKey}")
+        }
+        entry
+    }
+    return repository
+}

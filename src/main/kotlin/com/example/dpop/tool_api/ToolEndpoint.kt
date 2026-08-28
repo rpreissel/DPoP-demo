@@ -85,6 +85,30 @@ interface ToolEndpoint {
     fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse
 
     /**
+     * Whether [accountId] is currently locked out by the account-level brute-force throttle.
+     *
+     * For tools that resolve the account THEMSELVES from submitted input (LOOKUP_AUTH). A
+     * DEVICE_AUTH tool needs nothing here: its channel already knows the account, so
+     * [beginActivation] checks the same throttle and rejects with an explicit 423.
+     *
+     * The caller must fold a `true` into its own ordinary, constant-shape failure - in practice
+     * by passing `null` on to its handler, so the attempt is handled exactly like an unknown
+     * e-mail. It must NOT be surfaced as a distinct error or status: a lockout that is
+     * observable from outside tells an attacker which addresses have accounts, which is the very
+     * thing the constant-shape failure exists to deny.
+     *
+     * `null` (nothing resolved) answers `false`: there is no subject to be locked.
+     */
+    fun isLockedOut(accountId: Long?): Boolean
+
+    /**
+     * Whether [personId] is currently locked out by the person-level IDENT throttle. Same
+     * fold-it-into-the-ordinary-failure contract as [isLockedOut]; see `IdentThrottleService` for
+     * why identification needs a counter of its own rather than the account one.
+     */
+    fun isIdentLockedOut(personId: Long?): Boolean
+
+    /**
      * Builds the response for a GET call.
      *
      * @param freshOutcome the tool's freshly rebuilt `InProgress` state, or `null` if [context]'s

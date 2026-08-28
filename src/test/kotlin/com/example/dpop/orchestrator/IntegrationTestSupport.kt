@@ -73,7 +73,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
                 "auth_device_tool_data", "enroll_device_tool_data", "device_enrollment",
                 "tool_session", "auth_journey", "session_event",
                 "channel_session_available_tools", "channel_session", "auth_context", "account", "auth_sms", "auth_password",
-                "device_account_link", "login_attempt_throttle", "tool_availability"
+                "device_account_link", "attempt_throttle", "tool_availability", "dpop_proof_replay"
             ).forEach { jdbcTemplate.update("DELETE FROM $it") }
         }
     }

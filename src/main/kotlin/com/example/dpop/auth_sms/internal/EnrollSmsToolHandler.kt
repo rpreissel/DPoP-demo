@@ -19,7 +19,8 @@ import java.util.UUID
 class EnrollSmsToolHandler(
     private val descriptor: EnrollSmsDescriptor,
     private val toolDataRepository: EnrollSmsToolDataRepository,
-    private val enrollmentRepository: AuthSmsEnrollmentRepository
+    private val enrollmentRepository: AuthSmsEnrollmentRepository,
+    private val tanGenerator: TanGenerator
 ) {
 
     /** Called directly by EnrollSmsToolController; nothing needs resolving before this can start. */
@@ -38,7 +39,7 @@ class EnrollSmsToolHandler(
             if (data.phoneNumber == null) {
                 return ToolOutcome.InProgress(nextStep = "enroll", data = mapOf("missingFields" to listOf("phoneNumber")))
             }
-            if (!TanGenerator.matches(tan, data.issuedTanHash, data.tanExpiresAt)) {
+            if (!tanGenerator.matches(tan, data.issuedTanHash, data.tanExpiresAt)) {
                 return ToolOutcome.Failed("TAN ungueltig oder abgelaufen")
             }
             val enrollment = enrollmentRepository.save(AuthSmsEnrollment(data.phoneNumber))
@@ -58,7 +59,7 @@ class EnrollSmsToolHandler(
             throw IllegalArgumentException("Ungueltige Telefonnummer")
         }
 
-        val issued = TanGenerator.issue()
+        val issued = tanGenerator.issue()
         data.phoneNumber = normalized
         data.issuedTanHash = issued.hash
         data.tanExpiresAt = issued.expiresAt

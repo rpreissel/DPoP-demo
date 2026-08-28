@@ -32,10 +32,14 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
 
     override fun interpret(state: LookupLoginState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
         when (outcome) {
-            // The only intent that trusts a tool to resolve the account itself - everywhere else
-            // the account must already be known from the channel or the journey.
-            is ToolOutcome.Completed.Authenticated ->
-                Interpretation.AcceptProof(useOutcomeAccount = true, bindDevice = false)
+            // The only intent that trusts a tool to resolve the account itself - but only on the
+            // FIRST proof, which is the one that has no account yet. Any further factor runs
+            // against the account already bound by that first one, exactly like every other
+            // intent, so it must not be able to name a different one.
+            is ToolOutcome.Completed.Authenticated -> Interpretation.AcceptProof(
+                useOutcomeAccount = state is LookupLoginState.Credential,
+                bindDevice = false
+            )
             // Neither can be offered by any state of this intent; reaching here would mean the
             // state machine let through a tool it never offered.
             is ToolOutcome.Completed.Identified,
@@ -60,7 +64,18 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                     if ((state.offered.toSet() - declined).isEmpty()) Decision.Cancel
                     else Decision.Advance(state.copy(declined = declined, active = null))
                 }
-                else -> Decision.Advance(LookupLoginState.OfferBinding(ctx.requireAccount().accountId))
+                else -> settleOrRaise(ctx)
+            }
+
+            is LookupLoginState.AdditionalFactor -> when (event) {
+                is JourneyEvent.Abandoned -> {
+                    val declined = state.declined + event.tool.toolId
+                    // Giving up here cannot mean "finish anyway": the floor is still unmet, and
+                    // finishing would put the channel in AUTHENTICATED below its own level.
+                    if ((state.offered.toSet() - declined).isEmpty()) Decision.Cancel
+                    else Decision.Advance(state.copy(declined = declined, active = null))
+                }
+                else -> settleOrRaise(ctx)
             }
 
             // The client answers this via JourneyService.answer; the journey ends here either way,
@@ -76,6 +91,34 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
         }
 
     override fun onCancel(state: LookupLoginState): ChannelState = ChannelState.ANONYMOUS
+
+    /**
+     * The channel's own acrFloor applies here like it does to every other intent.
+     *
+     * This used to be missing outright - a proof went straight to [LookupLoginState.OfferBinding]
+     * and the journey finished, so a channel opened with `requiredAcr: "loa3"` reached
+     * AUTHENTICATED on one loa1 factor. `JourneyService.finish` sets AUTHENTICATED
+     * unconditionally; the floor is only ever enforced by the strategy, which makes forgetting it
+     * here silent. Compare `FastAccessStrategy.afterProof` and `StepUpStrategy.finishOrContinue`,
+     * which do the same thing for their own intents.
+     *
+     * Unlike those two there is no enrollment fallback: this intent exists to log an EXISTING
+     * account in from an unpaired device, so an account that simply cannot reach the floor with
+     * what it already has ends the journey rather than growing new credentials on an unproven
+     * device.
+     */
+    private fun settleOrRaise(ctx: JourneyContext): Decision {
+        val account = ctx.requireAccount()
+        if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
+            return Decision.Advance(LookupLoginState.OfferBinding(account.accountId))
+        }
+        val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
+        return if (candidates.isEmpty()) {
+            Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
+        } else {
+            Decision.Advance(LookupLoginState.AdditionalFactor(candidates))
+        }
+    }
 
     companion object {
         /** The two answers [LookupLoginState.OfferBinding] understands (see JourneyEvent.Answered). */

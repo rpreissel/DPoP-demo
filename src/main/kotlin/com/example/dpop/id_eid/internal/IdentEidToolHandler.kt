@@ -38,8 +38,12 @@ class IdentEidToolHandler(
         return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to LOOKUP_FIELDS))
     }
 
+    /**
+     * [throttled] folds into the ordinary "PIN invalid" answer rather than getting an error of
+     * its own - a distinguishable lock response would turn this into a KVNR-existence oracle.
+     */
     @Transactional
-    fun patch(toolSessionId: UUID, fields: EidPatchFields, personId: Long?): ToolOutcome {
+    fun patch(toolSessionId: UUID, fields: EidPatchFields, personId: Long?, throttled: Boolean): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-eid tool session: $toolSessionId" }
 
         fields.kvnr?.let { data.kvnr = it }
@@ -51,7 +55,7 @@ class IdentEidToolHandler(
         fields.hausnummer?.let { data.hausnummer = it }
         fields.plz?.let { data.plz = it }
         fields.ort?.let { data.ort = it }
-        fields.pin?.let { data.pin = it }
+        fields.pin?.let { data.pinHash = hash(it.trim()) }
         repository.save(data)
 
         if (data.kvnr.isNullOrBlank() || data.name.isNullOrBlank() || data.vorname.isNullOrBlank()) {
@@ -62,15 +66,16 @@ class IdentEidToolHandler(
         ) {
             return ToolOutcome.InProgress(nextStep = "card", data = mapOf("missingFields" to CARD_FIELDS))
         }
-        if (data.pin.isNullOrBlank()) {
+        if (data.pinHash.isNullOrBlank()) {
             return ToolOutcome.InProgress(nextStep = "pin", data = mapOf("missingFields" to PIN_FIELDS))
         }
 
         val resolvedPersonId = data.personId
             ?: return ToolOutcome.Failed("Person zu dieser KVNR nicht gefunden")
 
-        if (data.pin != MOCK_PIN) {
-            return ToolOutcome.Failed("eID-PIN ungueltig")
+        // Constant-time, and against the stored hash - the PIN itself is no longer persisted.
+        if (throttled || !MessageDigest.isEqual(data.pinHash?.toByteArray(), hash(MOCK_PIN).toByteArray())) {
+            return ToolOutcome.Failed("eID-PIN ungueltig", attemptedPersonId = resolvedPersonId)
         }
 
         val claimed = ClaimedIdentity(
@@ -83,7 +88,10 @@ class IdentEidToolHandler(
             ort = data.ort.orEmpty()
         )
         if (!personDirectory.matchesStammdaten(resolvedPersonId, claimed)) {
-            return ToolOutcome.Failed("Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein")
+            return ToolOutcome.Failed(
+                "Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein",
+                attemptedPersonId = resolvedPersonId
+            )
         }
 
         val documentNumber = mockDocumentNumber(toolSessionId)
@@ -97,7 +105,7 @@ class IdentEidToolHandler(
                 "providerTxId" to "EID-$toolSessionId",
                 "methodVersion" to "1.0",
                 "documentNumber" to documentNumber,
-                "evidenceHash" to evidenceHash(data.kvnr.orEmpty(), data.pin.orEmpty(), documentNumber)
+                "evidenceHash" to evidenceHash(data.kvnr.orEmpty(), data.pinHash.orEmpty(), documentNumber)
             )
         )
     }
@@ -119,10 +127,12 @@ class IdentEidToolHandler(
     private fun mockDocumentNumber(toolSessionId: UUID): String =
         "MOCK" + toolSessionId.toString().replace("-", "").take(9).uppercase()
 
-    private fun evidenceHash(kvnr: String, pin: String, documentNumber: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest("$kvnr:$pin:$documentNumber".toByteArray())
-        return "sha256:" + digest.joinToString("") { "%02x".format(it) }
-    }
+    private fun evidenceHash(kvnr: String, pinHash: String, documentNumber: String): String =
+        "sha256:" + hash("$kvnr:$pinHash:$documentNumber")
+
+    private fun hash(value: String): String =
+        MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+            .joinToString("") { "%02x".format(it) }
 
     companion object {
         private val LOOKUP_FIELDS = listOf("kvnr", "name", "vorname")

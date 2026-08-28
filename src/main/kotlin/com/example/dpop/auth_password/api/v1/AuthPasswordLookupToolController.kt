@@ -103,7 +103,12 @@ class AuthPasswordLookupToolController(
         // Resolved HERE, at the call site - auth_password may not depend on `account`
         // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no active
         // password method; the handler treats that identically to a wrong password.
-        val accountId = body.email?.let { accountDirectory.resolveAccountByEmail(it) }
+        val resolved = body.email?.let { accountDirectory.resolveAccountByEmail(it) }
+        // A throttled account is dropped to null and thereby handled exactly like an unknown
+        // address - never as its own error. Surfacing the lock (423) here would tell an attacker
+        // which addresses have accounts, undoing the constant-shape failure this tool is built
+        // around (see ToolEndpoint.isLockedOut).
+        val accountId = resolved.takeUnless { toolEndpoint.isLockedOut(it) }
         val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
         val outcome = handler.patch(toolSessionId, body.email, body.password, accountId, enrollmentRef)
 

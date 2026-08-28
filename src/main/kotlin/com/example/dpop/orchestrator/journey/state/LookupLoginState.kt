@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 @JsonSubTypes(
     JsonSubTypes.Type(value = LookupLoginState.Start::class, name = "Start"),
     JsonSubTypes.Type(value = LookupLoginState.Credential::class, name = "Credential"),
+    JsonSubTypes.Type(value = LookupLoginState.AdditionalFactor::class, name = "AdditionalFactor"),
     JsonSubTypes.Type(value = LookupLoginState.OfferBinding::class, name = "OfferBinding")
 )
 sealed interface LookupLoginState : JourneyState {
@@ -24,6 +25,25 @@ sealed interface LookupLoginState : JourneyState {
     }
 
     data class Credential(
+        override val offered: List<String>,
+        override val declined: Set<String> = emptySet(),
+        override val active: ToolRef? = null
+    ) : LookupLoginState, OfferingState {
+        override fun withActive(active: ToolRef?) = copy(active = active)
+        override val selectionContext: String get() = "auth"
+    }
+
+    /**
+     * One credential is proven but the channel's own acrFloor is not reached yet. Distinct from
+     * [Credential] because the offer is a different one: the account is now KNOWN, so the
+     * candidates come from `AuthPolicy.candidateTools` (the ordinary device-auth tools) rather
+     * than from the lookup-only set that had to resolve an account first.
+     *
+     * This state exists because the intent used to have no way to represent "proven, but not
+     * enough": it went straight from [Credential] to [OfferBinding], and the channel reached
+     * AUTHENTICATED under its own required level.
+     */
+    data class AdditionalFactor(
         override val offered: List<String>,
         override val declined: Set<String> = emptySet(),
         override val active: ToolRef? = null

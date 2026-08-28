@@ -22,7 +22,8 @@ import java.util.UUID
 class AuthSmsUseToolHandler(
     private val descriptor: AuthSmsUseDescriptor,
     private val toolDataRepository: AuthSmsUseToolDataRepository,
-    private val enrollmentRepository: AuthSmsEnrollmentRepository
+    private val enrollmentRepository: AuthSmsEnrollmentRepository,
+    private val tanGenerator: TanGenerator
 ) {
 
     @Transactional
@@ -35,7 +36,7 @@ class AuthSmsUseToolHandler(
         val enrollment = enrollmentRepository.findByIdOrNull(enrollmentId)
             ?: throw UnresolvableReferenceException("SMS-Enrollment nicht gefunden: ${enrollmentRef.id}")
 
-        val issued = TanGenerator.issue()
+        val issued = tanGenerator.issue()
         toolDataRepository.save(
             AuthSmsUseToolData(
                 toolSessionId = toolSessionId,
@@ -60,7 +61,7 @@ class AuthSmsUseToolHandler(
         val tanValue = tan
             ?: return ToolOutcome.InProgress(nextStep = "auth", data = mapOf("missingFields" to listOf("tan")))
 
-        return if (TanGenerator.matches(tanValue, data.issuedTanHash, data.tanExpiresAt)) {
+        return if (tanGenerator.matches(tanValue, data.issuedTanHash, data.tanExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,

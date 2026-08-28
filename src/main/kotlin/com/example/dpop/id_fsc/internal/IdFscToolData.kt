@@ -22,7 +22,9 @@ class IdFscToolData(
 
     var name: String? = null,
     var vorname: String? = null,
-    var fsc: String? = null
+    /** SHA-256 of the submitted code - the code itself is never persisted (V15). */
+    @Column(name = "fsc_hash")
+    var fscHash: String? = null
 ) {
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null

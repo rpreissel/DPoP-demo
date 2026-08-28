@@ -102,7 +102,10 @@ class IdentFscToolController(
 
         val body = request ?: IdentFscPatchRequest()
         val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(it) }
-        val outcome = handler.patch(toolSessionId, body.kvnr, body.name, body.vorname, body.fsc, personId)
+        // Folded into the handler's ordinary failure rather than raised - see
+        // ToolEndpoint.isIdentLockedOut: a distinguishable lock would leak which KVNRs exist.
+        val throttled = toolEndpoint.isIdentLockedOut(personId)
+        val outcome = handler.patch(toolSessionId, body.kvnr, body.name, body.vorname, body.fsc, personId, throttled)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

@@ -24,7 +24,8 @@ import java.util.UUID
 class AuthEmailLookupToolHandler(
     private val descriptor: AuthEmailLookupDescriptor,
     private val toolDataRepository: AuthEmailLookupToolDataRepository,
-    private val accountService: AccountService
+    private val accountService: AccountService,
+    private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
     @Transactional
@@ -43,15 +44,20 @@ class AuthEmailLookupToolHandler(
      * skipped when there is no address to send to, and the stored accountId stays null so the
      * later code check inevitably fails. Keep both paths structurally identical when changing
      * this; a difference in response, timing or step name would leak account existence.
+     *
+     * [throttled] joins that same third branch rather than getting an error of its own: the
+     * caller has already found this account locked out, and a distinguishable answer here would
+     * hand back the account-existence oracle everything above is built to deny. It also means no
+     * mail goes out, so a locked account cannot be mail-bombed through this endpoint.
      */
     @Transactional
-    fun submitEmail(toolSessionId: UUID, email: String): ToolOutcome {
+    fun submitEmail(toolSessionId: UUID, email: String, throttled: Boolean): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-email-lookup tool session: $toolSessionId" }
 
-        val account = accountService.findAccountByEmail(email)
+        val account = accountService.findAccountByEmail(email).takeUnless { throttled }
         val confirmedEmail = account?.takeIf { it.emailConfirmed }?.email
 
-        val issued = EmailCodeGenerator.issue()
+        val issued = emailCodeGenerator.issue()
         data.accountId = account?.accountId.takeIf { confirmedEmail != null }
         data.issuedCodeHash = issued.hash
         data.codeExpiresAt = issued.expiresAt
@@ -83,7 +89,7 @@ class AuthEmailLookupToolHandler(
         }
 
         val accountId = data.accountId
-        return if (accountId != null && EmailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
+        return if (accountId != null && emailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
@@ -91,7 +97,9 @@ class AuthEmailLookupToolHandler(
                 accountId = accountId
             )
         } else {
-            ToolOutcome.Failed("E-Mail oder Code ungueltig")
+            // accountId names the throttle subject for the orchestrator; it is null exactly when
+            // nothing resolved, so there is nothing to count either.
+            ToolOutcome.Failed("E-Mail oder Code ungueltig", attemptedAccountId = accountId)
         }
     }
 

@@ -11,6 +11,7 @@ import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
+import com.example.dpop.orchestrator.session.ChannelCreationThrottleService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -38,7 +39,8 @@ class ChannelService(
     private val authPolicy: AuthPolicy,
     private val channelAccessGuard: ChannelAccessGuard,
     private val journeyService: JourneyService,
-    private val tokenService: TokenService
+    private val tokenService: TokenService,
+    private val channelCreationThrottleService: ChannelCreationThrottleService
 ) {
 
     /**
@@ -56,6 +58,11 @@ class ChannelService(
         intent: String? = null,
         availableTools: List<String> = emptyList()
     ): ChannelResponse {
+        // Before anything is created: this endpoint is unauthenticated (a self-signed DPoP proof
+        // costs nothing) and every fresh channel resets AuthJourney.attemptBudget, so without a
+        // limit here every per-journey budget in the system is a formality.
+        channelCreationThrottleService.recordAndAssertWithinBudget(bindingKeyRef)
+
         val entryIntent = AuthIntent.fromRequest(intent)
             ?: throw OrchestratorException.invalidState("Unbekannter intent: $intent")
         if (!entryIntent.isEntryIntent) {

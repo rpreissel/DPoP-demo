@@ -23,7 +23,9 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
 
     val toolDataRepository = mockk<EnrollSmsToolDataRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
-    val handler = EnrollSmsToolHandler(EnrollSmsDescriptor, toolDataRepository, enrollmentRepository)
+    // Explicit pepper so issue()/matches() stay reproducible within the test run.
+    val tanGenerator = TanGenerator("test-pepper")
+    val handler = EnrollSmsToolHandler(EnrollSmsDescriptor, toolDataRepository, enrollmentRepository, tanGenerator)
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-sms tool session with no phone number yet") {
@@ -55,7 +57,7 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
     }
 
     given("an active enroll-sms tool session with a phone number and a valid, unexpired TAN") {
-        val issued = TanGenerator.issue()
+        val issued = tanGenerator.issue()
         val data = EnrollSmsToolData(
             toolSessionId = toolSessionId,
             phoneNumber = "+491701234567",

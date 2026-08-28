@@ -23,7 +23,8 @@ import java.util.UUID
 class AuthSmsLookupToolHandler(
     private val descriptor: AuthSmsLookupDescriptor,
     private val toolDataRepository: AuthSmsLookupToolDataRepository,
-    private val enrollmentRepository: AuthSmsEnrollmentRepository
+    private val enrollmentRepository: AuthSmsEnrollmentRepository,
+    private val tanGenerator: TanGenerator
 ) {
 
     @Transactional
@@ -33,10 +34,13 @@ class AuthSmsLookupToolHandler(
     }
 
     /**
-     * [accountId]/[enrollmentRef] are null when the email is unknown or has no active sms
-     * method - handled identically to a resolved account with an (inevitably) wrong TAN
-     * afterwards, so the response shape never reveals whether the email exists (enumeration
-     * protection, docs/04-orchestrierung.md).
+     * [accountId]/[enrollmentRef] are null when the email is unknown, has no active sms method,
+     * or is currently throttled - handled identically to a resolved account with an (inevitably)
+     * wrong TAN afterwards, so the response shape never reveals whether the email exists
+     * (enumeration protection, docs/04-orchestrierung.md).
+     *
+     * The throttled case folding into "no enrollment" also stops this endpoint from being an
+     * SMS pump: no resolution, no send.
      */
     @Transactional
     fun submitEmail(toolSessionId: UUID, accountId: Long?, enrollmentRef: EnrollmentRef?): ToolOutcome {
@@ -47,7 +51,7 @@ class AuthSmsLookupToolHandler(
             ?.id?.toLongOrNull()
             ?.let { enrollmentRepository.findByIdOrNull(it) }
 
-        val issued = TanGenerator.issue()
+        val issued = tanGenerator.issue()
         data.accountId = accountId.takeIf { enrollment != null }
         data.issuedTanHash = issued.hash
         data.tanExpiresAt = issued.expiresAt
@@ -80,7 +84,7 @@ class AuthSmsLookupToolHandler(
         }
 
         val accountId = data.accountId
-        return if (accountId != null && TanGenerator.matches(tan, data.issuedTanHash, data.tanExpiresAt)) {
+        return if (accountId != null && tanGenerator.matches(tan, data.issuedTanHash, data.tanExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
@@ -88,7 +92,9 @@ class AuthSmsLookupToolHandler(
                 accountId = accountId
             )
         } else {
-            ToolOutcome.Failed("E-Mail oder TAN ungueltig")
+            // accountId names the throttle subject for the orchestrator; it is null exactly when
+            // nothing resolved, so there is nothing to count either.
+            ToolOutcome.Failed("E-Mail oder TAN ungueltig", attemptedAccountId = accountId)
         }
     }
 

@@ -12,8 +12,26 @@ sealed interface ToolOutcome {
         val data: Map<String, Any?>? = null
     ) : ToolOutcome
 
-    /** The attempt failed; [reason] is a human-readable message for the client. */
-    data class Failed(val reason: String) : ToolOutcome
+    /**
+     * The attempt failed; [reason] is a human-readable message for the client.
+     *
+     * The two id fields name WHO the failed attempt was against, so the orchestrator can charge
+     * the right brute-force counter. They exist because a tool that resolves its own subject is
+     * the only place that knows it: for a LOOKUP_AUTH tool the account is not on the channel
+     * (that is the whole point of lookup login), and for an IDENT tool no account exists yet at
+     * all. Exactly one is ever set, and only by the tools that resolve one - a DEVICE_AUTH tool
+     * leaves both null, because its caller already knows the account from the channel.
+     *
+     * Leaving them null is always safe for the response; it only means the attempt goes
+     * uncounted, which is exactly the gap this field closes.
+     */
+    data class Failed(
+        val reason: String,
+        /** Set by a [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool that resolved an account before failing. */
+        val attemptedAccountId: Long? = null,
+        /** Set by an [IDENTIFICATION][MethodRole.IDENTIFICATION] tool that resolved a person before failing. */
+        val attemptedPersonId: Long? = null
+    ) : ToolOutcome
 
     /**
      * The tool finished successfully. The concrete variant matches the tool's [ToolDescriptor.role]

@@ -25,7 +25,8 @@ import java.util.UUID
 class AuthEmailUseToolHandler(
     private val descriptor: AuthEmailUseDescriptor,
     private val toolDataRepository: AuthEmailUseToolDataRepository,
-    private val accountService: AccountService
+    private val accountService: AccountService,
+    private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
     /**
@@ -41,7 +42,7 @@ class AuthEmailUseToolHandler(
         val email = account?.takeIf { it.emailConfirmed }?.email
             ?: throw UnresolvableReferenceException("Keine bestaetigte E-Mail-Adresse fuer diesen Account")
 
-        val issued = EmailCodeGenerator.issue()
+        val issued = emailCodeGenerator.issue()
         toolDataRepository.save(
             AuthEmailUseToolData(toolSessionId = toolSessionId, issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)
         )
@@ -58,7 +59,7 @@ class AuthEmailUseToolHandler(
         val codeValue = code
             ?: return ToolOutcome.InProgress(nextStep = "auth", data = mapOf("missingFields" to listOf("code")))
 
-        return if (EmailCodeGenerator.matches(codeValue, data.issuedCodeHash, data.codeExpiresAt)) {
+        return if (emailCodeGenerator.matches(codeValue, data.issuedCodeHash, data.codeExpiresAt)) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,

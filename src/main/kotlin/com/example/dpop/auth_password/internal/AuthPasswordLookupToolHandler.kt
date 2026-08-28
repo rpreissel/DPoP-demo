@@ -34,9 +34,15 @@ class AuthPasswordLookupToolHandler(
     }
 
     /**
-     * [accountId]/[enrollmentRef] are null when the email is unknown or has no active password
-     * method - a constant-shape failure either way, so the response never reveals whether the
-     * email exists (enumeration protection, docs/04-orchestrierung.md).
+     * [accountId]/[enrollmentRef] are null when the email is unknown, has no active password
+     * method, or is currently throttled - a constant-shape failure in every case, so the response
+     * never reveals whether the email exists (enumeration protection, docs/04-orchestrierung.md).
+     *
+     * **Constant shape means constant COST too.** The verification below deliberately runs
+     * `PasswordHasher.matches` unconditionally rather than guarding it with `enrollment != null`:
+     * Kotlin's `&&` short-circuits, so the guarded form skipped 210k PBKDF2 iterations for
+     * unknown addresses and answered them in about a millisecond, which is trivially measurable
+     * from outside. Keep the call unconditional when changing this - see PasswordHasher.matches.
      */
     @Transactional
     fun patch(toolSessionId: UUID, email: String?, password: String?, accountId: Long?, enrollmentRef: EnrollmentRef?): ToolOutcome {
@@ -55,7 +61,11 @@ class AuthPasswordLookupToolHandler(
             ?.id?.toLongOrNull()
             ?.let { enrollmentRepository.findByIdOrNull(it) }
 
-        return if (accountId != null && enrollment != null && PasswordHasher.matches(password!!, enrollment.passwordHash)) {
+        // Unconditional, before any null check - a null enrollment hashes against a dummy and
+        // costs the same. See the KDoc above.
+        val passwordOk = PasswordHasher.matches(password!!, enrollment?.passwordHash)
+
+        return if (accountId != null && enrollment != null && passwordOk) {
             ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
@@ -63,7 +73,9 @@ class AuthPasswordLookupToolHandler(
                 accountId = accountId
             )
         } else {
-            ToolOutcome.Failed("E-Mail oder Passwort ungueltig")
+            // Naming the account here is what lets the orchestrator count this attempt; the
+            // client-facing part of the outcome stays identical for known and unknown addresses.
+            ToolOutcome.Failed("E-Mail oder Passwort ungueltig", attemptedAccountId = accountId)
         }
     }
 

@@ -31,7 +31,9 @@ class IdEidToolData(
     var plz: String? = null,
     var ort: String? = null,
 
-    var pin: String? = null
+    /** SHA-256 of the submitted PIN - the PIN itself is never persisted (V15). */
+    @Column(name = "pin_hash")
+    var pinHash: String? = null
 ) {
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null

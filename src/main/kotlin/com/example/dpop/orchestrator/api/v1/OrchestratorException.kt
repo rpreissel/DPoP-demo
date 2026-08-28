@@ -27,8 +27,18 @@ class OrchestratorException(
         fun processAborted(message: String) =
             OrchestratorException(HttpStatus.GONE, "PROCESS_ABORTED", message)
 
-        /** Account-level brute-force throttle tripped (LoginThrottleService) - independent of any single ToolSession. */
+        /**
+         * Account-level brute-force throttle tripped (LoginThrottleService) - independent of any
+         * single ToolSession. Only ever raised where the account is ALREADY established for the
+         * caller (a DEVICE_AUTH tool on a channel that knows its account); a lookup-based tool
+         * must fold its lock into the tool's ordinary failure instead, or this response becomes
+         * an account-existence oracle.
+         */
         fun accountLocked(message: String) =
             OrchestratorException(HttpStatus.LOCKED, "ACCOUNT_LOCKED", message)
+
+        /** Rate limit on an unauthenticated, cheap-to-repeat operation (ChannelCreationThrottleService). */
+        fun tooManyRequests(message: String) =
+            OrchestratorException(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS", message)
     }
 }

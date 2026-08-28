@@ -115,7 +115,11 @@ class AuthSmsLookupToolController(
             // Resolved HERE, at the call site - auth_sms may not depend on `account`
             // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no
             // active sms method; the handler treats that identically to a wrong TAN.
-            val accountId = accountDirectory.resolveAccountByEmail(body.email)
+            // A throttled account drops to null and is handled exactly like an unknown address -
+            // never as its own error, which would leak account existence (ToolEndpoint.isLockedOut).
+            // It also means no TAN is sent, so this endpoint can't be used to flood a number.
+            val resolved = accountDirectory.resolveAccountByEmail(body.email)
+            val accountId = resolved.takeUnless { toolEndpoint.isLockedOut(it) }
             val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             handler.submitEmail(toolSessionId, accountId, enrollmentRef)
         } else {

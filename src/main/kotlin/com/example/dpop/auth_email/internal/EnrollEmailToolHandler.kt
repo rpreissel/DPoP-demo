@@ -31,7 +31,8 @@ import java.util.UUID
 class EnrollEmailToolHandler(
     private val descriptor: EnrollEmailDescriptor,
     private val toolDataRepository: EnrollEmailToolDataRepository,
-    private val accountService: AccountService
+    private val accountService: AccountService,
+    private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
     /** Called directly by EnrollEmailToolController; nothing needs resolving before this can start. */
@@ -53,7 +54,7 @@ class EnrollEmailToolHandler(
         if (code != null) {
             val confirmed = data.email
                 ?: return ToolOutcome.InProgress(nextStep = "enroll", data = mapOf("missingFields" to listOf("email"), demoData("email" to DEMO_EMAIL)))
-            if (!EmailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
+            if (!emailCodeGenerator.matches(code, data.issuedCodeHash, data.codeExpiresAt)) {
                 return ToolOutcome.Failed("Code ungueltig oder abgelaufen")
             }
             // Must happen before the Enrolled outcome is processed, not after: the orchestrator's
@@ -80,7 +81,7 @@ class EnrollEmailToolHandler(
             return ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
         }
 
-        val issued = EmailCodeGenerator.issue()
+        val issued = emailCodeGenerator.issue()
         data.email = normalized
         data.issuedCodeHash = issued.hash
         data.codeExpiresAt = issued.expiresAt

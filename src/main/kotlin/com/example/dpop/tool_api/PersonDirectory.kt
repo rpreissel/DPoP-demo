@@ -18,6 +18,13 @@ interface PersonDirectory {
      * the master data itself back across the port, same rule as [findPersonIdByKvnr].
      */
     fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean
+
+    /**
+     * Whether the name on file for [personId] matches - the narrow sibling of
+     * [matchesStammdaten], for a procedure that only ever learns a name (`ident-fsc`), not a full
+     * set of Ausweisdaten. Same rule: the answer crosses the port, the master data never does.
+     */
+    fun matchesName(personId: Long, name: String, vorname: String): Boolean
 }
 
 /** The attributes a claimed identity (e.g. an eID card read) can be verified against - never the KVNR, which resolves [PersonDirectory.findPersonIdByKvnr] itself. */
