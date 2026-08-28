@@ -1,5 +1,5 @@
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ActiveMethodView, ChannelResponse } from './types'
+import type { ActiveMethodView, ChannelResponse, IdTokenClaims, TokenResponse } from './types'
 
 /** Carries the server's own error/message (docs/07-betrieb.md #1) instead of a raw fetch string. */
 export class ApiError extends Error {
@@ -127,6 +127,21 @@ export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string):
 /** Deactivates an active method instance (addressed by its own id, not by method name - a method can have several active instances, e.g. multiple devices); rejected (409) if it would drop the account below this channel's required level. */
 export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, methodInstanceId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods/${methodInstanceId}`)
+}
+
+/**
+ * Covers both first issuance and refresh (docs/05-api.md #2) - call again whenever a fresh token
+ * might be needed. minValiditySeconds is the caller's tolerance; the backend alone decides
+ * whether the current AccessToken still qualifies or a new one gets minted.
+ */
+export function getToken(dpop: DpopKeyPair, channelSessionId: string, minValiditySeconds?: number): Promise<TokenResponse> {
+  const query = minValiditySeconds !== undefined ? `?minValiditySeconds=${minValiditySeconds}` : ''
+  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/token${query}`)
+}
+
+/** The fachliche ID-token claims - a resource separate from the AccessToken's own claims. */
+export function getIdClaims(dpop: DpopKeyPair, channelSessionId: string): Promise<IdTokenClaims> {
+  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/idclaims`)
 }
 
 /** Answers the optional device-binding offer of a lookup login (docs/04-orchestrierung.md #3) via the generic answer endpoint. */

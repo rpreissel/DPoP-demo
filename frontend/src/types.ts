@@ -50,6 +50,31 @@ export interface DemoInfo {
   email?: string
 }
 
+/**
+ * Mock Keycloak AccessToken (docs/05-api.md #2) - accessToken is a spec-shaped unsecured JWT
+ * (alg=none), parse and display its payload directly, no verification needed. refreshToken is
+ * deliberately NOT part of this shape - it's a credential and never leaves the backend.
+ */
+export interface TokenResponse {
+  accessToken: string
+  tokenType: string
+  accessExpiresAt: string
+  refreshExpiresAt: string
+}
+
+/** Fachliche ID-Token-Claims - a resource separate from the AccessToken's own claims. */
+export interface IdTokenClaims {
+  sub?: string
+  acr?: string
+  amr?: string[]
+  auth_time?: number
+  accountId?: number
+  personId?: number
+  email?: string
+  email_verified?: boolean
+  [key: string]: unknown
+}
+
 /** The one response envelope for every endpoint, channel- and tool-level alike (docs/05-api.md #2). */
 export interface ChannelResponse {
   channel: ChannelBlock

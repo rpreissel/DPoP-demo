@@ -52,6 +52,13 @@ interface ActiveTool {
   toolId: string
 }
 
+/** Swagger UI isn't proxied by the vite dev server (only /orchestrator is, see vite.config.ts) - in dev it lives on the backend's own port, in a same-origin deployment it's just window.location.origin. */
+const BACKEND_ORIGIN = window.location.port === '5173' ? 'http://localhost:8080' : window.location.origin
+
+/** Matches src/main/resources/application.yml - H2 console has no reliable cross-version query-param prefill, so these are shown for manual copy-paste instead. */
+const H2_JDBC_URL = 'jdbc:h2:file:./data/dpopdb'
+const H2_USER = 'sa'
+
 /**
  * Renders any thrown error into the UI's error card. ApiErrors carry the server's own message
  * (docs/07-betrieb.md #1); GONE (session/process expired or exhausted) additionally gets a
@@ -442,13 +449,6 @@ function App() {
       <div className="app-main">
         <div className="app">
           <header className="app-header">
-            <button
-              className="admin-toggle"
-              onClick={() => setShowAdmin((v) => !v)}
-              title={showAdmin ? 'Zurück zur App' : 'Entwickler-Werkzeug: Tools serverseitig sperren/freigeben, um Ausfälle zu simulieren'}
-            >
-              {showAdmin ? '← Zurück zur App' : '⚙️ Admin'}
-            </button>
             <h1>Identity Journey</h1>
             <p>
               Identifikation, Authentifizierung und Step-up zum Ausprobieren - mehrere Verfahren, deren
@@ -676,8 +676,10 @@ function App() {
             <DeviceBindingOfferView onAnswer={handleDeviceBinding} />
           )}
 
-          {uiComponent === 'authentication-completed' && (
+          {uiComponent === 'authentication-completed' && dpop && channelSessionId && (
             <AuthenticationCompletedView
+              dpop={dpop}
+              channelSessionId={channelSessionId}
               currentAcr={currentAcr}
               currentAmr={currentAmr}
               activeMethods={activeMethods}
@@ -691,6 +693,34 @@ function App() {
           )}
           </>
           )}
+
+          <footer className="dev-tools">
+            <button
+              className="admin-toggle"
+              onClick={() => setShowAdmin((v) => !v)}
+              title={showAdmin ? 'Zurück zur App' : 'Tools serverseitig sperren/freigeben, um Ausfälle zu simulieren'}
+            >
+              {showAdmin ? '← Zurück zur App' : 'Admin'}
+            </button>
+            <a
+              className="admin-toggle"
+              href={`${BACKEND_ORIGIN}/swagger-ui/index.html`}
+              target="_blank"
+              rel="noreferrer"
+              title="Backend-API-Dokumentation (Swagger/OpenAPI UI)"
+            >
+              API-Doku
+            </a>
+            <a
+              className="admin-toggle"
+              href={`${BACKEND_ORIGIN}/h2-console`}
+              target="_blank"
+              rel="noreferrer"
+              title={`H2-Datenbankkonsole - Login dort eintragen:\nJDBC URL: ${H2_JDBC_URL}\nUser: ${H2_USER}\nPassword: (leer)`}
+            >
+              H2-Konsole ({H2_JDBC_URL}, User {H2_USER}, kein Passwort)
+            </a>
+          </footer>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1.channel
 import com.example.dpop.tool_api.ActiveMethodView
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotEmpty
+import java.time.Instant
 
 @Schema(
     description = "requiredAcr is a lower bound only. Always creates a brand-new ChannelSession for this device " +
@@ -48,4 +49,17 @@ data class ChannelPatchRequest(
 @Schema(description = "The account's active authentication methods (docs/05-api.md #2). Never contains fsc.")
 data class MethodsResponse(
     val methods: List<ActiveMethodView>
+)
+
+@Schema(
+    description = "Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and " +
+        "display its payload, no verification needed) plus both token lifetimes. The RefreshToken " +
+        "value itself is deliberately never part of this response - it's a credential and stays " +
+        "server-side; refreshExpiresAt is the only thing about it exposed."
+)
+data class TokenResponse(
+    val accessToken: String,
+    val tokenType: String = "Bearer",
+    val accessExpiresAt: Instant,
+    val refreshExpiresAt: Instant
 )

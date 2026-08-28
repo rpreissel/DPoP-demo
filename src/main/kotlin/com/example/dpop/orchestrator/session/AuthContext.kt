@@ -14,10 +14,11 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Server-side IAM context (docs/02-domaenenmodell.md #1). The Keycloak-facing
- * fields (keycloakSessionId/keycloakSubject/tokenHandle) exist for the shape
- * of the target model but stay unused without the Keycloak facade
- * (docs/11-umsetzungsplan.md, explicitly out of scope).
+ * Server-side IAM context (docs/02-domaenenmodell.md #1). keycloakSessionId/keycloakSubject
+ * exist for the shape of the target model but stay unused without the real Keycloak facade
+ * (docs/11-umsetzungsplan.md, explicitly out of scope). tokenHandle/refreshTokenHandle and
+ * their expiry fields ARE used, by [com.example.dpop.orchestrator.session.TokenService]'s
+ * mock AccessToken/RefreshToken issuance.
  */
 @Entity
 @Table(name = "auth_context")
@@ -36,8 +37,13 @@ class AuthContext(
     @Column(name = "auth_context_id", nullable = false)
     var authContextId: UUID? = null
 
-    @Column(name = "token_handle", length = 255)
+    /** The mock AccessToken itself (a full JWT), not a short handle - hence the generous length. */
+    @Column(name = "token_handle", length = 4096)
     var tokenHandle: String? = null
+
+    /** Never exposed to the frontend (docs/05-api.md) - a credential, unlike [tokenHandle]'s parsed-JWT display use. */
+    @Column(name = "refresh_token_handle", length = 255)
+    var refreshTokenHandle: String? = null
 
     @Column(name = "current_acr", length = 50)
     var currentAcr: String? = null

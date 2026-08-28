@@ -1,4 +1,6 @@
+import type { DpopKeyPair } from '../dpop.ts'
 import type { ActiveMethodView, DemoInfo } from '../types'
+import { TokenPanel } from './TokenPanel'
 
 /** Display name for a method with no user-chosen label (singleton methods - email/sms/password). */
 const DEFAULT_METHOD_LABELS: Record<string, string> = {
@@ -13,6 +15,8 @@ function labelFor(method: ActiveMethodView): string {
 }
 
 interface AuthenticationCompletedViewProps {
+  dpop: DpopKeyPair
+  channelSessionId: string
   currentAcr?: string
   currentAmr?: string[]
   /** All active methods on the account - distinct from currentAmr, which is only what THIS session proved. */
@@ -27,6 +31,8 @@ interface AuthenticationCompletedViewProps {
 
 /** FE-11: accountId/personId come from the demo-only object, never a production field. */
 export function AuthenticationCompletedView({
+  dpop,
+  channelSessionId,
   currentAcr,
   currentAmr,
   activeMethods,
@@ -42,6 +48,7 @@ export function AuthenticationCompletedView({
   const canStepUpToLoa2 = currentAcr !== 'loa2'
 
   return (
+    <>
     <div className="card success-card">
       <h2>Authentifizierung erfolgreich!</h2>
       <p>Sie sind angemeldet.</p>
@@ -107,5 +114,7 @@ export function AuthenticationCompletedView({
         <button onClick={onAddMethod}>Weiteres Verfahren hinzufügen</button>
       </div>
     </div>
+    <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />
+    </>
   )
 }

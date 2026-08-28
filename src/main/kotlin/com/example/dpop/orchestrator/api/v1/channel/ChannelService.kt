@@ -14,6 +14,7 @@ import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
+import com.example.dpop.orchestrator.session.TokenService
 import com.example.dpop.tool_api.ActiveMethodView
 import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_api.ChannelResponse
@@ -36,7 +37,8 @@ class ChannelService(
     private val authContextService: AuthContextService,
     private val authPolicy: AuthPolicy,
     private val channelAccessGuard: ChannelAccessGuard,
-    private val journeyService: JourneyService
+    private val journeyService: JourneyService,
+    private val tokenService: TokenService
 ) {
 
     /**
@@ -86,6 +88,33 @@ class ChannelService(
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val methods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
         return MethodsResponse(toActiveMethodViews(methods))
+    }
+
+    /**
+     * The mock Keycloak AccessToken (docs/11-umsetzungsplan.md: real Keycloak facade out of
+     * scope). Covers both first issuance and refresh - [minValiditySeconds] is the caller's
+     * tolerance, the backend alone decides whether the existing token still qualifies or a new
+     * one gets minted (via the remembered RefreshToken, never exposed here).
+     */
+    fun getToken(channelSessionId: UUID, bindingKeyRef: String, minValiditySeconds: Long): TokenResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        requireAuthenticated(channel)
+        val pair = tokenService.tokenFor(channel.authContextId!!, minValiditySeconds)
+        return TokenResponse(accessToken = pair.accessToken, accessExpiresAt = pair.accessExpiresAt, refreshExpiresAt = pair.refreshExpiresAt)
+    }
+
+    /** The fachliche (business) ID-token claims - a separate resource from the AccessToken's own claims. */
+    fun getIdClaims(channelSessionId: UUID, bindingKeyRef: String): Map<String, Any?> {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        requireAuthenticated(channel)
+        return tokenService.idClaims(channel.authContextId!!)
+    }
+
+    private fun requireAuthenticated(channel: ChannelSession) {
+        if (channel.state != ChannelState.AUTHENTICATED) {
+            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED for token/claims access")
+        }
+        checkNotNull(channel.authContextId) { "AUTHENTICATED channel without authContextId" }
     }
 
     private fun toActiveMethodViews(methods: List<AuthMethodView>?): List<ActiveMethodView> =

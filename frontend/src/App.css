@@ -567,21 +567,39 @@ button.small,
   font-size: 1.1rem;
 }
 
+/* Developer tools live in a quiet footer strip, deliberately out of the main flow: they are not
+   part of any journey, and an absolutely-positioned header row overlapped the title. */
+.dev-tools {
+  margin-top: 2.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  justify-content: center;
+  align-items: baseline;
+}
+
 .admin-toggle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8rem;
-  background: transparent;
-  color: var(--text);
-  border-color: var(--border);
+  padding: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 400;
+  background: none;
+  border: none;
+  color: var(--text-muted, #888);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.7;
 }
 
 .admin-toggle:hover {
-  background: var(--accent-bg);
   color: var(--accent);
-  border-color: var(--accent-border);
+  background: none;
+  border: none;
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .advanced-options {

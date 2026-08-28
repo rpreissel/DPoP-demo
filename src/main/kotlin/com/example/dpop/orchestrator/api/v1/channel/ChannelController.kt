@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 
@@ -159,5 +160,35 @@ class ChannelController(
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
         return ResponseEntity.ok(channelService.deactivateMethod(channelSessionId, bindingKeyRef, methodInstanceId))
+    }
+
+    @GetMapping("/{channelSessionId}/token")
+    @Operation(
+        summary = "Get the mock Keycloak AccessToken",
+        description = "Covers both first issuance and refresh - call this again whenever a fresh token might be " +
+            "needed. minValiditySeconds (default 15) is the caller's tolerance: if the current AccessToken still " +
+            "has at least that much life left, it comes back unchanged; otherwise the backend mints a new one " +
+            "(silently using the remembered RefreshToken where possible). The RefreshToken value itself is never " +
+            "returned - it's a credential and stays server-side."
+    )
+    fun getToken(
+        @PathVariable channelSessionId: UUID,
+        @BindingKey bindingKeyRef: String,
+        @RequestParam(defaultValue = "15") minValiditySeconds: Long
+    ): ResponseEntity<TokenResponse> {
+        return ResponseEntity.ok(channelService.getToken(channelSessionId, bindingKeyRef, minValiditySeconds))
+    }
+
+    @GetMapping("/{channelSessionId}/idclaims")
+    @Operation(
+        summary = "Get the fachliche ID-token claims",
+        description = "Business-facing claims (accountId/personId/email/acr/amr/auth_time) - a separate resource " +
+            "from the AccessToken's own claims, not encoded into it."
+    )
+    fun getIdClaims(
+        @PathVariable channelSessionId: UUID,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<Map<String, Any?>> {
+        return ResponseEntity.ok(channelService.getIdClaims(channelSessionId, bindingKeyRef))
     }
 }
