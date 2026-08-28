@@ -368,7 +368,7 @@ class JourneyService(
         return when (val interpretation = strategy.interpretOutcome(codec.read(journey), tool, outcome)) {
             is Interpretation.AdoptIdentity -> {
                 val identified = outcome as ToolOutcome.Completed.Identified
-                val account = accountService.findOrCreateAccount(identified.personId, tool.toolId)
+                val account = accountService.findOrCreateAccount(identified.personId)
                 bindAccount(journey, channel, account.accountId)
                 recordIdentification(journey, channel, tool, identified)
                 identified.achievedAcr
