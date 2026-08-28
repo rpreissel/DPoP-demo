@@ -2,9 +2,10 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
@@ -33,16 +34,16 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // No account known yet - empty collection, not an error (docs/05-api.md #2).
                 val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 @Suppress("UNCHECKED_CAST")
-                assertThat((get("/orchestrator/api/v1/app/channels/$freshChannelSessionId/methods")["methods"] as List<*>)).isEmpty()
+                (get("/orchestrator/api/v1/app/channels/$freshChannelSessionId/methods")["methods"] as List<*>).shouldBeEmpty()
 
                 val channelSessionId = registerAndAuthenticate()
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/app/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
-                assertThat(methods.methodNames()).containsExactlyInAnyOrder("sms", "email")
+                methods.methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
 
                 val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(channel.channel()["activeMethods"] as List<Map<String, Any?>>).isEqualTo(methods)
+                channel.channel()["activeMethods"] as List<Map<String, Any?>> shouldBe methods
 
 
                 }
@@ -58,20 +59,20 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
                 // sms and email already active (email via the REGISTRATION Required Action); password and
                 // device are offered - two candidates means a selection page, not a single-candidate skip.
-                assertThat(started.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-password", "enroll-device")
+                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
 
                 val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
                 // Finishes immediately after ONE enrollment, regardless of whether some higher floor was
                 // reached - unlike the identification path, MANAGE never depends on canAccountReach.
-                assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+                enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-                assertThat(channel.channel()["state"]).isEqualTo("AUTHENTICATED")
+                channel.channel()["state"] shouldBe "AUTHENTICATED"
                 @Suppress("UNCHECKED_CAST")
-                assertThat(channel.channel()["currentAmr"] as List<String>).contains("password")
+                channel.channel()["currentAmr"] as List<String> shouldContain "password"
 
 
                 }
@@ -93,7 +94,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // candidate (single-candidate skip goes straight to it; the "nothing left" message is
                 // covered once device is also enrolled, see DeviceBindingIntegrationTest).
                 val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-                assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-device", "step" to "enroll"))
+                started.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-device", "step" to "enroll")
 
 
                 }
@@ -133,7 +134,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val exception = assertThrows<HttpClientErrorException> {
                     delete("/orchestrator/api/v1/app/channels/$channelSessionId/methods/$passwordInstanceId")
                 }
-                assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+                exception.statusCode shouldBe HttpStatus.CONFLICT
 
 
                 }
@@ -156,9 +157,9 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // sms is a candidate again now that it was deactivated - email is already confirmed, so
                 // password is ALSO now a valid candidate, hence a selection page rather than a skip.
                 val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-                assertThat(started.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(started.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-password", "enroll-device")
+                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-password", "enroll-device")
 
 
                 }
@@ -181,7 +182,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
                 val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
-                assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa1")
+                afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
                 // The account has only sms enrolled - no second AUTH method exists to combine with, so
                 // without re-identification this would be a dead end (the bug this test guards against).
@@ -195,12 +196,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // Re-identification alone already reaches loa2, so the step-up sub-journey ends - and the
                 // ORIGINAL wish resumes right there. The user does not have to ask for the enrollment a
                 // second time; that is the whole point of parking the wish rather than replacing it.
-                assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+                reIdentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(reIdentified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-password", "enroll-device")
+                reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
 
                 val afterStepUp = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
-                assertThat(afterStepUp.channel()["currentAcr"]).isEqualTo("loa2")
+                afterStepUp.channel()["currentAcr"] shouldBe "loa2"
 
 
                 }
@@ -231,7 +232,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                         """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
                     )
                 }
-                assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+                exception.statusCode shouldBe HttpStatus.CONFLICT
 
 
                 }

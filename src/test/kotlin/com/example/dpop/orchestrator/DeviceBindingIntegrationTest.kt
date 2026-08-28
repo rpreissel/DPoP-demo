@@ -10,10 +10,12 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotest.matchers.shouldBe
 import io.mockk.every
-import org.assertj.core.api.Assertions.assertThat
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -91,16 +93,16 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
         then("Enroll device reaches loa 2 directly with geraet and access means in amr") {
             val channelSessionId = identify()
             val deviceKey = enrollDevice(channelSessionId, userVerification = "biometric")
-            assertThat(deviceKey).isNotNull()
+            deviceKey.shouldNotBeNull()
 
             val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-            assertThat(channel.channel()["currentAcr"]).isEqualTo("loa2")
+            channel.channel()["currentAcr"] shouldBe "loa2"
             // "fsc" is also present (ident-fsc's own amr, accumulated across the whole session) -
             // only device/biometric are asserted here.
             @Suppress("UNCHECKED_CAST")
-            assertThat(channel.channel()["currentAmr"] as List<String>).contains("device", "biometric")
+            (channel.channel()["currentAmr"] as List<String>).shouldContainAll("device", "biometric")
             @Suppress("UNCHECKED_CAST")
-            assertThat((channel.channel()["activeMethods"] as List<*>).methodNames()).contains("device")
+            (channel.channel()["activeMethods"] as List<*>).methodNames() shouldContain "device"
         }
         then("Auth device with the enrolled key recognizes the device and reaches loa 2 on a new channel") {
             val channelSessionId = identify()
@@ -109,19 +111,19 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             // Same DPoP binding key (channelKey) -> a brand-new channel recognizes the device via
             // DeviceAccountLink and offers auth-device straight away, single-candidate skip.
             val newChannel = post("/orchestrator/api/v1/app/channels")
-            assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
+            newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
 
             val authToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
             val authPatchUrl = "/orchestrator/api/v1/tools/$authToolSessionId/auth-device"
             val proof = signDeviceProof(deviceKey, "http://localhost:$port$authPatchUrl", "pin")
             val authenticated = patch(authPatchUrl, """{"deviceProof":"$proof"}""")
-            assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+            authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
             val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
-            assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa2")
+            afterLogin.channel()["currentAcr"] shouldBe "loa2"
             @Suppress("UNCHECKED_CAST")
-            assertThat(afterLogin.channel()["currentAmr"] as List<String>).containsExactlyInAnyOrder("device", "pin")
+            afterLogin.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("device", "pin")
         }
         then("Auth device declined on a fresh channel falls through to the remaining auth methods") {
             // Registration enrols sms (and the email obligation adds email), then a device credential
@@ -137,20 +139,20 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             // Fresh session on the same device: the first state of the FAST fallback chain, the device method.
             val newChannel = post("/orchestrator/api/v1/app/channels")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
-            assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
+            newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
 
             // Declining it is NOT cancelling the journey: the chain falls through to the other
             // methods the account actually has, which is a real choice rather than the same screen.
             val toolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
             val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-device")
-            assertThat(afterDecline.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
+            afterDecline.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            assertThat(afterDecline.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email")
+            afterDecline.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
 
             // Cancelling the whole journey, by contrast, restarts the SAME intent - and therefore
             // legitimately lands back on the first state. The two actions are not interchangeable.
             val afterCancel = delete("/orchestrator/api/v1/app/channels/$newChannelSessionId/process")
-            assertThat(afterCancel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
+            afterCancel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Auth device signed with a different key is rejected as failed not as someone elses credential") {
             val channelSessionId = identify()
@@ -166,8 +168,8 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val result = patch(authPatchUrl, """{"deviceProof":"$proof"}""")
 
             // Failed, not Completed: retried in place, no error leaking which device WAS expected.
-            assertThat(result.stepData()["error"]).isEqualTo("Geraet nicht erkannt")
-            assertThat(result.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
+            result.stepData()["error"] shouldBe "Geraet nicht erkannt"
+            result.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Enroll device with an expired proof is rejected as unauthorized") {
             val channelSessionId = identify()
@@ -185,7 +187,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
                     HttpEntity("""{"deviceProof":"$staleProof"}""", headers()), mapType
                 )
             }
-            assertThat(exception.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+            exception.statusCode shouldBe HttpStatus.UNAUTHORIZED
         }
         then("Enroll device replaying the same proof is rejected because the tool session is no longer current") {
             // A successfully completed enroll-device tool session is done - the process has already
@@ -208,7 +210,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
                     HttpEntity("""{"deviceProof":"$proof"}""", headers()), mapType
                 )
             }
-            assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+            exception.statusCode shouldBe HttpStatus.CONFLICT
         }
         then("Manage methods enroll device requires loa 2 first even though the channel is already authenticated") {
             // Register+enroll via sms only (loa1) - deliberately NOT via enroll-device, so the
@@ -229,7 +231,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
 
             val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
-            assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa1")
+            afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
             // MANAGE with enroll-device as the goal must still force the loa2 step-up gate
             // first (ManageAuthMethodsStrategy.REQUIRED_ACR) - the session's own loa1 evidence is

@@ -9,7 +9,7 @@ import com.nimbusds.jose.jwk.JWK
 import io.kotest.core.spec.style.BehaviorSpec
 import io.mockk.every
 import io.mockk.mockk
-import org.assertj.core.api.Assertions.assertThat
+import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
@@ -112,7 +112,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     protected fun post(url: String, body: String = "{}"): Map<String, Any?> =
         restTemplate.exchange(
             "http://localhost:$port$url", HttpMethod.POST, HttpEntity(withDefaultAvailableTools(url, body), headers()), mapType
-        ).let { assertThat(it.statusCode.is2xxSuccessful).isTrue(); it.body!! }
+        ).let { it.statusCode.is2xxSuccessful shouldBe true; it.body!! }
 
     /**
      * `availableTools` is a required field on `POST /channels` (docs/03-tool-architektur.md,
@@ -134,7 +134,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     protected fun patch(url: String, body: String): Map<String, Any?> =
         restTemplate.exchange(
             "http://localhost:$port$url", HttpMethod.PATCH, HttpEntity(body, headers()), mapType
-        ).let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
+        ).let { it.statusCode shouldBe HttpStatus.OK; it.body!! }
 
     protected fun put(url: String, body: String): HttpStatus =
         restTemplate.exchange(
@@ -144,12 +144,12 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     protected fun get(url: String): Map<String, Any?> =
         restTemplate.exchange(
             "http://localhost:$port$url", HttpMethod.GET, HttpEntity<Void>(headers()), mapType
-        ).let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
+        ).let { it.statusCode shouldBe HttpStatus.OK; it.body!! }
 
     protected fun delete(url: String): Map<String, Any?> =
         restTemplate.exchange(
             "http://localhost:$port$url", HttpMethod.DELETE, HttpEntity<Void>(headers()), mapType
-        ).let { assertThat(it.statusCode).isEqualTo(HttpStatus.OK); it.body!! }
+        ).let { it.statusCode shouldBe HttpStatus.OK; it.body!! }
 
     /** Logout returns 204 No Content (docs/05-api.md), no body to parse. */
     protected fun deleteNoContent(url: String): HttpStatus =
@@ -227,7 +227,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
      */
     protected fun triggerEnrollmentStepUp(channelSessionId: String): Map<String, Any?> {
         val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-        assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
+        started.channel()["state"] shouldBe "STEP_UP_IN_PROGRESS"
         return started
     }
 

@@ -2,7 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
-import org.assertj.core.api.Assertions.assertThat
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
@@ -42,7 +43,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 val exception = assertThrows<HttpClientErrorException> {
                     post("/orchestrator/api/v1/app/channels/$lockedChannelSessionId/tools/auth-sms")
                 }
-                assertThat(exception.statusCode.value()).isEqualTo(423)
+                exception.statusCode.value() shouldBe 423
 
 
                 }
@@ -68,7 +69,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 }
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
-                assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+                authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 // Confirm the counter was actually reset, not just "not yet locked": two more fresh
                 // failures on ANOTHER new session right after a success should NOT be treated as
@@ -81,7 +82,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // Still allowed - only 2 failures since the reset, well under the lock threshold.
                 val nextChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val stillAllowed = post("/orchestrator/api/v1/app/channels/$nextChannelSessionId/tools/auth-sms")
-                assertThat(stillAllowed.nextRaw()["toolSessionId"]).isNotNull()
+                stillAllowed.nextRaw()["toolSessionId"].shouldNotBeNull()
 
 
                 }

@@ -2,7 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
-import org.assertj.core.api.Assertions.assertThat
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
@@ -35,7 +36,7 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 val exception = assertThrows<HttpClientErrorException> {
                     post("/orchestrator/api/v1/app/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
                 }
-                assertThat(exception.statusCode).isEqualTo(HttpStatus.GONE)
+                exception.statusCode shouldBe HttpStatus.GONE
 
 
                 }
@@ -65,9 +66,9 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 // Two candidates are left (enroll-email, enroll-device; sms is already active, password
                 // still needs a confirmed email first) - a selection page is offered, not a single-
                 // candidate skip.
-                assertThat(afterSms.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+                afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(afterSms.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
+                afterSms.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device")
 
                 // Second factor (email): sms+email are BOTH possession, so this alone still doesn't
                 // reach loa2 - but it unlocks enroll-password (requiresConfirmedEmail).
@@ -79,20 +80,20 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
                     """{"password":"correct-horse-battery"}"""
                 )
-                assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+                enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-                assertThat(finalChannel.channel()["currentAcr"]).isEqualTo("loa2")
+                finalChannel.channel()["currentAcr"] shouldBe "loa2"
                 @Suppress("UNCHECKED_CAST")
-                assertThat(finalChannel.channel()["currentAmr"] as List<String>).containsExactlyInAnyOrder("fsc", "sms", "email", "password")
+                finalChannel.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("fsc", "sms", "email", "password")
 
                 // --- Fresh app session on the same device (no re-identification, so fsc's own loa2 isn't in play this time) ---
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
                 // No single method alone reaches loa2, so the login offers a pick among all three.
-                assertThat(loginStart.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
+                loginStart.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(loginStart.stepData()["options"] as List<String>).containsExactlyInAnyOrder("auth-sms", "auth-email", "auth-password")
+                loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email", "auth-password")
 
                 val (loginTan, smsActivation) = captureMockTan {
                     post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
@@ -101,7 +102,7 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 val afterSmsAuth = patch("/orchestrator/api/v1/tools/$authSmsToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
                 // sms alone is only loa1, and email would be the SAME factor type (no MFA progress) - only
                 // password is offered next.
-                assertThat(afterSmsAuth.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth"))
+                afterSmsAuth.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")
 
                 // Same rule as above: activate auth-password explicitly, don't reuse afterSmsAuth's (auth-sms) session id.
                 val authPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
@@ -109,10 +110,10 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$authPasswordToolSessionId/auth-password",
                     """{"password":"correct-horse-battery"}"""
                 )
-                assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+                authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
-                assertThat(afterLogin.channel()["currentAcr"]).isEqualTo("loa2")
+                afterLogin.channel()["currentAcr"] shouldBe "loa2"
 
 
                 }

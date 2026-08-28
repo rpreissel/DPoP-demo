@@ -2,8 +2,9 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import org.assertj.core.api.Assertions.assertThat
+import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
@@ -40,7 +41,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 result.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-eid", "step" to "input")
 
                 val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-                assertThat(channel.channel()["state"]).isEqualTo("REGISTERING")
+                channel.channel()["state"] shouldBe "REGISTERING"
 
 
                 }
@@ -58,19 +59,19 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 // confirmed email first), so switching away re-offers the selection page - but the OLD
                 // tool session is abandoned either way.
                 val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
-                assertThat(result.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+                result.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(result.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-sms", "enroll-email", "enroll-device")
+                result.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device")
 
                 // The abandoned tool session is gone even though we re-activate the same toolId.
                 val exception = assertThrows<HttpClientErrorException> {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
-                assertThat(exception.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+                exception.statusCode shouldBe HttpStatus.NOT_FOUND
 
                 // Re-activating works fine and mints a new tool session.
                 val reactivated = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms")
-                assertThat(reactivated.nextRaw()["toolSessionId"]).isNotEqualTo(enrollToolSessionId)
+                reactivated.nextRaw()["toolSessionId"] shouldNotBe enrollToolSessionId
 
 
                 }

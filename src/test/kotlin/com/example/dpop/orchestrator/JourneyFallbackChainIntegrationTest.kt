@@ -3,8 +3,8 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
@@ -54,7 +54,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             // Fresh session on the same device: the link routes straight to the existing sms method.
             val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
             val next = get("/orchestrator/api/v1/app/channels/$channelSessionId").next()
-            assertThat(next).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
+            next shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
 
             // Backing out of the only remaining auth method is not a dead end: the chain falls
             // through to its last state, identification - which is exactly what the old model could
@@ -82,9 +82,9 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             // The same KVNR finds the SAME account again - "registration" versus "login" was never a
             // choice made up front, only an observation about which path was taken. So identifying on
             // the last state must not leave a second account behind.
-            assertThat(identified.next()["type"]).isNotNull()
-            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account", Int::class.java)).isEqualTo(1)
-            assertThat(jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java)).isEqualTo(accountId)
+            identified.next()["type"].shouldNotBeNull()
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account", Int::class.java) shouldBe 1
+            jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java) shouldBe accountId
         }
 
         // LOGIN_LOOKUP -------------------------------------------------------------
@@ -100,7 +100,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             val exception = assertThrows<HttpClientErrorException> {
                 post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc")
             }
-            assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+            exception.statusCode shouldBe HttpStatus.CONFLICT
         }
 
         // Attempt budget -----------------------------------------------------------
@@ -119,7 +119,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             val exception = assertThrows<HttpClientErrorException> {
                 patch("/orchestrator/api/v1/tools/$secondToolSessionId/auth-sms", """{"tan":"000000"}""")
             }
-            assertThat(exception.statusCode).isEqualTo(HttpStatus.GONE)
+            exception.statusCode shouldBe HttpStatus.GONE
         }
 
         // Entry intent -------------------------------------------------------------
@@ -136,10 +136,9 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             // turn a "log me into my existing account" into "let's register you".
             delete("/orchestrator/api/v1/tools/$toolSessionId/auth-sms-lookup")
             val afterCancel = delete("/orchestrator/api/v1/app/channels/$channelSessionId/process")
-            assertThat(afterCancel.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
+            afterCancel.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            assertThat(afterCancel.stepData()["options"] as List<String>)
-                .containsExactlyInAnyOrder("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
+            afterCancel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
         }
         }
     }

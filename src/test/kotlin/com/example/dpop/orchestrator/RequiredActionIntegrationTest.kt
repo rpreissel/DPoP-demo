@@ -4,7 +4,6 @@ import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import org.assertj.core.api.Assertions.assertThat
 import java.util.UUID
 
 /**
@@ -34,17 +33,17 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // sms alone already reaches the default loa1 floor - without the Required Action, this
             // would go straight to AUTHENTICATED.
             val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-            assertThat(afterSms.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll"))
+            afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
 
             val channelMidway = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-            assertThat(channelMidway.channel()["state"]).isEqualTo("REGISTERING")
+            channelMidway.channel()["state"] shouldBe "REGISTERING"
 
             enrollEmail(channelSessionId)
 
             val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-            assertThat(finalChannel.channel()["state"]).isEqualTo("AUTHENTICATED")
+            finalChannel.channel()["state"] shouldBe "AUTHENTICATED"
             @Suppress("UNCHECKED_CAST")
-            assertThat((finalChannel.channel()["activeMethods"] as List<*>).methodNames()).containsExactlyInAnyOrder("sms", "email")
+            (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
         }
         then("Registration choosing email first already satisfies both required actions in one step") {
             val channelSessionId = identify()
@@ -59,11 +58,11 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
                 patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"email":"$email"}""")
             }
             val enrolled = patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"code":"$code"}""")
-            assertThat(enrolled.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+            enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
             val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
             @Suppress("UNCHECKED_CAST")
-            assertThat((finalChannel.channel()["activeMethods"] as List<*>).methodNames()).containsExactlyInAnyOrder("email")
+            (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("email")
         }
         then("Existing account without confirmed email can still login and add a method via manage methods") {
             // Registration WITHOUT the Required Action gate (simulates an account provisioned before
@@ -85,7 +84,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // A fresh channel on the same device recognizes the account via DeviceAccountLink and logs
             // in via the existing sms method - no email confirmation demanded.
             val newChannel = post("/orchestrator/api/v1/app/channels")
-            assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth"))
+            newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
 
             val (loginTan, activation) = captureMockTan {
@@ -93,7 +92,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             }
             val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
             val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
-            assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+            authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
             // MANAGE itself always demands loa2 session evidence first (unrelated to Required
             // Actions - ManageAuthMethodsStrategy.REQUIRED_ACR); this session only proved sms
@@ -108,9 +107,9 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // page, not an automatic skip into enroll-email. enroll-password stays correctly excluded
             // (it still needs a confirmed email, which this account deliberately doesn't have),
             // proving the absent obligation does not quietly waive other, unrelated preconditions.
-            assertThat(reIdentified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+            reIdentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            assertThat(reIdentified.stepData()["options"] as List<String>).containsExactlyInAnyOrder("enroll-email", "enroll-device")
+            reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device")
         }
         }
     }

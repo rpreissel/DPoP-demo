@@ -11,7 +11,11 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import io.mockk.every
-import org.assertj.core.api.Assertions.assertThat
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.shouldBe
 import java.time.Instant
 import java.util.Date
 import java.util.UUID
@@ -92,8 +96,8 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             @Suppress("UNCHECKED_CAST")
             val methods = get("/orchestrator/api/v1/app/channels/$channelBSessionId/methods")["methods"] as List<Map<String, Any?>>
             val deviceEntries = methods.filter { it["method"] == "device" }
-            assertThat(deviceEntries).hasSize(2)
-            assertThat(deviceEntries.map { it["label"] }).containsExactlyInAnyOrder("Laptop", "Handy")
+            deviceEntries shouldHaveSize 2
+            deviceEntries.map { it["label"] } shouldContainExactlyInAnyOrder listOf("Laptop", "Handy")
         }
         then("Auth device is only offered and resolvable on the device holding the matching key") {
             val deviceAKey = ECKeyGenerator(Curve.P_256).generate()
@@ -104,7 +108,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             // Same device (key A) again, fresh channel: DeviceAccountLink recognizes it, auth-device
             // offered directly (single active method, single candidate skip).
             val secondChannelOnDeviceA = post("/orchestrator/api/v1/app/channels")
-            assertThat(secondChannelOnDeviceA.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth"))
+            secondChannelOnDeviceA.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
 
             // Device B (different key, never enrolled its own credential) re-identifies into the same
             // account - canAccountReach is true (device-agnostic: the account HAS a loa2 method), but
@@ -121,10 +125,11 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             )
             // sms/email/enroll-device are all still legitimate candidates (only "device" is active on
             // this account, on a key device B doesn't hold) - a selection page, never auth-device.
-            assertThat(reidentified.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod"))
+            reidentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
             val options = reidentified["stepData"].let { (it as Map<String, Any?>)["options"] as List<String> }
-            assertThat(options).contains("enroll-device").doesNotContain("auth-device")
+            options shouldContain "enroll-device"
+            options shouldNotContain "auth-device"
         }
         }
     }

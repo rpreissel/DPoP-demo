@@ -3,8 +3,10 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -48,10 +50,9 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 // response itself) - a later GET/resume never re-sends stepData.options, only `next`.
                 val created = post("/orchestrator/api/v1/app/channels")
                 val channelSessionId = created.channel()["channelSessionId"] as String
-                assertThat(created.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod"))
+                created.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                assertThat(created.stepData()["options"] as List<String>)
-                    .containsExactlyInAnyOrder("auth-sms", "auth-email")
+                created.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
 
                 // The backend disables auth-sms WHILE the client is sitting on that very offer -
                 // nobody declined anything, the state in the DB is untouched.
@@ -60,13 +61,13 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 // A plain GET (no journey transition) already reflects it: live filtering in
                 // activatable(), not a snapshot frozen at the last state transition.
                 val afterDisable = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-                assertThat(afterDisable.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth"))
+                afterDisable.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
 
                 // Direct activation of the disabled tool is rejected too, not just omitted from the offer.
                 val exception = assertThrows<HttpClientErrorException> {
                     post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
                 }
-                assertThat(exception.statusCode).isEqualTo(HttpStatus.CONFLICT)
+                exception.statusCode shouldBe HttpStatus.CONFLICT
 
                 // The remaining candidate still works normally.
                 val (code, activation) = captureMockTan {
@@ -74,7 +75,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 }
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
-                assertThat(authenticated.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+                authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 }
             }
@@ -114,18 +115,20 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
-                assertThat(offeredToolIds(identified)).doesNotContain("enroll-password", "enroll-device")
+                offeredToolIds(identified) shouldNotContain "enroll-password"
+                offeredToolIds(identified) shouldNotContain "enroll-device"
 
                 val enrollSmsToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (tan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 val afterSms = patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                assertThat(offeredToolIds(afterSms)).doesNotContain("enroll-password", "enroll-device")
+                offeredToolIds(afterSms) shouldNotContain "enroll-password"
+                offeredToolIds(afterSms) shouldNotContain "enroll-device"
 
                 enrollEmail(channelSessionId)
                 val final = get("/orchestrator/api/v1/app/channels/$channelSessionId")
-                assertThat(final.next()).isEqualTo(mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated"))
+                final.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 }
             }
@@ -142,24 +145,23 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                     org.springframework.http.HttpEntity<Void>(headers()),
                     object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
                 ).body!!
-                assertThat(catalogEntries.map { it["toolId"] }).contains("auth-sms")
+                catalogEntries.map { it["toolId"] } shouldContain "auth-sms"
 
                 var availability = restTemplate.exchange(
                     "http://localhost:$port/orchestrator/api/v1/admin/tools/availability", org.springframework.http.HttpMethod.GET,
                     org.springframework.http.HttpEntity<Void>(headers()),
                     object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
                 ).body!!
-                assertThat(availability.first { it["toolId"] == "auth-sms" }["enabled"]).isEqualTo(true)
+                availability.first { it["toolId"] == "auth-sms" }["enabled"] shouldBe true
 
-                assertThat(put("/orchestrator/api/v1/admin/tools/auth-sms/availability", """{"enabled":false,"reason":"test"}"""))
-                    .isEqualTo(HttpStatus.OK)
+                put("/orchestrator/api/v1/admin/tools/auth-sms/availability", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
 
                 availability = restTemplate.exchange(
                     "http://localhost:$port/orchestrator/api/v1/admin/tools/availability", org.springframework.http.HttpMethod.GET,
                     org.springframework.http.HttpEntity<Void>(headers()),
                     object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
                 ).body!!
-                assertThat(availability.first { it["toolId"] == "auth-sms" }["enabled"]).isEqualTo(false)
+                availability.first { it["toolId"] == "auth-sms" }["enabled"] shouldBe false
 
                 }
             }
@@ -175,7 +177,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                         org.springframework.http.HttpEntity("{}", headers()), mapType
                     )
                 }
-                assertThat(exception.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                exception.statusCode shouldBe HttpStatus.BAD_REQUEST
 
                 }
             }
