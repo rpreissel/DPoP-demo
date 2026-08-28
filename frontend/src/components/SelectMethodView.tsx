@@ -1,4 +1,4 @@
-import { metaFor } from '../toolMeta'
+import { metaFor } from '../tools/registry'
 
 interface SelectMethodViewProps {
   options: string[]

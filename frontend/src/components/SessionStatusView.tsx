@@ -1,6 +1,6 @@
 import type { Next } from '../types'
 import { shorten } from '../format'
-import { metaFor } from '../toolMeta'
+import { metaFor } from '../tools/registry'
 import { DiagramHint } from './DiagramHint'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 

@@ -2,19 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, Next, StepData } from './types'
-import { getUIComponent, knownToolIds } from './routing.ts'
+import { getUIComponent } from './routing.ts'
+import { knownToolIds, renderToolStep } from './tools/registry'
+import type { ToolRenderContext } from './tools/types'
 import {
   abandonTool,
   activateTool,
   answerDeviceBinding,
-  ApiError,
   cancelProcess,
   createChannel,
   deactivateMethod,
+  describeError,
   getChannel,
   logoutChannel,
   onApiCall,
-  patchTool,
   raiseRequiredAcr,
   startManageMethods,
 } from './api.ts'
@@ -22,25 +23,10 @@ import { forgetChannelSessionId, loadChannelSessionId, storeChannelSessionId } f
 import { shorten } from './format.ts'
 import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
 import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
-import { EmailCodeInputForm } from './components/EmailCodeInputForm'
-import { EmailCodeLookupForm } from './components/EmailCodeLookupForm'
-import { EmailEnrollForm } from './components/EmailEnrollForm'
-import { EmailLookupForm } from './components/EmailLookupForm'
-import { EmailPasswordLookupForm } from './components/EmailPasswordLookupForm'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
-import { IdentEidForm } from './components/IdentEidForm'
-import { IdentEidCardForm } from './components/IdentEidCardForm'
-import { IdentEidPinForm } from './components/IdentEidPinForm'
-import { IdentFscForm } from './components/IdentFscForm'
-import { PasswordEnrollForm } from './components/PasswordEnrollForm'
-import { PasswordLoginForm } from './components/PasswordLoginForm'
 import { SelectMethodView } from './components/SelectMethodView'
 import { SessionStatusView } from './components/SessionStatusView'
-import { SmsEnrollForm } from './components/SmsEnrollForm'
-import { TanInputForm } from './components/TanInputForm'
-import { DeviceEnrollForm } from './components/DeviceEnrollForm'
 import { DeviceBindingOfferView } from './components/DeviceBindingOfferView'
-import { DeviceAuthForm } from './components/DeviceAuthForm'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
 import { WelcomeIntro } from './components/WelcomeIntro'
@@ -58,19 +44,6 @@ const BACKEND_ORIGIN = window.location.port === '5173' ? 'http://localhost:8080'
 /** Matches src/main/resources/application.yml - H2 console has no reliable cross-version query-param prefill, so these are shown for manual copy-paste instead. */
 const H2_JDBC_URL = 'jdbc:h2:file:./data/dpopdb'
 const H2_USER = 'sa'
-
-/**
- * Renders any thrown error into the UI's error card. ApiErrors carry the server's own message
- * (docs/07-betrieb.md #1); GONE (session/process expired or exhausted) additionally gets a
- * concrete next step, since "Process for this tool session is gone" alone isn't actionable.
- */
-function describeError(prefix: string, err: unknown): string {
-  if (err instanceof ApiError) {
-    const hint = err.status === 410 ? ' Bitte "Kanal leeren" klicken, um neu zu starten.' : ''
-    return `${prefix}: ${err.message}${hint}`
-  }
-  return `${prefix}: ${err instanceof Error ? err.message : String(err)}`
-}
 
 function App() {
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
@@ -426,16 +399,6 @@ function App() {
     }
   }
 
-  async function handlePatch(body: Record<string, unknown>) {
-    if (!dpop || !channelSessionId || !activeTool) return
-    try {
-      const response = await patchTool(dpop, activeTool.toolSessionId, activeTool.toolId, body)
-      applyResponse(response, activeTool.toolId)
-    } catch (err) {
-      setError(describeError('Request failed', err))
-    }
-  }
-
   const uiComponent = getUIComponent(next)
   // Nothing to cancel before a process even started, or once it's already finished.
   const canCancel = !!next && !(next.type === 'orchestrator' && next.context === 'authentication' && next.step === 'authenticated')
@@ -443,6 +406,23 @@ function App() {
   // select-method - every other action (bail into a different flow, logout, ...) just competes
   // for attention with the one that matters: Abbrechen.
   const inToolMode = !!activeTool || uiComponent === 'select-method'
+
+  // Everything a tool's own render() needs (src/tools/registry.ts) - assembled once here from
+  // `next`/`activeTool`, each tool module then calls its own api.ts and reports back via
+  // onResult/onError instead of routing through a central App.tsx patch callback.
+  const toolCtx: ToolRenderContext | undefined =
+    dpop && next?.type === 'tool' && next.toolId
+      ? {
+          step: next.step,
+          toolId: next.toolId,
+          toolSessionId: next.toolSessionId ?? activeTool?.toolSessionId,
+          dpop,
+          stepData,
+          demo,
+          onResult: (response) => applyResponse(response, next.toolId),
+          onError: (message) => setError(message),
+        }
+      : undefined
 
   return (
     <div className="app-shell">
@@ -605,72 +585,7 @@ function App() {
             <SelectMethodView options={stepData.options} onSelect={handleSelectMethod} />
           )}
 
-          {uiComponent === 'ident-fsc-form' && <IdentFscForm onSubmit={(fields) => handlePatch(fields)} />}
-
-          {uiComponent === 'ident-eid-form' && <IdentEidForm onSubmit={(fields) => handlePatch(fields)} />}
-
-          {uiComponent === 'ident-eid-card-form' && <IdentEidCardForm onSubmit={(fields) => handlePatch(fields)} />}
-
-          {uiComponent === 'ident-eid-pin-form' && (
-            <IdentEidPinForm onSubmit={(pin) => handlePatch({ pin })} error={stepData?.error} />
-          )}
-
-          {uiComponent === 'sms-enroll-form' && <SmsEnrollForm onSubmit={(phoneNumber) => handlePatch({ phoneNumber })} />}
-
-          {uiComponent === 'tan-input-form' && (
-            <TanInputForm onSubmit={(tan) => handlePatch({ tan })} error={stepData?.error} demoTan={demo?.tan} />
-          )}
-
-          {uiComponent === 'password-enroll-form' && (
-            <PasswordEnrollForm onSubmit={(fields) => handlePatch(fields)} error={stepData?.error} demoPassword={demo?.password} />
-          )}
-
-          {uiComponent === 'password-login-form' && (
-            <PasswordLoginForm onSubmit={(fields) => handlePatch(fields)} error={stepData?.error} demoPassword={demo?.password} />
-          )}
-
-          {uiComponent === 'email-enroll-form' && (
-            <EmailEnrollForm onSubmit={(email) => handlePatch({ email })} error={stepData?.error} demoEmail={demo?.email} />
-          )}
-
-          {uiComponent === 'email-code-input-form' && (
-            <EmailCodeInputForm onSubmit={(code) => handlePatch({ code })} error={stepData?.error} demoTan={demo?.tan} />
-          )}
-
-          {uiComponent === 'email-lookup-form' && (
-            <EmailLookupForm onSubmit={(email) => handlePatch({ email })} error={stepData?.error} demoEmail={demo?.email} />
-          )}
-
-          {uiComponent === 'email-code-lookup-form' && (
-            <EmailCodeLookupForm onSubmit={(email) => handlePatch({ email })} error={stepData?.error} demoEmail={demo?.email} />
-          )}
-
-          {uiComponent === 'email-password-lookup-form' && (
-            <EmailPasswordLookupForm
-              onSubmit={(fields) => handlePatch(fields)}
-              error={stepData?.error}
-              demoPassword={demo?.password}
-              demoEmail={demo?.email}
-            />
-          )}
-
-          {uiComponent === 'device-enroll-form' && activeTool && (
-            <DeviceEnrollForm
-              toolSessionId={activeTool.toolSessionId}
-              toolId={activeTool.toolId}
-              onSubmit={(body) => handlePatch(body)}
-              error={stepData?.error}
-            />
-          )}
-
-          {uiComponent === 'device-auth-form' && activeTool && (
-            <DeviceAuthForm
-              toolSessionId={activeTool.toolSessionId}
-              toolId={activeTool.toolId}
-              onSubmit={(body) => handlePatch(body)}
-              error={stepData?.error}
-            />
-          )}
+          {toolCtx && renderToolStep(toolCtx)}
 
           {uiComponent === 'device-binding-offer' && (
             <DeviceBindingOfferView onAnswer={handleDeviceBinding} />

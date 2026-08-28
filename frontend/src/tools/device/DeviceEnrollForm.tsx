@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createDeviceProof, getOrCreateDeviceKeyPair } from '../deviceKey.ts'
+import { createDeviceProof, getOrCreateDeviceKeyPair } from '../../deviceKey.ts'
 import { DeviceAccessGate } from './DeviceAccessGate'
 
 interface DeviceEnrollFormProps {

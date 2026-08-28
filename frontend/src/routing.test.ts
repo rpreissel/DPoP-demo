@@ -2,19 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { getUIComponent } from './routing'
 import type { Next } from './types'
 
-describe('getUIComponent', () => {
+describe('getUIComponent (orchestrator-owned screens only - tool steps are covered by src/tools/registry.test.ts)', () => {
   it('returns null when next is undefined', () => {
     expect(getUIComponent(undefined)).toBeNull()
   })
 
-  it('maps a known tool step to its form', () => {
+  it('returns null for a tool-type next - tools render via renderToolStep, not this table', () => {
     const next: Next = { type: 'tool', toolId: 'enroll-sms', step: 'enroll' }
-    expect(getUIComponent(next)).toBe('sms-enroll-form')
-  })
-
-  it('maps enroll-device/enroll and auth-device/auth to the device forms', () => {
-    expect(getUIComponent({ type: 'tool', toolId: 'enroll-device', step: 'enroll' })).toBe('device-enroll-form')
-    expect(getUIComponent({ type: 'tool', toolId: 'auth-device', step: 'auth' })).toBe('device-auth-form')
+    expect(getUIComponent(next)).toBeNull()
   })
 
   it('maps a known flow selection to select-method', () => {
@@ -27,19 +22,13 @@ describe('getUIComponent', () => {
     expect(getUIComponent(next)).toBe('authentication-completed')
   })
 
-  it('returns null for an unknown toolId/step combination', () => {
-    const next: Next = { type: 'tool', toolId: 'enroll-sms', step: 'not-a-real-step' }
+  it('returns null for an unknown orchestrator context/step combination', () => {
+    const next: Next = { type: 'orchestrator', context: 'authentication', step: 'not-a-real-step' }
     expect(getUIComponent(next)).toBeNull()
   })
 
-  it('returns null for a tool-type next without toolId', () => {
-    const next = { type: 'tool', step: 'input' } as Next
+  it('returns null for an orchestrator-type next without context', () => {
+    const next = { type: 'orchestrator', step: 'input' } as Next
     expect(getUIComponent(next)).toBeNull()
-  })
-
-  it('ignores toolSessionId - routing is keyed only by (type, toolId|context, step)', () => {
-    const withSession: Next = { type: 'tool', toolId: 'enroll-sms', step: 'enroll', toolSessionId: 'abc-123' }
-    const withoutSession: Next = { type: 'tool', toolId: 'enroll-sms', step: 'enroll' }
-    expect(getUIComponent(withSession)).toBe(getUIComponent(withoutSession))
   })
 })

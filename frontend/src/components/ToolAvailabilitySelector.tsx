@@ -1,4 +1,4 @@
-import { knownToolIds } from '../routing.ts'
+import { knownToolIds } from '../tools/registry'
 
 interface ToolAvailabilitySelectorProps {
   availableTools: string[]

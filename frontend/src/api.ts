@@ -205,3 +205,16 @@ export function fetchToolAvailability(): Promise<ToolAvailabilityEntry[]> {
 export function setToolAvailability(toolId: string, enabled: boolean, reason?: string): Promise<void> {
   return callPlain('PUT', `/orchestrator/api/v1/admin/tools/${toolId}/availability`, { enabled, reason })
 }
+
+/**
+ * Renders any thrown error into the UI's error card. ApiErrors carry the server's own message
+ * (docs/07-betrieb.md #1); GONE (session/process expired or exhausted) additionally gets a
+ * concrete next step, since "Process for this tool session is gone" alone isn't actionable.
+ */
+export function describeError(prefix: string, err: unknown): string {
+  if (err instanceof ApiError) {
+    const hint = err.status === 410 ? ' Bitte "Kanal leeren" klicken, um neu zu starten.' : ''
+    return `${prefix}: ${err.message}${hint}`
+  }
+  return `${prefix}: ${err instanceof Error ? err.message : String(err)}`
+}
