@@ -67,12 +67,13 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
             // of every table any suite ever touches - deleting from one a given test never
             // populated is a harmless no-op.
             listOf(
-                "id_fsc_tool_data", "enroll_sms_tool_data", "auth_sms_use_tool_data",
+                "id_fsc_tool_data", "id_eid_tool_data", "enroll_sms_tool_data", "auth_sms_use_tool_data",
                 "auth_sms_lookup_tool_data", "enroll_password_tool_data", "auth_password_use_tool_data",
                 "auth_password_lookup_tool_data", "enroll_email_tool_data", "auth_email_use_tool_data",
                 "auth_device_tool_data", "enroll_device_tool_data", "device_enrollment",
                 "tool_session", "auth_journey", "session_event",
-                "channel_session_available_tools", "channel_session", "auth_context", "account", "auth_sms", "auth_password",
+                "channel_session_available_tools", "channel_session", "auth_context",
+                "account_attribute", "account", "auth_sms", "auth_password",
                 "device_account_link", "login_attempt_throttle", "tool_availability"
             ).forEach { jdbcTemplate.update("DELETE FROM $it") }
         }

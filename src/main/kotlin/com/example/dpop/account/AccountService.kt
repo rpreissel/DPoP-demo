@@ -1,6 +1,8 @@
 package com.example.dpop.account
 
 import com.example.dpop.account.internal.Account
+import com.example.dpop.account.internal.AccountAttribute
+import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountIdentification
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
@@ -13,13 +15,33 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class AccountService(private val accountRepository: AccountRepository) : AccountDirectory {
+class AccountService(
+    private val accountRepository: AccountRepository,
+    private val accountAttributeRepository: AccountAttributeRepository
+) : AccountDirectory {
 
-    /** Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md). */
+    /**
+     * Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md).
+     * [trustAnchor] is the identifying tool's `toolId` (e.g. `"ident-fsc"`, `"ident-eid"`) - logged
+     * as a claim (docs/ideen/claims-modell-und-vertrauensanker.md), not just written silently.
+     */
     @Transactional
-    fun findOrCreateAccount(personId: Long): AccountProfile {
+    fun findOrCreateAccount(personId: Long, trustAnchor: String): AccountProfile {
         val account = accountRepository.findByPersonId(personId) ?: Account(personId, Instant.now())
-        return toProfile(accountRepository.save(account))
+        val saved = accountRepository.save(account)
+        recordAttribute(saved.id!!, "person_id", personId.toString(), trustAnchor)
+        return toProfile(saved)
+    }
+
+    /**
+     * Appends a claim to the account's identity log. Never overwrites a prior claim - `account`'s
+     * own columns are the actively consolidated projection of this log, written straight through
+     * here because consolidation happens synchronously at write time: the value being written IS
+     * already the newest one, so "newest wins" needs no read-back
+     * (docs/ideen/claims-modell-und-vertrauensanker.md).
+     */
+    private fun recordAttribute(accountId: Long, attributeType: String, value: String, trustAnchor: String) {
+        accountAttributeRepository.save(AccountAttribute(accountId, attributeType, value, trustAnchor, Instant.now()))
     }
 
     @Transactional
