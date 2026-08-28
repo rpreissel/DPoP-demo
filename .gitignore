@@ -49,3 +49,7 @@ Thumbs.db
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+# Playwright e2e artifacts
+test-results/
+playwright-report/
