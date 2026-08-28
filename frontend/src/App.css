@@ -100,10 +100,10 @@
 }
 
 .journey-diagram figcaption {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Hover/focus-revealed diagram preview - the diagram itself stays out of the way until wanted. */
@@ -133,7 +133,7 @@
   left: 0;
   bottom: calc(100% + 0.5rem);
   min-width: max-content;
-  max-width: min(92vw, 640px);
+  max-width: min(95vw, 860px);
   overflow-x: auto;
   background: var(--bg);
   border: 1px solid var(--border);

@@ -10,20 +10,20 @@ import type { JourneyDiagramSpec } from './components/JourneyDiagram'
 export const JOURNEY_DIAGRAMS: Record<'auto' | 'register' | 'login', JourneyDiagramSpec> = {
   auto: {
     title: 'Verbinden (automatisch)',
-    steps: ['Gerät erkannt?', 'Faktor bestätigen', 'Fertig'],
+    steps: ['Gerät erkannt?', 'Faktor bestätigen', 'Angemeldet'],
     branch: {
       atIndex: 0,
       mainLabel: 'Ja',
       label: 'Nein',
-      steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Fertig'],
+      steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Angemeldet'],
     },
   },
   register: {
     title: 'Neuen Account registrieren',
-    steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Fertig'],
+    steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Angemeldet'],
   },
   login: {
     title: 'Login ohne DPoP',
-    steps: ['E-Mail + Code/Passwort', 'Gerät merken? (optional)', 'Fertig'],
+    steps: ['E-Mail + Code/Passwort', 'Gerät merken? (optional)', 'Angemeldet'],
   },
 }

@@ -5,14 +5,16 @@ export interface JourneyDiagramSpec {
   branch?: { atIndex: number; mainLabel: string; label: string; steps: string[] }
 }
 
-const BOX_HEIGHT = 44
-const ROW_GAP = 30
-const CHAR_WIDTH = 7.8
-const PADDING_X = 16
-const MIN_BOX_WIDTH = 88
-const MARGIN = 4
-const ARROW_SPAN = 30
-const DIAMOND_SIZE = 64
+const BOX_HEIGHT = 60
+const ROW_GAP = 40
+const CHAR_WIDTH = 10.2
+const PADDING_X = 22
+const MIN_BOX_WIDTH = 112
+const MARGIN = 6
+const ARROW_SPAN = 40
+const DIAMOND_SIZE = 84
+const BOX_FONT_SIZE = 16
+const EDGE_FONT_SIZE = 14
 
 function boxWidth(label: string): number {
   return Math.max(MIN_BOX_WIDTH, Math.round(label.length * CHAR_WIDTH) + PADDING_X * 2)
@@ -32,7 +34,9 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
   let x = MARGIN
   const boxes = steps.map((s, i) => {
     const isDecision = branch && i === branch.atIndex
-    const w = isDecision ? DIAMOND_SIZE : boxWidth(s)
+    // A fixed diamond size clips longer decision labels ("Gerät erkannt?") past the shape's
+    // edges - widen it to fit its own text instead, same as a regular box.
+    const w = isDecision ? Math.max(DIAMOND_SIZE, boxWidth(s)) : boxWidth(s)
     const box = { x, width: w, isDecision }
     x += w + ARROW_SPAN
     return box
@@ -42,7 +46,7 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
   let branchBoxes: { x: number; width: number }[] = []
   let branchWidth = 0
   let branchStartX = 0
-  const row2Y = row1Y + BOX_HEIGHT + ROW_GAP + 14
+  const row2Y = row1Y + BOX_HEIGHT + ROW_GAP + 20
   const row2CenterY = row2Y + BOX_HEIGHT / 2
   if (branch) {
     const decisionBox = boxes[branch.atIndex]
@@ -84,16 +88,16 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
                   stroke="currentColor"
                 />
               ) : (
-                <rect x={box.x} y={row1Y} width={box.width} height={BOX_HEIGHT} rx={8} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
+                <rect x={box.x} y={row1Y} width={box.width} height={BOX_HEIGHT} rx={10} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
               )}
-              <text x={box.x + box.width / 2} y={row1CenterY} textAnchor="middle" dominantBaseline="middle" fontSize="13" fill={isLast ? '#fff' : 'currentColor'}>
+              <text x={box.x + box.width / 2} y={row1CenterY} textAnchor="middle" dominantBaseline="middle" fontSize={BOX_FONT_SIZE} fill={isLast ? '#fff' : 'currentColor'}>
                 {steps[i]}
               </text>
               {i < boxes.length - 1 && (
                 <>
                   <line x1={box.x + box.width} y1={row1CenterY} x2={boxes[i + 1].x - 2} y2={row1CenterY} stroke="currentColor" markerEnd={`url(#${markerId})`} />
                   {box.isDecision && (
-                    <text x={(box.x + box.width + boxes[i + 1].x) / 2} y={row1CenterY - 6} textAnchor="middle" fontSize="11" fill="currentColor">
+                    <text x={(box.x + box.width + boxes[i + 1].x) / 2} y={row1CenterY - 10} textAnchor="middle" fontSize={EDGE_FONT_SIZE} fill="currentColor">
                       {branch!.mainLabel}
                     </text>
                   )}
@@ -106,15 +110,15 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
         {branch && (
           <>
             <line x1={branchStartX} y1={row1CenterY + BOX_HEIGHT / 2} x2={branchStartX} y2={row2CenterY} stroke="currentColor" markerEnd={`url(#${markerId})`} />
-            <text x={branchStartX + 6} y={row1CenterY + BOX_HEIGHT / 2 + 12} fontSize="11" fill="currentColor">
+            <text x={branchStartX + 6} y={row1CenterY + BOX_HEIGHT / 2 + 18} fontSize={EDGE_FONT_SIZE} fill="currentColor">
               {branch.label}
             </text>
             {branchBoxes.map((box, i) => {
               const isLast = i === branchBoxes.length - 1
               return (
                 <g key={i}>
-                  <rect x={box.x} y={row2Y} width={box.width} height={BOX_HEIGHT} rx={8} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
-                  <text x={box.x + box.width / 2} y={row2CenterY} textAnchor="middle" dominantBaseline="middle" fontSize="13" fill={isLast ? '#fff' : 'currentColor'}>
+                  <rect x={box.x} y={row2Y} width={box.width} height={BOX_HEIGHT} rx={10} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
+                  <text x={box.x + box.width / 2} y={row2CenterY} textAnchor="middle" dominantBaseline="middle" fontSize={BOX_FONT_SIZE} fill={isLast ? '#fff' : 'currentColor'}>
                     {branch.steps[i]}
                   </text>
                   {i < branchBoxes.length - 1 && (
