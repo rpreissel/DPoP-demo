@@ -14,6 +14,7 @@ import io.mockk.every
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.maps.shouldNotContainKeys
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.http.HttpEntity
@@ -113,6 +114,11 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val newChannel = post("/orchestrator/api/v1/app/channels")
             newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
+
+            // Recognizing the device already resolves an accountId (DeviceAccountLink) - but
+            // nothing has been PROVEN on this channel yet, so the account's active methods must
+            // not leak before the auth-device proof below (ChannelSession.hasProvenFactor).
+            newChannel.channel().shouldNotContainKeys("currentAcr", "currentAmr", "activeMethods")
 
             val authToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
             val authPatchUrl = "/orchestrator/api/v1/tools/$authToolSessionId/auth-device"

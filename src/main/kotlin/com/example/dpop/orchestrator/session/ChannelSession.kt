@@ -51,6 +51,18 @@ class ChannelSession(
     var authContext: AuthContext? = null
 
     /**
+     * Whether at least one authentication factor has actually been proven on THIS channel (an
+     * [AuthContext] exists) - distinct from `state == AUTHENTICATED`, which additionally requires
+     * the full required ACR to be reached (a channel mid-chain toward loa2 already has this after
+     * its first factor, well before `state` reflects it). [accountId] alone is NOT this: a
+     * recognized device already carries an `accountId` from `DeviceAccountLink` before any proof
+     * was made here - account-level details (active methods, ACR/AMR) are only safe to reveal
+     * once something was actually proven, never merely because the device was recognized.
+     */
+    val hasProvenFactor: Boolean
+        get() = authContextId != null
+
+    /**
      * The channel's DURABLE lower bound; survives individual journeys. Distinct from a single
      * step-up run's target, which lives in that run's own state (docs/04-orchestrierung.md #8) -
      * the two used to share a name and were easy to confuse for one field.

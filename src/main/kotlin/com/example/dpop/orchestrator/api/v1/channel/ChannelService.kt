@@ -83,10 +83,19 @@ class ChannelService(
     fun getChannel(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse =
         resumeChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
 
-    /** Same data as ChannelResponse.activeMethods, addressable as its own resource (docs/05-api.md #2). */
+    /**
+     * Same data as ChannelResponse.activeMethods, addressable as its own resource (docs/05-api.md
+     * #2). Empty, not an error, when no evidence has been produced yet for this channel
+     * ([ChannelSession.hasProvenFactor]) - including when a device was merely recognized
+     * (`accountId` already set via `DeviceAccountLink`) but never actually proven anything here.
+     */
     fun getMethods(channelSessionId: UUID, bindingKeyRef: String): MethodsResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        val methods = channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
+        val methods = if (channel.hasProvenFactor) {
+            channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods }
+        } else {
+            null
+        }
         return MethodsResponse(toActiveMethodViews(methods))
     }
 
@@ -241,10 +250,13 @@ class ChannelService(
      *
      * [includeAccountFields] gates `currentAcr`/`currentAmr`/`activeMethods`, default `false`:
      * tool controllers are the common caller and never need them - the security-summary screen
-     * that reads these is fetched on demand, so it never belongs in the core flow contract.
+     * that reads these is fetched on demand, so it never belongs in the core flow contract. Even
+     * when `true`, they only actually appear once [ChannelSession.hasProvenFactor] - a
+     * recognized-but-unproven device (`accountId` set via `DeviceAccountLink`, no evidence yet)
+     * must not leak the account's active methods before anything was proven on THIS channel.
      */
     fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
-        if (!includeAccountFields) {
+        if (!includeAccountFields || !channel.hasProvenFactor) {
             return ChannelBlock(channelSessionId = channel.channelSessionId!!, state = channel.state?.name ?: ChannelState.ANONYMOUS.name)
         }
         val authContext = channel.authContextId?.let { authContextService.getAuthContext(it) }
