@@ -17,6 +17,7 @@ Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregatio
 | toolId | role | method | factorTypes | maxAcr | allowsMultipleInstances |
 |---|---|---|---|---|---|
 | `ident-fsc` | `IDENTIFICATION` | `fsc` | `{possession}` | `loa2` | — |
+| `ident-eid` | `IDENTIFICATION` | `eid` | `{possession,knowledge}` | `loa3` | — |
 | `enroll-sms` / `auth-sms` | `ENROLLMENT` / `DEVICE_AUTH` | `sms` | `{possession}` | `loa1` | `false` |
 | `enroll-password` / `auth-password` | `ENROLLMENT` / `DEVICE_AUTH` | `password` | `{knowledge}` | `loa1` | `false` |
 | `enroll-email` / `auth-email` | `ENROLLMENT` / `DEVICE_AUTH` | `email` | `{possession}` | `loa1` | `false` |

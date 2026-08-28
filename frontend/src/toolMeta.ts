@@ -13,6 +13,7 @@ export interface ToolMeta {
  */
 const TOOL_META: Record<string, ToolMeta> = {
   'ident-fsc': { icon: '🪪', label: 'Freischaltcode', hint: 'Versichertennummer, Name und Freischaltcode' },
+  'ident-eid': { icon: '🆔', label: 'eID', hint: 'Online-Ausweisfunktion (simuliert)' },
   'enroll-sms': { icon: '📱', label: 'SMS', hint: 'Code an eine Telefonnummer' },
   'auth-sms': { icon: '📱', label: 'SMS', hint: 'Code an die hinterlegte Telefonnummer' },
   'auth-sms-lookup': { icon: '📱', label: 'SMS', hint: 'E-Mail-Adresse + SMS-Code' },

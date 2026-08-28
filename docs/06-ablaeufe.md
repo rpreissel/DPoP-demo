@@ -1,6 +1,6 @@
 # Konkrete Abläufe
 
-Wie `ident-fsc`/`auth-sms`/`enroll-sms` die Bausteine aus [03-tool-architektur.md](03-tool-architektur.md)
+Wie `ident-fsc`/`ident-eid`/`auth-sms`/`enroll-sms` die Bausteine aus [03-tool-architektur.md](03-tool-architektur.md)
 und [04-orchestrierung.md](04-orchestrierung.md) konkret nutzen — mit Fokus auf das Datenmodell
 und die Entscheidungen dahinter. Ein durchgängiges Call-Beispiel steht in [05-api.md](05-api.md).
 
@@ -86,3 +86,21 @@ Kein Server-Nonce nötig: `htu` bindet den Proof bereits an die konkrete, einmal
 - **loa2 auf einmal**: `maxAcr=loa2`, `factorTypes={possession,knowledge,inherence}` — Besitz des Schlüssels plus Wissen (PIN) oder Inhärenz (Biometrie) aus demselben Durchlauf, der bislang nur hypothetische Passkey-Fall aus [03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1. Die loa2-Voraussetzung für ein Enrollment (`enrolledUnderAcr` darf nicht höher liegen als das, was die Session tatsächlich schon bewiesen hat) ist bereits durch bestehende Gates abgedeckt, nicht durch neuen Code: `ident-fsc` liefert im Identifizierungs-Zustand immer zuerst `loa2`, und das loa2-Gate von `AuthIntent.MANAGE_AUTH_METHODS` erzwingt denselben Nachweis vor jedem nachträglichen Enrollment.
 
 Fehlerfall zusätzlich zum allgemeinen Vertrag: fehlender/ungültiger `deviceProof` (Signatur, Replay, `htm`/`htu`/`iat`) -> `401` (derselbe `DpopValidationException`-Pfad wie bei DPoP-Proofs); falscher Schlüssel bei `auth-device` -> `Failed`, kein Fehlerstatus (Retry-Fall wie bei falscher TAN).
+
+---
+
+## 6) `ident-eid`
+
+`id_eid` ist das zweite `IDENTIFICATION`-Tool neben `ident-fsc` — mock-simulierte Online-Ausweisfunktion statt Freischaltcode. Anders als `ident-fsc` erbringt es zwei Faktorarten in einem Durchlauf (`factorTypes={possession,knowledge}`, `maxAcr=loa3`): Besitz der (simulierten) eID-Karte plus Wissen der PIN.
+
+Drei `PATCH`-Schritte statt zwei, jeder mit eigenem `nextStep`, damit der Client drei unterschiedliche Bildschirme zeigen kann:
+
+1. **`input`**: `kvnr`/`name`/`vorname` — löst wie bei `ident-fsc` über `PersonDirectory.findPersonIdByKvnr` die Person auf (Controller, nicht Handler — `id_eid` darf `ext_stammdaten` nicht direkt kennen, [Projektrahmen](08-projektrahmen.md) Abschnitt 3).
+2. **`card`**: die simulierte eID-Karte liefert ihre vollen Ausweisdaten — `geburtsdatum`, `strasse`, `hausnummer`, `plz`, `ort`.
+3. **`pin`**: die eID-PIN (Testwert `123456`, wie `ident-fsc`s `VALIDCODE`).
+
+Wie beim allgemeinen Muster lösen alle Felder zusammen in einem einzigen `PATCH`-Aufruf ebenfalls auf; nur die fehlenden Felder müssen einzeln nachgereicht werden.
+
+Der eigentliche Unterschied zu `ident-fsc` liegt im Abgleich: `ident-fsc` prüft nie, ob `name`/`vorname` zur gefundenen Person passen — der Freischaltcode allein trägt das Vertrauen. `ident-eid` muss das volle Ausweisdaten-Bündel bestätigen, aber **`id_eid` entscheidet diesen Abgleich nicht selbst** — `ext_stammdaten` tut das hinter dem Port (`PersonDirectory.matchesStammdaten(personId, claimed: ClaimedIdentity)`, `tool_api`), gibt dabei nur ein Ja/Nein zurück, nie die Stammdaten selbst (dieselbe Regel wie bei `findPersonIdByKvnr`). Das hält die Entscheidung "war das eine gültige Identifizierung" bei der Datenquelle, die sie treffen kann, ohne `ext_stammdaten` die fachliche Prozesslogik von `id_eid` kennen zu lassen. Eine Verallgemeinerung dieses Musters (Vertrauensanker statt fester KVNR-Bindung) ist als Idee festgehalten, nicht umgesetzt: [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md).
+
+Fehlerfälle zusätzlich zum allgemeinen Vertrag: KVNR nicht gefunden -> `Failed("Person zu dieser KVNR nicht gefunden")`; falsche PIN -> `Failed("eID-PIN ungueltig")`; Ausweisdaten stimmen nicht mit `ext_stammdaten` überein -> `Failed("Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein")` — drei unterschiedliche, dem Nutzer erklärbare Gründe statt eines einzigen generischen Fehlschlags.

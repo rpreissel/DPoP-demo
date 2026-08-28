@@ -6,6 +6,7 @@ import type { Next } from './types'
  */
 const toolRoutes: Record<string, Record<string, string>> = {
   'ident-fsc': { input: 'ident-fsc-form' },
+  'ident-eid': { input: 'ident-eid-form', card: 'ident-eid-card-form', pin: 'ident-eid-pin-form' },
   'enroll-sms': { enroll: 'sms-enroll-form', tanInput: 'tan-input-form' },
   'auth-sms': { auth: 'tan-input-form' },
   'enroll-password': { enroll: 'password-enroll-form' },

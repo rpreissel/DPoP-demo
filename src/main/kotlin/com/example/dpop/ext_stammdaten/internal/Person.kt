@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.time.LocalDate
 
 @Entity
 @Table(name = "person")
@@ -17,7 +18,8 @@ class Person(
     var strasse: String? = null,
     var hausnummer: String? = null,
     var plz: String? = null,
-    var ort: String? = null
+    var ort: String? = null,
+    var geburtsdatum: LocalDate? = null
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

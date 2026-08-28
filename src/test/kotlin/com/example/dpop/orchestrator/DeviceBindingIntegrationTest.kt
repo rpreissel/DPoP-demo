@@ -10,6 +10,8 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import org.assertj.core.api.Assertions.assertThat
 import org.springframework.http.HttpEntity
@@ -232,9 +234,10 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             // MANAGE with enroll-device as the goal must still force the loa2 step-up gate
             // first (ManageAuthMethodsStrategy.REQUIRED_ACR) - the session's own loa1 evidence is
             // not enough to add a loa2-capable credential on its own authority.
-            val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-            assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
-            assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+            val started = triggerEnrollmentStepUp(newChannelSessionId)
+            started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+            @Suppress("UNCHECKED_CAST")
+            (started.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
         }
         }
     }

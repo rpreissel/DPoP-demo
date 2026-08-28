@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -59,7 +61,9 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             // not express, because an empty candidate list aborted the whole process.
             val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
             val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-sms")
-            assertThat(afterDecline.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+            afterDecline.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
+            @Suppress("UNCHECKED_CAST")
+            (afterDecline.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
         }
 
         then("Fast chain identifying after declining auth logs into the same account without registering again") {

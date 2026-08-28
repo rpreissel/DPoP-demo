@@ -199,12 +199,36 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     /** Runs ident-fsc through to Identified using the standard test person, returns the channelSessionId. */
     protected fun identify(): String {
         val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+        reIdentifyViaFsc(channelSessionId)
+        return channelSessionId
+    }
+
+    /**
+     * Re-identifies via ident-fsc using the standard test person, on a channel that already
+     * offers it (fresh channel, or mid step-up after [triggerEnrollmentStepUp]). Deliberately
+     * doesn't assert what `next` looked like beforehand - callers that care about the exact
+     * identification-candidate selection screen assert that themselves; this only drives the
+     * fsc-specific mechanics, so it keeps working regardless of how many identification methods
+     * the catalog offers.
+     */
+    protected fun reIdentifyViaFsc(channelSessionId: String): Map<String, Any?> {
         val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
+        return patch(
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
         )
-        return channelSessionId
+    }
+
+    /**
+     * Triggers a step-up by requesting an enrollment while the channel's session evidence doesn't
+     * reach the required floor yet - shared by the "re-identification is the only way to loa2"
+     * scenarios. Only asserts the channel state, not the resulting `next`/`options` shape: how
+     * many identification candidates get offered is a catalog detail, not this helper's job.
+     */
+    protected fun triggerEnrollmentStepUp(channelSessionId: String): Map<String, Any?> {
+        val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+        assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
+        return started
     }
 
     /** Runs enroll-email through to Completed on the given channel, returns the confirmed email. */

@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
@@ -89,7 +90,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val next = get("/orchestrator/api/v1/app/channels/$channelSessionId").next()
-                assertThat(next).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                next shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
 
                 }
             }

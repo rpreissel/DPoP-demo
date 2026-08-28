@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -184,15 +186,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // The account has only sms enrolled - no second AUTH method exists to combine with, so
                 // without re-identification this would be a dead end (the bug this test guards against).
                 // MANAGE must offer ident-fsc as a way to reach loa2 instead of erroring out.
-                val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-                assertThat(started.channel()["state"]).isEqualTo("STEP_UP_IN_PROGRESS")
-                assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                val started = triggerEnrollmentStepUp(newChannelSessionId)
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+                @Suppress("UNCHECKED_CAST")
+                (started.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
 
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-                val reIdentified = patch(
-                    "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-                )
+                val reIdentified = reIdentifyViaFsc(newChannelSessionId)
                 // Re-identification alone already reaches loa2, so the step-up sub-journey ends - and the
                 // ORIGINAL wish resumes right there. The user does not have to ask for the enrollment a
                 // second time; that is the whole point of parking the wish rather than replacing it.

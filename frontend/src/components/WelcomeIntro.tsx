@@ -13,7 +13,7 @@ export function WelcomeIntro() {
       <p>
         Jede Anfrage in dieser Demo ist kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) - das
         schützt vor gestohlenen Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen. Ihre
-        Identität selbst weisen Sie klassisch nach: durch Identifikation (Freischaltcode) oder
+        Identität selbst weisen Sie klassisch nach: durch Identifikation (Freischaltcode oder eID) oder
         Authentifizierung per SMS, E-Mail, Passwort oder einem geräteeigenen Schlüssel - einzeln oder
         kombiniert für ein höheres Sicherheitsniveau (Step-up).
       </p>

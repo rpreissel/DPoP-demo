@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import java.util.UUID
 
@@ -96,13 +98,11 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // MANAGE itself always demands loa2 session evidence first (unrelated to Required
             // Actions - ManageAuthMethodsStrategy.REQUIRED_ACR); this session only proved sms
             // (loa1), so it forces a step-up via re-identification first.
-            val started = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-            assertThat(started.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
-            val stepUpIdentToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-            val reIdentified = patch(
-                "/orchestrator/api/v1/tools/$stepUpIdentToolSessionId/ident-fsc",
-                """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-            )
+            val started = triggerEnrollmentStepUp(newChannelSessionId)
+            started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+            @Suppress("UNCHECKED_CAST")
+            (started.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+            val reIdentified = reIdentifyViaFsc(newChannelSessionId)
             // The step-up sub-journey ends here and the parked wish resumes at once: MANAGE offers
             // enroll-email as a normal (not forced) candidate alongside enroll-device - a selection
             // page, not an automatic skip into enroll-email. enroll-password stays correctly excluded

@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -26,15 +27,17 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
     init {
         given("a fresh channel") {
             `when`("switching away from the ident-fsc tool") {
-                then("the whole process is cancelled") {
+                then("the fallback chain moves to the only remaining identification candidate") {
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 
-                // No prior step to go "back" to for the first (IDENT) tool - equivalent to Cancel.
-                // Single-candidate skip goes straight back to the tool (same as the initial channel init).
+                // Identification is a FALLBACK state (declining moves on, same rule as
+                // PreferredAuth/AuthChoice): ident-fsc is now declined, leaving ident-eid as the sole
+                // remaining candidate - single-candidate skip activates it directly rather than
+                // showing a trivial one-option selection page.
                 val result = delete("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc")
-                assertThat(result.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                result.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-eid", "step" to "input")
 
                 val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
                 assertThat(channel.channel()["state"]).isEqualTo("REGISTERING")

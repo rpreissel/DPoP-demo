@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -31,13 +33,15 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
             `when`("registering via ident-fsc, enroll-sms and enroll-email, then starting a fresh session") {
                 then("the account reaches AUTHENTICATED and the subsequent login succeeds") {
 
-                // 1) Channel init -> registration entry point (docs/05-api.md #2 example 1). Exactly one
-                // ident method is registered, so the selection page is skipped straight to the tool
-                // (same skip-if-single-candidate rule as ENROLL/AUTH, docs/04-orchestrierung.md #1).
+                // 1) Channel init -> registration entry point (docs/05-api.md #2 example 1). Two ident
+                // methods are registered (ident-fsc, ident-eid), so a selection page is offered instead
+                // of a single-candidate skip.
                 val channelResponse = post("/orchestrator/api/v1/app/channels")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
                 assertThat(channelResponse.channel()["state"]).isEqualTo("REGISTERING")
-                assertThat(channelResponse.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                channelResponse.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
+                @Suppress("UNCHECKED_CAST")
+                (channelResponse.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
 
                 // 2) Activate ident-fsc
                 val identActivation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc")
@@ -387,7 +391,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
 
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")
                 assertThat(channelResponse.channel()["state"]).isEqualTo("REGISTERING")
-                assertThat(channelResponse.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                channelResponse.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
 
 
                 }

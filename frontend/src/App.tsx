@@ -28,6 +28,9 @@ import { EmailEnrollForm } from './components/EmailEnrollForm'
 import { EmailLookupForm } from './components/EmailLookupForm'
 import { EmailPasswordLookupForm } from './components/EmailPasswordLookupForm'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
+import { IdentEidForm } from './components/IdentEidForm'
+import { IdentEidCardForm } from './components/IdentEidCardForm'
+import { IdentEidPinForm } from './components/IdentEidPinForm'
 import { IdentFscForm } from './components/IdentFscForm'
 import { PasswordEnrollForm } from './components/PasswordEnrollForm'
 import { PasswordLoginForm } from './components/PasswordLoginForm'
@@ -603,6 +606,14 @@ function App() {
           )}
 
           {uiComponent === 'ident-fsc-form' && <IdentFscForm onSubmit={(fields) => handlePatch(fields)} />}
+
+          {uiComponent === 'ident-eid-form' && <IdentEidForm onSubmit={(fields) => handlePatch(fields)} />}
+
+          {uiComponent === 'ident-eid-card-form' && <IdentEidCardForm onSubmit={(fields) => handlePatch(fields)} />}
+
+          {uiComponent === 'ident-eid-pin-form' && (
+            <IdentEidPinForm onSubmit={(pin) => handlePatch({ pin })} error={stepData?.error} />
+          )}
 
           {uiComponent === 'sms-enroll-form' && <SmsEnrollForm onSubmit={(phoneNumber) => handlePatch({ phoneNumber })} />}
 

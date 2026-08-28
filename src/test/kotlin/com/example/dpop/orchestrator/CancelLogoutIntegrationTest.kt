@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -40,9 +42,12 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/process")
                 // ChannelState diagram (docs/02-domaenenmodell.md #3): REGISTERING -> ANONYMOUS -> a
                 // fresh registration is offered immediately, so the response already shows REGISTERING
-                // again; single-candidate skip goes straight to the tool (same as the initial channel init).
+                // again; two ident candidates exist, so a selection page is offered (same as the
+                // initial channel init).
                 assertThat(cancelled.channel()["state"]).isEqualTo("REGISTERING")
-                assertThat(cancelled.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                cancelled.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
+                @Suppress("UNCHECKED_CAST")
+                (cancelled.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
 
                 // The old ident-fsc tool session is no longer part of any active process.
                 val exception = assertThrows<HttpClientErrorException> {
@@ -145,7 +150,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 // via ProcessCancellationService): no account was ever fully provisioned, so the new
                 // channel starts registration again, not LOGIN.
                 val newChannel = post("/orchestrator/api/v1/app/channels")
-                assertThat(newChannel.next()).isEqualTo(mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input"))
+                newChannel.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
 
 
                 }

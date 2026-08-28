@@ -27,6 +27,7 @@ Nicht Teil dieser Dokumentation:
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
 | [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
+| [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 
 ### Lesepfade je Zielgruppe
 
