@@ -25,7 +25,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
         given("registration's required actions") {
         then("Registration reaching the acr floor via sms alone still must enroll email before finishing") {
             val channelSessionId = identify()
-            val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+            val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
             val (tan, _) = captureMockTan {
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
             }
@@ -35,12 +35,12 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
             afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
 
-            val channelMidway = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+            val channelMidway = get("/orchestrator/api/v1/channels/$channelSessionId")
             channelMidway.channel()["state"] shouldBe "REGISTERING"
 
             enrollEmail(channelSessionId)
 
-            val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+            val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
             finalChannel.channel()["state"] shouldBe "AUTHENTICATED"
             @Suppress("UNCHECKED_CAST")
             (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
@@ -52,7 +52,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // both Required Actions (confirmed email, sufficient login method) are satisfied by this
             // single enrollment, so registration finishes immediately - no second forced sms step,
             // proving the order of enrollment doesn't matter, only that both end up satisfied.
-            val enrollEmailToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
+            val enrollEmailToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
             val email = "required-action-order-${UUID.randomUUID()}@example.com"
             val (code, _) = captureMockTan {
                 patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"email":"$email"}""")
@@ -60,7 +60,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             val enrolled = patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"code":"$code"}""")
             enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-            val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+            val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
             @Suppress("UNCHECKED_CAST")
             (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("email")
         }
@@ -69,7 +69,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // this feature existed, or any other pre-existing state) - directly seed via device-bound
             // enrollment only, skip enroll-email entirely by never activating it.
             val channelSessionId = identify()
-            val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+            val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
             val (tan, _) = captureMockTan {
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
             }
@@ -88,7 +88,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
 
             val (loginTan, activation) = captureMockTan {
-                post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
+                post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
             }
             val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
             val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")

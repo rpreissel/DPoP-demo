@@ -47,7 +47,7 @@ class AuthPasswordLookupToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-password-lookup")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password-lookup")
     @Operation(
         summary = "Activate auth-password-lookup",
         description = "No request body: toolId already carries kind and method.",

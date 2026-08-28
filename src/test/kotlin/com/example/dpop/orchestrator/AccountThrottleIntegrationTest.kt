@@ -35,13 +35,13 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // account-level throttle must (docs/04-orchestrierung.md #7).
                 repeat(5) {
                     val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                    val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
+                    val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
                     patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
                 }
 
                 val lockedChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val exception = assertThrows<HttpClientErrorException> {
-                    post("/orchestrator/api/v1/app/channels/$lockedChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$lockedChannelSessionId/tools/auth-sms")
                 }
                 exception.statusCode.value() shouldBe 423
 
@@ -60,12 +60,12 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // the journey before the account-level counter is anywhere near its own threshold.
                 repeat(3) {
                     val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                    val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
+                    val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
                     patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
                 }
                 val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val (tan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$freshChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$freshChannelSessionId/tools/auth-sms")
                 }
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
@@ -76,12 +76,12 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // already at 3/5 - they still land on the same account via the device link.
                 repeat(2) {
                     val retryChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                    val retryToolSessionId = post("/orchestrator/api/v1/app/channels/$retryChannelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
+                    val retryToolSessionId = post("/orchestrator/api/v1/channels/$retryChannelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
                     patch("/orchestrator/api/v1/tools/$retryToolSessionId/auth-sms", """{"tan":"000000"}""")
                 }
                 // Still allowed - only 2 failures since the reset, well under the lock threshold.
                 val nextChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val stillAllowed = post("/orchestrator/api/v1/app/channels/$nextChannelSessionId/tools/auth-sms")
+                val stillAllowed = post("/orchestrator/api/v1/channels/$nextChannelSessionId/tools/auth-sms")
                 stillAllowed.nextRaw()["toolSessionId"].shouldNotBeNull()
 
 

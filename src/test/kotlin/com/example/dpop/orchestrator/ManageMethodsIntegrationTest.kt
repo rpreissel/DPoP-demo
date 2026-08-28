@@ -34,14 +34,14 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // No account known yet - empty collection, not an error (docs/05-api.md #2).
                 val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 @Suppress("UNCHECKED_CAST")
-                (get("/orchestrator/api/v1/app/channels/$freshChannelSessionId/methods")["methods"] as List<*>).shouldBeEmpty()
+                (get("/orchestrator/api/v1/channels/$freshChannelSessionId/methods")["methods"] as List<*>).shouldBeEmpty()
 
                 val channelSessionId = registerAndAuthenticate()
                 @Suppress("UNCHECKED_CAST")
-                val methods = get("/orchestrator/api/v1/app/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
+                val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
                 methods.methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 @Suppress("UNCHECKED_CAST")
                 channel.channel()["activeMethods"] as List<Map<String, Any?>> shouldBe methods
 
@@ -56,20 +56,20 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
 
                 val channelSessionId = registerAndAuthenticate()
 
-                val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+                val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 // sms and email already active (email via the REGISTRATION Required Action); password and
                 // device are offered - two candidates means a selection page, not a single-candidate skip.
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
                 started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
 
-                val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+                val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
                 // Finishes immediately after ONE enrollment, regardless of whether some higher floor was
                 // reached - unlike the identification path, MANAGE never depends on canAccountReach.
                 enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"
                 @Suppress("UNCHECKED_CAST")
                 channel.channel()["currentAmr"] as List<String> shouldContain "password"
@@ -86,14 +86,14 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // sms + email already active from registerAndAuthenticate (email via the REGISTRATION
                 // Required Action) - only password is missing to match this test's name.
                 val channelSessionId = registerAndAuthenticate()
-                post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
-                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+                post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
+                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
 
                 // sms, email and password are now active - enroll-device is the one remaining catalog
                 // candidate (single-candidate skip goes straight to it; the "nothing left" message is
                 // covered once device is also enrolled, see DeviceBindingIntegrationTest).
-                val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+                val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-device", "step" to "enroll")
 
 
@@ -113,26 +113,26 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // MFA combination the loa2 floor requires.
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
-                val enrollSmsToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (smsTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
                 enrollEmail(channelSessionId)
-                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
 
                 @Suppress("UNCHECKED_CAST")
-                val methods = get("/orchestrator/api/v1/app/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
+                val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
                 val passwordInstanceId = methods.first { it["method"] == "password" }["id"] as String
 
                 val exception = assertThrows<HttpClientErrorException> {
-                    delete("/orchestrator/api/v1/app/channels/$channelSessionId/methods/$passwordInstanceId")
+                    delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$passwordInstanceId")
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT
 
@@ -149,14 +149,14 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // Required Action) - email alone covers the default loa1 floor, so deactivating sms is safe.
                 val channelSessionId = registerAndAuthenticate()
                 @Suppress("UNCHECKED_CAST")
-                val methods = get("/orchestrator/api/v1/app/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
+                val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
                 val smsInstanceId = methods.first { it["method"] == "sms" }["id"] as String
 
-                delete("/orchestrator/api/v1/app/channels/$channelSessionId/methods/$smsInstanceId")
+                delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$smsInstanceId")
 
                 // sms is a candidate again now that it was deactivated - email is already confirmed, so
                 // password is ALSO now a valid candidate, hence a selection page rather than a skip.
-                val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+                val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
                 started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-password", "enroll-device")
@@ -177,11 +177,11 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val loginStart = post("/orchestrator/api/v1/app/channels")
                 val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
                 val (authTan, authActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
                 }
                 val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
-                val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+                val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
                 // The account has only sms enrolled - no second AUTH method exists to combine with, so
@@ -200,7 +200,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
 
-                val afterStepUp = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+                val afterStepUp = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterStepUp.channel()["currentAcr"] shouldBe "loa2"
 
 
@@ -216,13 +216,13 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val loginStart = post("/orchestrator/api/v1/app/channels")
                 val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
                 val (authTan, authActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
                 }
                 val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
 
-                post("/orchestrator/api/v1/app/channels/$newChannelSessionId/enrollments")
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 
                 // A different KVNR resolves to a different person/account - must not silently take over
                 // this session's account.

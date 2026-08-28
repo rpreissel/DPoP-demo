@@ -60,18 +60,18 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
 
                 // A plain GET (no journey transition) already reflects it: live filtering in
                 // activatable(), not a snapshot frozen at the last state transition.
-                val afterDisable = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val afterDisable = get("/orchestrator/api/v1/channels/$channelSessionId")
                 afterDisable.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
 
                 // Direct activation of the disabled tool is rejected too, not just omitted from the offer.
                 val exception = assertThrows<HttpClientErrorException> {
-                    post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT
 
                 // The remaining candidate still works normally.
                 val (code, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-email")
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email")
                 }
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
@@ -90,7 +90,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 toolAvailabilityService.disable("auth-email", "maintenance")
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val next = get("/orchestrator/api/v1/app/channels/$channelSessionId").next()
+                val next = get("/orchestrator/api/v1/channels/$channelSessionId").next()
                 next shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
 
                 }
@@ -110,7 +110,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                     """{"availableTools":["ident-fsc","enroll-sms","enroll-email"]}"""
                 ).channel()["channelSessionId"] as String
 
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 val identified = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
@@ -118,7 +118,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 offeredToolIds(identified) shouldNotContain "enroll-password"
                 offeredToolIds(identified) shouldNotContain "enroll-device"
 
-                val enrollSmsToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (tan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
@@ -127,7 +127,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 offeredToolIds(afterSms) shouldNotContain "enroll-device"
 
                 enrollEmail(channelSessionId)
-                val final = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val final = get("/orchestrator/api/v1/channels/$channelSessionId")
                 final.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 }

@@ -70,7 +70,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
         return signedJWT.serialize()
     }
     private fun enrollDevice(channelSessionId: String, deviceKey: ECKey, label: String): Map<String, Any?> {
-        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
+        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
         val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
         val proof = signDeviceProof(deviceKey, "http://localhost:$port$patchUrl", "biometric")
         return patch(patchUrl, """{"deviceProof":"$proof","label":"$label"}""")
@@ -94,7 +94,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             enrollDevice(channelBSessionId, deviceBKey, "Handy")
 
             @Suppress("UNCHECKED_CAST")
-            val methods = get("/orchestrator/api/v1/app/channels/$channelBSessionId/methods")["methods"] as List<Map<String, Any?>>
+            val methods = get("/orchestrator/api/v1/channels/$channelBSessionId/methods")["methods"] as List<Map<String, Any?>>
             val deviceEntries = methods.filter { it["method"] == "device" }
             deviceEntries shouldHaveSize 2
             deviceEntries.map { it["label"] } shouldContainExactlyInAnyOrder listOf("Laptop", "Handy")
@@ -118,7 +118,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             val deviceBKey = ECKeyGenerator(Curve.P_256).generate()
             currentChannelKey = deviceBKey
             val channelBSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-            val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelBSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+            val identToolSessionId = post("/orchestrator/api/v1/channels/$channelBSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
             val reidentified = patch(
                 "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                 """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""

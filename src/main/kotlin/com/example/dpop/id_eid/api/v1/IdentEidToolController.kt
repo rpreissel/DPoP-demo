@@ -53,7 +53,7 @@ class IdentEidToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/ident-eid")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/ident-eid")
     @Operation(
         summary = "Activate ident-eid",
         description = "No request body: toolId already carries kind and method.",

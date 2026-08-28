@@ -44,7 +44,7 @@ class AuthSmsToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-sms")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms")
     @Operation(
         summary = "Activate auth-sms",
         description = "No request body: toolId already carries kind and method.",

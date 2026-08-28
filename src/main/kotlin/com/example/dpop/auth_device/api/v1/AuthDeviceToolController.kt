@@ -45,7 +45,7 @@ class AuthDeviceToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-device")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-device")
     @Operation(
         summary = "Activate auth-device",
         description = "No request body: toolId already carries kind and method.",

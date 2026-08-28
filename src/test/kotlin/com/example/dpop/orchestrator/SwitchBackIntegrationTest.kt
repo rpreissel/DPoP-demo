@@ -31,7 +31,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 then("the fallback chain moves to the only remaining identification candidate") {
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 
                 // Identification is a FALLBACK state (declining moves on, same rule as
                 // PreferredAuth/AuthChoice): ident-fsc is now declined, leaving ident-eid as the sole
@@ -40,7 +40,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 val result = delete("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc")
                 result.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-eid", "step" to "input")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 channel.channel()["state"] shouldBe "REGISTERING"
 
 
@@ -53,7 +53,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 then("enrollment candidates are re-offered") {
 
                 val channelSessionId = identify()
-                val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
 
                 // Three enrollment methods are actually offerable at this point (enroll-password needs a
                 // confirmed email first), so switching away re-offers the selection page - but the OLD
@@ -70,7 +70,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 exception.statusCode shouldBe HttpStatus.NOT_FOUND
 
                 // Re-activating works fine and mints a new tool session.
-                val reactivated = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms")
+                val reactivated = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
                 reactivated.nextRaw()["toolSessionId"] shouldNotBe enrollToolSessionId
 
 

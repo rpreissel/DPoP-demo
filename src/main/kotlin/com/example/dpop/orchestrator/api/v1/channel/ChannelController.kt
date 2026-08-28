@@ -22,12 +22,17 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 
-/** App-facing channel entry point and resume endpoint (docs/05-api.md #2). */
+/**
+ * The one facade-specific App endpoint (docs/05-api.md #2, bd DPoP-demo-bqi.5): everything else a
+ * channel offers lives on the facade-neutral [ChannelController] below, shared with the future
+ * kc-facade's own `POST /kc/channels`. Only creation differs per facade - it's where each facade's
+ * own proof-of-caller happens (DPoP proof here; a signed Keycloak assertion for `/kc/channels`).
+ */
 @RestController
 @RequestMapping("/orchestrator/api/v1/app/channels")
-@Tag(name = "App channels", description = "Orchestrator-first entry point for the App channel")
+@Tag(name = "App channels", description = "The App facade's one facade-specific endpoint - channel creation")
 @SecurityRequirement(name = "dpop")
-class ChannelController(
+class ChannelCreationController(
     private val channelService: ChannelService
 ) {
 
@@ -58,10 +63,26 @@ class ChannelController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val response = channelService.initializeChannel(bindingKeyRef, request.requiredAcr, request.intent, request.availableTools)
-        val location = uriBuilder.replacePath("/orchestrator/api/v1/app/channels/{channelSessionId}")
+        val location = uriBuilder.replacePath("/orchestrator/api/v1/channels/{channelSessionId}")
             .buildAndExpand(response.channel.channelSessionId).toUri()
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
+}
+
+/**
+ * Facade-neutral channel resource (docs/05-api.md #2, bd DPoP-demo-bqi.5) - everything a channel
+ * offers once it exists, addressed the same way regardless of which facade created it (today only
+ * the App facade does; the planned kc-facade's `POST /kc/channels` will mint the same resource).
+ * No `/app/` or `/kc/` prefix here on purpose - see [ChannelCreationController] for the one
+ * endpoint that IS facade-specific.
+ */
+@RestController
+@RequestMapping("/orchestrator/api/v1/channels")
+@Tag(name = "Channels", description = "Facade-neutral channel resource - shared by every facade that creates one")
+@SecurityRequirement(name = "dpop")
+class ChannelController(
+    private val channelService: ChannelService
+) {
 
     @GetMapping("/{channelSessionId}")
     @Operation(

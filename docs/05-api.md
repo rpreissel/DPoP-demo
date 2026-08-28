@@ -33,8 +33,8 @@ Designentscheidung:
 - `processSessionId` bleibt als interne Prozessinstanz für Persistenz, Korrelation und Audit erhalten.
 - Die fachliche Prozesswahl (`REGISTRATION`, `LOGIN`, `STEP_UP`) trifft das Backend auf Basis von Kanalzustand, Accountstatus und Policy.
 - Öffentliche App-APIs verwenden nur `channelSessionId`; weder `purpose` noch die interne `processSessionId` werden vom Client vorgegeben.
-- Das `next`-Objekt ist reine Adresse und hat immer dieselbe schlanke Form: bei einem konkreten Tool-Schritt `{ "type": "tool", "toolId": "...", "step": "...", "toolSessionId": "..." }`, bei einer orchestrator-eigenen Seite (Auswahl, Bestätigung, Abschluss) `{ "type": "orchestrator", "context": "...", "step": "..." }` — niemals mit Inhalt vermischt. `toolSessionId` ist die vollständige Adresse der Tool-Ressource (`/tools/{toolSessionId}/{toolId}`) und ist gesetzt, sobald eine `ToolSession` für diesen Schritt existiert — insbesondere beim Resume (`GET /app/channels/{channelSessionId}`) mitten in einem laufenden Tool, damit der Client die laufende Session weiterbenutzt statt sie erneut zu aktivieren.
-- **Eine Antworthülle für alle Endpunkte aller Schichten** (`ChannelResponse`): `{ "channel": {channelSessionId, state, currentAcr, currentAmr, activeMethods}, "next": {...}, "stepData": {...}, "demo": {...} }`. `channel` ist ein benannter Block statt flacher Felder — als Block ist sofort erkennbar, was Kanalzustand und was Schrittzustand ist. `channelSessionId`/`state` stehen in jeder Antwort (werden durchgängig gebraucht, z. B. Statusanzeige, Cancel/Logout-Verfügbarkeit). `currentAcr`/`currentAmr`/`activeMethods` dagegen NIE in Tool-Antworten (`POST .../tools/{toolId}`, `PATCH`/`GET`/`DELETE` auf `/tools/...`) — sie sind keine Kerndaten des Ablaufs, sondern werden ausschließlich von der Sicherheits-Detailansicht gelesen, die der Client bei Bedarf gezielt nachlädt (`GET /app/channels/{channelSessionId}`), so wie jede echte Bildschirmansicht ihre eigenen Daten holt, statt dass jede Antwort sie prophylaktisch mitschleppt. Nur die echten Kanal-Endpunkte (`GET`/`POST /channels`, `step-ups`, `enrollments`, `DELETE .../methods/{methodInstanceId}`) liefern sie, weil genau das ihr Zweck ist.
+- Das `next`-Objekt ist reine Adresse und hat immer dieselbe schlanke Form: bei einem konkreten Tool-Schritt `{ "type": "tool", "toolId": "...", "step": "...", "toolSessionId": "..." }`, bei einer orchestrator-eigenen Seite (Auswahl, Bestätigung, Abschluss) `{ "type": "orchestrator", "context": "...", "step": "..." }` — niemals mit Inhalt vermischt. `toolSessionId` ist die vollständige Adresse der Tool-Ressource (`/tools/{toolSessionId}/{toolId}`) und ist gesetzt, sobald eine `ToolSession` für diesen Schritt existiert — insbesondere beim Resume (`GET /channels/{channelSessionId}`) mitten in einem laufenden Tool, damit der Client die laufende Session weiterbenutzt statt sie erneut zu aktivieren.
+- **Eine Antworthülle für alle Endpunkte aller Schichten** (`ChannelResponse`): `{ "channel": {channelSessionId, state, currentAcr, currentAmr, activeMethods}, "next": {...}, "stepData": {...}, "demo": {...} }`. `channel` ist ein benannter Block statt flacher Felder — als Block ist sofort erkennbar, was Kanalzustand und was Schrittzustand ist. `channelSessionId`/`state` stehen in jeder Antwort (werden durchgängig gebraucht, z. B. Statusanzeige, Cancel/Logout-Verfügbarkeit). `currentAcr`/`currentAmr`/`activeMethods` dagegen NIE in Tool-Antworten (`POST .../tools/{toolId}`, `PATCH`/`GET`/`DELETE` auf `/tools/...`) — sie sind keine Kerndaten des Ablaufs, sondern werden ausschließlich von der Sicherheits-Detailansicht gelesen, die der Client bei Bedarf gezielt nachlädt (`GET /channels/{channelSessionId}`), so wie jede echte Bildschirmansicht ihre eigenen Daten holt, statt dass jede Antwort sie prophylaktisch mitschleppt. Nur die echten Kanal-Endpunkte (`GET`/`POST /channels`, `step-ups`, `enrollments`, `DELETE .../methods/{methodInstanceId}`) liefern sie, weil genau das ihr Zweck ist.
 - **`channel.state`-Werte** — alles, was der Client aus `state` selbst ableiten kann, ohne einen Endpunkt aufzurufen:
 
   | Wert | Bedeutung für den Client |
@@ -54,8 +54,8 @@ Designentscheidung:
 
 Pfadkonvention:
 
-- Einstieg: `POST /orchestrator/api/v1/app/channels` — `201` mit `Location: .../app/channels/{channelSessionId}` (immer eine neue Ressource, nie ein Resume).
-- Kanalzustand lesen: `GET /orchestrator/api/v1/app/channels/{channelSessionId}`
+- Einstieg: `POST /orchestrator/api/v1/app/channels` — `201` mit `Location: .../channels/{channelSessionId}` (immer eine neue Ressource, nie ein Resume; die Location zeigt bereits auf die fassadenneutrale Kanal-Ressource, siehe Abschnitt 3).
+- Kanalzustand lesen: `GET /orchestrator/api/v1/channels/{channelSessionId}`
 - Niveau anheben (Step-up-Auslöser): `POST .../{channelSessionId}/step-ups` mit `{"requiredAcr": "..."}`
 - Journey abbrechen: `DELETE .../{channelSessionId}/journey` (kein Body)
 - Logout: `DELETE .../{channelSessionId}` (kein Body)
@@ -71,7 +71,7 @@ Tool-Namespace:
 - Die Aktivierung bleibt Orchestrator-Hoheit und ist für alle Tools gleich — nur dort entsteht die `toolSessionId`.
 - Alles unterhalb von `/tools/{toolSessionId}/{toolId}` gestaltet das Tool selbst: eigene Sub-Ressourcen und frei gewählte HTTP-Methoden. `PATCH`/`GET` sind der empfohlene Regelfall, aber keine Pflicht — nicht jedes Verfahren passt in "Felder nachliefern" (WebAuthn reicht eine Assertion ein, eID braucht Redirect/Callback).
 - Der Client findet diese Endpunkte über dieselbe Routing-Tabelle wie überall: `(toolId, step)` bildet auf den konkreten Endpunkt ab, ohne URL-Interpretation.
-- Der garantierte Resume-Einstieg ist **nicht** die Tool-Ressource (deren `GET` ein Tool optional weglassen darf), sondern `GET /app/channels/{channelSessionId}`: existiert immer und liefert den aktuell fälligen `next`.
+- Der garantierte Resume-Einstieg ist **nicht** die Tool-Ressource (deren `GET` ein Tool optional weglassen darf), sondern `GET /channels/{channelSessionId}`: existiert immer und liefert den aktuell fälligen `next`.
 - **Implementierungsnote:** `POST`/`PATCH`/`GET` liegen je Tool in einem eigenen Controller mit typisiertem Request-DTO ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2), nicht in einem generischen, `toolId`-dispatchenden Handler. `DELETE` ist die einzige Ausnahme (kein tool-spezifisches Verhalten).
 
 ### Cancel
@@ -80,7 +80,7 @@ Tool-Namespace:
 
 ### Logout
 
-`DELETE /app/channels/{channelSessionId}` beendet den Kanal endgültig (`AUTHENTICATED -> LOGGED_OUT`, terminal, `204`): bricht wie Cancel einen aktiven Prozess ab und verwirft zusätzlich den `AuthContext`. Anders als Cancel lebt diese `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Geräte-Bindung bleibt trotzdem nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` auf einen neuen Kanal das Gerät wiedererkennt und direkt LOGIN statt `ident-fsc` anbietet.
+`DELETE /channels/{channelSessionId}` beendet den Kanal endgültig (`AUTHENTICATED -> LOGGED_OUT`, terminal, `204`): bricht wie Cancel einen aktiven Prozess ab und verwirft zusätzlich den `AuthContext`. Anders als Cancel lebt diese `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Geräte-Bindung bleibt trotzdem nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` auf einen neuen Kanal das Gerät wiedererkennt und direkt LOGIN statt `ident-fsc` anbietet.
 
 ### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)
 
@@ -108,7 +108,7 @@ Registrierung mit `ident-fsc` -> `enroll-sms`:
 4. `POST .../tools/enroll-sms` liefert `stepData={"missingFields":["phoneNumber"]}`.
 5. `PATCH .../enroll-sms` mit `{"phoneNumber": "..."}` löst den TAN-Versand aus: `stepData={"missingFields":["tan"]}` plus (siehe unten) `demo={"tan":"123456"}`.
 6. `PATCH .../enroll-sms` mit `{"tan": "123456"}` schließt ab: `next={"type":"orchestrator","context":"authentication","step":"authenticated"}`, `channel.state` bereits `"AUTHENTICATED"` in derselben Antwort — kein `stepData` und kein separater `GET` mehr nötig, um das zu erfahren.
-7. `GET /app/channels/{channelSessionId}` liefert jederzeit den stabilen Kanalzustand — der garantierte Resume-Einstieg. Mitten in einem laufenden Tool (z. B. App-Neustart nach Schritt 5) liefert er denselben `next` inklusive `toolSessionId` zurück, sodass der Client die laufende Session weiterbenutzt statt die Tool-Anlage erneut aufzurufen.
+7. `GET /channels/{channelSessionId}` liefert jederzeit den stabilen Kanalzustand — der garantierte Resume-Einstieg. Mitten in einem laufenden Tool (z. B. App-Neustart nach Schritt 5) liefert er denselben `next` inklusive `toolSessionId` zurück, sodass der Client die laufende Session weiterbenutzt statt die Tool-Anlage erneut aufzurufen.
 
 Jedes weitere Tool (`enroll-password`/`auth-password`, `enroll-email`/`auth-email`, die `-lookup`-Varianten) folgt demselben `POST`(anlegen)/`PATCH`(nachliefern)/`GET`(lesen)-Muster; die tool-spezifischen Abweichungen stehen unten.
 
@@ -128,7 +128,7 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 
 `availableTools` (Pflicht) erklärt, welche toolIds dieser Client aktivieren kann — was er rendern kann, minus was der Nutzer lokal deaktiviert hat. Fest für die Lebensdauer des Kanals, kein Update danach. Ein Tool außerhalb dieser Menge wird nie angeboten und auch bei direkter Aktivierung abgelehnt (`docs/03-tool-architektur.md`, Verfügbarkeit) — zusätzlich zu dieser Client-Achse kann das Backend jedes Tool global und zur Laufzeit sperren (`GET`/`PUT /admin/tools/.../availability`, kein Redeploy nötig).
 
-### `GET /app/channels/{channelSessionId}`
+### `GET /channels/{channelSessionId}`
 
 Liest den stabilen Kanalzustand — Resume-Einstieg und einfache Session-/Policy-Sicht. Zwei zusätzliche Felder im `channel`-Block neben `state`:
 
@@ -137,9 +137,9 @@ Liest den stabilen Kanalzustand — Resume-Einstieg und einfache Session-/Policy
 
 Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer gesetzt — auch bei abgeschlossener Journey (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es bewusst nicht, da schon `next` selbst zeigt, ob ein Step-up ansteht. Nur bei `LOGGED_OUT` (terminal) fehlt `next` ganz.
 
-### `POST /app/channels/{channelSessionId}/step-ups`: Step-up-Auslöser
+### `POST /channels/{channelSessionId}/step-ups`: Step-up-Auslöser
 
-Hebt die geforderte Untergrenze des Kanals an (Gegenstück zu `processes/step-up` auf der kc-Seite). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `AuthJourney(STEP_UP)` und liefert den fälligen Schritt in derselben `ChannelResponse`-Form wie überall; reicht es bereits, bleibt keine Journey offen und `next` zeigt sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Ist das geforderte Niveau mit den vorhandenen Methoden des Accounts nicht erreichbar, bricht die Journey mit `410` ab, statt eine Auswahl ohne gültige Kandidaten anzubieten ([Orchestrierung](04-orchestrierung.md)).
+Hebt die geforderte Untergrenze des Kanals an (auf der kc-Seite derselbe fassadenneutrale Endpunkt, kein eigener kc-Trigger — siehe Abschnitt 3). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `AuthJourney(STEP_UP)` und liefert den fälligen Schritt in derselben `ChannelResponse`-Form wie überall; reicht es bereits, bleibt keine Journey offen und `next` zeigt sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Ist das geforderte Niveau mit den vorhandenen Methoden des Accounts nicht erreichbar, bricht die Journey mit `410` ab, statt eine Auswahl ohne gültige Kandidaten anzubieten ([Orchestrierung](04-orchestrierung.md)).
 
 ### `enroll-email` / `auth-email` / `enroll-password` / `auth-password`
 
@@ -162,12 +162,34 @@ Erreichbar nur über `POST /channels` mit `intent: "lookup_login"` — nie über
 
 ## 3) Web/Keycloak-Fassade (Keycloak-first)
 
-- `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/step-up`
-- `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/processes/login`
-- `POST /orchestrator/api/v1/kc/sessions/{kcSessionId}/tools/{toolId}` (Gegenstück zur App-Fassade; danach laufen beide Kanäle über dieselben `/tools/{toolSessionId}/{toolId}`-URLs)
-- optional: `POST .../processes/{purpose}/cancel`
+**Geplant, noch nicht gebaut** (bd-Epic `DPoP-demo-bqi`, 0/7 – ersetzt das früher hier dokumentierte
+`processes/login`/`processes/step-up`-Muster).
 
-`processes/step-up` bekommt `channelSessionId`, `keycloakSessionId`/`keycloakSubject`, `startingAcr`/`requiredAcr`, `currentAmr` und liefert `next` in derselben Form wie die App-Fassade — Keycloak folgt ihm über dieselbe Routing-Tabelle.
+Designentscheidung (bd `DPoP-demo-bqi.5`): **ein einziger** fassaden-spezifischer Endpunkt —
+
+- `POST /orchestrator/api/v1/kc/channels` — etabliert eine `ChannelSession(WEB)`, verankert an der
+  kc-Auth-Session (initialer Login) bzw. User-Session (Step-up). Antwort in derselben `ChannelResponse`-
+  Form wie `POST /app/channels`.
+
+Danach läuft **alles** über dieselben fassadenneutralen Endpunkte wie die App-Fassade — kein
+`/kc/`-Präfix, keine Duplikate von Tool-Aktivierung & Co.:
+
+- `GET`/`DELETE .../channels/{channelSessionId}`, `.../step-ups`, `.../journey`, `.../methods`,
+  `.../enrollments`, `.../token`, `.../idclaims` (Abschnitt 2)
+- `POST .../channels/{channelSessionId}/tools/{toolId}` (Aktivierung), danach `PATCH`/`GET
+  /tools/{toolSessionId}/{toolId}` — identisch zur App-Fassade
+
+Statt DPoP-Proof authentifiziert sich Keycloak selbst über eine signierte Request-Assertion (kein
+mTLS, bd `DPoP-demo-bqi.4`): ein JWT pro Request mit `iss=keycloak`, `aud=orchestrator`, `htm`/`htu`
+dieses Requests, `jti`+`iat` (derselbe Replay-Cache und dasselbe `max-clock-skew-seconds`-Fenster
+wie bei DPoP), plus Kontext — `kcAuthSessionId` beim initialen Login (noch kein `sub`, der
+Orchestrator ermittelt den Account erst im Ablauf) bzw. `kcSessionId`/`sub` beim Step-up (Nutzer
+bereits bekannt). Verifikation gegen Keycloaks JWKS, ein Schlüsselpaar pro Client, nicht pro Nutzer.
+
+Web-Login ist der bereits gebaute Lookup-Login (kein Gerät im Web-Kanal, `DeviceAccountLink` bleibt
+APP-only, bd `DPoP-demo-bqi.1`): ohne Gerätebindung bleiben nur die `-lookup`-Tools
+(`deviceBound=false`). `intent=fast_access` ist im Web bedeutungslos, da es auf
+`DeviceAccountLink` aufsetzt — bleiben `register`/`lookup_login` als explizite Wahl.
 
 ---
 
@@ -180,6 +202,6 @@ Ziel: Prozesssicht/Fachführung bleibt in den Prozess-Endpoints; App-Frontend un
 - `AuthJourney` bleibt der fachliche Owner (Intent, Zustand, Versuchsbudget); `ToolSession` trägt nur Lifecycle-Metadaten (`toolSessionId`, `journeyId`, Zeitstempel) — weder `toolId` noch `stepData` noch ein Retry-Zähler sind eigene Spalten: `toolId` ergibt sich aus der Route, `stepData` aus den Moduldaten, und das Versuchsbudget gilt für die ganze Journey (siehe [Domänenmodell](02-domaenenmodell.md)).
 - `accountId`/`personId` sind kein Teil des fachlichen Antwortvertrags — der Client braucht sie für keinen der über `next` erreichbaren Folgeaufrufe. Einzige Ausnahme ist das demo-Objekt.
 
-Für Keycloak ist `auth-sms` (Login/Step-up) der einzige nicht bereits über die App-Fassade abgedeckte Fall — die `PATCH`/`GET`-Formen sind identisch zur App-Seite, nur der Prozess-Start läuft über `POST /kc/sessions/{kcSessionId}/tools/auth-sms` statt über einen Channel.
+Für Keycloak ist `auth-sms`/`auth-password`/`auth-email` (Login/Step-up) der einzige nicht bereits über die App-Fassade abgedeckte Fall — Aktivierung, `PATCH` und `GET` laufen identisch zur App-Seite über den (kc-eigenen) Channel: `POST .../channels/{channelSessionId}/tools/auth-sms`, danach `PATCH`/`GET /tools/{toolSessionId}/auth-sms` (Abschnitt 3).
 
 Damit ist nur die fachliche Freigabe prozess- und kanalabhängig; Startparameter und Verifikation laufen danach kanalneutral über ein einheitliches Tool-Muster.

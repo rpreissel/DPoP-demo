@@ -32,7 +32,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 then("the process resets and offers a fresh start") {
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 // Get all the way to Identified (account created) before cancelling, to prove the
                 // channel doesn't stay half-bound to that account afterwards.
                 patch(
@@ -40,7 +40,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
 
-                val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/journey")
+                val cancelled = delete("/orchestrator/api/v1/channels/$channelSessionId/journey")
                 // ChannelState diagram (docs/02-domaenenmodell.md #3): REGISTERING -> ANONYMOUS -> a
                 // fresh registration is offered immediately, so the response already shows REGISTERING
                 // again; two ident candidates exist, so a selection page is offered (same as the
@@ -69,9 +69,9 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
 
                 // Simulate a fresh app session on the same device: new channel, straight to LOGIN via the device link.
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+                post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
 
-                val cancelled = delete("/orchestrator/api/v1/app/channels/$channelSessionId/journey")
+                val cancelled = delete("/orchestrator/api/v1/channels/$channelSessionId/journey")
                 // LOGIN cancel doesn't force a channel-state change (docs: only REGISTERING/STEP_UP do);
                 // the response re-offers candidates from scratch - two active methods (sms, email) now
                 // exist, so that's a selection page, not the single auth-sms tool directly.
@@ -89,16 +89,16 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 then("the channel ends for good and a new one starts a fresh login via the device link") {
 
                 val channelSessionId = registerAndAuthenticate()
-                val beforeLogout = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val beforeLogout = get("/orchestrator/api/v1/channels/$channelSessionId")
                 beforeLogout.channel()["state"] shouldBe "AUTHENTICATED"
 
                 // Unlike Cancel (which leaves an AUTHENTICATED channel untouched, nothing to cancel),
                 // Logout always ends the channel.
-                deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
+                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
 
                 // The old channelSessionId is dead - GET still resolves it (same key, valid binding),
                 // but it stays LOGGED_OUT and reports no next step; it is never silently re-derived.
-                val loggedOutChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val loggedOutChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 loggedOutChannel.channel()["state"] shouldBe "LOGGED_OUT"
                 loggedOutChannel["next"].shouldBeNull()
                 loggedOutChannel.channel()["currentAcr"].shouldBeNull()
@@ -114,13 +114,13 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 newChannel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
 
                 val (tan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
                 }
                 val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-                val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+                val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterLogin.channel()["state"] shouldBe "AUTHENTICATED"
 
 
@@ -133,13 +133,13 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 then("the registration process is cancelled too") {
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
 
-                deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
+                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
 
                 // The old ident-fsc tool session is no longer part of any active process.
                 val exception = assertThrows<HttpClientErrorException> {
@@ -167,7 +167,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 currentBindingKeyRef = "a-completely-different-binding-key"
 
                 val exception = assertThrows<HttpClientErrorException> {
-                    deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId")
+                    deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId")
                 }
                 exception.statusCode shouldBe HttpStatus.FORBIDDEN
 

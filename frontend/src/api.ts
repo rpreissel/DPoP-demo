@@ -98,36 +98,36 @@ export function createChannel(
 }
 
 export function getChannel(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
-  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}`)
+  return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}`)
 }
 
 export function raiseRequiredAcr(dpop: DpopKeyPair, channelSessionId: string, requiredAcr: string): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/step-ups`, { requiredAcr })
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/step-ups`, { requiredAcr })
 }
 
 /** Abandons the running AuthJourney; the response already offers a fresh start where applicable. */
 export function cancelJourney(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
-  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/journey`)
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/journey`)
 }
 
 /** Ends this channel for good (docs/02-domaenenmodell.md #3: logout, terminal) - cancels any active process and discards the AuthContext. Call createChannel again afterwards for a new session. */
 export function logoutChannel(dpop: DpopKeyPair, channelSessionId: string): Promise<void> {
-  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}`)
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}`)
 }
 
 /** The account's active authentication methods, addressable as their own resource (docs/05-api.md #2). */
 export function getMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<{ methods: ActiveMethodView[] }> {
-  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods`)
+  return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}/methods`)
 }
 
 /** Voluntary enrollment on an already-AUTHENTICATED channel (AuthIntent.MANAGE) - offers the existing enroll-* tools, finishes after exactly one. Call again to add another. */
 export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/enrollments`)
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/enrollments`)
 }
 
 /** Deactivates an active method instance (addressed by its own id, not by method name - a method can have several active instances, e.g. multiple devices); rejected (409) if it would drop the account below this channel's required level. */
 export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, methodInstanceId: string): Promise<ChannelResponse> {
-  return call(dpop, 'DELETE', `/orchestrator/api/v1/app/channels/${channelSessionId}/methods/${methodInstanceId}`)
+  return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/methods/${methodInstanceId}`)
 }
 
 /**
@@ -137,17 +137,17 @@ export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, me
  */
 export function getToken(dpop: DpopKeyPair, channelSessionId: string, minValiditySeconds?: number): Promise<TokenResponse> {
   const query = minValiditySeconds !== undefined ? `?minValiditySeconds=${minValiditySeconds}` : ''
-  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/token${query}`)
+  return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}/token${query}`)
 }
 
 /** The fachliche ID-token claims - a resource separate from the AccessToken's own claims. */
 export function getIdClaims(dpop: DpopKeyPair, channelSessionId: string): Promise<IdTokenClaims> {
-  return call(dpop, 'GET', `/orchestrator/api/v1/app/channels/${channelSessionId}/idclaims`)
+  return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}/idclaims`)
 }
 
 /** Answers the optional device-binding offer of a lookup login (docs/04-orchestrierung.md #3) via the generic answer endpoint. */
 export function answerDeviceBinding(dpop: DpopKeyPair, channelSessionId: string, accept: boolean): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/answer`, { answer: accept ? 'accept' : 'decline' })
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/answer`, { answer: accept ? 'accept' : 'decline' })
 }
 
 /**
@@ -160,7 +160,7 @@ export function abandonTool(dpop: DpopKeyPair, toolSessionId: string, toolId: st
 
 /** toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by the client. */
 export function activateTool(dpop: DpopKeyPair, channelSessionId: string, toolId: string): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/app/channels/${channelSessionId}/tools/${toolId}`)
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/tools/${toolId}`)
 }
 
 export function patchTool(

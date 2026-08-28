@@ -74,7 +74,7 @@ Details: [04-orchestrierung.md](04-orchestrierung.md)
 3. Orchestrator bietet die Verfahren an, die der aktuelle Zustand der Journey zulässt (FSC/SMS/eID).
 4. Bei Erfolg erzeugt Backend den `AuthContext` (Keycloak-Tokenfluss serverseitig).
 5. `ChannelSession.state` wechselt auf `AUTHENTICATED`.
-6. Braucht die App ein höheres Niveau, hebt sie es per `PATCH /app/channels/{channelSessionId}` mit `requiredAcr` an ([05-api.md](05-api.md), App-Fassade Beispiel 9). Alternativ ist die Untergrenze schon beim Anlegen des Kanals gesetzt.
+6. Braucht die App ein höheres Niveau, hebt sie es per `POST /channels/{channelSessionId}/step-ups` mit `requiredAcr` an ([05-api.md](05-api.md), App-Fassade Beispiel 9). Alternativ ist die Untergrenze schon beim Anlegen des Kanals gesetzt.
 7. Backend vergleicht die Forderung mit `currentAcr`/`currentAmr` aus dem `AuthContext`. Reicht es nicht: `STEP_UP_REQUIRED` -> neue `AuthJourney(STEP_UP)`, und die Antwort enthält direkt den fälligen `next`-Schritt.
 
 ### Web (Keycloak-first)

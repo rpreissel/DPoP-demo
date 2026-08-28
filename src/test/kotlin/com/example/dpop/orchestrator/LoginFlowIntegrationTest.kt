@@ -46,7 +46,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // findOrCreateAccount (docs/05-api.md #2) reuses the existing account instead of a second one.
                 currentBindingKeyRef = "binding-" + UUID.randomUUID()
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 val identified = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
@@ -75,9 +75,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // request) - each activation mints its own ToolSession with its own issued TAN.
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
 
-                val firstActivation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+                val firstActivation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
                 val firstToolSessionId = firstActivation.nextRaw()["toolSessionId"] as String
-                val secondActivation = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+                val secondActivation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
                 val secondToolSessionId = secondActivation.nextRaw()["toolSessionId"] as String
                 secondToolSessionId shouldNotBe firstToolSessionId
 
@@ -109,12 +109,12 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // registration doesn't finish yet, it offers a selection page next (enroll-email/-device).
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
-                val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (tan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
@@ -129,7 +129,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
 
                 val (loginTan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/${newChannel.channel()["channelSessionId"]}/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/${newChannel.channel()["channelSessionId"]}/tools/auth-sms")
                 }
                 val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
@@ -154,7 +154,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val reidentified = post("/orchestrator/api/v1/app/channels")
                 reidentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
                 val channelSessionId = reidentified.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
@@ -166,7 +166,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // via lookup). Without also linking here, this device's key #2 would never get a
                 // DeviceAccountLink and would be forced back through ident-fsc on every future connect.
                 val (tan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
                 }
                 val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
@@ -198,7 +198,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
 
-                val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
+                val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
                 val authenticated = patch(
                     "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
                     """{"email":"$email","password":"correct-horse-battery"}"""
@@ -207,9 +207,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
                 
 
-                post("/orchestrator/api/v1/app/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"
                 @Suppress("UNCHECKED_CAST")
                 channel.channel()["currentAmr"] as List<String> shouldContain "password"
@@ -230,12 +230,12 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
-                val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (enrollTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
@@ -244,7 +244,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
-                val lookupToolSessionId = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/tools/auth-sms-lookup").nextRaw()["toolSessionId"] as String
+                val lookupToolSessionId = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/tools/auth-sms-lookup").nextRaw()["toolSessionId"] as String
 
                 val (loginTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"email":"$email"}""")
@@ -256,10 +256,10 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
                 
 
-                val done = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
+                val done = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
                 done.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$lookupChannelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"
 
 
@@ -279,13 +279,13 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val channelSessionId = loginStart.channel()["channelSessionId"] as String
-                val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
+                val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
                     """{"email":"$email","password":"correct-horse-battery"}"""
                 )
 
-                post("/orchestrator/api/v1/app/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
                 linkedAccountsFor(currentBindingKeyRef) shouldBe 0
 
                 // And a plain FAST channel on this device consequently still has to identify.
@@ -306,26 +306,26 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // ever be activated (same reasoning as passwordEnrollmentAndSubsequentLoginFlow above).
                 val channelSessionId =
                     post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""").channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
                 enrollEmail(channelSessionId)
-                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
 
-                deleteNoContent("/orchestrator/api/v1/app/channels/$channelSessionId")
+                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId")
 
                 // Fresh device-bound LOGIN (same device, DeviceAccountLink still points here): default
                 // loa1 floor is satisfied by a single method, so this proves ONLY password.
                 val loginStart = post("/orchestrator/api/v1/app/channels")
                 val loginChannelSessionId = loginStart.channel()["channelSessionId"] as String
-                val authToolSessionId = post("/orchestrator/api/v1/app/channels/$loginChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
+                val authToolSessionId = post("/orchestrator/api/v1/channels/$loginChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
                 val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$loginChannelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$loginChannelSessionId")
                 @Suppress("UNCHECKED_CAST")
                 channel.channel()["currentAmr"] as List<String> shouldContainExactly listOf("password")
                 @Suppress("UNCHECKED_CAST")
@@ -344,7 +344,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
-                val lookupToolSessionId = post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
+                val lookupToolSessionId = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
 
                 val (loginCode, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"email":"$email"}""")
@@ -353,9 +353,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 authenticated.next() shouldBe 
                     mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
                 
-                post("/orchestrator/api/v1/app/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
+                post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
 
-                val channel = get("/orchestrator/api/v1/app/channels/$lookupChannelSessionId")
+                val channel = get("/orchestrator/api/v1/channels/$lookupChannelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"
                 @Suppress("UNCHECKED_CAST")
                 channel.channel()["currentAmr"] as List<String> shouldContain "email"
@@ -371,7 +371,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
+                val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
 
                 // Same shape as a wrong password against a real account (200, Failed -> retry offered)
                 // - never a distinct HTTP error for "unknown email" (enumeration protection).
@@ -395,7 +395,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 fun submit(email: String): Map<String, Any?> {
                     val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""").channel()["channelSessionId"] as String
-                    val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
+                    val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email-lookup").nextRaw()["toolSessionId"] as String
                     return patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email-lookup", """{"email":"$email"}""").next()
                 }
 

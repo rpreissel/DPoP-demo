@@ -42,7 +42,7 @@ class EnrollSmsToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/enroll-sms")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-sms")
     @Operation(
         summary = "Activate enroll-sms",
         description = "No request body: toolId already carries kind and method.",

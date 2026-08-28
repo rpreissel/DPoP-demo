@@ -46,7 +46,7 @@ class IdentFscToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/ident-fsc")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/ident-fsc")
     @Operation(
         summary = "Activate ident-fsc",
         description = "No request body: toolId already carries kind and method.",

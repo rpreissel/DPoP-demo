@@ -5,7 +5,7 @@ import { completeRegistration } from './journey'
  * Full registration -> enrollment -> authenticated flow against the real backend: proves real
  * DPoP WebCrypto proofs are accepted end-to-end and that the security-summary screen's on-demand
  * backfill fetch (docs/05-api.md #2: currentAcr/currentAmr/activeMethods are never part of a tool
- * response) actually lands real data from the real `GET /app/channels/{id}`, not a mock.
+ * response) actually lands real data from the real `GET /channels/{id}`, not a mock.
  *
  * Uses the form's pre-filled KVNR (A123456789, one of only 3 seeded persons - V2__testdata.sql)
  * unchanged. This only works against a DB with no account provisioned yet for that KVNR: an

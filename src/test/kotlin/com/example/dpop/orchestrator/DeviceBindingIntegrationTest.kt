@@ -55,7 +55,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
     }
 
     private fun enrollSms(channelSessionId: String) {
-        val toolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+        val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
         val (tan, _) = captureMockTan {
             patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
@@ -81,7 +81,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
     }
     private fun enrollDevice(channelSessionId: String, userVerification: String = "biometric"): ECKey {
         val deviceKey = ECKeyGenerator(Curve.P_256).generate()
-        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
+        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
         val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
         val proof = signDeviceProof(deviceKey, "http://localhost:$port$patchUrl", userVerification)
         patch(patchUrl, """{"deviceProof":"$proof"}""")
@@ -95,7 +95,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val deviceKey = enrollDevice(channelSessionId, userVerification = "biometric")
             deviceKey.shouldNotBeNull()
 
-            val channel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+            val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
             channel.channel()["currentAcr"] shouldBe "loa2"
             // "fsc" is also present (ident-fsc's own amr, accumulated across the whole session) -
             // only device/biometric are asserted here.
@@ -114,13 +114,13 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
 
-            val authToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
+            val authToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
             val authPatchUrl = "/orchestrator/api/v1/tools/$authToolSessionId/auth-device"
             val proof = signDeviceProof(deviceKey, "http://localhost:$port$authPatchUrl", "pin")
             val authenticated = patch(authPatchUrl, """{"deviceProof":"$proof"}""")
             authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-            val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+            val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
             afterLogin.channel()["currentAcr"] shouldBe "loa2"
             @Suppress("UNCHECKED_CAST")
             afterLogin.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("device", "pin")
@@ -133,7 +133,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             enrollEmail(channelSessionId)
             // sms + confirmed email already finish the journey, so the device credential is added
             // afterwards through MANAGE - the loa2 gate is satisfied by this session's own ident-fsc.
-            post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+            post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
             enrollDevice(channelSessionId)
 
             // Fresh session on the same device: the first state of the FAST fallback chain, the device method.
@@ -143,7 +143,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             // Declining it is NOT cancelling the journey: the chain falls through to the other
             // methods the account actually has, which is a real choice rather than the same screen.
-            val toolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
+            val toolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
             val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-device")
             afterDecline.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
@@ -151,7 +151,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             // Cancelling the whole journey, by contrast, restarts the SAME intent - and therefore
             // legitimately lands back on the first state. The two actions are not interchangeable.
-            val afterCancel = delete("/orchestrator/api/v1/app/channels/$newChannelSessionId/journey")
+            val afterCancel = delete("/orchestrator/api/v1/channels/$newChannelSessionId/journey")
             afterCancel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Auth device signed with a different key is rejected as failed not as someone elses credential") {
@@ -160,7 +160,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             val newChannel = post("/orchestrator/api/v1/app/channels")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
-            val authToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
+            val authToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-device").nextRaw()["toolSessionId"] as String
             val authPatchUrl = "/orchestrator/api/v1/tools/$authToolSessionId/auth-device"
 
             val wrongKey = ECKeyGenerator(Curve.P_256).generate()
@@ -174,7 +174,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
         then("Enroll device with an expired proof is rejected as unauthorized") {
             val channelSessionId = identify()
             val deviceKey = ECKeyGenerator(Curve.P_256).generate()
-            val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
+            val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
             val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
             val staleProof = signDeviceProof(
                 deviceKey, "http://localhost:$port$patchUrl", "pin",
@@ -198,7 +198,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             // posture already accepted for ordinary DPoP proofs in this app.
             val channelSessionId = identify()
             val deviceKey = ECKeyGenerator(Curve.P_256).generate()
-            val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
+            val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
             val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
             val proof = signDeviceProof(deviceKey, "http://localhost:$port$patchUrl", "pin")
 
@@ -216,7 +216,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             // Register+enroll via sms only (loa1) - deliberately NOT via enroll-device, so the
             // session's own currentAcr stays loa1 after login.
             val channelSessionId = identify()
-            val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+            val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
             val (tan, _) = captureMockTan {
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
             }
@@ -225,12 +225,12 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val newChannel = post("/orchestrator/api/v1/app/channels")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
             val (loginTan, activation) = captureMockTan {
-                post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
+                post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
             }
             val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
             patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
 
-            val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+            val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
             afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
             // MANAGE with enroll-device as the goal must still force the loa2 step-up gate

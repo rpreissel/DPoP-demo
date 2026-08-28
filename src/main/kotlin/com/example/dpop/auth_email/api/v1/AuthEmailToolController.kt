@@ -40,7 +40,7 @@ class AuthEmailToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/app/channels/{channelSessionId}/tools/auth-email")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-email")
     @Operation(
         summary = "Activate auth-email",
         description = "No request body: toolId already carries kind and method.",

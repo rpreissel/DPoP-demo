@@ -212,7 +212,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
      * the catalog offers.
      */
     protected fun reIdentifyViaFsc(channelSessionId: String): Map<String, Any?> {
-        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
         return patch(
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
@@ -226,7 +226,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
      * many identification candidates get offered is a catalog detail, not this helper's job.
      */
     protected fun triggerEnrollmentStepUp(channelSessionId: String): Map<String, Any?> {
-        val started = post("/orchestrator/api/v1/app/channels/$channelSessionId/enrollments")
+        val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
         started.channel()["state"] shouldBe "STEP_UP_IN_PROGRESS"
         return started
     }
@@ -234,7 +234,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     /** Runs enroll-email through to Completed on the given channel, returns the confirmed email. */
     protected fun enrollEmail(channelSessionId: String): String {
         val email = "max.mustermann+${UUID.randomUUID()}@example.com"
-        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
+        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
         val (code, _) = captureMockTan {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"email":"$email"}""")
         }
@@ -250,7 +250,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
      */
     protected fun registerAndAuthenticate(): String {
         val channelSessionId = identify()
-        val enrollToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
         val (tan, _) = captureMockTan {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
@@ -263,13 +263,13 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     protected fun registerWithEmailAndPassword(password: String = "correct-horse-battery"): String {
         val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
         val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+        val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
         patch(
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
         )
         val email = enrollEmail(channelSessionId)
-        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
         patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"$password"}""")
         return email
     }

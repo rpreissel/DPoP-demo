@@ -34,7 +34,7 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
 
                 // loa3 requires two distinct factor types; this account only ever proves POSSESSION.
                 val exception = assertThrows<HttpClientErrorException> {
-                    post("/orchestrator/api/v1/app/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
+                    post("/orchestrator/api/v1/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
                 }
                 exception.statusCode shouldBe HttpStatus.GONE
 
@@ -51,14 +51,14 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 // factor - it must chain further, differently-typed ones too.
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
 
                 // First factor (sms): alone it's loa1, not the required loa2, so registration continues.
-                val enrollSmsToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (smsTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
@@ -75,14 +75,14 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 enrollEmail(channelSessionId)
 
                 // Third factor (password, a KNOWLEDGE factor): together with sms/email this combines to loa2.
-                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 val enrolled = patch(
                     "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
                     """{"password":"correct-horse-battery"}"""
                 )
                 enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-                val finalChannel = get("/orchestrator/api/v1/app/channels/$channelSessionId")
+                val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 finalChannel.channel()["currentAcr"] shouldBe "loa2"
                 @Suppress("UNCHECKED_CAST")
                 finalChannel.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("fsc", "sms", "email", "password")
@@ -96,7 +96,7 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email", "auth-password")
 
                 val (loginTan, smsActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
                 }
                 val authSmsToolSessionId = smsActivation.nextRaw()["toolSessionId"] as String
                 val afterSmsAuth = patch("/orchestrator/api/v1/tools/$authSmsToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
@@ -105,14 +105,14 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 afterSmsAuth.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")
 
                 // Same rule as above: activate auth-password explicitly, don't reuse afterSmsAuth's (auth-sms) session id.
-                val authPasswordToolSessionId = post("/orchestrator/api/v1/app/channels/$newChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
+                val authPasswordToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
                 val authenticated = patch(
                     "/orchestrator/api/v1/tools/$authPasswordToolSessionId/auth-password",
                     """{"password":"correct-horse-battery"}"""
                 )
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
-                val afterLogin = get("/orchestrator/api/v1/app/channels/$newChannelSessionId")
+                val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterLogin.channel()["currentAcr"] shouldBe "loa2"
 
 
