@@ -486,11 +486,11 @@ function App() {
             <div className="card welcome-card">
               <h2>Worum geht es hier?</h2>
               <p>
-                Jede Anfrage in dieser Demo ist kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) -
-                das schützt vor gestohlenen Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen. Ihre
-                Identität selbst weisen Sie klassisch nach: durch Identifikation (Freischaltcode oder eID) oder
-                Authentifizierung per SMS, E-Mail, Passwort oder einem geräteeigenen Schlüssel - einzeln oder
-                kombiniert für ein höheres Sicherheitsniveau (Step-up).
+                In dieser Demo weisen Sie Ihre Identität klassisch nach: durch Identifikation (Freischaltcode
+                oder eID) oder Authentifizierung per SMS, E-Mail, Passwort oder einem geräteeigenen Schlüssel -
+                einzeln oder kombiniert für ein höheres Sicherheitsniveau (Step-up). Jede Anfrage ist zusätzlich
+                kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) - das schützt vor gestohlenen
+                Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen.
               </p>
               <p>
                 Welche Verfahren dabei zur Wahl stehen und in welcher Reihenfolge, entscheidet nicht diese
@@ -517,120 +517,84 @@ function App() {
 
           {activeTab === 'welcome' && (
             <div className="card">
-              <h2>Architektur: Orchestrator-Muster mit Spring Modulith</h2>
+              <h2>Wichtige Begriffe für die Demo</h2>
               <p>
-                Ein <strong>orchestrator</strong>-Modul besitzt Session- und Journey-Zustand und setzt die
-                fachlichen Regeln durch (welches Sicherheitsniveau reicht, wie oft darf ein Versuch scheitern,
-                wann ist das Gerät gebunden) - kennt dabei aber kein einziges Verfahren beim Namen. Jedes
-                Verfahren (Freischaltcode, eID, SMS, E-Mail, Passwort, Geräteschlüssel) lebt in seinem eigenen
-                Modul, bringt seinen eigenen Endpunkt mit und erreicht den Orchestrator ausschließlich über eine
-                gemeinsame, schmale Schnittstelle (<code>tool_api</code>) - nie direkt. Ein neues Verfahren
-                anzuschließen heißt: neues Modul, keine Änderung am Orchestrator.
+                Ihr <strong>Konto</strong> (technisch ein <code>Account</code>) ist der Zugang, mit dem Sie in
+                dieser Demo angemeldet sind - er entsteht bei der Registrierung. Dabei
+                weisen Sie sich einmalig per <strong>Identifikation</strong> aus ("das bin ich": Freischaltcode
+                oder eID) gegen ein <strong>externes Personenregister</strong> - die <strong>Person</strong>{' '}
+                selbst kommt aus diesem fremden System und gehört nicht dem Konto; das Konto verweist nur
+                darauf. Identifizieren Sie sich später mit derselben Test-Identität erneut, findet die Demo
+                dieselbe Person wieder und landet auf demselben Konto statt einem neuen - deshalb bleibt die
+                Person beim Löschen eines Kontos auch unangetastet. Für die spätere, wiederholte Anmeldung
+                ("ich bin's wieder") dienen dagegen <strong>Anmeldeverfahren</strong>: SMS, E-Mail, Passwort
+                oder ein geräteeigener Schlüssel, einzeln oder kombiniert.
               </p>
               <p>
-                Das Ganze läuft als <strong>ein</strong> Spring-Boot-Prozess (<a href="https://spring.io/projects/spring-modulith" target="_blank" rel="noreferrer">Spring Modulith</a>),
-                nicht als verteilte Microservices. Modulith prüft die Modulgrenzen trotzdem hart: Jedes Modul
-                erklärt explizit, wovon es abhängen darf, und ein Test bricht den Build mit Namen, sobald ein
-                Modul heimlich eine verbotene Kante einführt - dieselbe Disziplin wie bei Microservices, nur
-                zur Compile-/Testzeit statt über das Netzwerk erzwungen.
+                Wie stark Ihre Identität gerade nachgewiesen ist, drückt das <strong>Sicherheitsniveau</strong>{' '}
+                aus (in der Demo <code>loa1</code>/<code>loa2</code> genannt). Ein Verfahren reicht oft schon;
+                für empfindlichere Aktionen verlangt die Demo einen zusätzlichen Nachweis, den{' '}
+                <strong>Step-up</strong> - ohne sich komplett neu anzumelden.
               </p>
-              <h3>Sicherheit</h3>
               <p>
-                <strong>Dafür:</strong> Sicherheitsregeln (Sicherheitsniveau, Step-up, Sperren nach Fehlversuchen)
-                leben zentral im Orchestrator, nie im Client - eine kompromittierte oder manipulierte App kann
-                eine Prüfung nicht umgehen, weil sie sie nie selbst trifft, nur das Backend tut das, bei jedem
-                Schritt neu (das loa2-Gate vor "Konto löschen" ist genau so ein Fall: es steht im
-                Orchestrator, nicht in der App). Eine sicherheitskritische Operation über mehrere Module hinweg
-                (Konto löschen räumt Zugangsdaten, Geräte-Bindung und Kontodaten in einem Rutsch ab) bleibt
-                dabei eine einzige Transaktion - kein Zwischenzustand, in dem nur ein Teil gelöscht ist.<br />
-                <strong>Dagegen:</strong> ein Modulith läuft als ein Prozess - ein Sicherheitsproblem in einem
-                einzelnen Modul (z. B. eine verwundbare Abhängigkeit) hat denselben Speicherraum wie alle
-                anderen Module, es gibt keine Prozess- oder Netzwerkgrenze dazwischen wie bei echten
-                Microservices. Die Modulgrenzen selbst sind nur zur Compile-/Testzeit erzwungen (ein Test bricht
-                den Build), nicht zur Laufzeit - und alle Module teilen sich eine Datenbank ohne Schema-seitige
-                Trennung.
+                Zwei Dinge werden dabei leicht verwechselt, weil beide "Gerät" im Namen tragen. Die{' '}
+                <strong>DPoP-Bindung</strong> beweist nur <em>welches Gerät</em> gerade spricht - niemals, dass
+                der Nutzer davor tatsächlich der ist, für den er sich ausgibt. Sie bindet jede Anfrage
+                kryptografisch an dieses Gerät und lässt ein bereits bekanntes Gerät automatisch wiedererkennen
+                ("Automatisch anmelden" schlägt dann direkt den zuletzt genutzten Login vor, "Neu anmelden"
+                verzichtet bewusst darauf) - bleibt dabei aber reine Wiedererkennung, kein Identitätsnachweis.
+                Der <strong>Geräteschlüssel</strong> als
+                Anmeldeverfahren ("device") ist dagegen ein echter Identitätsnachweis: ein nicht extrahierbarer,
+                geräteeigener Schlüssel, den erst ein System-PIN oder Biometrie freischaltet - das zählt als
+                vollwertiges Verfahren wie SMS/E-Mail/Passwort.
               </p>
 
-              <h3>Entwicklungsgeschwindigkeit</h3>
+              <div className="nesting-diagram">
+                <div className="nesting-box nesting-box--1">
+                  <span className="nesting-label">Channel <em>(Sitzung, dieses Gerät)</em></span>
+                  <div className="nesting-box nesting-box--2">
+                    <span className="nesting-label">Journey <em>(ein Ziel, z. B. Anmelden)</em></span>
+                    <div className="nesting-box nesting-box--3">
+                      <span className="nesting-label">Tool <em>(Verfahren, z. B. auth-sms)</em></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <p>
-                <strong>Dafür:</strong> ein Repository, ein Build, ein Deployment - kein Abstimmen von
-                API-Versionen zwischen Services, kein verteiltes Debugging für den Normalfall. Eine Änderung,
-                die mehrere Module betrifft (wie der neue <code>EnrollmentCleanup</code>-Port für "Konto
-                löschen"), ist ein einziger Commit mit sofortigem Compiler-Feedback über alle Modulgrenzen
-                hinweg - bei getrennten Services wären das mehrere abgestimmte PRs in mehreren Repos.<br />
-                <strong>Dagegen:</strong> jeder Build baut und testet immer die ganze Anwendung, nicht nur das
-                geänderte Modul - das wächst mit der Codebasis. Und weil so viel UI-Text jetzt aus dem Backend
-                kommt (siehe unten), entscheidet nicht mehr nur das App-Team über Formulierungen - das braucht
-                Abstimmung, sonst frisst neue Koordination den Geschwindigkeitsvorteil wieder auf.
-              </p>
-
-              <h3>Wartbarkeit</h3>
-              <p>
-                <strong>Dafür:</strong> Modulith macht Abhängigkeiten sichtbar und prüfbar
-                (<code>ApplicationModules.verify()</code>) - eine unerlaubte Kopplung bricht den Build mit
-                Namen, statt sich über Jahre unbemerkt einzuschleichen wie in einem gewöhnlichen Monolithen.
-                Jedes neue Verfahren folgt demselben Muster (eigener Descriptor, eigener Controller, eigenes
-                <code>ModuleMetadata</code>) - keine Rätselraterei für neue Entwickler.<br />
-                <strong>Dagegen:</strong> die Modulgrenzen sind nur so gut wie die Disziplin, sie zu pflegen -
-                wer eine verbotene Abhängigkeit einfach zur erlaubten Liste hinzufügt statt sie zu vermeiden,
-                verliert den eigentlichen Nutzen. Und ein Modulith verzögert das Wachstumsproblem eines
-                Monolithen (Build-/Testlaufzeit, Codemenge), löst es aber nicht so grundsätzlich wie ein
-                echter Servicezuschnitt.
-              </p>
-
-              <h3>Wäre das mit Microservices statt Modulith umsetzbar?</h3>
-              <p>
-                Grundsätzlich ja - aber nicht als 1:1-Übersetzung "ein Modul = ein Service", ohne dabei etwas
-                grundlegend anderes in Kauf zu nehmen. Am "Konto löschen"-Ablauf lässt sich das konkret
-                festmachen: heute räumt eine einzige lokale Transaktion Zugangsdaten in mehreren
-                Methodenmodulen, die Geräte-Bindung, den Sicherheitskontext und den Kontodatensatz atomar ab -
-                entweder alles oder nichts. Liefe jedes Methodenmodul als eigener Service mit eigener
-                Datenbank, gäbe es diese Transaktion nicht mehr: Man bräuchte eine <strong>Saga</strong>
-                (orchestriert oder über Events choreografiert), die Löschungen nacheinander anstößt. Schlägt
-                ein Schritt fehl, gibt es kein automatisches Rollback der bereits erledigten Schritte mehr -
-                nur Wiederholen (Löschen ist von Natur aus idempotent, das rettet hier viel) oder explizite
-                Kompensationslogik. Für einen Moment wäre der Zustand dann unweigerlich inkonsistent: Konto
-                gelöscht, aber ein Credential in einem anderen Service noch nicht - "eventually consistent"
-                statt atomar.
+                Ein <strong>Channel</strong> ist die Verbindung zwischen App und Backend für diesen Besuch,
+                verankert am DPoP-Schlüssel dieses Geräts (im Demo-Tab als "Sitzung" angezeigt); innerhalb
+                läuft eine <strong>Journey</strong> - der vom
+                Backend geführte Ablauf für genau ein Ziel, nicht die Oberfläche entscheidet den nächsten
+                Schritt. Eine Journey besteht wiederum aus einem oder mehreren <strong>Tools</strong>, dem
+                konkreten Verfahren, das gerade dran ist - benannt danach, ob es ein Verfahren einrichtet
+                (<code>enroll-sms</code>) oder ein bereits eingerichtetes benutzt (<code>auth-sms</code>).
+                Channel, Journey und Tool sind also ineinander geschachtelt, keine Kette von Vorher/Nachher.
+                Ein Tool wird der Journey dabei nur angeboten, wenn es <strong>beide</strong> Seiten erlauben:
+                das Frontend muss es überhaupt darstellen können, und das Backend darf es nicht gesperrt haben -
+                beides einzeln einstellbar unter Einstellungen ("Verfügbare Tools auf diesem Client" bzw.
+                "Admin: Tool-Verfügbarkeit").
               </p>
               <p>
-                Zweite Herausforderung: Der Orchestrator trifft bei <strong>jedem</strong> Journey-Schritt eine
-                sicherheitsrelevante, synchrone Entscheidung ("reicht das Sicherheitsniveau jetzt aus?") auf
-                Basis der aktuellen Kontodaten. Als Service-Grenze würde das entweder einen Netzwerk-Aufruf pro
-                Schritt zum Konto-Service bedeuten (Latenz, und der Login-Fluss hängt jetzt zusätzlich von
-                dessen Erreichbarkeit ab), oder einen lokalen, über Events aktuell gehaltenen Cache - der aber
-                für eine sicherheitskritische Ja/Nein-Entscheidung genau die Konsistenzgarantie bräuchte, die
-                Caches typischerweise nicht von Haus aus geben. Dazu kommt organisatorischer Aufwand, der heute
-                der Compiler übernimmt: Modulgrenzen sind hier zur Build-Zeit erzwungen
-                (<code>ApplicationModules.verify()</code>); über Services hinweg wird daraus ein
-                API-Vertrag, dessen Einhaltung erst zur Laufzeit (Contract-Tests, API-Gateway) auffällt, nicht
-                beim Kompilieren. Und Betrieb/Tests werden reihum aufwendiger - Service-Discovery, verteiltes
-                Tracing, eigene Datenbank samt Migrationen pro Service, Testaufbauten mit mehreren gleichzeitig
-                laufenden Services statt eines Prozesses mit In-Memory-DB.
+                Welches Ziel eine Journey verfolgt, sehen Sie an ihren Aktionen im Demo-Tab: <strong>Login</strong>{' '}
+                (Registrieren, Automatisch anmelden oder Neu anmelden - alle drei Wege führen zum selben Ziel:
+                einem angemeldeten Channel mit Zugang zum AccessToken), <strong>Step-up</strong>{' '}
+                (Sicherheitsniveau erhöhen, ohne sich neu anzumelden), <strong>Manage</strong> (weiteres
+                Verfahren einrichten oder eines deaktivieren) und <strong>Konto löschen</strong> sind je eigene
+                Journeys mit eigenem Ziel.
               </p>
               <p>
-                Für den Umfang dieser Anwendung (sechs bis acht fachliche Module) steht dieser Mehraufwand in
-                keinem Verhältnis zum Nutzen - genau das Argument für Modulith hier. Bei sehr viel größerem
-                Umfang, unabhängigen Teams pro Verfahren oder echten Skalierungsanforderungen pro Modul kippt
-                diese Abwägung; dann wird aus dem Nachteil "kein unabhängiges Deployment" der eigentliche
-                Grund, den Schnitt trotz der oben genannten Kosten zu wagen.
+                Ist ein Channel angemeldet, lässt sich abrufen, was in echt <strong>Keycloak</strong>{' '}
+                ausstellen würde: ein <strong>AccessToken</strong> und ein <strong>RefreshToken</strong> (in
+                dieser Demo simuliert - die echte Keycloak-Anbindung ist noch nicht gebaut). Das AccessToken
+                geht ins Frontend; das RefreshToken verlässt das Backend nie und wird dort im Hintergrund
+                genutzt, um bei Bedarf ein neues AccessToken zu holen, ohne dass Sie sich erneut anmelden
+                müssen.
               </p>
-
-              <h3>Backend-getrieben, weil die App-Release-Zyklen langsam sind</h3>
               <p>
-                Das Backend hier lässt sich in Minuten bis Stunden neu ausliefern; eine mobile App braucht
-                dagegen Wochen (App-Store-Review, Rollout, bis Nutzer tatsächlich aktualisieren). Diese
-                Demo zieht daraus eine bewusste Konsequenz: <strong>jeder Text, den ein Bildschirm zeigt -
-                Rückfragen ("Konto wirklich löschen?"), Titel von Auswahlseiten -, kommt vollständig vom
-                Backend</strong>, nie fest in der App verdrahtet. Eine neue oder geänderte Rückfrage
-                braucht dadurch nur neuen Backend-Code, keinen App-Release. Sicherheitsrelevant ist das auch:
-                reagiert man auf einen Vorfall mit einer neuen Pflicht-Bestätigung, ist die sofort für
-                <strong>alle</strong> Nutzer aktiv - unabhängig davon, welche App-Version gerade installiert
-                ist, und ohne die sonst unvermeidliche Version-Fragmentierung (manche Nutzer sehen alten Text,
-                manche neuen). Der Preis: Produkttexte sind jetzt Teil des Domänenmodells
-                (<code>Prompt</code>, <code>OfferingState.selectionTitle</code>) statt reiner
-                Präsentationsschicht - ein Domänen-Refactoring kann versehentlich Text mitändern, wenn beides
-                nicht sauber getrennt bleibt.
+                Details zu allem oben im{' '}
+                <a href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/02-domaenenmodell.md" target="_blank" rel="noreferrer">
+                  Domänenmodell
+                </a>.
               </p>
             </div>
           )}
