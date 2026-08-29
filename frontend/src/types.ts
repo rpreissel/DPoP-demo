@@ -61,10 +61,20 @@ export interface ChannelBlock {
   activeMethods?: ActiveMethodView[]
 }
 
+/** One journey in the running chain for a channel - see backend `JourneyDebugStep`. */
+export interface JourneyDebugStep {
+  journeyId: string
+  intent: string
+  lifecycle: string
+  stateType: string
+}
+
 /** Demo-only values, never part of the production contract (docs/05-api.md #2). */
 export interface DemoInfo {
   accountId?: number
   personId?: number
+  /** The running journey chain for this channel, outermost first. Empty once nothing is running. */
+  journeys?: JourneyDebugStep[]
   /** The just-issued TAN, shown so testers don't need server-log access. */
   tan?: string
   /** Fixed demo password (same value for enroll/login/lookup), prefilled so testers never have to remember one. */

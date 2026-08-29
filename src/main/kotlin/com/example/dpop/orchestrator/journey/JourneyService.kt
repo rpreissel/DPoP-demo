@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.journey.state.ToolRef
+import com.example.dpop.tool_api.JourneyDebugStep
 import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
@@ -123,6 +124,30 @@ class JourneyService(
 
     fun findById(journeyId: UUID): AuthJourney? =
         journeyRepository.findByIdOrNull(journeyId)?.takeIf { !it.isExpired }
+
+    /**
+     * Debug-only view of the running journey chain (docs/tool_api/Envelope.kt, [JourneyDebugStep])
+     * - the currently active journey plus every SUSPENDED ancestor it is a sub-journey of, walked
+     * via [AuthJourney.parentJourneyId], outermost first. Empty once nothing is running.
+     */
+    fun debugChain(channelSessionId: UUID): List<JourneyDebugStep> {
+        val innermost = findActive(channelSessionId) ?: return emptyList()
+        val chain = mutableListOf(innermost)
+        var current = innermost
+        while (true) {
+            val parent = current.parentJourneyId?.let { journeyRepository.findByIdOrNull(it) } ?: break
+            chain.add(parent)
+            current = parent
+        }
+        return chain.reversed().map {
+            JourneyDebugStep(
+                journeyId = it.journeyId.toString(),
+                intent = it.intent!!.name,
+                lifecycle = it.lifecycle.name,
+                stateType = it.stateType!!
+            )
+        }
+    }
 
     fun stateOf(journey: AuthJourney): JourneyState = codec.read(journey)
 

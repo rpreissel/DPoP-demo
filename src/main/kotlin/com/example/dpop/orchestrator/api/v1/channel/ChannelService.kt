@@ -19,6 +19,7 @@ import com.example.dpop.orchestrator.session.TokenService
 import com.example.dpop.tool_api.ActiveMethodView
 import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
 import java.time.Duration
 import java.util.UUID
@@ -269,8 +270,18 @@ class ChannelService(
         return ChannelResponse(
             channel = buildChannelBlock(channel, includeAccountFields = true),
             next = resolved,
-            stepData = stepData
+            stepData = stepData,
+            demo = demoInfo(channel)
         )
+    }
+
+    /** Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses (docs/tool_api/Envelope.kt, JourneyDebugStep). */
+    private fun demoInfo(channel: ChannelSession): DemoInfo? {
+        val journeys = channel.channelSessionId?.let { journeyService.debugChain(it) } ?: emptyList()
+        if (journeys.isEmpty()) return null
+        val accountId = channel.accountId
+        val personId = accountId?.let { accountService.findAccount(it)?.personId }
+        return DemoInfo(accountId = accountId, personId = personId, journeys = journeys)
     }
 
     /**

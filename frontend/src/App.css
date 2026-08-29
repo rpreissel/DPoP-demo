@@ -686,12 +686,6 @@ button.small,
   margin: 0.5rem 0;
 }
 
-.tool-availability-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.35rem;
-}
-
 .tool-availability-group {
   margin-top: 1.25rem;
 }

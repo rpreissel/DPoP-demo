@@ -250,9 +250,10 @@ class ToolControllerSupport(
     /** personId is read back off the account rather than carried along - it is already stored there. */
     private fun demoInfo(journey: AuthJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
         val isAuthenticated = channel.state == ChannelState.AUTHENTICATED
-        if (!isAuthenticated && values.isNullOrEmpty()) return null
+        val journeys = channel.channelSessionId?.let { journeyService.debugChain(it) } ?: emptyList()
+        if (!isAuthenticated && values.isNullOrEmpty() && journeys.isEmpty()) return null
         val personId = journey.accountId?.let { accountService.findAccount(it)?.personId }
-        return DemoInfo(journey.accountId, personId, values ?: emptyMap())
+        return DemoInfo(accountId = journey.accountId, personId = personId, journeys = journeys, values = values ?: emptyMap())
     }
 
     companion object {

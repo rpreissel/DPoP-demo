@@ -59,6 +59,23 @@ data class ChannelResponse(
 )
 
 /**
+ * Debug-only view of one journey in the currently running chain for a channel - outermost
+ * (typically SUSPENDED, e.g. a step-up gate parked mid-way) first, the actually active one last.
+ * `intent`/`lifecycle`/`stateType` are plain strings, not the orchestrator's own enum/sealed types
+ * - `tool_api` must not depend on `orchestrator` (docs/03-tool-architektur.md #4).
+ */
+data class JourneyDebugStep(
+    @field:Schema(example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+    val journeyId: String,
+    @field:Schema(example = "DELETE_ACCOUNT")
+    val intent: String,
+    @field:Schema(example = "SUSPENDED")
+    val lifecycle: String,
+    @field:Schema(example = "ConfirmPending")
+    val stateType: String
+)
+
+/**
  * Demo-only values a tool handler attached (e.g. a plaintext `tan`), flattened into the JSON
  * object alongside [accountId]/[personId] so the client can read `demo.tan` regardless of which
  * tool produced it.
@@ -69,6 +86,11 @@ data class DemoInfo(
     val accountId: Long? = null,
     @field:Schema(example = "7")
     val personId: Long? = null,
+    @field:Schema(
+        description = "The running journey chain for this channel, outermost first - see " +
+            "[JourneyDebugStep]. Empty once nothing is running."
+    )
+    val journeys: List<JourneyDebugStep> = emptyList(),
     @field:Schema(
         description = "Flattened onto the parent object (e.g. demo.tan, demo.email) - whichever " +
             "demo-only values the tool that just ran attached, e.g. a plaintext tan/code/password.",

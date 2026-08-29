@@ -20,16 +20,18 @@ import {
   startAccountDeletion,
   startManageMethods,
 } from './api.ts'
-import { forgetChannelSessionId, loadChannelSessionId, storeChannelSessionId } from './session.ts'
+import { forgetChannelSessionId, loadAvailableTools, loadChannelSessionId, storeAvailableTools, storeChannelSessionId } from './session.ts'
 import { shorten } from './format.ts'
 import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
 import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
 import { SelectMethodView } from './components/SelectMethodView'
 import { SessionStatusView } from './components/SessionStatusView'
+import { JourneyStructureView } from './components/JourneyStructureView'
 import { PromptView } from './components/PromptView'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
+import { UnavailableTools } from './components/UnavailableTools'
 import { DiagramHint } from './components/DiagramHint'
 import { JOURNEY_DIAGRAMS } from './journeyDiagrams'
 
@@ -86,7 +88,13 @@ function App() {
   const [requiredAcr, setRequiredAcr] = useState('')
   // Client capability declaration (docs/03-tool-architektur.md, availability) - starts as
   // "everything this client can render" and is only narrowed by unchecking in the demo selector.
-  const [availableTools, setAvailableTools] = useState<string[]>(knownToolIds)
+  // Remembered in localStorage (session.ts) so the choice survives a reload.
+  const [availableTools, setAvailableToolsState] = useState<string[]>(() => loadAvailableTools() ?? knownToolIds)
+
+  function setAvailableTools(toolIds: string[]) {
+    setAvailableToolsState(toolIds)
+    storeAvailableTools(toolIds)
+  }
   const [activeTab, setActiveTabState] = useState<Tab>(() => tabFromHash())
   const [debugOpen, setDebugOpen] = useState(true)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
@@ -663,6 +671,8 @@ function App() {
             </ul>
           </div>
 
+          <UnavailableTools availableTools={availableTools} />
+
           {channelSessionId ? (
             <>
               <SessionStatusView
@@ -671,6 +681,12 @@ function App() {
                 next={next}
                 journeyKind={journeyKind}
                 onClear={handleClearChannel}
+              />
+              <JourneyStructureView
+                channelSessionId={channelSessionId}
+                channelState={channelState}
+                journeys={demo?.journeys}
+                activeTool={activeTool ? { toolId: activeTool.toolId, step: next?.type === 'tool' ? next.step : undefined } : null}
               />
               {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
               <div className="controls sticky-actions">
