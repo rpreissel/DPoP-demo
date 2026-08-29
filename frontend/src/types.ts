@@ -67,6 +67,8 @@ export interface JourneyDebugStep {
   intent: string
   lifecycle: string
   stateType: string
+  /** Demo-only: why this journey's current tool became the automatic choice - only ever set on the innermost (actually active) journey, null whenever a real choice was offered. */
+  autoPickNote?: string
 }
 
 /** Demo-only values, never part of the production contract (docs/05-api.md #2). */

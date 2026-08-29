@@ -124,6 +124,51 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             }
         }
 
+        `when`("resolving re-identification candidates (reIdentCandidates)") {
+            then("an IDENT tool already used this session is excluded, regardless of level") {
+                val fresh = AuthEvidence(emptyList(), emptySet())
+                policy.reIdentCandidates(fresh, "loa2") shouldContainExactly listOf("ident-fsc")
+
+                val alreadyIdentified = AuthEvidence(listOf("fsc"), setOf(FactorType.POSSESSION))
+                policy.reIdentCandidates(alreadyIdentified, "loa2").shouldBeEmpty()
+            }
+
+            then("an IDENT tool whose own maxAcr falls short of requiredAcr is excluded") {
+                val fresh = AuthEvidence(emptyList(), emptySet())
+                // ident-fsc tops out at loa2 (see catalog above) - can't close a loa3 gap on its own.
+                policy.reIdentCandidates(fresh, "loa3").shouldBeEmpty()
+            }
+
+            then("AUTH/ENROLL tools never appear, only IDENTIFICATION-role ones") {
+                policy.reIdentCandidates(AuthEvidence(emptyList(), emptySet()), "loa2") shouldContainExactly listOf("ident-fsc")
+            }
+        }
+
+        `when`("explaining why an account can't reach a level (unreachableReason)") {
+            then("no active method at all gives that as the reason") {
+                policy.unreachableReason(account(), "loa2") shouldBe "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
+            }
+
+            then("active methods sharing one factor type name that as the blocker") {
+                // sms is the only active method here, so this is the "offered.size <= 1" branch,
+                // not the "combinable but capped" one - see the loa1-cap case below for that.
+                val onlySms = account(method("sms", "loa2"))
+                policy.unreachableReason(onlySms, "loa3") shouldBe "Die aktiven Verfahren (sms) decken nur einen Faktor-Typ ab (Besitz). Für dieses Sicherheitsniveau ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
+            }
+
+            then("two combinable methods enrolled only under a lower level name the enrolledUnderAcr cap as the blocker") {
+                val tokenA = descriptor("auth-a", MethodRole.DEVICE_AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
+                val tokenB = descriptor("auth-b", MethodRole.DEVICE_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
+                val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
+                val bothWeak = account(method("a", enrolledUnderAcr = "loa1"), method("b", enrolledUnderAcr = "loa1"))
+
+                localPolicy.unreachableReason(bothWeak, "loa2") shouldBe
+                    "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
+                    "Sicherheitsniveau eingerichtet (loa1) - das begrenzt, wie hoch sie gemeinsam wirken können. " +
+                    "Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+            }
+        }
+
         `when`("resolving the achieved ACR from proven amr methods") {
             then("it reflects the highest maxAcr among them") {
                 policy.resolveAcr(AuthEvidence(emptyList(), emptySet()), account = null) shouldBe "none"

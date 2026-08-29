@@ -277,7 +277,7 @@ class ChannelService(
 
     /** Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses (docs/tool_api/Envelope.kt, JourneyDebugStep). */
     private fun demoInfo(channel: ChannelSession): DemoInfo? {
-        val journeys = channel.channelSessionId?.let { journeyService.debugChain(it) } ?: emptyList()
+        val journeys = journeyService.debugChain(channel)
         if (journeys.isEmpty()) return null
         val accountId = channel.accountId
         val personId = accountId?.let { accountService.findAccount(it)?.personId }

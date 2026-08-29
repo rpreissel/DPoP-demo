@@ -130,7 +130,8 @@ class JourneyService(
      * - the currently active journey plus every SUSPENDED ancestor it is a sub-journey of, walked
      * via [AuthJourney.parentJourneyId], outermost first. Empty once nothing is running.
      */
-    fun debugChain(channelSessionId: UUID): List<JourneyDebugStep> {
+    fun debugChain(channel: ChannelSession): List<JourneyDebugStep> {
+        val channelSessionId = channel.channelSessionId ?: return emptyList()
         val innermost = findActive(channelSessionId) ?: return emptyList()
         val chain = mutableListOf(innermost)
         var current = innermost
@@ -139,12 +140,20 @@ class JourneyService(
             chain.add(parent)
             current = parent
         }
+        val availableTools = availableToolsOf(channel)
+        // Only the innermost (actually active) journey's state ever resolves to a single
+        // activatable tool right now - a SUSPENDED parent is parked waiting on its sub-journey,
+        // not offering anything itself.
+        val innermostState = codec.read(innermost)
+        val innermostAutoPickNote = innermostState.activatable(availableTools).takeIf { it.size == 1 }
+            ?.let { DemoAutoPickNote.forSingleCandidate(innermostState) }
         return chain.reversed().map {
             JourneyDebugStep(
                 journeyId = it.journeyId.toString(),
                 intent = it.intent!!.name,
                 lifecycle = it.lifecycle.name,
-                stateType = it.stateType!!
+                stateType = it.stateType!!,
+                autoPickNote = if (it == innermost) innermostAutoPickNote else null
             )
         }
     }

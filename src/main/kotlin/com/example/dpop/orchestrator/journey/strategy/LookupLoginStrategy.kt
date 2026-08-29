@@ -40,9 +40,11 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 useOutcomeAccount = state is LookupLoginState.Credential,
                 bindDevice = false
             )
-            // Neither can be offered by any state of this intent; reaching here would mean the
-            // state machine let through a tool it never offered.
-            is ToolOutcome.Completed.Identified,
+            // Only [LookupLoginState.ReIdentifying] offers an IDENT tool, and only to re-confirm
+            // the account already resolved - never to adopt a different one (see that state's doc).
+            is ToolOutcome.Completed.Identified -> Interpretation.ConfirmIdentity
+            // Not offered by any state of this intent; reaching here would mean the state
+            // machine let through a tool it never offered.
             is ToolOutcome.Completed.Enrolled ->
                 error("${tool.toolId} is not offered by LOGIN_LOOKUP")
         }
@@ -78,6 +80,25 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 else -> settleOrRaise(ctx)
             }
 
+            is LookupLoginState.OfferReIdent -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    ACCEPT -> reIdentNow(ctx) ?: Decision.Cancel
+                    DECLINE -> Decision.Cancel
+                    else -> error("OfferReIdent does not understand answer '${event.answer}'")
+                }
+                // Started: always present the prompt, unconditionally.
+                else -> Decision.Advance(state)
+            }
+
+            is LookupLoginState.ReIdentifying -> when (event) {
+                is JourneyEvent.Abandoned -> {
+                    val declined = state.declined + event.tool.toolId
+                    if ((state.offered.toSet() - declined).isEmpty()) Decision.Cancel
+                    else Decision.Advance(state.copy(declined = declined, active = null))
+                }
+                else -> settleOrRaise(ctx)
+            }
+
             // The client answers this via JourneyService.answer; the journey ends here either way,
             // but only ACCEPT asks the machine to actually link the device.
             is LookupLoginState.OfferBinding -> when (event) {
@@ -102,10 +123,11 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
      * here silent. Compare `FastAccessStrategy.afterProof` and `StepUpStrategy.finishOrContinue`,
      * which do the same thing for their own intents.
      *
-     * Unlike those two there is no enrollment fallback: this intent exists to log an EXISTING
+     * Unlike those two there is no ENROLLMENT fallback: this intent exists to log an EXISTING
      * account in from an unpaired device, so an account that simply cannot reach the floor with
-     * what it already has ends the journey rather than growing new credentials on an unproven
-     * device.
+     * what it already has must not grow new credentials on an unproven device. Re-identification
+     * is different and stays available: it adds no lasting credential, only re-confirms the same
+     * account at a higher priced-in trust level (see [LookupLoginState.ReIdentifying]).
      */
     private fun settleOrRaise(ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()
@@ -113,11 +135,19 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             return Decision.Advance(LookupLoginState.OfferBinding(account.accountId))
         }
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
-        return if (candidates.isEmpty()) {
-            Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
-        } else {
-            Decision.Advance(LookupLoginState.AdditionalFactor(candidates))
+        if (candidates.isNotEmpty()) {
+            return Decision.Advance(LookupLoginState.AdditionalFactor(candidates))
         }
+        return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
+            Decision.Advance(LookupLoginState.OfferReIdent)
+        } else {
+            Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+        }
+    }
+
+    private fun reIdentNow(ctx: JourneyContext): Decision? {
+        val candidates = CandidateTools.forReIdentification(ctx.acrFloor, ctx)
+        return candidates.takeIf { it.isNotEmpty() }?.let { Decision.Advance(LookupLoginState.ReIdentifying(it)) }
     }
 
     companion object {

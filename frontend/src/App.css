@@ -144,7 +144,9 @@
 }
 
 .nesting-label {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   font-weight: 700;
   color: var(--text-h);
 }
@@ -155,6 +157,20 @@
   font-style: normal;
   font-size: 0.85rem;
   color: var(--text);
+}
+
+.nesting-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.nesting-note strong {
+  color: var(--text-h);
+}
+
+.nesting-label-action {
+  margin-left: auto;
 }
 
 .journey-diagram svg {

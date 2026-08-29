@@ -98,9 +98,11 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // Actions - ManageAuthMethodsStrategy.REQUIRED_ACR); this session only proved sms
             // (loa1), so it forces a step-up via re-identification first.
             val started = triggerEnrollmentStepUp(newChannelSessionId)
-            started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+            started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+            val accepted = post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
+            accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            (started.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+            (accepted.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
             val reIdentified = reIdentifyViaFsc(newChannelSessionId)
             // The step-up sub-journey ends here and the parked wish resumes at once: MANAGE offers
             // enroll-email as a normal (not forced) candidate alongside enroll-device - a selection

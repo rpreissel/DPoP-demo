@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = FastAccessState.PreferredAuth::class, name = "PreferredAuth"),
     JsonSubTypes.Type(value = FastAccessState.AuthChoice::class, name = "AuthChoice"),
     JsonSubTypes.Type(value = FastAccessState.Identifying::class, name = "Identifying"),
+    JsonSubTypes.Type(value = FastAccessState.OfferReIdent::class, name = "OfferReIdent"),
     JsonSubTypes.Type(value = FastAccessState.ConfirmingEmail::class, name = "ConfirmingEmail"),
     JsonSubTypes.Type(value = FastAccessState.Enrolling::class, name = "Enrolling")
 )
@@ -62,6 +63,26 @@ sealed interface FastAccessState : JourneyState {
         override val selectionContext: String get() = "registration"
         override val selectionStep: String get() = "selectIdentificationMethod"
         override val selectionTitle: String get() = "Wie möchten Sie sich identifizieren?"
+    }
+
+    /**
+     * "No enrollment method closes the gap - re-identify instead?" (`ident-fsc` reaches loa2 on
+     * its own). A plain yes/no, asked before ever falling through to a fresh [Identifying] round -
+     * re-identification is a heavier action than picking a method to enroll, so it's never a
+     * silent fallback.
+     */
+    data object OfferReIdent : FastAccessState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override val active: ToolRef? get() = null
+        override val prompt: Prompt
+            get() = Prompt.Confirm(
+                title = "Erneut identifizieren?",
+                description = "Mit den vorhandenen Anmeldeverfahren ist das geforderte Sicherheitsniveau " +
+                    "nicht erreichbar. Sie können sich stattdessen erneut identifizieren, um es direkt zu erreichen.",
+                confirmLabel = "Erneut identifizieren",
+                cancelLabel = "Abbrechen"
+            )
     }
 
     data class ConfirmingEmail(

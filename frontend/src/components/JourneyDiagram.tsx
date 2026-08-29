@@ -15,9 +15,15 @@ const ARROW_SPAN = 40
 const DIAMOND_SIZE = 84
 const BOX_FONT_SIZE = 16
 const EDGE_FONT_SIZE = 14
+const EDGE_CHAR_WIDTH = 7.5
 
 function boxWidth(label: string): number {
   return Math.max(MIN_BOX_WIDTH, Math.round(label.length * CHAR_WIDTH) + PADDING_X * 2)
+}
+
+/** Space to leave after a decision diamond for its mainLabel ("Ja (ANONYMOUS)", ...) - a fixed ARROW_SPAN only fits an arrow, not text, and a long label would otherwise spill back over the diamond. */
+function edgeGap(label?: string): number {
+  return label ? Math.max(ARROW_SPAN, Math.round(label.length * EDGE_CHAR_WIDTH) + 16) : ARROW_SPAN
 }
 
 /**
@@ -38,7 +44,7 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
     // edges - widen it to fit its own text instead, same as a regular box.
     const w = isDecision ? Math.max(DIAMOND_SIZE, boxWidth(s)) : boxWidth(s)
     const box = { x, width: w, isDecision }
-    x += w + ARROW_SPAN
+    x += w + (isDecision ? edgeGap(branch!.mainLabel) : ARROW_SPAN)
     return box
   })
   const row1Width = x - ARROW_SPAN + MARGIN

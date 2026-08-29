@@ -24,7 +24,7 @@ export function EmailCodeInputForm({ onSubmit, error, demoTan }: EmailCodeInputF
   return (
     <div className="card">
       <h2>Bestätigungscode eingeben</h2>
-      <p>Geben Sie den Code ein, der per E-Mail zugestellt wurde.</p>
+      <p>Wir haben Ihnen soeben einen Bestätigungscode per E-Mail geschickt. Geben Sie ihn hier ein.</p>
       <div className="hint">
         <strong>Demo-Modus:</strong>{' '}
         {demoTan ? (

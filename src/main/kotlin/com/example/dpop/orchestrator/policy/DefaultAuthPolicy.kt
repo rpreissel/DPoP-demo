@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.policy
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -62,6 +63,34 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val levelOk = AcrLevels.rank(effectiveAcr) >= AcrLevels.rank(requiredAcr)
         val mfaOk = !requiresMfa(requiredAcr) || factorTypesUnion.size >= 2
         return levelOk && mfaOk
+    }
+
+    override fun unreachableReason(account: AccountProfile, requiredAcr: String): String {
+        val active = account.authenticationMethods.filter { it.active }
+        if (active.isEmpty()) return "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
+
+        val descriptors = active.mapNotNull { m -> descriptorFor(m.method)?.let { m to it } }
+        val factorTypesUnion = descriptors.flatMap { it.second.factorTypes }.toSet()
+        val distinctMethods = descriptors.map { it.second.method }.distinct().size
+
+        if (distinctMethods < 2 || factorTypesUnion.size < 2) {
+            val methodNames = descriptors.map { it.second.method }.distinct().joinToString(", ")
+            return "Die aktiven Verfahren ($methodNames) decken nur einen Faktor-Typ ab " +
+                "(${factorTypesUnion.joinToString(", ") { germanFactorType(it) }}). Für dieses Sicherheitsniveau " +
+                "ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), " +
+                "wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
+        }
+
+        val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
+        return "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
+            "Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, wie hoch sie gemeinsam wirken " +
+            "können. Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+    }
+
+    private fun germanFactorType(type: FactorType): String = when (type) {
+        FactorType.KNOWLEDGE -> "Wissen"
+        FactorType.POSSESSION -> "Besitz"
+        FactorType.INHERENCE -> "Inhärenz"
     }
 
     override fun enrollmentCandidates(account: AccountProfile, requiredAcr: String): List<String> {

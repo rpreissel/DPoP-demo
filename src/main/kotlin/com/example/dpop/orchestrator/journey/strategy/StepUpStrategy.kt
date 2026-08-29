@@ -16,10 +16,10 @@ import org.springframework.stereotype.Component
 /**
  * Raise the level of an already authenticated session (docs/04-orchestrierung.md #3).
  *
- * [StepUpState.ReIdentifying] is offered only while this journey runs as another one's
- * precondition ([JourneyContext.isSubJourney]). That is the whole distinction the old
- * `allowReIdent` boolean encoded: an ordinary step-up keeps offering enrolled methods only, while
- * a step-up demanded as a gate must have SOME way out even for an account with a single method.
+ * Whenever no active method can close the gap - whether this runs standalone or as another
+ * journey's precondition ([JourneyContext.isSubJourney]) - [StepUpState.OfferReIdent] asks first
+ * before ever falling through to [StepUpState.ReIdentifying]: re-identification is a heavier
+ * action than picking another factor, so it's never a silent shortcut.
  */
 @Component
 class StepUpStrategy : IntentStrategy<StepUpState> {
@@ -51,12 +51,25 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     if ((state.offered.toSet() - declined).isEmpty()) {
-                        offerReIdent(state.targetAcr, state.startingAcr, ctx) ?: Decision.Cancel
+                        offerReIdentOrGiveUp(state.targetAcr, state.startingAcr, ctx, whenNone = Decision.Cancel)
                     } else {
                         Decision.Advance(state.copy(declined = declined, active = null))
                     }
                 }
                 else -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
+            }
+
+            is StepUpState.OfferReIdent -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    "accept" -> reIdentNow(state.targetAcr, state.startingAcr, ctx)
+                        // Became unavailable between offering and accepting (e.g. availability
+                        // flipped) - a dead end either way, so cancel rather than error.
+                        ?: Decision.Cancel
+                    "decline" -> Decision.Cancel
+                    else -> error("OfferReIdent does not understand answer '${event.answer}'")
+                }
+                // Started: always present the prompt, unconditionally.
+                else -> Decision.Advance(state)
             }
 
             is StepUpState.ReIdentifying -> when (event) {
@@ -81,16 +94,21 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
         if (candidates.isNotEmpty()) {
             return Decision.Advance(StepUpState.AuthChoice(targetAcr, startingAcr, candidates))
         }
-        return offerReIdent(targetAcr, startingAcr, ctx)
-            ?: Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
+        return offerReIdentOrGiveUp(
+            targetAcr, startingAcr, ctx,
+            whenNone = Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}")
+        )
     }
 
-    /**
-     * The way out of the one-method dead end - see [StepUpState.ReIdentifying]. Null when this is
-     * an ordinary step-up, where re-identification must not appear as a generic shortcut.
-     */
-    private fun offerReIdent(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {
-        if (!ctx.isSubJourney) return null
+    /** Asks first (see class doc) if re-identification could close the gap; [whenNone] otherwise. */
+    private fun offerReIdentOrGiveUp(targetAcr: String, startingAcr: String, ctx: JourneyContext, whenNone: Decision): Decision =
+        if (CandidateTools.forReIdentification(targetAcr, ctx).isNotEmpty()) {
+            Decision.Advance(StepUpState.OfferReIdent(targetAcr, startingAcr))
+        } else {
+            whenNone
+        }
+
+    private fun reIdentNow(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {
         val candidates = CandidateTools.forReIdentification(targetAcr, ctx)
         return candidates.takeIf { it.isNotEmpty() }
             ?.let { Decision.Advance(StepUpState.ReIdentifying(targetAcr, startingAcr, it)) }

@@ -33,6 +33,14 @@ interface AuthPolicy {
     /** Could this account reach requiredAcr in a FUTURE login, given its current enrollments? */
     fun canAccountReach(account: AccountProfile, requiredAcr: String): Boolean
 
+    /**
+     * Why [canAccountReach] is false for this account/requiredAcr pair - shown to the user
+     * alongside "kein Verfahren fuehrt zum Ziel" so they know WHAT to change (usually: add a
+     * method of a different factor type) instead of just that something is missing. Only ever
+     * called once the caller already knows there's no way through.
+     */
+    fun unreachableReason(account: AccountProfile, requiredAcr: String): String
+
     /** Which ENROLL tools would close the gap toward requiredAcr? */
     fun enrollmentCandidates(account: AccountProfile, requiredAcr: String): List<String>
 

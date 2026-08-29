@@ -26,17 +26,25 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
 
     init {
         given("a registered and authenticated account (fsc + sms + confirmed email)") {
-            `when`("requesting a step-up to a level the account structurally cannot reach") {
-                then("the process aborts") {
+            `when`("requesting a step-up to a level no active method reaches") {
+                then("re-identification is offered first; declining it falls back to the already-authenticated channel") {
 
                 // Reuse the happy path up to AUTHENTICATED at loa2 with a single, already-used sms factor.
                 val channelSessionId = registerAndAuthenticate()
 
-                // loa3 requires two distinct factor types; this account only ever proves POSSESSION.
-                val exception = assertThrows<HttpClientErrorException> {
-                    post("/orchestrator/api/v1/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
-                }
-                exception.statusCode shouldBe HttpStatus.GONE
+                // loa3 requires two distinct factor types; this account only ever proves POSSESSION with
+                // its active methods - but ident-eid (unused this session, maxAcr=loa3) COULD still reach
+                // it, so the account is offered that way out instead of dead-ending immediately.
+                val offered = post("/orchestrator/api/v1/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
+                offered.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+
+                // Declining just gives up on the step-up (Decision.Cancel) - the channel's entry
+                // intent (FAST_ACCESS) restarts fresh from there. Its only active method (sms) is
+                // already used this session, so - same generic fallback chain any FAST_ACCESS run
+                // takes - it falls through to offering identification again, same as a first-time
+                // visitor; unrelated to the new re-identification feature itself.
+                val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+                declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
 
 
                 }

@@ -100,7 +100,7 @@ Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Too
 
 Der App-Kanal ist eine mobile App mit App-Store-Release-Zyklen von Wochen; jeder Text, den ein Prompt anzeigt, wird deshalb **komplett vom Backend geliefert**, nie clientseitig vorformuliert — eine neue oder geänderte Rückfrage braucht dadurch keinen App-Release, nur neuen Backend-Code.
 
-`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Aktuell zwei Verwendungen, beide über dieselbe `prompt/confirm`-Adresse: der optionale Geräte-Bindungs-Screen des Lookup-Logins und die Account-Löschbestätigung (siehe unten).
+`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Verwendungen, alle über dieselbe `prompt/confirm`-Adresse: der optionale Geräte-Bindungs-Screen des Lookup-Logins, die Account-Löschbestätigung (siehe unten), und `OfferReIdent` in `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP` — „Mit den vorhandenen Verfahren nicht erreichbar, stattdessen erneut identifizieren?", bevor eine Re-Identifizierung angeboten wird ([Orchestrierung](04-orchestrierung.md)).
 
 ### Account löschen (AuthIntent.DELETE_ACCOUNT)
 
@@ -160,7 +160,7 @@ Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer ges
 
 ### `POST /channels/{channelSessionId}/step-ups`: Step-up-Auslöser
 
-Hebt die geforderte Untergrenze des Kanals an (auf der kc-Seite derselbe fassadenneutrale Endpunkt, kein eigener kc-Trigger — siehe Abschnitt 3). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `AuthJourney(STEP_UP)` und liefert den fälligen Schritt in derselben `ChannelResponse`-Form wie überall; reicht es bereits, bleibt keine Journey offen und `next` zeigt sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Ist das geforderte Niveau mit den vorhandenen Methoden des Accounts nicht erreichbar, bricht die Journey mit `410` ab, statt eine Auswahl ohne gültige Kandidaten anzubieten ([Orchestrierung](04-orchestrierung.md)).
+Hebt die geforderte Untergrenze des Kanals an (auf der kc-Seite derselbe fassadenneutrale Endpunkt, kein eigener kc-Trigger — siehe Abschnitt 3). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `AuthJourney(STEP_UP)` und liefert den fälligen Schritt in derselben `ChannelResponse`-Form wie überall; reicht es bereits, bleibt keine Journey offen und `next` zeigt sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Reicht keine vorhandene Methode für das geforderte Niveau, aber eine Re-Identifizierung (`ident-fsc`/`ident-eid`) könnte es allein erreichen, fragt die Journey das erst per `stepData.prompt` (`context: "prompt", step: "confirm"`) — bei Zustimmung folgt die Auswahl, bei Ablehnung endet der Step-up ohne Fehler. Nur wenn selbst das nicht möglich ist, bricht die Journey mit `410` ab, statt eine Auswahl ohne gültige Kandidaten anzubieten ([Orchestrierung](04-orchestrierung.md)).
 
 ### `enroll-email` / `auth-email` / `enroll-password` / `auth-password`
 

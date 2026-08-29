@@ -75,6 +75,16 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 else -> afterIdentification(ctx)
             }
 
+            is FastAccessState.OfferReIdent -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    "accept" -> reIdentNow(ctx) ?: Decision.Cancel
+                    "decline" -> Decision.Cancel
+                    else -> error("OfferReIdent does not understand answer '${event.answer}'")
+                }
+                // Started: always present the prompt, unconditionally.
+                else -> Decision.Advance(state)
+            }
+
             is FastAccessState.ConfirmingEmail -> when (event) {
                 is JourneyEvent.Abandoned -> reoffer(state)
                 // The obligation is discharged by getting here successfully, so the re-check
@@ -170,11 +180,20 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
 
     private fun offerEnrollment(account: AccountProfile, ctx: JourneyContext, emailObligation: Boolean): Decision {
         val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
-        return if (candidates.isEmpty()) {
-            Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar")
-        } else {
-            Decision.Advance(FastAccessState.Enrolling(candidates, emailObligation = emailObligation))
+        if (candidates.isNotEmpty()) {
+            return Decision.Advance(FastAccessState.Enrolling(candidates, emailObligation = emailObligation))
         }
+        return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
+            Decision.Advance(FastAccessState.OfferReIdent)
+        } else {
+            Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+        }
+    }
+
+    /** Re-identifying re-enters the ordinary [FastAccessState.Identifying] round - `AdoptIdentity` (this intent's only Identified interpretation) already handles find-or-create safely regardless of which state led here. */
+    private fun reIdentNow(ctx: JourneyContext): Decision? {
+        val candidates = CandidateTools.forReIdentification(ctx.acrFloor, ctx)
+        return candidates.takeIf { it.isNotEmpty() }?.let { Decision.Advance(FastAccessState.Identifying(it)) }
     }
 
     /** Abandoning the last fallback state is giving up on the journey, not an error. */

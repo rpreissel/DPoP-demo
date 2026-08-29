@@ -241,11 +241,15 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             // MANAGE with enroll-device as the goal must still force the loa2 step-up gate
             // first (ManageAuthMethodsStrategy.REQUIRED_ACR) - the session's own loa1 evidence is
-            // not enough to add a loa2-capable credential on its own authority.
+            // not enough to add a loa2-capable credential on its own authority. sms is the only
+            // active method and it's already used this session, so no ordinary factor can close
+            // the gap - re-identification is offered instead, confirmed first (StepUpState.OfferReIdent).
             val started = triggerEnrollmentStepUp(newChannelSessionId)
-            started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+            started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+            val accepted = post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
+            accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            (started.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+            (accepted.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
         }
         }
     }

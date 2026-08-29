@@ -16,7 +16,7 @@ function labelFor(method: ActiveMethodView): string {
   return method.label ?? DEFAULT_METHOD_LABELS[method.method] ?? method.method
 }
 
-/** A section heading with a hover/focus-revealed diagram of that section's journey shape - same trigger as SessionStatusView's in-progress hint. */
+/** A section heading with a hover/focus-revealed diagram of that section's journey shape - same trigger as JourneyStructureView's in-progress hint. */
 function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof JOURNEY_DIAGRAMS }) {
   return (
     <h3 className="section-heading">

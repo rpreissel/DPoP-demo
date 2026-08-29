@@ -186,11 +186,14 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
 
                 // The account has only sms enrolled - no second AUTH method exists to combine with, so
                 // without re-identification this would be a dead end (the bug this test guards against).
-                // MANAGE must offer ident-fsc as a way to reach loa2 instead of erroring out.
+                // MANAGE must offer ident-fsc as a way to reach loa2 instead of erroring out - confirmed
+                // first via StepUpState.OfferReIdent, never a silent fallback.
                 val started = triggerEnrollmentStepUp(newChannelSessionId)
-                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+                val accepted = post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
+                accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                (started.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+                (accepted.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
 
                 val reIdentified = reIdentifyViaFsc(newChannelSessionId)
                 // Re-identification alone already reaches loa2, so the step-up sub-journey ends - and the
@@ -222,6 +225,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
 
                 post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
+                post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 
                 // A different KVNR resolves to a different person/account - must not silently take over

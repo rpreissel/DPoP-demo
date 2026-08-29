@@ -24,7 +24,7 @@ export function TanInputForm({ onSubmit, error, demoTan }: TanInputFormProps) {
   return (
     <div className="card">
       <h2>TAN eingeben</h2>
-      <p>Geben Sie die TAN ein, die per SMS zugestellt wurde.</p>
+      <p>Wir haben Ihnen soeben eine TAN per SMS geschickt. Geben Sie sie hier ein.</p>
       <div className="hint">
         <strong>Demo-Modus:</strong>{' '}
         {demoTan ? (

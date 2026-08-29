@@ -26,7 +26,6 @@ import { AuthenticationCompletedView } from './components/AuthenticationComplete
 import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
 import { SelectMethodView } from './components/SelectMethodView'
-import { SessionStatusView } from './components/SessionStatusView'
 import { JourneyStructureView } from './components/JourneyStructureView'
 import { PromptView } from './components/PromptView'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
@@ -69,7 +68,7 @@ function App() {
   const [demo, setDemo] = useState<DemoInfo | undefined>()
   const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
   // Which entry choice started the current channel - drives the journey-shape hover hint in
-  // SessionStatusView. Unknown after a resume (a prior session's choice isn't remembered), so no
+  // JourneyStructureView. Unknown after a resume (a prior session's choice isn't remembered), so no
   // hint is offered there rather than guessing.
   const [journeyKind, setJourneyKind] = useState<'auto' | 'register' | 'login' | undefined>()
   // How many OTHER candidates existed when the current activeTool was reached - "Anderes
@@ -675,18 +674,14 @@ function App() {
 
           {channelSessionId ? (
             <>
-              <SessionStatusView
-                channelSessionId={channelSessionId}
-                state={channelState}
-                next={next}
-                journeyKind={journeyKind}
-                onClear={handleClearChannel}
-              />
               <JourneyStructureView
                 channelSessionId={channelSessionId}
                 channelState={channelState}
                 journeys={demo?.journeys}
                 activeTool={activeTool ? { toolId: activeTool.toolId, step: next?.type === 'tool' ? next.step : undefined } : null}
+                stepData={stepData}
+                journeyKind={journeyKind}
+                onClear={handleClearChannel}
               />
               {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
               <div className="controls sticky-actions">

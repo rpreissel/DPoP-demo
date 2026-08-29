@@ -22,7 +22,7 @@ export function EmailLookupForm({ onSubmit, error, demoEmail }: EmailLookupFormP
 
   return (
     <div className="card">
-      <h2>Login ohne DPoP: per SMS</h2>
+      <h2>Neu anmelden per SMS</h2>
       <p>Geben Sie die E-Mail-Adresse Ihres Kontos ein, um eine TAN an die hinterlegte Telefonnummer zu erhalten.</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>

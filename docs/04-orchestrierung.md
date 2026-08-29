@@ -191,6 +191,10 @@ stateDiagram-v2
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
   ConfirmingEmail --> Finished: E-Mail bestätigt
 
+  Enrolling --> OfferReIdent: keine Einrichtung schließt die Lücke, Re-Identifizierung möglich
+  OfferReIdent --> Identifying: zugestimmt
+  OfferReIdent --> [*]: abgelehnt/nicht möglich (Abort)
+
   Finished --> [*]
 
   note right of Identifying
@@ -208,6 +212,12 @@ stateDiagram-v2
 (Fallback- bzw. Pflichtsemantik, s. o.). `Enrolling` trägt zusätzlich `emailObligation`: ein Merker,
 dass dieser Lauf über `Identifying` kam (Account neu angelegt oder übernommen) — nur dann gilt die
 E-Mail-Pflicht danach (Abschnitt 8).
+
+`OfferReIdent` ist der Ausweg, falls selbst keine Einrichtung die Lücke schließt (z. B. kein
+`enroll-*`-Tool mehr verfügbar): dasselbe generische Ja/Nein wie bei `STEP_UP` (Abschnitt „STEP_UP"),
+nie ein stiller Rückfall. Bei Zustimmung läuft es in ein gewöhnliches `Identifying` — `Identified`
+interpretiert `FAST_ACCESS` ohnehin immer als „finde oder übernimm den Account" (`AdoptIdentity`),
+unabhängig davon, welcher Zustand dorthin führte.
 
 `Identifying` ist gleichzeitig Login-Notausgang und Registrierungseinstieg. Eine
 `REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im Zustandsmodell keinen eigenen Zustand
@@ -248,16 +258,25 @@ nicht geben kann.
 stateDiagram-v2
   [*] --> Credential
   Credential --> Credential: ein Tool abgelehnt, weitere übrig
-  Credential --> OfferBinding: Nachweis erbracht
+  Credential --> AdditionalFactor: Nachweis erbracht, acrFloor noch nicht erreicht
+  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht
+  AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
+  AdditionalFactor --> OfferBinding: acrFloor erreicht
+  AdditionalFactor --> OfferReIdent: keine kombinierbare Methode übrig, Re-Identifizierung möglich
+  OfferReIdent --> ReIdentifying: zugestimmt
+  OfferReIdent --> [*]: abgelehnt (Cancel)
+  ReIdentifying --> OfferBinding: Identität bestätigt, acrFloor erreicht
   OfferBinding --> Finished: Nutzer stimmt zu -> Gerät wird wiedererkannt
   OfferBinding --> Finished: Nutzer lehnt ab -> keine Bindung
   Finished --> [*]
 
   note right of Credential
-    Kein Identifying:
-    ohne bekannten Account
-    ist eine Identifizierung
-    hier kein Login-Weg.
+    Kein Identifying, das einen
+    ACCOUNT ÜBERNIMMT: ohne bekannten
+    Account ist Identifizierung hier
+    kein Login-Weg. ReIdentifying ist
+    anders - es bestätigt nur den
+    bereits aufgelösten Account.
   end note
 ```
 
@@ -270,9 +289,15 @@ Die Gerätewiedererkennung (`DeviceAccountLink`) entsteht hier **nur** nach Zust
 eine dauerhafte Zuordnung Gerät → Account und darf nicht als Nebenwirkung eines Logins entstehen,
 den der Nutzer gerade deshalb gewählt hat, weil er ohne Gerätebindung auskommen wollte.
 
-Dass es kein `Identifying` gibt, ist keine zusätzliche Prüfung, sondern eine fehlende Möglichkeit:
-Kein Zustand dieses Intents bietet je ein Ident-Tool an, also kann auch keine Prüfung
-vergessen werden.
+`AdditionalFactor` erzwingt die eigene `acrFloor` des Kanals (Abschnitt 8) — ohne sie würde ein mit
+`requiredAcr: loa3` eröffneter Kanal auf einem einzigen `loa1`-Faktor authentifiziert. Bleibt danach
+keine kombinierbare Methode übrig, fragt `OfferReIdent` (dasselbe generische Ja/Nein wie bei
+`STEP_UP`) vor `ReIdentifying`, nie ein stiller Rückfall. `ReIdentifying` bestätigt dabei **nur**
+den bereits aufgelösten Account — `LookupLoginStrategy.interpret` liefert dafür `ConfirmIdentity`,
+niemals `AdoptIdentity`: Eine Session, die gerade erst `loa1` bewiesen hat, darf keine fremde
+Identität einschleusen. Anders als bei `enroll-*` wächst hier **keine** dauerhafte Credential auf
+einem ungeprüften Gerät — Re-Identifizierung bleibt deshalb erlaubt, obwohl dieser Intent
+bewusst **keinen** Enrollment-Fallback hat.
 
 **Enumeration-Schutz**: Eine unbekannte E-Mail liefert exakt dieselbe Antwortform wie ein korrekt
 aufgelöster Account mit fehlgeschlagenem Nachweis — nie eine eigene Fehlerform, auch nicht im Timing
@@ -285,8 +310,10 @@ Timing-Padding); in einem Produktivsystem wäre das der nächste Ausbau.
 stateDiagram-v2
   [*] --> AuthChoice
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
-  AuthChoice --> ReIdentifying: keine kombinierbare Methode übrig
+  AuthChoice --> OfferReIdent: keine kombinierbare Methode übrig, Re-Identifizierung möglich
   AuthChoice --> Finished: targetAcr erreicht
+  OfferReIdent --> ReIdentifying: zugestimmt
+  OfferReIdent --> [*]: abgelehnt (Cancel)
   ReIdentifying --> Finished: Identität bestätigt, loa2 im Alleingang
   Finished --> [*]
 ```
@@ -295,14 +322,15 @@ Jeder Zustand trägt `targetAcr` (das Ziel dieses Laufs, nicht zu verwechseln mi
 Untergrenze des Kanals, Abschnitt 8) und `startingAcr`; `AuthChoice`/`ReIdentifying` zusätzlich
 Angebot und Ablehnungen wie oben.
 
-`ReIdentifying` ist der Notausgang aus dem **Ein-Methoden-Fall**: Ein Account mit genau einer
+`ReIdentifying` ist der Ausweg aus dem **Ein-Methoden-Fall**: Ein Account mit genau einer
 aktiven Methode hätte nach einem frischen gerätegebundenen Login (nur `loa1`) sonst keinen
-Weg zu `loa2` — es gibt keine zweite Methode zum Kombinieren. `ident-fsc` erreicht `loa2` im
-Alleingang. Bewusst ein eigener Zustand und nicht Teil von `AuthChoice`: Re-Identifizierung soll
-nie als generische Login-Abkürzung erscheinen, nur als Ausweg aus dieser einen Sackgasse. Sie wird
-deshalb ausschließlich angeboten, solange dieser Step-up als Vorbedingung eines anderen Intents
-läuft (Abschnitt 6) — ein gewöhnlicher Step-up bietet weiterhin nur Tools für bereits
-eingerichtete Methoden an.
+Weg zu `loa2` — es gibt keine zweite Methode zum Kombinieren. `ident-fsc`/`ident-eid` erreichen
+`loa2`/`loa3` im Alleingang. Bewusst ein eigener Zustand und nicht Teil von `AuthChoice`:
+Re-Identifizierung ist eine schwerere Aktion als ein weiteres Verfahren auszuwählen, also nie ein
+stiller Rückfall — `OfferReIdent` fragt davor immer erst per generischem `AnswerableState`-Prompt
+(„Erneut identifizieren?"), egal ob dieser Step-up eigenständig läuft oder als Vorbedingung eines
+anderen Intents (Abschnitt 6). Bei Ablehnung endet der Step-up (`Decision.Cancel`) wie jede andere
+abgebrochene Sub-Journey.
 Die neu festgestellte Person muss zum angemeldeten Account passen (`409` bei Abweichung), sonst
 könnte eine `loa1`-Session eine fremde Identität einschleusen.
 
