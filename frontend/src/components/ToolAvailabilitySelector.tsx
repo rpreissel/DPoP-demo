@@ -19,12 +19,12 @@ export function ToolAvailabilitySelector({ availableTools, onChange }: ToolAvail
   }
 
   return (
-    <details className="tool-availability-selector">
-      <summary>Verfügbare Tools auf diesem Client ({availableTools.length}/{knownToolIds.length})</summary>
+    <div className="tool-availability-selector">
+      <h3>Verfügbare Tools auf diesem Client ({availableTools.length}/{knownToolIds.length})</h3>
       <p>
         Abgewählte Tools werden dieser Journey nie angeboten - simuliert eine ältere Client-Version oder eine
         lokale Nutzer-Einstellung. Unabhängig davon kann das Backend Tools zusätzlich global sperren (siehe
-        "⚙️ Admin" oben) - beide Sperren wirken zusammen, keine hebt die andere auf.
+        "Admin: Tool-Verfügbarkeit" oben) - beide Sperren wirken zusammen, keine hebt die andere auf.
       </p>
       <div className="tool-availability-list">
         {knownToolIds.map((toolId) => (
@@ -34,6 +34,6 @@ export function ToolAvailabilitySelector({ availableTools, onChange }: ToolAvail
           </label>
         ))}
       </div>
-    </details>
+    </div>
   )
 }

@@ -30,7 +30,7 @@ export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEma
   return (
     <div className="card">
       <h2>Login ohne DPoP: per Passwort</h2>
-      <p>Geben Sie E-Mail-Adresse und Passwort Ihres Accounts ein.</p>
+      <p>Geben Sie E-Mail-Adresse und Passwort Ihres Kontos ein.</p>
       {demoPassword && (
         <div className="hint">
           Demo-Modus: Passwort ist bereits vorbelegt: <code>{demoPassword}</code>

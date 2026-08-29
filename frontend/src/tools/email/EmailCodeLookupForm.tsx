@@ -23,7 +23,7 @@ export function EmailCodeLookupForm({ onSubmit, error, demoEmail }: EmailCodeLoo
   return (
     <div className="card">
       <h2>Login ohne DPoP: per E-Mail</h2>
-      <p>Geben Sie die E-Mail-Adresse Ihres Accounts ein, um einen Bestätigungscode an diese Adresse zu erhalten.</p>
+      <p>Geben Sie die E-Mail-Adresse Ihres Kontos ein, um einen Bestätigungscode an diese Adresse zu erhalten.</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">

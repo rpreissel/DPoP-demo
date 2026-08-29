@@ -33,6 +33,32 @@
   font-size: 0.95rem;
 }
 
+.app-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-tabs button {
+  padding: 0.6rem 1.1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--text-muted, #888);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-tabs button:hover {
+  color: var(--text-h);
+}
+
+.app-tabs button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 .card {
   margin-top: 1.5rem;
   padding: 1.5rem;
@@ -608,29 +634,11 @@ button.small,
   text-decoration: underline;
 }
 
-.advanced-options {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
-.advanced-options summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--text-h);
-  font-size: 0.9rem;
-}
-
-.advanced-options .field-row {
-  margin-top: 1rem;
-}
-
 .tool-availability-selector {
   margin-top: 1rem;
 }
 
-.tool-availability-selector summary {
-  cursor: pointer;
+.tool-availability-selector h3 {
   font-size: 0.85rem;
   color: var(--text);
 }

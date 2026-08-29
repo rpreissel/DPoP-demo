@@ -30,13 +30,21 @@ import { SessionStatusView } from './components/SessionStatusView'
 import { PromptView } from './components/PromptView'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
-import { WelcomeIntro } from './components/WelcomeIntro'
 import { DiagramHint } from './components/DiagramHint'
 import { JOURNEY_DIAGRAMS } from './journeyDiagrams'
 
 interface ActiveTool {
   toolSessionId: string
   toolId: string
+}
+
+type Tab = 'welcome' | 'demo' | 'settings'
+const TABS: Tab[] = ['welcome', 'demo', 'settings']
+
+/** The tab lives in the URL hash (no router dependency needed for three static tabs) so a reload or a shared link keeps/opens the same one, instead of always falling back to "welcome". */
+function tabFromHash(): Tab {
+  const hash = window.location.hash.slice(1)
+  return (TABS as string[]).includes(hash) ? (hash as Tab) : 'welcome'
 }
 
 /** Swagger UI isn't proxied by the vite dev server (only /orchestrator is, see vite.config.ts) - in dev it lives on the backend's own port, in a same-origin deployment it's just window.location.origin. */
@@ -79,7 +87,7 @@ function App() {
   // Client capability declaration (docs/03-tool-architektur.md, availability) - starts as
   // "everything this client can render" and is only narrowed by unchecking in the demo selector.
   const [availableTools, setAvailableTools] = useState<string[]>(knownToolIds)
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [activeTab, setActiveTabState] = useState<Tab>(() => tabFromHash())
   const [debugOpen, setDebugOpen] = useState(true)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
@@ -87,6 +95,18 @@ function App() {
   // sync explicitly (not derived from channelSessionId) since it must survive Clear/Logout
   // clearing the in-memory state while still reflecting localStorage accurately afterwards.
   const [rememberedChannelSessionId, setRememberedChannelSessionId] = useState(() => loadChannelSessionId())
+
+  /** Keeps the URL hash in sync so a reload, a shared link, or the browser's own back/forward button all land on the right tab. */
+  function setActiveTab(tab: Tab) {
+    setActiveTabState(tab)
+    if (window.location.hash.slice(1) !== tab) window.location.hash = tab
+  }
+
+  useEffect(() => {
+    const onHashChange = () => setActiveTabState(tabFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   function logEvent(label: string, extra?: { request?: unknown; response?: unknown; error?: string }) {
     debugIdRef.current += 1
@@ -369,7 +389,7 @@ function App() {
       const response = await startAccountDeletion(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Account löschen fehlgeschlagen', err))
+      setError(describeError('Konto löschen fehlgeschlagen', err))
     }
   }
 
@@ -450,22 +470,223 @@ function App() {
             </p>
           </header>
 
-          {showAdmin && <AdminToolAvailabilityView />}
+          <nav className="app-tabs" role="tablist" aria-label="Bereiche">
+            <button role="tab" aria-selected={activeTab === 'welcome'} className={activeTab === 'welcome' ? 'active' : ''} onClick={() => setActiveTab('welcome')}>
+              Willkommen
+            </button>
+            <button role="tab" aria-selected={activeTab === 'demo'} className={activeTab === 'demo' ? 'active' : ''} onClick={() => setActiveTab('demo')}>
+              Demo
+            </button>
+            <button role="tab" aria-selected={activeTab === 'settings'} className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>
+              Einstellungen
+            </button>
+          </nav>
 
-          {error && (
+          {activeTab === 'welcome' && (
+            <div className="card welcome-card">
+              <h2>Worum geht es hier?</h2>
+              <p>
+                Jede Anfrage in dieser Demo ist kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) -
+                das schützt vor gestohlenen Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen. Ihre
+                Identität selbst weisen Sie klassisch nach: durch Identifikation (Freischaltcode oder eID) oder
+                Authentifizierung per SMS, E-Mail, Passwort oder einem geräteeigenen Schlüssel - einzeln oder
+                kombiniert für ein höheres Sicherheitsniveau (Step-up).
+              </p>
+              <p>
+                Welche Verfahren dabei zur Wahl stehen und in welcher Reihenfolge, entscheidet nicht diese
+                Oberfläche, sondern das Backend anhand des jeweiligen Vorgangs (Registrierung, Login, Step-up,
+                Verwaltung) - jeder dieser Vorgänge läuft als eigene, serverseitig gesteuerte Journey.
+              </p>
+              <p className="welcome-cta">👉 Der Reiter „Demo" oben startet den eigentlichen Vorgang.</p>
+              <ul className="status-list">
+                <li>
+                  <span className="label">Quellcode</span>
+                  <a className="value" href="https://github.com/rpreissel/DPoP-demo" target="_blank" rel="noreferrer">
+                    github.com/rpreissel/DPoP-demo
+                  </a>
+                </li>
+                <li>
+                  <span className="label">Dokumentation</span>
+                  <a className="value" href="https://github.com/rpreissel/DPoP-demo/tree/main/docs" target="_blank" rel="noreferrer">
+                    docs/ (Domänenmodell, Orchestrierung, API, DPoP, ...)
+                  </a>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {activeTab === 'welcome' && (
+            <div className="card">
+              <h2>Architektur: Orchestrator-Muster mit Spring Modulith</h2>
+              <p>
+                Ein <strong>orchestrator</strong>-Modul besitzt Session- und Journey-Zustand und setzt die
+                fachlichen Regeln durch (welches Sicherheitsniveau reicht, wie oft darf ein Versuch scheitern,
+                wann ist das Gerät gebunden) - kennt dabei aber kein einziges Verfahren beim Namen. Jedes
+                Verfahren (Freischaltcode, eID, SMS, E-Mail, Passwort, Geräteschlüssel) lebt in seinem eigenen
+                Modul, bringt seinen eigenen Endpunkt mit und erreicht den Orchestrator ausschließlich über eine
+                gemeinsame, schmale Schnittstelle (<code>tool_api</code>) - nie direkt. Ein neues Verfahren
+                anzuschließen heißt: neues Modul, keine Änderung am Orchestrator.
+              </p>
+              <p>
+                Das Ganze läuft als <strong>ein</strong> Spring-Boot-Prozess (<a href="https://spring.io/projects/spring-modulith" target="_blank" rel="noreferrer">Spring Modulith</a>),
+                nicht als verteilte Microservices. Modulith prüft die Modulgrenzen trotzdem hart: Jedes Modul
+                erklärt explizit, wovon es abhängen darf, und ein Test bricht den Build mit Namen, sobald ein
+                Modul heimlich eine verbotene Kante einführt - dieselbe Disziplin wie bei Microservices, nur
+                zur Compile-/Testzeit statt über das Netzwerk erzwungen.
+              </p>
+              <h3>Sicherheit</h3>
+              <p>
+                <strong>Dafür:</strong> Sicherheitsregeln (Sicherheitsniveau, Step-up, Sperren nach Fehlversuchen)
+                leben zentral im Orchestrator, nie im Client - eine kompromittierte oder manipulierte App kann
+                eine Prüfung nicht umgehen, weil sie sie nie selbst trifft, nur das Backend tut das, bei jedem
+                Schritt neu (das loa2-Gate vor "Konto löschen" ist genau so ein Fall: es steht im
+                Orchestrator, nicht in der App). Eine sicherheitskritische Operation über mehrere Module hinweg
+                (Konto löschen räumt Zugangsdaten, Geräte-Bindung und Kontodaten in einem Rutsch ab) bleibt
+                dabei eine einzige Transaktion - kein Zwischenzustand, in dem nur ein Teil gelöscht ist.<br />
+                <strong>Dagegen:</strong> ein Modulith läuft als ein Prozess - ein Sicherheitsproblem in einem
+                einzelnen Modul (z. B. eine verwundbare Abhängigkeit) hat denselben Speicherraum wie alle
+                anderen Module, es gibt keine Prozess- oder Netzwerkgrenze dazwischen wie bei echten
+                Microservices. Die Modulgrenzen selbst sind nur zur Compile-/Testzeit erzwungen (ein Test bricht
+                den Build), nicht zur Laufzeit - und alle Module teilen sich eine Datenbank ohne Schema-seitige
+                Trennung.
+              </p>
+
+              <h3>Entwicklungsgeschwindigkeit</h3>
+              <p>
+                <strong>Dafür:</strong> ein Repository, ein Build, ein Deployment - kein Abstimmen von
+                API-Versionen zwischen Services, kein verteiltes Debugging für den Normalfall. Eine Änderung,
+                die mehrere Module betrifft (wie der neue <code>EnrollmentCleanup</code>-Port für "Konto
+                löschen"), ist ein einziger Commit mit sofortigem Compiler-Feedback über alle Modulgrenzen
+                hinweg - bei getrennten Services wären das mehrere abgestimmte PRs in mehreren Repos.<br />
+                <strong>Dagegen:</strong> jeder Build baut und testet immer die ganze Anwendung, nicht nur das
+                geänderte Modul - das wächst mit der Codebasis. Und weil so viel UI-Text jetzt aus dem Backend
+                kommt (siehe unten), entscheidet nicht mehr nur das App-Team über Formulierungen - das braucht
+                Abstimmung, sonst frisst neue Koordination den Geschwindigkeitsvorteil wieder auf.
+              </p>
+
+              <h3>Wartbarkeit</h3>
+              <p>
+                <strong>Dafür:</strong> Modulith macht Abhängigkeiten sichtbar und prüfbar
+                (<code>ApplicationModules.verify()</code>) - eine unerlaubte Kopplung bricht den Build mit
+                Namen, statt sich über Jahre unbemerkt einzuschleichen wie in einem gewöhnlichen Monolithen.
+                Jedes neue Verfahren folgt demselben Muster (eigener Descriptor, eigener Controller, eigenes
+                <code>ModuleMetadata</code>) - keine Rätselraterei für neue Entwickler.<br />
+                <strong>Dagegen:</strong> die Modulgrenzen sind nur so gut wie die Disziplin, sie zu pflegen -
+                wer eine verbotene Abhängigkeit einfach zur erlaubten Liste hinzufügt statt sie zu vermeiden,
+                verliert den eigentlichen Nutzen. Und ein Modulith verzögert das Wachstumsproblem eines
+                Monolithen (Build-/Testlaufzeit, Codemenge), löst es aber nicht so grundsätzlich wie ein
+                echter Servicezuschnitt.
+              </p>
+
+              <h3>Wäre das mit Microservices statt Modulith umsetzbar?</h3>
+              <p>
+                Grundsätzlich ja - aber nicht als 1:1-Übersetzung "ein Modul = ein Service", ohne dabei etwas
+                grundlegend anderes in Kauf zu nehmen. Am "Konto löschen"-Ablauf lässt sich das konkret
+                festmachen: heute räumt eine einzige lokale Transaktion Zugangsdaten in mehreren
+                Methodenmodulen, die Geräte-Bindung, den Sicherheitskontext und den Kontodatensatz atomar ab -
+                entweder alles oder nichts. Liefe jedes Methodenmodul als eigener Service mit eigener
+                Datenbank, gäbe es diese Transaktion nicht mehr: Man bräuchte eine <strong>Saga</strong>
+                (orchestriert oder über Events choreografiert), die Löschungen nacheinander anstößt. Schlägt
+                ein Schritt fehl, gibt es kein automatisches Rollback der bereits erledigten Schritte mehr -
+                nur Wiederholen (Löschen ist von Natur aus idempotent, das rettet hier viel) oder explizite
+                Kompensationslogik. Für einen Moment wäre der Zustand dann unweigerlich inkonsistent: Konto
+                gelöscht, aber ein Credential in einem anderen Service noch nicht - "eventually consistent"
+                statt atomar.
+              </p>
+              <p>
+                Zweite Herausforderung: Der Orchestrator trifft bei <strong>jedem</strong> Journey-Schritt eine
+                sicherheitsrelevante, synchrone Entscheidung ("reicht das Sicherheitsniveau jetzt aus?") auf
+                Basis der aktuellen Kontodaten. Als Service-Grenze würde das entweder einen Netzwerk-Aufruf pro
+                Schritt zum Konto-Service bedeuten (Latenz, und der Login-Fluss hängt jetzt zusätzlich von
+                dessen Erreichbarkeit ab), oder einen lokalen, über Events aktuell gehaltenen Cache - der aber
+                für eine sicherheitskritische Ja/Nein-Entscheidung genau die Konsistenzgarantie bräuchte, die
+                Caches typischerweise nicht von Haus aus geben. Dazu kommt organisatorischer Aufwand, der heute
+                der Compiler übernimmt: Modulgrenzen sind hier zur Build-Zeit erzwungen
+                (<code>ApplicationModules.verify()</code>); über Services hinweg wird daraus ein
+                API-Vertrag, dessen Einhaltung erst zur Laufzeit (Contract-Tests, API-Gateway) auffällt, nicht
+                beim Kompilieren. Und Betrieb/Tests werden reihum aufwendiger - Service-Discovery, verteiltes
+                Tracing, eigene Datenbank samt Migrationen pro Service, Testaufbauten mit mehreren gleichzeitig
+                laufenden Services statt eines Prozesses mit In-Memory-DB.
+              </p>
+              <p>
+                Für den Umfang dieser Anwendung (sechs bis acht fachliche Module) steht dieser Mehraufwand in
+                keinem Verhältnis zum Nutzen - genau das Argument für Modulith hier. Bei sehr viel größerem
+                Umfang, unabhängigen Teams pro Verfahren oder echten Skalierungsanforderungen pro Modul kippt
+                diese Abwägung; dann wird aus dem Nachteil "kein unabhängiges Deployment" der eigentliche
+                Grund, den Schnitt trotz der oben genannten Kosten zu wagen.
+              </p>
+
+              <h3>Backend-getrieben, weil die App-Release-Zyklen langsam sind</h3>
+              <p>
+                Das Backend hier lässt sich in Minuten bis Stunden neu ausliefern; eine mobile App braucht
+                dagegen Wochen (App-Store-Review, Rollout, bis Nutzer tatsächlich aktualisieren). Diese
+                Demo zieht daraus eine bewusste Konsequenz: <strong>jeder Text, den ein Bildschirm zeigt -
+                Rückfragen ("Konto wirklich löschen?"), Titel von Auswahlseiten -, kommt vollständig vom
+                Backend</strong>, nie fest in der App verdrahtet. Eine neue oder geänderte Rückfrage
+                braucht dadurch nur neuen Backend-Code, keinen App-Release. Sicherheitsrelevant ist das auch:
+                reagiert man auf einen Vorfall mit einer neuen Pflicht-Bestätigung, ist die sofort für
+                <strong>alle</strong> Nutzer aktiv - unabhängig davon, welche App-Version gerade installiert
+                ist, und ohne die sonst unvermeidliche Version-Fragmentierung (manche Nutzer sehen alten Text,
+                manche neuen). Der Preis: Produkttexte sind jetzt Teil des Domänenmodells
+                (<code>Prompt</code>, <code>OfferingState.selectionTitle</code>) statt reiner
+                Präsentationsschicht - ein Domänen-Refactoring kann versehentlich Text mitändern, wenn beides
+                nicht sauber getrennt bleibt.
+              </p>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <>
+              <AdminToolAvailabilityView />
+              <div className="card">
+                <h2>Demo-Konfiguration</h2>
+                <p>Wirkt erst auf den nächsten im Demo-Reiter neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>
+                <label className="field-row">
+                  Startniveau:
+                  <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
+                    <option value="">loa1 (Standard)</option>
+                    <option value="loa2">loa2 (MFA - mehrere Enrollments)</option>
+                  </select>
+                </label>
+                <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
+              </div>
+              <div className="card">
+                <h2>Entwickler-Werkzeuge</h2>
+                <ul className="status-list">
+                  <li>
+                    <span className="label">API-Doku</span>
+                    <a className="value" href={`${BACKEND_ORIGIN}/swagger-ui/index.html`} target="_blank" rel="noreferrer">
+                      Swagger/OpenAPI UI
+                    </a>
+                  </li>
+                  <li>
+                    <span className="label">H2-Konsole</span>
+                    <span className="value" title={`JDBC URL: ${H2_JDBC_URL}\nUser: ${H2_USER}\nPassword: (leer)`}>
+                      <a href={`${BACKEND_ORIGIN}/h2-console`} target="_blank" rel="noreferrer">
+                        öffnen
+                      </a>{' '}
+                      ({H2_JDBC_URL}, User {H2_USER}, kein Passwort)
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {error && activeTab === 'demo' && (
             <div className="card error-card">
               <h2>Fehler</h2>
               <p>{error}</p>
             </div>
           )}
 
-          {!showAdmin && (
+          {activeTab === 'demo' && (
           <>
           <div className="card">
             <h2>Geräte-Identität</h2>
             <ul className="status-list">
               <li>
-                <span className="label">JWK Thumbprint</span>
+                <span className="label">Geräte-Kennung</span>
                 <span className="value-with-action">
                   <span className="value" title={jwkThumbprint}>
                     {shorten(jwkThumbprint)}
@@ -513,7 +734,6 @@ function App() {
             </>
           ) : (
             <>
-              <WelcomeIntro />
               <div className="card">
                 <h2>Wie möchten Sie starten?</h2>
                 <ul className="method-choice-list">
@@ -538,14 +758,14 @@ function App() {
                   )}
                   <li>
                     <DiagramHint spec={JOURNEY_DIAGRAMS.auto}>
-                      <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Verbinden (automatisch)">
+                      <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Automatisch anmelden">
                         <span className="method-choice-icon" aria-hidden="true">
                           🚀
                         </span>
                         <span className="method-choice-text">
-                          <span className="method-choice-label">Verbinden (automatisch)</span>
+                          <span className="method-choice-label">Automatisch anmelden</span>
                           <span className="method-choice-hint">
-                            Empfohlen: Kennt dieses Gerät schon einen Account, meldet es sich direkt an - sonst startet eine
+                            Empfohlen: Kennt dieses Gerät schon ein Konto, meldet es sich direkt an - sonst startet eine
                             Registrierung.
                           </span>
                         </span>
@@ -554,43 +774,34 @@ function App() {
                   </li>
                   <li>
                     <DiagramHint spec={JOURNEY_DIAGRAMS.register}>
-                      <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neuen Account registrieren">
+                      <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neues Konto registrieren">
                         <span className="method-choice-icon" aria-hidden="true">
                           ✨
                         </span>
                         <span className="method-choice-text">
-                          <span className="method-choice-label">Neuen Account registrieren</span>
-                          <span className="method-choice-hint">Immer einen frischen Demo-Account anlegen, auch auf diesem Gerät.</span>
+                          <span className="method-choice-label">Neues Konto registrieren</span>
+                          <span className="method-choice-hint">
+                            Durchläuft immer die Registrierung, auch wenn dieses Gerät schon bekannt ist - bei
+                            derselben Test-Identität landen Sie wieder auf dem bestehenden Konto.
+                          </span>
                         </span>
                       </button>
                     </DiagramHint>
                   </li>
                   <li>
                     <DiagramHint spec={JOURNEY_DIAGRAMS.login}>
-                      <button className="method-choice" onClick={() => handleStart('login')} aria-label="Login ohne DPoP">
+                      <button className="method-choice" onClick={() => handleStart('login')} aria-label="Neu anmelden">
                         <span className="method-choice-icon" aria-hidden="true">
                           🌐
                         </span>
                         <span className="method-choice-text">
-                          <span className="method-choice-label">Login ohne DPoP</span>
-                          <span className="method-choice-hint">Auf einem neuen/anderen Gerät anmelden, per E-Mail statt Geräte-Schlüssel.</span>
+                          <span className="method-choice-label">Neu anmelden</span>
+                          <span className="method-choice-hint">Ohne dieses Gerät wiederzuerkennen anmelden, per E-Mail und Passwort oder Code.</span>
                         </span>
                       </button>
                     </DiagramHint>
                   </li>
                 </ul>
-
-                <details className="advanced-options">
-                  <summary>Erweiterte Optionen</summary>
-                  <label className="field-row">
-                    Startniveau:
-                    <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
-                      <option value="">loa1 (Standard)</option>
-                      <option value="loa2">loa2 (MFA - mehrere Enrollments)</option>
-                    </select>
-                  </label>
-                  <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
-                </details>
               </div>
             </>
           )}
@@ -628,43 +839,17 @@ function App() {
           )}
           </>
           )}
-
-          <footer className="dev-tools">
-            <button
-              className="admin-toggle"
-              onClick={() => setShowAdmin((v) => !v)}
-              title={showAdmin ? 'Zurück zur App' : 'Tools serverseitig sperren/freigeben, um Ausfälle zu simulieren'}
-            >
-              {showAdmin ? '← Zurück zur App' : 'Admin'}
-            </button>
-            <a
-              className="admin-toggle"
-              href={`${BACKEND_ORIGIN}/swagger-ui/index.html`}
-              target="_blank"
-              rel="noreferrer"
-              title="Backend-API-Dokumentation (Swagger/OpenAPI UI)"
-            >
-              API-Doku
-            </a>
-            <a
-              className="admin-toggle"
-              href={`${BACKEND_ORIGIN}/h2-console`}
-              target="_blank"
-              rel="noreferrer"
-              title={`H2-Datenbankkonsole - Login dort eintragen:\nJDBC URL: ${H2_JDBC_URL}\nUser: ${H2_USER}\nPassword: (leer)`}
-            >
-              H2-Konsole ({H2_JDBC_URL}, User {H2_USER}, kein Passwort)
-            </a>
-          </footer>
         </div>
       </div>
 
-      <DebugSidebar
-        channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
-        log={debugLog}
-        open={debugOpen}
-        onToggle={() => setDebugOpen((v) => !v)}
-      />
+      {activeTab === 'demo' && (
+        <DebugSidebar
+          channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
+          log={debugLog}
+          open={debugOpen}
+          onToggle={() => setDebugOpen((v) => !v)}
+        />
+      )}
     </div>
   )
 }

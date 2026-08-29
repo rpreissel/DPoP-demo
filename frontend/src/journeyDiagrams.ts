@@ -22,11 +22,11 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   register: {
-    title: 'Neuen Account registrieren',
+    title: 'Neues Konto registrieren',
     steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Angemeldet'],
   },
   login: {
-    title: 'Login ohne DPoP',
+    title: 'Neu anmelden',
     steps: ['E-Mail + Code/Passwort', 'Gerät merken? (optional)', 'Angemeldet'],
   },
   stepUp: {
@@ -52,7 +52,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   deleteAccount: {
-    title: 'Account löschen',
+    title: 'Konto löschen',
     // The yes/no confirmation always comes first, unconditionally - the loa2 gate only applies
     // once accepted, never before (DeleteAccountStrategy). If it needs a step-up, that step-up
     // itself already IS the fresh proof "Faktor erneut bestätigen" would otherwise ask for again.

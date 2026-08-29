@@ -59,12 +59,12 @@ export function SessionStatusView({ channelSessionId, state, next, journeyKind, 
       </h2>
       <ul className="status-list">
         <li>
-          <span className="label">Kanalstatus</span>
+          <span className="label">Status</span>
           <span className={`badge badge--${badgeVariant}`}>{(state && PHASE_LABELS[state]) ?? state ?? 'Neuer Client'}</span>
         </li>
         {channelSessionId && (
           <li>
-            <span className="label">Channel Session</span>
+            <span className="label">Sitzungs-ID</span>
             <span className="value-with-action">
               <span className="value" title={channelSessionId}>
                 {shorten(channelSessionId)}

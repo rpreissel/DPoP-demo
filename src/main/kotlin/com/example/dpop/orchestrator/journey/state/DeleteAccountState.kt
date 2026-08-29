@@ -26,10 +26,10 @@ sealed interface DeleteAccountState : JourneyState {
         override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Account wirklich löschen?",
+            title = "Konto wirklich löschen?",
             description = "Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre " +
                 "Anmeldemethoden und Kontodaten werden endgültig gelöscht.",
-            confirmLabel = "Account löschen",
+            confirmLabel = "Konto löschen",
             cancelLabel = "Abbrechen",
             destructive = true
         )

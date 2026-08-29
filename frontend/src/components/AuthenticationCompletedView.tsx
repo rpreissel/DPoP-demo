@@ -73,25 +73,25 @@ export function AuthenticationCompletedView({
       <ul className="status-list">
         {currentAcr && (
           <li>
-            <span className="label">Sicherheitsniveau (ACR)</span>
+            <span className="label">Sicherheitsniveau</span>
             <span className="value">{currentAcr}</span>
           </li>
         )}
         {currentAmr && currentAmr.length > 0 && (
           <li>
-            <span className="label">Nachgewiesene Methoden (AMR)</span>
+            <span className="label">Genutzte Anmeldeverfahren</span>
             <span className="value">{currentAmr.join(', ')}</span>
           </li>
         )}
         {demo?.accountId != null && (
           <li>
-            <span className="label">Account-ID (Demo)</span>
+            <span className="label">Konto-ID (Demo)</span>
             <span className="value">{demo.accountId}</span>
           </li>
         )}
         {demo?.personId != null && (
           <li>
-            <span className="label">Person-ID (Demo)</span>
+            <span className="label">Personen-ID (Demo)</span>
             <span className="value">{demo.personId}</span>
           </li>
         )}
@@ -132,11 +132,11 @@ export function AuthenticationCompletedView({
         <button onClick={onAddMethod}>Weiteres Verfahren hinzufügen</button>
       </div>
 
-      <SectionHeading text="Account löschen" diagram="deleteAccount" />
-      <p>Löscht Ihren Account und alle Anmeldemethoden endgültig.</p>
+      <SectionHeading text="Konto löschen" diagram="deleteAccount" />
+      <p>Löscht Ihr Konto und alle Anmeldemethoden endgültig.</p>
       <div className="form-actions">
         <button className="destructive" onClick={onDeleteAccount}>
-          Account löschen
+          Konto löschen
         </button>
       </div>
     </div>
