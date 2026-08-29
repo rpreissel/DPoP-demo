@@ -543,6 +543,16 @@ pre {
   line-height: 1.5;
 }
 
+.debug-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -0.75rem 0 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .debug-sidebar h2 {
   margin: 0;
   font-size: 1.1rem;
@@ -562,6 +572,8 @@ pre {
 .debug-sidebar pre {
   font-size: 0.75rem;
   margin: 0;
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .debug-log {
@@ -583,22 +595,26 @@ pre {
 
 .debug-log-header {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: baseline;
   gap: 0.5rem;
   margin-bottom: 0.35rem;
   font-size: 0.8rem;
 }
 
 .debug-log-time {
+  flex: none;
   color: var(--text);
   font-family: var(--mono);
 }
 
 .debug-log-label {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--text-h);
   font-weight: 600;
-  text-align: right;
-  word-break: break-all;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .debug-log-block {

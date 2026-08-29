@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ActiveMethodView } from '../types'
 
 export interface DebugEvent {
@@ -26,6 +27,13 @@ interface DebugSidebarProps {
   onToggle: () => void
 }
 
+/** Strips a top-level `demo` key, if present - the only place it ever appears in these JSON blobs. */
+function withoutDemo(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const { demo, ...rest } = value as Record<string, unknown>
+  return rest
+}
+
 /**
  * Docked to the right edge, full viewport height, visible by default - a demo app's whole point is
  * showing what's happening under the hood at every step. Collapsible (App.tsx's `debugOpen`) so a
@@ -34,8 +42,14 @@ interface DebugSidebarProps {
  * thumbprint) already has its own card in the main view, so it isn't duplicated here. Request
  * headers (incl. the DPoP proof) are omitted from the log - noisy and not relevant to following the
  * demo; URL, method and body are what matters.
+ *
+ * `demo` (accountId/personId/journeys/tan/password/email) is hidden by default - it's the one part
+ * of these payloads that isn't really "what the backend just did", only a demo-only convenience
+ * aid, and easily the most noise once a journey chain is running.
  */
 export function DebugSidebar({ channel, log, open, onToggle }: DebugSidebarProps) {
+  const [showDemo, setShowDemo] = useState(false)
+
   return (
     <aside className={`debug-sidebar${open ? '' : ' collapsed'}`}>
       <div className="debug-sidebar-header">
@@ -48,9 +62,14 @@ export function DebugSidebar({ channel, log, open, onToggle }: DebugSidebarProps
         <>
           <p className="debug-sidebar-intro">Jeder API-Aufruf, den die Oberfläche gerade macht - so sieht das Backend-Protokoll live aus.</p>
 
+          <label className="debug-sidebar-toggle">
+            <input type="checkbox" checked={showDemo} onChange={(e) => setShowDemo(e.target.checked)} />
+            Demo-Infos einblenden (accountId, personId, Journey-Kette, TAN/Passwort-Vorbelegung)
+          </label>
+
           <section>
             <h3>Kanal</h3>
-            <pre>{JSON.stringify(channel, null, 2)}</pre>
+            <pre>{JSON.stringify(showDemo ? channel : withoutDemo(channel), null, 2)}</pre>
           </section>
 
           <section>
@@ -71,7 +90,7 @@ export function DebugSidebar({ channel, log, open, onToggle }: DebugSidebarProps
                   {entry.response !== undefined && (
                     <div className="debug-log-block">
                       <span className="debug-log-block-label">Response</span>
-                      <pre>{JSON.stringify(entry.response, null, 2)}</pre>
+                      <pre>{JSON.stringify(showDemo ? entry.response : withoutDemo(entry.response), null, 2)}</pre>
                     </div>
                   )}
                   {entry.error && (
