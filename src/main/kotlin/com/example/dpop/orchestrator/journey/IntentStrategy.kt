@@ -91,7 +91,13 @@ sealed interface JourneyEvent {
     /** "Back"/"Switch": the user abandoned an activated tool without finishing it. */
     data class Abandoned(val tool: ToolDescriptor) : JourneyEvent
 
-    data class SubJourneyFinished(val achievedAcr: String?) : JourneyEvent
+    /**
+     * [intent] names WHICH sub-journey just finished - a resumed parent must never assume this by
+     * construction ("only one caller today"), because a future second [Decision.RequireSubJourney]
+     * from the same state would then silently be mistaken for the first. `DeleteAccountStrategy`'s
+     * `ConfirmPending` branch is the one consumer that actually checks it.
+     */
+    data class SubJourneyFinished(val intent: AuthIntent, val achievedAcr: String?) : JourneyEvent
 
     /**
      * An explicit answer to whatever an [AnswerableState] is waiting on, instead of a tool run -
@@ -141,6 +147,13 @@ sealed interface Decision {
      * decides and the machine executes.
      */
     data class FinishWithDeviceLink(val accountId: Long) : Decision
+
+    /**
+     * Delete the account and everything it owns, then end the channel like a logout - the effect
+     * DELETE_ACCOUNT asks for once any factor was freshly re-proven. Like [Remove]/
+     * [FinishWithDeviceLink], a non-tool effect the strategy decides and the machine executes.
+     */
+    data class DeleteAccount(val accountId: Long) : Decision
 
     /** No way forward at all. Ends the journey with 410 - never a mere "no candidates left". */
     data class Abort(val reason: String) : Decision

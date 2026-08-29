@@ -45,6 +45,7 @@ sealed interface FastAccessState : JourneyState {
     ) : FastAccessState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
+        override val selectionTitle: String get() = "Wie möchten Sie sich anmelden?"
     }
 
     /**
@@ -60,6 +61,7 @@ sealed interface FastAccessState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "registration"
         override val selectionStep: String get() = "selectIdentificationMethod"
+        override val selectionTitle: String get() = "Wie möchten Sie sich identifizieren?"
     }
 
     data class ConfirmingEmail(
@@ -69,6 +71,7 @@ sealed interface FastAccessState : JourneyState {
     ) : FastAccessState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
+        override val selectionTitle: String get() = "E-Mail-Adresse bestätigen"
     }
 
     /**
@@ -89,5 +92,6 @@ sealed interface FastAccessState : JourneyState {
     ) : FastAccessState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
+        override val selectionTitle: String get() = "Wie möchten Sie sich zukünftig anmelden?"
     }
 }

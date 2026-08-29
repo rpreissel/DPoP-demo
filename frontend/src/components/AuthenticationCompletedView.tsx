@@ -1,5 +1,7 @@
 import type { DpopKeyPair } from '../dpop.ts'
 import type { ActiveMethodView, DemoInfo } from '../types'
+import { DiagramHint } from './DiagramHint'
+import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { TokenPanel } from './TokenPanel'
 
 /** Display name for a method with no user-chosen label (singleton methods - email/sms/password). */
@@ -14,6 +16,20 @@ function labelFor(method: ActiveMethodView): string {
   return method.label ?? DEFAULT_METHOD_LABELS[method.method] ?? method.method
 }
 
+/** A section heading with a hover/focus-revealed diagram of that section's journey shape - same trigger as SessionStatusView's in-progress hint. */
+function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof JOURNEY_DIAGRAMS }) {
+  return (
+    <h3 className="section-heading">
+      {text}
+      <DiagramHint spec={JOURNEY_DIAGRAMS[diagram]} inline>
+        <span className="diagram-hint-trigger" tabIndex={0} aria-label={`Ablauf "${text}" als Diagramm anzeigen`}>
+          ℹ️
+        </span>
+      </DiagramHint>
+    </h3>
+  )
+}
+
 interface AuthenticationCompletedViewProps {
   dpop: DpopKeyPair
   channelSessionId: string
@@ -25,6 +41,7 @@ interface AuthenticationCompletedViewProps {
   onAddMethod: () => void
   onDeactivateMethod: (methodInstanceId: string) => void
   onStepUp: (requiredAcr: string) => void
+  onDeleteAccount: () => void
   manageError?: string
   infoMessage?: string
 }
@@ -40,6 +57,7 @@ export function AuthenticationCompletedView({
   onAddMethod,
   onDeactivateMethod,
   onStepUp,
+  onDeleteAccount,
   manageError,
   infoMessage,
 }: AuthenticationCompletedViewProps) {
@@ -81,7 +99,7 @@ export function AuthenticationCompletedView({
 
       {canStepUpToLoa2 && (
         <>
-          <h3 className="section-heading">Sicherheitsniveau erhöhen</h3>
+          <SectionHeading text="Sicherheitsniveau erhöhen" diagram="stepUp" />
           <p>Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.</p>
           <div className="form-actions">
             <button className="secondary" onClick={() => onStepUp('loa2')}>
@@ -91,7 +109,7 @@ export function AuthenticationCompletedView({
         </>
       )}
 
-      <h3 className="section-heading">Anmeldeverfahren verwalten</h3>
+      <SectionHeading text="Anmeldeverfahren verwalten" diagram="manageMethods" />
       {manageError && <div className="hint">{manageError}</div>}
       {infoMessage && <div className="hint">{infoMessage}</div>}
       {/* activeMethods is the account's full standing method list (backend field, distinct from
@@ -112,6 +130,14 @@ export function AuthenticationCompletedView({
       )}
       <div className="form-actions">
         <button onClick={onAddMethod}>Weiteres Verfahren hinzufügen</button>
+      </div>
+
+      <SectionHeading text="Account löschen" diagram="deleteAccount" />
+      <p>Löscht Ihren Account und alle Anmeldemethoden endgültig.</p>
+      <div className="form-actions">
+        <button className="destructive" onClick={onDeleteAccount}>
+          Account löschen
+        </button>
       </div>
     </div>
     <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />

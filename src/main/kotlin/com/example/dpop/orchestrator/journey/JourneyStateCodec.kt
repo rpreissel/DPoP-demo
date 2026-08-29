@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
@@ -42,5 +43,6 @@ class JourneyStateCodec {
         AuthIntent.LOOKUP_LOGIN -> LookupLoginState::class.java
         AuthIntent.STEP_UP -> StepUpState::class.java
         AuthIntent.MANAGE_AUTH_METHODS -> ManageAuthMethodsState::class.java
+        AuthIntent.DELETE_ACCOUNT -> DeleteAccountState::class.java
     }
 }

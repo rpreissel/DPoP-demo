@@ -286,6 +286,12 @@ button.secondary:hover,
   background: var(--accent-bg);
 }
 
+button.destructive,
+.button.destructive {
+  background: #c0392b;
+  border-color: #c0392b;
+}
+
 .hint {
   padding: 0.75rem 1rem;
   border-radius: 8px;

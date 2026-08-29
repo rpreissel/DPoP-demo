@@ -31,6 +31,7 @@ sealed interface LookupLoginState : JourneyState {
     ) : LookupLoginState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
+        override val selectionTitle: String get() = "Wie möchten Sie sich anmelden?"
     }
 
     /**
@@ -50,6 +51,7 @@ sealed interface LookupLoginState : JourneyState {
     ) : LookupLoginState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
+        override val selectionTitle: String get() = "Zusätzlichen Faktor bestätigen"
     }
 
     /**
@@ -61,7 +63,14 @@ sealed interface LookupLoginState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
-        override val selectionContext: String get() = "authentication"
-        override val selectionStep: String get() = "offerDeviceBinding"
+        override val prompt: Prompt get() = Prompt.Confirm(
+            title = "Dieses Gerät merken?",
+            description = "Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal " +
+                "wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch " +
+                "ohne Bindung fortfahren – dann melden Sie sich künftig wieder über E-Mail und " +
+                "Passwort an.",
+            confirmLabel = "Gerät merken",
+            cancelLabel = "Ohne Bindung fortfahren"
+        )
     }
 }

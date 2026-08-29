@@ -4,10 +4,12 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
+import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.journey.state.ToolRef
 import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
@@ -44,10 +46,15 @@ class JourneyService(
     private val sessionManagementService: SessionManagementService,
     private val toolRegistry: ToolHandlerRegistry,
     private val authPolicy: AuthPolicy,
-    private val toolAvailabilityService: ToolAvailabilityService
+    private val toolAvailabilityService: ToolAvailabilityService,
+    private val accountDeletionService: AccountDeletionService
 ) {
-    /** `next` plus whatever the step needs to render - the pair every caller wants back. */
-    data class Step(val next: Next, val stepData: Map<String, Any?>? = null)
+    /**
+     * `next` plus whatever the step needs to render - the pair every caller wants back. `next` is
+     * null only for a decision that ends the channel for good (e.g. [Decision.DeleteAccount]) -
+     * ChannelService.respond() derives the real next itself in every other case.
+     */
+    data class Step(val next: Next?, val stepData: Map<String, Any?>? = null)
 
     private val strategiesByIntent: Map<AuthIntent, IntentStrategy<*>> = strategies.associateBy { it.intent }
 
@@ -157,7 +164,15 @@ class JourneyService(
 
     private fun stepFor(state: JourneyState, availableTools: Set<String>): Step {
         val options = state.activatable(availableTools)
-        return Step(nextFor(state, availableTools), if (options.size > 1) mapOf("options" to options.toList()) else null)
+        val stepData = buildMap<String, Any?> {
+            if (state is OfferingState && options.size > 1) {
+                put("options", options.toList())
+                put("title", state.selectionTitle)
+                state.selectionDescription?.let { put("description", it) }
+            }
+            if (state is AnswerableState) put("prompt", state.prompt)
+        }
+        return Step(nextFor(state, availableTools), stepData.ifEmpty { null })
     }
 
     /** Live, never cached: a backend disable must take effect on the very next step of an already-running journey. */
@@ -276,6 +291,22 @@ class JourneyService(
                 finish(journey, channel)
             }
 
+            is Decision.DeleteAccount -> {
+                journey.consume()
+                journeyRepository.save(journey)
+                // Deletes/logs out every ChannelSession this account was ever bound to (docs/05-api.md,
+                // Account löschen) - via its OWN freshly queried entities, a different Hibernate
+                // identity than THIS request's `channel` even for the very same row. Every other
+                // decision here reflects its effect by mutating `channel` directly, because that is
+                // the exact object `buildChannelBlock` reads for the response - relying on the
+                // cascade's separate writes alone left this response showing the stale pre-deletion
+                // state (e.g. STEP_UP_IN_PROGRESS) even though the row was correctly updated in the DB.
+                accountDeletionService.deleteAccount(decision.accountId)
+                channel.state = ChannelState.LOGGED_OUT
+                channel.authContextId = null
+                Step(next = null)
+            }
+
             // Giving up on the last thing this journey could offer is the same outcome as an
             // explicit DELETE .../journey: the channel starts its own entry intent afresh.
             is Decision.Cancel -> {
@@ -303,12 +334,12 @@ class JourneyService(
             // The parent picks up exactly where it was parked, so the original wish survives.
             parent.lifecycle = JourneyLifecycle.STARTED
             journeyRepository.save(parent)
-            return advance(parent, channel, JourneyEvent.SubJourneyFinished(currentAcrOf(channel)))
+            return advance(parent, channel, JourneyEvent.SubJourneyFinished(journey.intent!!, currentAcrOf(channel)))
         }
 
         channel.state = ChannelState.AUTHENTICATED
         sessionManagementService.updateChannelSession(channel)
-        return Step(Next.orchestrator("authentication", "authenticated"))
+        return Step(Next.AUTHENTICATED)
     }
 
     /**

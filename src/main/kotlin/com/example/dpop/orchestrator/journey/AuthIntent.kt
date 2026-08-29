@@ -23,7 +23,10 @@ enum class AuthIntent {
     STEP_UP,
 
     /** Add or remove authentication methods. Only on an AUTHENTICATED channel. */
-    MANAGE_AUTH_METHODS;
+    MANAGE_AUTH_METHODS,
+
+    /** Delete the account itself, after a fresh re-confirmation. Only on an AUTHENTICATED channel. */
+    DELETE_ACCOUNT;
 
     /** The three intents a client may name when entering a channel; STEP_UP/MANAGE_AUTH_METHODS are reached from an authenticated one. */
     val isEntryIntent: Boolean

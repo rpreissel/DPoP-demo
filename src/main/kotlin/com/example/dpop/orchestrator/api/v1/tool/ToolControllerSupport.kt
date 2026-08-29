@@ -7,6 +7,7 @@ import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.IdentThrottleService
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -177,7 +178,7 @@ class ToolControllerSupport(
             channel = channelService.buildChannelBlock(ctx.channel),
             next = step.next,
             stepData = cleanedStepData,
-            demo = demoInfo(ctx.journey, step.next, demoValues)
+            demo = demoInfo(ctx.journey, ctx.channel, demoValues)
         )
     }
 
@@ -247,8 +248,8 @@ class ToolControllerSupport(
     }
 
     /** personId is read back off the account rather than carried along - it is already stored there. */
-    private fun demoInfo(journey: AuthJourney, next: Next, values: Map<String, Any?>?): DemoInfo? {
-        val isAuthenticated = next.context == "authentication" && next.step == "authenticated"
+    private fun demoInfo(journey: AuthJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
+        val isAuthenticated = channel.state == ChannelState.AUTHENTICATED
         if (!isAuthenticated && values.isNullOrEmpty()) return null
         val personId = journey.accountId?.let { accountService.findAccount(it)?.personId }
         return DemoInfo(journey.accountId, personId, values ?: emptyMap())

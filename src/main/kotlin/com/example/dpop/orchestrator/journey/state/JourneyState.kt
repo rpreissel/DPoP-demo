@@ -59,6 +59,18 @@ sealed interface OfferingState : JourneyState {
     val offered: List<String>
     val declined: Set<String>
 
+    /**
+     * Backend-authored heading for the selection screen shown when more than one candidate is
+     * offered - same reasoning as [AnswerableState.prompt]: the app channel is a mobile app with
+     * week-long release cycles, so this text must be able to change without an app release.
+     * `selectionContext` names only the ADDRESS of that screen (shared across every intent
+     * offering the same KIND of candidate, e.g. "auth") - it says nothing about what the user is
+     * actually being asked here (log in vs. confirm an account deletion), which is exactly why
+     * this can't be a shared default the way [AnswerableState.prompt] fully is.
+     */
+    val selectionTitle: String
+    val selectionDescription: String? get() = null
+
     override fun activatable(availableTools: Set<String>): Set<String> = (offered.toSet() - declined) intersect availableTools
 
     /**
@@ -79,4 +91,16 @@ sealed interface OfferingState : JourneyState {
  * which ones - a new yes/no action, whatever it decides to DO with the answer, never needs
  * JourneyService to change, only a new state implementing this and a new [Decision] case.
  */
-interface AnswerableState : JourneyState
+interface AnswerableState : JourneyState {
+    /** What the client renders while waiting - see [Prompt] for why this carries real content. */
+    val prompt: Prompt
+
+    /**
+     * Every [AnswerableState], of any intent, renders through the exact same generic screen
+     * (`stepData.prompt` alone decides title/labels/buttons) and is answered through the exact
+     * same generic endpoint - so, like [JourneyState.selectionStep]'s "selectMethod" default, ONE
+     * shared address for all of them, never a new one per intent.
+     */
+    override val selectionContext: String get() = "prompt"
+    override val selectionStep: String get() = "confirm"
+}

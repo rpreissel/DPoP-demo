@@ -89,6 +89,26 @@ class AccountService(private val accountRepository: AccountRepository) : Account
     fun findAccount(accountId: Long): AccountProfile? =
         accountRepository.findByIdOrNull(accountId)?.let { toProfile(it) }
 
+    /**
+     * Deletes only the account row itself - this module must never depend on a method module
+     * (see [ModuleMetadata]), so the caller is responsible for first cleaning up whatever
+     * credentials the account's own `authenticationMethods` referenced (docs/05-api.md, Account
+     * löschen), and for the account-adjacent orchestrator state (DeviceAccountLink, AuthContext).
+     */
+    @Transactional
+    fun deleteAccount(accountId: Long) {
+        accountRepository.deleteById(accountId)
+    }
+
+    /**
+     * Every enrollmentRef this account's `authenticationMethods` entries ever pointed at - active
+     * AND already-superseded/deactivated alike, so a caller cleaning up cross-module credential
+     * rows on account deletion doesn't leave a replaced phone number's/device's row behind.
+     */
+    @Transactional(readOnly = true)
+    fun allEnrollmentRefs(accountId: Long): List<EnrollmentRef> =
+        findAccount(accountId)?.authenticationMethods?.mapNotNull { extractEnrollmentRef(it) } ?: emptyList()
+
     @Transactional(readOnly = true)
     fun findAccountByEmail(email: String): AccountProfile? =
         accountRepository.findByEmail(email)?.let { toProfile(it) }

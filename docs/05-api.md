@@ -62,6 +62,8 @@ Pfadkonvention:
 - Methodenbestand lesen: `GET .../{channelSessionId}/methods`
 - Methode hinzufügen (startet Enrollment): `POST .../{channelSessionId}/enrollments` (kein Body)
 - Methode deaktivieren: `DELETE .../{channelSessionId}/methods/{methodInstanceId}` (kein Body) — adressiert per Instanz-ID, nicht per Methodenname (siehe unten)
+- Account löschen (startet Journey): `POST .../{channelSessionId}/account-deletions` (kein Body)
+- Rückfrage beantworten: `POST .../{channelSessionId}/answer` mit `{"answer": "accept"|"decline"}` — der eine generische Endpunkt für jeden `Prompt` (siehe unten), unabhängig davon, welcher Intent gerade darauf wartet
 - Tool-Anlage über Channel: `POST .../{channelSessionId}/tools/{toolId}` — `201` mit `Location: .../tools/{toolSessionId}/{toolId}` (kein Body — `toolId` trägt Kind und Methode zusammen)
 - Tool-Fortschreibung/-Lesen: `PATCH/GET /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` als Regelfall
 - Tool-Attempt verwerfen: `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}`
@@ -91,6 +93,25 @@ Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst 
 - `DELETE .../methods/{methodInstanceId}` deaktiviert eine aktive Methoden-*Instanz*, adressiert per `id` aus `GET .../methods` — nie per Methodenname, da eine Methode mehrere aktive Instanzen haben kann (z. B. mehrere Geräte, `docs/03-tool-architektur.md`, `allowsMultipleInstances`). `409`, falls der Account danach das kanaleigene `requiredAcr` nicht mehr erreichen könnte (Selbstsperrschutz). Bewusst **nicht** darauf beschränkt, nur Instanzen des aufrufenden Geräts zu deaktivieren — ein verlorenes/gestohlenes Gerät muss von jeder authentifizierten Session aus entfernbar sein.
 - `POST .../enrollments` und `DELETE .../methods/{methodInstanceId}` verlangen zusätzlich, dass die aktuelle Session bereits `loa2` erreicht hat; reicht es nicht, liefert die Antwort statt der Aktion einen Step-up-Schritt — der Client folgt ihm wie jedem anderen Step-up und ruft den Endpunkt danach erneut auf.
 - Response-Form von `POST .../enrollments`/`DELETE .../methods/{methodInstanceId}` ist dieselbe `ChannelResponse` wie bei `GET`/`PATCH` auf `/channels/{channelSessionId}`.
+
+### Das `Prompt`-Objekt
+
+Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Tool-Lauf wartet (`AnswerableState`), trägt einen `prompt` in `stepData`: `{"@t": "Confirm", "title": "...", "description": "...", "confirmLabel": "...", "cancelLabel": "...", "destructive": true|false}`. `next` ist dabei für **jeden** `AnswerableState`, unabhängig vom Intent, exakt derselbe feste Wert — `{"type":"orchestrator","context":"prompt","step":"confirm"}` —, denn der gerenderte Screen ist ebenfalls immer derselbe, rein aus `stepData.prompt` gespeist; ein eigener `context`/`step` pro Intent (wie ursprünglich `authentication/offerDeviceBinding` und `accountDeletion/confirmDelete`) wäre dieselbe Adresse nur mehrfach anders geschrieben. Beantwortet wird jeder `Prompt` über denselben generischen `POST .../{channelSessionId}/answer` mit `{"answer": "accept"|"decline"}`.
+
+Der App-Kanal ist eine mobile App mit App-Store-Release-Zyklen von Wochen; jeder Text, den ein Prompt anzeigt, wird deshalb **komplett vom Backend geliefert**, nie clientseitig vorformuliert — eine neue oder geänderte Rückfrage braucht dadurch keinen App-Release, nur neuen Backend-Code.
+
+`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Aktuell zwei Verwendungen, beide über dieselbe `prompt/confirm`-Adresse: der optionale Geräte-Bindungs-Screen des Lookup-Logins und die Account-Löschbestätigung (siehe unten).
+
+### Account löschen (AuthIntent.DELETE_ACCOUNT)
+
+Self-Service-Löschung des eigenen Accounts auf einem bereits `AUTHENTICATED`-Kanal. Die Ja/Nein-Bestätigung kommt bewusst **immer zuerst, unbedingt** — das kostet nichts und darf nie hinter einem Step-up versteckt sein, den der Aufrufer vielleicht gar nicht durchlaufen will. Erst nach Zustimmung greift dasselbe loa2-Gate wie vor `MANAGE_AUTH_METHODS`:
+
+1. `POST .../{channelSessionId}/account-deletions` (kein Body) startet die Journey und liefert sofort die Bestätigungsrückfrage: `next={"type":"orchestrator","context":"prompt","step":"confirm"}`, `stepData.prompt` mit `destructive: true`.
+2. `POST .../answer` mit `{"answer":"accept"}` (oder `"decline"`, bricht wie ein normales Cancel zurück auf `AUTHENTICATED`). Erst jetzt greift das loa2-Gate: reicht das aktuelle Niveau nicht, liefert die Antwort statt des nächsten Schritts einen Step-up-Schritt; der Client folgt ihm wie jedem anderen und ruft `account-deletions` danach erneut auf.
+3. Reichte das Niveau schon vorher (Evidenz unbekannten Alters), folgt jetzt ein frischer Nachweis über ein **beliebiges** aktives `auth-*`-Verfahren des Accounts, unabhängig vom damit erreichbaren Niveau (auch ein soeben erst in dieser Session bewiesener Faktor zählt erneut — anders als bei `STEP_UP`, das genau solche bereits bewiesenen Faktoren ausschließt). Genau ein Verfahren reicht; mehrere aktive Verfahren ergeben dieselbe `next={"context":"auth","step":"selectMethod"}`-Auswahlseite wie jeder andere auf DEVICE_AUTH-Kandidaten wartende Zustand (`selectionContext` benennt die Art des Angebots, nicht den Intent — kein eigener `accountDeletion`-Auswahlkontext). **Ausnahme**: musste Schritt 2 selbst erst einen Step-up auslösen, zählt dieser frisch erbrachte Nachweis bereits als der hier geforderte — die Löschung erfolgt dann direkt im Anschluss an den Step-up, ohne einen zweiten, redundanten Nachweis zu verlangen.
+4. Nach erfolgreichem Nachweis wird der Account und alles, was er exklusiv besitzt, sofort und unwiderruflich gelöscht: alle über `authenticationMethods` referenzierten Credential-Datensätze der Methodenmodule (aktive **und** bereits abgelöste), der `DeviceAccountLink`, jeder `AuthContext` sowie die `account`-Zeile selbst. `person` (ext_stammdaten) bleibt unangetastet — der Account referenziert es nur, besitzt es aber nicht ([Tool-Architektur](03-tool-architektur.md), `EnrollmentCleanup`).
+5. Jede `ChannelSession`, die je an diesen Account gebunden war — nicht nur die aufrufende — wird dabei serverseitig auf `LOGGED_OUT` gezwungen: ein anderes eingeloggtes Gerät fällt beim nächsten Request sofort auf `ANONYMOUS` zurück, ein neuer Kanal braucht dort einen neuen `POST /channels`.
+5. Die Antwort auf den erfolgreichen Abschluss ist `channel.state="LOGGED_OUT"` ohne `next` — exakt dieselbe Form wie ein normaler Logout, nicht ein eigener Erfolgs-Zustand.
 
 ### Back/Switch
 

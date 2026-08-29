@@ -28,5 +28,12 @@ data class Next(
         fun tool(toolId: String, step: String, toolSessionId: UUID? = null) =
             Next(type = "tool", toolId = toolId, step = step, toolSessionId = toolSessionId)
         fun orchestrator(context: String, step: String) = Next(type = "orchestrator", context = context, step = step)
+
+        /**
+         * The one `next` every AUTHENTICATED channel with no journey pending resolves to
+         * (docs/05-api.md #2) - a single named value instead of three call sites each spelling out
+         * the same `context`/`step` pair by hand, two constructing it and one comparing against it.
+         */
+        val AUTHENTICATED = orchestrator("authentication", "authenticated")
     }
 }

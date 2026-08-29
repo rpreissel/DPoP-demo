@@ -22,13 +22,18 @@ const PHASE_LABELS: Record<string, string> = {
   EXPIRED: 'Abgelaufen',
 }
 
-/** Orchestrator-owned pages (docs/04-orchestrierung.md) - not a tool, so toolMeta doesn't cover them. */
+/**
+ * Orchestrator-owned pages (docs/04-orchestrierung.md) - not a tool, so toolMeta doesn't cover
+ * them. Keyed the same way routing.ts routes them: `context` names the KIND of screen, shared
+ * across every intent that renders it - `prompt/confirm` covers every AnswerableState (device
+ * binding, account deletion, ...) with one row, `auth/selectMethod` every candidate selection.
+ */
 const ORCHESTRATOR_STEP_LABELS: Record<string, string> = {
   'auth/selectMethod': 'Verfahren wählen',
   'enrollment/selectMethod': 'Verfahren wählen',
   'registration/selectIdentificationMethod': 'Verfahren wählen',
   'authentication/authenticated': 'Angemeldet',
-  'authentication/offerDeviceBinding': 'Gerät für nächstes Mal merken?',
+  'prompt/confirm': 'Rückfrage',
 }
 
 /** In plain language, what `next` is currently waiting on - never the raw toolId/context+step pair. */

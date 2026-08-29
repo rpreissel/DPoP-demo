@@ -130,6 +130,11 @@ export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, me
   return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/methods/${methodInstanceId}`)
 }
 
+/** Starts the account-deletion journey on an already-AUTHENTICATED channel: an unconditional yes/no confirmation (rendered via PromptView), then a fresh re-proof of any active factor. */
+export function startAccountDeletion(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/account-deletions`)
+}
+
 /**
  * Covers both first issuance and refresh (docs/05-api.md #2) - call again whenever a fresh token
  * might be needed. minValiditySeconds is the caller's tolerance; the backend alone decides
@@ -145,8 +150,8 @@ export function getIdClaims(dpop: DpopKeyPair, channelSessionId: string): Promis
   return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}/idclaims`)
 }
 
-/** Answers the optional device-binding offer of a lookup login (docs/04-orchestrierung.md #3) via the generic answer endpoint. */
-export function answerDeviceBinding(dpop: DpopKeyPair, channelSessionId: string, accept: boolean): Promise<ChannelResponse> {
+/** Answers whatever AnswerableState/Prompt the current step is waiting on (docs/05-api.md, Prompt) - one generic endpoint for every such confirmation. */
+export function answerPrompt(dpop: DpopKeyPair, channelSessionId: string, accept: boolean): Promise<ChannelResponse> {
   return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/answer`, { answer: accept ? 'accept' : 'decline' })
 }
 

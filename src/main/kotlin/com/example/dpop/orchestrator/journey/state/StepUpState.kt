@@ -29,6 +29,7 @@ sealed interface StepUpState : JourneyState {
     ) : StepUpState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
+        override val selectionTitle: String get() = "Zusätzlichen Nachweis erbringen"
     }
 
     /**
@@ -47,5 +48,6 @@ sealed interface StepUpState : JourneyState {
     ) : StepUpState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
+        override val selectionTitle: String get() = "Identifizieren Sie sich erneut"
     }
 }

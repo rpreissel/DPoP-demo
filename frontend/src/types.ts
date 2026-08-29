@@ -9,12 +9,35 @@ export interface Next {
   toolSessionId?: string
 }
 
-/** Whatever the current step needs to render: missing fields, selection options, or a retry reason. */
+/**
+ * Whatever the current step needs to render: missing fields, selection options, or a retry
+ * reason. `title`/`description` accompany `options` - backend-authored heading for the selection
+ * screen (OfferingState.selectionTitle), same reasoning as `prompt`: the client can't guess what
+ * the user is actually being asked just from a shared `context`/`step` address.
+ */
 export interface StepData {
   missingFields?: string[]
   options?: string[]
+  title?: string
+  description?: string
   error?: string
+  prompt?: Prompt
   [key: string]: unknown
+}
+
+/**
+ * What an AnswerableState shows while it waits for `POST .../answer` - authored entirely by the
+ * backend (docs/orchestrator/journey/state/Prompt.kt): the app channel is a mobile app with
+ * week-long release cycles, so screen text must be able to change without an app release. `@t` is
+ * the Jackson polymorphism discriminator; `Confirm` is the only variant today.
+ */
+export interface Prompt {
+  '@t': 'Confirm'
+  title: string
+  description?: string
+  confirmLabel: string
+  cancelLabel: string
+  destructive?: boolean
 }
 
 /**

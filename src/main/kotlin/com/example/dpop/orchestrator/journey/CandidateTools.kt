@@ -59,6 +59,31 @@ internal object CandidateTools {
     fun forAuth(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
         ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef))
 
+    /**
+     * Every active DEVICE_AUTH method the account has, for a fresh "prove you're still you"
+     * re-confirmation (e.g. before deleting the account) - deliberately NOT [forAuth]: that one
+     * excludes methods already proven this session (`evidence.amr`), because STEP_UP needs
+     * additional assurance. A re-confirmation needs the opposite - re-presenting the very same,
+     * already-used factor is a perfectly valid answer to "are you still there right now?". No acr
+     * target either: any active factor counts, regardless of the level it reaches.
+     */
+    fun forReconfirmation(account: AccountProfile, ctx: JourneyContext): List<String> =
+        ctx.filterAvailable(
+            ctx.catalog.descriptors()
+                .filter { it.role == MethodRole.DEVICE_AUTH }
+                .mapNotNull { descriptor ->
+                    val method = account.activeAuthenticationMethods.firstOrNull { it.method == descriptor.method }
+                        ?: return@mapNotNull null
+                    // Same device-binding rule as ordinary candidate resolution: a non-extractable
+                    // device key structurally cannot exist anywhere else than the device it was
+                    // enrolled on (docs/03-tool-architektur.md).
+                    if (descriptor.allowsMultipleInstances && method.details?.get("deviceBindingKeyRef") != ctx.bindingKeyRef) {
+                        return@mapNotNull null
+                    }
+                    descriptor.toolId
+                }
+        )
+
     fun forEnrollment(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
         ctx.filterAvailable(ctx.policy.enrollmentCandidates(account, targetAcr))
 

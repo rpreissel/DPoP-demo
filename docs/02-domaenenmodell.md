@@ -105,7 +105,7 @@ stateDiagram-v2
 
 - `Channel`: `APP`, `WEB`
 - `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`, `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
-- `AuthIntent`: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS` — Ziel *samt* Führungsstrategie ([Orchestrierung](04-orchestrierung.md) Abschnitt 1)
+- `AuthIntent`: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT` — Ziel *samt* Führungsstrategie ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). `DELETE_ACCOUNT` ist wie `MANAGE_AUTH_METHODS` nur auf einem bereits `AUTHENTICATED`-Kanal erreichbar, dreht die Reihenfolge aber bewusst um: erst eine unbedingte, immer verlangte Ja/Nein-Bestätigung (`Prompt`, siehe [API](05-api.md) Abschnitt "Das `Prompt`-Objekt") — das kostet nichts und darf nicht hinter einem Step-up versteckt sein, den der Aufrufer vielleicht gar nicht will —, erst danach, nur bei Zustimmung, dasselbe loa2-Gate wie vor `MANAGE_AUTH_METHODS`. War die Session schon vorher bei loa2 (Evidenz unbekannten Alters), verlangt das Gate zusätzlich einen frisch erneut bewiesenen, beliebigen aktiven Faktor; musste das Gate stattdessen erst einen Step-up auslösen, zählt der dabei erbrachte Nachweis bereits als dieser und die Löschung folgt direkt.
 - `JourneyLifecycle`: `STARTED`, `SUSPENDED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`
 - `ToolCategory`: `IDENT`, `ENROLL`, `AUTH` — Selbstauskunft des Moduls ([Tool-Architektur](03-tool-architektur.md))
 - `FactorType`: `KNOWLEDGE`, `POSSESSION`, `INHERENCE` — ebenfalls Selbstauskunft, Grundlage der MFA-Prüfung ([Orchestrierung](04-orchestrierung.md))

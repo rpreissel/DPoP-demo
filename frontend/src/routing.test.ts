@@ -17,9 +17,19 @@ describe('getUIComponent (orchestrator-owned screens only - tool steps are cover
     expect(getUIComponent(next)).toBe('select-method')
   })
 
+  it('maps the auth context (shared by FAST_ACCESS/LOOKUP_LOGIN/STEP_UP/DELETE_ACCOUNT re-confirmation) to select-method', () => {
+    const next: Next = { type: 'orchestrator', context: 'auth', step: 'selectMethod' }
+    expect(getUIComponent(next)).toBe('select-method')
+  })
+
   it('maps the authenticated flow completion to authentication-completed', () => {
     const next: Next = { type: 'orchestrator', context: 'authentication', step: 'authenticated' }
     expect(getUIComponent(next)).toBe('authentication-completed')
+  })
+
+  it('maps every AnswerableState (device binding, account deletion, ...) to the one shared prompt/confirm address', () => {
+    const next: Next = { type: 'orchestrator', context: 'prompt', step: 'confirm' }
+    expect(getUIComponent(next)).toBe('prompt')
   })
 
   it('returns null for an unknown orchestrator context/step combination', () => {

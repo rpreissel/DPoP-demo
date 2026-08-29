@@ -5,4 +5,6 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 @Repository
-interface AuthContextRepository : JpaRepository<AuthContext, UUID>
+interface AuthContextRepository : JpaRepository<AuthContext, UUID> {
+    fun findByAccountId(accountId: Long): List<AuthContext>
+}

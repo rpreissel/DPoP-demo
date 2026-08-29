@@ -226,6 +226,22 @@ class ChannelService(
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
+    /**
+     * Starts the account-deletion journey: an unconditional yes/no confirmation, then a fresh
+     * re-proof of any active factor, before the account is actually deleted (docs/05-api.md,
+     * Account löschen). Resource-oriented like [startManageMethods]'s `enrollments`/step-ups.
+     */
+    fun startDeleteAccount(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        if (channel.state != ChannelState.AUTHENTICATED) {
+            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to delete the account")
+        }
+        checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
+
+        val step = journeyService.start(channel, AuthIntent.DELETE_ACCOUNT)
+        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+    }
+
     /** The user's answer to whatever the current step is waiting on instead of a tool run. */
     fun answer(channelSessionId: UUID, bindingKeyRef: String, answer: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
@@ -241,8 +257,15 @@ class ChannelService(
     }
 
     private fun respond(channel: ChannelSession, next: Next? = null, stepData: Map<String, Any?>? = null): ChannelResponse {
-        val resolved = next ?: journeyService.findActive(channel.channelSessionId!!)?.let { journeyService.nextOf(it, channel) }
-            ?: if (channel.state == ChannelState.AUTHENTICATED) Next.orchestrator("authentication", "authenticated") else null
+        // A terminal channel (docs/02-domaenenmodell.md #3) never has a next - regardless of what
+        // a caller passed in, so no caller (e.g. a strategy's own now-meaningless placeholder
+        // after account deletion) can accidentally resurrect a dead channel with a stray next.
+        val resolved = if (channel.state?.isTerminal == true) {
+            null
+        } else {
+            next ?: journeyService.findActive(channel.channelSessionId!!)?.let { journeyService.nextOf(it, channel) }
+                ?: if (channel.state == ChannelState.AUTHENTICATED) Next.AUTHENTICATED else null
+        }
         return ChannelResponse(
             channel = buildChannelBlock(channel, includeAccountFields = true),
             next = resolved,

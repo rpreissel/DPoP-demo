@@ -8,7 +8,7 @@ import type { ToolRenderContext } from './tools/types'
 import {
   abandonTool,
   activateTool,
-  answerDeviceBinding,
+  answerPrompt,
   cancelJourney,
   createChannel,
   deactivateMethod,
@@ -17,6 +17,7 @@ import {
   logoutChannel,
   onApiCall,
   raiseRequiredAcr,
+  startAccountDeletion,
   startManageMethods,
 } from './api.ts'
 import { forgetChannelSessionId, loadChannelSessionId, storeChannelSessionId } from './session.ts'
@@ -26,7 +27,7 @@ import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
 import { SelectMethodView } from './components/SelectMethodView'
 import { SessionStatusView } from './components/SessionStatusView'
-import { DeviceBindingOfferView } from './components/DeviceBindingOfferView'
+import { PromptView } from './components/PromptView'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
 import { WelcomeIntro } from './components/WelcomeIntro'
@@ -322,17 +323,18 @@ function App() {
   }
 
   /**
-   * The one lookup-login screen that is not a tool: whether this device gets remembered. Both
-   * answers continue the journey - declining is a valid outcome, not a cancel.
+   * Answers whatever AnswerableState/Prompt the current step is waiting on instead of a tool run
+   * (device-binding offer, account-deletion confirmation, ...). Both answers continue the journey -
+   * declining is a valid outcome, not a cancel.
    */
-  async function handleDeviceBinding(accept: boolean) {
+  async function handleAnswer(accept: boolean) {
     if (!dpop || !channelSessionId) return
     try {
       setError('')
-      const response = await answerDeviceBinding(dpop, channelSessionId, accept)
+      const response = await answerPrompt(dpop, channelSessionId, accept)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Geräte-Bindung fehlgeschlagen', err))
+      setError(describeError('Antwort fehlgeschlagen', err))
     }
   }
 
@@ -356,6 +358,18 @@ function App() {
       applyResponse(response)
     } catch (err) {
       setError(describeError('Deaktivieren fehlgeschlagen', err))
+    }
+  }
+
+  /** Starts the account-deletion journey - the confirmation prompt and the re-authentication step that follow render themselves via the normal next/stepData flow. */
+  async function handleDeleteAccount() {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      const response = await startAccountDeletion(dpop, channelSessionId)
+      applyResponse(response)
+    } catch (err) {
+      setError(describeError('Account löschen fehlgeschlagen', err))
     }
   }
 
@@ -582,13 +596,18 @@ function App() {
           )}
 
           {uiComponent === 'select-method' && stepData?.options && (
-            <SelectMethodView options={stepData.options} onSelect={handleSelectMethod} />
+            <SelectMethodView
+              options={stepData.options}
+              title={stepData.title ?? 'Verfahren wählen'}
+              description={stepData.description}
+              onSelect={handleSelectMethod}
+            />
           )}
 
           {toolCtx && renderToolStep(toolCtx)}
 
-          {uiComponent === 'device-binding-offer' && (
-            <DeviceBindingOfferView onAnswer={handleDeviceBinding} />
+          {uiComponent === 'prompt' && stepData?.prompt && (
+            <PromptView prompt={stepData.prompt} onAnswer={handleAnswer} />
           )}
 
           {uiComponent === 'authentication-completed' && dpop && channelSessionId && (
@@ -601,6 +620,7 @@ function App() {
               demo={demo}
               onAddMethod={handleAddMethod}
               onDeactivateMethod={handleDeactivateMethod}
+              onDeleteAccount={handleDeleteAccount}
               onStepUp={handleStepUp}
               manageError={error || undefined}
               infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}

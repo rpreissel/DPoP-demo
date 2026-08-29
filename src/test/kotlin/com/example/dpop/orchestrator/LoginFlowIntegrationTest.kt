@@ -204,7 +204,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     """{"email":"$email","password":"correct-horse-battery"}"""
                 )
                 authenticated.next() shouldBe 
-                    mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
+                    mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
                 
 
                 post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
@@ -253,7 +253,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // A lookup login does not finish on the proof itself: the device binding is offered
                 // explicitly, because this intent is chosen by people who want no device binding.
                 authenticated.next() shouldBe 
-                    mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
+                    mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
                 
 
                 val done = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
@@ -351,7 +351,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 }
                 val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"code":"$loginCode"}""")
                 authenticated.next() shouldBe 
-                    mapOf("type" to "orchestrator", "context" to "authentication", "step" to "offerDeviceBinding")
+                    mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
                 
                 post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
 

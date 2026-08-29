@@ -178,11 +178,12 @@ class ChannelController(
     @PostMapping("/{channelSessionId}/answer")
     @Operation(
         summary = "Answer whatever the current step is waiting on",
-        description = "Generic answer endpoint for a state that pauses for an explicit choice instead of a tool " +
-            "run - today only the optional device-binding offer right after a lookup login " +
-            "(next.step=offerDeviceBinding), answer=\"accept\"/\"decline\". Agreeing is the ONLY way such a login " +
-            "ever makes this device recognizable for future logins - it never happens as a side effect, because " +
-            "this intent is chosen precisely by people who want no device binding.",
+        description = "Generic answer endpoint for any state that pauses for an explicit yes/no instead of a tool " +
+            "run (next.context=prompt, next.step=confirm, stepData.prompt) - the optional device-binding offer " +
+            "right after a lookup login, the account-deletion confirmation, and any future one alike, all through " +
+            "this same address, answer=\"accept\"/\"decline\". For device binding specifically: agreeing is the " +
+            "ONLY way such a login ever makes this device recognizable for future logins - it never happens as a " +
+            "side effect, because this intent is chosen precisely by people who want no device binding.",
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -257,6 +258,39 @@ class ChannelController(
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
         return ResponseEntity.ok(channelService.startManageMethods(channelSessionId, bindingKeyRef))
+    }
+
+    @PostMapping("/{channelSessionId}/account-deletions")
+    @Operation(
+        summary = "Delete the account of an already authenticated channel",
+        description = "Channel must already be AUTHENTICATED. Starts an unconditional yes/no confirmation " +
+            "(next.context=prompt, next.step=confirm, stepData.prompt - the same generic address every " +
+            "AnswerableState uses) that always comes FIRST, before anything else is checked. Only once accepted " +
+            "does the loa2 gate apply (a step-up first if not yet reached); if that gate needed a step-up, its own " +
+            "fresh proof is enough and deletion follows immediately, otherwise one more fresh re-proof of any " +
+            "active factor is required - never skipped just because the session already carried loa2. On success " +
+            "the account and everything it owns is hard-deleted, every ChannelSession it was ever bound to is " +
+            "logged out server-side, and this response's channel.state is LOGGED_OUT with no next, exactly like " +
+            "a plain logout.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Confirmation prompt for the account deletion.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED"},
+                      "next": {"type": "orchestrator", "context": "prompt", "step": "confirm"},
+                      "stepData": {"prompt": {"@t": "Confirm", "title": "Account wirklich löschen?", "confirmLabel": "Account löschen", "cancelLabel": "Abbrechen", "destructive": true}}
+                    }
+                """)])]
+            )
+        ]
+    )
+    fun deleteAccount(
+        @PathVariable channelSessionId: UUID,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<ChannelResponse> {
+        return ResponseEntity.ok(channelService.startDeleteAccount(channelSessionId, bindingKeyRef))
     }
 
     @DeleteMapping("/{channelSessionId}/methods/{methodInstanceId}")
