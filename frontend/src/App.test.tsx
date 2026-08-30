@@ -34,6 +34,11 @@ function channelResponse(overrides: Partial<ChannelResponse> & { channel: Channe
   return { next: undefined, stepData: undefined, demo: undefined, ...overrides }
 }
 
+/** The three-tab split (Willkommen/Demo/Einstellungen) defaults to Willkommen - every test here exercises the Demo tab's content, so it always has to switch first. */
+async function switchToDemoTab(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('tab', { name: 'Demo' }))
+}
+
 beforeEach(() => {
   window.localStorage.clear()
   vi.clearAllMocks()
@@ -55,6 +60,7 @@ describe('resume mid-tool (docs/05-api.md #2: next.toolSessionId)', () => {
 
     render(<App />)
     const user = userEvent.setup()
+    await switchToDemoTab(user)
 
     const resumeButton = await screen.findByRole('button', { name: /Sitzung fortsetzen/ })
     await user.click(resumeButton)
@@ -96,8 +102,9 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
 
     render(<App />)
     const user = userEvent.setup()
+    await switchToDemoTab(user)
 
-    await user.click(await screen.findByRole('button', { name: 'Verbinden (automatisch)' }))
+    await user.click(await screen.findByRole('button', { name: 'Automatisch anmelden' }))
     await user.click(await screen.findByRole('button', { name: 'Code senden' }))
 
     await screen.findByText('loa1')
@@ -131,6 +138,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
 
     render(<App />)
     const user = userEvent.setup()
+    await switchToDemoTab(user)
     await user.click(await screen.findByRole('button', { name: /Sitzung fortsetzen/ }))
 
     await screen.findByText('loa2')
