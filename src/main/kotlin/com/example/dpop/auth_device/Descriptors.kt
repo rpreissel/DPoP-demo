@@ -9,6 +9,13 @@ import org.springframework.stereotype.Component
 internal const val DEVICE_METHOD = "device"
 
 /**
+ * The `details` map key [AuthDeviceDescriptor.matchesCaller] reads and
+ * [com.example.dpop.auth_device.internal.EnrollDeviceToolHandler] writes - private to this
+ * module, never referenced by tool_spi or the orchestrator (see [ToolDescriptor.matchesCaller]).
+ */
+internal const val DEVICE_BINDING_KEY_REF = "deviceBindingKeyRef"
+
+/**
  * Self-description for every auth_device tool (docs/03-tool-architektur.md #1), one bean per
  * toolId, kept in a single file since none of them carry state or dependencies - Kotlin
  * `object` + `@Component` is recognized by Spring as a singleton bean without reflection
@@ -29,6 +36,15 @@ object AuthDeviceDescriptor : ToolDescriptor {
     // category, fully distinguishes DEVICE_AUTH from LOOKUP_AUTH - never an arbitrary descriptor
     // picked by method name alone (DefaultAuthPolicy.candidateTools).
     override val allowsMultipleInstances = true
+
+    /**
+     * Reads [DEVICE_BINDING_KEY_REF], the same key
+     * [com.example.dpop.auth_device.internal.EnrollDeviceToolHandler] writes into `auditDetails`.
+     * Generic multi-instance resolution (CandidateTools/DefaultAuthPolicy) calls this without
+     * ever knowing the key name itself.
+     */
+    override fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String): Boolean =
+        details?.get(DEVICE_BINDING_KEY_REF) == callerBindingKeyRef
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.example.dpop.auth_device.internal
 
+import com.example.dpop.auth_device.DEVICE_BINDING_KEY_REF
 import com.example.dpop.auth_device.EnrollDeviceDescriptor
 import com.example.dpop.tool_api.DevicePublicKey
 import com.example.dpop.tool_api.UserVerification
@@ -63,7 +64,7 @@ class EnrollDeviceToolHandler(
             amr = listOf(descriptor.method, userVerification.wireValue),
             achievedAcr = descriptor.maxAcr,
             factorTypes = factorTypesFor(userVerification),
-            auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint, "deviceBindingKeyRef" to deviceBindingKeyRef, "label" to label)
+            auditDetails = mapOf("thumbprint" to devicePublicKey.thumbprint, DEVICE_BINDING_KEY_REF to deviceBindingKeyRef, "label" to label)
         )
     }
 

@@ -50,7 +50,7 @@ internal object CandidateTools {
             .filter { it.role == MethodRole.DEVICE_AUTH && it.allowsMultipleInstances }
         val preferred = deviceAuthTools.firstOrNull { descriptor ->
             account.activeAuthenticationMethods.any {
-                it.method == descriptor.method && it.details?.get("deviceBindingKeyRef") == ctx.bindingKeyRef
+                it.method == descriptor.method && descriptor.matchesCaller(it.details, ctx.bindingKeyRef)
             }
         }?.toolId
         return preferred?.takeIf { it in ctx.availableTools }
@@ -76,8 +76,10 @@ internal object CandidateTools {
                         ?: return@mapNotNull null
                     // Same device-binding rule as ordinary candidate resolution: a non-extractable
                     // device key structurally cannot exist anywhere else than the device it was
-                    // enrolled on (docs/03-tool-architektur.md).
-                    if (descriptor.allowsMultipleInstances && method.details?.get("deviceBindingKeyRef") != ctx.bindingKeyRef) {
+                    // enrolled on (docs/03-tool-architektur.md). Delegated to the descriptor
+                    // itself (ToolDescriptor.matchesCaller) - this generic layer never reads a
+                    // concrete tool's own detail-map key.
+                    if (descriptor.allowsMultipleInstances && !descriptor.matchesCaller(method.details, ctx.bindingKeyRef)) {
                         return@mapNotNull null
                     }
                     descriptor.toolId

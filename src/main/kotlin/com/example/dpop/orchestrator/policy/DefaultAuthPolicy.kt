@@ -135,7 +135,9 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             // failure (docs/04-orchestrierung.md). Read straight off THIS already-resolved,
             // unambiguous AUTH descriptor - never re-looked-up by method name alone, which could
             // land on a different tool sharing the same method (docs/03-tool-architektur.md).
-            if (descriptor.allowsMultipleInstances && m.details?.get("deviceBindingKeyRef") != bindingKeyRef) {
+            // Delegated to the descriptor itself (ToolDescriptor.matchesCaller) - this generic
+            // policy layer never reads a concrete tool's own detail-map key.
+            if (descriptor.allowsMultipleInstances && !descriptor.matchesCaller(m.details, bindingKeyRef)) {
                 return@mapNotNull null
             }
 

@@ -48,6 +48,22 @@ interface ToolDescriptor {
      */
     val allowsMultipleInstances: Boolean
         get() = false
+
+    /**
+     * For an [allowsMultipleInstances] method: does the given active instance's `details` blob
+     * belong to the caller identified by [callerBindingKeyRef]? Generic infrastructure that
+     * iterates every multi-instance credential uniformly (`orchestrator.journey.CandidateTools`,
+     * `orchestrator.policy.DefaultAuthPolicy`) calls this to pick "the" matching instance without
+     * knowing HOW a concrete tool tells its instances apart - only the tool itself knows that
+     * (`auth_device`'s own `"deviceBindingKeyRef"` detail key is private to that module, never
+     * referenced outside it). tool_spi stays generic over every method exactly as
+     * docs/03-tool-architektur.md #1 already requires for the rest of [ToolDescriptor]: "kein
+     * toolId ist hier je ausgeschrieben" applies just as much to a concrete detail-map key.
+     *
+     * Default `true`: irrelevant for a tool that isn't actually multi-instance
+     * ([allowsMultipleInstances] `false`), where callers never call this at all.
+     */
+    fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String): Boolean = true
 }
 
 /** Coarse grouping of a tool. See [MethodRole.category]. */
