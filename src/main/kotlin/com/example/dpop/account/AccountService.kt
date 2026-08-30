@@ -146,14 +146,14 @@ class AccountService(private val accountRepository: AccountRepository) : Account
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it) }
 
-    override fun activeDeviceEnrollment(accountId: Long, method: String, deviceBindingKeyRef: String): EnrollmentRef? =
+    override fun activeInstanceEnrollment(accountId: Long, method: String, matchesCaller: (Map<String, Any?>?) -> Boolean): EnrollmentRef? =
         findActiveMethods(accountId, method)
-            .firstOrNull { it.details?.get("deviceBindingKeyRef") == deviceBindingKeyRef }
+            .firstOrNull { matchesCaller(it.details) }
             ?.let { extractEnrollmentRef(it) }
 
     /** The inverse of [addAuthenticationMethod]'s `mergedDetails` write - reads the same shape back out. */
     private fun extractEnrollmentRef(method: AuthMethodView): EnrollmentRef? {
-        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null
+        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null 
         val type = raw["type"] as? String ?: return null
         val id = raw["id"] as? String ?: return null
         return EnrollmentRef(type, id)

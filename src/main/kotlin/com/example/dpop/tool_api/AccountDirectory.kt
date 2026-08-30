@@ -25,12 +25,18 @@ interface AccountDirectory {
     fun activeEnrollment(accountId: Long, method: String): EnrollmentRef?
 
     /**
-     * The account's active credential for [method] on the specific device identified by
-     * [deviceBindingKeyRef]. Use this instead of [activeEnrollment] for methods that can have
-     * multiple simultaneous active instances (e.g. `"device"`), where more than one instance may
-     * exist and only the one bound to the requesting device is a valid match.
+     * The account's active credential for [method] whose `details` blob satisfies [matchesCaller]
+     * - use this instead of [activeEnrollment] for methods that can have multiple simultaneous
+     * active instances (e.g. `"device"`), where more than one instance may exist and only one is
+     * a valid match for the calling device.
      *
-     * @return the enrollment reference, or `null` if no matching credential exists for this device.
+     * [matchesCaller] is supplied by the caller (typically `ToolDescriptor.matchesCaller` bound to
+     * its own binding key), not this port itself: `account` stores every method's `details` as an
+     * opaque blob and must stay generic over what "matches" means for a given method - it never
+     * hardcodes a concrete tool's own detail-map key (e.g. `"deviceBindingKeyRef"`, private to
+     * `auth_device`).
+     *
+     * @return the enrollment reference of the first active instance [matchesCaller] accepts, or `null`.
      */
-    fun activeDeviceEnrollment(accountId: Long, method: String, deviceBindingKeyRef: String): EnrollmentRef?
+    fun activeInstanceEnrollment(accountId: Long, method: String, matchesCaller: (Map<String, Any?>?) -> Boolean): EnrollmentRef?
 }
