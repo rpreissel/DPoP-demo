@@ -5,6 +5,12 @@ export interface JourneyDiagramSpec {
   branch?: { atIndex: number; mainLabel: string; label: string; steps: string[] }
 }
 
+/** Which box represents where a REAL running journey currently is - `branch` picks `steps` vs. `branch.steps`. Absent for the static hover previews (there's no live instance to point at). */
+export interface JourneyDiagramCurrentStep {
+  branch?: boolean
+  index: number
+}
+
 const BOX_HEIGHT = 60
 const ROW_GAP = 40
 const CHAR_WIDTH = 10.2
@@ -32,9 +38,11 @@ function edgeGap(label?: string): number {
  * Ja/Nein. Deliberately only ONE branch, not a full state-machine graph: this is what a first
  * glance needs (docs/04-orchestrierung.md has the real, complete rules).
  */
-export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
+export function JourneyDiagram({ title, steps, branch, current }: JourneyDiagramSpec & { current?: JourneyDiagramCurrentStep }) {
   const markerId = `arrow-${title.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`
-  const row1Y = MARGIN
+  // Reserve room for the "● aktuell" label drawn above a highlighted box on the main row - it
+  // would otherwise sit outside the viewBox, since row1 normally starts right at the top margin.
+  const row1Y = current && !current.branch ? MARGIN + 18 : MARGIN
   const row1CenterY = row1Y + BOX_HEIGHT / 2
 
   let x = MARGIN
@@ -69,9 +77,11 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
 
   const totalWidth = Math.max(row1Width, branchWidth + MARGIN)
   const totalHeight = branch ? row2Y + BOX_HEIGHT + MARGIN : row1Y + BOX_HEIGHT + MARGIN
-  const label = branch
-    ? `${title}: ${steps.join(' -> ')}, bei "${branch.label}": ${branch.steps.join(' -> ')}`
-    : `${title}: ${steps.join(' -> ')}`
+  const currentStepName = current && (current.branch ? branch?.steps[current.index] : steps[current.index])
+  const label =
+    (branch
+      ? `${title}: ${steps.join(' -> ')}, bei "${branch.label}": ${branch.steps.join(' -> ')}`
+      : `${title}: ${steps.join(' -> ')}`) + (currentStepName ? ` - aktueller Schritt: ${currentStepName}` : '')
 
   return (
     <figure className="journey-diagram">
@@ -85,16 +95,28 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
 
         {boxes.map((box, i) => {
           const isLast = i === boxes.length - 1
+          const isCurrent = !!current && !current.branch && current.index === i
           return (
             <g key={i}>
               {box.isDecision ? (
                 <polygon
                   points={`${box.x + box.width / 2},${row1Y} ${box.x + box.width},${row1CenterY} ${box.x + box.width / 2},${row1Y + BOX_HEIGHT} ${box.x},${row1CenterY}`}
                   fill="none"
-                  stroke="currentColor"
+                  stroke={isCurrent ? 'var(--accent)' : 'currentColor'}
+                  strokeWidth={isCurrent ? 3 : 1}
                 />
               ) : (
-                <rect x={box.x} y={row1Y} width={box.width} height={BOX_HEIGHT} rx={10} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
+                <rect
+                  x={box.x} y={row1Y} width={box.width} height={BOX_HEIGHT} rx={10}
+                  fill={isLast ? 'var(--accent)' : 'none'}
+                  stroke={isCurrent ? 'var(--accent)' : 'currentColor'}
+                  strokeWidth={isCurrent ? 3 : 1}
+                />
+              )}
+              {isCurrent && (
+                <text x={box.x + box.width / 2} y={row1Y - 10} textAnchor="middle" fontSize={EDGE_FONT_SIZE} fill="var(--accent)">
+                  ● aktuell
+                </text>
               )}
               <text x={box.x + box.width / 2} y={row1CenterY} textAnchor="middle" dominantBaseline="middle" fontSize={BOX_FONT_SIZE} fill={isLast ? '#fff' : 'currentColor'}>
                 {steps[i]}
@@ -121,9 +143,20 @@ export function JourneyDiagram({ title, steps, branch }: JourneyDiagramSpec) {
             </text>
             {branchBoxes.map((box, i) => {
               const isLast = i === branchBoxes.length - 1
+              const isCurrent = !!current && current.branch === true && current.index === i
               return (
                 <g key={i}>
-                  <rect x={box.x} y={row2Y} width={box.width} height={BOX_HEIGHT} rx={10} fill={isLast ? 'var(--accent)' : 'none'} stroke="currentColor" />
+                  <rect
+                    x={box.x} y={row2Y} width={box.width} height={BOX_HEIGHT} rx={10}
+                    fill={isLast ? 'var(--accent)' : 'none'}
+                    stroke={isCurrent ? 'var(--accent)' : 'currentColor'}
+                    strokeWidth={isCurrent ? 3 : 1}
+                  />
+                  {isCurrent && (
+                    <text x={box.x + box.width / 2} y={row2Y - 10} textAnchor="middle" fontSize={EDGE_FONT_SIZE} fill="var(--accent)">
+                      ● aktuell
+                    </text>
+                  )}
                   <text x={box.x + box.width / 2} y={row2CenterY} textAnchor="middle" dominantBaseline="middle" fontSize={BOX_FONT_SIZE} fill={isLast ? '#fff' : 'currentColor'}>
                     {branch.steps[i]}
                   </text>

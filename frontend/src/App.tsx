@@ -678,8 +678,7 @@ function App() {
                 channelSessionId={channelSessionId}
                 channelState={channelState}
                 journeys={demo?.journeys}
-                activeTool={activeTool ? { toolId: activeTool.toolId, step: next?.type === 'tool' ? next.step : undefined } : null}
-                stepData={stepData}
+                next={next}
                 journeyKind={journeyKind}
                 onClear={handleClearChannel}
               />

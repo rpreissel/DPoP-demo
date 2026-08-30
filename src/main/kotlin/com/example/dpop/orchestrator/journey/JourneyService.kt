@@ -141,19 +141,17 @@ class JourneyService(
             current = parent
         }
         val availableTools = availableToolsOf(channel)
-        // Only the innermost (actually active) journey's state ever resolves to a single
-        // activatable tool right now - a SUSPENDED parent is parked waiting on its sub-journey,
-        // not offering anything itself.
-        val innermostState = codec.read(innermost)
-        val innermostAutoPickNote = innermostState.activatable(availableTools).takeIf { it.size == 1 }
-            ?.let { DemoAutoPickNote.forSingleCandidate(innermostState) }
+        // Only the innermost (actually active) journey's state has a current step worth
+        // explaining - a SUSPENDED parent is parked waiting on its sub-journey, not offering
+        // anything itself.
+        val innermostNote = DemoStepReason.explain(codec.read(innermost), availableTools)
         return chain.reversed().map {
             JourneyDebugStep(
                 journeyId = it.journeyId.toString(),
                 intent = it.intent!!.name,
                 lifecycle = it.lifecycle.name,
                 stateType = it.stateType!!,
-                autoPickNote = if (it == innermost) innermostAutoPickNote else null
+                note = if (it == innermost) innermostNote else null
             )
         }
     }

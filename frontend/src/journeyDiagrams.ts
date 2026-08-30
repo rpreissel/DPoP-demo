@@ -1,4 +1,4 @@
-import type { JourneyDiagramSpec } from './components/JourneyDiagram'
+import type { JourneyDiagramCurrentStep, JourneyDiagramSpec } from './components/JourneyDiagram'
 
 /**
  * The representative shape of each entry journey, shared between the start-screen hover previews
@@ -94,5 +94,52 @@ export const JOURNEY_DIAGRAMS: Record<
       label: 'Nein',
       steps: ['Step-up (Faktor bestätigen)', 'Gelöscht'],
     },
+  },
+}
+
+/**
+ * Which diagram box a REAL running journey's `stateType` (JourneyDebugStep.stateType) currently
+ * corresponds to - hand-matched against the SHAPE above, not the real state machine, so a few
+ * distinct real states legitimately point at the same box (e.g. AddRequested/RemoveRequested in
+ * manageMethods both mean "at the loa2 decision"). Intents/states with no entry here (Finished,
+ * or anything not reachable at all) simply get no highlight - the diagram still renders, just
+ * without pointing at a box.
+ */
+export const CURRENT_STEP_BY_STATE_TYPE: Partial<Record<keyof typeof JOURNEY_DIAGRAMS, Record<string, JourneyDiagramCurrentStep>>> = {
+  auto: {
+    Start: { index: 0 },
+    PreferredAuth: { index: 1 },
+    AuthChoice: { index: 1 },
+    Identifying: { branch: true, index: 0 },
+    Enrolling: { branch: true, index: 1 },
+    ConfirmingEmail: { branch: true, index: 2 },
+  },
+  register: {
+    Identifying: { index: 0 },
+    Enrolling: { index: 1 },
+    ConfirmingEmail: { index: 2 },
+  },
+  login: {
+    Start: { index: 0 },
+    Credential: { index: 0 },
+    AdditionalFactor: { index: 0 },
+    OfferBinding: { index: 1 },
+  },
+  stepUp: {
+    Start: { index: 0 },
+    AuthChoice: { index: 1 },
+  },
+  manageMethods: {
+    AddRequested: { index: 0 },
+    RemoveRequested: { index: 0 },
+    Enrolling: { index: 1 },
+  },
+  deleteAccount: {
+    ConfirmPending: { index: 0 },
+    ConfirmationRequired: { index: 2 },
+  },
+  reIdentify: {
+    OfferReIdent: { index: 0 },
+    Identifying: { index: 1 },
   },
 }

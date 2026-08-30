@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
-import { JourneyDiagram, type JourneyDiagramSpec } from './JourneyDiagram'
+import { JourneyDiagram, type JourneyDiagramCurrentStep, type JourneyDiagramSpec } from './JourneyDiagram'
 
 interface DiagramHintProps {
   spec: JourneyDiagramSpec
   children: ReactNode
   /** For wrapping a small inline trigger (e.g. an ℹ️ icon) instead of a full-width block like a card button. */
   inline?: boolean
+  /** Highlights the box a REAL running instance is currently at - omitted for the static hover previews, which have no live instance to point at. */
+  current?: JourneyDiagramCurrentStep
 }
 
 /**
@@ -13,12 +15,12 @@ interface DiagramHintProps {
  * shape - the diagram itself stays out of the way until someone actually wants it, instead of
  * permanently occupying space next to content most visitors will only glance at once.
  */
-export function DiagramHint({ spec, children, inline }: DiagramHintProps) {
+export function DiagramHint({ spec, children, inline, current }: DiagramHintProps) {
   return (
     <span className={`diagram-hint${inline ? ' diagram-hint--inline' : ' diagram-hint--block'}`}>
       {children}
       <span className="diagram-hint-popover">
-        <JourneyDiagram {...spec} />
+        <JourneyDiagram {...spec} current={current} />
       </span>
     </span>
   )

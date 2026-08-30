@@ -10,7 +10,11 @@
 }
 
 .app {
-  max-width: 720px;
+  /* Fixed at 720px this used to leave enormous dead space on wide/ultrawide monitors either
+     side of a visually tiny column - scales with the viewport instead, capped so lines of text
+     and forms never get unreasonably wide on a huge screen either. */
+  width: 100%;
+  max-width: min(94vw, 960px);
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
   text-align: left;
@@ -526,8 +530,11 @@ pre {
 }
 
 .debug-sidebar {
-  flex: 0 0 420px;
-  width: 420px;
+  /* Same reasoning as .app: a fixed 420px reads as cramped (JSON needs to scroll for every line)
+     on a wide monitor even though nothing actually shrank - scale it with the viewport instead,
+     within a range that stays readable on a laptop and useful on an ultrawide. */
+  flex: 0 0 clamp(360px, 34vw, 920px);
+  width: clamp(360px, 34vw, 920px);
   min-height: 100vh;
   max-height: 100vh;
   overflow-y: auto;

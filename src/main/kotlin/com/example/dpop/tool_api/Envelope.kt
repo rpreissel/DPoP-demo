@@ -74,12 +74,13 @@ data class JourneyDebugStep(
     @field:Schema(example = "ConfirmPending")
     val stateType: String,
     @field:Schema(
-        description = "Demo-only: why this journey's current tool became the automatic choice " +
-            "(e.g. only one candidate was available) - null whenever a real choice was offered, " +
-            "never part of the production contract.",
+        description = "Demo-only: why this journey's current step looks the way it does - either " +
+            "why its tool became the automatic choice, or why a selection among several is being " +
+            "shown at all. Null whenever the step already explains itself (e.g. a Prompt), never " +
+            "part of the production contract.",
         example = "Gerät wiedererkannt - automatisch vorgeschlagen."
     )
-    val autoPickNote: String? = null
+    val note: String? = null
 )
 
 /**
