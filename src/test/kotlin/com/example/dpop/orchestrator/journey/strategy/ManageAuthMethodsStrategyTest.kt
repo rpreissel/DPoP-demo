@@ -92,6 +92,15 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         }
     }
 
+    given("AddRequested, resumed after the gate's own STEP_UP was declined (SubJourneyCancelled)") {
+        val acc = account(method("sms", "loa1"))
+        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+        then("gives up on the wish rather than re-requesting the identical STEP_UP again") {
+            strategy.next(ManageAuthMethodsState.AddRequested, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe
+                Decision.Cancel
+        }
+    }
+
     given("RemoveRequested, the session does not yet carry loa2") {
         val acc = account(method("sms", "loa1"))
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
@@ -110,6 +119,15 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         then("removes the method directly - the machine, not this strategy, rejects self-lockout") {
             strategy.next(state, JourneyEvent.Started, theCtx) shouldBe Decision.Remove("sms-instance")
+        }
+    }
+
+    given("RemoveRequested, resumed after the gate's own STEP_UP was declined (SubJourneyCancelled)") {
+        val acc = account(method("sms", "loa1"))
+        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+        val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
+        then("gives up on the wish rather than re-requesting the identical STEP_UP again") {
+            strategy.next(state, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe Decision.Cancel
         }
     }
 

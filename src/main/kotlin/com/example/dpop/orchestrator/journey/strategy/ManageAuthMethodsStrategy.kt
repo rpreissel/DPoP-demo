@@ -48,8 +48,15 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
 
     override fun next(state: ManageAuthMethodsState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is ManageAuthMethodsState.AddRequested -> gate(state, ctx) ?: offerEnrollment(ctx)
-            is ManageAuthMethodsState.RemoveRequested -> gate(state, ctx) ?: Decision.Remove(state.methodInstanceId)
+            // gate() re-requests the very same STEP_UP again if unsatisfied - correct on a fresh
+            // request or after a genuine (if insufficient) SubJourneyFinished, but on
+            // SubJourneyCancelled it would just re-show the identical step-up prompt forever
+            // instead of respecting the decline, so that case gives up on its own (Decision.Cancel)
+            // instead of calling gate() at all.
+            is ManageAuthMethodsState.AddRequested ->
+                if (event is JourneyEvent.SubJourneyCancelled) Decision.Cancel else gate(state, ctx) ?: offerEnrollment(ctx)
+            is ManageAuthMethodsState.RemoveRequested ->
+                if (event is JourneyEvent.SubJourneyCancelled) Decision.Cancel else gate(state, ctx) ?: Decision.Remove(state.methodInstanceId)
 
             is ManageAuthMethodsState.Enrolling -> when (event) {
                 // Backing out here means picking a different method, not abandoning the wish -

@@ -115,22 +115,27 @@ class DeleteAccountStrategyTest : BehaviorSpec({
         `when`("it was a STEP_UP that fell short of loa2") {
             val acc = account(method("sms", "loa2"))
             val theCtx = ctx(account = acc)
-            then("still falls back to demanding an explicit re-confirmation") {
+            then("does not delete and does not fall back to a lesser reconfirmation either - that would let a session stuck below loa2 delete via the very factor that couldn't reach it") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = "loa1")
-                val decision = strategy.next(DeleteAccountState.ConfirmPending, event, theCtx)
-                decision.shouldBeInstanceOf<Decision.Advance>()
-                (decision as Decision.Advance).to.shouldBeInstanceOf<DeleteAccountState.ConfirmationRequired>()
+                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
             }
         }
 
         `when`("it was a different sub-journey entirely - never assumed to be the gate's own") {
             val acc = account(method("sms", "loa2"))
             val theCtx = ctx(account = acc)
-            then("does not delete - falls back to demanding an explicit re-confirmation") {
+            then("does not delete") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa3")
-                val decision = strategy.next(DeleteAccountState.ConfirmPending, event, theCtx)
-                decision.shouldBeInstanceOf<Decision.Advance>()
-                (decision as Decision.Advance).to.shouldBeInstanceOf<DeleteAccountState.ConfirmationRequired>()
+                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
+            }
+        }
+
+        `when`("the gate's own STEP_UP was declined instead (SubJourneyCancelled)") {
+            val acc = account(method("sms", "loa2"))
+            val theCtx = ctx(account = acc)
+            then("does not delete - same as falling short, not a lesser fallback") {
+                val event = JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP)
+                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
             }
         }
     }

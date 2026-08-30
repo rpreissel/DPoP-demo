@@ -48,6 +48,11 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
                 // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
                 // already closes the gap before trying to offer auth methods again.
                 is JourneyEvent.SubJourneyFinished -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
+                // RE_IDENTIFY was declined instead - no new evidence, and re-deriving via
+                // offerAuth/offerReIdentOrGiveUp would just re-request the very same RE_IDENTIFY
+                // again (candidates unchanged), the identical confirm prompt forever - gives up on
+                // its own instead.
+                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 else -> offerAuth(state.targetAcr, state.startingAcr, ctx)
             }
 

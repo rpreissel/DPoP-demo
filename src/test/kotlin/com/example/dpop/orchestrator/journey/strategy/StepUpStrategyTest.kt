@@ -123,6 +123,17 @@ class StepUpStrategyTest : BehaviorSpec({
                 strategy.next(state, event, theCtx) shouldBe Decision.Advance(StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms")))
             }
         }
+
+        `when`("it was declined instead (SubJourneyCancelled)") {
+            val acc = account(method("sms", "loa2"))
+            val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList(), emptySet()))
+            val state = StepUpState.Start("loa2", "loa1")
+
+            then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
+                val event = JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY)
+                strategy.next(state, event, theCtx) shouldBe Decision.Cancel
+            }
+        }
     }
 
     given("AuthChoice with more than one offered candidate") {

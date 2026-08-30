@@ -55,6 +55,10 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
                 // already closes the gap before offering credentials again.
                 is JourneyEvent.SubJourneyFinished -> settleOrRaise(ctx)
+                // RE_IDENTIFY was declined instead - no new evidence, and settleOrRaise would just
+                // re-request the very same RE_IDENTIFY again (candidates unchanged), the identical
+                // confirm prompt forever - gives up on its own instead.
+                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 else -> {
                     // The offered set IS "every tool that can resolve the account itself" - derived
                     // from the catalog, never listed. AuthPolicy.candidateTools cannot be used: it

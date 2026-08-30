@@ -160,12 +160,16 @@ class JourneyService(
 
     /** User-initiated abandonment of the whole journey, distinct from an exhausted budget. */
     fun cancel(journey: AuthJourney, channel: ChannelSession) {
+        markCancelled(journey, channel)
+        fallBack(journey, channel)
+    }
+
+    private fun markCancelled(journey: AuthJourney, channel: ChannelSession) {
         journey.cancel()
         journeyRepository.save(journey)
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "JOURNEY_CANCELLED", "orchestrator"
         )
-        fallBack(journey, channel)
     }
 
     // Routing -----------------------------------------------------------------
@@ -324,6 +328,22 @@ class JourneyService(
             }
 
             is Decision.DeleteAccount -> {
+                // Independent re-check against DELETE_ACCOUNT_REQUIRED_ACR - a fixed constant in
+                // this same generic package, not anything carried by `decision` itself (see
+                // Decision.DeleteAccount's own doc: a value handed in by the very decision being
+                // checked would be the strategy grading its own homework) and not a reference to
+                // DeleteAccountStrategy directly (JourneyService stays generic over every
+                // IntentStrategy, never coupled to one concrete implementation). Also re-derives
+                // ctx fresh rather than reusing the one `decision` came from, so this cannot be
+                // quietly satisfied by stale evidence either. A strategy bug that reaches
+                // Decision.DeleteAccount without actually having proven that level (exactly what
+                // happened here today, via a fallback that accepted any level) fails loudly
+                // instead of silently deleting.
+                val freshCtx = contextFor(journey, channel)
+                val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
+                check(authPolicy.isSatisfied(freshCtx.evidence, DELETE_ACCOUNT_REQUIRED_ACR, account)) {
+                    "${journey.intent} decided Decision.DeleteAccount without satisfying $DELETE_ACCOUNT_REQUIRED_ACR"
+                }
                 journey.consume()
                 journeyRepository.save(journey)
                 // Deletes/logs out every ChannelSession this account was ever bound to (docs/05-api.md,
@@ -339,11 +359,30 @@ class JourneyService(
                 Step(next = null)
             }
 
-            // Giving up on the last thing this journey could offer is the same outcome as an
-            // explicit DELETE .../journey: the channel starts its own entry intent afresh.
             is Decision.Cancel -> {
-                cancel(journey, channel)
-                startEntryJourney(channel)
+                val parent = journey.parentJourneyId?.let { journeyRepository.findByIdOrNull(it) }
+                if (parent != null && parent.lifecycle == JourneyLifecycle.SUSPENDED) {
+                    // The sub-journey gave up (e.g. a declined RE_IDENTIFY under STEP_UP) - its
+                    // parent was only PARKED waiting on it, same handoff as a successful finish()
+                    // (JourneyEvent.SubJourneyFinished/SubJourneyCancelled lets the parent decide
+                    // for itself instead of guessing). Without this the parent stayed SUSPENDED
+                    // forever, orphaned, while startEntryJourney below started a brand new
+                    // top-level journey underneath it - e.g. a fresh LOOKUP_LOGIN on a channel that
+                    // was already AUTHENTICATED.
+                    markCancelled(journey, channel)
+                    parent.lifecycle = JourneyLifecycle.STARTED
+                    journeyRepository.save(parent)
+                    advance(parent, channel, JourneyEvent.SubJourneyCancelled(journey.intent!!))
+                } else {
+                    // Giving up on the last thing this TOP-LEVEL journey could offer is the same
+                    // outcome as an explicit DELETE .../journey: the channel starts its own entry
+                    // intent afresh - UNLESS this journey's own onCancel (via fallBack) already
+                    // landed the channel back on AUTHENTICATED (e.g. a direct step-up simply
+                    // declined), in which case there is nothing to restart, same guard
+                    // ChannelService.cancelActiveJourney applies for the equivalent explicit case.
+                    cancel(journey, channel)
+                    if (channel.state == ChannelState.AUTHENTICATED) Step(Next.AUTHENTICATED) else startEntryJourney(channel)
+                }
             }
 
             is Decision.Abort -> {

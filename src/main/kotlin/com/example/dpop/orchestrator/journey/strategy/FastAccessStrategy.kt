@@ -56,6 +56,11 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
                 // already closes the gap before trying to offer auth/enrollment again.
                 is JourneyEvent.SubJourneyFinished -> afterProof(ctx)
+                // RE_IDENTIFY was declined instead - no new evidence, and afterProof ->
+                // offerEnrollment would just re-request the very same RE_IDENTIFY again
+                // (candidates unchanged), the identical confirm prompt forever - gives up on its
+                // own instead.
+                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 else -> firstOffer(ctx)
             }
             is FastAccessState.PreferredAuth -> when (event) {

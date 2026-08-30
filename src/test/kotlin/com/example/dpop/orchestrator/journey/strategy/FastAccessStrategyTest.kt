@@ -96,6 +96,13 @@ class FastAccessStrategyTest : BehaviorSpec({
         }
     }
 
+    given("Start, declined instead (SubJourneyCancelled)") {
+        then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
+            val event = JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY)
+            strategy.next(FastAccessState.Start, event, ctx()) shouldBe Decision.Cancel
+        }
+    }
+
     given("PreferredAuth, declined") {
         val acc = account(method("device", "loa2", details = deviceDetails()), method("sms", "loa2"))
         then("falls back to the account's other methods") {

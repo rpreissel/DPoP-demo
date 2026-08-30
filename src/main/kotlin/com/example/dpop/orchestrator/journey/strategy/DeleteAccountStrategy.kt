@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.journey.strategy
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
+import com.example.dpop.orchestrator.journey.DELETE_ACCOUNT_REQUIRED_ACR
 import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.Interpretation
 import com.example.dpop.orchestrator.journey.JourneyContext
@@ -60,12 +61,24 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // is the sole RequireSubJourney site here, and only from the "accept" branch), but
                 // checked explicitly rather than assumed: a future second sub-journey type, or one
                 // that stopped short of loa2, must not be silently mistaken for sufficient proof.
+                //
+                // Falling short (or a foreign sub-journey entirely) must NOT fall back to
+                // offerReconfirmation() - that fallback accepts ANY active factor "at any level"
+                // (CandidateTools.forReconfirmation), which exists only for the OTHER case in this
+                // class's doc (the session already independently satisfies loa2, one more fresh
+                // proof is just an anti-CSRF check). Reusing it here would let a session that can
+                // only ever prove loa1 factors - exactly why the step-up needed RE_IDENTIFY in the
+                // first place - delete the account anyway by just re-proving that same loa1 factor,
+                // defeating the loa2 gate this class's own doc says must hold.
                 is JourneyEvent.SubJourneyFinished ->
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(REQUIRED_ACR)) {
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(DELETE_ACCOUNT_REQUIRED_ACR)) {
                         Decision.DeleteAccount(ctx.requireAccount().accountId)
                     } else {
-                        offerReconfirmation(ctx)
+                        Decision.Cancel
                     }
+                // The gate's own STEP_UP was declined instead - same reasoning as above, not a
+                // lesser fallback.
+                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 // Started: always present the prompt, unconditionally.
                 else -> Decision.Advance(state)
             }
@@ -87,8 +100,8 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
     /** Null once the session already carries loa2 and the caller may proceed. */
     private fun gate(ctx: JourneyContext): Decision? {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, REQUIRED_ACR, account)) return null
-        return Decision.RequireSubJourney(AuthIntent.STEP_UP, REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
+        if (ctx.policy.isSatisfied(ctx.evidence, DELETE_ACCOUNT_REQUIRED_ACR, account)) return null
+        return Decision.RequireSubJourney(AuthIntent.STEP_UP, DELETE_ACCOUNT_REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
     }
 
     private fun offerReconfirmation(ctx: JourneyContext): Decision {
@@ -101,9 +114,5 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
         } else {
             Decision.Advance(DeleteAccountState.ConfirmationRequired(candidates))
         }
-    }
-
-    companion object {
-        const val REQUIRED_ACR = "loa2"
     }
 }

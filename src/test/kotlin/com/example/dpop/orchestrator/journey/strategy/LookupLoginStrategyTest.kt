@@ -90,6 +90,13 @@ class LookupLoginStrategyTest : BehaviorSpec({
                 strategy.next(LookupLoginState.Start, event, theCtx) shouldBe Decision.Advance(LookupLoginState.OfferBinding(acc.accountId))
             }
         }
+
+        `when`("it was declined instead (SubJourneyCancelled)") {
+            then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
+                val event = JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY)
+                strategy.next(LookupLoginState.Start, event, ctx()) shouldBe Decision.Cancel
+            }
+        }
     }
 
     given("Credential, more than one offered candidate") {

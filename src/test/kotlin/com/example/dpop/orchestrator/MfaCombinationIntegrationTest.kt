@@ -38,13 +38,18 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 val offered = post("/orchestrator/api/v1/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
                 offered.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
 
-                // Declining just gives up on the step-up (Decision.Cancel) - the channel's entry
-                // intent (FAST_ACCESS) restarts fresh from there. Its only active method (sms) is
-                // already used this session, so - same generic fallback chain any FAST_ACCESS run
-                // takes - it falls through to offering identification again, same as a first-time
-                // visitor; unrelated to the new re-identification feature itself.
+                // Declining RE_IDENTIFY (Decision.Cancel) only gives up on THAT sub-journey - its
+                // parent (this STEP_UP) was merely SUSPENDED waiting for it, not gone, so it
+                // resumes (JourneyService: SUSPENDED-parent handoff, symmetric to a successful
+                // finish()) via JourneyEvent.SubJourneyCancelled. StepUpState.Start reacts to that
+                // event itself and gives up (Decision.Cancel) instead of blindly re-deriving from
+                // unchanged evidence, which would just re-offer the identical confirm prompt
+                // forever - so the channel correctly falls back to AUTHENTICATED
+                // (StepUpStrategy.onCancel) rather than either looping or discarding the still-valid
+                // session underneath this step-up into a fresh FAST_ACCESS identification flow.
                 val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
-                declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
+                declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
+                declined.channel()["state"] shouldBe "AUTHENTICATED"
 
 
                 }

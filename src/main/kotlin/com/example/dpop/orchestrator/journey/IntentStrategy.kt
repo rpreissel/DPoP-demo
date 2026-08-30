@@ -96,8 +96,23 @@ sealed interface JourneyEvent {
      * construction ("only one caller today"), because a future second [Decision.RequireSubJourney]
      * from the same state would then silently be mistaken for the first. `DeleteAccountStrategy`'s
      * `ConfirmPending` branch is the one consumer that actually checks it.
+     *
+     * A genuine finish only - see [SubJourneyCancelled] for the sub-journey being abandoned
+     * instead. Kept as two distinct types rather than one plus a boolean: a resumed `Start`-like
+     * state that blindly re-derives its own next step from [achievedAcr]/evidence alone, without
+     * even looking at which of the two happened, would silently re-request the very same
+     * sub-journey it was just declined - the identical confirm prompt forever. Two `when` arms the
+     * compiler can force every consumer to cover beats a flag a consumer can simply forget to read.
      */
     data class SubJourneyFinished(val intent: AuthIntent, val achievedAcr: String?) : JourneyEvent
+
+    /**
+     * The sub-journey was abandoned - RE_IDENTIFY's offer declined, or every tool it offered
+     * abandoned - without achieving anything, so no [achievedAcr] to report (there is nothing new
+     * to re-check the caller's target against). [intent] names WHICH one, same reasoning as
+     * [SubJourneyFinished.intent].
+     */
+    data class SubJourneyCancelled(val intent: AuthIntent) : JourneyEvent
 
     /**
      * An explicit answer to whatever an [AnswerableState] is waiting on, instead of a tool run -
@@ -151,13 +166,34 @@ sealed interface Decision {
     /**
      * Delete the account and everything it owns, then end the channel like a logout - the effect
      * DELETE_ACCOUNT asks for once any factor was freshly re-proven. Like [Remove]/
-     * [FinishWithDeviceLink], a non-tool effect the strategy decides and the machine executes.
+     * [FinishWithDeviceLink], a non-tool effect the strategy decides and the machine executes -
+     * but unlike those two, an irreversible one, so [JourneyService] does not just trust that the
+     * strategy's own state machine reached this decision correctly: it independently re-checks
+     * [DELETE_ACCOUNT_REQUIRED_ACR] against the CURRENT [JourneyContext.evidence] right before
+     * executing it, exactly like [JourneyService.removeMethod] independently re-checks
+     * self-lockout before [Remove]. Deliberately carries no `requiredAcr` of its own: a value
+     * handed in BY the decision that produced it is the strategy grading its own homework - a
+     * buggy strategy could smuggle in too-low a bar and the "independent" check would
+     * rubber-stamp it. JourneyService checks against the fixed constant below instead.
      */
     data class DeleteAccount(val accountId: Long) : Decision
 
     /** No way forward at all. Ends the journey with 410 - never a mere "no candidates left". */
     data class Abort(val reason: String) : Decision
 }
+
+/**
+ * The ACR account deletion demands before JourneyService will actually execute
+ * [Decision.DeleteAccount] - lives here, in the generic journey package, rather than inside
+ * `DeleteAccountStrategy` (`journey.strategy`), specifically so JourneyService's independent
+ * re-check can reference it without importing a concrete [IntentStrategy] implementation: the
+ * machine is deliberately generic over every intent (`strategiesByIntent: Map<AuthIntent,
+ * IntentStrategy<*>>`), and depending on one specific strategy class by name would break that.
+ * `DeleteAccountStrategy` itself imports this same constant for its own gate, so there is still
+ * exactly one source of truth - the dependency just runs in the correct direction, generic layer
+ * to strategy, never the reverse.
+ */
+const val DELETE_ACCOUNT_REQUIRED_ACR = "loa2"
 
 /**
  * The meaning of a completed tool, as a value. The mechanical parts (which enrollment ref, which
