@@ -28,6 +28,8 @@ Nicht Teil dieser Dokumentation:
 | [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
+| [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md) | Die Kernideen visuell, ohne API-Detail | Schneller Einstieg für App-Frontend-Entwickler |
+| [pitches/backend-konzepte.md](pitches/backend-konzepte.md) | Zusammenspiel von Tool und Orchestrator an einem Schritt | Schneller Einstieg für Backend-Entwickler |
 
 ### Lesepfade je Zielgruppe
 
@@ -43,11 +45,13 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
   [01](01-ueberblick.md) -> [02](02-domaenenmodell.md) -> [03](03-tool-architektur.md) ->
   [04](04-orchestrierung.md) -> [06](06-ablaeufe.md) -> [09](09-dpop.md) ->
   [07](07-betrieb.md) -> [08](08-projektrahmen.md), [12](12-entscheidungen.md) bei Bedarf für das
-  Warum einer bestehenden Entscheidung. Überspringen: 10 (reines Frontend-Kapitel).
+  Warum einer bestehenden Entscheidung. Überspringen: 10 (reines Frontend-Kapitel). Für einen
+  schnellen visuellen Einstieg vorab: [pitches/backend-konzepte.md](pitches/backend-konzepte.md).
 - **App-Frontend-Entwickler** — hauptsächlich die APIs, kein Domänenmodell-Detail:
   [01](01-ueberblick.md) -> [05](05-api.md) -> [10](10-frontend.md). Bei Bedarf ergänzend
   [README.md](README.md#begriffe) für die Session-Begriffe, die 05 voraussetzt. Überspringen: 02,
-  03, 04, 06, 07, 09 — das sind Backend-interne Konzepte, die die API bereits gekapselt hat.
+  03, 04, 06, 07, 09 — das sind Backend-interne Konzepte, die die API bereits gekapselt hat. Für
+  einen schnellen visuellen Einstieg vorab: [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md).
 
 ---
 
