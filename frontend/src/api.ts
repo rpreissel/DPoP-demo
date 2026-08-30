@@ -219,7 +219,7 @@ export function setToolAvailability(toolId: string, enabled: boolean, reason?: s
  */
 export function describeError(prefix: string, err: unknown): string {
   if (err instanceof ApiError) {
-    const hint = err.status === 410 ? ' Bitte "Kanal leeren" klicken, um neu zu starten.' : ''
+    const hint = err.status === 410 ? ' Bitte in der Struktur bei Channel auf "Vergessen" klicken, um neu zu starten.' : ''
     return `${prefix}: ${err.message}${hint}`
   }
   return `${prefix}: ${err instanceof Error ? err.message : String(err)}`

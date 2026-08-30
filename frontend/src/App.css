@@ -63,6 +63,24 @@
   border-bottom-color: var(--accent);
 }
 
+.journey-context {
+  margin: 1.5rem 0 0;
+  padding: 0.6rem 0.75rem 0.6rem 1rem;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.journey-context strong {
+  color: var(--accent);
+}
+
 .card {
   margin-top: 1.5rem;
   padding: 1.5rem;
@@ -76,6 +94,15 @@
   margin: 0 0 1rem;
   font-size: 1.25rem;
   color: var(--text-h);
+}
+
+.structure-card .debug-sidebar-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.structure-card .nesting-diagram {
+  margin-top: 1.5rem;
 }
 
 .card h3,
@@ -402,7 +429,15 @@ button.destructive,
 button.method-choice {
   width: 100%;
   display: flex;
-  align-items: center;
+  /* center would align the icon against the WHOLE text block, so a row with a two-line hint
+     shifts its icon relative to a row with a one-line hint - flex-start keeps every icon level
+     with its own label instead, regardless of how many lines the hint below it wraps to. */
+  align-items: flex-start;
+  /* The global `button{justify-content:center}` base rule (sized for a short centered label like
+     "Code bestätigen") otherwise centers the icon+text group as a whole - since that group's
+     width varies with how many lines each row's hint wraps to, every icon ended up at a
+     different x position. flex-start pins the whole group to the left edge, consistently. */
+  justify-content: flex-start;
   gap: 0.9rem;
   padding: 0.9rem 1.1rem;
   border: 1px solid var(--border);
@@ -532,9 +567,12 @@ pre {
 .debug-sidebar {
   /* Same reasoning as .app: a fixed 420px reads as cramped (JSON needs to scroll for every line)
      on a wide monitor even though nothing actually shrank - scale it with the viewport instead,
-     within a range that stays readable on a laptop and useful on an ultrawide. */
-  flex: 0 0 clamp(360px, 34vw, 920px);
-  width: clamp(360px, 34vw, 920px);
+     within a range that stays readable on a laptop and useful on an ultrawide. The 300px floor
+     still squeezed the actual demo column on ~1024px-wide laptop screens (960px side-by-side
+     breakpoint didn't kick in yet) - lowered from 360px/34vw so smaller-but-not-mobile screens
+     don't lose most of their width to a JSON panel. */
+  flex: 0 0 clamp(300px, 28vw, 820px);
+  width: clamp(300px, 28vw, 820px);
   min-height: 100vh;
   max-height: 100vh;
   overflow-y: auto;
@@ -733,7 +771,7 @@ button.small,
   text-transform: capitalize;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1080px) {
   .app-shell {
     flex-direction: column;
   }
@@ -745,5 +783,11 @@ button.small,
     position: static;
     border-left: none;
     border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 600px) {
+  .debug-sidebar {
+    max-height: 40vh;
   }
 }

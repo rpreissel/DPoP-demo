@@ -103,7 +103,7 @@ export function AuthenticationCompletedView({
           <p>Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.</p>
           <div className="form-actions">
             <button className="secondary" onClick={() => onStepUp('loa2')}>
-              Auf loa2 anheben
+              Sicherheitsniveau jetzt erhöhen
             </button>
           </div>
         </>

@@ -38,10 +38,9 @@ function withoutDemo(value: unknown): unknown {
  * Docked to the right edge, full viewport height, visible by default - a demo app's whole point is
  * showing what's happening under the hood at every step. Collapsible (App.tsx's `debugOpen`) so a
  * first-time visitor isn't confronted with raw JSON as the first thing taking up half the screen;
- * the explanatory intro line says what this panel even is before showing any of it. Identity (JWK
- * thumbprint) already has its own card in the main view, so it isn't duplicated here. Request
- * headers (incl. the DPoP proof) are omitted from the log - noisy and not relevant to following the
- * demo; URL, method and body are what matters.
+ * the explanatory intro line says what this panel even is before showing any of it. Device identity
+ * (JWK thumbprint, "Neu erzeugen") lives in Struktur Einblicke now, alongside Channel/Journey/Tool -
+ * it's identity/structure, not a request, so it doesn't belong in this request-log panel.
  *
  * `demo` (accountId/personId/journeys/tan/password/email) is hidden by default - it's the one part
  * of these payloads that isn't really "what the backend just did", only a demo-only convenience
@@ -53,8 +52,8 @@ export function DebugSidebar({ channel, log, open, onToggle }: DebugSidebarProps
   return (
     <aside className={`debug-sidebar${open ? '' : ' collapsed'}`}>
       <div className="debug-sidebar-header">
-        <h2>Technischer Einblick</h2>
-        <button className="icon-button" onClick={onToggle} aria-label={open ? 'Technischen Einblick einklappen' : 'Technischen Einblick ausklappen'}>
+        <h2>Request Einblicke</h2>
+        <button className="icon-button" onClick={onToggle} aria-label={open ? 'Request Einblicke einklappen' : 'Request Einblicke ausklappen'}>
           {open ? '»' : '«'}
         </button>
       </div>

@@ -1,4 +1,5 @@
 import type { JourneyDiagramCurrentStep, JourneyDiagramSpec } from './components/JourneyDiagram'
+import type { JourneyDebugStep } from './types'
 
 /**
  * The representative shape of each entry journey, shared between the start-screen hover previews
@@ -142,4 +143,42 @@ export const CURRENT_STEP_BY_STATE_TYPE: Partial<Record<keyof typeof JOURNEY_DIA
     OfferReIdent: { index: 0 },
     Identifying: { index: 1 },
   },
+}
+
+/** JourneyDebugStep.intent (AuthIntent name) -> JOURNEY_DIAGRAMS key, for SubJourneys where there's no entry-choice `journeyKind` to go by. */
+export const INTENT_DIAGRAM_KEY: Record<string, keyof typeof JOURNEY_DIAGRAMS> = {
+  FAST_ACCESS: 'auto',
+  REGISTER: 'register',
+  LOOKUP_LOGIN: 'login',
+  STEP_UP: 'stepUp',
+  MANAGE_AUTH_METHODS: 'manageMethods',
+  DELETE_ACCOUNT: 'deleteAccount',
+  RE_IDENTIFY: 'reIdentify',
+}
+
+/**
+ * Which JOURNEY_DIAGRAMS entry describes what's running right now, from the innermost (actually
+ * active) journey in the chain - `journeyKind` (the user's own entry choice) only applies to that
+ * outermost/only level; a SubJourney started later (step-up, manage-methods, ...) has its own
+ * intent and overrides it. Used for both JourneyStructureView's per-level hints and App.tsx's
+ * "what am I doing right now" context line, so both agree on the same label.
+ */
+export function currentJourneyDiagramKey(
+  journeys: JourneyDebugStep[] | undefined,
+  journeyKind: 'auto' | 'register' | 'login' | undefined,
+): keyof typeof JOURNEY_DIAGRAMS | undefined {
+  if (!journeys || journeys.length === 0) return undefined
+  const index = journeys.length - 1
+  const innermost = journeys[index]
+  return index === 0 ? (journeyKind ?? INTENT_DIAGRAM_KEY[innermost.intent]) : INTENT_DIAGRAM_KEY[innermost.intent]
+}
+
+/**
+ * User-facing text for App.tsx's context banner - JOURNEY_DIAGRAMS.title is written for the
+ * diagram popover (a dev-facing caption, e.g. reIdentify's names the internal ReIdentifyState
+ * class) and isn't fit to surface as-is; only reIdentify actually needs a different phrasing here.
+ */
+export function journeyContextLabel(key: keyof typeof JOURNEY_DIAGRAMS): string {
+  if (key === 'reIdentify') return 'Identität erneut bestätigen'
+  return JOURNEY_DIAGRAMS[key].title
 }

@@ -32,7 +32,7 @@ import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
 import { UnavailableTools } from './components/UnavailableTools'
 import { DiagramHint } from './components/DiagramHint'
-import { JOURNEY_DIAGRAMS } from './journeyDiagrams'
+import { CURRENT_STEP_BY_STATE_TYPE, currentJourneyDiagramKey, journeyContextLabel, JOURNEY_DIAGRAMS } from './journeyDiagrams'
 
 interface ActiveTool {
   toolSessionId: string
@@ -95,7 +95,7 @@ function App() {
     storeAvailableTools(toolIds)
   }
   const [activeTab, setActiveTabState] = useState<Tab>(() => tabFromHash())
-  const [debugOpen, setDebugOpen] = useState(true)
+  const [debugOpen, setDebugOpen] = useState(false)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
   // Drives the "Sitzung fortsetzen" button's visibility on the "no channel" screen - kept in
@@ -447,6 +447,13 @@ function App() {
   // select-method - every other action (bail into a different flow, logout, ...) just competes
   // for attention with the one that matters: Abbrechen.
   const inToolMode = !!activeTool || uiComponent === 'select-method'
+  // What the running journey chain is actually FOR right now (its innermost/active entry) - shown
+  // as a one-line context banner once past the Startseite, so the current step doesn't stand there
+  // context-free (e.g. "Verfahren wählen" alone doesn't say for what). Undefined once nothing is
+  // running (e.g. idle AUTHENTICATED with no journey), same as journeys being empty - no banner then.
+  const journeyContextKey = currentJourneyDiagramKey(demo?.journeys, journeyKind)
+  // Same box the innermost journey's own hint highlights in JourneyStructureView (JourneyDebugStep.stateType) - the context banner's diagram popover marks it too, not just the shape.
+  const journeyContextCurrentStep = journeyContextKey ? CURRENT_STEP_BY_STATE_TYPE[journeyContextKey]?.[demo?.journeys?.at(-1)?.stateType ?? ''] : undefined
 
   // Everything a tool's own render() needs (src/tools/registry.ts) - assembled once here from
   // `next`/`activeTool`, each tool module then calls its own api.ts and reports back via
@@ -653,35 +660,31 @@ function App() {
 
           {activeTab === 'demo' && (
           <>
-          <div className="card">
-            <h2>Geräte-Identität</h2>
-            <ul className="status-list">
-              <li>
-                <span className="label">Geräte-Kennung</span>
-                <span className="value-with-action">
-                  <span className="value" title={jwkThumbprint}>
-                    {shorten(jwkThumbprint)}
-                  </span>
-                  <button className="secondary small" onClick={handleRecreateKey}>
-                    Neu erzeugen
-                  </button>
-                </span>
-              </li>
-            </ul>
-          </div>
-
           <UnavailableTools availableTools={availableTools} />
 
           {channelSessionId ? (
             <>
-              <JourneyStructureView
-                channelSessionId={channelSessionId}
-                channelState={channelState}
-                journeys={demo?.journeys}
-                next={next}
-                journeyKind={journeyKind}
-                onClear={handleClearChannel}
-              />
+              {(journeyContextKey || channelState !== 'AUTHENTICATED') && (
+                <div className="journey-context">
+                  <span>
+                    {journeyContextKey && (
+                      <>
+                        Aktueller Vorgang: <strong>{journeyContextLabel(journeyContextKey)}</strong>
+                        <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline>
+                          <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf dieses Vorgangs als Diagramm anzeigen">
+                            ℹ️
+                          </span>
+                        </DiagramHint>
+                      </>
+                    )}
+                  </span>
+                  {channelState !== 'AUTHENTICATED' && (
+                    <button className="secondary small" onClick={handleClearChannel} title="Verlässt den Vorgang ganz und geht zurück zur Startauswahl.">
+                      Zur Startseite
+                    </button>
+                  )}
+                </div>
+              )}
               {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
               <div className="controls sticky-actions">
                 {inToolMode && activeTool && alternativesCount > 0 && (
@@ -689,19 +692,9 @@ function App() {
                     Anderes Verfahren
                   </button>
                 )}
-                {canCancel && (
-                  <button className="secondary" onClick={handleCancel} title="Startet diesen Vorgang von vorne, mit demselben Ziel (z. B. erneut identifizieren).">
-                    Vorgang neu starten
-                  </button>
-                )}
-                {channelState !== 'AUTHENTICATED' && (
-                  <button className="secondary" onClick={handleClearChannel} title="Verlässt den Vorgang ganz und geht zurück zur Startauswahl.">
-                    Zur Startseite
-                  </button>
-                )}
                 {!inToolMode && channelState === 'AUTHENTICATED' && (
-                  <button className="secondary" onClick={handleLogout}>
-                    Logout
+                  <button className="secondary" onClick={handleLogout} title="Beendet den Channel serverseitig - eine neue Sitzung braucht danach einen frischen Login.">
+                    Abmelden
                   </button>
                 )}
               </div>
@@ -809,6 +802,20 @@ function App() {
               onStepUp={handleStepUp}
               manageError={error || undefined}
               infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}
+            />
+          )}
+
+          {channelSessionId && (
+            <JourneyStructureView
+              channelSessionId={channelSessionId}
+              channelState={channelState}
+              jwkThumbprint={jwkThumbprint}
+              onRecreateKey={handleRecreateKey}
+              journeys={demo?.journeys}
+              next={next}
+              journeyKind={journeyKind}
+              onClear={handleClearChannel}
+              onCancelJourney={canCancel ? handleCancel : undefined}
             />
           )}
           </>
