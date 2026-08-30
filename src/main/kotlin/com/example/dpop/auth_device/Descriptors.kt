@@ -15,6 +15,9 @@ internal const val DEVICE_METHOD = "device"
  */
 internal const val DEVICE_BINDING_KEY_REF = "deviceBindingKeyRef"
 
+/** The [com.example.dpop.tool_spi.EnrollmentRef.type] enroll-device writes and auth-device reads back - the one place it is spelled out. */
+internal const val DEVICE_ENROLLMENT_TYPE = "device_enrollment"
+
 /**
  * Self-description for every auth_device tool (docs/03-tool-architektur.md #1), one bean per
  * toolId, kept in a single file since none of them carry state or dependencies - Kotlin

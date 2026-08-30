@@ -1,6 +1,7 @@
 package com.example.dpop.auth_password.internal
 
 import com.example.dpop.auth_password.DEMO_PASSWORD
+import com.example.dpop.auth_password.PASSWORD_ENROLLMENT_TYPE
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
@@ -44,7 +45,7 @@ class EnrollPasswordToolHandler(
 
         val enrollment = enrollmentRepository.save(AuthPasswordEnrollment(passwordHash = PasswordHasher.hash(value)))
         return ToolOutcome.Completed.Enrolled(
-            enrollmentRef = EnrollmentRef(type = "auth_password_enrollment", id = enrollment.id.toString()),
+            enrollmentRef = EnrollmentRef(type = PASSWORD_ENROLLMENT_TYPE, id = enrollment.id.toString()),
             amr = listOf(descriptor.method),
             achievedAcr = descriptor.maxAcr,
             factorTypes = descriptor.factorTypes

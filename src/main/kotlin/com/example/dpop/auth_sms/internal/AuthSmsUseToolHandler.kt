@@ -1,6 +1,7 @@
 package com.example.dpop.auth_sms.internal
 
 import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
@@ -28,7 +29,7 @@ class AuthSmsUseToolHandler(
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
-        if (enrollmentRef.type != "auth_sms_enrollment") {
+        if (enrollmentRef.type != SMS_ENROLLMENT_TYPE) {
             throw UnresolvableReferenceException("Unerwarteter Enrollment-Typ: ${enrollmentRef.type}")
         }
         val enrollmentId = enrollmentRef.id.toLongOrNull()

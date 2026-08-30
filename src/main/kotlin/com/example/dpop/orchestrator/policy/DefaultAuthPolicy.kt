@@ -52,13 +52,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .maxByOrNull { AcrLevels.rank(it) }
             ?: "none"
         val distinctMethods = active.map { it.method }.distinct().size
-        val combinable = distinctMethods >= 2 && factorTypesUnion.size >= 2
         val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
-        val effectiveAcr = if (combinable) {
-            AcrLevels.max(bestAcr, AcrLevels.min(AcrLevels.bump(bestAcr), maxEnrolledUnderAcr))
-        } else {
-            bestAcr
-        }
+        val effectiveAcr = combinedAcr(bestAcr, distinctMethods, factorTypesUnion, maxEnrolledUnderAcr)
 
         val levelOk = AcrLevels.rank(effectiveAcr) >= AcrLevels.rank(requiredAcr)
         val mfaOk = !requiresMfa(requiredAcr) || factorTypesUnion.size >= 2
@@ -185,8 +180,6 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val authBase = authDescriptors.maxOfOrNull { AcrLevels.rank(it.maxAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
         val distinctAuthMethods = authDescriptors.map { it.method }.distinct().size
         val authFactorTypes = authDescriptors.flatMap { it.factorTypes }.toSet()
-        val combinable = distinctAuthMethods >= 2 && authFactorTypes.size >= 2
-        if (!combinable) return AcrLevels.max(base, authBase)
 
         val authMethodNames = authDescriptors.map { it.method }.toSet()
         val maxEnrolledUnderAcr = account?.authenticationMethods
@@ -194,8 +187,21 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             ?.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }
             ?.let { AcrLevels.levelAt(it) }
             ?: "none"
-        val bumpedAuthBase = AcrLevels.max(authBase, AcrLevels.min(AcrLevels.bump(authBase), maxEnrolledUnderAcr))
+        val bumpedAuthBase = combinedAcr(authBase, distinctAuthMethods, authFactorTypes, maxEnrolledUnderAcr)
         return AcrLevels.max(base, bumpedAuthBase)
+    }
+
+    /**
+     * The MFA-combination rule itself (see class doc): >=2 distinct methods covering >=2 distinct
+     * factor types earn one tier above [base] - capped by [maxEnrolledUnderAcr], the highest loa
+     * any of the combining methods was itself enrolled under - otherwise [base] unchanged. Shared
+     * by [canAccountReach] and [applyMfaBump], which used to each re-derive this same arithmetic
+     * independently (over different inputs: an account's full standing methods vs. one session's
+     * proven AUTH methods) - a future change to the rule itself now has exactly one place to make.
+     */
+    private fun combinedAcr(base: String, distinctMethods: Int, factorTypesUnion: Set<FactorType>, maxEnrolledUnderAcr: String): String {
+        if (distinctMethods < 2 || factorTypesUnion.size < 2) return base
+        return AcrLevels.max(base, AcrLevels.min(AcrLevels.bump(base), maxEnrolledUnderAcr))
     }
 
     private fun descriptorFor(method: String): ToolDescriptor? = toolRegistry.descriptors().firstOrNull { it.method == method }

@@ -1,5 +1,6 @@
 package com.example.dpop.auth_password.internal
 
+import com.example.dpop.auth_password.PASSWORD_ENROLLMENT_TYPE
 import com.example.dpop.auth_password.AuthPasswordUseDescriptor
 import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -29,7 +30,7 @@ class AuthPasswordUseToolHandler(
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
-        if (enrollmentRef.type != "auth_password_enrollment") {
+        if (enrollmentRef.type != PASSWORD_ENROLLMENT_TYPE) {
             throw UnresolvableReferenceException("Unerwarteter Enrollment-Typ: ${enrollmentRef.type}")
         }
         val enrollmentId = enrollmentRef.id.toLongOrNull()

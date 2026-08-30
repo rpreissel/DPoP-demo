@@ -1,6 +1,7 @@
 package com.example.dpop.auth_device.internal
 
 import com.example.dpop.auth_device.AuthDeviceDescriptor
+import com.example.dpop.auth_device.DEVICE_ENROLLMENT_TYPE
 import com.example.dpop.tool_api.DevicePublicKey
 import com.example.dpop.tool_api.UserVerification
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -33,7 +34,7 @@ class AuthDeviceToolHandler(
 
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
-        if (enrollmentRef.type != "device_enrollment") {
+        if (enrollmentRef.type != DEVICE_ENROLLMENT_TYPE) {
             throw UnresolvableReferenceException("Unerwarteter Enrollment-Typ: ${enrollmentRef.type}")
         }
         val enrollmentId = enrollmentRef.id.toLongOrNull()

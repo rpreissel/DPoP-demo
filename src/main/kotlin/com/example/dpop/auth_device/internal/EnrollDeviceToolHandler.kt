@@ -1,6 +1,7 @@
 package com.example.dpop.auth_device.internal
 
 import com.example.dpop.auth_device.DEVICE_BINDING_KEY_REF
+import com.example.dpop.auth_device.DEVICE_ENROLLMENT_TYPE
 import com.example.dpop.auth_device.EnrollDeviceDescriptor
 import com.example.dpop.tool_api.DevicePublicKey
 import com.example.dpop.tool_api.UserVerification
@@ -60,7 +61,7 @@ class EnrollDeviceToolHandler(
             )
 
         return ToolOutcome.Completed.Enrolled(
-            enrollmentRef = EnrollmentRef(type = "device_enrollment", id = enrollment.id.toString()),
+            enrollmentRef = EnrollmentRef(type = DEVICE_ENROLLMENT_TYPE, id = enrollment.id.toString()),
             amr = listOf(descriptor.method, userVerification.wireValue),
             achievedAcr = descriptor.maxAcr,
             factorTypes = factorTypesFor(userVerification),

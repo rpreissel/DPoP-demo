@@ -1,5 +1,6 @@
 package com.example.dpop.auth_password.internal
 
+import com.example.dpop.auth_password.PASSWORD_ENROLLMENT_TYPE
 import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
 import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.DEMO_EMAIL
@@ -57,7 +58,7 @@ class AuthPasswordLookupToolHandler(
         }
 
         val enrollment = enrollmentRef
-            ?.takeIf { it.type == "auth_password_enrollment" }
+            ?.takeIf { it.type == PASSWORD_ENROLLMENT_TYPE }
             ?.id?.toLongOrNull()
             ?.let { enrollmentRepository.findByIdOrNull(it) }
 

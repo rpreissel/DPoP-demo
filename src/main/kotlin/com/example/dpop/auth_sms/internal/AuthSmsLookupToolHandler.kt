@@ -1,6 +1,7 @@
 package com.example.dpop.auth_sms.internal
 
 import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
+import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
@@ -47,7 +48,7 @@ class AuthSmsLookupToolHandler(
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-sms-lookup tool session: $toolSessionId" }
 
         val enrollment = enrollmentRef
-            ?.takeIf { it.type == "auth_sms_enrollment" }
+            ?.takeIf { it.type == SMS_ENROLLMENT_TYPE }
             ?.id?.toLongOrNull()
             ?.let { enrollmentRepository.findByIdOrNull(it) }
 

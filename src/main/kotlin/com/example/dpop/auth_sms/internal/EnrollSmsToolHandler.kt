@@ -1,6 +1,7 @@
 package com.example.dpop.auth_sms.internal
 
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
+import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -44,7 +45,7 @@ class EnrollSmsToolHandler(
             }
             val enrollment = enrollmentRepository.save(AuthSmsEnrollment(data.phoneNumber))
             return ToolOutcome.Completed.Enrolled(
-                enrollmentRef = EnrollmentRef(type = "auth_sms_enrollment", id = enrollment.id.toString()),
+                enrollmentRef = EnrollmentRef(type = SMS_ENROLLMENT_TYPE, id = enrollment.id.toString()),
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,

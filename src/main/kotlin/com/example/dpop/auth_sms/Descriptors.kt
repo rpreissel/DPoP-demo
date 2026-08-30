@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component
 /** Shared by enroll-sms/auth-sms/auth-sms-lookup - the one place "sms" is spelled out. */
 internal const val SMS_METHOD = "sms"
 
+/** The [com.example.dpop.tool_spi.EnrollmentRef.type] enroll-sms writes and auth-sms/auth-sms-lookup read back - the one place it is spelled out. */
+internal const val SMS_ENROLLMENT_TYPE = "auth_sms_enrollment"
+
 /**
  * Self-description for every auth_sms tool (docs/03-tool-architektur.md #1), one bean per
  * toolId, kept in a single file since none of them carry state or dependencies - Kotlin
