@@ -525,6 +525,18 @@ function App() {
                     docs/ (Domänenmodell, Orchestrierung, API, DPoP, ...)
                   </a>
                 </li>
+                <li>
+                  <span className="label">Konzepte für Frontend-Entwickler</span>
+                  <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/pitches/frontend-konzepte.md" target="_blank" rel="noreferrer">
+                    docs/pitches/frontend-konzepte.md
+                  </a>
+                </li>
+                <li>
+                  <span className="label">Konzepte für Backend-Entwickler</span>
+                  <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/pitches/backend-konzepte.md" target="_blank" rel="noreferrer">
+                    docs/pitches/backend-konzepte.md
+                  </a>
+                </li>
               </ul>
             </div>
           )}
