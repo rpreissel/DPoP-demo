@@ -16,6 +16,7 @@ import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
+import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -48,7 +49,8 @@ class JourneyService(
     private val toolRegistry: ToolHandlerRegistry,
     private val authPolicy: AuthPolicy,
     private val toolAvailabilityService: ToolAvailabilityService,
-    private val accountDeletionService: AccountDeletionService
+    private val accountDeletionService: AccountDeletionService,
+    private val journeyLogService: JourneyLogService
 ) {
     /**
      * `next` plus whatever the step needs to render - the pair every caller wants back. `next` is
@@ -170,6 +172,7 @@ class JourneyService(
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "JOURNEY_CANCELLED", "orchestrator"
         )
+        journeyLogService.record(channel, journey, "CANCELLED")
     }
 
     // Routing -----------------------------------------------------------------
@@ -229,6 +232,7 @@ class JourneyService(
         // here last becomes current, and the other is correctly rejected by isCurrent afterwards.
         codec.write(journey, state.withActive(ToolRef(tool.toolId, toolSessionId, tool.startStep)))
         journeyRepository.save(journey)
+        journeyLogService.record(channel, journey, "TOOL_ACTIVATED", mapOf("toolId" to tool.toolId))
     }
 
     fun isCurrent(journey: AuthJourney, toolId: String, toolSessionId: UUID): Boolean =
@@ -248,7 +252,7 @@ class JourneyService(
             Step(Next.tool(tool.toolId, outcome.nextStep, active.toolSessionId), outcome.data)
         }
 
-        is ToolOutcome.Failed -> chargeAttempt(journey, channel, outcome.reason)
+        is ToolOutcome.Failed -> chargeAttempt(journey, channel, tool, outcome)
 
         is ToolOutcome.Completed -> {
             val effectiveAcr = applyEffect(journey, channel, tool, outcome)
@@ -288,7 +292,83 @@ class JourneyService(
     private fun advance(journey: AuthJourney, channel: ChannelSession, event: JourneyEvent): Step {
         val strategy = strategyFor(journey.intent!!)
         val state = codec.read(journey)
-        return applyDecision(journey, channel, strategy.decideErased(state, event, contextFor(journey, channel)))
+        val decision = strategy.decideErased(state, event, contextFor(journey, channel))
+        journeyLogService.record(
+            channel, journey, event::class.simpleName!!,
+            eventDetail(event) + decisionDetail(decision, journey, channel)
+        )
+        return applyDecision(journey, channel, decision)
+    }
+
+    /** The extra, event-specific detail worth keeping in the JourneyLog - which tool was involved, and how the outcome/answer read. */
+    private fun eventDetail(event: JourneyEvent): Map<String, Any?> = when (event) {
+        is JourneyEvent.Completed -> mapOf("toolId" to event.tool.toolId, "method" to event.tool.method) + outcomeDetail(event.outcome)
+        is JourneyEvent.Abandoned -> mapOf("toolId" to event.tool.toolId)
+        is JourneyEvent.Answered -> mapOf("answer" to event.answer)
+        is JourneyEvent.SubJourneyFinished -> mapOf("subIntent" to event.intent.name, "achievedAcr" to event.achievedAcr)
+        is JourneyEvent.SubJourneyCancelled -> mapOf("subIntent" to event.intent.name)
+        JourneyEvent.Started -> emptyMap()
+    }
+
+    /** Everything a completed tool run determined - the variant-specific fields, not just the common amr/achievedAcr/factorTypes. */
+    private fun outcomeDetail(outcome: ToolOutcome.Completed): Map<String, Any?> {
+        val common = mapOf(
+            "outcome" to outcome::class.simpleName,
+            "amr" to outcome.amr,
+            "achievedAcr" to outcome.achievedAcr,
+            "factorTypes" to outcome.factorTypes.map { it.name }
+        )
+        val specific = when (outcome) {
+            is ToolOutcome.Completed.Identified -> mapOf("personId" to outcome.personId)
+            is ToolOutcome.Completed.Enrolled -> mapOf("enrollmentRef" to outcome.enrollmentRef.toString())
+            is ToolOutcome.Completed.Authenticated -> mapOf("accountId" to outcome.accountId)
+        }
+        return common + specific
+    }
+
+    /**
+     * Where the decision leads - the concrete follow-up (target state/sub-intent/effect), not just
+     * which Decision variant fired. For [Decision.Advance], resolves the actual next tool(s) via
+     * [toolRegistry] the same way [nextFor] does, so the log shows what the client will see, not
+     * just the internal state-class name.
+     */
+    private fun decisionDetail(decision: Decision, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (decision) {
+        is Decision.Advance -> {
+            val availableTools = availableToolsOf(channel)
+            val candidates = decision.to.activatable(availableTools)
+            val next = nextFor(decision.to, availableTools)
+            mapOf(
+                "decision" to "Advance",
+                "toState" to decision.to::class.simpleName,
+                "candidateTools" to candidates.map { toolId -> toolId to toolRegistry.descriptorOf(toolId).method }.toMap(),
+                "next" to mapOf("type" to next.type, "toolId" to next.toolId, "context" to next.context, "step" to next.step)
+            )
+        }
+        is Decision.RequireSubJourney -> mapOf(
+            "decision" to "RequireSubJourney", "subIntent" to decision.intent.name, "targetAcr" to decision.targetAcr
+        )
+        Decision.Finish -> mapOf("decision" to "Finish")
+        is Decision.Execute -> mapOf("decision" to "Execute", "effect" to decision.effect::class.simpleName) + effectDetail(decision.effect, journey, channel)
+        is Decision.DeleteAccount -> mapOf("decision" to "DeleteAccount", "accountId" to decision.accountId)
+        Decision.Cancel -> mapOf("decision" to "Cancel")
+        is Decision.Abort -> mapOf("decision" to "Abort", "reason" to decision.reason)
+    }
+
+    /**
+     * Which method/account a [Decision.Execute]'s effect actually names - the effect's class name
+     * alone (e.g. "Remove") doesn't say which method was removed. Resolves [Effect.Remove]'s
+     * method/label the same way [removeMethod] itself does, purely for a readable log entry - a
+     * second, disposable lookup, not the one that actually authorizes/executes the removal.
+     */
+    private fun effectDetail(effect: Effect, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (effect) {
+        is Effect.Remove -> {
+            val accountId = journey.accountId ?: channel.accountId
+            val target = accountId?.let { accountService.findAccount(it) }
+                ?.authenticationMethods?.firstOrNull { it.id == effect.methodInstanceId }
+            mapOf("methodInstanceId" to effect.methodInstanceId, "method" to target?.method, "label" to target?.label)
+        }
+        is Effect.LinkDevice -> mapOf("accountId" to effect.accountId)
+        is Effect.AdoptIdentity, is Effect.ConfirmIdentity, is Effect.AdoptCredential, is Effect.AcceptProof -> emptyMap()
     }
 
     private fun applyDecision(journey: AuthJourney, channel: ChannelSession, decision: Decision): Step = when (decision) {
@@ -425,15 +505,25 @@ class JourneyService(
      * with budget left is not an HTTP error - it behaves like missing input; only an exhausted
      * budget ends things terminally, and it ends the JOURNEY, not just the current state.
      */
-    private fun chargeAttempt(journey: AuthJourney, channel: ChannelSession, reason: String): Step {
+    private fun chargeAttempt(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, outcome: ToolOutcome.Failed): Step {
         journey.attemptBudget -= 1
+        journeyLogService.record(
+            channel, journey, "TOOL_FAILED",
+            mapOf(
+                "toolId" to tool.toolId,
+                "reason" to outcome.reason,
+                "attemptedAccountId" to outcome.attemptedAccountId,
+                "attemptedPersonId" to outcome.attemptedPersonId,
+                "attemptBudgetLeft" to journey.attemptBudget
+            )
+        )
         if (journey.attemptBudget <= 0) {
             journey.fail()
             journeyRepository.save(journey)
-            throw OrchestratorException.processAborted("Retry-Limit erreicht: $reason")
+            throw OrchestratorException.processAborted("Retry-Limit erreicht: ${outcome.reason}")
         }
         journeyRepository.save(journey)
-        return Step(nextOf(journey, channel), mapOf("error" to reason))
+        return Step(nextOf(journey, channel), mapOf("error" to outcome.reason))
     }
 
     // Effect execution --------------------------------------------------

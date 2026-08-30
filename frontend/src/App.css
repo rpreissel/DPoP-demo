@@ -20,6 +20,11 @@
   text-align: left;
 }
 
+/* The Journey-Log tab is a wide table, not prose - let it use the whole app-main column instead of the 960px reading-width cap the other tabs need. */
+.app.app-wide {
+  max-width: 100%;
+}
+
 .app-header {
   position: relative;
   margin-bottom: 2rem;
@@ -551,6 +556,137 @@ button.method-choice:active {
 
 .error-card h2 {
   color: #dc2626;
+}
+
+.journey-log-channel {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.journey-log-channel:first-of-type {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.journey-log-channel h3 {
+  margin: 0 0 0.75rem;
+}
+
+.journey-log-journey {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.journey-log-journey-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Sub-journeys (docs/04-orchestrierung.md #6) are nested (indented via marginLeft, see renderJourneyNode) and get a visible accent border back to their parent, so a step-up's re-identification reads as part of the flow instead of a scattered unrelated journey. */
+.journey-log-journey--nested {
+  border-left: 3px solid var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.journey-log-journey-header--sub {
+  justify-content: flex-start;
+}
+
+.journey-log-sub-marker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.journey-log-table-scroll {
+  overflow-x: auto;
+}
+
+.journey-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.journey-log-table th {
+  text-align: left;
+  padding: 0.4rem 0.75rem 0.4rem 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.journey-log-table td {
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.journey-log-table tr:last-child td {
+  border-bottom: none;
+}
+
+.journey-log-time {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.journey-log-tool {
+  font-family: var(--mono);
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.journey-log-detail-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.journey-log-detail-chips li {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--accent-border);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.journey-log-chip-label {
+  padding: 0.15rem 0.45rem;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 0.68rem;
+}
+
+.journey-log-chip-value {
+  padding: 0.15rem 0.5rem;
+  font-family: var(--mono);
+  color: var(--text-h);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 pre {

@@ -117,3 +117,23 @@ export interface ChannelResponse {
   stepData?: StepData
   demo?: DemoInfo
 }
+
+/**
+ * One row of the rich, per-step journey trace (GET /journey-log) - distinct from the backend's
+ * minimized session_event audit trail. Demo/debug only: shows everything the backend could
+ * determine about a journey's path, grouped client-side by channelSessionId/journeyId.
+ */
+export interface JourneyLogEntryView {
+  channelSessionId: string
+  journeyId: string
+  /** Set when journeyId ran as another journey's precondition (docs/04-orchestrierung.md #6). */
+  parentJourneyId?: string
+  intent: string
+  eventType: string
+  detail: Record<string, unknown>
+  createdAt: string
+}
+
+export interface JourneyLogResponse {
+  entries: JourneyLogEntryView[]
+}

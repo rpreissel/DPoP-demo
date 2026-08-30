@@ -1,5 +1,5 @@
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ActiveMethodView, ChannelResponse, IdTokenClaims, TokenResponse } from './types'
+import type { ActiveMethodView, ChannelResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
 
 /** Carries the server's own error/message (docs/07-betrieb.md #1) instead of a raw fetch string. */
 export class ApiError extends Error {
@@ -103,6 +103,11 @@ export function getChannel(dpop: DpopKeyPair, channelSessionId: string): Promise
 
 export function raiseRequiredAcr(dpop: DpopKeyPair, channelSessionId: string, requiredAcr: string): Promise<ChannelResponse> {
   return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/step-ups`, { requiredAcr })
+}
+
+/** Every journey step ever recorded under this device's own bindingKeyRef - no channelSessionId needed, it's resolved from the DPoP proof itself. */
+export function getJourneyLog(dpop: DpopKeyPair): Promise<JourneyLogResponse> {
+  return call(dpop, 'GET', '/orchestrator/api/v1/journey-log')
 }
 
 /** Abandons the running AuthJourney; the response already offers a fresh start where applicable. */

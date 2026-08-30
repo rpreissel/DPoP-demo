@@ -27,6 +27,7 @@ import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
 import { SelectMethodView } from './components/SelectMethodView'
 import { JourneyStructureView } from './components/JourneyStructureView'
+import { JourneyLogView } from './components/JourneyLogView'
 import { PromptView } from './components/PromptView'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
@@ -39,8 +40,8 @@ interface ActiveTool {
   toolId: string
 }
 
-type Tab = 'welcome' | 'demo' | 'settings'
-const TABS: Tab[] = ['welcome', 'demo', 'settings']
+type Tab = 'welcome' | 'demo' | 'journeylog' | 'settings'
+const TABS: Tab[] = ['welcome', 'demo', 'journeylog', 'settings']
 
 /** The tab lives in the URL hash (no router dependency needed for three static tabs) so a reload or a shared link keeps/opens the same one, instead of always falling back to "welcome". */
 function tabFromHash(): Tab {
@@ -475,7 +476,7 @@ function App() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <div className="app">
+        <div className={activeTab === 'journeylog' ? 'app app-wide' : 'app'}>
           <header className="app-header">
             <h1>Identity Journey</h1>
             <p>
@@ -490,6 +491,9 @@ function App() {
             </button>
             <button role="tab" aria-selected={activeTab === 'demo'} className={activeTab === 'demo' ? 'active' : ''} onClick={() => setActiveTab('demo')}>
               Demo
+            </button>
+            <button role="tab" aria-selected={activeTab === 'journeylog'} className={activeTab === 'journeylog' ? 'active' : ''} onClick={() => setActiveTab('journeylog')}>
+              Journey-Log
             </button>
             <button role="tab" aria-selected={activeTab === 'settings'} className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>
               Einstellungen
@@ -624,6 +628,8 @@ function App() {
               </p>
             </div>
           )}
+
+          {activeTab === 'journeylog' && <JourneyLogView dpop={dpop} />}
 
           {activeTab === 'settings' && (
             <>
