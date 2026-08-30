@@ -1,7 +1,7 @@
 package com.example.dpop.auth_password.api.v1
 
 import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
-import com.example.dpop.auth_password.internal.AuthPasswordLookupToolHandler
+import com.example.dpop.auth_password.internal.authpasswordlookup.AuthPasswordLookupToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse

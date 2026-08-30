@@ -1,7 +1,7 @@
 package com.example.dpop.auth_sms.api.v1
 
 import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
-import com.example.dpop.auth_sms.internal.AuthSmsLookupToolHandler
+import com.example.dpop.auth_sms.internal.authsmslookup.AuthSmsLookupToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -109,9 +109,9 @@ class AuthSmsLookupToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: AuthSmsLookupPatchRequest()
-        val outcome = if (body.tan != null) {
-            handler.patch(toolSessionId, body.tan)
-        } else if (body.email != null) {
+        // email wins over a tan submitted in the same call: a (re-)submitted email restarts the
+        // flow at a fresh TAN, so an old one has nothing left to be checked against.
+        val outcome = if (body.email != null) {
             // Resolved HERE, at the call site - auth_sms may not depend on `account`
             // (docs/08-projektrahmen.md A11). Both null when the email is unknown or has no
             // active sms method; the handler treats that identically to a wrong TAN.
@@ -123,7 +123,7 @@ class AuthSmsLookupToolController(
             val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             handler.submitEmail(toolSessionId, accountId, enrollmentRef)
         } else {
-            handler.patch(toolSessionId, null)
+            handler.patch(toolSessionId, body.tan)
         }
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))

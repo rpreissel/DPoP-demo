@@ -1,7 +1,7 @@
 package com.example.dpop.auth_sms.api.v1
 
 import com.example.dpop.auth_sms.AuthSmsUseDescriptor
-import com.example.dpop.auth_sms.internal.AuthSmsUseToolHandler
+import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse

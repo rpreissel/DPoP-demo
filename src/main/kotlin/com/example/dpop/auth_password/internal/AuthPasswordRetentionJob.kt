@@ -1,4 +1,7 @@
 package com.example.dpop.auth_password.internal
+import com.example.dpop.auth_password.internal.authpasswordlookup.AuthPasswordLookupToolDataRepository
+import com.example.dpop.auth_password.internal.authpassworduse.AuthPasswordUseToolDataRepository
+import com.example.dpop.auth_password.internal.enrollpassword.EnrollPasswordToolDataRepository
 
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

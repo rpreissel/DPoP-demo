@@ -1,4 +1,7 @@
 package com.example.dpop.auth_sms.internal
+import com.example.dpop.auth_sms.internal.authsmslookup.AuthSmsLookupToolDataRepository
+import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolDataRepository
+import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolDataRepository
 
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

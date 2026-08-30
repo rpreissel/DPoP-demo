@@ -1,6 +1,6 @@
 package com.example.dpop.auth_password.api.v1
 
-import com.example.dpop.auth_password.internal.EnrollPasswordToolHandler
+import com.example.dpop.auth_password.internal.enrollpassword.EnrollPasswordToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint

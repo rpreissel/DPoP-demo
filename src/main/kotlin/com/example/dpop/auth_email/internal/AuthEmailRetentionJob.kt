@@ -1,4 +1,7 @@
 package com.example.dpop.auth_email.internal
+import com.example.dpop.auth_email.internal.authemaillookup.AuthEmailLookupToolDataRepository
+import com.example.dpop.auth_email.internal.authemailuse.AuthEmailUseToolDataRepository
+import com.example.dpop.auth_email.internal.enrollemail.EnrollEmailToolDataRepository
 
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

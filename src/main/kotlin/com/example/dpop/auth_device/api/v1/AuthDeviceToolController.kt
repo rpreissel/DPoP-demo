@@ -1,7 +1,7 @@
 package com.example.dpop.auth_device.api.v1
 
 import com.example.dpop.auth_device.AuthDeviceDescriptor
-import com.example.dpop.auth_device.internal.AuthDeviceToolHandler
+import com.example.dpop.auth_device.internal.authdevice.AuthDeviceToolHandler
 import com.example.dpop.tool_api.buildRequestUrl
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey

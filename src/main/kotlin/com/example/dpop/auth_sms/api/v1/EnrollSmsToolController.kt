@@ -1,6 +1,6 @@
 package com.example.dpop.auth_sms.api.v1
 
-import com.example.dpop.auth_sms.internal.EnrollSmsToolHandler
+import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
