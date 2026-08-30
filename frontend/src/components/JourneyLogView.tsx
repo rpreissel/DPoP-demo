@@ -86,11 +86,21 @@ function flatten(keyPath: string, value: unknown): DetailChip[] {
 const dateTimeFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'medium' })
 const timeFormat = new Intl.DateTimeFormat('de-DE', { timeStyle: 'medium' })
 
-/** Groups entries by channelSessionId, then by journeyId. Assumes [entries] is already sorted the way rows should appear. */
-function groupEntries(entries: JourneyLogEntryView[]): Map<string, Map<string, JourneyLogEntryView[]>> {
-  const byChannel = new Map<string, Map<string, JourneyLogEntryView[]>>()
+/** A journey-scoped entry, narrowed from JourneyLogEntryView once journeyId/intent are known to be set. */
+interface JourneyScopedEntry extends JourneyLogEntryView {
+  journeyId: string
+  intent: string
+}
+
+function isJourneyScoped(entry: JourneyLogEntryView): entry is JourneyScopedEntry {
+  return entry.journeyId !== undefined
+}
+
+/** Groups journey-scoped entries by channelSessionId, then by journeyId. Assumes [entries] is already sorted the way rows should appear. */
+function groupEntries(entries: JourneyScopedEntry[]): Map<string, Map<string, JourneyScopedEntry[]>> {
+  const byChannel = new Map<string, Map<string, JourneyScopedEntry[]>>()
   for (const entry of entries) {
-    const byJourney = byChannel.get(entry.channelSessionId) ?? new Map<string, JourneyLogEntryView[]>()
+    const byJourney = byChannel.get(entry.channelSessionId) ?? new Map<string, JourneyScopedEntry[]>()
     byChannel.set(entry.channelSessionId, byJourney)
     const list = byJourney.get(entry.journeyId) ?? []
     byJourney.set(entry.journeyId, [...list, entry])
@@ -98,9 +108,20 @@ function groupEntries(entries: JourneyLogEntryView[]): Map<string, Map<string, J
   return byChannel
 }
 
+/** Channel-level entries (no journey of their own, e.g. a logout with nothing running), grouped by channelSessionId. */
+function groupChannelLevelEntries(entries: JourneyLogEntryView[]): Map<string, JourneyLogEntryView[]> {
+  const byChannel = new Map<string, JourneyLogEntryView[]>()
+  for (const entry of entries) {
+    if (isJourneyScoped(entry)) continue
+    const list = byChannel.get(entry.channelSessionId) ?? []
+    byChannel.set(entry.channelSessionId, [...list, entry])
+  }
+  return byChannel
+}
+
 interface JourneyNode {
   journeyId: string
-  entries: JourneyLogEntryView[]
+  entries: JourneyScopedEntry[]
   children: JourneyNode[]
 }
 
@@ -111,7 +132,7 @@ interface JourneyNode {
  * unrelated one, even though it only exists because its parent asked for it. Every level is
  * sorted newest-activity-first.
  */
-function buildJourneyTree(byJourney: Map<string, JourneyLogEntryView[]>): JourneyNode[] {
+function buildJourneyTree(byJourney: Map<string, JourneyScopedEntry[]>): JourneyNode[] {
   const nodes = new Map<string, JourneyNode>()
   for (const [journeyId, journeyEntries] of byJourney) nodes.set(journeyId, { journeyId, entries: journeyEntries, children: [] })
 
@@ -171,6 +192,7 @@ export function JourneyLogView({ dpop }: Props) {
   const journeyOptions = useMemo(() => {
     const firstSeen = new Map<string, { createdAt: string; intent: string }>()
     for (const e of chronological) {
+      if (!isJourneyScoped(e)) continue
       if (channelFilter && e.channelSessionId !== channelFilter) continue
       if (!firstSeen.has(e.journeyId)) firstSeen.set(e.journeyId, { createdAt: e.createdAt, intent: e.intent })
     }
@@ -183,13 +205,20 @@ export function JourneyLogView({ dpop }: Props) {
   // Groups (ChannelSession, and Journey within it) are ordered newest-activity-first - the rows
   // inside a Journey table stay oldest-first (chronological), so "newest on top" only applies at
   // the grouping level, not to the individual steps of one journey. Sub-journeys are nested under
-  // their parent (buildJourneyTree) rather than sorted in alongside it as if unrelated.
-  const groupedNewestFirst = [...groupEntries(filtered).entries()]
-    .map(([channelSessionId, byJourney]) => {
-      const allEntries = [...byJourney.values()].flat()
+  // their parent (buildJourneyTree) rather than sorted in alongside it as if unrelated. Channel-level
+  // entries (no journey of their own, e.g. a logout with nothing running) are shown directly under
+  // the ChannelSession heading, one channel-wide table above its journeys.
+  const journeyScopedByChannel = groupEntries(filtered.filter(isJourneyScoped))
+  const channelLevelByChannel = groupChannelLevelEntries(filtered)
+  const allChannelIds = new Set([...journeyScopedByChannel.keys(), ...channelLevelByChannel.keys()])
+  const groupedNewestFirst = [...allChannelIds]
+    .map((channelSessionId) => {
+      const byJourney = journeyScopedByChannel.get(channelSessionId) ?? new Map<string, JourneyScopedEntry[]>()
+      const channelLevelEntries = channelLevelByChannel.get(channelSessionId) ?? []
+      const allEntries = [...[...byJourney.values()].flat(), ...channelLevelEntries]
       const latest = allEntries.reduce((max, e) => (e.createdAt > max ? e.createdAt : max), allEntries[0].createdAt)
       const earliest = allEntries.reduce((min, e) => (e.createdAt < min ? e.createdAt : min), allEntries[0].createdAt)
-      return { channelSessionId, journeyTree: buildJourneyTree(byJourney), latest, earliest }
+      return { channelSessionId, journeyTree: buildJourneyTree(byJourney), channelLevelEntries, latest, earliest }
     })
     .sort((a, b) => b.latest.localeCompare(a.latest))
 
@@ -244,12 +273,60 @@ export function JourneyLogView({ dpop }: Props) {
       {loading && <p>Lädt…</p>}
       {!loading && filtered.length === 0 && !error && <p>Keine Einträge.</p>}
 
-      {groupedNewestFirst.map(({ channelSessionId, journeyTree, earliest }) => (
+      {groupedNewestFirst.map(({ channelSessionId, journeyTree, channelLevelEntries, earliest }) => (
         <div key={channelSessionId} className="journey-log-channel">
           <h3>ChannelSession vom {dateTimeFormat.format(new Date(earliest))}</h3>
+          {channelLevelEntries.length > 0 && renderEntryTable(channelLevelEntries)}
           {journeyTree.map((node) => renderJourneyNode(node, 0))}
         </div>
       ))}
+    </div>
+  )
+}
+
+/** The Zeit/Event/Tool/Details table shared by a journey's own steps and a channel's journey-less entries (e.g. logout). */
+function renderEntryTable(entries: JourneyLogEntryView[]) {
+  return (
+    <div className="journey-log-table-scroll">
+      <table className="journey-log-table">
+        <thead>
+          <tr>
+            <th>Zeit</th>
+            <th>Event</th>
+            <th>Tool</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry, index) => {
+            const { toolId, ...rest } = entry.detail
+            const chips = formatDetail(rest)
+            return (
+              <tr key={index}>
+                <td className="journey-log-time">{timeFormat.format(new Date(entry.createdAt))}</td>
+                <td>
+                  <span className="badge">{entry.eventType}</span>
+                </td>
+                <td className="journey-log-tool">{typeof toolId === 'string' ? toolId : '–'}</td>
+                <td>
+                  {chips.length > 0 ? (
+                    <ul className="journey-log-detail-chips">
+                      {chips.map((chip) => (
+                        <li key={chip.key}>
+                          <span className="journey-log-chip-label">{chip.label}</span>
+                          <span className="journey-log-chip-value">{chip.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '–'
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -268,47 +345,7 @@ function renderJourneyNode(node: JourneyNode, depth: number) {
         <span className="value-plain">{journeyEntries[0].intent}</span>
         <span className="value">{dateTimeFormat.format(new Date(journeyEntries[0].createdAt))}</span>
       </div>
-      <div className="journey-log-table-scroll">
-        <table className="journey-log-table">
-          <thead>
-            <tr>
-              <th>Zeit</th>
-              <th>Event</th>
-              <th>Tool</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {journeyEntries.map((entry, index) => {
-              const { toolId, ...rest } = entry.detail
-              const chips = formatDetail(rest)
-              return (
-                <tr key={index}>
-                  <td className="journey-log-time">{timeFormat.format(new Date(entry.createdAt))}</td>
-                  <td>
-                    <span className="badge">{entry.eventType}</span>
-                  </td>
-                  <td className="journey-log-tool">{typeof toolId === 'string' ? toolId : '–'}</td>
-                  <td>
-                    {chips.length > 0 ? (
-                      <ul className="journey-log-detail-chips">
-                        {chips.map((chip) => (
-                          <li key={chip.key}>
-                            <span className="journey-log-chip-label">{chip.label}</span>
-                            <span className="journey-log-chip-value">{chip.value}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      '–'
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      {renderEntryTable(journeyEntries)}
       {children.map((child) => renderJourneyNode(child, depth + 1))}
     </div>
   )

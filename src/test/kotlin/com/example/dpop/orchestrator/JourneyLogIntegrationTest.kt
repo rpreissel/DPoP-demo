@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 
@@ -59,6 +60,25 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
                     @Suppress("UNCHECKED_CAST")
                     val entries = log["entries"] as List<Map<String, Any?>>
                     entries.any { it["eventType"] == "TOOL_FAILED" } shouldBe true
+                }
+            }
+        }
+
+        given("an AUTHENTICATED channel with no journey currently running") {
+            `when`("logging out") {
+                then("the logout itself still shows up in the journey log") {
+
+                    val channelSessionId = registerAndAuthenticate()
+
+                    deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId")
+
+                    val log = get("/orchestrator/api/v1/journey-log")
+                    @Suppress("UNCHECKED_CAST")
+                    val entries = log["entries"] as List<Map<String, Any?>>
+                    val logoutEntry = entries.first { it["eventType"] == "LOGGED_OUT" }
+                    logoutEntry["channelSessionId"] shouldBe channelSessionId
+                    logoutEntry["journeyId"].shouldBeNull()
+                    logoutEntry["intent"].shouldBeNull()
                 }
             }
         }

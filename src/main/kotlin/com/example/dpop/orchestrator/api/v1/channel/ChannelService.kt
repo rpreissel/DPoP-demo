@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
+import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
@@ -41,7 +42,8 @@ class ChannelService(
     private val channelAccessGuard: ChannelAccessGuard,
     private val journeyService: JourneyService,
     private val tokenService: TokenService,
-    private val channelCreationThrottleService: ChannelCreationThrottleService
+    private val channelCreationThrottleService: ChannelCreationThrottleService,
+    private val journeyLogService: JourneyLogService
 ) {
 
     /**
@@ -191,7 +193,15 @@ class ChannelService(
      */
     fun logout(channelSessionId: UUID, bindingKeyRef: String) {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        journeyService.findActive(channelSessionId)?.let { journeyService.cancel(it, channel) }
+        val activeJourney = journeyService.findActive(channelSessionId)
+        if (activeJourney != null) {
+            // Already produces its own CANCELLED entry (JourneyService.markCancelled) - the common
+            // case this channel-level one exists for is the OTHER branch: an AUTHENTICATED channel
+            // with nothing running, which would otherwise leave no trace of the logout at all.
+            journeyService.cancel(activeJourney, channel)
+        } else {
+            journeyLogService.recordForChannel(channel, "LOGGED_OUT")
+        }
 
         val afterCancel = sessionManagementService.findChannelSessionById(channelSessionId)!!
         afterCancel.authContextId = null

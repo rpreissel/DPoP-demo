@@ -29,7 +29,8 @@ class JourneyLogEntry(
     @Column(name = "channel_session_id", nullable = false)
     var channelSessionId: UUID? = null,
 
-    @Column(name = "journey_id", nullable = false)
+    /** Null for a channel-level event with no journey of its own (e.g. logout with nothing running) - see [JourneyLogService.recordForChannel]. */
+    @Column(name = "journey_id")
     var journeyId: UUID? = null,
 
     /** Set when this journey ran as another journey's precondition (docs/04-orchestrierung.md #6) - lets the log nest a sub-journey's steps under the journey that required it, instead of showing it as an unrelated journey. */
@@ -37,7 +38,7 @@ class JourneyLogEntry(
     var parentJourneyId: UUID? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "intent", nullable = false, length = 20)
+    @Column(name = "intent", length = 20)
     var intent: AuthIntent? = null,
 
     @Column(name = "event_type", nullable = false, length = 50)
