@@ -3,8 +3,8 @@ package com.example.dpop.orchestrator.journey.strategy
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Interpretation
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
@@ -33,15 +33,15 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
     override fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): ReIdentifyState =
         ReIdentifyState.OfferReIdent(targetAcr, startingAcr)
 
-    override fun interpret(state: ReIdentifyState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: ReIdentifyState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
         when (outcome) {
-            is ToolOutcome.Completed.Identified -> Interpretation.ConfirmIdentity
+            is ToolOutcome.Completed.Identified -> Effect.ConfirmIdentity
             is ToolOutcome.Completed.Authenticated,
             is ToolOutcome.Completed.Enrolled ->
                 error("${tool.toolId} is not offered by RE_IDENTIFY")
         }
 
-    override fun next(state: ReIdentifyState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun decide(state: ReIdentifyState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
             is ReIdentifyState.OfferReIdent -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
@@ -65,7 +65,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
         }
 
     /** [ReIdentifyState.startingAcr] is the only signal available here (docs/04-orchestrierung.md): "none" means the caller (FAST_ACCESS/LOOKUP_LOGIN) had no session yet, a real level means the caller (STEP_UP) was already AUTHENTICATED - declining must not de-authenticate that session. */
-    override fun onCancel(state: ReIdentifyState): ChannelState =
+    override fun cancelledTo(state: ReIdentifyState): ChannelState =
         if (state.startingAcr == "none") ChannelState.ANONYMOUS else ChannelState.AUTHENTICATED
 
     private fun offerIdentifying(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {

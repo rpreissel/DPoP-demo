@@ -4,7 +4,7 @@ import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
@@ -43,7 +43,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("interpret") {
         then("Authenticated only re-proves presence, never re-establishes or adopts an account") {
             strategy.interpret(DeleteAccountState.ConfirmPending, AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"))) shouldBe
-                Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = false)
+                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = false)
         }
 
         then("Identified is not offered by this intent") {
@@ -61,19 +61,19 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
     given("ConfirmPending, just started") {
         then("unconditionally re-presents the confirmation prompt") {
-            strategy.next(DeleteAccountState.ConfirmPending, JourneyEvent.Started, ctx()) shouldBe Decision.Advance(DeleteAccountState.ConfirmPending)
+            strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Started, ctx()) shouldBe Decision.Advance(DeleteAccountState.ConfirmPending)
         }
     }
 
     given("ConfirmPending, declined") {
         then("cancels - no gate is ever evaluated before an explicit yes") {
-            strategy.next(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("decline"), ctx()) shouldBe Decision.Cancel
+            strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("decline"), ctx()) shouldBe Decision.Cancel
         }
     }
 
     given("ConfirmPending, an unrecognized answer") {
         then("fails loudly rather than guessing") {
-            shouldThrow<IllegalStateException> { strategy.next(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("maybe"), ctx()) }
+            shouldThrow<IllegalStateException> { strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("maybe"), ctx()) }
         }
     }
 
@@ -82,7 +82,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val acc = account(method("sms", "loa1"))
             val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
             then("the loa2 gate parks the wish and demands a step-up first - only NOW, never before accepting") {
-                strategy.next(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx) shouldBe
+                strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx) shouldBe
                     Decision.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = DeleteAccountState.ConfirmPending)
             }
         }
@@ -93,7 +93,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val acc = account(method("device", "loa2", details = StrategyTestFixtures.deviceDetails()))
             val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)), acrFloor = "loa1")
             then("still demands a fresh re-confirmation of any active factor - unlike STEP_UP, evidence of unknown age is never enough on its own") {
-                val decision = strategy.next(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx)
+                val decision = strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx)
                 decision.shouldBeInstanceOf<Decision.Advance>()
                 val to = (decision as Decision.Advance).to
                 to.shouldBeInstanceOf<DeleteAccountState.ConfirmationRequired>()
@@ -108,7 +108,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc)
             then("deletes right away - that fresh proof already IS the re-confirmation, no second one demanded") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = "loa2")
-                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.DeleteAccount(acc.accountId)
+                strategy.decide(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.DeleteAccount(acc.accountId)
             }
         }
 
@@ -117,7 +117,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc)
             then("does not delete and does not fall back to a lesser reconfirmation either - that would let a session stuck below loa2 delete via the very factor that couldn't reach it") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = "loa1")
-                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
+                strategy.decide(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
             }
         }
 
@@ -126,7 +126,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc)
             then("does not delete") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa3")
-                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
+                strategy.decide(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
             }
         }
 
@@ -135,7 +135,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc)
             then("does not delete - same as falling short, not a lesser fallback") {
                 val event = JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP)
-                strategy.next(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
+                strategy.decide(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Cancel
             }
         }
     }
@@ -143,7 +143,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, more than one offered candidate") {
         val state = DeleteAccountState.ConfirmationRequired(listOf("auth-sms", "auth-password"))
         then("abandoning one keeps the choice among the rest") {
-            strategy.next(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
+            strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
                 Decision.Advance(state.copy(declined = setOf("auth-sms"), active = null))
         }
     }
@@ -151,7 +151,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, the last offered candidate is abandoned") {
         val state = DeleteAccountState.ConfirmationRequired(listOf("auth-sms"))
         then("cancels - the account is never deleted just because every option was declined") {
-            strategy.next(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Decision.Cancel
+            strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Decision.Cancel
         }
     }
 
@@ -162,14 +162,14 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
         then("deletes immediately - one proof, at any level, is always sufficient here") {
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
-            strategy.next(state, event, theCtx) shouldBe Decision.DeleteAccount(acc.accountId)
+            strategy.decide(state, event, theCtx) shouldBe Decision.DeleteAccount(acc.accountId)
         }
     }
 
     given("onCancel") {
         then("always falls back to AUTHENTICATED - this intent only ever runs on an already-authenticated channel") {
-            strategy.onCancel(DeleteAccountState.ConfirmPending) shouldBe ChannelState.AUTHENTICATED
-            strategy.onCancel(DeleteAccountState.ConfirmationRequired(listOf("auth-sms"))) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(DeleteAccountState.ConfirmPending) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(DeleteAccountState.ConfirmationRequired(listOf("auth-sms"))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

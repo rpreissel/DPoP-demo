@@ -4,7 +4,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
@@ -35,18 +35,18 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
 
     override fun initialState(ctx: JourneyContext): ManageAuthMethodsState = ManageAuthMethodsState.AddRequested
 
-    override fun interpret(state: ManageAuthMethodsState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: ManageAuthMethodsState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
         when (outcome) {
             // Voluntary enrollment on a channel that is already authenticated - the device is
             // already known, so binding it again is a harmless no-op that keeps a newly enrolled
             // device credential reachable next time.
-            is ToolOutcome.Completed.Enrolled -> Interpretation.AdoptCredential(bindDevice = true)
+            is ToolOutcome.Completed.Enrolled -> Effect.AdoptCredential(bindDevice = true)
             is ToolOutcome.Completed.Identified,
             is ToolOutcome.Completed.Authenticated ->
                 error("${tool.toolId} is not offered by MANAGE")
         }
 
-    override fun next(state: ManageAuthMethodsState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun decide(state: ManageAuthMethodsState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
             // gate() re-requests the very same STEP_UP again if unsatisfied - correct on a fresh
             // request or after a genuine (if insufficient) SubJourneyFinished, but on
@@ -56,7 +56,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
             is ManageAuthMethodsState.AddRequested ->
                 if (event is JourneyEvent.SubJourneyCancelled) Decision.Cancel else gate(state, ctx) ?: offerEnrollment(ctx)
             is ManageAuthMethodsState.RemoveRequested ->
-                if (event is JourneyEvent.SubJourneyCancelled) Decision.Cancel else gate(state, ctx) ?: Decision.Remove(state.methodInstanceId)
+                if (event is JourneyEvent.SubJourneyCancelled) Decision.Cancel else gate(state, ctx) ?: Decision.Execute(Effect.Remove(state.methodInstanceId))
 
             is ManageAuthMethodsState.Enrolling -> when (event) {
                 // Backing out here means picking a different method, not abandoning the wish -
@@ -66,7 +66,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
             }
         }
 
-    override fun onCancel(state: ManageAuthMethodsState): ChannelState = ChannelState.AUTHENTICATED
+    override fun cancelledTo(state: ManageAuthMethodsState): ChannelState = ChannelState.AUTHENTICATED
 
     /** Null once the session already carries loa2 and the caller may proceed. */
     private fun gate(requested: ManageAuthMethodsState, ctx: JourneyContext): Decision? {

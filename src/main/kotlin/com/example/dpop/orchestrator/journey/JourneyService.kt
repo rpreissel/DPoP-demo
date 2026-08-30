@@ -52,7 +52,7 @@ class JourneyService(
 ) {
     /**
      * `next` plus whatever the step needs to render - the pair every caller wants back. `next` is
-     * null only for a decision that ends the channel for good (e.g. [Decision.DeleteAccount]) -
+     * null only for a decision that ends the channel for good ([Decision.DeleteAccount]) -
      * ChannelService.respond() derives the real next itself in every other case.
      */
     data class Step(val next: Next?, val stepData: Map<String, Any?>? = null)
@@ -188,12 +188,10 @@ class JourneyService(
             val toolId = activatable.single()
             Next.tool(toolId, toolRegistry.descriptorOf(toolId).startStep)
         } else {
-            // Several candidates open a selection page; none means an orchestrator-owned page
-            // that is not a choice at all (a confirmation, the finished screen) - OR, now that
-            // availability is live-filtered here too, a state whose only offer just became
-            // unavailable while nobody was looking. The latter surfaces as an orchestrator page
-            // with an empty option list rather than a silent auto-pick; it resolves itself as soon
-            // as the client's next real action (abandon/activate) drives an actual transition.
+            // Several candidates open a selection page; zero means an orchestrator-owned page
+            // that isn't a choice at all (a confirmation, the finished screen), or a state whose
+            // only offer just became unavailable - the empty option list resolves itself once the
+            // client's next action (abandon/activate) drives an actual transition.
             Next.orchestrator(state.selectionContext, state.selectionStep)
         }
     }
@@ -253,7 +251,7 @@ class JourneyService(
         is ToolOutcome.Failed -> chargeAttempt(journey, channel, outcome.reason)
 
         is ToolOutcome.Completed -> {
-            val effectiveAcr = applyInterpretation(journey, channel, tool, outcome)
+            val effectiveAcr = applyEffect(journey, channel, tool, outcome)
             val authContextId = checkNotNull(channel.authContextId) { "AuthContext missing after ${tool.toolId}" }
             authContextService.applyEvidence(authContextId, outcome.amr, outcome.factorTypes, effectiveAcr)
             sessionManagementService.recordEvent(
@@ -290,106 +288,91 @@ class JourneyService(
     private fun advance(journey: AuthJourney, channel: ChannelSession, event: JourneyEvent): Step {
         val strategy = strategyFor(journey.intent!!)
         val state = codec.read(journey)
+        return applyDecision(journey, channel, strategy.decideErased(state, event, contextFor(journey, channel)))
+    }
 
-        return when (val decision = strategy.decide(state, event, contextFor(journey, channel))) {
-            is Decision.Advance -> {
-                codec.write(journey, decision.to)
-                journeyRepository.save(journey)
-                stepFor(decision.to, availableToolsOf(channel))
+    private fun applyDecision(journey: AuthJourney, channel: ChannelSession, decision: Decision): Step = when (decision) {
+        is Decision.Advance -> {
+            codec.write(journey, decision.to)
+            journeyRepository.save(journey)
+            stepFor(decision.to, availableToolsOf(channel))
+        }
+
+        is Decision.RequireSubJourney -> {
+            // The wish stays parked as this journey's state; SUSPENDED plus the child's
+            // parentJourneyId is what keeps "one running journey per channel" true.
+            codec.write(journey, decision.resumeWith)
+            journey.lifecycle = JourneyLifecycle.SUSPENDED
+            journeyRepository.save(journey)
+            start(
+                channel,
+                decision.intent,
+                seed = seedFor(decision, channel),
+                parentJourneyId = journey.journeyId
+            )
+        }
+
+        is Decision.Finish -> finish(journey, channel)
+
+        is Decision.Execute -> {
+            performEffect(journey, channel, decision.effect)
+            applyDecision(journey, channel, decision.then)
+        }
+
+        is Decision.DeleteAccount -> {
+            // Independent re-check against a freshly derived ctx, not the decision's own account
+            // (see Decision.DeleteAccount's doc) or DeleteAccountStrategy directly.
+            val freshCtx = contextFor(journey, channel)
+            val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
+            check(authPolicy.isSatisfied(freshCtx.evidence, Decision.DeleteAccount.REQUIRED_ACR, account)) {
+                "${journey.intent} decided Decision.DeleteAccount without satisfying ${Decision.DeleteAccount.REQUIRED_ACR}"
             }
+            journey.consume()
+            journeyRepository.save(journey)
+            // Via freshly queried entities, not the cascade's own writes - `channel` here is what
+            // buildChannelBlock reads for the response, and must show the post-deletion state.
+            accountDeletionService.deleteAccount(decision.accountId)
+            channel.state = ChannelState.LOGGED_OUT
+            channel.authContextId = null
+            Step(next = null)
+        }
 
-            is Decision.RequireSubJourney -> {
-                // The wish stays parked as this journey's state; SUSPENDED plus the child's
-                // parentJourneyId is what keeps "one running journey per channel" true.
-                codec.write(journey, decision.resumeWith)
-                journey.lifecycle = JourneyLifecycle.SUSPENDED
-                journeyRepository.save(journey)
-                start(
-                    channel,
-                    decision.intent,
-                    seed = seedFor(decision, channel),
-                    parentJourneyId = journey.journeyId
-                )
+        is Decision.Cancel -> {
+            val parent = journey.parentJourneyId?.let { journeyRepository.findByIdOrNull(it) }
+            if (parent != null && parent.lifecycle == JourneyLifecycle.SUSPENDED) {
+                // The sub-journey gave up - its parent was only PARKED waiting on it, same
+                // handoff as a successful finish().
+                markCancelled(journey, channel)
+                parent.lifecycle = JourneyLifecycle.STARTED
+                journeyRepository.save(parent)
+                advance(parent, channel, JourneyEvent.SubJourneyCancelled(journey.intent!!))
+            } else {
+                // Giving up on the last thing this TOP-LEVEL journey could offer is the same
+                // outcome as an explicit DELETE .../journey - unless cancelledTo (via fallBack)
+                // already landed the channel back on AUTHENTICATED, in which case there is
+                // nothing to restart (same guard as ChannelService.cancelActiveJourney).
+                cancel(journey, channel)
+                if (channel.state == ChannelState.AUTHENTICATED) Step(Next.AUTHENTICATED) else startEntryJourney(channel)
             }
+        }
 
-            is Decision.Finish -> finish(journey, channel)
+        is Decision.Abort -> {
+            journey.fail()
+            journeyRepository.save(journey)
+            throw OrchestratorException.processAborted(decision.reason)
+        }
+    }
 
-            is Decision.FinishWithDeviceLink -> {
-                sessionManagementService.linkDeviceToAccount(
-                    checkNotNull(channel.bindingKeyRef) { "FinishWithDeviceLink without a bindingKeyRef" },
-                    decision.accountId
-                )
-                finish(journey, channel)
-            }
-
-            is Decision.Remove -> {
-                removeMethod(journey, channel, decision.methodInstanceId)
-                finish(journey, channel)
-            }
-
-            is Decision.DeleteAccount -> {
-                // Independent re-check against DELETE_ACCOUNT_REQUIRED_ACR - a fixed constant in
-                // this same generic package, not anything carried by `decision` itself (see
-                // Decision.DeleteAccount's own doc: a value handed in by the very decision being
-                // checked would be the strategy grading its own homework) and not a reference to
-                // DeleteAccountStrategy directly (JourneyService stays generic over every
-                // IntentStrategy, never coupled to one concrete implementation). Also re-derives
-                // ctx fresh rather than reusing the one `decision` came from, so this cannot be
-                // quietly satisfied by stale evidence either. A strategy bug that reaches
-                // Decision.DeleteAccount without actually having proven that level (exactly what
-                // happened here today, via a fallback that accepted any level) fails loudly
-                // instead of silently deleting.
-                val freshCtx = contextFor(journey, channel)
-                val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
-                check(authPolicy.isSatisfied(freshCtx.evidence, DELETE_ACCOUNT_REQUIRED_ACR, account)) {
-                    "${journey.intent} decided Decision.DeleteAccount without satisfying $DELETE_ACCOUNT_REQUIRED_ACR"
-                }
-                journey.consume()
-                journeyRepository.save(journey)
-                // Deletes/logs out every ChannelSession this account was ever bound to (docs/05-api.md,
-                // Account löschen) - via its OWN freshly queried entities, a different Hibernate
-                // identity than THIS request's `channel` even for the very same row. Every other
-                // decision here reflects its effect by mutating `channel` directly, because that is
-                // the exact object `buildChannelBlock` reads for the response - relying on the
-                // cascade's separate writes alone left this response showing the stale pre-deletion
-                // state (e.g. STEP_UP_IN_PROGRESS) even though the row was correctly updated in the DB.
-                accountDeletionService.deleteAccount(decision.accountId)
-                channel.state = ChannelState.LOGGED_OUT
-                channel.authContextId = null
-                Step(next = null)
-            }
-
-            is Decision.Cancel -> {
-                val parent = journey.parentJourneyId?.let { journeyRepository.findByIdOrNull(it) }
-                if (parent != null && parent.lifecycle == JourneyLifecycle.SUSPENDED) {
-                    // The sub-journey gave up (e.g. a declined RE_IDENTIFY under STEP_UP) - its
-                    // parent was only PARKED waiting on it, same handoff as a successful finish()
-                    // (JourneyEvent.SubJourneyFinished/SubJourneyCancelled lets the parent decide
-                    // for itself instead of guessing). Without this the parent stayed SUSPENDED
-                    // forever, orphaned, while startEntryJourney below started a brand new
-                    // top-level journey underneath it - e.g. a fresh LOOKUP_LOGIN on a channel that
-                    // was already AUTHENTICATED.
-                    markCancelled(journey, channel)
-                    parent.lifecycle = JourneyLifecycle.STARTED
-                    journeyRepository.save(parent)
-                    advance(parent, channel, JourneyEvent.SubJourneyCancelled(journey.intent!!))
-                } else {
-                    // Giving up on the last thing this TOP-LEVEL journey could offer is the same
-                    // outcome as an explicit DELETE .../journey: the channel starts its own entry
-                    // intent afresh - UNLESS this journey's own onCancel (via fallBack) already
-                    // landed the channel back on AUTHENTICATED (e.g. a direct step-up simply
-                    // declined), in which case there is nothing to restart, same guard
-                    // ChannelService.cancelActiveJourney applies for the equivalent explicit case.
-                    cancel(journey, channel)
-                    if (channel.state == ChannelState.AUTHENTICATED) Step(Next.AUTHENTICATED) else startEntryJourney(channel)
-                }
-            }
-
-            is Decision.Abort -> {
-                journey.fail()
-                journeyRepository.save(journey)
-                throw OrchestratorException.processAborted(decision.reason)
-            }
+    /** The two [Effect]s a [Decision.Execute] can carry - see that type's own doc for why the other four (tool-outcome-only) are unreachable here. */
+    private fun performEffect(journey: AuthJourney, channel: ChannelSession, effect: Effect) {
+        when (effect) {
+            is Effect.Remove -> removeMethod(journey, channel, effect.methodInstanceId)
+            is Effect.LinkDevice -> sessionManagementService.linkDeviceToAccount(
+                checkNotNull(channel.bindingKeyRef) { "LinkDevice without a bindingKeyRef" },
+                effect.accountId
+            )
+            is Effect.AdoptIdentity, is Effect.ConfirmIdentity, is Effect.AdoptCredential, is Effect.AcceptProof ->
+                error("$effect is only ever produced by IntentStrategy.interpret(), never wrapped in Decision.Execute")
         }
     }
 
@@ -453,22 +436,22 @@ class JourneyService(
         return Step(nextOf(journey, channel), mapOf("error" to reason))
     }
 
-    // Interpretation execution --------------------------------------------------
+    // Effect execution --------------------------------------------------
 
     /**
      * Executes what the strategy decided the outcome MEANS and returns this run's effective ACR.
      * The cap `min(achievedAcr, enrolledUnderAcr)` lives here and only here: a method must never
      * authenticate to more trust than it was set up under, and no intent may opt out of that.
      */
-    private fun applyInterpretation(
+    private fun applyEffect(
         journey: AuthJourney,
         channel: ChannelSession,
         tool: ToolDescriptor,
         outcome: ToolOutcome.Completed
     ): String? {
         val strategy = strategyFor(journey.intent!!)
-        return when (val interpretation = strategy.interpretOutcome(codec.read(journey), tool, outcome)) {
-            is Interpretation.AdoptIdentity -> {
+        return when (val effect = strategy.interpretErased(codec.read(journey), tool, outcome)) {
+            is Effect.AdoptIdentity -> {
                 val identified = outcome as ToolOutcome.Completed.Identified
                 val account = accountService.findOrCreateAccount(identified.personId)
                 bindAccount(journey, channel, account.accountId)
@@ -476,7 +459,7 @@ class JourneyService(
                 identified.achievedAcr
             }
 
-            is Interpretation.ConfirmIdentity -> {
+            is Effect.ConfirmIdentity -> {
                 val identified = outcome as ToolOutcome.Completed.Identified
                 val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
                     "Identified without a known account under ${journey.intent}"
@@ -490,7 +473,7 @@ class JourneyService(
                 identified.achievedAcr
             }
 
-            is Interpretation.AdoptCredential -> {
+            is Effect.AdoptCredential -> {
                 val enrolled = outcome as ToolOutcome.Completed.Enrolled
                 val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Enrolled without an account" }
                 val authContextId = checkNotNull(channel.authContextId) { "Enrolled without an AuthContext" }
@@ -512,20 +495,20 @@ class JourneyService(
                     allowsMultipleInstances = tool.allowsMultipleInstances,
                     label = label
                 )
-                if (interpretation.bindDevice) {
+                if (effect.bindDevice) {
                     sessionManagementService.linkDeviceToAccount(channel.bindingKeyRef!!, accountId)
                 }
                 enrolled.achievedAcr
             }
 
-            is Interpretation.AcceptProof -> {
+            is Effect.AcceptProof -> {
                 val authenticated = outcome as ToolOutcome.Completed.Authenticated
-                val resolved = authenticated.accountId.takeIf { interpretation.useOutcomeAccount }
+                val resolved = authenticated.accountId.takeIf { effect.useOutcomeAccount }
                 val accountId = checkNotNull(resolved ?: journey.accountId ?: channel.accountId) {
                     "Authenticated without a known account"
                 }
                 bindAccount(journey, channel, accountId)
-                if (interpretation.bindDevice) {
+                if (effect.bindDevice) {
                     sessionManagementService.linkDeviceToAccount(channel.bindingKeyRef!!, accountId)
                 }
                 val used = checkNotNull(accountService.findActiveMethod(accountId, tool.method)) {
@@ -533,6 +516,9 @@ class JourneyService(
                 }
                 AcrLevels.min(authenticated.achievedAcr, used.enrolledUnderAcr)
             }
+
+            is Effect.Remove, is Effect.LinkDevice ->
+                error("$effect is only ever produced as part of a Decision.Execute, never returned from interpret()")
         }
     }
 
@@ -573,7 +559,7 @@ class JourneyService(
      */
     private fun fallBack(journey: AuthJourney, channel: ChannelSession) {
         val strategy = strategyFor(journey.intent!!)
-        val target = strategy.cancelledTo(codec.read(journey))
+        val target = strategy.cancelledToErased(codec.read(journey))
         channel.state = target
         if (target != ChannelState.AUTHENTICATED) {
             channel.authContextId = null
@@ -619,22 +605,23 @@ class JourneyService(
      * The one place the SPI's state type is erased. A strategy is only ever handed the state of
      * its own intent - the journey's `intent` column and [JourneyStateCodec.read] guarantee that
      * together - but the registry is necessarily heterogeneous, so the cast lives here once
-     * instead of in every strategy.
+     * instead of in every strategy. Named with an `Erased` suffix, not the interface's own method
+     * names, so a call site never reads like (non-existent) recursion.
      */
     @Suppress("UNCHECKED_CAST")
-    private fun IntentStrategy<*>.decide(state: JourneyState, event: JourneyEvent, ctx: JourneyContext): Decision =
-        (this as IntentStrategy<JourneyState>).next(state, event, ctx)
+    private fun IntentStrategy<*>.decideErased(state: JourneyState, event: JourneyEvent, ctx: JourneyContext): Decision =
+        (this as IntentStrategy<JourneyState>).decide(state, event, ctx)
 
     @Suppress("UNCHECKED_CAST")
-    private fun IntentStrategy<*>.interpretOutcome(
+    private fun IntentStrategy<*>.interpretErased(
         state: JourneyState,
         tool: ToolDescriptor,
         outcome: ToolOutcome.Completed
-    ): Interpretation = (this as IntentStrategy<JourneyState>).interpret(state, tool, outcome)
+    ): Effect = (this as IntentStrategy<JourneyState>).interpret(state, tool, outcome)
 
     @Suppress("UNCHECKED_CAST")
-    private fun IntentStrategy<*>.cancelledTo(state: JourneyState): ChannelState =
-        (this as IntentStrategy<JourneyState>).onCancel(state)
+    private fun IntentStrategy<*>.cancelledToErased(state: JourneyState): ChannelState =
+        (this as IntentStrategy<JourneyState>).cancelledTo(state)
 
     companion object {
         private val JOURNEY_TTL: Duration = Duration.ofMinutes(60)

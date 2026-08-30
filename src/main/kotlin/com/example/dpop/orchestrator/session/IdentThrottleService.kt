@@ -10,7 +10,7 @@ import java.time.Duration
  * This closes an exception that used to be stated as a rule: "IDENT/ENROLL failures aren't a
  * brute-force target the same way (no credential guessed)". For ENROLL that holds. For IDENT it
  * does not - `ident-fsc` verifies exactly one secret (the Freischaltcode) against a KVNR, and a
- * hit means `Interpretation.AdoptIdentity`, i.e. creating OR taking over that person's account.
+ * hit means `Effect.AdoptIdentity`, i.e. creating OR taking over that person's account.
  * `ident-eid` guesses a PIN the same way.
  *
  * Keyed by personId rather than accountId because an identification runs before any account is

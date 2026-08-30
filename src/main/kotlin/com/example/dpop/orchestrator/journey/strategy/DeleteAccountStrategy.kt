@@ -3,9 +3,8 @@ package com.example.dpop.orchestrator.journey.strategy
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.DELETE_ACCOUNT_REQUIRED_ACR
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Interpretation
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
@@ -36,18 +35,18 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
 
     override fun initialState(ctx: JourneyContext): DeleteAccountState = DeleteAccountState.ConfirmPending
 
-    override fun interpret(state: DeleteAccountState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: DeleteAccountState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
         when (outcome) {
             // The account is already known from the channel; the point of this proof is only to
             // show the caller is still present, not to (re-)establish which account it is.
             is ToolOutcome.Completed.Authenticated ->
-                Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = false)
+                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = false)
             is ToolOutcome.Completed.Identified,
             is ToolOutcome.Completed.Enrolled ->
                 error("${tool.toolId} is not offered by DELETE_ACCOUNT")
         }
 
-    override fun next(state: DeleteAccountState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun decide(state: DeleteAccountState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
             is DeleteAccountState.ConfirmPending -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
@@ -71,7 +70,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // first place - delete the account anyway by just re-proving that same loa1 factor,
                 // defeating the loa2 gate this class's own doc says must hold.
                 is JourneyEvent.SubJourneyFinished ->
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(DELETE_ACCOUNT_REQUIRED_ACR)) {
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Decision.DeleteAccount.REQUIRED_ACR)) {
                         Decision.DeleteAccount(ctx.requireAccount().accountId)
                     } else {
                         Decision.Cancel
@@ -95,13 +94,13 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
             }
         }
 
-    override fun onCancel(state: DeleteAccountState): ChannelState = ChannelState.AUTHENTICATED
+    override fun cancelledTo(state: DeleteAccountState): ChannelState = ChannelState.AUTHENTICATED
 
     /** Null once the session already carries loa2 and the caller may proceed. */
     private fun gate(ctx: JourneyContext): Decision? {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, DELETE_ACCOUNT_REQUIRED_ACR, account)) return null
-        return Decision.RequireSubJourney(AuthIntent.STEP_UP, DELETE_ACCOUNT_REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
+        if (ctx.policy.isSatisfied(ctx.evidence, Decision.DeleteAccount.REQUIRED_ACR, account)) return null
+        return Decision.RequireSubJourney(AuthIntent.STEP_UP, Decision.DeleteAccount.REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
     }
 
     private fun offerReconfirmation(ctx: JourneyContext): Decision {

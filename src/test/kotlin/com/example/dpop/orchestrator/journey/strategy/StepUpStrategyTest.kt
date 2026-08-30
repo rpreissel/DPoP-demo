@@ -4,7 +4,7 @@ import com.example.dpop.auth_password.AuthPasswordUseDescriptor
 import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
@@ -45,7 +45,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
         then("Authenticated is accepted as proof, never adopting a different account, always binding the device") {
             strategy.interpret(state, AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"))) shouldBe
-                Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = true)
+                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = true)
         }
 
         then("Identified is not offered by this intent") {
@@ -69,7 +69,7 @@ class StepUpStrategyTest : BehaviorSpec({
         val state = StepUpState.Start("loa2", "loa1")
 
         then("offers it via AuthChoice") {
-            val decision = strategy.next(state, JourneyEvent.Started, theCtx)
+            val decision = strategy.decide(state, JourneyEvent.Started, theCtx)
             decision shouldBe Decision.Advance(StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms")))
         }
     }
@@ -80,7 +80,7 @@ class StepUpStrategyTest : BehaviorSpec({
         val state = StepUpState.Start("loa2", "loa1")
 
         then("requires the shared RE_IDENTIFY sub-journey instead of aborting") {
-            val decision = strategy.next(state, JourneyEvent.Started, theCtx)
+            val decision = strategy.decide(state, JourneyEvent.Started, theCtx)
             decision shouldBe Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = StepUpState.Start("loa2", "loa1"))
         }
     }
@@ -95,7 +95,7 @@ class StepUpStrategyTest : BehaviorSpec({
         val state = StepUpState.Start("loa2", "loa1")
 
         then("aborts with a reason, never a silent auto-pick") {
-            val decision = strategy.next(state, JourneyEvent.Started, theCtx)
+            val decision = strategy.decide(state, JourneyEvent.Started, theCtx)
             decision.shouldBeInstanceOf<Decision.Abort>()
             (decision as Decision.Abort).reason shouldContain "nicht erreichbar"
         }
@@ -109,7 +109,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
             then("finishes directly instead of offering auth again") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2")
-                strategy.next(state, event, theCtx) shouldBe Decision.Finish
+                strategy.decide(state, event, theCtx) shouldBe Decision.Finish
             }
         }
 
@@ -120,7 +120,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
             then("falls through to offering auth candidates, same as a fresh Start") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = null)
-                strategy.next(state, event, theCtx) shouldBe Decision.Advance(StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms")))
+                strategy.decide(state, event, theCtx) shouldBe Decision.Advance(StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms")))
             }
         }
 
@@ -131,7 +131,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
             then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
                 val event = JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY)
-                strategy.next(state, event, theCtx) shouldBe Decision.Cancel
+                strategy.decide(state, event, theCtx) shouldBe Decision.Cancel
             }
         }
     }
@@ -143,7 +143,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
         `when`("one is abandoned, another remains") {
             then("advances, marking only that one declined") {
-                strategy.next(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
+                strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
                     Decision.Advance(state.copy(declined = setOf("auth-sms"), active = null))
             }
         }
@@ -156,7 +156,7 @@ class StepUpStrategyTest : BehaviorSpec({
         `when`("re-identification could still help") {
             val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
             then("requires the shared RE_IDENTIFY sub-journey") {
-                strategy.next(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
+                strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
                     Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = StepUpState.Start("loa2", "loa1"))
             }
         }
@@ -164,7 +164,7 @@ class StepUpStrategyTest : BehaviorSpec({
         `when`("re-identification cannot help either") {
             val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)))
             then("cancels - giving up here is not an error") {
-                strategy.next(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Decision.Cancel
+                strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Decision.Cancel
             }
         }
     }
@@ -178,14 +178,14 @@ class StepUpStrategyTest : BehaviorSpec({
 
         then("finishes once the combination satisfies the target") {
             val event = JourneyEvent.Completed(AuthPasswordUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("password")))
-            strategy.next(state, event, theCtx) shouldBe Decision.Finish
+            strategy.decide(state, event, theCtx) shouldBe Decision.Finish
         }
     }
 
     given("onCancel") {
         then("always falls back to AUTHENTICATED - STEP_UP only ever runs on an already-authenticated channel") {
-            strategy.onCancel(StepUpState.Start("loa2", "loa1")) shouldBe ChannelState.AUTHENTICATED
-            strategy.onCancel(StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms"))) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(StepUpState.Start("loa2", "loa1")) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms"))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

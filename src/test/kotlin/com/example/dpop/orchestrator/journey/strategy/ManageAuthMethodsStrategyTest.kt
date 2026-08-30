@@ -4,7 +4,7 @@ import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
@@ -43,7 +43,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     given("interpret") {
         then("Enrolled binds the device - it's already known, so this is a harmless no-op that keeps it reachable") {
             strategy.interpret(ManageAuthMethodsState.AddRequested, AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref"))) shouldBe
-                Interpretation.AdoptCredential(bindDevice = true)
+                Effect.AdoptCredential(bindDevice = true)
         }
 
         then("Identified is not offered by this intent") {
@@ -63,7 +63,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val acc = account(method("sms", "loa1"))
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
         then("parks the wish and demands a step-up first, without losing it") {
-            strategy.next(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx) shouldBe
+            strategy.decide(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx) shouldBe
                 Decision.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ManageAuthMethodsState.AddRequested)
         }
     }
@@ -73,7 +73,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("fsc"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
 
         then("offers enrollment candidates directly") {
-            val decision = strategy.next(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx)
+            val decision = strategy.decide(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx)
             decision.shouldBeInstanceOf<Decision.Advance>()
         }
     }
@@ -87,7 +87,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         then("finishes - not an error, just nothing more to add (device stays offered since it allows multiple instances, so this really only fires once every singleton method is active)") {
             // device (allowsMultipleInstances) is deliberately still offered even with one active
             // instance, so this case is only reachable by ALSO backend-disabling it.
-            val decision = strategy.next(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx.copy(availableTools = theCtx.availableTools - "enroll-device"))
+            val decision = strategy.decide(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx.copy(availableTools = theCtx.availableTools - "enroll-device"))
             decision shouldBe Decision.Finish
         }
     }
@@ -96,7 +96,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val acc = account(method("sms", "loa1"))
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
         then("gives up on the wish rather than re-requesting the identical STEP_UP again") {
-            strategy.next(ManageAuthMethodsState.AddRequested, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe
+            strategy.decide(ManageAuthMethodsState.AddRequested, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe
                 Decision.Cancel
         }
     }
@@ -107,7 +107,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
 
         then("parks the wish and demands a step-up first") {
-            strategy.next(state, JourneyEvent.Started, theCtx) shouldBe
+            strategy.decide(state, JourneyEvent.Started, theCtx) shouldBe
                 Decision.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = state)
         }
     }
@@ -118,7 +118,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
 
         then("removes the method directly - the machine, not this strategy, rejects self-lockout") {
-            strategy.next(state, JourneyEvent.Started, theCtx) shouldBe Decision.Remove("sms-instance")
+            strategy.decide(state, JourneyEvent.Started, theCtx) shouldBe Decision.Execute(Effect.Remove("sms-instance"))
         }
     }
 
@@ -127,7 +127,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
         val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
         then("gives up on the wish rather than re-requesting the identical STEP_UP again") {
-            strategy.next(state, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe Decision.Cancel
+            strategy.decide(state, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe Decision.Cancel
         }
     }
 
@@ -136,7 +136,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         `when`("a tool is abandoned") {
             then("stays in Enrolling with the full choice back - not a decline, just picking differently") {
-                strategy.next(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
+                strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
                     Decision.Advance(state.copy(active = null))
             }
         }
@@ -144,15 +144,15 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         `when`("a method is enrolled") {
             then("finishes - one successful enrollment is always enough here") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref")))
-                strategy.next(state, event, ctx()) shouldBe Decision.Finish
+                strategy.decide(state, event, ctx()) shouldBe Decision.Finish
             }
         }
     }
 
     given("onCancel") {
         then("always falls back to AUTHENTICATED - this intent only ever runs on an already-authenticated channel") {
-            strategy.onCancel(ManageAuthMethodsState.AddRequested) shouldBe ChannelState.AUTHENTICATED
-            strategy.onCancel(ManageAuthMethodsState.RemoveRequested("sms-instance")) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(ManageAuthMethodsState.AddRequested) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(ManageAuthMethodsState.RemoveRequested("sms-instance")) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

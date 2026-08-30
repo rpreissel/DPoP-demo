@@ -3,8 +3,8 @@ package com.example.dpop.orchestrator.journey.strategy
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Interpretation
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.StepUpState
@@ -34,24 +34,20 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     override fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): StepUpState =
         StepUpState.Start(targetAcr, startingAcr)
 
-    override fun interpret(state: StepUpState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: StepUpState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
         when (outcome) {
             is ToolOutcome.Completed.Authenticated ->
-                Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = true)
+                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = true)
             is ToolOutcome.Completed.Identified,
             is ToolOutcome.Completed.Enrolled -> error("${tool.toolId} is not offered by STEP_UP")
         }
 
-    override fun next(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun decide(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
             is StepUpState.Start -> when (event) {
-                // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
-                // already closes the gap before trying to offer auth methods again.
+                // Re-check whether the fresh proof already closes the gap before offering again.
                 is JourneyEvent.SubJourneyFinished -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
-                // RE_IDENTIFY was declined instead - no new evidence, and re-deriving via
-                // offerAuth/offerReIdentOrGiveUp would just re-request the very same RE_IDENTIFY
-                // again (candidates unchanged), the identical confirm prompt forever - gives up on
-                // its own instead.
+                // No new evidence - re-deriving would just re-request the same RE_IDENTIFY again.
                 is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 else -> offerAuth(state.targetAcr, state.startingAcr, ctx)
             }
@@ -69,7 +65,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             }
         }
 
-    override fun onCancel(state: StepUpState): ChannelState = ChannelState.AUTHENTICATED
+    override fun cancelledTo(state: StepUpState): ChannelState = ChannelState.AUTHENTICATED
 
     private fun finishOrContinue(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()

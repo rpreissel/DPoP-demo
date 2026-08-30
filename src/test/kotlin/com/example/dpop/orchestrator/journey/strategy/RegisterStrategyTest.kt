@@ -32,7 +32,7 @@ class RegisterStrategyTest : BehaviorSpec({
         val acc = account(method("device", "loa2", details = deviceDetails()), method("sms", "loa2"))
 
         then("skips PreferredAuth/AuthChoice entirely and goes straight to identification") {
-            val decision = strategy.next(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc))
+            val decision = strategy.decide(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc))
             decision.shouldBeInstanceOf<Decision.Advance>()
             (decision as Decision.Advance).to.shouldBeInstanceOf<FastAccessState.Identifying>()
         }
@@ -40,7 +40,7 @@ class RegisterStrategyTest : BehaviorSpec({
 
     given("Start, no account known yet") {
         then("behaves exactly like FAST_ACCESS in this case - both fall to identification") {
-            val decision = strategy.next(FastAccessState.Start, JourneyEvent.Started, ctx(account = null))
+            val decision = strategy.decide(FastAccessState.Start, JourneyEvent.Started, ctx(account = null))
             decision.shouldBeInstanceOf<Decision.Advance>()
             (decision as Decision.Advance).to.shouldBeInstanceOf<FastAccessState.Identifying>()
         }

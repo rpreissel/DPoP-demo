@@ -4,11 +4,11 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.state.FastAccessState
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Interpretation
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -36,30 +36,26 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
 
     override fun initialState(ctx: JourneyContext): FastAccessState = FastAccessState.Start
 
-    override fun interpret(state: FastAccessState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: FastAccessState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
         when (outcome) {
             // The account may be brand new or an existing one found again by KVNR; both are the
             // same decision here, which is why registration needs no state of its own.
-            is ToolOutcome.Completed.Identified -> Interpretation.AdoptIdentity
+            is ToolOutcome.Completed.Identified -> Effect.AdoptIdentity
             // A real credential now exists on this device, so recognizing the device costs
             // nothing and saves the next login: bind it.
-            is ToolOutcome.Completed.Enrolled -> Interpretation.AdoptCredential(bindDevice = true)
+            is ToolOutcome.Completed.Enrolled -> Effect.AdoptCredential(bindDevice = true)
             // A device-bound tool never resolves the account itself - it could only have been
             // offered once the account was already known.
             is ToolOutcome.Completed.Authenticated ->
-                Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = true)
+                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = true)
         }
 
-    override fun next(state: FastAccessState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun decide(state: FastAccessState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
             is FastAccessState.Start -> when (event) {
-                // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
-                // already closes the gap before trying to offer auth/enrollment again.
+                // Re-check whether the fresh proof already closes the gap before offering again.
                 is JourneyEvent.SubJourneyFinished -> afterProof(ctx)
-                // RE_IDENTIFY was declined instead - no new evidence, and afterProof ->
-                // offerEnrollment would just re-request the very same RE_IDENTIFY again
-                // (candidates unchanged), the identical confirm prompt forever - gives up on its
-                // own instead.
+                // No new evidence - re-deriving would just re-request the same RE_IDENTIFY again.
                 is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 else -> firstOffer(ctx)
             }
@@ -98,7 +94,7 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
             }
         }
 
-    override fun onCancel(state: FastAccessState): ChannelState = ChannelState.ANONYMOUS
+    override fun cancelledTo(state: FastAccessState): ChannelState = ChannelState.ANONYMOUS
 
     // Offers -------------------------------------------------------------------
 

@@ -4,7 +4,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.Decision
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Interpretation
+import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
@@ -32,13 +32,13 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
 
     override fun initialState(ctx: JourneyContext): LookupLoginState = LookupLoginState.Start
 
-    override fun interpret(state: LookupLoginState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
+    override fun interpret(state: LookupLoginState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
         when (outcome) {
             // The only intent that trusts a tool to resolve the account itself - but only on the
             // FIRST proof, which is the one that has no account yet. Any further factor runs
             // against the account already bound by that first one, exactly like every other
             // intent, so it must not be able to name a different one.
-            is ToolOutcome.Completed.Authenticated -> Interpretation.AcceptProof(
+            is ToolOutcome.Completed.Authenticated -> Effect.AcceptProof(
                 useOutcomeAccount = state is LookupLoginState.Credential,
                 bindDevice = false
             )
@@ -49,15 +49,12 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 error("${tool.toolId} is not offered by LOGIN_LOOKUP")
         }
 
-    override fun next(state: LookupLoginState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun decide(state: LookupLoginState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
             is LookupLoginState.Start -> when (event) {
-                // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
-                // already closes the gap before offering credentials again.
+                // Re-check whether the fresh proof already closes the gap before offering again.
                 is JourneyEvent.SubJourneyFinished -> settleOrRaise(ctx)
-                // RE_IDENTIFY was declined instead - no new evidence, and settleOrRaise would just
-                // re-request the very same RE_IDENTIFY again (candidates unchanged), the identical
-                // confirm prompt forever - gives up on its own instead.
+                // No new evidence - re-deriving would just re-request the same RE_IDENTIFY again.
                 is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
                 else -> {
                     // The offered set IS "every tool that can resolve the account itself" - derived
@@ -93,7 +90,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             // but only ACCEPT asks the machine to actually link the device.
             is LookupLoginState.OfferBinding -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Decision.FinishWithDeviceLink(state.accountId)
+                    ACCEPT -> Decision.Execute(Effect.LinkDevice(state.accountId))
                     DECLINE -> Decision.Finish
                     else -> error("OfferBinding does not understand answer '${event.answer}'")
                 }
@@ -101,23 +98,18 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             }
         }
 
-    override fun onCancel(state: LookupLoginState): ChannelState = ChannelState.ANONYMOUS
+    override fun cancelledTo(state: LookupLoginState): ChannelState = ChannelState.ANONYMOUS
 
     /**
-     * The channel's own acrFloor applies here like it does to every other intent.
+     * The channel's own acrFloor applies here like it does to every other intent - forgetting it
+     * would let a channel opened with `requiredAcr: "loa3"` reach AUTHENTICATED on one loa1
+     * factor, since `JourneyService.finish` sets AUTHENTICATED unconditionally.
      *
-     * This used to be missing outright - a proof went straight to [LookupLoginState.OfferBinding]
-     * and the journey finished, so a channel opened with `requiredAcr: "loa3"` reached
-     * AUTHENTICATED on one loa1 factor. `JourneyService.finish` sets AUTHENTICATED
-     * unconditionally; the floor is only ever enforced by the strategy, which makes forgetting it
-     * here silent. Compare `FastAccessStrategy.afterProof` and `StepUpStrategy.finishOrContinue`,
-     * which do the same thing for their own intents.
-     *
-     * Unlike those two there is no ENROLLMENT fallback: this intent exists to log an EXISTING
-     * account in from an unpaired device, so an account that simply cannot reach the floor with
+     * Unlike FAST_ACCESS/STEP_UP there is no ENROLLMENT fallback: this intent exists to log an
+     * EXISTING account in from an unpaired device, so an account that cannot reach the floor with
      * what it already has must not grow new credentials on an unproven device. Re-identification
-     * is different and stays available: it adds no lasting credential, only re-confirms the same
-     * account at a higher priced-in trust level (`RE_IDENTIFY`'s `ConfirmIdentity`).
+     * stays available: it adds no lasting credential, only re-confirms the same account at a
+     * higher trust level (`RE_IDENTIFY`'s `ConfirmIdentity`).
      */
     private fun settleOrRaise(ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()

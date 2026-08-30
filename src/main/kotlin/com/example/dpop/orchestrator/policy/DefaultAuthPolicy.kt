@@ -195,9 +195,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * The MFA-combination rule itself (see class doc): >=2 distinct methods covering >=2 distinct
      * factor types earn one tier above [base] - capped by [maxEnrolledUnderAcr], the highest loa
      * any of the combining methods was itself enrolled under - otherwise [base] unchanged. Shared
-     * by [canAccountReach] and [applyMfaBump], which used to each re-derive this same arithmetic
-     * independently (over different inputs: an account's full standing methods vs. one session's
-     * proven AUTH methods) - a future change to the rule itself now has exactly one place to make.
+     * by [canAccountReach] and [applyMfaBump] (over different inputs: an account's full standing
+     * methods vs. one session's proven AUTH methods).
      */
     private fun combinedAcr(base: String, distinctMethods: Int, factorTypesUnion: Set<FactorType>, maxEnrolledUnderAcr: String): String {
         if (distinctMethods < 2 || factorTypesUnion.size < 2) return base
