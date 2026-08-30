@@ -191,9 +191,9 @@ stateDiagram-v2
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
   ConfirmingEmail --> Finished: E-Mail bestätigt
 
-  Enrolling --> OfferReIdent: keine Einrichtung schließt die Lücke, Re-Identifizierung möglich
-  OfferReIdent --> Identifying: zugestimmt
-  OfferReIdent --> [*]: abgelehnt/nicht möglich (Abort)
+  Enrolling --> RE_IDENTIFY: keine Einrichtung schließt die Lücke, Re-Identifizierung möglich
+  RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
+  RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
 
   Finished --> [*]
 
@@ -205,6 +205,11 @@ stateDiagram-v2
     Zustände 4-5: Pflicht.
     Nur Erfüllen führt weiter.
   end note
+  note right of RE_IDENTIFY
+    Eigene geteilte SubJourney,
+    kein Zustand dieses Intents -
+    siehe Abschnitt "RE_IDENTIFY".
+  end note
 ```
 
 `PreferredAuth` trägt genau die eine vorgeschlagene `toolId`; `AuthChoice`/`Identifying`/
@@ -213,11 +218,12 @@ stateDiagram-v2
 dass dieser Lauf über `Identifying` kam (Account neu angelegt oder übernommen) — nur dann gilt die
 E-Mail-Pflicht danach (Abschnitt 8).
 
-`OfferReIdent` ist der Ausweg, falls selbst keine Einrichtung die Lücke schließt (z. B. kein
-`enroll-*`-Tool mehr verfügbar): dasselbe generische Ja/Nein wie bei `STEP_UP` (Abschnitt „STEP_UP"),
-nie ein stiller Rückfall. Bei Zustimmung läuft es in ein gewöhnliches `Identifying` — `Identified`
-interpretiert `FAST_ACCESS` ohnehin immer als „finde oder übernimm den Account" (`AdoptIdentity`),
-unabhängig davon, welcher Zustand dorthin führte.
+Schließt selbst keine Einrichtung die Lücke (z. B. kein `enroll-*`-Tool mehr verfügbar), fragt die
+geteilte `RE_IDENTIFY`-SubJourney (Abschnitt „RE_IDENTIFY") nach einer Re-Identifizierung. Nach
+ihrem Abschluss (`SubJourneyFinished`) prüft `Start` erneut, ob der Nachweis jetzt reicht —
+`Identified` interpretiert `FAST_ACCESS` an jeder anderen Stelle ohnehin immer als „finde oder
+übernimm den Account" (`AdoptIdentity`); `RE_IDENTIFY` selbst nutzt stattdessen `ConfirmIdentity`,
+weil an dieser Stelle der Account bereits bekannt ist.
 
 `Identifying` ist gleichzeitig Login-Notausgang und Registrierungseinstieg. Eine
 `REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im Zustandsmodell keinen eigenen Zustand
@@ -262,10 +268,9 @@ stateDiagram-v2
   Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht
   AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
   AdditionalFactor --> OfferBinding: acrFloor erreicht
-  AdditionalFactor --> OfferReIdent: keine kombinierbare Methode übrig, Re-Identifizierung möglich
-  OfferReIdent --> ReIdentifying: zugestimmt
-  OfferReIdent --> [*]: abgelehnt (Cancel)
-  ReIdentifying --> OfferBinding: Identität bestätigt, acrFloor erreicht
+  AdditionalFactor --> RE_IDENTIFY: keine kombinierbare Methode übrig, Re-Identifizierung möglich
+  RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
+  RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
   OfferBinding --> Finished: Nutzer stimmt zu -> Gerät wird wiedererkannt
   OfferBinding --> Finished: Nutzer lehnt ab -> keine Bindung
   Finished --> [*]
@@ -274,7 +279,7 @@ stateDiagram-v2
     Kein Identifying, das einen
     ACCOUNT ÜBERNIMMT: ohne bekannten
     Account ist Identifizierung hier
-    kein Login-Weg. ReIdentifying ist
+    kein Login-Weg. RE_IDENTIFY ist
     anders - es bestätigt nur den
     bereits aufgelösten Account.
   end note
@@ -291,13 +296,11 @@ den der Nutzer gerade deshalb gewählt hat, weil er ohne Gerätebindung auskomme
 
 `AdditionalFactor` erzwingt die eigene `acrFloor` des Kanals (Abschnitt 8) — ohne sie würde ein mit
 `requiredAcr: loa3` eröffneter Kanal auf einem einzigen `loa1`-Faktor authentifiziert. Bleibt danach
-keine kombinierbare Methode übrig, fragt `OfferReIdent` (dasselbe generische Ja/Nein wie bei
-`STEP_UP`) vor `ReIdentifying`, nie ein stiller Rückfall. `ReIdentifying` bestätigt dabei **nur**
-den bereits aufgelösten Account — `LookupLoginStrategy.interpret` liefert dafür `ConfirmIdentity`,
-niemals `AdoptIdentity`: Eine Session, die gerade erst `loa1` bewiesen hat, darf keine fremde
-Identität einschleusen. Anders als bei `enroll-*` wächst hier **keine** dauerhafte Credential auf
-einem ungeprüften Gerät — Re-Identifizierung bleibt deshalb erlaubt, obwohl dieser Intent
-bewusst **keinen** Enrollment-Fallback hat.
+keine kombinierbare Methode übrig, springt die Strategie in die geteilte `RE_IDENTIFY`-SubJourney
+(Abschnitt „RE_IDENTIFY") statt selbst eine Re-Identifizierung anzubieten. Nach ihrem Abschluss
+prüft `Start` erneut per `settleOrRaise`. Anders als bei `enroll-*` wächst dabei **keine** dauerhafte
+Credential auf einem ungeprüften Gerät — Re-Identifizierung bleibt deshalb erlaubt, obwohl dieser
+Intent bewusst **keinen** Enrollment-Fallback hat.
 
 **Enumeration-Schutz**: Eine unbekannte E-Mail liefert exakt dieselbe Antwortform wie ein korrekt
 aufgelöster Account mit fehlgeschlagenem Nachweis — nie eine eigene Fehlerform, auch nicht im Timing
@@ -308,31 +311,67 @@ Timing-Padding); in einem Produktivsystem wäre das der nächste Ausbau.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> AuthChoice
+  [*] --> Start
+  Start --> AuthChoice
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
-  AuthChoice --> OfferReIdent: keine kombinierbare Methode übrig, Re-Identifizierung möglich
+  AuthChoice --> RE_IDENTIFY: keine kombinierbare Methode übrig, Re-Identifizierung möglich
   AuthChoice --> Finished: targetAcr erreicht
-  OfferReIdent --> ReIdentifying: zugestimmt
-  OfferReIdent --> [*]: abgelehnt (Cancel)
-  ReIdentifying --> Finished: Identität bestätigt, loa2 im Alleingang
+  RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
+  RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
   Finished --> [*]
+
+  note right of RE_IDENTIFY
+    Eigene geteilte SubJourney,
+    kein Zustand dieses Intents -
+    siehe unten.
+  end note
 ```
 
 Jeder Zustand trägt `targetAcr` (das Ziel dieses Laufs, nicht zu verwechseln mit der dauerhaften
-Untergrenze des Kanals, Abschnitt 8) und `startingAcr`; `AuthChoice`/`ReIdentifying` zusätzlich
-Angebot und Ablehnungen wie oben.
+Untergrenze des Kanals, Abschnitt 8) und `startingAcr`; `AuthChoice` zusätzlich Angebot und
+Ablehnungen wie oben.
 
-`ReIdentifying` ist der Ausweg aus dem **Ein-Methoden-Fall**: Ein Account mit genau einer
-aktiven Methode hätte nach einem frischen gerätegebundenen Login (nur `loa1`) sonst keinen
-Weg zu `loa2` — es gibt keine zweite Methode zum Kombinieren. `ident-fsc`/`ident-eid` erreichen
-`loa2`/`loa3` im Alleingang. Bewusst ein eigener Zustand und nicht Teil von `AuthChoice`:
-Re-Identifizierung ist eine schwerere Aktion als ein weiteres Verfahren auszuwählen, also nie ein
-stiller Rückfall — `OfferReIdent` fragt davor immer erst per generischem `AnswerableState`-Prompt
-(„Erneut identifizieren?"), egal ob dieser Step-up eigenständig läuft oder als Vorbedingung eines
-anderen Intents (Abschnitt 6). Bei Ablehnung endet der Step-up (`Decision.Cancel`) wie jede andere
-abgebrochene Sub-Journey.
-Die neu festgestellte Person muss zum angemeldeten Account passen (`409` bei Abweichung), sonst
-könnte eine `loa1`-Session eine fremde Identität einschleusen.
+Schließt keine aktive Methode die Lücke — z. B. ein Account mit genau einer aktiven Methode hat
+nach einem frischen gerätegebundenen Login (nur `loa1`) sonst keinen Weg zu `loa2`, es gibt keine
+zweite Methode zum Kombinieren —, springt die Strategie in die geteilte `RE_IDENTIFY`-SubJourney
+statt selbst eine Re-Identifizierung anzubieten (Abschnitt „RE_IDENTIFY" unten). Nach ihrem
+Abschluss (`SubJourneyFinished`) prüft `Start` per `finishOrContinue` erneut, ob der Nachweis jetzt
+reicht.
+
+### `RE_IDENTIFY`
+
+Geteilt von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP` (jeweils oben verlinkt) — eine einzige
+Implementierung statt drei fast identischer, damit auch nur an einer Stelle entschieden wird, was
+eine frische Identifizierung hier bedeuten darf. Nie ein Entry-Intent, nur über
+`Decision.RequireSubJourney` erreichbar.
+
+```mermaid
+stateDiagram-v2
+  [*] --> OfferReIdent
+  OfferReIdent --> Identifying: zugestimmt (Answered "accept")
+  OfferReIdent --> [*]: abgelehnt (Answered "decline") -> Cancel
+  Identifying --> Identifying: ein Tool abgelehnt, weitere übrig
+  Identifying --> [*]: alle abgelehnt -> Cancel
+  Identifying --> Finished: Identität bestätigt
+  Finished --> [*]
+```
+
+`OfferReIdent` fragt immer zuerst per generischem `AnswerableState`-Prompt („Erneut
+identifizieren?") — Re-Identifizierung ist eine schwerere Aktion als ein weiteres Verfahren
+auszuwählen, also nie ein stiller Rückfall. `Identifying` trägt `targetAcr`/`startingAcr` sowie
+Angebot und Ablehnungen wie jeder andere Fallback-Zustand; `ident-fsc`/`ident-eid` erreichen
+`loa2`/`loa3` im Alleingang.
+
+`startingAcr` ist der einzige Hinweis, den `onCancel` hier hat, um bei Ablehnung korrekt
+zurückzufallen: `"none"` bedeutet, der aufrufende Kanal war noch gar nicht authentifiziert
+(`FAST_ACCESS`/`LOOKUP_LOGIN`) → `ANONYMOUS`; ein echtes Niveau bedeutet, der Kanal war bereits
+`AUTHENTICATED` (`STEP_UP`) → genau das bleibt es auch, eine abgelehnte Re-Identifizierung darf eine
+schon laufende Session nicht abmelden.
+
+`interpret()` liefert für ein erfolgreiches `Identified` immer `ConfirmIdentity`, nie
+`AdoptIdentity`: Die identifizierte Person muss zum bereits bekannten Account passen (`409` bei
+Abweichung) — unabhängig davon, welcher der drei Intents diese SubJourney angefordert hat, sonst
+könnte eine schwache Session eine fremde Identität einschleusen.
 
 ### `MANAGE_AUTH_METHODS`
 

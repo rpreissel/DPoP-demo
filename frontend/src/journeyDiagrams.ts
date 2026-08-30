@@ -8,7 +8,7 @@ import type { JourneyDiagramSpec } from './components/JourneyDiagram'
  * confirmation. Only the one branch each argument actually hinges on is drawn.
  */
 export const JOURNEY_DIAGRAMS: Record<
-  'channel' | 'auto' | 'register' | 'login' | 'stepUp' | 'manageMethods' | 'deleteAccount',
+  'channel' | 'auto' | 'register' | 'login' | 'stepUp' | 'manageMethods' | 'deleteAccount' | 'reIdentify',
   JourneyDiagramSpec
 > = {
   channel: {
@@ -67,6 +67,19 @@ export const JOURNEY_DIAGRAMS: Record<
       mainLabel: 'Ja',
       label: 'Nein',
       steps: ['Step-up (Faktor bestätigen)', 'Verfahren wählen', 'Eingerichtet'],
+    },
+  },
+  reIdentify: {
+    title: 'Erneut identifizieren (ReIdentifyState, geteilte SubJourney)',
+    // The exact ReIdentifyState names (docs/orchestrator/journey/state/ReIdentifyState.kt) -
+    // shared by FAST_ACCESS/LOOKUP_LOGIN/STEP_UP alike, always this same confirmation first,
+    // never a silent fallback; the identification only ever CONFIRMS the already-known account.
+    steps: ['OfferReIdent', 'Identifying', 'Finished'],
+    branch: {
+      atIndex: 0,
+      mainLabel: 'Ja',
+      label: 'Nein',
+      steps: ['Cancel'],
     },
   },
   deleteAccount: {

@@ -29,6 +29,7 @@ const INTENT_DIAGRAM_KEY: Record<string, keyof typeof JOURNEY_DIAGRAMS> = {
   STEP_UP: 'stepUp',
   MANAGE_AUTH_METHODS: 'manageMethods',
   DELETE_ACCOUNT: 'deleteAccount',
+  RE_IDENTIFY: 'reIdentify',
 }
 
 interface Level {

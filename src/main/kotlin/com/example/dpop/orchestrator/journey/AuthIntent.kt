@@ -26,7 +26,17 @@ enum class AuthIntent {
     MANAGE_AUTH_METHODS,
 
     /** Delete the account itself, after a fresh re-confirmation. Only on an AUTHENTICATED channel. */
-    DELETE_ACCOUNT;
+    DELETE_ACCOUNT,
+
+    /**
+     * "No active method reaches the target - re-identify instead?" Never an entry intent, only
+     * ever reached as another intent's [Decision.RequireSubJourney] once no active method can
+     * close its own ACR gap (FAST_ACCESS/LOOKUP_LOGIN/STEP_UP alike) - one shared implementation
+     * instead of three near-identical ones, so there is exactly one place that decides what a
+     * fresh identification is allowed to mean here (always `ConfirmIdentity`, never `AdoptIdentity`
+     * - see [ReIdentifyStrategy]).
+     */
+    RE_IDENTIFY;
 
     /** The three intents a client may name when entering a channel; STEP_UP/MANAGE_AUTH_METHODS are reached from an authenticated one. */
     val isEntryIntent: Boolean

@@ -4,19 +4,18 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
- * There is deliberately no `Identifying` that could ADOPT an account here: without a known
- * account, an identification is not a way to log in - it would create or adopt one, which is not
- * what this intent is for. [ReIdentifying] is different: it only ever re-CONFIRMS the account
- * already resolved by the initial lookup, offered only once that account is known - and only
- * after [OfferReIdent] asks first, never as a silent fallback.
+ * There is deliberately no `Identifying` here: without a known account, an identification is not
+ * a way to log in - it would create or adopt an account, which is not what this intent is for.
+ * The state that would permit it does not exist, so no activation check can be forgotten. Falling
+ * back to a fresh identification once the account IS known (no active method reaches the floor)
+ * runs as the shared `RE_IDENTIFY` sub-journey instead (docs/04-orchestrierung.md) - it only ever
+ * CONFIRMS this already-resolved account, never adopts a different one.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(
     JsonSubTypes.Type(value = LookupLoginState.Start::class, name = "Start"),
     JsonSubTypes.Type(value = LookupLoginState.Credential::class, name = "Credential"),
     JsonSubTypes.Type(value = LookupLoginState.AdditionalFactor::class, name = "AdditionalFactor"),
-    JsonSubTypes.Type(value = LookupLoginState.OfferReIdent::class, name = "OfferReIdent"),
-    JsonSubTypes.Type(value = LookupLoginState.ReIdentifying::class, name = "ReIdentifying"),
     JsonSubTypes.Type(value = LookupLoginState.OfferBinding::class, name = "OfferBinding")
 )
 sealed interface LookupLoginState : JourneyState {
@@ -56,41 +55,6 @@ sealed interface LookupLoginState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Zusätzlichen Faktor bestätigen"
-    }
-
-    /**
-     * "No active method reaches the target - re-identify instead?" A plain yes/no, asked before
-     * ever falling through to [ReIdentifying] - re-identification is a heavier action than
-     * picking another factor, so it's never a silent fallback.
-     */
-    data object OfferReIdent : LookupLoginState, AnswerableState {
-        override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
-        override val active: ToolRef? get() = null
-        override val prompt: Prompt
-            get() = Prompt.Confirm(
-                title = "Erneut identifizieren?",
-                description = "Mit den vorhandenen Anmeldeverfahren ist das geforderte Sicherheitsniveau " +
-                    "nicht erreichbar. Sie können sich stattdessen erneut identifizieren, um es direkt zu erreichen.",
-                confirmLabel = "Erneut identifizieren",
-                cancelLabel = "Abbrechen"
-            )
-    }
-
-    /**
-     * The way out once no active method can close the gap: `ident-fsc` reaches loa2 on its own.
-     * Unlike [Credential] this only ever CONFIRMS the account already resolved, never adopts a
-     * different one (`LookupLoginStrategy.interpret`'s `ConfirmIdentity`, not `AdoptIdentity`) -
-     * a session that merely proved loa1 must not be able to smuggle in someone else's identity.
-     */
-    data class ReIdentifying(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null
-    ) : LookupLoginState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Identifizieren Sie sich erneut"
     }
 
     /**

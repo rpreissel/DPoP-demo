@@ -52,7 +52,12 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
 
     override fun next(state: FastAccessState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is FastAccessState.Start -> firstOffer(ctx)
+            is FastAccessState.Start -> when (event) {
+                // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
+                // already closes the gap before trying to offer auth/enrollment again.
+                is JourneyEvent.SubJourneyFinished -> afterProof(ctx)
+                else -> firstOffer(ctx)
+            }
             is FastAccessState.PreferredAuth -> when (event) {
                 is JourneyEvent.Abandoned -> afterAuthDeclined(ctx, alreadyDeclined = setOf(state.toolId))
                 else -> afterProof(ctx)
@@ -73,16 +78,6 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 // trivially clears most floors, which would let a run finish without a single
                 // durable credential ever being proven or created.
                 else -> afterIdentification(ctx)
-            }
-
-            is FastAccessState.OfferReIdent -> when (event) {
-                is JourneyEvent.Answered -> when (event.answer) {
-                    "accept" -> reIdentNow(ctx) ?: Decision.Cancel
-                    "decline" -> Decision.Cancel
-                    else -> error("OfferReIdent does not understand answer '${event.answer}'")
-                }
-                // Started: always present the prompt, unconditionally.
-                else -> Decision.Advance(state)
             }
 
             is FastAccessState.ConfirmingEmail -> when (event) {
@@ -184,16 +179,10 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
             return Decision.Advance(FastAccessState.Enrolling(candidates, emailObligation = emailObligation))
         }
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
-            Decision.Advance(FastAccessState.OfferReIdent)
+            Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, ctx.acrFloor, resumeWith = FastAccessState.Start)
         } else {
             Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
         }
-    }
-
-    /** Re-identifying re-enters the ordinary [FastAccessState.Identifying] round - `AdoptIdentity` (this intent's only Identified interpretation) already handles find-or-create safely regardless of which state led here. */
-    private fun reIdentNow(ctx: JourneyContext): Decision? {
-        val candidates = CandidateTools.forReIdentification(ctx.acrFloor, ctx)
-        return candidates.takeIf { it.isNotEmpty() }?.let { Decision.Advance(FastAccessState.Identifying(it)) }
     }
 
     /** Abandoning the last fallback state is giving up on the journey, not an error. */

@@ -17,9 +17,11 @@ import org.springframework.stereotype.Component
  * Raise the level of an already authenticated session (docs/04-orchestrierung.md #3).
  *
  * Whenever no active method can close the gap - whether this runs standalone or as another
- * journey's precondition ([JourneyContext.isSubJourney]) - [StepUpState.OfferReIdent] asks first
- * before ever falling through to [StepUpState.ReIdentifying]: re-identification is a heavier
- * action than picking another factor, so it's never a silent shortcut.
+ * journey's precondition ([JourneyContext.isSubJourney]) - a [Decision.RequireSubJourney] into
+ * `RE_IDENTIFY` ([ReIdentifyStrategy]) asks first before ever falling through to a fresh
+ * identification: re-identification is a heavier action than picking another factor, so it's
+ * never a silent shortcut, and this way the confirmation/interpretation logic lives in exactly
+ * one shared place instead of being duplicated per intent.
  */
 @Component
 class StepUpStrategy : IntentStrategy<StepUpState> {
@@ -34,18 +36,20 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
 
     override fun interpret(state: StepUpState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Interpretation =
         when (outcome) {
-            // The account is already known here. A re-identification must only ever CONFIRM it,
-            // never switch to a different one - otherwise a session that merely proved loa1 could
-            // smuggle in someone else's identity and take over another account outright.
-            is ToolOutcome.Completed.Identified -> Interpretation.ConfirmIdentity
             is ToolOutcome.Completed.Authenticated ->
                 Interpretation.AcceptProof(useOutcomeAccount = false, bindDevice = true)
+            is ToolOutcome.Completed.Identified,
             is ToolOutcome.Completed.Enrolled -> error("${tool.toolId} is not offered by STEP_UP")
         }
 
     override fun next(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Decision =
         when (state) {
-            is StepUpState.Start -> offerAuth(state.targetAcr, state.startingAcr, ctx)
+            is StepUpState.Start -> when (event) {
+                // Resumed after a RE_IDENTIFY sub-journey - re-check whether the fresh proof
+                // already closes the gap before trying to offer auth methods again.
+                is JourneyEvent.SubJourneyFinished -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
+                else -> offerAuth(state.targetAcr, state.startingAcr, ctx)
+            }
 
             is StepUpState.AuthChoice -> when (event) {
                 is JourneyEvent.Abandoned -> {
@@ -56,26 +60,6 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
                         Decision.Advance(state.copy(declined = declined, active = null))
                     }
                 }
-                else -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
-            }
-
-            is StepUpState.OfferReIdent -> when (event) {
-                is JourneyEvent.Answered -> when (event.answer) {
-                    "accept" -> reIdentNow(state.targetAcr, state.startingAcr, ctx)
-                        // Became unavailable between offering and accepting (e.g. availability
-                        // flipped) - a dead end either way, so cancel rather than error.
-                        ?: Decision.Cancel
-                    "decline" -> Decision.Cancel
-                    else -> error("OfferReIdent does not understand answer '${event.answer}'")
-                }
-                // Started: always present the prompt, unconditionally.
-                else -> Decision.Advance(state)
-            }
-
-            is StepUpState.ReIdentifying -> when (event) {
-                is JourneyEvent.Abandoned -> Decision.Cancel
-                // A re-identification prices in its own full trust level, so once it clears the
-                // target there is nothing left to prove.
                 else -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
             }
         }
@@ -103,14 +87,8 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     /** Asks first (see class doc) if re-identification could close the gap; [whenNone] otherwise. */
     private fun offerReIdentOrGiveUp(targetAcr: String, startingAcr: String, ctx: JourneyContext, whenNone: Decision): Decision =
         if (CandidateTools.forReIdentification(targetAcr, ctx).isNotEmpty()) {
-            Decision.Advance(StepUpState.OfferReIdent(targetAcr, startingAcr))
+            Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, targetAcr, resumeWith = StepUpState.Start(targetAcr, startingAcr))
         } else {
             whenNone
         }
-
-    private fun reIdentNow(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision? {
-        val candidates = CandidateTools.forReIdentification(targetAcr, ctx)
-        return candidates.takeIf { it.isNotEmpty() }
-            ?.let { Decision.Advance(StepUpState.ReIdentifying(targetAcr, startingAcr, it)) }
-    }
 }

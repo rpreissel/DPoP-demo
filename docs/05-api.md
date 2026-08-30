@@ -100,7 +100,7 @@ Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Too
 
 Der App-Kanal ist eine mobile App mit App-Store-Release-Zyklen von Wochen; jeder Text, den ein Prompt anzeigt, wird deshalb **komplett vom Backend geliefert**, nie clientseitig vorformuliert — eine neue oder geänderte Rückfrage braucht dadurch keinen App-Release, nur neuen Backend-Code.
 
-`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Verwendungen, alle über dieselbe `prompt/confirm`-Adresse: der optionale Geräte-Bindungs-Screen des Lookup-Logins, die Account-Löschbestätigung (siehe unten), und `OfferReIdent` in `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP` — „Mit den vorhandenen Verfahren nicht erreichbar, stattdessen erneut identifizieren?", bevor eine Re-Identifizierung angeboten wird ([Orchestrierung](04-orchestrierung.md)).
+`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Verwendungen, alle über dieselbe `prompt/confirm`-Adresse: der optionale Geräte-Bindungs-Screen des Lookup-Logins, die Account-Löschbestätigung (siehe unten), und `ReIdentifyState.OfferReIdent` — „Mit den vorhandenen Verfahren nicht erreichbar, stattdessen erneut identifizieren?", bevor die geteilte `RE_IDENTIFY`-SubJourney (angefordert von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP`) eine Re-Identifizierung anbietet ([Orchestrierung](04-orchestrierung.md)).
 
 ### Account löschen (AuthIntent.DELETE_ACCOUNT)
 

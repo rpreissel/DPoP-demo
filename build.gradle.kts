@@ -12,6 +12,30 @@ plugins {
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
 
+// Mock/demo-only code is deliberately not held to the same coverage bar as production logic:
+// ext_stammdaten simulates the external Personenregister this demo has no real access to, id_eid
+// is a "Mock eID" standing in for real AusweisApp/card-reader hardware (see its own Descriptors.kt
+// doc comment), and DemoAutoPickNote/DemoInfo/JourneyDebugStep exist purely for the frontend's
+// "Struktur" debug view (docs/05-api.md #2, `demo`) - counting them would understate real
+// coverage where it matters and overstate it where a gap is harmless.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "com.example.dpop.ext_stammdaten.*",
+                    "com.example.dpop.ext_stammdaten.internal.*",
+                    "com.example.dpop.id_eid.*",
+                    "com.example.dpop.id_eid.internal.*",
+                    "com.example.dpop.orchestrator.journey.DemoAutoPickNote",
+                    "com.example.dpop.tool_api.DemoInfo",
+                    "com.example.dpop.tool_api.JourneyDebugStep"
+                )
+            }
+        }
+    }
+}
+
 java {
     sourceCompatibility = JavaVersion.toVersion(libs.versions.java.get())
 }

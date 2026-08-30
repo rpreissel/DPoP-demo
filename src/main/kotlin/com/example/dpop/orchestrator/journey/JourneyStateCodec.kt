@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import org.springframework.stereotype.Component
 import tools.jackson.module.kotlin.jacksonObjectMapper
@@ -44,5 +45,6 @@ class JourneyStateCodec {
         AuthIntent.STEP_UP -> StepUpState::class.java
         AuthIntent.MANAGE_AUTH_METHODS -> ManageAuthMethodsState::class.java
         AuthIntent.DELETE_ACCOUNT -> DeleteAccountState::class.java
+        AuthIntent.RE_IDENTIFY -> ReIdentifyState::class.java
     }
 }

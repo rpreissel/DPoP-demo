@@ -187,13 +187,13 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // The account has only sms enrolled - no second AUTH method exists to combine with, so
                 // without re-identification this would be a dead end (the bug this test guards against).
                 // MANAGE must offer ident-fsc as a way to reach loa2 instead of erroring out - confirmed
-                // first via StepUpState.OfferReIdent, never a silent fallback.
+                // first via the shared RE_IDENTIFY sub-journey (ReIdentifyState.OfferReIdent), never a silent fallback.
                 val started = triggerEnrollmentStepUp(newChannelSessionId)
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+                // Exact candidate computation is unit-tested (ReIdentifyStrategyTest) - here only the
+                // real HTTP round trip through the sub-journey matters.
                 val accepted = post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
                 accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
-                @Suppress("UNCHECKED_CAST")
-                (accepted.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
 
                 val reIdentified = reIdentifyViaFsc(newChannelSessionId)
                 // Re-identification alone already reaches loa2, so the step-up sub-journey ends - and the
