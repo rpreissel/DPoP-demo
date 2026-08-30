@@ -232,7 +232,7 @@ class JourneyService(
         // here last becomes current, and the other is correctly rejected by isCurrent afterwards.
         codec.write(journey, state.withActive(ToolRef(tool.toolId, toolSessionId, tool.startStep)))
         journeyRepository.save(journey)
-        journeyLogService.record(channel, journey, "TOOL_ACTIVATED", mapOf("toolId" to tool.toolId))
+        journeyLogService.record(channel, journey, "TOOL_ACTIVATED", mapOf("state" to state::class.simpleName, "toolId" to tool.toolId))
     }
 
     fun isCurrent(journey: AuthJourney, toolId: String, toolSessionId: UUID): Boolean =
@@ -295,7 +295,7 @@ class JourneyService(
         val decision = strategy.decideErased(state, event, contextFor(journey, channel))
         journeyLogService.record(
             channel, journey, event::class.simpleName!!,
-            eventDetail(event) + decisionDetail(decision, journey, channel)
+            mapOf("state" to state::class.simpleName) + eventDetail(event) + decisionDetail(decision, journey, channel)
         )
         return applyDecision(journey, channel, decision)
     }
@@ -510,6 +510,7 @@ class JourneyService(
         journeyLogService.record(
             channel, journey, "TOOL_FAILED",
             mapOf(
+                "state" to codec.read(journey)::class.simpleName,
                 "toolId" to tool.toolId,
                 "reason" to outcome.reason,
                 "attemptedAccountId" to outcome.attemptedAccountId,

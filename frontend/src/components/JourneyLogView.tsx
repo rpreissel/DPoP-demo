@@ -9,6 +9,7 @@ interface Props {
 
 /** German labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
 const KEY_LABELS: Record<string, string> = {
+  state: 'Journey-Zustand',
   decision: 'Entscheidung',
   toState: 'Zielstatus',
   reason: 'Grund',
