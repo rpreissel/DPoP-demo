@@ -2,10 +2,11 @@ import { useState } from 'react'
 
 interface IdentEidFormProps {
   onSubmit: (fields: { kvnr: string; name: string; vorname: string }) => void
+  error?: string
 }
 
 /** toolId=ident-eid / step=input: KVNR, name and vorname to find the person before the simulated card read. */
-export function IdentEidForm({ onSubmit }: IdentEidFormProps) {
+export function IdentEidForm({ onSubmit, error }: IdentEidFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
   const [name, setName] = useState('Muster')
   const [vorname, setVorname] = useState('Max')
@@ -35,6 +36,7 @@ export function IdentEidForm({ onSubmit }: IdentEidFormProps) {
           <label htmlFor="eid-vorname">Vorname</label>
           <input id="eid-vorname" value={vorname} onChange={(e) => setVorname(e.target.value)} required />
         </div>
+        {error && <div className="hint">{error}</div>}
         <div className="form-actions">
           <button type="submit">Weiter</button>
         </div>

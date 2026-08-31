@@ -8,10 +8,11 @@ interface IdentEidCardFormProps {
     plz: string
     ort: string
   }) => void
+  error?: string
 }
 
 /** toolId=ident-eid / step=card: simulates reading the eID card's Ausweisdaten (possession factor). */
-export function IdentEidCardForm({ onSubmit }: IdentEidCardFormProps) {
+export function IdentEidCardForm({ onSubmit, error }: IdentEidCardFormProps) {
   const [geburtsdatum, setGeburtsdatum] = useState('1985-06-15')
   const [strasse, setStrasse] = useState('Musterstraße')
   const [hausnummer, setHausnummer] = useState('1')
@@ -55,6 +56,7 @@ export function IdentEidCardForm({ onSubmit }: IdentEidCardFormProps) {
           <label htmlFor="eid-ort">Ort</label>
           <input id="eid-ort" value={ort} onChange={(e) => setOrt(e.target.value)} required />
         </div>
+        {error && <div className="hint">{error}</div>}
         <div className="form-actions">
           <button type="submit">Karte auflegen (simuliert)</button>
         </div>

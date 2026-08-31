@@ -2,10 +2,11 @@ import { useState } from 'react'
 
 interface IdentFscFormProps {
   onSubmit: (fields: { kvnr: string; name: string; vorname: string; fsc: string }) => void
+  error?: string
 }
 
 /** toolId=ident-fsc / step=input (docs/06-ablaeufe.md #2): KVNR, name, and the mailed FSC together. */
-export function IdentFscForm({ onSubmit }: IdentFscFormProps) {
+export function IdentFscForm({ onSubmit, error }: IdentFscFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
   const [name, setName] = useState('Muster')
   const [vorname, setVorname] = useState('Max')
@@ -40,6 +41,7 @@ export function IdentFscForm({ onSubmit }: IdentFscFormProps) {
           <label htmlFor="fsc">Freischaltcode</label>
           <input id="fsc" value={fsc} onChange={(e) => setFsc(e.target.value)} required />
         </div>
+        {error && <div className="hint">{error}</div>}
         <div className="form-actions">
           <button type="submit">Identifizieren</button>
         </div>

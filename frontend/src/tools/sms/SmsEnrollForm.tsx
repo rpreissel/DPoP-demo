@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 interface SmsEnrollFormProps {
   onSubmit: (phoneNumber: string) => void
+  error?: string
 }
 
 // FE-9: client-side pre-validation; the backend still rejects malformed numbers with 400.
@@ -12,7 +13,7 @@ function isValidPhoneNumber(value: string): boolean {
 }
 
 /** toolId=enroll-sms / step=enroll (docs/06-ablaeufe.md #4): registers a new phone number. */
-export function SmsEnrollForm({ onSubmit }: SmsEnrollFormProps) {
+export function SmsEnrollForm({ onSubmit, error }: SmsEnrollFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('+49 170 1234567')
   const [validationError, setValidationError] = useState('')
 
@@ -42,7 +43,7 @@ export function SmsEnrollForm({ onSubmit }: SmsEnrollFormProps) {
             required
           />
         </div>
-        {validationError && <div className="hint">{validationError}</div>}
+        {(validationError || error) && <div className="hint">{validationError || error}</div>}
         <div className="form-actions">
           <button type="submit">Code senden</button>
         </div>

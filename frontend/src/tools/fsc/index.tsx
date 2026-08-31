@@ -6,7 +6,7 @@ export const identFsc: ToolModule = {
   toolId: 'ident-fsc',
   meta: { icon: '🪪', label: 'Freischaltcode', hint: 'Versichertennummer, Name und Freischaltcode' },
   render(ctx) {
-    if (ctx.step === 'input') return <IdentFscForm onSubmit={(fields) => submitFsc(ctx, fields)} />
+    if (ctx.step === 'input') return <IdentFscForm onSubmit={(fields) => submitFsc(ctx, fields)} error={ctx.stepData?.error} />
     return null
   },
 }

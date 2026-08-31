@@ -11,7 +11,7 @@ export const enrollSms: ToolModule = {
   toolId: 'enroll-sms',
   meta: { icon: ICON, label: LABEL, hint: 'Code an eine Telefonnummer' },
   render(ctx) {
-    if (ctx.step === 'enroll') return <SmsEnrollForm onSubmit={(phoneNumber) => enrollSmsNumber(ctx, phoneNumber)} />
+    if (ctx.step === 'enroll') return <SmsEnrollForm onSubmit={(phoneNumber) => enrollSmsNumber(ctx, phoneNumber)} error={ctx.stepData?.error} />
     if (ctx.step === 'tanInput') {
       return <TanInputForm onSubmit={(tan) => submitSmsTan(ctx, tan)} error={ctx.stepData?.error} demoTan={ctx.demo?.tan} />
     }
