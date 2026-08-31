@@ -109,7 +109,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
             then("finishes directly instead of offering auth again") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2")
-                strategy.decide(state, event, theCtx) shouldBe Decision.Finish
+                strategy.decide(state, event, theCtx) shouldBe Decision.Authenticated
             }
         }
 
@@ -178,7 +178,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
         then("finishes once the combination satisfies the target") {
             val event = JourneyEvent.Completed(AuthPasswordUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("password")))
-            strategy.decide(state, event, theCtx) shouldBe Decision.Finish
+            strategy.decide(state, event, theCtx) shouldBe Decision.Authenticated
         }
     }
 

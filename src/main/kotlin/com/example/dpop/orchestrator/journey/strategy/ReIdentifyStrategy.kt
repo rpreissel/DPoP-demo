@@ -60,7 +60,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
                     else Decision.Advance(state.copy(declined = declined, active = null))
                 }
                 // Identity confirmed - this identification's own maxAcr already IS the achieved level.
-                else -> Decision.Finish
+                else -> Decision.Authenticated
             }
         }
 

@@ -74,15 +74,14 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
 
                     val channelSessionId = registerAndAuthenticate()
 
-                    deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId")
+                    post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
+                    post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
 
                     val log = get("/orchestrator/api/v1/journey-log")
                     @Suppress("UNCHECKED_CAST")
                     val entries = log["entries"] as List<Map<String, Any?>>
                     val logoutEntry = entries.first { it["eventType"] == "LOGGED_OUT" }
                     logoutEntry["channelSessionId"] shouldBe channelSessionId
-                    logoutEntry["journeyId"].shouldBeNull()
-                    logoutEntry["intent"].shouldBeNull()
                 }
             }
         }

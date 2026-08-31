@@ -115,7 +115,12 @@ export function cancelJourney(dpop: DpopKeyPair, channelSessionId: string): Prom
   return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/journey`)
 }
 
-/** Ends this channel for good (docs/02-domaenenmodell.md #3: logout, terminal) - cancels any active process and discards the AuthContext. Call createChannel again afterwards for a new session. */
+/** Starts a LOGOUT journey with a confirmation prompt (interactive clients). */
+export function startLogout(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/logouts`)
+}
+
+/** Direct logout without confirmation (non-interactive clients, hard logout). */
 export function logoutChannel(dpop: DpopKeyPair, channelSessionId: string): Promise<void> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}`)
 }

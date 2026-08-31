@@ -28,6 +28,9 @@ enum class AuthIntent {
     /** Delete the account itself, after a fresh re-confirmation. Only on an AUTHENTICATED channel. */
     DELETE_ACCOUNT,
 
+    /** Log out with a confirmation prompt. Only on an AUTHENTICATED channel. */
+    LOGOUT,
+
     /**
      * "No active method reaches the target - re-identify instead?" Never an entry intent, only
      * ever reached as another intent's [Decision.RequireSubJourney] once no active method can

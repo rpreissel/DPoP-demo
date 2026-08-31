@@ -92,9 +92,12 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 val beforeLogout = get("/orchestrator/api/v1/channels/$channelSessionId")
                 beforeLogout.channel()["state"] shouldBe "AUTHENTICATED"
 
-                // Unlike Cancel (which leaves an AUTHENTICATED channel untouched, nothing to cancel),
-                // Logout always ends the channel.
-                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
+                // Interactive logout starts a confirmation journey via POST /logouts.
+                val logoutPrompt = post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
+                logoutPrompt.channel()["state"] shouldBe "AUTHENTICATED"
+                logoutPrompt.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
 
                 // The old channelSessionId is dead - GET still resolves it (same key, valid binding),
                 // but it stays LOGGED_OUT and reports no next step; it is never silently re-derived.
@@ -139,6 +142,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
 
+                // Direct DELETE logs out without confirmation (non-authenticated channel).
                 deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
 
                 // The old ident-fsc tool session is no longer part of any active process.

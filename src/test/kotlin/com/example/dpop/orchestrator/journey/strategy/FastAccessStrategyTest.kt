@@ -92,7 +92,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
         then("re-checks satisfaction via afterProof instead of re-running firstOffer") {
             val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2")
-            strategy.decide(FastAccessState.Start, event, theCtx) shouldBe Decision.Finish
+            strategy.decide(FastAccessState.Start, event, theCtx) shouldBe Decision.Authenticated
         }
     }
 
@@ -116,7 +116,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)), acrFloor = "loa2")
         then("finishes") {
             val event = JourneyEvent.Completed(AuthDeviceDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("device")))
-            strategy.decide(FastAccessState.PreferredAuth("auth-device"), event, theCtx) shouldBe Decision.Finish
+            strategy.decide(FastAccessState.PreferredAuth("auth-device"), event, theCtx) shouldBe Decision.Authenticated
         }
     }
 
@@ -194,7 +194,7 @@ class FastAccessStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
             then("finishes - the obligation is discharged, nothing else to enroll") {
                 val event = JourneyEvent.Completed(com.example.dpop.auth_email.EnrollEmailDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("email", "ref")))
-                strategy.decide(state, event, theCtx) shouldBe Decision.Finish
+                strategy.decide(state, event, theCtx) shouldBe Decision.Authenticated
             }
         }
     }
@@ -213,7 +213,7 @@ class FastAccessStrategyTest : BehaviorSpec({
             val state = FastAccessState.Enrolling(listOf("enroll-sms"), emailObligation = false)
             then("finishes directly") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref")))
-                strategy.decide(state, event, theCtx) shouldBe Decision.Finish
+                strategy.decide(state, event, theCtx) shouldBe Decision.Authenticated
             }
         }
 

@@ -191,22 +191,41 @@ class ChannelService(
      * terminal): cancels any running journey and discards this session's AuthContext. Unlike
      * [cancelActiveJourney], a logged-out channel is never resurrected.
      */
+    /**
+     * Starts a LOGOUT journey with a confirmation prompt. Only on AUTHENTICATED channels.
+     * The actual logout happens when the user confirms via POST .../answer.
+     */
+    fun startLogout(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        if (channel.state != ChannelState.AUTHENTICATED) {
+            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to start a logout journey")
+        }
+        val activeJourney = journeyService.findActive(channelSessionId)
+        if (activeJourney != null) {
+            journeyService.cancel(activeJourney, channel)
+        }
+        val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
+        val step = journeyService.start(refreshed, AuthIntent.LOGOUT)
+        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+    }
+
+    /**
+     * Direct logout without confirmation — cancels any running journey and ends the channel
+     * immediately. For non-interactive clients or as a hard logout.
+     */
     fun logout(channelSessionId: UUID, bindingKeyRef: String) {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val activeJourney = journeyService.findActive(channelSessionId)
         if (activeJourney != null) {
-            // Already produces its own CANCELLED entry (JourneyService.markCancelled) - the common
-            // case this channel-level one exists for is the OTHER branch: an AUTHENTICATED channel
-            // with nothing running, which would otherwise leave no trace of the logout at all.
             journeyService.cancel(activeJourney, channel)
         } else {
             journeyLogService.recordForChannel(channel, "LOGGED_OUT")
         }
 
-        val afterCancel = sessionManagementService.findChannelSessionById(channelSessionId)!!
-        afterCancel.authContextId = null
-        afterCancel.state = ChannelState.LOGGED_OUT
-        sessionManagementService.updateChannelSession(afterCancel)
+        val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
+        refreshed.authContextId = null
+        refreshed.state = ChannelState.LOGGED_OUT
+        sessionManagementService.updateChannelSession(refreshed)
     }
 
     /**

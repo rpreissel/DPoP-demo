@@ -88,7 +88,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
             // device (allowsMultipleInstances) is deliberately still offered even with one active
             // instance, so this case is only reachable by ALSO backend-disabling it.
             val decision = strategy.decide(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx.copy(availableTools = theCtx.availableTools - "enroll-device"))
-            decision shouldBe Decision.Finish
+            decision shouldBe Decision.Authenticated
         }
     }
 
@@ -144,7 +144,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         `when`("a method is enrolled") {
             then("finishes - one successful enrollment is always enough here") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref")))
-                strategy.decide(state, event, ctx()) shouldBe Decision.Finish
+                strategy.decide(state, event, ctx()) shouldBe Decision.Authenticated
             }
         }
     }

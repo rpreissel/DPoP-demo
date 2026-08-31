@@ -158,11 +158,31 @@ class ChannelController(
         return ResponseEntity.ok(channelService.cancelActiveJourney(channelSessionId, bindingKeyRef))
     }
 
+    @PostMapping("/{channelSessionId}/logouts")
+    @Operation(
+        summary = "Start a confirmed logout",
+        description = "Channel must already be AUTHENTICATED. Starts a LOGOUT journey with a confirmation " +
+            "prompt (next.context=prompt, next.step=confirm, stepData.prompt). On accept (via POST .../answer) " +
+            "the channel ends for good (AUTHENTICATED -> LOGGED_OUT, terminal). On decline the channel stays " +
+            "AUTHENTICATED. Analogous to POST .../account-deletions.",
+        responses = [ApiResponse(
+            responseCode = "200",
+            description = "Confirmation prompt for the logout."
+        )]
+    )
+    fun startLogout(
+        @PathVariable channelSessionId: UUID,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<ChannelResponse> {
+        return ResponseEntity.ok(channelService.startLogout(channelSessionId, bindingKeyRef))
+    }
+
     @DeleteMapping("/{channelSessionId}")
     @Operation(
-        summary = "Log out",
+        summary = "Log out (direct, no confirmation)",
         description = "Ends this channel for good (docs/02-domaenenmodell.md #3: AUTHENTICATED -> LOGGED_OUT, " +
-            "terminal) - cancels any active process and discards the AuthContext. Never resumes on this " +
+            "terminal) - cancels any active process and discards the AuthContext. For interactive clients " +
+            "prefer POST .../logouts which shows a confirmation prompt first. Never resumes on this " +
             "channelSessionId afterwards; call POST .../channels again for a new session (a known device still " +
             "skips straight to LOGIN there).",
         responses = [ApiResponse(responseCode = "204", description = "Logged out - no body.")]

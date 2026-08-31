@@ -136,7 +136,7 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
     /** After a proof on the first or second state: done, another factor, or - if the account can't reach the floor - enrollment. */
     private fun afterProof(ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) return Decision.Finish
+        if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) return Decision.Authenticated
 
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
         if (candidates.isNotEmpty()) return Decision.Advance(FastAccessState.AuthChoice(candidates))
@@ -171,7 +171,7 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
                 ?.let { return Decision.Advance(FastAccessState.ConfirmingEmail(it)) }
         }
-        return Decision.Finish
+        return Decision.Authenticated
     }
 
     private fun offerEnrollment(account: AccountProfile, ctx: JourneyContext, emailObligation: Boolean): Decision {

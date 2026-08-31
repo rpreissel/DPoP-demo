@@ -169,7 +169,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
         }
 
         then("declining finishes without linking") {
-            strategy.decide(state, JourneyEvent.Answered("decline"), ctx()) shouldBe Decision.Finish
+            strategy.decide(state, JourneyEvent.Answered("decline"), ctx()) shouldBe Decision.Authenticated
         }
 
         then("an unrecognized answer fails loudly") {

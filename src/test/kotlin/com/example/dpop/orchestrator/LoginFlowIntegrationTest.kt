@@ -315,7 +315,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
 
-                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId")
+                val logoutPrompt = post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
+                logoutPrompt.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
 
                 // Fresh device-bound LOGIN (same device, DeviceAccountLink still points here): default
                 // loa1 floor is satisfied by a single method, so this proves ONLY password.

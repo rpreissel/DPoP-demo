@@ -108,7 +108,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc)
             then("deletes right away - that fresh proof already IS the re-confirmation, no second one demanded") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = "loa2")
-                strategy.decide(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.DeleteAccount(acc.accountId)
+                strategy.decide(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Decision.Execute(Effect.DeleteAccount(acc.accountId), then = Decision.Logout)
             }
         }
 
@@ -162,7 +162,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
         then("deletes immediately - one proof, at any level, is always sufficient here") {
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
-            strategy.decide(state, event, theCtx) shouldBe Decision.DeleteAccount(acc.accountId)
+            strategy.decide(state, event, theCtx) shouldBe Decision.Execute(Effect.DeleteAccount(acc.accountId), then = Decision.Logout)
         }
     }
 

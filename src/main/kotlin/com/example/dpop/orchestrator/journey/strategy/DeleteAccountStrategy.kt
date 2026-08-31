@@ -70,8 +70,8 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // first place - delete the account anyway by just re-proving that same loa1 factor,
                 // defeating the loa2 gate this class's own doc says must hold.
                 is JourneyEvent.SubJourneyFinished ->
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Decision.DeleteAccount.REQUIRED_ACR)) {
-                        Decision.DeleteAccount(ctx.requireAccount().accountId)
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Effect.DeleteAccount.REQUIRED_ACR)) {
+                        Decision.Execute(Effect.DeleteAccount(ctx.requireAccount().accountId), then = Decision.Logout)
                     } else {
                         Decision.Cancel
                     }
@@ -90,7 +90,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 }
                 // Any active factor, at any level, is sufficient (docs/orchestrator/journey/CandidateTools.kt,
                 // forReconfirmation) - there is no further step once one was proven.
-                else -> Decision.DeleteAccount(ctx.requireAccount().accountId)
+                else -> Decision.Execute(Effect.DeleteAccount(ctx.requireAccount().accountId), then = Decision.Logout)
             }
         }
 
@@ -99,8 +99,8 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
     /** Null once the session already carries loa2 and the caller may proceed. */
     private fun gate(ctx: JourneyContext): Decision? {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, Decision.DeleteAccount.REQUIRED_ACR, account)) return null
-        return Decision.RequireSubJourney(AuthIntent.STEP_UP, Decision.DeleteAccount.REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
+        if (ctx.policy.isSatisfied(ctx.evidence, Effect.DeleteAccount.REQUIRED_ACR, account)) return null
+        return Decision.RequireSubJourney(AuthIntent.STEP_UP, Effect.DeleteAccount.REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
     }
 
     private fun offerReconfirmation(ctx: JourneyContext): Decision {

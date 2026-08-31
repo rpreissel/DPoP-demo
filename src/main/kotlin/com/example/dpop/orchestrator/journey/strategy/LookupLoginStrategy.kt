@@ -91,7 +91,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             is LookupLoginState.OfferBinding -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
                     ACCEPT -> Decision.Execute(Effect.LinkDevice(state.accountId))
-                    DECLINE -> Decision.Finish
+                    DECLINE -> Decision.Authenticated
                     else -> error("OfferBinding does not understand answer '${event.answer}'")
                 }
                 else -> error("OfferBinding only accepts JourneyEvent.Answered")

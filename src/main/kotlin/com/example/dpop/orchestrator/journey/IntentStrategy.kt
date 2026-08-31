@@ -154,7 +154,7 @@ sealed interface Decision {
     ) : Decision
 
     /** Goal reached: consume the journey, the channel becomes AUTHENTICATED. */
-    data object Finish : Decision
+    data object Authenticated : Decision
 
     /**
      * The user gave up (abandoned the last thing this journey could offer). Distinct from
@@ -164,41 +164,18 @@ sealed interface Decision {
     data object Cancel : Decision
 
     /**
-     * Run [effect], then continue as [then] - deactivating a method or linking a device, both of
-     * which continue the journey normally afterward (ordinarily [Finish] - consume the journey,
-     * resume a suspended parent or become AUTHENTICATED - but [then] is not restricted to that by
-     * the type). Deliberately does NOT also cover [Decision.DeleteAccount]: that one does not
-     * continue the journey at all, it ends the CHANNEL - a different shape of "afterward" that
-     * [then] has no way to express, so it stays its own top-level case instead of being forced in
-     * here just for vocabulary's sake.
+     * Run [effect], then continue as [then] - deactivating a method, linking a device, or
+     * deleting an account, each of which continues the journey afterward with [then]
+     * (ordinarily [Authenticated] or [Logout]).
      */
-    data class Execute(val effect: Effect, val then: Decision = Finish) : Decision
+    data class Execute(val effect: Effect, val then: Decision = Authenticated) : Decision
 
     /**
-     * Delete the account and everything it owns, then end the channel like a logout - the effect
-     * DELETE_ACCOUNT asks for once any factor was freshly re-proven. An irreversible effect, so
-     * [JourneyService] does not just trust that the strategy's own state machine reached this
-     * decision correctly: it independently re-checks [REQUIRED_ACR] against the CURRENT
-     * [JourneyContext.evidence] right before executing it, exactly like it independently
-     * re-checks self-lockout before [Effect.Remove].
+     * Confirmed logout: ends the channel for good. The journey is consumed, authContext
+     * discarded, channel becomes LOGGED_OUT. Also the natural [Execute.then] for
+     * [Effect.DeleteAccount].
      */
-    data class DeleteAccount(val accountId: Long) : Decision {
-        companion object {
-            /**
-             * The ACR JourneyService independently re-checks against the CURRENT
-             * [JourneyContext.evidence] right before actually executing this decision - lives
-             * here, on the decision itself, rather than inside `DeleteAccountStrategy`
-             * (`journey.strategy`), specifically so that independent re-check can reference it
-             * without importing a concrete [IntentStrategy] implementation: the machine is
-             * deliberately generic over every intent (`strategiesByIntent: Map<AuthIntent,
-             * IntentStrategy<*>>`), and depending on one specific strategy class by name would
-             * break that. `DeleteAccountStrategy` itself imports this same constant for its own
-             * gate, so there is still exactly one source of truth - the dependency just runs in
-             * the correct direction, generic layer to strategy, never the reverse.
-             */
-            const val REQUIRED_ACR = "loa2"
-        }
-    }
+    data object Logout : Decision
 
     /** No way forward at all. Ends the journey with 410 - never a mere "no candidates left". */
     data class Abort(val reason: String) : Decision
@@ -208,11 +185,8 @@ sealed interface Decision {
  * A named side effect a strategy decided, for [JourneyService] to actually execute - the strategy
  * never acts itself (see [IntentStrategy]'s own class doc). Two origins share this one
  * vocabulary: the first four variants answer "what did a just-completed tool establish" (returned
- * by [IntentStrategy.interpret]); the last two are a strategy's own effect that continues the
- * journey normally afterward, wrapped in [Decision.Execute]. Both are the same kind of value -
- * "do this one specific thing, then move on" - just triggered from two different places.
- * [Decision.DeleteAccount] is deliberately NOT here too - it does not continue the journey at
- * all, see that type's own doc.
+ * by [IntentStrategy.interpret]); the rest are a strategy's own effects wrapped in
+ * [Decision.Execute], continuing the journey with [Decision.Execute.then] afterward.
  */
 sealed interface Effect {
     /** Find or create the account for the identified person and record the identification. */
@@ -242,4 +216,20 @@ sealed interface Effect {
      * for (see [JourneyEvent.Answered]).
      */
     data class LinkDevice(val accountId: Long) : Effect
+
+    /**
+     * Delete the account and everything it owns. An irreversible effect, so [JourneyService]
+     * independently re-checks [REQUIRED_ACR] against the CURRENT evidence right before executing
+     * it, exactly like it independently re-checks self-lockout before [Remove].
+     */
+    data class DeleteAccount(val accountId: Long) : Effect {
+        companion object {
+            /**
+             * The ACR JourneyService independently re-checks right before executing this effect.
+             * Lives here rather than in `DeleteAccountStrategy` so the generic machine can
+             * reference it without importing a concrete [IntentStrategy] implementation.
+             */
+            const val REQUIRED_ACR = "loa2"
+        }
+    }
 }

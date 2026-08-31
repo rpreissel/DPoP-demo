@@ -136,7 +136,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         `when`("a proof completes") {
             then("finishes directly - the identification's own maxAcr already IS the achieved level") {
                 val completed = JourneyEvent.Completed(IdentFscDescriptor, ToolOutcome.Completed.Identified(personId = 1L))
-                strategy.decide(state, completed, theCtx) shouldBe Decision.Finish
+                strategy.decide(state, completed, theCtx) shouldBe Decision.Authenticated
             }
         }
     }

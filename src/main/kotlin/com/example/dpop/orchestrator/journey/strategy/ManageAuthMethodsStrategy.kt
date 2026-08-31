@@ -62,7 +62,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
                 // Backing out here means picking a different method, not abandoning the wish -
                 // the full choice comes back. Giving up entirely is DELETE .../journey.
                 is JourneyEvent.Abandoned -> Decision.Advance(state.copy(active = null))
-                else -> Decision.Finish
+                else -> Decision.Authenticated
             }
         }
 
@@ -80,7 +80,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
         return if (candidates.isEmpty()) {
             // Not an error, just nothing left to add (docs/07-betrieb.md #1: HTTP errors are for
             // disrupted flows, not an expectable "you already have everything").
-            Decision.Finish
+            Decision.Authenticated
         } else {
             Decision.Advance(ManageAuthMethodsState.Enrolling(candidates))
         }

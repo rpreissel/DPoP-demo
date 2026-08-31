@@ -7,28 +7,28 @@ interface Props {
   dpop: DpopKeyPair | null
 }
 
-/** German labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
+/** Labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
 const KEY_LABELS: Record<string, string> = {
-  decision: 'Entscheidung',
-  toState: 'Zielstatus',
-  reason: 'Grund',
-  outcome: 'Ergebnis',
-  achievedAcr: 'Erreichtes ACR',
-  targetAcr: 'Ziel-ACR',
+  decision: 'Decision',
+  toState: 'Target State',
+  reason: 'Reason',
+  outcome: 'Outcome',
+  achievedAcr: 'Achieved ACR',
+  targetAcr: 'Target ACR',
   amr: 'AMR',
-  factorTypes: 'Faktortypen',
-  method: 'Methode',
-  attemptBudgetLeft: 'Verbleibende Versuche',
-  attemptedAccountId: 'Versuchtes Konto',
-  attemptedPersonId: 'Versuchte Person',
+  factorTypes: 'Factor Types',
+  method: 'Method',
+  attemptBudgetLeft: 'Attempts Left',
+  attemptedAccountId: 'Attempted Account',
+  attemptedPersonId: 'Attempted Person',
   personId: 'Person',
-  accountId: 'Konto',
+  accountId: 'Account',
   enrollmentRef: 'Enrollment',
   subIntent: 'Sub-Intent',
-  effect: 'Effekt',
-  answer: 'Antwort',
-  methodInstanceId: 'Methoden-ID',
-  label: 'Bezeichnung',
+  effect: 'Effect',
+  answer: 'Answer',
+  methodInstanceId: 'Method ID',
+  label: 'Label',
 }
 
 function labelFor(key: string): string {
@@ -47,13 +47,13 @@ function specialCasedChip(key: string, value: unknown): DetailChip | null {
   if (key === 'next' && value && typeof value === 'object') {
     const next = value as Record<string, unknown>
     const address = next.type === 'tool' ? `${next.toolId} · ${next.step}` : `${next.context} · ${next.step}`
-    return { key, label: 'Nächster Schritt', value: address }
+    return { key, label: 'Next Step', value: address }
   }
   if (key === 'candidateTools' && value && typeof value === 'object') {
     const list = Object.entries(value as Record<string, string>)
       .map(([toolId, method]) => `${toolId} (${method})`)
       .join(', ')
-    return list ? { key, label: 'Angebotene Tools', value: list } : null
+    return list ? { key, label: 'Candidate Tools', value: list } : null
   }
   return null
 }
@@ -291,8 +291,8 @@ function renderEntryTable(entries: JourneyLogEntryView[]) {
       <table className="journey-log-table">
         <thead>
           <tr>
-            <th>Zeit</th>
-            <th>Zustand</th>
+            <th>Time</th>
+            <th>State</th>
             <th>Event</th>
             <th>Tool</th>
             <th>Details</th>

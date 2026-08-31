@@ -14,7 +14,7 @@ import {
   deactivateMethod,
   describeError,
   getChannel,
-  logoutChannel,
+  startLogout,
   onApiCall,
   raiseRequiredAcr,
   startAccountDeletion,
@@ -329,10 +329,8 @@ function App() {
     if (!dpop || !channelSessionId) return
     try {
       setError('')
-      await logoutChannel(dpop, channelSessionId)
-      forgetChannelSessionId()
-      setRememberedChannelSessionId(null)
-      clearChannelState()
+      const response = await startLogout(dpop, channelSessionId)
+      applyResponse(response)
     } catch (err) {
       setError(describeError('Logout failed', err))
     }
@@ -366,7 +364,13 @@ function App() {
     try {
       setError('')
       const response = await answerPrompt(dpop, channelSessionId, accept)
-      applyResponse(response)
+      if (response.channel.state === 'LOGGED_OUT') {
+        forgetChannelSessionId()
+        setRememberedChannelSessionId(null)
+        clearChannelState()
+      } else {
+        applyResponse(response)
+      }
     } catch (err) {
       setError(describeError('Antwort fehlgeschlagen', err))
     }

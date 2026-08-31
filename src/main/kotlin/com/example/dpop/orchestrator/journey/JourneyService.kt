@@ -54,7 +54,7 @@ class JourneyService(
 ) {
     /**
      * `next` plus whatever the step needs to render - the pair every caller wants back. `next` is
-     * null only for a decision that ends the channel for good ([Decision.DeleteAccount]) -
+     * null only for a decision that ends the channel for good ([Decision.Logout]) -
      * ChannelService.respond() derives the real next itself in every other case.
      */
     data class Step(val next: Next?, val stepData: Map<String, Any?>? = null)
@@ -348,9 +348,9 @@ class JourneyService(
         is Decision.RequireSubJourney -> mapOf(
             "decision" to "RequireSubJourney", "subIntent" to decision.intent.name, "targetAcr" to decision.targetAcr
         )
-        Decision.Finish -> mapOf("decision" to "Finish")
+        Decision.Authenticated -> mapOf("decision" to "Authenticated")
         is Decision.Execute -> mapOf("decision" to "Execute", "effect" to decision.effect::class.simpleName) + effectDetail(decision.effect, journey, channel)
-        is Decision.DeleteAccount -> mapOf("decision" to "DeleteAccount", "accountId" to decision.accountId)
+        Decision.Logout -> mapOf("decision" to "Logout")
         Decision.Cancel -> mapOf("decision" to "Cancel")
         is Decision.Abort -> mapOf("decision" to "Abort", "reason" to decision.reason)
     }
@@ -369,6 +369,7 @@ class JourneyService(
             mapOf("methodInstanceId" to effect.methodInstanceId, "method" to target?.method, "label" to target?.label)
         }
         is Effect.LinkDevice -> mapOf("accountId" to effect.accountId)
+        is Effect.DeleteAccount -> mapOf("accountId" to effect.accountId)
         is Effect.AdoptIdentity, is Effect.ConfirmIdentity, is Effect.AdoptCredential, is Effect.AcceptProof -> emptyMap()
     }
 
@@ -393,28 +394,20 @@ class JourneyService(
             )
         }
 
-        is Decision.Finish -> finish(journey, channel)
+        is Decision.Authenticated -> finish(journey, channel)
 
         is Decision.Execute -> {
             performEffect(journey, channel, decision.effect)
             applyDecision(journey, channel, decision.then)
         }
 
-        is Decision.DeleteAccount -> {
-            // Independent re-check against a freshly derived ctx, not the decision's own account
-            // (see Decision.DeleteAccount's doc) or DeleteAccountStrategy directly.
-            val freshCtx = contextFor(journey, channel)
-            val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
-            check(authPolicy.isSatisfied(freshCtx.evidence, Decision.DeleteAccount.REQUIRED_ACR, account)) {
-                "${journey.intent} decided Decision.DeleteAccount without satisfying ${Decision.DeleteAccount.REQUIRED_ACR}"
-            }
+        Decision.Logout -> {
             journey.consume()
             journeyRepository.save(journey)
-            // Via freshly queried entities, not the cascade's own writes - `channel` here is what
-            // buildChannelBlock reads for the response, and must show the post-deletion state.
-            accountDeletionService.deleteAccount(decision.accountId)
-            channel.state = ChannelState.LOGGED_OUT
+            journeyLogService.record(channel, journey, "LOGGED_OUT", journeyState = "LoggedOut")
             channel.authContextId = null
+            channel.state = ChannelState.LOGGED_OUT
+            sessionManagementService.updateChannelSession(channel)
             Step(next = null)
         }
 
@@ -444,7 +437,7 @@ class JourneyService(
         }
     }
 
-    /** The two [Effect]s a [Decision.Execute] can carry - see that type's own doc for why the other four (tool-outcome-only) are unreachable here. */
+    /** The [Effect]s a [Decision.Execute] can carry - see that type's own doc for why the first four (tool-outcome-only) are unreachable here. */
     private fun performEffect(journey: AuthJourney, channel: ChannelSession, effect: Effect) {
         when (effect) {
             is Effect.Remove -> removeMethod(journey, channel, effect.methodInstanceId)
@@ -452,6 +445,16 @@ class JourneyService(
                 checkNotNull(channel.bindingKeyRef) { "LinkDevice without a bindingKeyRef" },
                 effect.accountId
             )
+            is Effect.DeleteAccount -> {
+                // Independent re-check against freshly derived context, not the strategy's own
+                // state — same reasoning as the self-lockout check before Effect.Remove.
+                val freshCtx = contextFor(journey, channel)
+                val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
+                check(authPolicy.isSatisfied(freshCtx.evidence, Effect.DeleteAccount.REQUIRED_ACR, account)) {
+                    "${journey.intent} decided Effect.DeleteAccount without satisfying ${Effect.DeleteAccount.REQUIRED_ACR}"
+                }
+                accountDeletionService.deleteAccount(effect.accountId)
+            }
             is Effect.AdoptIdentity, is Effect.ConfirmIdentity, is Effect.AdoptCredential, is Effect.AcceptProof ->
                 error("$effect is only ever produced by IntentStrategy.interpret(), never wrapped in Decision.Execute")
         }
@@ -609,7 +612,7 @@ class JourneyService(
                 AcrLevels.min(authenticated.achievedAcr, used.enrolledUnderAcr)
             }
 
-            is Effect.Remove, is Effect.LinkDevice ->
+            is Effect.Remove, is Effect.LinkDevice, is Effect.DeleteAccount ->
                 error("$effect is only ever produced as part of a Decision.Execute, never returned from interpret()")
         }
     }

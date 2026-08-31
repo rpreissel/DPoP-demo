@@ -69,7 +69,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
 
     private fun finishOrContinue(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Decision.Finish
+        if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Decision.Authenticated
         return offerAuth(targetAcr, startingAcr, ctx)
     }
 
