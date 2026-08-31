@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { createElement, type ReactNode } from 'react'
 import type { ToolMeta, ToolModule, ToolRenderContext } from './types'
 
 /**
@@ -22,5 +22,14 @@ export function metaFor(toolId: string): ToolMeta {
 
 /** Renders the current step of `ctx.toolId`'s own module, or null if that tool/step is unknown. */
 export function renderToolStep(ctx: ToolRenderContext): ReactNode | null {
-  return BY_ID[ctx.toolId]?.render(ctx) ?? null
+  const content = BY_ID[ctx.toolId]?.render(ctx) ?? null
+  const message = typeof ctx.stepData?.message === 'string' ? ctx.stepData.message : null
+  if (!content) return null
+  if (!message) return content
+  return createElement('div', null,
+    createElement('div', { className: 'card', style: { marginBottom: '0.5rem' } },
+      createElement('p', null, message),
+    ),
+    content,
+  )
 }

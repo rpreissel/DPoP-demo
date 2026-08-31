@@ -207,6 +207,12 @@ class JourneyService(
                 put("title", state.selectionTitle)
                 state.selectionDescription?.let { put("description", it) }
             }
+            // Single-option auto-activate: the selection screen is skipped, so pass the
+            // description as a contextual message so the tool form can explain WHY this
+            // step is required (e.g. "E-Mail-Bestätigung ausstehend" during fast-access).
+            if (state is OfferingState && options.size == 1) {
+                state.selectionDescription?.let { put("message", it) }
+            }
             if (state is AnswerableState) put("prompt", state.prompt)
         }
         return Step(nextFor(state, availableTools), stepData.ifEmpty { null })

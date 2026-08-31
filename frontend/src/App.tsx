@@ -232,8 +232,17 @@ function App() {
     // error). So "Anderes Verfahren" stays offered here, same as after an explicit selection.
     setAlternativesCount(1)
     activatingToolIdRef.current = toolId
+    const pendingMessage = stepData?.message
     activateTool(dpop, channelSessionId, toolId)
-      .then((response) => applyResponse(response, toolId))
+      .then((response) => {
+        // Preserve the journey-level context message (e.g. "E-Mail-Bestätigung ausstehend")
+        // across auto-activation: the tool endpoint's own response typically has no message,
+        // so the one from the offering state would otherwise be lost.
+        if (typeof pendingMessage === 'string' && !response.stepData?.message) {
+          response = { ...response, stepData: { ...response.stepData, message: pendingMessage } }
+        }
+        applyResponse(response, toolId)
+      })
       .catch((err) => setError(describeError('Tool activation failed', err)))
       .finally(() => {
         if (activatingToolIdRef.current === toolId) activatingToolIdRef.current = null
