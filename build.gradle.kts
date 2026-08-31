@@ -57,7 +57,7 @@ allOpen {
 }
 
 repositories {
-    mavenCentral()
+    maven { url = uri("https://nxrm.dst.tk-inline.net/repository/maven-public/") }
 }
 
 dependencies {
