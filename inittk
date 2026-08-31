@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROPS="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.properties"
+
+sed -i.bak \
+  's|distributionUrl=.*|distributionUrl=https\\://nxrm.dst.tk-inline.net/repository/tk-gradle-distributions/de/tk/build/tkeasy/tkeasy-gradle-distribution/9.4.1/tkeasy-gradle-distribution-9.4.1-tk1.zip|' \
+  "$PROPS"
+rm -f "$PROPS.bak"
+
+git update-index --assume-unchanged "$PROPS"
+
+echo "✔ gradle-wrapper.properties auf TK umgestellt und von Git-Tracking ausgenommen."
