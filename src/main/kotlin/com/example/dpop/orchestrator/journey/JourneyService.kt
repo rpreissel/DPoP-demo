@@ -405,9 +405,16 @@ class JourneyService(
             journey.consume()
             journeyRepository.save(journey)
             journeyLogService.record(channel, journey, "LOGGED_OUT", journeyState = "LoggedOut")
-            channel.authContextId = null
-            channel.state = ChannelState.LOGGED_OUT
-            sessionManagementService.updateChannelSession(channel)
+            // Re-read rather than mutate `channel` directly: when this Logout follows a
+            // Decision.Execute(Effect.DeleteAccount, then = Decision.Logout), AccountDeletionService
+            // already saved this exact row via its own freshly queried ChannelSession instance
+            // (channelSessionRepository.findByAccountId) - reusing the caller's now-stale `channel`
+            // reference here would merge() an outdated @Version and fail with
+            // ObjectOptimisticLockingFailureException ("Concurrent request on the same session").
+            val current = sessionManagementService.findChannelSessionById(checkNotNull(channel.channelSessionId)) ?: channel
+            current.authContextId = null
+            current.state = ChannelState.LOGGED_OUT
+            sessionManagementService.updateChannelSession(current)
             Step(next = null)
         }
 
