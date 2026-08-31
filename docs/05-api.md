@@ -58,7 +58,8 @@ Pfadkonvention:
 - Kanalzustand lesen: `GET /orchestrator/api/v1/channels/{channelSessionId}`
 - Niveau anheben (Step-up-Auslöser): `POST .../{channelSessionId}/step-ups` mit `{"requiredAcr": "..."}`
 - Journey abbrechen: `DELETE .../{channelSessionId}/journey` (kein Body)
-- Logout: `DELETE .../{channelSessionId}` (kein Body)
+- Bestätigter Logout (startet Journey): `POST .../{channelSessionId}/logouts` (kein Body)
+- Sofort-Logout: `DELETE .../{channelSessionId}` (kein Body)
 - Methodenbestand lesen: `GET .../{channelSessionId}/methods`
 - Methode hinzufügen (startet Enrollment): `POST .../{channelSessionId}/enrollments` (kein Body)
 - Methode deaktivieren: `DELETE .../{channelSessionId}/methods/{methodInstanceId}` (kein Body) — adressiert per Instanz-ID, nicht per Methodenname (siehe unten)
@@ -82,7 +83,12 @@ Tool-Namespace:
 
 ### Logout
 
-`DELETE /channels/{channelSessionId}` beendet den Kanal endgültig (`AUTHENTICATED -> LOGGED_OUT`, terminal, `204`): bricht wie Cancel einen aktiven Prozess ab und verwirft zusätzlich den `AuthContext`. Anders als Cancel lebt diese `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Geräte-Bindung bleibt trotzdem nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` auf einen neuen Kanal das Gerät wiedererkennt und direkt LOGIN statt `ident-fsc` anbietet.
+Zwei Varianten:
+
+- **Bestätigter Logout** (bevorzugt): `POST .../{channelSessionId}/logouts` startet eine `LOGOUT`-Journey mit einem Bestätigungs-Prompt ([Orchestrierung](04-orchestrierung.md) Abschnitt 3). Nach Zustimmung über `POST .../answer` wird der Kanal `LOGGED_OUT`.
+- **Sofort-Logout** (nicht-interaktive Clients): `DELETE /channels/{channelSessionId}` beendet den Kanal direkt (`AUTHENTICATED → LOGGED_OUT`, terminal, `204`), bricht einen aktiven Prozess ab und verwirft den `AuthContext`.
+
+In beiden Fällen lebt die `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Gerätebindung bleibt nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` das Gerät wiedererkennt.
 
 ### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)
 
@@ -100,7 +106,7 @@ Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Too
 
 Der App-Kanal ist eine mobile App mit App-Store-Release-Zyklen von Wochen; jeder Text, den ein Prompt anzeigt, wird deshalb **komplett vom Backend geliefert**, nie clientseitig vorformuliert — eine neue oder geänderte Rückfrage braucht dadurch keinen App-Release, nur neuen Backend-Code.
 
-`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Verwendungen, alle über dieselbe `prompt/confirm`-Adresse: der optionale Geräte-Bindungs-Screen des Lookup-Logins, die Account-Löschbestätigung (siehe unten), und `ReIdentifyState.OfferReIdent` — „Mit den vorhandenen Verfahren nicht erreichbar, stattdessen erneut identifizieren?", bevor die geteilte `RE_IDENTIFY`-SubJourney (angefordert von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP`) eine Re-Identifizierung anbietet ([Orchestrierung](04-orchestrierung.md)).
+`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine künftige `Choice`-Variante (Auswahl aus mehreren Antworten) ist vorbereitet, aber nicht implementiert. Verwendungen, alle über dieselbe `prompt/confirm`-Adresse: der optionale Gerätebindungs-Screen des Lookup-Logins, die Account-Löschbestätigung (siehe unten), die Logout-Bestätigung und `ReIdentifyState.OfferReIdent` — „Mit den vorhandenen Verfahren nicht erreichbar, stattdessen erneut identifizieren?", bevor die geteilte `RE_IDENTIFY`-SubJourney (angefordert von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP`) eine Re-Identifizierung anbietet ([Orchestrierung](04-orchestrierung.md)).
 
 ### Account löschen (AuthIntent.DELETE_ACCOUNT)
 

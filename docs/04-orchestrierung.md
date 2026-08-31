@@ -129,7 +129,10 @@ flowchart LR
 
 ---
 
-## 2) Die fünf Intents
+## 2) Die Intents
+
+Drei **Entry-Intents** starten eine neue Sitzung, fünf weitere laufen innerhalb einer
+bestehenden:
 
 | `AuthIntent` | Ziel | Einstieg |
 |---|---|---|
@@ -138,6 +141,9 @@ flowchart LR
 | `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=lookup_login` |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE_AUTH_METHODS` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
+| `DELETE_ACCOUNT` | Konto unwiderruflich löschen | nur auf einem `AUTHENTICATED`-Kanal |
+| `LOGOUT` | Bestätigtes Abmelden | nur auf einem `AUTHENTICATED`-Kanal |
+| `RE_IDENTIFY` | Erneute Identifizierung als geteilte SubJourney | nie direkt, nur über `RequireSubJourney` |
 
 Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST_ACCESS`: das Ende der
 Fallback-Kette, wenn keine vorhandene Methode mehr greift. Ob dabei ein Account entsteht oder
@@ -416,6 +422,44 @@ Die `loa2`-Vorbedingung selbst folgt derselben Anti-Selbsteskalations-Logik wie 
 Kraft Methoden hinzufügen oder entfernen. Das Entfernen prüft zusätzlich, dass der Account
 danach die Untergrenze des Kanals noch erreichen kann (`409`, Selbstsperrschutz).
 
+### `DELETE_ACCOUNT`
+
+Self-Service-Löschung des eigenen Accounts. Die Bestätigung kommt immer zuerst — sie darf nie
+hinter einem Step-up versteckt sein, den der Nutzer vielleicht gar nicht durchlaufen will.
+
+```mermaid
+stateDiagram-v2
+  [*] --> ConfirmPending
+  ConfirmPending --> [*]: abgelehnt -> Cancel
+  ConfirmPending --> ConfirmationRequired: loa2 bereits erreicht
+  ConfirmPending --> STEP_UP: loa2 noch nicht erreicht
+  STEP_UP --> ConfirmPending: SubJourneyFinished -> sofort Execute
+  STEP_UP --> [*]: SubJourneyCancelled -> Cancel
+  ConfirmationRequired --> ConfirmationRequired: ein Tool abgelehnt, weitere übrig
+  ConfirmationRequired --> [*]: alle abgelehnt -> Cancel
+  ConfirmationRequired --> Finished: Nachweis erbracht -> Account gelöscht, Logout
+  Finished --> [*]
+```
+
+`ConfirmPending` ist ein `AnswerableState` mit `destructive: true`-Prompt. Nach Zustimmung greift
+dasselbe loa2-Gate wie bei `MANAGE_AUTH_METHODS`. Musste ein Step-up laufen, zählt der dabei
+erbrachte Nachweis bereits — kein redundanter zweiter Nachweis. Die Decision am Ende ist
+`Execute(DeleteAccount(accountId), then=Logout)`: Account löschen, Kanal beenden.
+
+### `LOGOUT`
+
+Bestätigtes Abmelden — ein einzelner Prompt, kein Tool-Lauf.
+
+```mermaid
+stateDiagram-v2
+  [*] --> ConfirmPending
+  ConfirmPending --> [*]: zugestimmt -> Logout
+  ConfirmPending --> [*]: abgelehnt -> Cancel (zurück zu AUTHENTICATED)
+```
+
+`ConfirmPending` ist wie bei `DELETE_ACCOUNT` ein `AnswerableState`. Zustimmung liefert
+`Decision.Logout`; Ablehnung liefert `Cancel`, was den Kanal auf `AUTHENTICATED` zurücksetzt.
+
 ### Lebenszyklus, unabhängig vom Intent
 
 Die intent-eigenen Zustände beschreiben den Weg; `JourneyLifecycle` beschreibt, ob die Journey
@@ -491,11 +535,15 @@ Eine `Decision` ist, was als Nächstes passieren soll:
 |---|---|
 | `Advance(to)` | weiter zu diesem Zustand — der Zustand trägt sein Angebot bereits selbst, es gibt kein separates „biete diese Tools an" |
 | `RequireSubJourney(intent, targetAcr, resumeWith)` | erst einen anderen Intent laufen lassen, danach hier bei `resumeWith` weiter |
-| `Finish` | Ziel erreicht, Journey wird konsumiert |
+| `Authenticated` | Ziel erreicht, Journey wird konsumiert |
 | `Cancel` | Nutzer gibt auf — endet wie ein ausdrückliches Abbrechen, nicht als Fehler |
-| `Remove(methodInstanceId)` | Effekt, der kein Tool-Lauf ist: Methode deaktivieren |
-| `FinishWithDeviceLink(accountId)` | Effekt, der kein Tool-Lauf ist: Gerät verknüpfen, dann beenden |
+| `Execute(effect, then)` | Effekt ausführen, danach mit `then` fortfahren (Default: `Authenticated`) |
+| `Logout` | Kanal endgültig beenden (`LOGGED_OUT`, terminal) |
 | `Abort(reason)` | es geht gar nicht weiter (410) — nie bloß „keine Kandidaten mehr" |
+
+`Execute` trennt Entscheidung von Wirkung: `Execute(LinkDevice(accountId), then=Authenticated)`
+verknüpft das Gerät und beendet danach die Journey; `Execute(DeleteAccount(accountId), then=Logout)`
+löscht das Konto und meldet ab; `Execute(Remove(methodInstanceId))` deaktiviert eine Methode.
 
 Entscheidungen dahinter:
 
