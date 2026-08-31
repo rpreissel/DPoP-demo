@@ -41,6 +41,10 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
                     entries.any { it["eventType"] == "TOOL_ACTIVATED" && (it["detail"] as Map<String, Any?>)["toolId"] == "ident-fsc" } shouldBe true
                     @Suppress("UNCHECKED_CAST")
                     entries.any { it["eventType"] == "Completed" && (it["detail"] as Map<String, Any?>)["toolId"] == "ident-fsc" } shouldBe true
+
+                    // journeyState is a first-class field (like eventType), not tucked into detail.
+                    entries.any { it["eventType"] == "TOOL_ACTIVATED" && it["journeyState"] != null } shouldBe true
+                    entries.none { (it["detail"] as Map<*, *>).containsKey("state") } shouldBe true
                 }
             }
         }

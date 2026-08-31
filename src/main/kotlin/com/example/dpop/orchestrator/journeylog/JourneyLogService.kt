@@ -14,6 +14,8 @@ data class JourneyLogEntryView(
     val parentJourneyId: UUID?,
     val intent: String?,
     val eventType: String,
+    /** The JourneyState subtype the journey was in when this event happened (e.g. "AwaitingTan") - null for a channel-level event. */
+    val journeyState: String?,
     val detail: Map<String, Any?>,
     val createdAt: Instant
 )
@@ -23,8 +25,14 @@ data class JourneyLogResponse(val entries: List<JourneyLogEntryView>)
 @Service
 class JourneyLogService(private val journeyLogRepository: JourneyLogRepository) {
 
-    /** [channel]/[journey] are always in scope at the call sites in JourneyService - no extra lookups needed. */
-    fun record(channel: ChannelSession, journey: AuthJourney, eventType: String, detail: Map<String, Any?> = emptyMap()) {
+    /** [channel]/[journey] are always in scope at the call sites in JourneyService - no extra lookups needed. [journeyState] is a first-class field, like [eventType] - not just another entry in [detail]. */
+    fun record(
+        channel: ChannelSession,
+        journey: AuthJourney,
+        eventType: String,
+        journeyState: String? = null,
+        detail: Map<String, Any?> = emptyMap()
+    ) {
         journeyLogRepository.save(
             JourneyLogEntry(
                 bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "Channel without a binding key" },
@@ -33,6 +41,7 @@ class JourneyLogService(private val journeyLogRepository: JourneyLogRepository) 
                 parentJourneyId = journey.parentJourneyId,
                 intent = checkNotNull(journey.intent),
                 eventType = eventType,
+                journeyState = journeyState,
                 detail = detail
             )
         )
@@ -48,6 +57,7 @@ class JourneyLogService(private val journeyLogRepository: JourneyLogRepository) 
                 parentJourneyId = null,
                 intent = null,
                 eventType = eventType,
+                journeyState = null,
                 detail = detail
             )
         )
@@ -62,6 +72,7 @@ class JourneyLogService(private val journeyLogRepository: JourneyLogRepository) 
                     parentJourneyId = it.parentJourneyId,
                     intent = it.intent?.name,
                     eventType = checkNotNull(it.eventType),
+                    journeyState = it.journeyState,
                     detail = it.detail.orEmpty(),
                     createdAt = checkNotNull(it.createdAt)
                 )

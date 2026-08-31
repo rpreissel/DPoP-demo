@@ -172,7 +172,7 @@ class JourneyService(
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "JOURNEY_CANCELLED", "orchestrator"
         )
-        journeyLogService.record(channel, journey, "CANCELLED")
+        journeyLogService.record(channel, journey, "CANCELLED", journeyState = codec.read(journey)::class.simpleName)
     }
 
     // Routing -----------------------------------------------------------------
@@ -232,7 +232,7 @@ class JourneyService(
         // here last becomes current, and the other is correctly rejected by isCurrent afterwards.
         codec.write(journey, state.withActive(ToolRef(tool.toolId, toolSessionId, tool.startStep)))
         journeyRepository.save(journey)
-        journeyLogService.record(channel, journey, "TOOL_ACTIVATED", mapOf("state" to state::class.simpleName, "toolId" to tool.toolId))
+        journeyLogService.record(channel, journey, "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
     }
 
     fun isCurrent(journey: AuthJourney, toolId: String, toolSessionId: UUID): Boolean =
@@ -295,7 +295,8 @@ class JourneyService(
         val decision = strategy.decideErased(state, event, contextFor(journey, channel))
         journeyLogService.record(
             channel, journey, event::class.simpleName!!,
-            mapOf("state" to state::class.simpleName) + eventDetail(event) + decisionDetail(decision, journey, channel)
+            journeyState = state::class.simpleName,
+            detail = eventDetail(event) + decisionDetail(decision, journey, channel)
         )
         return applyDecision(journey, channel, decision)
     }
@@ -509,8 +510,8 @@ class JourneyService(
         journey.attemptBudget -= 1
         journeyLogService.record(
             channel, journey, "TOOL_FAILED",
-            mapOf(
-                "state" to codec.read(journey)::class.simpleName,
+            journeyState = codec.read(journey)::class.simpleName,
+            detail = mapOf(
                 "toolId" to tool.toolId,
                 "reason" to outcome.reason,
                 "attemptedAccountId" to outcome.attemptedAccountId,

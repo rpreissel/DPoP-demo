@@ -131,6 +131,8 @@ export interface JourneyLogEntryView {
   parentJourneyId?: string
   intent?: string
   eventType: string
+  /** The JourneyState subtype the journey was in when this event happened (e.g. "AwaitingTan") - undefined for a channel-level event. */
+  journeyState?: string
   detail: Record<string, unknown>
   createdAt: string
 }

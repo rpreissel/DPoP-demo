@@ -44,6 +44,10 @@ class JourneyLogEntry(
     @Column(name = "event_type", nullable = false, length = 50)
     var eventType: String? = null,
 
+    /** The JourneyState subtype the journey was in when this event happened (e.g. "AwaitingTan") - null for a channel-level event with no journey. */
+    @Column(name = "journey_state", length = 100)
+    var journeyState: String? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "detail")
     var detail: Map<String, Any?>? = null

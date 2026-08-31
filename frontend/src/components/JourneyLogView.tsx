@@ -9,7 +9,6 @@ interface Props {
 
 /** German labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
 const KEY_LABELS: Record<string, string> = {
-  state: 'Journey-Zustand',
   decision: 'Entscheidung',
   toState: 'Zielstatus',
   reason: 'Grund',
@@ -293,6 +292,7 @@ function renderEntryTable(entries: JourneyLogEntryView[]) {
         <thead>
           <tr>
             <th>Zeit</th>
+            <th>Zustand</th>
             <th>Event</th>
             <th>Tool</th>
             <th>Details</th>
@@ -305,6 +305,7 @@ function renderEntryTable(entries: JourneyLogEntryView[]) {
             return (
               <tr key={index}>
                 <td className="journey-log-time">{timeFormat.format(new Date(entry.createdAt))}</td>
+                <td className="journey-log-state">{entry.journeyState ?? '–'}</td>
                 <td>
                   <span className="badge">{entry.eventType}</span>
                 </td>

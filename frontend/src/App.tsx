@@ -224,7 +224,13 @@ function App() {
     }
 
     const toolId = next.toolId
-    setAlternativesCount(0)
+    // A single candidate offered directly (no selection screen, e.g. FastAccessState.PreferredAuth
+    // suggesting the linked device) is NOT the same as "no alternative exists" - JourneyService
+    // only skips the selection screen because there is exactly one OFFERED candidate right now;
+    // abandoning is still a normal, backend-handled fallback for every such state (every intent's
+    // JourneyEvent.Abandoned handler resolves cleanly, worst case Decision.Cancel - never an
+    // error). So "Anderes Verfahren" stays offered here, same as after an explicit selection.
+    setAlternativesCount(1)
     activatingToolIdRef.current = toolId
     activateTool(dpop, channelSessionId, toolId)
       .then((response) => applyResponse(response, toolId))
