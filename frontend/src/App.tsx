@@ -376,7 +376,7 @@ function App() {
       if (response.channel.state === 'LOGGED_OUT') {
         forgetChannelSessionId()
         setRememberedChannelSessionId(null)
-        clearChannelState()
+        applyResponse(response)
       } else {
         applyResponse(response)
       }
@@ -723,13 +723,23 @@ function App() {
                 </div>
               )}
               {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
+
+              {channelState === 'LOGGED_OUT' && (
+                <div className="card">
+                  <h2>Abgemeldet</h2>
+                  <p>Sie wurden erfolgreich abgemeldet. Ihre Sitzung wurde beendet.</p>
+                  <div className="form-actions" style={{ marginTop: '1rem' }}>
+                    <button onClick={handleClearChannel}>Zur Startseite</button>
+                  </div>
+                </div>
+              )}
               <div className="controls sticky-actions">
                 {inToolMode && activeTool && alternativesCount > 0 && (
                   <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode).">
                     Anderes Verfahren
                   </button>
                 )}
-                {!inToolMode && channelState === 'AUTHENTICATED' && (
+                {!inToolMode && channelState === 'AUTHENTICATED' && uiComponent !== 'prompt' && (
                   <button className="secondary" onClick={handleLogout} title="Beendet den Channel serverseitig - eine neue Sitzung braucht danach einen frischen Login.">
                     Abmelden
                   </button>
