@@ -57,7 +57,9 @@ allOpen {
 }
 
 repositories {
-    maven { url = uri("https://nxrm.dst.tk-inline.net/repository/maven-public/") }
+    if (gradle.extra["tkNexusReachable"] as Boolean) {
+        maven { url = uri("https://nxrm.dst.tk-inline.net/repository/maven-public/") }
+    }
     mavenCentral()
 }
 
