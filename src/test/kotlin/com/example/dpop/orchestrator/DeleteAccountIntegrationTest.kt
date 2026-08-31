@@ -78,5 +78,36 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 ) shouldBe 1
             }
         }
+
+        given("an authenticated account deleting itself after fresh reconfirmation") {
+            then("the completion response already reports LOGGED_OUT, not AUTHENTICATED") {
+                val channelSessionId = registerAndAuthenticate()
+                val accountId = jdbcTemplate.queryForObject(
+                    "SELECT account_id FROM channel_session WHERE channel_session_id = ?",
+                    Long::class.java,
+                    channelSessionId
+                )
+
+                val started = post("/orchestrator/api/v1/channels/$channelSessionId/account-deletions")
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+
+                val accepted = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+
+                val (code, activation) = captureMockTan {
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email")
+                }
+                val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+                val completed = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
+
+                completed.channel()["state"] shouldBe "LOGGED_OUT"
+                completed["next"] shouldBe null
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account WHERE id = ?",
+                    Int::class.java,
+                    accountId
+                ) shouldBe 0
+            }
+        }
     }
 }
