@@ -45,7 +45,8 @@ sealed interface FastAccessState : JourneyState {
     ) : FastAccessState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Wie möchten Sie sich anmelden?"
+        override val selectionTitle: String get() = "Anmeldung – Verfahren wählen"
+        override val selectionDescription: String get() = "Für Ihr Konto sind mehrere Anmeldeverfahren hinterlegt. Wählen Sie aus, wie Sie sich anmelden möchten."
     }
 
     /**
@@ -61,7 +62,8 @@ sealed interface FastAccessState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "registration"
         override val selectionStep: String get() = "selectIdentificationMethod"
-        override val selectionTitle: String get() = "Wie möchten Sie sich identifizieren?"
+        override val selectionTitle: String get() = "Identifikation erforderlich"
+        override val selectionDescription: String get() = "Bitte identifizieren Sie sich, um Ihr Konto zu finden oder ein neues anzulegen."
     }
 
     data class ConfirmingEmail(
@@ -71,7 +73,8 @@ sealed interface FastAccessState : JourneyState {
     ) : FastAccessState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "E-Mail-Adresse bestätigen"
+        override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
+        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden, damit sie als Anmeldeverfahren genutzt werden kann."
     }
 
     /**
@@ -92,6 +95,7 @@ sealed interface FastAccessState : JourneyState {
     ) : FastAccessState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Wie möchten Sie sich zukünftig anmelden?"
+        override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
+        override val selectionDescription: String get() = "Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein."
     }
 }

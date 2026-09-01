@@ -49,7 +49,7 @@ sealed interface DeleteAccountState : JourneyState {
         // LookupLoginState.Credential, StepUpState.AuthChoice) - selectionContext names the KIND of
         // offer, not the intent, so the client's existing select-method routing needs no new entry.
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Bestätigen Sie Ihre Identität"
-        override val selectionDescription: String? get() = "Wählen Sie ein Verfahren, um die Löschung zu bestätigen."
+        override val selectionTitle: String get() = "Kontolöschung – Identität bestätigen"
+        override val selectionDescription: String? get() = "Bevor Ihr Konto gelöscht wird, müssen Sie Ihre Identität noch einmal nachweisen."
     }
 }

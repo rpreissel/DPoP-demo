@@ -44,6 +44,7 @@ sealed interface ManageAuthMethodsState : JourneyState {
     ) : ManageAuthMethodsState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Weiteres Verfahren hinzufügen"
+        override val selectionTitle: String get() = "Neues Anmeldeverfahren hinzufügen"
+        override val selectionDescription: String get() = "Sie möchten ein weiteres Verfahren einrichten. Wählen Sie aus, welches Sie hinzufügen möchten."
     }
 }

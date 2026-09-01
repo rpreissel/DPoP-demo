@@ -52,6 +52,7 @@ sealed interface ReIdentifyState : JourneyState {
     ) : ReIdentifyState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Identifizieren Sie sich erneut"
+        override val selectionTitle: String get() = "Erneute Identifikation erforderlich"
+        override val selectionDescription: String get() = "Ihre bestehenden Anmeldeverfahren reichen für das geforderte Sicherheitsniveau nicht aus. Bitte identifizieren Sie sich erneut."
     }
 }

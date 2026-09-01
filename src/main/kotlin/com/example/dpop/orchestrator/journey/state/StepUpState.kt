@@ -28,6 +28,7 @@ sealed interface StepUpState : JourneyState {
     ) : StepUpState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Zusätzlichen Nachweis erbringen"
+        override val selectionTitle: String get() = "Erhöhte Sicherheit erforderlich"
+        override val selectionDescription: String get() = "Die angeforderte Aktion erfordert ein höheres Sicherheitsniveau. Bitte bestätigen Sie Ihre Identität mit einem weiteren Verfahren."
     }
 }
