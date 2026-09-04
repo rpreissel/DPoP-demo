@@ -1,6 +1,9 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.policy.MethodName
 import com.nimbusds.jwt.PlainJWT
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -8,7 +11,6 @@ import io.kotest.matchers.shouldNotBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.springframework.data.repository.findByIdOrNull
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
@@ -16,7 +18,10 @@ import java.util.UUID
 /**
  * Pure unit test of [TokenService]'s mock token issuance - the three real branches of
  * `tokenFor` (still valid / silent refresh / full re-issuance) and the AccessToken's actual JWT
- * shape. Repository/AccountService are mocked; nothing here needs a database or Spring context.
+ * shape. Repository/AccountService/AuthEvidenceService/AuthPolicy are mocked; nothing here needs
+ * a database or Spring context. `acr` is stubbed via [AuthPolicy.resolveAcr] directly (a fixed
+ * "loa2") rather than exercised through real combination logic - that belongs to
+ * `DefaultAuthPolicyTest`, not here.
  */
 class TokenServiceTest : BehaviorSpec({
 
@@ -25,18 +30,44 @@ class TokenServiceTest : BehaviorSpec({
         tokenHandle: String? = null,
         tokenExpiresAt: Instant? = null,
         refreshTokenHandle: String? = null,
-        refreshExpiresAt: Instant? = null
+        refreshExpiresAt: Instant? = null,
+        authEvidenceId: UUID? = UUID.randomUUID()
     ) = AuthContext(accountId = accountId).apply {
         this.tokenHandle = tokenHandle
         this.tokenExpiresAt = tokenExpiresAt
         this.refreshTokenHandle = refreshTokenHandle
         this.refreshExpiresAt = refreshExpiresAt
-        currentAcr = "loa2"
-        currentAmr = mutableListOf("sms", "password")
+        this.authEvidenceId = authEvidenceId
     }
 
-    fun service(repository: AuthContextRepository, accountService: AccountService = mockk()) =
-        TokenService(repository, accountService)
+    fun evidence(accountId: Long? = 42L) = AuthEvidence(accountId = accountId).apply {
+        addAmr(
+            listOf(
+                MethodEvidence(MethodName("sms"), AcrLevel("loa1"), amrSourceId = "auth-sms", source = AmrSource.ORCHESTRATOR),
+                MethodEvidence(MethodName("password"), AcrLevel("loa1"), amrSourceId = "auth-password", source = AmrSource.ORCHESTRATOR),
+            )
+        )
+    }
+
+    fun evidenceService(authEvidenceId: UUID?, forAccount: AuthEvidence?): AuthEvidenceService {
+        val service = mockk<AuthEvidenceService>()
+        every { service.getAuthEvidence(any()) } returns null
+        if (authEvidenceId != null) every { service.getAuthEvidence(authEvidenceId) } returns forAccount
+        return service
+    }
+
+    fun policy(acr: String = "loa2"): AuthPolicy {
+        val policy = mockk<AuthPolicy>()
+        every { policy.resolveAcr(any(), any()) } returns acr
+        return policy
+    }
+
+    fun service(
+        repository: AuthContextRepository,
+        authEvidenceService: AuthEvidenceService = mockk(relaxed = true),
+        authPolicy: AuthPolicy = policy(),
+        accountService: AccountService = mockk(relaxed = true)
+    ) = TokenService(repository, authEvidenceService, authPolicy, accountService)
 
     given("an AccessToken that still has well over minValiditySeconds left") {
         val authContextId = UUID.randomUUID()
@@ -66,7 +97,7 @@ class TokenServiceTest : BehaviorSpec({
         every { repository.save(any()) } answers { firstArg() }
 
         then("a new AccessToken is minted, but the RefreshToken (handle and expiry) is left untouched") {
-            val result = service(repository).tokenFor(authContextId, minValiditySeconds = 15)
+            val result = service(repository, evidenceService(ctx.authEvidenceId, evidence())).tokenFor(authContextId, minValiditySeconds = 15)
 
             result.accessToken shouldNotBe "stale-token"
             result.refreshExpiresAt shouldBe originalRefreshExpiry
@@ -87,7 +118,7 @@ class TokenServiceTest : BehaviorSpec({
         every { repository.save(any()) } answers { firstArg() }
 
         then("a full re-issuance mints both a new AccessToken and a new RefreshToken") {
-            val result = service(repository).tokenFor(authContextId)
+            val result = service(repository, evidenceService(ctx.authEvidenceId, evidence())).tokenFor(authContextId)
 
             result.accessToken shouldNotBe "stale-token"
             ctx.refreshTokenHandle shouldNotBe oldRefreshHandle
@@ -115,7 +146,7 @@ class TokenServiceTest : BehaviorSpec({
         every { repository.save(any()) } answers { firstArg() }
 
         then("it is a spec-shaped unsecured JWT carrying the session's own acr/amr, parseable without a key") {
-            val result = service(repository).tokenFor(authContextId)
+            val result = service(repository, evidenceService(ctx.authEvidenceId, evidence(accountId = 99L))).tokenFor(authContextId)
 
             val claims = PlainJWT.parse(result.accessToken).jwtClaimsSet
             claims.subject shouldBe "99"
@@ -143,7 +174,7 @@ class TokenServiceTest : BehaviorSpec({
                 email = "max@example.test", emailConfirmedAt = Instant.now()
             )
 
-            val claims = service(repository, accountService).idClaims(authContextId)
+            val claims = service(repository, evidenceService(ctx.authEvidenceId, evidence(accountId = 7L)), accountService = accountService).idClaims(authContextId)
 
             claims["sub"] shouldBe "7"
             claims["personId"] shouldBe 55L

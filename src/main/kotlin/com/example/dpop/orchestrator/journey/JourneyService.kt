@@ -10,15 +10,22 @@ import com.example.dpop.tool_api.JourneyDebugStep
 import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.session.AccountDeletionService
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.orchestrator.session.AuthContextService
+import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
+import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
@@ -45,6 +52,7 @@ class JourneyService(
     strategies: List<IntentStrategy<*>>,
     private val accountService: AccountService,
     private val authContextService: AuthContextService,
+    private val authEvidenceService: AuthEvidenceService,
     private val sessionManagementService: SessionManagementService,
     private val toolRegistry: ToolHandlerRegistry,
     private val authPolicy: AuthPolicy,
@@ -262,8 +270,22 @@ class JourneyService(
 
         is ToolOutcome.Completed -> {
             val effectiveAcr = applyEffect(journey, channel, tool, outcome)
-            val authContextId = checkNotNull(channel.authContextId) { "AuthContext missing after ${tool.toolId}" }
-            authContextService.applyEvidence(authContextId, outcome.amr, outcome.factorTypes, effectiveAcr)
+            val authEvidenceId = checkNotNull(channel.authEvidenceId) { "AuthEvidence missing after ${tool.toolId}" }
+            val accountId = channel.accountId
+            val updates = outcome.amr.map { method ->
+                MethodEvidence(
+                    method = MethodName(method),
+                    // This run's own achieved/capped level if it has one, else the tool's own declared ceiling.
+                    loa = AcrLevel(effectiveAcr ?: tool.maxAcr),
+                    // The account's own enrollment record for this method (docs/06-ablaeufe.md #1)
+                    // - the same idiom Effect.AcceptProof already reads.
+                    enrolledUnderAcr = accountId?.let { accountService.findActiveMethod(it, method)?.enrolledUnderAcr }?.let(::AcrLevel),
+                    factorTypes = outcome.factorTypes,
+                    source = AmrSource.ORCHESTRATOR,
+                    amrSourceId = tool.toolId,
+                )
+            }
+            authEvidenceService.applyEvidence(authEvidenceId, updates)
             sessionManagementService.recordEvent(
                 channel.channelSessionId, journey.journeyId, "TOOL_COMPLETED:${tool.toolId}", "orchestrator"
             )
@@ -293,6 +315,44 @@ class JourneyService(
         return advance(journey, channel, JourneyEvent.Answered(answer))
     }
 
+    /**
+     * A facade-neutral sync of [source]'s complete, currently-valid evidence set (docs/ideen/
+     * web-keycloak-kanal.md #6/#9) - never a real orchestrator tool outcome, so
+     * [AuthEvidenceService.applyEvidenceUpdate] is called directly instead of going through
+     * [applyOutcome]. This method itself knows nothing about Keycloak - the caller (e.g.
+     * `KcChannelService`) supplies [source] explicitly (`AmrSource.KEYCLOAK` today, but nothing
+     * here hardcodes that) and its own real `amrSourceId` per method (`MethodEvidence.
+     * amrSourceId` - Keycloak's own authenticator/execution id; never left blank, see that
+     * field's own doc). Requires an already-known account (same idiom as [bindAccount]: a fresh
+     * evidence trail is started if none exists yet) - evidence with no account to attach it to
+     * has nothing meaningful to combine against. Takes the REAL `MethodEvidence` list, not
+     * several per-field maps keyed by method - the caller (`KcChannelService`) already has a
+     * complete record per method by the time it calls this.
+     *
+     * Called on EVERY evidence-bearing call for [source], not only when a channel is first
+     * created with a resubmitted `RestoreData`: [updates] is the CALLER's complete,
+     * currently-valid set for [source] - `AuthEvidence.replaceForSource` drops any existing
+     * [source]-owned record whose method is missing here (it expired), so this must run again
+     * after every subsequent report, not just once, or a since-expired native method would never
+     * actually disappear from the evidence.
+     *
+     * Returns `Unit`, not [Step]: [advance]'s only relevant effect here is the DB-persisted state
+     * transition it can cause (`KcSelectMethodStrategy` re-checks `AuthPolicy.isSatisfied` on
+     * every [JourneyEvent.EvidenceUpdated] and may flip the channel to AUTHENTICATED) - no
+     * caller of this method ever needs the `Step` [advance] returns, since every caller
+     * immediately re-derives the real response via `ChannelService.resumeChannel` anyway.
+     */
+    fun applyEvidenceUpdate(journey: AuthJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
+        val accountId = checkNotNull(channel.accountId) { "Evidence update without a known account" }
+        if (channel.authEvidenceId == null) {
+            channel.authEvidenceId = authEvidenceService.createForAccount(accountId).authEvidenceId
+            sessionManagementService.updateChannelSession(channel)
+        }
+        authEvidenceService.applyEvidenceUpdate(checkNotNull(channel.authEvidenceId), updates, source)
+        sessionManagementService.recordEvent(channel.channelSessionId, journey.journeyId, "EVIDENCE_UPDATE_APPLIED", source)
+        advance(journey, channel, JourneyEvent.EvidenceUpdated)
+    }
+
     // Decisions ----------------------------------------------------------------
 
     private fun advance(journey: AuthJourney, channel: ChannelSession, event: JourneyEvent): Step {
@@ -315,6 +375,7 @@ class JourneyService(
         is JourneyEvent.SubJourneyFinished -> mapOf("subIntent" to event.intent.name, "achievedAcr" to event.achievedAcr)
         is JourneyEvent.SubJourneyCancelled -> mapOf("subIntent" to event.intent.name)
         JourneyEvent.Started -> emptyMap()
+        JourneyEvent.EvidenceUpdated -> emptyMap()
     }
 
     /** Everything a completed tool run determined - the variant-specific fields, not just the common amr/achievedAcr/factorTypes. */
@@ -412,6 +473,7 @@ class JourneyService(
             journeyRepository.save(journey)
             journeyLogService.record(channel, journey, "LOGGED_OUT", journeyState = "LoggedOut")
             channel.authContextId = null
+            channel.authEvidenceId = null
             channel.state = ChannelState.LOGGED_OUT
             sessionManagementService.updateChannelSession(channel)
             Step(next = null)
@@ -447,10 +509,15 @@ class JourneyService(
     private fun performEffect(journey: AuthJourney, channel: ChannelSession, effect: Effect) {
         when (effect) {
             is Effect.Remove -> removeMethod(journey, channel, effect.methodInstanceId)
-            is Effect.LinkDevice -> sessionManagementService.linkDeviceToAccount(
-                checkNotNull(channel.bindingKeyRef) { "LinkDevice without a bindingKeyRef" },
-                effect.accountId
-            )
+            // KEYCLOAK has no device to link (docs/ideen/web-keycloak-kanal.md #5) - actively
+            // suppressed rather than left to a null bindingKeyRef, so a KEYCLOAK channel never
+            // accumulates dead DeviceAccountLink rows even if a strategy ever offered this.
+            is Effect.LinkDevice -> if (channel.channel == ChannelSession.Channel.APP) {
+                sessionManagementService.linkDeviceToAccount(
+                    checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
+                    effect.accountId
+                )
+            }
             is Effect.DeleteAccount -> {
                 // Independent re-check against freshly derived context, not the strategy's own
                 // state — same reasoning as the self-lockout check before Effect.Remove.
@@ -577,10 +644,11 @@ class JourneyService(
             is Effect.AdoptCredential -> {
                 val enrolled = outcome as ToolOutcome.Completed.Enrolled
                 val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Enrolled without an account" }
-                val authContextId = checkNotNull(channel.authContextId) { "Enrolled without an AuthContext" }
-                val authContext = checkNotNull(authContextService.getAuthContext(authContextId)) {
-                    "AuthContext not found: $authContextId"
+                val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Enrolled without an AuthEvidence" }
+                val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
+                    "AuthEvidence not found: $authEvidenceId"
                 }
+                val coreEvidence = evidence.toCoreEvidence()
                 // `label` is lifted into its own field rather than staying in the generic details
                 // blob, so the API can surface it without clients reaching into details.
                 val label = enrolled.auditDetails?.get("label") as? String
@@ -588,16 +656,21 @@ class JourneyService(
                     accountId,
                     tool.method,
                     enrolled.enrollmentRef,
-                    enrolledUnderAcr = authContext.currentAcr,
+                    enrolledUnderAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId)),
                     details = enrolled.auditDetails.orEmpty().minus("label") + mapOf(
-                        "enrolledUnderAmr" to authContext.currentAmr,
+                        "enrolledUnderAmr" to evidence.currentAmr,
                         "channel" to channel.channel?.name
                     ),
                     allowsMultipleInstances = tool.allowsMultipleInstances,
                     label = label
                 )
-                if (effect.bindDevice) {
-                    sessionManagementService.linkDeviceToAccount(channel.bindingKeyRef!!, accountId)
+                // KEYCLOAK has no device to link (docs/ideen/web-keycloak-kanal.md #5) - actively
+                // suppressed, not just incidentally skipped by a null bindingKeyRef.
+                if (effect.bindDevice && channel.channel == ChannelSession.Channel.APP) {
+                    sessionManagementService.linkDeviceToAccount(
+                        checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
+                        accountId
+                    )
                 }
                 enrolled.achievedAcr
             }
@@ -609,8 +682,13 @@ class JourneyService(
                     "Authenticated without a known account"
                 }
                 bindAccount(journey, channel, accountId)
-                if (effect.bindDevice) {
-                    sessionManagementService.linkDeviceToAccount(channel.bindingKeyRef!!, accountId)
+                // KEYCLOAK has no device to link (docs/ideen/web-keycloak-kanal.md #5) - actively
+                // suppressed, not just incidentally skipped by a null bindingKeyRef.
+                if (effect.bindDevice && channel.channel == ChannelSession.Channel.APP) {
+                    sessionManagementService.linkDeviceToAccount(
+                        checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
+                        accountId
+                    )
                 }
                 val used = checkNotNull(accountService.findActiveMethod(accountId, tool.method)) {
                     "No active method '${tool.method}' for account $accountId"
@@ -623,12 +701,22 @@ class JourneyService(
         }
     }
 
+    /**
+     * Both channel types get an [AuthEvidence] here - the shared evidence trail, regardless of
+     * facade. Only the APP channel additionally gets an [AuthContext] (docs/ideen/web-keycloak-
+     * kanal.md #6): token issuance is App-exclusive, KEYCLOAK never calls `getToken`/`getIdClaims`
+     * - the one deliberate, documented channel-type branch in this method.
+     */
     private fun bindAccount(journey: AuthJourney, channel: ChannelSession, accountId: Long) {
         journey.accountId = accountId
         channel.accountId = accountId
-        if (channel.authContextId == null) {
+        if (channel.authEvidenceId == null) {
             // Fresh login: start a new evidence trail rather than reuse a stale one.
-            channel.authContextId = authContextService.createForAccount(accountId).authContextId
+            val evidenceId = checkNotNull(authEvidenceService.createForAccount(accountId).authEvidenceId)
+            channel.authEvidenceId = evidenceId
+            if (channel.channel == ChannelSession.Channel.APP) {
+                channel.authContextId = authContextService.createForAccount(accountId, evidenceId).authContextId
+            }
         }
         sessionManagementService.updateChannelSession(channel)
         journeyRepository.save(journey)
@@ -664,6 +752,7 @@ class JourneyService(
         channel.state = target
         if (target != ChannelState.AUTHENTICATED) {
             channel.authContextId = null
+            channel.authEvidenceId = null
             channel.accountId = if (channel.entryIntent == AuthIntent.FAST_ACCESS) {
                 sessionManagementService.findLinkedAccountId(channel.bindingKeyRef!!)
             } else {
@@ -677,15 +766,12 @@ class JourneyService(
 
     private fun contextFor(journey: AuthJourney, channel: ChannelSession): JourneyContext {
         val accountId = journey.accountId ?: channel.accountId
-        val authContext = channel.authContextId?.let { authContextService.getAuthContext(it) }
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         return JourneyContext(
             account = accountId?.let { accountService.findAccount(it) },
-            evidence = AuthEvidence(
-                authContext?.currentAmr ?: emptyList(),
-                authContext?.currentFactorTypes ?: emptySet()
-            ),
+            evidence = evidence?.toCoreEvidence() ?: AuthEvidence(emptyList()),
             acrFloor = acrFloorOf(channel),
-            bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "Channel without a binding key" },
+            bindingKeyRef = channel.bindingKeyRef,
             linkedAccountId = channel.bindingKeyRef?.let { sessionManagementService.findLinkedAccountId(it) },
             isSubJourney = journey.parentJourneyId != null,
             policy = authPolicy,
@@ -696,8 +782,12 @@ class JourneyService(
 
     private fun acrFloorOf(channel: ChannelSession): String = channel.acrFloor ?: AcrLevels.DEFAULT_REQUIRED_ACR
 
-    private fun currentAcrOf(channel: ChannelSession): String =
-        channel.authContextId?.let { authContextService.getAuthContext(it)?.currentAcr } ?: "none"
+    /** Live, not cached (docs/orchestrator/policy/AuthEvidence.kt): `currentAcr` is never stored, only ever recomputed from the evidence that's actually there. */
+    private fun currentAcrOf(channel: ChannelSession): String {
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return "none"
+        val account = channel.accountId?.let { accountService.findAccount(it) }
+        return authPolicy.resolveAcr(evidence.toCoreEvidence(), account)
+    }
 
     private fun strategyFor(intent: AuthIntent): IntentStrategy<*> =
         strategiesByIntent[intent] ?: error("No IntentStrategy for $intent")

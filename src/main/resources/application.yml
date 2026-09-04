@@ -9,6 +9,16 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        type:
+          # Only tools.jackson:jackson-module-kotlin is on the classpath (see build.gradle.kts);
+          # without this, Hibernate's JSON-column auto-detection picks the classic com.fasterxml
+          # Jackson2 mapper instead (also present transitively, with no Kotlin module for it),
+          # which cannot construct a Kotlin data class's primary constructor and fails with
+          # "Could not deserialize string to java type" the first time a JSON-column entity is
+          # dirty-checked mid-transaction.
+          json_format_mapper: jackson3
   flyway:
     enabled: true
   h2:
@@ -35,6 +45,18 @@ springdoc:
     # a 401 on every call after the first. Swagger UI stays read-only API reference; use the real
     # frontend to exercise the API.
     supported-submit-methods: []
+
+kc:
+  peer-auth:
+    # docs/ideen/web-keycloak-kanal.md #3: one signed JWT per kc-facade request. Values below
+    # match the (not yet built, DPoP-demo-f9o.9) Mock-Keycloak frontend, not a real realm -
+    # point jwks-uri at a real Keycloak realm's certs endpoint for anything beyond the demo.
+    issuer: mock-keycloak
+    audience: dpop-demo-orchestrator
+    jwks-uri: http://localhost:8080/mock-keycloak/.well-known/jwks.json
+    jwks-cache-ttl-seconds: 600
+    max-clock-skew-seconds: 30
+    max-age-seconds: 30
 
 dpop:
   proof:

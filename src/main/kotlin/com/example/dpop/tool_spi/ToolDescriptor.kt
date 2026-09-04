@@ -63,7 +63,7 @@ interface ToolDescriptor {
      * Default `true`: irrelevant for a tool that isn't actually multi-instance
      * ([allowsMultipleInstances] `false`), where callers never call this at all.
      */
-    fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String): Boolean = true
+    fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean = true
 }
 
 /** Coarse grouping of a tool. See [MethodRole.category]. */

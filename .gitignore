@@ -2,6 +2,7 @@
 .gradle/
 build/
 bin/
+.kotlin/
 !**/src/main/**/build/
 !**/src/test/**/build/
 

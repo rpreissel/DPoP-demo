@@ -8,7 +8,7 @@ function baseCtx(overrides: Partial<ToolRenderContext>): ToolRenderContext {
   return {
     step: '',
     toolId: '',
-    dpop: {} as DpopKeyPair,
+    proof: { kind: 'dpop', dpop: {} as DpopKeyPair },
     onResult: vi.fn(),
     onError: vi.fn(),
     ...overrides,

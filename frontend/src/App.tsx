@@ -33,6 +33,8 @@ import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
 import { UnavailableTools } from './components/UnavailableTools'
 import { DiagramHint } from './components/DiagramHint'
+import { MockKeycloakView, type MockKeycloakState } from './components/MockKeycloakView'
+import { onKcApiCall } from './kcApi'
 import { CURRENT_STEP_BY_STATE_TYPE, currentJourneyDiagramKey, journeyContextLabel, JOURNEY_DIAGRAMS } from './journeyDiagrams'
 
 interface ActiveTool {
@@ -40,8 +42,8 @@ interface ActiveTool {
   toolId: string
 }
 
-type Tab = 'welcome' | 'demo' | 'journeylog' | 'settings'
-const TABS: Tab[] = ['welcome', 'demo', 'journeylog', 'settings']
+type Tab = 'welcome' | 'demo' | 'mock-keycloak' | 'journeylog' | 'settings'
+const TABS: Tab[] = ['welcome', 'demo', 'mock-keycloak', 'journeylog', 'settings']
 
 /** The tab lives in the URL hash (no router dependency needed for three static tabs) so a reload or a shared link keeps/opens the same one, instead of always falling back to "welcome". */
 function tabFromHash(): Tab {
@@ -99,6 +101,13 @@ function App() {
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
+  // Mock-Keycloak's own state/log, kept here rather than inside MockKeycloakView itself so its
+  // debug sidebar can sit at the SAME top-level position (app-shell sibling of app-main) the App
+  // channel's own DebugSidebar uses - nested one level down (inside the 960px .app column) it had
+  // no real viewport width to work with and sat cramped against the tool content.
+  const [kcState, setKcState] = useState<MockKeycloakState>({})
+  const [kcDebugLog, setKcDebugLog] = useState<DebugEvent[]>([])
+  const kcDebugIdRef = useRef(0)
   // Drives the "Sitzung fortsetzen" button's visibility on the "no channel" screen - kept in
   // sync explicitly (not derived from channelSessionId) since it must survive Clear/Logout
   // clearing the in-memory state while still reflecting localStorage accurately afterwards.
@@ -128,6 +137,20 @@ function App() {
       logEvent(`${entry.method} ${entry.path}`, { request: entry.requestBody, response: entry.responseBody, error: entry.error })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Same reporting for MockKeycloakView's own calls - subscribed here (not inside that
+  // component) so the log survives even though the sidebar itself renders at this level.
+  useEffect(() => {
+    return onKcApiCall((entry) => {
+      kcDebugIdRef.current += 1
+      setKcDebugLog((prev) =>
+        [
+          { id: kcDebugIdRef.current, time: new Date().toLocaleTimeString(), label: `${entry.method} ${entry.path}`, request: entry.requestBody, response: entry.responseBody, error: entry.error },
+          ...prev,
+        ].slice(0, 200),
+      )
+    })
   }, [])
 
   function clearChannelState() {
@@ -484,7 +507,7 @@ function App() {
           step: next.step,
           toolId: next.toolId,
           toolSessionId: next.toolSessionId ?? activeTool?.toolSessionId,
-          dpop,
+          proof: { kind: 'dpop', dpop },
           stepData,
           demo,
           onResult: (response) => applyResponse(response, next.toolId),
@@ -510,6 +533,9 @@ function App() {
             </button>
             <button role="tab" aria-selected={activeTab === 'demo'} className={activeTab === 'demo' ? 'active' : ''} onClick={() => setActiveTab('demo')}>
               Demo
+            </button>
+            <button role="tab" aria-selected={activeTab === 'mock-keycloak'} className={activeTab === 'mock-keycloak' ? 'active' : ''} onClick={() => setActiveTab('mock-keycloak')}>
+              Mock-Keycloak
             </button>
             <button role="tab" aria-selected={activeTab === 'journeylog'} className={activeTab === 'journeylog' ? 'active' : ''} onClick={() => setActiveTab('journeylog')}>
               Journey-Log
@@ -647,6 +673,8 @@ function App() {
               </p>
             </div>
           )}
+
+          {activeTab === 'mock-keycloak' && <MockKeycloakView onStateChange={setKcState} />}
 
           {activeTab === 'journeylog' && <JourneyLogView dpop={dpop} />}
 
@@ -874,6 +902,15 @@ function App() {
         <DebugSidebar
           channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
           log={debugLog}
+          open={debugOpen}
+          onToggle={() => setDebugOpen((v) => !v)}
+        />
+      )}
+
+      {activeTab === 'mock-keycloak' && (
+        <DebugSidebar
+          channel={{ channelSessionId: kcState.channelSessionId, channelState: kcState.channelState, next: kcState.next, stepData: kcState.stepData, demo: kcState.demo, authData: kcState.authData }}
+          log={kcDebugLog}
           open={debugOpen}
           onToggle={() => setDebugOpen((v) => !v)}
         />

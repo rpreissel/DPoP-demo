@@ -19,6 +19,15 @@ enum class AuthIntent {
     /** Log into an existing account without a paired device (classic web login). */
     LOOKUP_LOGIN,
 
+    /**
+     * Entry intent for the kc-facade (docs/ideen/web-keycloak-kanal.md #7): always offers every
+     * kc-usable tool as a single `selectMethod` step, no fallback chain, no enrollment - Keycloak
+     * drives the rest of its own flow natively. Serves both Web-Kanal cases from the same
+     * strategy: initial login (no account yet, resolves one like [LOOKUP_LOGIN]) and step-up
+     * (account pre-set on the channel, like [FAST_ACCESS] with a recognized device).
+     */
+    KC_SELECT_METHOD,
+
     /** Raise the level. Only on an AUTHENTICATED channel. */
     STEP_UP,
 
@@ -43,7 +52,7 @@ enum class AuthIntent {
 
     /** The three intents a client may name when entering a channel; STEP_UP/MANAGE_AUTH_METHODS are reached from an authenticated one. */
     val isEntryIntent: Boolean
-        get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN
+        get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN || this == KC_SELECT_METHOD
 
     companion object {
         /**

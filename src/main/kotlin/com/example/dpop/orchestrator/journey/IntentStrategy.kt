@@ -69,8 +69,8 @@ data class JourneyContext(
     val evidence: AuthEvidence,
     /** The channel's durable lower bound - never a single run's target (that lives in the state). */
     val acrFloor: String,
-    /** The calling device's DPoP-proven key thumbprint. */
-    val bindingKeyRef: String,
+    /** The calling device's DPoP-proven key thumbprint - null on a KEYCLOAK channel, which has none. */
+    val bindingKeyRef: String?,
     /** The account this device is durably linked to, if any - independent of this channel. */
     val linkedAccountId: Long?,
     /** True while this journey runs as another one's precondition (docs/04-orchestrierung.md #6). */
@@ -95,6 +95,18 @@ data class JourneyContext(
 sealed interface JourneyEvent {
     /** The journey was just created and has to produce its first offer. */
     data object Started : JourneyEvent
+
+    /**
+     * Evidence was reported directly, outside any orchestrator tool outcome - e.g. Keycloak's own
+     * native authenticators (docs/ideen/web-keycloak-kanal.md #8/#9, Mock-Keycloak), the only
+     * source today. The channel's [com.example.dpop.orchestrator.session.AuthEvidence] was already
+     * updated with it by the time this fires, so a strategy only needs to re-check `ctx.policy.
+     * isSatisfied(...)`, exactly like after any other proof. Facade-neutral by construction - only
+     * ever dispatched by `JourneyService.applyEvidenceUpdate`, which itself knows nothing about
+     * Keycloak (the caller supplies `source` explicitly); an intent no such caller ever reaches
+     * (e.g. anything APP-only) simply never receives it.
+     */
+    data object EvidenceUpdated : JourneyEvent
 
     /** A tool finished successfully; [outcome] is what [IntentStrategy.interpret] turns into an [Effect]. */
     data class Completed(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed) : JourneyEvent

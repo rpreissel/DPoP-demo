@@ -74,21 +74,23 @@ CREATE TABLE account (
     person_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     identifications JSON NOT NULL DEFAULT '[]',
-    authentication_methods JSON NOT NULL DEFAULT '[]'
+    authentication_methods JSON NOT NULL DEFAULT '[]',
+    version BIGINT NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_account_person_id ON account(person_id);
 
 -- orchestrator module ------------------------------------------------------
 
+-- APP-channel-only token bookkeeping (com.example.dpop.orchestrator.session.AuthContext) -
+-- deliberately carries no evidence of its own anymore; auth_evidence_id points at the row that
+-- does.
 CREATE TABLE auth_context (
     auth_context_id UUID PRIMARY KEY,
     account_id BIGINT NOT NULL,
     keycloak_session_id VARCHAR(255),
     keycloak_subject VARCHAR(255),
+    auth_evidence_id UUID,
     token_handle VARCHAR(255),
-    current_acr VARCHAR(50),
-    current_amr JSON NOT NULL DEFAULT '[]',
-    current_factor_types JSON NOT NULL DEFAULT '[]',
     auth_time TIMESTAMP NOT NULL,
     token_expires_at TIMESTAMP,
     refresh_expires_at TIMESTAMP,
@@ -97,12 +99,25 @@ CREATE TABLE auth_context (
 );
 CREATE INDEX idx_auth_context_account_id ON auth_context(account_id);
 
+-- The persistent, central evidence record (com.example.dpop.orchestrator.session.AuthEvidence) -
+-- one per channel (APP or KEYCLOAK alike), cleared at logout. No current_acr column: that is
+-- always AuthPolicy.resolveAcr(...), recomputed live, never cached.
+CREATE TABLE auth_evidence (
+    auth_evidence_id UUID PRIMARY KEY,
+    account_id BIGINT NOT NULL,
+    amr_evidence JSON NOT NULL DEFAULT '[]',
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_auth_evidence_account_id ON auth_evidence(account_id);
+
 CREATE TABLE channel_session (
     channel_session_id UUID PRIMARY KEY,
     channel VARCHAR(20) NOT NULL,
     binding_key_ref VARCHAR(64) NOT NULL,
     account_id BIGINT,
     auth_context_id UUID,
+    auth_evidence_id UUID,
     state VARCHAR(50) NOT NULL,
     -- Durable lower bound of the channel; distinct from a single step-up run's targetAcr
     -- (docs/04-orchestrierung.md, "Zwei Ebenen für das geforderte Niveau").
@@ -113,7 +128,8 @@ CREATE TABLE channel_session (
     last_accessed_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_channel_session_auth_context FOREIGN KEY (auth_context_id) REFERENCES auth_context(auth_context_id)
+    CONSTRAINT fk_channel_session_auth_context FOREIGN KEY (auth_context_id) REFERENCES auth_context(auth_context_id),
+    CONSTRAINT fk_channel_session_auth_evidence FOREIGN KEY (auth_evidence_id) REFERENCES auth_evidence(auth_evidence_id)
 );
 CREATE INDEX idx_channel_session_binding_key_ref ON channel_session(binding_key_ref);
 CREATE INDEX idx_channel_session_state ON channel_session(state);

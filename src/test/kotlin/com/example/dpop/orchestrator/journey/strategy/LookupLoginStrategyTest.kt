@@ -9,7 +9,7 @@ import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
@@ -84,7 +84,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         `when`("resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
             val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("delegates to the same settle-or-raise check as any other proof") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2")
                 strategy.decide(LookupLoginState.Start, event, theCtx) shouldBe Decision.Advance(LookupLoginState.OfferBinding(acc.accountId))
@@ -120,7 +120,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
     given("Credential/AdditionalFactor, a proof just completed (settleOrRaise)") {
         `when`("the floor is already satisfied") {
             val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
             then("offers the optional device-binding prompt") {
                 strategy.decide(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"), accountId = acc.accountId)), theCtx) shouldBe
                     Decision.Advance(LookupLoginState.OfferBinding(acc.accountId))
@@ -129,7 +129,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         `when`("the floor is not yet satisfied, but another active method can help") {
             val acc = account(method("sms", "loa2"), method("password", "loa2"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa2")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2")
             then("offers it via AdditionalFactor") {
                 strategy.decide(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"))), theCtx) shouldBe
                     Decision.Advance(LookupLoginState.AdditionalFactor(listOf("auth-password")))
@@ -138,7 +138,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         `when`("nothing active can help, but re-identification could") {
             val acc = account(method("sms", "loa2"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa2")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2")
             then("requires the shared RE_IDENTIFY sub-journey - it only re-confirms this account, never adopts a different one") {
                 strategy.decide(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"))), theCtx) shouldBe
                     Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = LookupLoginState.Start)
@@ -149,7 +149,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val acc = account(method("sms", "loa2"))
             val theCtx = ctx(
                 account = acc,
-                evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)),
+                evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
                 acrFloor = "loa2",
                 availableTools = StrategyTestFixtures.allToolIds - setOf("ident-fsc", "ident-eid")
             )

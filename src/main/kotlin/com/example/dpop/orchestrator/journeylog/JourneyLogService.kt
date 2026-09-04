@@ -35,7 +35,7 @@ class JourneyLogService(private val journeyLogRepository: JourneyLogRepository) 
     ) {
         journeyLogRepository.save(
             JourneyLogEntry(
-                bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "Channel without a binding key" },
+                bindingKeyRef = channel.bindingKeyRef,
                 channelSessionId = checkNotNull(channel.channelSessionId),
                 journeyId = checkNotNull(journey.journeyId),
                 parentJourneyId = journey.parentJourneyId,
@@ -51,7 +51,7 @@ class JourneyLogService(private val journeyLogRepository: JourneyLogRepository) 
     fun recordForChannel(channel: ChannelSession, eventType: String, detail: Map<String, Any?> = emptyMap()) {
         journeyLogRepository.save(
             JourneyLogEntry(
-                bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "Channel without a binding key" },
+                bindingKeyRef = channel.bindingKeyRef,
                 channelSessionId = checkNotNull(channel.channelSessionId),
                 journeyId = null,
                 parentJourneyId = null,

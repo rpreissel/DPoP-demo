@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.journey.AuthIntent
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -34,6 +35,35 @@ class SessionManagementService(
     ): ChannelSession {
         val session = ChannelSession(channel, bindingKeyRef, Instant.now().plus(ttl))
         session.accountId = accountId
+        return channelSessionRepository.save(session)
+    }
+
+    /**
+     * KEYCLOAK-only upsert-creation (docs/ideen/web-keycloak-kanal.md #6): unlike
+     * [createChannelSession], the id is CLIENT-chosen (Keycloak's own fresh
+     * `AuthenticationSessionModel` id) rather than self-assigned - the caller (`KcChannelService`)
+     * already checked no channel exists under it. `entryIntent` is always `KC_SELECT_METHOD`;
+     * there is only one kc entry intent.
+     *
+     * [availableTools] has no App-style client declaration to read on the kc-facade - Keycloak's
+     * own flow configuration decides candidates, not a browser-declared support set - so this
+     * always gets the full catalog; only the backend-wide kill-switch narrows it further.
+     */
+    fun createKcChannelSession(
+        channelSessionId: UUID,
+        kcAuthSessionId: String?,
+        kcSessionId: String?,
+        accountId: Long?,
+        ttl: Duration,
+        availableTools: Set<String>
+    ): ChannelSession {
+        val session = ChannelSession(ChannelSession.Channel.KEYCLOAK, null, Instant.now().plus(ttl))
+        session.channelSessionId = channelSessionId
+        session.kcAuthSessionId = kcAuthSessionId
+        session.kcSessionId = kcSessionId
+        session.accountId = accountId
+        session.entryIntent = AuthIntent.KC_SELECT_METHOD
+        session.availableClientTools = availableTools.toMutableSet()
         return channelSessionRepository.save(session)
     }
 

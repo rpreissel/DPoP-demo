@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.api.v1
 
 import com.example.dpop.orchestrator.dpop.DpopValidationException
+import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -21,6 +22,11 @@ class OrchestratorExceptionHandler {
      */
     @ExceptionHandler(DpopValidationException::class)
     fun handleDpopValidation(e: DpopValidationException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
+
+    /** Missing/invalid Keycloak peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3) - same contract as DPoP: 401. */
+    @ExceptionHandler(PeerAuthValidationException::class)
+    fun handlePeerAuthValidation(e: PeerAuthValidationException): ResponseEntity<Map<String, String>> =
         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
 
     @ExceptionHandler(OrchestratorException::class)

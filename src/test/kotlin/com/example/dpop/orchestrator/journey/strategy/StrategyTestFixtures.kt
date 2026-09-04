@@ -18,7 +18,9 @@ import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.FactorType
 import java.time.Instant
 
 /**
@@ -69,9 +71,28 @@ object StrategyTestFixtures {
     /** A device credential's `details` map, matching what `CandidateTools.preferredDeviceAuth` looks for. */
     fun deviceDetails(bindingKeyRef: String = BINDING_KEY): Map<String, Any?> = mapOf("deviceBindingKeyRef" to bindingKeyRef)
 
+    /**
+     * Test convenience: derives each method's own loa from the REAL catalog (its highest maxAcr
+     * among matching descriptors) - what a real caller (JourneyService) would resolve before
+     * calling into AuthPolicy, now that pricing no longer looks the catalog up itself.
+     * [enrolledUnderAcr], when given an account, is that account's own enrollment record for each
+     * method in [amr] - only needed for scenarios that actually exercise the MFA-combination bump.
+     */
+    fun evidence(amr: List<String>, factorTypes: Set<FactorType>, account: AccountProfile? = null): AuthEvidence {
+        val methodLoa = amr.associateWith { m ->
+            catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevels.rank(it.maxAcr) }?.maxAcr ?: "none"
+        }
+        val enrolledUnderAcr = account?.authenticationMethods
+            ?.filter { it.method in amr }
+            ?.mapNotNull { m -> m.enrolledUnderAcr?.let { m.method to it } }
+            ?.toMap()
+            ?: emptyMap()
+        return AuthEvidence.from(amr, factorTypes, methodLoa, enrolledUnderAcr)
+    }
+
     fun ctx(
         account: AccountProfile? = null,
-        evidence: AuthEvidence = AuthEvidence(emptyList(), emptySet()),
+        evidence: AuthEvidence = AuthEvidence(emptyList()),
         acrFloor: String = "loa1",
         bindingKeyRef: String = BINDING_KEY,
         linkedAccountId: Long? = null,

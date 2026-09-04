@@ -23,7 +23,8 @@ class AccountDeletionService(
     cleanups: List<EnrollmentCleanup>,
     private val deviceAccountLinkRepository: DeviceAccountLinkRepository,
     private val channelSessionRepository: ChannelSessionRepository,
-    private val authContextRepository: AuthContextRepository
+    private val authContextRepository: AuthContextRepository,
+    private val authEvidenceRepository: AuthEvidenceRepository
 ) {
     private val cleanupsByType: Map<String, EnrollmentCleanup> = cleanups.associateBy { it.enrollmentType }
 
@@ -36,18 +37,22 @@ class AccountDeletionService(
 
         // Every ChannelSession this account was ever bound to gets logged out server-side, on
         // every device - not just the one that asked for the deletion (docs/05-api.md, Account
-        // löschen: alle Sitzungen sofort ungültig). Both the raw authContextId AND the eagerly
-        // loaded `authContext` navigation property (same FK, mirrored read-only association) must
-        // be cleared - leaving the latter set left Hibernate still holding the about-to-be-deleted
-        // AuthContext reachable from this entity, which it flagged as an unsaved transient
-        // instance once that row was actually removed below.
+        // löschen: alle Sitzungen sofort ungültig). Both the raw id AND the eagerly loaded
+        // navigation property (same FK, mirrored read-only association) must be cleared for BOTH
+        // authContextId/authContext and authEvidenceId/authEvidence - leaving either navigation
+        // property set left Hibernate still holding the about-to-be-deleted row reachable from
+        // this entity, which it flagged as an unsaved transient instance once that row was
+        // actually removed below.
         channelSessionRepository.findByAccountId(accountId).forEach { session ->
             session.state = ChannelState.LOGGED_OUT
             session.authContextId = null
             session.authContext = null
+            session.authEvidenceId = null
+            session.authEvidence = null
             channelSessionRepository.save(session)
         }
         authContextRepository.findByAccountId(accountId).forEach { authContextRepository.delete(it) }
+        authEvidenceRepository.findByAccountId(accountId).forEach { authEvidenceRepository.delete(it) }
 
         accountService.deleteAccount(accountId)
     }

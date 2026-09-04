@@ -24,6 +24,12 @@ data class ActiveMethodView(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChannelBlock(
     val channelSessionId: UUID,
+    @field:Schema(
+        description = "Which facade this channel was opened through - APP (DPoP) or KEYCLOAK " +
+            "(docs/ideen/web-keycloak-kanal.md). Fixed for the channel's whole lifetime.",
+        example = "APP"
+    )
+    val channelType: String,
     @field:Schema(example = "AUTHENTICATED")
     val state: String,
     @field:Schema(example = "loa2")
@@ -41,6 +47,31 @@ data class ChannelBlock(
 )
 
 /**
+ * What the kc-facade's `OrchestratorAuthenticator` writes into Keycloak's own session notes on
+ * every response (docs/ideen/web-keycloak-kanal.md #8) - `KEYCLOAK` channels only, `APP` never, the
+ * same reasoning [ChannelBlock]'s own account fields already follow. Unlike those, NOT gated on
+ * whether a factor was actually proven yet: `accountId` must surface the moment it's known (Keycloak sets
+ * its user context off it immediately, mirroring `UsernamePasswordForm`), and always included
+ * rather than only on change - diffing would cost the orchestrator effort for no reader benefit,
+ * since Keycloak's own note-write is idempotent either way.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class AuthData(
+    @field:Schema(example = "42")
+    val accountId: Long? = null,
+    @field:Schema(example = "loa2")
+    val acr: String? = null,
+    @field:Schema(
+        description = "Method -> who proved it: \"orchestrator\" for a completed orchestrator " +
+            "tool, \"kc\" for evidence a native Keycloak authenticator already established " +
+            "(docs/ideen/web-keycloak-kanal.md #8). Informational only - the orchestrator alone " +
+            "still resolves the combined acr above, regardless of source.",
+        example = "{\"password\": \"kc\", \"sms\": \"orchestrator\"}"
+    )
+    val amr: Map<String, String>? = null
+)
+
+/**
  * The response envelope for every channel- and tool-level endpoint. `channel` carries the
  * current channel state; `next` addresses the client's next step; a tool completing never
  * requires a follow-up `GET /channels` - `channel` already reflects the post-outcome state.
@@ -55,7 +86,9 @@ data class ChannelResponse(
     )
     val stepData: Map<String, Any?>? = null,
     @field:Schema(description = "Demo-only correlation IDs, never part of the production contract.")
-    val demo: DemoInfo? = null
+    val demo: DemoInfo? = null,
+    @field:Schema(description = "KEYCLOAK channels only (docs/ideen/web-keycloak-kanal.md #8) - never present for APP.")
+    val authData: AuthData? = null
 )
 
 /**

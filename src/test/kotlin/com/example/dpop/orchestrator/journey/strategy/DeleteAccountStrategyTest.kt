@@ -10,7 +10,7 @@ import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
@@ -80,7 +80,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("ConfirmPending, accepted") {
         `when`("the session does not yet carry loa2") {
             val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("the loa2 gate parks the wish and demands a step-up first - only NOW, never before accepting") {
                 strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx) shouldBe
                     Decision.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = DeleteAccountState.ConfirmPending)
@@ -91,7 +91,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             // device is the only tool whose own maxAcr reaches loa2 alone (sms/password/email cap
             // at loa1) - so this is the only single-method way to seed "already at loa2" evidence.
             val acc = account(method("device", "loa2", details = StrategyTestFixtures.deviceDetails()))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)), acrFloor = "loa1")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE), account = acc), acrFloor = "loa1")
             then("still demands a fresh re-confirmation of any active factor - unlike STEP_UP, evidence of unknown age is never enough on its own") {
                 val decision = strategy.decide(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx)
                 decision.shouldBeInstanceOf<Decision.Advance>()

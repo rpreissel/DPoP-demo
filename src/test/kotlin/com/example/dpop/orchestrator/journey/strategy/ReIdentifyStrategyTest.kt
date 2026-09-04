@@ -65,7 +65,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         // sms already used, fsc/eid not - only fsc is isolated here by marking eid used too, so
         // the offered set is unambiguous.
         val acc = account(method("sms", "loa2"))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)), acrFloor = "loa2")
+        val theCtx = ctx(account = acc, evidence = AuthEvidence.from(listOf("sms", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)), acrFloor = "loa2")
         val state = ReIdentifyState.OfferReIdent("loa2", "loa1")
 
         `when`("accepted") {
@@ -104,7 +104,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         val acc = account(method("sms", "loa2"))
         val theCtx = ctx(
             account = acc,
-            evidence = AuthEvidence(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)),
+            evidence = AuthEvidence.from(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)),
             acrFloor = "loa2"
         )
         val state = ReIdentifyState.OfferReIdent("loa2", "loa1")

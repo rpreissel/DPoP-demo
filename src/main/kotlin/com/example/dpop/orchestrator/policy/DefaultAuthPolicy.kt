@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.FactorType
@@ -32,8 +33,8 @@ import org.springframework.stereotype.Component
 class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPolicy {
 
     override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): String {
-        if (evidence.amr.isEmpty()) return "none"
-        return applyMfaBump(baseAcr(evidence.amr), evidence.amr, account)
+        if (evidence.factors.isEmpty()) return "none"
+        return applyMfaBump(baseAcr(evidence.factors), evidence).value
     }
 
     override fun isSatisfied(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile?): Boolean {
@@ -100,8 +101,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .map { it.toolId }
     }
 
-    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String): List<String> {
-        val usedMethods = evidence.amr.toSet()
+    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?): List<String> {
+        val usedMethods = evidence.factors.map { it.method.value }.toSet()
         val active = account.authenticationMethods.filter { it.active }
         val remaining = active.filter { it.method !in usedMethods }
 
@@ -137,10 +138,16 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             }
 
             val cappedAcr = AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)
-            val projectedAmr = evidence.amr + m.method
-            val projectedBase = AcrLevels.max(baseAcr(projectedAmr), cappedAcr)
-            val projectedAcr = applyMfaBump(projectedBase, projectedAmr, account)
-            val helpsLevel = AcrLevels.rank(projectedAcr) >= AcrLevels.rank(requiredAcr)
+            // What evidence would look like if this candidate were ALSO proven - same shape
+            // resolveAcr prices from, no separate catalog re-derivation.
+            val projected = AuthEvidence(
+                evidence.factors + MethodEvidence(
+                    MethodName(m.method), AcrLevel(cappedAcr), m.enrolledUnderAcr?.let(::AcrLevel), descriptor.factorTypes,
+                    source = "simulation", amrSourceId = "simulation"
+                ),
+            )
+            val projectedAcr = applyMfaBump(baseAcr(projected.factors), projected)
+            val helpsLevel = AcrLevels.rank(projectedAcr.value) >= AcrLevels.rank(requiredAcr)
             val helpsMfa = !singleMethodSuffices && (descriptor.factorTypes - evidence.factorTypes).isNotEmpty()
 
             descriptor.toolId.takeIf { helpsLevel || helpsMfa }
@@ -148,7 +155,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     }
 
     override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String> {
-        val usedMethods = evidence.amr.toSet()
+        val usedMethods = evidence.factors.map { it.method.value }.toSet()
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.IDENT }
             .filter { it.method !in usedMethods }
@@ -156,39 +163,36 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .map { it.toolId }
     }
 
-    /** Highest maxAcr among ALL catalog descriptors (any category) matching one of [methods]. */
-    private fun baseAcr(methods: Collection<String>): String {
-        val reachable = toolRegistry.descriptors()
-            .filter { it.method in methods }
-            .maxOfOrNull { AcrLevels.rank(it.maxAcr) }
-            ?: return "none"
-        return AcrLevels.levelAt(reachable)
+    /** Highest loa among [factors]' own per-method claims - see [MethodEvidence.loa]. */
+    private fun baseAcr(factors: List<MethodEvidence>): AcrLevel {
+        val reachable = factors.maxOfOrNull { AcrLevels.rank(it.loa.value) } ?: return AcrLevel("none")
+        return AcrLevel(AcrLevels.levelAt(reachable))
     }
 
     /**
-     * MFA bump: >=2 DISTINCT AUTH methods among [methods], together covering >=2 distinct
-     * factor types, earn one tier above what those AUTH methods alone could reach - capped by
-     * the highest loa any of them was itself enrolled under (docs/06-ablaeufe.md #1, extended;
-     * see class doc). The bump is computed on the AUTH-only base and combined into [base] via
-     * max - never applied to [base] directly - so an identification like ident-fsc, which
-     * already prices its own trust into its maxAcr, is never double-counted just because an
-     * unrelated auth factor also ran this session (e.g. fsc=loa2 + sms=loa1 + password=loa1
-     * must stay loa2, not overshoot to loa3 merely because sms+password happen to also combine).
+     * MFA bump: >=2 DISTINCT methods among [evidence], together covering >=2 distinct factor
+     * types, earn one tier above [base] - capped by the highest loa any of them was itself
+     * enrolled under (docs/06-ablaeufe.md #1, extended; see class doc). Relies on an existing
+     * invariant this whole file already assumes: only a DEVICE_AUTH/LOOKUP_AUTH tool's outcome
+     * ever reports a non-empty `amr`/`factorTypes` at all (docs/tool_spi/ToolOutcome.kt) - an
+     * identification like ident-fsc, which already prices its own trust into its own loa, never
+     * contributes an `amr` entry here to begin with, so it can never be double-counted into this
+     * bump just because it ran in the same session as an unrelated auth factor.
+     *
+     * [MethodEvidence.enrolledUnderAcr] is entirely the assembling caller's own claim (docs/ideen/
+     * web-keycloak-kanal.md #8) - this method never reaches into an account's enrollment records
+     * itself, for an orchestrator-proven method or a natively-reported one alike. A method with no
+     * entry there simply contributes nothing to the cap, never a special case to detect: a bump
+     * resting entirely on such methods is capped to "none" by construction, exactly as it already
+     * is for an account with no matching enrollment at all.
      */
-    private fun applyMfaBump(base: String, methods: Collection<String>, account: AccountProfile?): String {
-        val authDescriptors = toolRegistry.descriptors().filter { it.role.category == ToolCategory.AUTH && it.method in methods }
-        val authBase = authDescriptors.maxOfOrNull { AcrLevels.rank(it.maxAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
-        val distinctAuthMethods = authDescriptors.map { it.method }.distinct().size
-        val authFactorTypes = authDescriptors.flatMap { it.factorTypes }.toSet()
-
-        val authMethodNames = authDescriptors.map { it.method }.toSet()
-        val maxEnrolledUnderAcr = account?.authenticationMethods
-            ?.filter { it.active && it.method in authMethodNames }
-            ?.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }
+    private fun applyMfaBump(base: AcrLevel, evidence: AuthEvidence): AcrLevel {
+        val distinctMethods = evidence.factors.map { it.method }.distinct().size
+        val maxEnrolledUnderAcr = evidence.factors.mapNotNull { it.enrolledUnderAcr?.value }
+            .maxOfOrNull { AcrLevels.rank(it) }
             ?.let { AcrLevels.levelAt(it) }
             ?: "none"
-        val bumpedAuthBase = combinedAcr(authBase, distinctAuthMethods, authFactorTypes, maxEnrolledUnderAcr)
-        return AcrLevels.max(base, bumpedAuthBase)
+        return AcrLevel(combinedAcr(base.value, distinctMethods, evidence.factorTypes, maxEnrolledUnderAcr))
     }
 
     /**

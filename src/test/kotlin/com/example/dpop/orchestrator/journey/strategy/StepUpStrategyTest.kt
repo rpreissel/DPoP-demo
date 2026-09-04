@@ -11,6 +11,7 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
@@ -65,7 +66,7 @@ class StepUpStrategyTest : BehaviorSpec({
         // sms alone caps at loa1, but it's unused this run - offering it "helps MFA" even before
         // it alone reaches loa2 (DefaultAuthPolicy.candidateTools' helpsMfa branch).
         val acc = account(method("sms", "loa2"))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList(), emptySet()))
+        val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
         val state = StepUpState.Start("loa2", "loa1")
 
         then("offers it via AuthChoice") {
@@ -76,7 +77,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
     given("Start, the only active method already used this run, but re-identification could still help") {
         val acc = account(method("sms", "loa2"))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
         val state = StepUpState.Start("loa2", "loa1")
 
         then("requires the shared RE_IDENTIFY sub-journey instead of aborting") {
@@ -89,7 +90,7 @@ class StepUpStrategyTest : BehaviorSpec({
         val acc = account(method("sms", "loa2"))
         val theCtx = ctx(
             account = acc,
-            evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)),
+            evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
             availableTools = StrategyTestFixtures.allToolIds - setOf("ident-fsc", "ident-eid")
         )
         val state = StepUpState.Start("loa2", "loa1")
@@ -104,7 +105,7 @@ class StepUpStrategyTest : BehaviorSpec({
     given("Start, resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
         `when`("the fresh evidence already satisfies the target") {
             val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             val state = StepUpState.Start("loa1", "none")
 
             then("finishes directly instead of offering auth again") {
@@ -115,7 +116,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
         `when`("it does not yet satisfy the target") {
             val acc = account(method("sms", "loa2"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList(), emptySet()))
+            val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
             val state = StepUpState.Start("loa2", "loa1")
 
             then("falls through to offering auth candidates, same as a fresh Start") {
@@ -126,7 +127,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
         `when`("it was declined instead (SubJourneyCancelled)") {
             val acc = account(method("sms", "loa2"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList(), emptySet()))
+            val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
             val state = StepUpState.Start("loa2", "loa1")
 
             then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
@@ -154,7 +155,7 @@ class StepUpStrategyTest : BehaviorSpec({
         val state = StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms"))
 
         `when`("re-identification could still help") {
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("requires the shared RE_IDENTIFY sub-journey") {
                 strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
                     Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = StepUpState.Start("loa2", "loa1"))
@@ -162,7 +163,7 @@ class StepUpStrategyTest : BehaviorSpec({
         }
 
         `when`("re-identification cannot help either") {
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc))
             then("cancels - giving up here is not an error") {
                 strategy.decide(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Decision.Cancel
             }
@@ -173,7 +174,7 @@ class StepUpStrategyTest : BehaviorSpec({
         // sms+password, both loa1 alone, both enrolled under loa2 - MFA-combine to loa2 (see
         // DefaultAuthPolicyTest for the underlying combination rule).
         val acc = account(method("sms", "loa2"), method("password", "loa2"))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms", "password"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)))
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "password"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc))
         val state = StepUpState.AuthChoice("loa2", "loa1", listOf("auth-sms", "auth-password"))
 
         then("finishes once the combination satisfies the target") {

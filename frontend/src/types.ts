@@ -54,6 +54,8 @@ export interface ActiveMethodView {
 
 export interface ChannelBlock {
   channelSessionId: string
+  /** Which facade this channel was opened through - "APP" (DPoP) or "KEYCLOAK" (docs/ideen/web-keycloak-kanal.md). Fixed for the channel's whole lifetime. */
+  channelType: string
   state: string
   currentAcr?: string
   currentAmr?: string[]
@@ -110,12 +112,25 @@ export interface IdTokenClaims {
   [key: string]: unknown
 }
 
+/**
+ * KEYCLOAK channels only (docs/ideen/web-keycloak-kanal.md #8) - what the OrchestratorAuthenticator
+ * writes into Keycloak's own session notes on every response. Never present on an App channel's
+ * responses.
+ */
+export interface AuthData {
+  accountId?: number
+  acr?: string
+  /** Method -> who proved it: "orchestrator" for a completed orchestrator tool, "kc" for evidence a native Keycloak authenticator already established. Informational only - the orchestrator alone still resolves `acr` above. */
+  amr?: Record<string, string>
+}
+
 /** The one response envelope for every endpoint, channel- and tool-level alike (docs/05-api.md #2). */
 export interface ChannelResponse {
   channel: ChannelBlock
   next?: Next
   stepData?: StepData
   demo?: DemoInfo
+  authData?: AuthData
 }
 
 /**

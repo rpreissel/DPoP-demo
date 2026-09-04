@@ -46,7 +46,9 @@ object AuthDeviceDescriptor : ToolDescriptor {
      * Generic multi-instance resolution (CandidateTools/DefaultAuthPolicy) calls this without
      * ever knowing the key name itself.
      */
-    override fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String): Boolean =
+    override fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean =
+        // A null caller (WEB, no device) never matches a real, device-enrolled instance - this
+        // equality already gets that right, no extra branch needed.
         details?.get(DEVICE_BINDING_KEY_REF) == callerBindingKeyRef
 }
 

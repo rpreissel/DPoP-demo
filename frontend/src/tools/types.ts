@@ -1,18 +1,20 @@
 import type { ReactNode } from 'react'
-import type { DpopKeyPair } from '../dpop'
+import type { CallerProof } from '../callerProof'
 import type { ChannelResponse, DemoInfo, StepData } from '../types'
 
 /**
  * Everything a tool's own render() needs to draw its current step and call its own api.ts -
- * assembled once in App.tsx from `next`/`activeTool`, never from a per-uiComponent prop list
- * (that per-component prop wiring is exactly what made adding/removing a tool touch App.tsx).
+ * assembled once in App.tsx (or MockKeycloakView.tsx) from `next`/`activeTool`, never from a
+ * per-uiComponent prop list (that per-component prop wiring is exactly what made adding/removing
+ * a tool touch App.tsx).
  */
 export interface ToolRenderContext {
   step: string
   toolId: string
   /** Only set once a ToolSession exists for this step (docs/05-api.md #2) - device tools need it to build their DPoP-proof htu, others ignore it. */
   toolSessionId?: string
-  dpop: DpopKeyPair
+  /** App channel (DPoP) or Mock-Keycloak (peer-auth) - see [CallerProof]; only tools/shared/defaultApi.ts's submitViaPatch reads this. */
+  proof: CallerProof
   stepData?: StepData
   demo?: DemoInfo
   /** App.tsx: applyResponse(response, toolId) */

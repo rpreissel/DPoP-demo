@@ -12,7 +12,7 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.deviceDetails
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
@@ -89,7 +89,7 @@ class FastAccessStrategyTest : BehaviorSpec({
 
     given("Start, resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
         val acc = account(method("sms", "loa1"))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
         then("re-checks satisfaction via afterProof instead of re-running firstOffer") {
             val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2")
             strategy.decide(FastAccessState.Start, event, theCtx) shouldBe Decision.Authenticated
@@ -113,7 +113,7 @@ class FastAccessStrategyTest : BehaviorSpec({
 
     given("PreferredAuth, a proof just completed and it already satisfies the floor") {
         val acc = account(method("device", "loa2", details = deviceDetails()))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)), acrFloor = "loa2")
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE), account = acc), acrFloor = "loa2")
         then("finishes") {
             val event = JourneyEvent.Completed(AuthDeviceDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("device")))
             strategy.decide(FastAccessState.PreferredAuth("auth-device"), event, theCtx) shouldBe Decision.Authenticated
@@ -191,7 +191,7 @@ class FastAccessStrategyTest : BehaviorSpec({
 
         `when`("the email is confirmed, and the account now reaches the floor") {
             val acc = account(method("sms", "loa1"), emailConfirmed = true)
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
             then("finishes - the obligation is discharged, nothing else to enroll") {
                 val event = JourneyEvent.Completed(com.example.dpop.auth_email.EnrollEmailDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("email", "ref")))
                 strategy.decide(state, event, theCtx) shouldBe Decision.Authenticated
@@ -209,7 +209,7 @@ class FastAccessStrategyTest : BehaviorSpec({
 
         `when`("a method was just enrolled and the floor is now reached, with no email obligation") {
             val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
             val state = FastAccessState.Enrolling(listOf("enroll-sms"), emailObligation = false)
             then("finishes directly") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref")))
@@ -219,7 +219,7 @@ class FastAccessStrategyTest : BehaviorSpec({
 
         `when`("a method was just enrolled, floor reached, but the email obligation from Identifying is still open") {
             val acc = account(method("sms", "loa1"), emailConfirmed = false)
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa1")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
             val state = FastAccessState.Enrolling(listOf("enroll-sms"), emailObligation = true)
             then("moves on to ConfirmingEmail instead of finishing") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref")))
@@ -233,7 +233,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         val onlyAuthTools = setOf("auth-sms")
 
         `when`("re-identification could still close the gap") {
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa2", availableTools = onlyAuthTools + setOf("ident-fsc", "ident-eid"))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2", availableTools = onlyAuthTools + setOf("ident-fsc", "ident-eid"))
             then("requires the shared RE_IDENTIFY sub-journey instead of aborting") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
                 strategy.decide(FastAccessState.AuthChoice(listOf("auth-sms")), event, theCtx) shouldBe
@@ -242,7 +242,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         }
 
         `when`("nothing can help at all") {
-            val theCtx = ctx(account = acc, evidence = AuthEvidence(listOf("sms"), setOf(FactorType.POSSESSION)), acrFloor = "loa2", availableTools = onlyAuthTools)
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2", availableTools = onlyAuthTools)
             then("aborts with a reason") {
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
                 strategy.decide(FastAccessState.AuthChoice(listOf("auth-sms")), event, theCtx).shouldBeInstanceOf<Decision.Abort>()

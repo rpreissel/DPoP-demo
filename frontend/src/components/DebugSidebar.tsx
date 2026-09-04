@@ -21,6 +21,8 @@ interface DebugSidebarProps {
     stepData?: unknown
     demo?: unknown
     activeTool?: unknown
+    /** WEB channels only (docs/ideen/web-keycloak-kanal.md #8) - the Mock-Keycloak screen's own channel object carries this, the App channel's never does. */
+    authData?: unknown
   }
   log: DebugEvent[]
   open: boolean

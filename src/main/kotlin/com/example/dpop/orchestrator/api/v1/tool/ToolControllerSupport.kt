@@ -174,7 +174,8 @@ class ToolControllerSupport(
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,
-            stepData = step.stepData
+            stepData = step.stepData,
+            authData = channelService.authDataFor(channel)
         )
     }
 
@@ -201,7 +202,8 @@ class ToolControllerSupport(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,
             stepData = cleanedStepData,
-            demo = demoInfo(journey, channel, demoValues)
+            demo = demoInfo(journey, channel, demoValues),
+            authData = channelService.authDataFor(channel)
         )
     }
 
@@ -268,7 +270,8 @@ class ToolControllerSupport(
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = next,
-            stepData = freshOutcome?.data
+            stepData = freshOutcome?.data,
+            authData = channelService.authDataFor(channel)
         )
     }
 

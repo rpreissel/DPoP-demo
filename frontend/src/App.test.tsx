@@ -53,7 +53,7 @@ describe('resume mid-tool (docs/05-api.md #2: next.toolSessionId)', () => {
     window.localStorage.setItem('dpop-demo-channel-session-id', 'chan-1')
     api.getChannel.mockResolvedValue(
       channelResponse({
-        channel: { channelSessionId: 'chan-1', state: 'REGISTERING' },
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
         next: { type: 'tool', toolId: 'enroll-sms', step: 'tanInput', toolSessionId: 'ts-resumed' },
       })
     )
@@ -75,7 +75,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
   it('fetches currentAcr/currentAmr/activeMethods once, only after settling into authenticated', async () => {
     api.createChannel.mockResolvedValue(
       channelResponse({
-        channel: { channelSessionId: 'chan-1', state: 'REGISTERING' },
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
         next: { type: 'tool', toolId: 'enroll-sms', step: 'enroll', toolSessionId: 'ts-1' },
       })
     )
@@ -83,7 +83,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
     // carries no account fields - the client must fetch them explicitly.
     api.patchTool.mockResolvedValue(
       channelResponse({
-        channel: { channelSessionId: 'chan-1', state: 'AUTHENTICATED' },
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'AUTHENTICATED' },
         next: { type: 'orchestrator', context: 'authentication', step: 'authenticated' },
       })
     )
@@ -91,6 +91,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
       channelResponse({
         channel: {
           channelSessionId: 'chan-1',
+          channelType: 'APP',
           state: 'AUTHENTICATED',
           currentAcr: 'loa1',
           currentAmr: ['sms'],
@@ -124,6 +125,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
       channelResponse({
         channel: {
           channelSessionId: 'chan-1',
+          channelType: 'APP',
           state: 'AUTHENTICATED',
           currentAcr: 'loa2',
           currentAmr: ['sms', 'password'],

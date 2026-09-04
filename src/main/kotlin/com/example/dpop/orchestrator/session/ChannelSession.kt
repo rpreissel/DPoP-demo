@@ -8,8 +8,6 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
@@ -25,14 +23,50 @@ class ChannelSession(
     @Column(name = "channel", nullable = false, length = 20)
     var channel: Channel? = null,
 
-    @Column(name = "binding_key_ref", nullable = false, length = 64)
+    /** APP-only (docs/ideen/web-keycloak-kanal.md #5) - null on KEYCLOAK channels, which anchor via [kcAuthSessionId]/[kcSessionId] instead. */
+    @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 
     @Column(name = "expires_at", nullable = false)
     var expiresAt: Instant? = null
 ) {
+    /**
+     * KEYCLOAK-only kc-anchor for the initial login, before Keycloak has a `sub` (docs/ideen/
+     * web-keycloak-kanal.md #2) - Keycloak's own `AuthenticationSessionModel` id, fresh per
+     * flow run. Mutually exclusive with [kcSessionId]: a channel carries at most one of the
+     * two kc-anchor fields, matching which of the two Web-Kanal cases it was opened for.
+     */
+    @Column(name = "kc_auth_session_id", length = 64)
+    var kcAuthSessionId: String? = null
+
+    /**
+     * KEYCLOAK-only kc-anchor for step-up, once Keycloak already knows the user (docs/ideen/
+     * web-keycloak-kanal.md #2/#9) - Keycloak's established `UserSessionModel` id, carried in
+     * the peer-auth assertion so [ChannelAccessGuard] can verify the caller acts for this exact,
+     * already-authenticated user session. Mutually exclusive with [kcAuthSessionId], same as that
+     * field's own doc says. Deliberately NOT a lookup key for finding a prior [channelSessionId]:
+     * Keycloak only promotes an `AuthenticationSessionModel` into this `UserSessionModel` at the
+     * very END of a successful flow, so at step-up flow START there is no earlier channel under
+     * THIS UserSession to find yet in general - each flow run, step-up included, still gets its
+     * own fresh [channelSessionId], derived from that run's own fresh [kcAuthSessionId]. Evidence
+     * continuity across flow runs is a Keycloak-side concern instead (docs/ideen/web-keycloak-
+     * kanal.md #6/#9): the `OrchestratorAuthenticator`'s end-of-flow lifecycle hook fetches a
+     * signed `RestoreData` token (`GET .../restore-data`, bound to THIS id) and stashes it in a
+     * `UserSessionModel` note, and a later step-up's initial authenticator reads it back out and
+     * hands it to the fresh channel's own first `PATCH` call as `restoreData` - a separate field
+     * from `KcChannelUpsertRequest.amr`, not the same wire-contract shape: `restoreData` is a
+     * one-shot snapshot that may already be meaningfully old, `amr` a live per-step report.
+     */
+    @Column(name = "kc_session_id", length = 64)
+    var kcSessionId: String? = null
+
+    /**
+     * Self-assigned rather than `@GeneratedValue`, so the kc-facade can override it with its own,
+     * client-chosen id before the first save (docs/ideen/web-keycloak-kanal.md #6 - upsert
+     * semantics, idempotent retries) while APP callers, which never touch this field, keep
+     * getting a fresh random id exactly as before.
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "channel_session_id", nullable = false)
     var channelSessionId: UUID? = null
 
@@ -43,6 +77,7 @@ class ChannelSession(
     @Column(name = "state", nullable = false, length = 50)
     var state: ChannelState? = null
 
+    /** APP-only (docs/ideen/web-keycloak-kanal.md #6) - the KEYCLOAK channel never sets this, it has no App-style tokens to bind ([AuthContext]'s own doc). */
     @Column(name = "auth_context_id")
     var authContextId: UUID? = null
 
@@ -50,9 +85,17 @@ class ChannelSession(
     @JoinColumn(name = "auth_context_id", insertable = false, updatable = false)
     var authContext: AuthContext? = null
 
+    /** Both channel types (docs/ideen/web-keycloak-kanal.md #6) - the evidence itself, unlike the App-only [authContextId]. */
+    @Column(name = "auth_evidence_id")
+    var authEvidenceId: UUID? = null
+
+    @ManyToOne
+    @JoinColumn(name = "auth_evidence_id", insertable = false, updatable = false)
+    var authEvidence: AuthEvidence? = null
+
     /**
      * Whether at least one authentication factor has actually been proven on THIS channel (an
-     * [AuthContext] exists) - distinct from `state == AUTHENTICATED`, which additionally requires
+     * [AuthEvidence] exists) - distinct from `state == AUTHENTICATED`, which additionally requires
      * the full required ACR to be reached (a channel mid-chain toward loa2 already has this after
      * its first factor, well before `state` reflects it). [accountId] alone is NOT this: a
      * recognized device already carries an `accountId` from `DeviceAccountLink` before any proof
@@ -60,7 +103,7 @@ class ChannelSession(
      * once something was actually proven, never merely because the device was recognized.
      */
     val hasProvenFactor: Boolean
-        get() = authContextId != null
+        get() = authEvidenceId != null
 
     /**
      * The channel's DURABLE lower bound; survives individual journeys. Distinct from a single
@@ -100,6 +143,7 @@ class ChannelSession(
     var version: Long? = null
 
     init {
+        channelSessionId = UUID.randomUUID()
         state = ChannelState.ANONYMOUS
         createdAt = Instant.now()
         lastAccessedAt = Instant.now()
@@ -113,6 +157,6 @@ class ChannelSession(
         get() = expiresAt?.let { Instant.now().isAfter(it) } ?: false
 
     enum class Channel {
-        APP, WEB
+        APP, KEYCLOAK
     }
 }

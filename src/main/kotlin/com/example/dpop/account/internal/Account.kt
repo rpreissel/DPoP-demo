@@ -5,6 +5,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.time.Instant
@@ -18,6 +19,17 @@ class Account(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
+
+    /**
+     * Guards [identifications]/[authenticationMethods] against a lost update, e.g. two
+     * concurrent step-up channels for the same account both enrolling a method at once
+     * (docs/07-betrieb.md #1) - a stale writer gets `ObjectOptimisticLockingFailureException`,
+     * already translated to `409 CONCURRENT_MODIFICATION` by `OrchestratorExceptionHandler`, the
+     * same contract every other multi-writer entity in this system already follows
+     * (`ChannelSession`, `AuthEvidence`, `AuthJourney`).
+     */
+    @Version
+    var version: Long? = null
 
     /** Durable record of how this account's identity was ever established (docs/06-ablaeufe.md #1). */
     @JdbcTypeCode(SqlTypes.JSON)

@@ -11,13 +11,17 @@ import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.orchestrator.session.AuthContextService
+import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelCreationThrottleService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.TokenService
+import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.tool_api.ActiveMethodView
+import com.example.dpop.tool_api.AuthData
 import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
@@ -38,6 +42,7 @@ class ChannelService(
     private val sessionManagementService: SessionManagementService,
     private val accountService: AccountService,
     private val authContextService: AuthContextService,
+    private val authEvidenceService: AuthEvidenceService,
     private val authPolicy: AuthPolicy,
     private val channelAccessGuard: ChannelAccessGuard,
     private val journeyService: JourneyService,
@@ -139,7 +144,12 @@ class ChannelService(
     private fun toActiveMethodViews(methods: List<AuthMethodView>?): List<ActiveMethodView> =
         methods.orEmpty().map { ActiveMethodView(requireNotNull(it.id) { "Active method without an id" }, it.method, it.label) }
 
-    private fun resumeChannel(channel: ChannelSession): ChannelResponse {
+    /**
+     * `internal`, not `private`: [KcChannelService] reuses this same "resume and advance the
+     * active journey" logic for the kc-facade's upsert endpoint (docs/ideen/web-keycloak-kanal.md
+     * #6) instead of duplicating it - only channel creation differs per facade.
+     */
+    internal fun resumeChannel(channel: ChannelSession): ChannelResponse {
         // LOGGED_OUT is terminal (docs/02-domaenenmodell.md #3) - without this, a GET on an old
         // channelSessionId would silently hand back a fresh login attempt on a dead channel.
         if (channel.state == ChannelState.LOGGED_OUT) return respond(channel)
@@ -281,10 +291,8 @@ class ChannelService(
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
-    private fun currentEvidence(channel: ChannelSession): AuthEvidence {
-        val authContext = channel.authContextId?.let { authContextService.getAuthContext(it) }
-        return AuthEvidence(authContext?.currentAmr ?: emptyList(), authContext?.currentFactorTypes ?: emptySet())
-    }
+    private fun currentEvidence(channel: ChannelSession): AuthEvidence =
+        channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence() ?: AuthEvidence(emptyList())
 
     private fun respond(channel: ChannelSession, next: Next? = null, stepData: Map<String, Any?>? = null): ChannelResponse {
         // A terminal channel (docs/02-domaenenmodell.md #3) never has a next - regardless of what
@@ -300,8 +308,25 @@ class ChannelService(
             channel = buildChannelBlock(channel, includeAccountFields = true),
             next = resolved,
             stepData = stepData,
-            demo = demoInfo(channel)
+            demo = demoInfo(channel),
+            authData = authDataFor(channel)
         )
+    }
+
+    /**
+     * `KEYCLOAK`-only (docs/ideen/web-keycloak-kanal.md #8) - `null` for `APP`. Used both by
+     * [respond] here and by `ToolControllerSupport`'s own response building, so every KEYCLOAK
+     * response carries it, entry point and tool activation/PATCH alike, not just this class's own.
+     */
+    fun authDataFor(channel: ChannelSession): AuthData? {
+        if (channel.channel != ChannelSession.Channel.KEYCLOAK) return null
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
+        val amr = evidence?.currentAmr?.associateWith { evidence.currentAmrSource[it] ?: AmrSource.ORCHESTRATOR }
+        val acr = evidence?.let {
+            val account = channel.accountId?.let { id -> accountService.findAccount(id) }
+            authPolicy.resolveAcr(it.toCoreEvidence(), account)
+        }
+        return AuthData(accountId = channel.accountId, acr = acr, amr = amr)
     }
 
     /** Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses (docs/tool_api/Envelope.kt, JourneyDebugStep). */
@@ -326,16 +351,20 @@ class ChannelService(
      * must not leak the account's active methods before anything was proven on THIS channel.
      */
     fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
+        val channelType = checkNotNull(channel.channel) { "Channel without a channel type" }.name
         if (!includeAccountFields || !channel.hasProvenFactor) {
-            return ChannelBlock(channelSessionId = channel.channelSessionId!!, state = channel.state?.name ?: ChannelState.ANONYMOUS.name)
+            return ChannelBlock(channelSessionId = channel.channelSessionId!!, channelType = channelType, state = channel.state?.name ?: ChannelState.ANONYMOUS.name)
         }
-        val authContext = channel.authContextId?.let { authContextService.getAuthContext(it) }
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
+        val account = channel.accountId?.let { accountService.findAccount(it) }
+        val currentAcr = evidence?.let { authPolicy.resolveAcr(it.toCoreEvidence(), account) }
         return ChannelBlock(
             channelSessionId = channel.channelSessionId!!,
+            channelType = channelType,
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
-            currentAcr = authContext?.currentAcr,
-            currentAmr = authContext?.currentAmr,
-            activeMethods = toActiveMethodViews(channel.accountId?.let { accountService.findAccount(it)?.activeAuthenticationMethods })
+            currentAcr = currentAcr,
+            currentAmr = evidence?.currentAmr,
+            activeMethods = toActiveMethodViews(account?.activeAuthenticationMethods)
         )
     }
 

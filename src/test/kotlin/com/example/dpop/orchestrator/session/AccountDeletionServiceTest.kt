@@ -12,11 +12,12 @@ import io.mockk.verifyOrder
 
 /**
  * Pure unit test of [AccountDeletionService]. The one behaviour worth pinning down here isn't
- * obvious from reading the happy path: [ChannelSession.authContextId] AND
- * [ChannelSession.authContext] (the mirrored, read-only navigation property for the same FK) must
- * BOTH be cleared before the referenced [AuthContext] row is deleted - leaving either one set is
- * exactly the bug that used to surface as a Hibernate `TransientPropertyValueException` on flush,
- * invisible to a plain field-by-field read of this class.
+ * obvious from reading the happy path: [ChannelSession.authContextId]/[ChannelSession.
+ * authEvidenceId] AND their mirrored, read-only navigation properties ([ChannelSession.
+ * authContext]/[ChannelSession.authEvidence], same FKs) must ALL be cleared before the referenced
+ * [AuthContext]/[AuthEvidence] rows are deleted - leaving any one of them set is exactly the bug
+ * that used to surface as a Hibernate `TransientPropertyValueException` on flush, invisible to a
+ * plain field-by-field read of this class.
  */
 class AccountDeletionServiceTest : BehaviorSpec({
 
@@ -25,17 +26,20 @@ class AccountDeletionServiceTest : BehaviorSpec({
         cleanups: List<EnrollmentCleanup> = emptyList(),
         deviceAccountLinkRepository: DeviceAccountLinkRepository = mockk(relaxed = true),
         channelSessionRepository: ChannelSessionRepository = mockk(relaxed = true),
-        authContextRepository: AuthContextRepository = mockk(relaxed = true)
-    ) = AccountDeletionService(accountService, cleanups, deviceAccountLinkRepository, channelSessionRepository, authContextRepository)
+        authContextRepository: AuthContextRepository = mockk(relaxed = true),
+        authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true)
+    ) = AccountDeletionService(accountService, cleanups, deviceAccountLinkRepository, channelSessionRepository, authContextRepository, authEvidenceRepository)
 
     given("an account with channel sessions still bound to it") {
-        then("every one of them is logged out with BOTH authContextId and authContext cleared, not just one") {
+        then("every one of them is logged out with BOTH authContextId/authEvidenceId and their navigation properties cleared, not just one") {
             val accountService = mockk<AccountService>(relaxed = true)
             every { accountService.allEnrollmentRefs(1L) } returns emptyList()
             val session = ChannelSession().apply {
                 state = ChannelState.AUTHENTICATED
                 authContextId = java.util.UUID.randomUUID()
                 authContext = AuthContext(accountId = 1L)
+                authEvidenceId = java.util.UUID.randomUUID()
+                authEvidence = AuthEvidence(accountId = 1L)
             }
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
             every { channelSessionRepository.findByAccountId(1L) } returns listOf(session)
@@ -46,6 +50,8 @@ class AccountDeletionServiceTest : BehaviorSpec({
             session.state shouldBe ChannelState.LOGGED_OUT
             session.authContextId shouldBe null
             session.authContext shouldBe null
+            session.authEvidenceId shouldBe null
+            session.authEvidence shouldBe null
             verify { channelSessionRepository.save(session) }
         }
     }

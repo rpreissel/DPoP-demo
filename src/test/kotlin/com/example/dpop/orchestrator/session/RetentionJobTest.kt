@@ -21,11 +21,16 @@ import java.util.UUID
  */
 class RetentionJobTest : BehaviorSpec({
 
-    fun job(channelSessionRepository: ChannelSessionRepository, authContextRepository: AuthContextRepository = mockk(relaxed = true)) = RetentionJob(
+    fun job(
+        channelSessionRepository: ChannelSessionRepository,
+        authContextRepository: AuthContextRepository = mockk(relaxed = true),
+        authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true)
+    ) = RetentionJob(
         toolSessionRepository = mockk(relaxed = true),
         journeyRepository = mockk<AuthJourneyRepository>(relaxed = true),
         channelSessionRepository = channelSessionRepository,
         authContextRepository = authContextRepository,
+        authEvidenceRepository = authEvidenceRepository,
         sessionEventRepository = mockk(relaxed = true)
     )
 

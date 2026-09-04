@@ -1,6 +1,8 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
+import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.PlainJWT
 import org.springframework.data.repository.findByIdOrNull
@@ -21,12 +23,16 @@ data class TokenPair(
  * Mock Keycloak token issuance (docs/11-umsetzungsplan.md: the real Keycloak facade is out of
  * scope). The AccessToken is a spec-shaped unsecured JWT (RFC 7519 #6, alg=none) so the frontend
  * can parse and display its claims without a JWT library or a signing key. The RefreshToken is an
- * opaque server-side secret - it is never returned to a caller, only its expiry is.
+ * opaque server-side secret - it is never returned to a caller, only its expiry is. Claims are
+ * resolved through [AuthContext.authEvidenceId], not stored on [AuthContext] itself - see that
+ * entity's own doc for why.
  */
 @Service
 @Transactional
 class TokenService(
     private val authContextRepository: AuthContextRepository,
+    private val authEvidenceService: AuthEvidenceService,
+    private val authPolicy: AuthPolicy,
     private val accountService: AccountService
 ) {
 
@@ -71,10 +77,11 @@ class TokenService(
             "AuthContext not found: $authContextId"
         }
         val account = authContext.accountId?.let { accountService.findAccount(it) }
+        val evidence = evidenceFor(authContext)
         return mapOf(
             "sub" to authContext.accountId?.toString(),
-            "acr" to authContext.currentAcr,
-            "amr" to authContext.currentAmr,
+            "acr" to evidence?.let { authPolicy.resolveAcr(it, account) },
+            "amr" to (evidence?.amr?.map { m -> m.value } ?: emptyList()),
             "auth_time" to authContext.authTime?.epochSecond,
             "accountId" to authContext.accountId,
             "personId" to account?.personId,
@@ -83,13 +90,19 @@ class TokenService(
         )
     }
 
+    /** The core, policy-evaluable evidence this token context's paired [AuthEvidence] currently holds - `null` if none was ever recorded. */
+    private fun evidenceFor(authContext: AuthContext): CoreAuthEvidence? =
+        authContext.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence()
+
     private fun mintAccessToken(authContext: AuthContext, iat: Instant, exp: Instant): String {
+        val account = authContext.accountId?.let { accountService.findAccount(it) }
+        val evidence = evidenceFor(authContext)
         val claims = JWTClaimsSet.Builder()
             .subject(authContext.accountId?.toString())
             .issuer(MOCK_ISSUER)
             .audience(MOCK_AUDIENCE)
-            .claim("acr", authContext.currentAcr)
-            .claim("amr", authContext.currentAmr)
+            .claim("acr", evidence?.let { authPolicy.resolveAcr(it, account) })
+            .claim("amr", evidence?.amr?.map { it.value } ?: emptyList<String>())
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))
             .jwtID(UUID.randomUUID().toString())
