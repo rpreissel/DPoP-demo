@@ -53,12 +53,21 @@ final class OrchestratorClient {
             String targetAcr,
             List<AmrEntry> amr,
             String restoreData,
-            String durableKcSessionId
+            String durableKcSessionId,
+            List<String> availableTools
     ) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/kc/channels/" + channelSessionId;
         ObjectNode body = MAPPER.createObjectNode();
         if (accountId != null) body.put("accountId", accountId);
         if (targetAcr != null) body.put("targetAcr", targetAcr);
+        // Only meaningful on this channel's first call (KcChannelService.upsertChannel creates the
+        // channel then, never on a later resume) - sent every time regardless, same as the App
+        // channel's own `availableTools` (frontend/src/tools/registry.ts's knownToolIds), since this
+        // client has no cheap way to know in advance whether the channel already exists.
+        if (availableTools != null && !availableTools.isEmpty()) {
+            ArrayNode toolsArray = body.putArray("availableTools");
+            availableTools.forEach(toolsArray::add);
+        }
         if (amr != null && !amr.isEmpty()) {
             ArrayNode amrArray = body.putArray("amr");
             for (AmrEntry entry : amr) {
@@ -172,6 +181,7 @@ final class OrchestratorClient {
             String channelState,
             Next next,
             Map<String, JsonNode> stepData,
+            Map<String, JsonNode> demo,
             Long authDataAccountId,
             String authDataAcr,
             Map<String, String> authDataAmr
@@ -184,6 +194,12 @@ final class OrchestratorClient {
             Map<String, JsonNode> stepData = new LinkedHashMap<>();
             json.path("stepData").fields().forEachRemaining(e -> stepData.put(e.getKey(), e.getValue()));
 
+            // Sibling of stepData, not nested in it (tool_spi/Demo.kt: the caller lifts DEMO_DATA_KEY
+            // out into its own top-level block before building the client response) - passed through
+            // unchanged to WebToolRenderer, same as stepData, since different tools prefill different keys.
+            Map<String, JsonNode> demo = new LinkedHashMap<>();
+            json.path("demo").fields().forEachRemaining(e -> demo.put(e.getKey(), e.getValue()));
+
             JsonNode authData = json.path("authData");
             Long accountId = authData.hasNonNull("accountId") ? authData.get("accountId").asLong() : null;
             String acr = authData.hasNonNull("acr") ? authData.get("acr").asText() : null;
@@ -195,6 +211,7 @@ final class OrchestratorClient {
                     channel.path("state").asText(null),
                     next,
                     stepData,
+                    demo,
                     accountId,
                     acr,
                     amr

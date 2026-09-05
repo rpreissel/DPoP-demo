@@ -1,0 +1,6 @@
+com.example.dpop.kcext.webtool.password.PasswordAuthRendererFactory
+com.example.dpop.kcext.webtool.password.PasswordEnrollRendererFactory
+com.example.dpop.kcext.webtool.password.PasswordLookupRendererFactory
+com.example.dpop.kcext.webtool.email.EmailAuthRendererFactory
+com.example.dpop.kcext.webtool.email.EmailEnrollRendererFactory
+com.example.dpop.kcext.webtool.email.EmailLookupRendererFactory

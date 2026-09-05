@@ -1,5 +1,6 @@
 package com.example.dpop.kcext;
 
+import com.example.dpop.kcext.webtool.WebToolAvailability;
 import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowCallback;
 import org.keycloak.authentication.AuthenticationFlowContext;
@@ -81,7 +82,8 @@ public class OrchestratorResumeAuthenticator implements AuthenticationFlowCallba
                 // matching comment on why it never resends that note either). existingUserSession's
                 // own id travels along ONLY as the RestoreData binding, never as the anchor itself.
                 OrchestratorClient.ChannelResponse response = client.upsertChannel(
-                        newChannelSessionId, accountId, OrchestratorNotes.requestedAcr(context), List.of(), restoreData, existingUserSession.getId()
+                        newChannelSessionId, accountId, OrchestratorNotes.requestedAcr(context), List.of(), restoreData, existingUserSession.getId(),
+                        WebToolAvailability.renderableToolIds(context.getSession())
                 );
                 if (response.authDataAcr() != null) {
                     authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());

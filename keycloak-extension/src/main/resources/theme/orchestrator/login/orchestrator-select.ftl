@@ -7,7 +7,7 @@
             <#list options as option>
                 <div class="${properties.kcFormGroupClass!}">
                     <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
-                            type="submit" name="toolId" value="${option}">${option}</button>
+                            type="submit" name="toolId" value="${option}">${optionLabels[option]!option}</button>
                 </div>
             </#list>
         </form>

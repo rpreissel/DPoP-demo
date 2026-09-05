@@ -1,5 +1,6 @@
 package com.example.dpop.kcext;
 
+import com.example.dpop.kcext.webtool.WebToolAvailability;
 import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
@@ -62,7 +63,8 @@ public class OrchestratorUpdateAuthenticator implements Authenticator {
             String targetAcr = OrchestratorNotes.requestedAcr(context);
 
             OrchestratorClient.ChannelResponse response = client.upsertChannel(
-                    channelSessionId, accountId, targetAcr, OrchestratorNotes.nativeAmr(context), null, null
+                    channelSessionId, accountId, targetAcr, OrchestratorNotes.nativeAmr(context), null, null,
+                    WebToolAvailability.renderableToolIds(context.getSession())
             );
             if (response.authDataAcr() != null) {
                 authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());

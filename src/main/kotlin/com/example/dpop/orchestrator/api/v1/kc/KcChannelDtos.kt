@@ -42,7 +42,16 @@ data class KcChannelUpsertRequest(
             "earlier flow run's channel). Must match what GET .../restore-data was called with to " +
             "produce this exact restoreData token."
     )
-    val kcSessionId: String? = null
+    val kcSessionId: String? = null,
+    @field:Schema(
+        description = "The Web channel's own declaration of which toolIds its Keycloak theme can " +
+            "render (DPoP-demo-3yd.6: one com.example.dpop.kcext.webtool.WebToolRenderer factory " +
+            "per toolId, registered via META-INF/services) - the kc-facade's counterpart to the App " +
+            "channel's own availableTools (POST /channels). Only read on this channel's first call " +
+            "(a later upsert resumes the already-persisted set); a channel-anonymous caller that " +
+            "omits this gets none of the orchestrator's tools, never all of them."
+    )
+    val availableTools: List<String>? = null
 )
 
 /**

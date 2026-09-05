@@ -15,7 +15,6 @@ import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toMethodEvidence
-import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_api.ChannelResponse
 import java.time.Duration
 import java.util.UUID
@@ -38,8 +37,7 @@ class KcChannelService(
     private val accountService: AccountService,
     private val authEvidenceService: AuthEvidenceService,
     private val restoreDataCodec: RestoreDataCodec,
-    private val nativeAuthenticatorRegistry: NativeAuthenticatorRegistry,
-    private val toolRegistry: ToolHandlerRegistry
+    private val nativeAuthenticatorRegistry: NativeAuthenticatorRegistry
 ) {
 
     fun upsertChannel(
@@ -49,7 +47,8 @@ class KcChannelService(
         targetAcr: String?,
         amr: List<AmrEntry>? = null,
         restoreDataToken: String? = null,
-        restoreDataKcSessionId: String? = null
+        restoreDataKcSessionId: String? = null,
+        availableTools: List<String>? = null
     ): ChannelResponse {
         // restoreDataToken is the bulk, one-shot counterpart of accountId/amr above (docs/ideen/
         // web-keycloak-kanal.md #6) - a prior, unrelated flow run's own state, resubmitted
@@ -106,7 +105,13 @@ class KcChannelService(
                 assertion.channelAnchor,
                 effectiveAccountId,
                 CHANNEL_TTL,
-                toolRegistry.descriptors().map { it.toolId }.toSet()
+                // The Web channel's own declaration of what it can render (WebToolAvailability on the
+                // extension side, one toolId per registered WebToolRenderer factory) - taken verbatim,
+                // exactly like the App channel's own client-declared availableTools
+                // (ChannelService.initializeChannel), never widened back to the orchestrator's whole
+                // catalog: an unfiltered "everything" default is exactly the App-Kanal-parity gap
+                // DPoP-demo-3yd.6 closes.
+                availableTools.orEmpty().toSet()
             )
         } else {
             // Even a guessed channelSessionId is never enough on its own - the assertion must

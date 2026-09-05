@@ -1,5 +1,9 @@
 package com.example.dpop.kcext;
 
+import com.example.dpop.kcext.webtool.WebToolAvailability;
+import com.example.dpop.kcext.webtool.WebToolRenderContext;
+import com.example.dpop.kcext.webtool.WebToolRenderer;
+import com.example.dpop.kcext.webtool.WebToolRendererFactory;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
@@ -71,7 +75,8 @@ public class OrchestratorAuthenticator implements Authenticator {
             // either again from this authenticator (which never itself proves anything native, and
             // runs after Resume already had its one chance) only re-triggers a no-op evidence merge.
             OrchestratorClient.ChannelResponse response = client.upsertChannel(
-                    channelSessionId, accountId, targetAcr, List.of(), null, null
+                    channelSessionId, accountId, targetAcr, List.of(), null, null,
+                    WebToolAvailability.renderableToolIds(context.getSession())
             );
             handleResponse(context, response, null);
         } catch (OrchestratorClient.OrchestratorApiException e) {
@@ -217,17 +222,43 @@ public class OrchestratorAuthenticator implements Authenticator {
     }
 
     private Response selectForm(AuthenticationFlowContext context, List<String> options, String error) {
+        Map<String, String> optionLabels = new LinkedHashMap<>();
+        for (String option : options) {
+            WebToolRendererFactory factory = rendererFactoryFor(context.getSession(), option);
+            if (factory != null) optionLabels.put(option, factory.title());
+        }
         var form = context.form()
                 .setAuthenticationSession(context.getAuthenticationSession())
-                .setAttribute("options", options);
+                .setAttribute("options", options)
+                .setAttribute("optionLabels", optionLabels);
         if (error != null) form.setError(error);
         return form.createForm("orchestrator-select.ftl");
     }
 
     private Response toolForm(AuthenticationFlowContext context, OrchestratorClient.Next next, OrchestratorClient.ChannelResponse response, String error) {
-        // A tool's stepData names the fields it still needs under "missingFields" (e.g.
-        // tool_spi/AuthPasswordLookupFlow.kt) - the submitted body must use exactly those field
-        // names, not "missingFields" itself, which is just the manifest of what to render.
+        String stepError = response.stepDataError();
+        String effectiveError = error != null ? error : stepError;
+
+        WebToolRenderer renderer = context.getSession().getProvider(WebToolRenderer.class, next.toolId());
+        if (renderer != null) {
+            WebToolRendererFactory factory = rendererFactoryFor(context.getSession(), next.toolId());
+            var form = context.form()
+                    .setAuthenticationSession(context.getAuthenticationSession())
+                    .setAttribute("toolId", next.toolId())
+                    .setAttribute("title", factory != null ? factory.title() : next.toolId())
+                    .setAttribute("hint", factory != null ? factory.hint() : "");
+            if (effectiveError != null) form.setError(effectiveError);
+            WebToolRenderContext ctx = new WebToolRenderContext(
+                    next.toolId(), next.step(), response.stepData(), response.demo(), effectiveError
+            );
+            Response rendered = renderer.render(form, ctx);
+            if (rendered != null) return rendered;
+        }
+
+        // Generic fallback for every toolId without its own WebToolRenderer: one text input per
+        // "missingFields" entry (e.g. tool_spi/AuthPasswordLookupFlow.kt) - the submitted body must
+        // use exactly those field names, not "missingFields" itself, which is just the manifest of
+        // what to render.
         Map<String, String> fields = new LinkedHashMap<>();
         var missingFields = response.stepData().get("missingFields");
         if (missingFields != null && missingFields.isArray()) {
@@ -237,10 +268,13 @@ public class OrchestratorAuthenticator implements Authenticator {
                 .setAuthenticationSession(context.getAuthenticationSession())
                 .setAttribute("toolId", next.toolId())
                 .setAttribute("fields", fields);
-        String stepError = response.stepDataError();
-        if (error != null) form.setError(error);
-        else if (stepError != null) form.setError(stepError);
+        if (effectiveError != null) form.setError(effectiveError);
         return form.createForm("orchestrator-tool.ftl");
+    }
+
+    private WebToolRendererFactory rendererFactoryFor(KeycloakSession session, String toolId) {
+        return (WebToolRendererFactory) session.getKeycloakSessionFactory()
+                .getProviderFactory(WebToolRenderer.class, toolId);
     }
 
     private Response errorForm(AuthenticationFlowContext context, String message) {

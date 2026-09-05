@@ -45,9 +45,11 @@ class SessionManagementService(
      * already checked no channel exists under it. `entryIntent` is always `KC_SELECT_METHOD`;
      * there is only one kc entry intent.
      *
-     * [availableTools] has no App-style client declaration to read on the kc-facade - Keycloak's
-     * own flow configuration decides candidates, not a browser-declared support set - so this
-     * always gets the full catalog; only the backend-wide kill-switch narrows it further.
+     * [availableTools] IS an App-style client declaration (DPoP-demo-3yd.6) - the kc-facade's
+     * extension sends exactly the toolIds it has its own rendering for (one
+     * `com.example.dpop.kcext.webtool.WebToolRenderer` factory per toolId), the same idea as the
+     * App channel's own client-declared `availableTools`; the backend-wide kill-switch narrows it
+     * further, same as for the App channel.
      */
     fun createKcChannelSession(
         channelSessionId: UUID,
