@@ -87,14 +87,11 @@ resource "keycloak_realm_user_profile" "realm_profile" {
   }
 }
 
-# Feeds OrchestratorRestoreDataListener (docs/ideen/web-keycloak-kanal.md #6, keycloak-extension) -
-# the LOGIN event it reacts to only fires once this listener is registered on the realm.
 resource "keycloak_realm_events" "realm_events" {
   realm_id       = keycloak_realm.realm.id
   events_enabled = true
   events_listeners = [
     "jboss-logging",
-    "orchestrator-restore-data",
   ]
 }
 
@@ -169,9 +166,25 @@ resource "keycloak_authentication_flow" "orchestrator_browser" {
   provider_id = "basic-flow"
 }
 
-resource "keycloak_authentication_execution" "orchestrator_resume" {
+# Wrapped in its own (otherwise pointless) subflow purely so Keycloak's AuthenticationFlowCallback
+# mechanism applies to it at all: onTopFlowSuccess only ever fires for an execution whose factory
+# was registered via DefaultAuthenticationFlow.checkAuthCallback - which only runs when the
+# execution's OWN PARENT completes as a SUBFLOW (isAuthenticatorFlow()), never for an execution
+# sitting directly in the top-level flow. Once wrapped, onTopFlowSuccess fires at the true end of
+# the WHOLE top flow (not this tiny wrapper) - see OrchestratorResumeAuthenticator's own doc.
+resource "keycloak_authentication_subflow" "orchestrator_resume_wrapper" {
   realm_id          = keycloak_realm.realm.id
   parent_flow_alias = keycloak_authentication_flow.orchestrator_browser.alias
+  alias             = "orchestrator-resume-wrapper"
+  description       = "Wraps orchestrator-resume-authenticator so its AuthenticationFlowCallback registers"
+  provider_id       = "basic-flow"
+  requirement       = "REQUIRED"
+  priority          = 10
+}
+
+resource "keycloak_authentication_execution" "orchestrator_resume" {
+  realm_id          = keycloak_realm.realm.id
+  parent_flow_alias = keycloak_authentication_subflow.orchestrator_resume_wrapper.alias
   authenticator     = "orchestrator-resume-authenticator"
   requirement       = "REQUIRED"
   priority          = 10

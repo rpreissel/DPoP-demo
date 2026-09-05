@@ -37,14 +37,23 @@ final class OrchestratorClient {
         this.signer = new PeerAuthAssertionSigner(issuer, audience);
     }
 
-    /** PATCH .../kc/channels/{channelSessionId} - upsert semantics (docs/ideen/web-keycloak-kanal.md #6). */
+    /**
+     * PATCH .../kc/channels/{channelSessionId} - upsert semantics (docs/ideen/web-keycloak-kanal.md
+     * #6). Signed with {@code channelSessionId} itself as the peer-auth anchor (docs/ideen/
+     * web-keycloak-kanal.md #4) - unique per flow run, so two concurrent flows (e.g. two tabs
+     * stepping up the same SSO session at once) never share an anchor value even though they'd
+     * share the same underlying UserSession. {@code durableKcSessionId} is a SEPARATE, optional
+     * value - Keycloak's actual (eventual) UserSessionModel id - carried in the body only when
+     * {@code restoreData} is present, so the server can verify that token was minted for THIS
+     * browser's real, durable identity, not just for this one flow run's anchor.
+     */
     ChannelResponse upsertChannel(
             String channelSessionId,
-            String kcSessionId,
             Long accountId,
             String targetAcr,
             List<AmrEntry> amr,
-            String restoreData
+            String restoreData,
+            String durableKcSessionId
     ) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/kc/channels/" + channelSessionId;
         ObjectNode body = MAPPER.createObjectNode();
@@ -58,45 +67,55 @@ final class OrchestratorClient {
                 entryNode.put("amrSourceId", entry.amrSourceId());
             }
         }
-        if (restoreData != null) body.put("restoreData", restoreData);
-        JsonNode response = send("PATCH", path, kcSessionId, body);
+        if (restoreData != null) {
+            body.put("restoreData", restoreData);
+            body.put("kcSessionId", durableKcSessionId);
+        }
+        JsonNode response = send("PATCH", path, channelSessionId, body);
         return ChannelResponse.from(response);
     }
 
     /**
      * GET .../kc/channels/{channelSessionId}/restore-data - end-of-flow lifecycle hook (docs/ideen/
-     * web-keycloak-kanal.md #6). The {@code kcSessionId} query param is the same value as the
-     * anchor used to sign this call - the server only needs it written out explicitly because it's
-     * what the RETURNED token gets bound to, not because it could ever legitimately differ.
+     * web-keycloak-kanal.md #6). Signed with {@code channelSessionId} as the anchor, same as every
+     * other call; {@code durableKcSessionId} (Keycloak's actual UserSessionModel id) is carried
+     * separately as a query param purely because it's what the RETURNED token gets bound to - it
+     * has nothing to do with THIS call's own authorization, which the anchor alone already covers.
      */
-    String restoreData(String channelSessionId, String kcSessionId) throws IOException, InterruptedException {
-        String path = "/orchestrator/api/v1/kc/channels/" + channelSessionId + "/restore-data?kcSessionId=" + urlEncode(kcSessionId);
-        JsonNode response = send("GET", path, kcSessionId, null);
+    String restoreData(String channelSessionId, String durableKcSessionId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/kc/channels/" + channelSessionId + "/restore-data?kcSessionId=" + urlEncode(durableKcSessionId);
+        JsonNode response = send("GET", path, channelSessionId, null);
         JsonNode restoreData = response.path("restoreData");
         return restoreData.isTextual() ? restoreData.asText() : null;
     }
 
     /** Same facade-neutral tool endpoints the App channel uses (docs/ideen/web-keycloak-kanal.md #6). */
-    ChannelResponse activateTool(String kcSessionId, String channelSessionId, String toolId) throws IOException, InterruptedException {
+    ChannelResponse activateTool(String channelSessionId, String toolId) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/tools/" + toolId;
-        return ChannelResponse.from(send("POST", path, kcSessionId, MAPPER.createObjectNode()));
+        return ChannelResponse.from(send("POST", path, channelSessionId, MAPPER.createObjectNode()));
     }
 
-    ChannelResponse patchTool(String kcSessionId, String toolSessionId, String toolId, Map<String, String> fields) throws IOException, InterruptedException {
+    /**
+     * {@code channelSessionId} is passed purely for signing here - toolSessionId, unlike
+     * channelSessionId, isn't self-authorizing (docs/ideen/web-keycloak-kanal.md #4): this URL
+     * carries no channelSessionId of its own for {@code htu} to bind the assertion to, so the
+     * anchor claim is the ONLY thing tying this call to the right channel.
+     */
+    ChannelResponse patchTool(String channelSessionId, String toolSessionId, String toolId, Map<String, String> fields) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/tools/" + toolSessionId + "/" + toolId;
         ObjectNode body = MAPPER.createObjectNode();
         fields.forEach(body::put);
-        return ChannelResponse.from(send("PATCH", path, kcSessionId, body));
+        return ChannelResponse.from(send("PATCH", path, channelSessionId, body));
     }
 
-    ChannelResponse abandonTool(String kcSessionId, String toolSessionId, String toolId) throws IOException, InterruptedException {
+    ChannelResponse abandonTool(String channelSessionId, String toolSessionId, String toolId) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/tools/" + toolSessionId + "/" + toolId;
-        return ChannelResponse.from(send("DELETE", path, kcSessionId, null));
+        return ChannelResponse.from(send("DELETE", path, channelSessionId, null));
     }
 
-    private JsonNode send(String method, String path, String kcSessionId, JsonNode body) throws IOException, InterruptedException {
+    private JsonNode send(String method, String path, String channelSessionId, JsonNode body) throws IOException, InterruptedException {
         String url = baseUrl + path;
-        String assertion = signer.sign(method, url, kcSessionId);
+        String assertion = signer.sign(method, url, channelSessionId);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(TIMEOUT)

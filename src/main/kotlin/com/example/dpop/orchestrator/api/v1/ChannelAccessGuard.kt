@@ -38,7 +38,7 @@ class DeviceChannelAccessGuard(
             ?: throw OrchestratorException.notFound("Channel session not found: $channelSessionId")
         val matches = if (bindingKeyRef.startsWith(KC_ANCHOR_PREFIX)) {
             val presented = bindingKeyRef.removePrefix(KC_ANCHOR_PREFIX)
-            constantTimeEquals(channel.kcSessionId, presented)
+            constantTimeEquals(channel.channelAnchor, presented)
         } else {
             // Constant-time, though both sides are public thumbprints rather than secrets - the
             // cheapest way to keep this from becoming one if the binding ever carries more.
@@ -74,7 +74,7 @@ class KcChannelAccessGuard(
     fun requireChannel(channelSessionId: UUID, assertion: PeerAuthAssertion): ChannelSession {
         val channel = sessionManagementService.findChannelSessionById(channelSessionId)
             ?: throw OrchestratorException.notFound("Channel session not found: $channelSessionId")
-        val matches = constantTimeEquals(channel.kcSessionId, assertion.kcSessionId)
+        val matches = constantTimeEquals(channel.channelAnchor, assertion.channelAnchor)
         if (!matches) {
             throw OrchestratorException.bindingMismatch("Keycloak assertion does not match this channel's kc-anchor")
         }

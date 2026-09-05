@@ -23,7 +23,7 @@ class ChannelSession(
     @Column(name = "channel", nullable = false, length = 20)
     var channel: Channel? = null,
 
-    /** APP-only (docs/ideen/web-keycloak-kanal.md #5) - null on KEYCLOAK channels, which anchor via [kcSessionId] instead. */
+    /** APP-only (docs/ideen/web-keycloak-kanal.md #5) - null on KEYCLOAK channels, which anchor via [channelAnchor] instead. */
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 
@@ -31,32 +31,27 @@ class ChannelSession(
     var expiresAt: Instant? = null
 ) {
     /**
-     * KEYCLOAK-only kc-anchor (docs/ideen/web-keycloak-kanal.md #2/#4) - the id of the
-     * `UserSessionModel` this channel is bound to, carried in the peer-auth assertion so
-     * [ChannelAccessGuard] can verify the caller acts for this exact identity: without this, a
+     * KEYCLOAK-only kc-anchor (docs/ideen/web-keycloak-kanal.md #2/#4) - always the extension's own
+     * `channelSessionId` for this flow run, carried in the peer-auth assertion so
+     * [ChannelAccessGuard] can verify the caller acts for this exact flow run: without this, a
      * leaked `channelSessionId` plus any validly-signed Keycloak assertion would be enough to
      * hijack the channel, since the signature alone only proves "this really came from Keycloak,"
-     * not "for this specific one of Keycloak's many concurrent flows."
+     * not "for this specific one of Keycloak's many concurrent flows." Deliberately NOT Keycloak's
+     * actual, durable `UserSessionModel` id: two CONCURRENT flow runs sharing the same underlying
+     * SSO session (e.g. two browser tabs both stepping up at once) would then share the same
+     * anchor value too, giving up the per-flow-run isolation this column exists for. Stored under
+     * the column's old name (`kc_session_id`) - only the Kotlin property was renamed for clarity.
      *
-     * Present even BEFORE Keycloak has a `sub` (the initial-login case, no UserSessionModel yet):
-     * the extension anchors to `AuthenticationSessionModel.getParentSession().getId()` there, which
-     * is exactly the id Keycloak's own `AuthenticationProcessor.attachSession()` uses when it
-     * mints the real `UserSessionModel` moments later - so "the id this channel is anchored to"
-     * and "the id the resulting UserSession will have" are the same value from the start, with no
-     * separate initial-login/step-up cases to keep distinct here.
-     *
-     * Deliberately NOT a lookup key for finding a prior [channelSessionId]: each flow run, step-up
-     * included, still gets its own fresh [channelSessionId]. Evidence continuity across flow runs
-     * is a Keycloak-side concern instead (docs/ideen/web-keycloak-kanal.md #6/#9): the
-     * `OrchestratorAuthenticator`'s end-of-flow lifecycle hook fetches a signed `RestoreData` token
-     * (`GET .../restore-data`, bound to THIS id) and stashes it in a `UserSessionModel` note, and a
+     * Evidence continuity across SEPARATE flow runs is unrelated to this column - a Keycloak-side
+     * concern instead (docs/ideen/web-keycloak-kanal.md #6/#9): the `OrchestratorAuthenticator`'s
+     * end-of-flow lifecycle hook fetches a signed `RestoreData` token bound explicitly to
+     * Keycloak's own, durable `UserSessionModel` id (`GET .../restore-data?kcSessionId=...` - a
+     * completely different value from this column) and stashes it in a `UserSessionModel` note; a
      * later step-up's initial authenticator reads it back out and hands it to the fresh channel's
-     * own first `PATCH` call as `restoreData` - a separate field from `KcChannelUpsertRequest.amr`,
-     * not the same wire-contract shape: `restoreData` is a one-shot snapshot that may already be
-     * meaningfully old, `amr` a live per-step report.
+     * own first `PATCH` call as `restoreData`.
      */
     @Column(name = "kc_session_id", length = 64)
-    var kcSessionId: String? = null
+    var channelAnchor: String? = null
 
     /**
      * Self-assigned rather than `@GeneratedValue`, so the kc-facade can override it with its own,

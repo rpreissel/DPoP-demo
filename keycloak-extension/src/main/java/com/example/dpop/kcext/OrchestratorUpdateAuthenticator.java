@@ -48,21 +48,7 @@ public class OrchestratorUpdateAuthenticator implements Authenticator {
 
             OrchestratorNotes.appendNativeAmr(context, nativeToolId, amrSourceId);
 
-            // OrchestratorResumeAuthenticator runs before this and already recorded the anchor if
-            // it found a valid SSO session (step-up) - only establish one ourselves (an initial
-            // login) when it didn't, never re-derive it independently.
-            String kcSessionId;
-            if (OrchestratorNotes.anchorEstablished(context)) {
-                kcSessionId = OrchestratorNotes.readAnchor(context);
-            } else {
-                kcSessionId = authSession.getParentSession().getId();
-                OrchestratorNotes.recordAnchor(context, kcSessionId);
-            }
             String channelSessionId = OrchestratorNotes.channelSessionId(context);
-            // Same end-of-flow hand-off as OrchestratorAuthenticator - without this, a flow run that
-            // never runs OrchestratorAuthenticator at all (e.g. LoA1-only, native password) leaves
-            // OrchestratorRestoreDataListener with no channel/anchor to work with on the LOGIN event.
-            context.getEvent().detail(OrchestratorNotes.CHANNEL_SESSION_ID, channelSessionId);
             // context.getUser() can already be set here even on an initial-login anchor run - a
             // native authenticator ahead of this one (e.g. auth-username-password-form)
             // may have resolved it from Keycloak's own credential store, independently of any
@@ -76,7 +62,7 @@ public class OrchestratorUpdateAuthenticator implements Authenticator {
             String targetAcr = OrchestratorNotes.requestedAcr(context);
 
             OrchestratorClient.ChannelResponse response = client.upsertChannel(
-                    channelSessionId, kcSessionId, accountId, targetAcr, OrchestratorNotes.nativeAmr(context), null
+                    channelSessionId, accountId, targetAcr, OrchestratorNotes.nativeAmr(context), null, null
             );
             if (response.authDataAcr() != null) {
                 authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());

@@ -2,7 +2,7 @@ package com.example.dpop.kcext;
 
 import org.keycloak.Config;
 import org.keycloak.authentication.Authenticator;
-import org.keycloak.authentication.AuthenticatorFactory;
+import org.keycloak.authentication.AuthenticationFlowCallbackFactory;
 import org.keycloak.models.AuthenticationExecutionModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
@@ -10,7 +10,15 @@ import org.keycloak.provider.ProviderConfigProperty;
 
 import java.util.List;
 
-public class OrchestratorResumeAuthenticatorFactory implements AuthenticatorFactory {
+/**
+ * {@link AuthenticationFlowCallbackFactory} (not just a plain {@code AuthenticatorFactory}) so
+ * {@link OrchestratorResumeAuthenticator#onTopFlowSuccess} fires at the true end of the top-level
+ * flow - the Section 6 RestoreData end-of-flow hook (docs/ideen/web-keycloak-kanal.md #6),
+ * replacing the separate OrchestratorRestoreDataListener. Only reachable because
+ * infra/tofu/keycloak's own config wraps this execution in its own tiny subflow - see
+ * OrchestratorResumeAuthenticator's own class doc for why that's required.
+ */
+public class OrchestratorResumeAuthenticatorFactory implements AuthenticationFlowCallbackFactory {
 
     public static final String PROVIDER_ID = "orchestrator-resume-authenticator";
 
@@ -61,7 +69,7 @@ public class OrchestratorResumeAuthenticatorFactory implements AuthenticatorFact
 
     @Override
     public Authenticator create(KeycloakSession session) {
-        return new OrchestratorResumeAuthenticator();
+        return new OrchestratorResumeAuthenticator(session);
     }
 
     @Override

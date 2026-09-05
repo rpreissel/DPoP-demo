@@ -39,13 +39,13 @@ class MockKeycloakEndToEndTest : BehaviorSpec() {
     @Autowired
     private lateinit var replayProtectionService: DpopReplayProtectionService
 
-    private fun sign(key: ECKey, htm: String, htu: String, kcSessionId: String): String {
+    private fun sign(key: ECKey, htm: String, htu: String, channelAnchor: String): String {
         val claims = JWTClaimsSet.Builder()
             .issuer("mock-keycloak")
             .audience("dpop-demo-orchestrator")
             .claim("htm", htm)
             .claim("htu", htu)
-            .claim("kc_session_id", kcSessionId)
+            .claim("channel_anchor", channelAnchor)
             .jwtID(UUID.randomUUID().toString())
             .issueTime(Date())
             .build()
@@ -72,12 +72,12 @@ class MockKeycloakEndToEndTest : BehaviorSpec() {
                         maxAssertionAgeSeconds = 30
                     )
                     val htu = "http://localhost:$port/orchestrator/api/v1/kc/channels/${UUID.randomUUID()}"
-                    val token = sign(keyProvider.key, "PATCH", htu, "kc-session-${UUID.randomUUID()}")
+                    val token = sign(keyProvider.key, "PATCH", htu, "channel-anchor-${UUID.randomUUID()}")
 
                     val assertion = validator.validate(token, "PATCH", htu)
 
                     assertion.shouldNotBeNull()
-                    assertion.kcSessionId.shouldNotBeNull()
+                    assertion.channelAnchor.shouldNotBeNull()
                 }
             }
         }

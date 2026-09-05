@@ -33,7 +33,16 @@ data class KcChannelUpsertRequest(
             "way; only restoreData may already be meaningfully old by the time it arrives here. " +
             "Opaque to every caller but the orchestrator itself - see RestoreDataCodec."
     )
-    val restoreData: String? = null
+    val restoreData: String? = null,
+    @field:Schema(
+        description = "Required whenever restoreData is present, ignored otherwise. Keycloak's " +
+            "own, durable UserSessionModel id - deliberately NOT read off the peer-auth assertion " +
+            "(the assertion's kc-anchor is always THIS flow run's own channelSessionId, docs/" +
+            "ideen/web-keycloak-kanal.md #4, so it can't verify a token minted for a DIFFERENT, " +
+            "earlier flow run's channel). Must match what GET .../restore-data was called with to " +
+            "produce this exact restoreData token."
+    )
+    val kcSessionId: String? = null
 )
 
 /**

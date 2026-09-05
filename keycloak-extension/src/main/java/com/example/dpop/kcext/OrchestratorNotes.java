@@ -3,8 +3,11 @@ package com.example.dpop.kcext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.authenticators.util.AcrStore;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.services.managers.AuthenticationManager;
@@ -35,44 +38,6 @@ final class OrchestratorNotes {
     static final String NATIVE_AMR = "orchestrator_native_amr";
     /** Set once restoreData was already submitted this flow run, so a later resume doesn't resend it. */
     static final String RESTORE_SUBMITTED = "orchestrator_restore_submitted";
-
-    /**
-     * The peer-auth anchor this flow run established - Keycloak's own (eventual) UserSessionModel
-     * id, present even before Keycloak has a `sub` (see {@code ChannelSession.kcSessionId}'s own
-     * doc on the orchestrator side for why initial-login and step-up don't need separate values
-     * here). Set by whichever authenticator first resolves it (Resume, or the login/update
-     * authenticators themselves) and copied onto the LOGIN event's details so
-     * {@link OrchestratorRestoreDataListener}, which only sees that event, can rebuild it.
-     */
-    static final String ANCHOR_VALUE = "orchestrator_anchor_value";
-
-    /**
-     * The one place that records this flow run's resolved anchor - both as an auth-session note
-     * (for {@code action()}'s later request, see {@link OrchestratorAuthenticator#anchor}) and as
-     * an event detail (for {@link OrchestratorRestoreDataListener}, which only ever sees the LOGIN
-     * event and nothing else). Every authenticator that resolves an anchor calls this instead of
-     * writing these notes/details itself, so they can never drift out of step with each other.
-     */
-    static void recordAnchor(AuthenticationFlowContext context, String anchorValue) {
-        context.getAuthenticationSession().setAuthNote(ANCHOR_VALUE, anchorValue);
-        context.getEvent().detail(ANCHOR_VALUE, anchorValue);
-    }
-
-    static String readAnchor(AuthenticationFlowContext context) {
-        return context.getAuthenticationSession().getAuthNote(ANCHOR_VALUE);
-    }
-
-    /**
-     * Whether {@link #recordAnchor} has already run this flow. {@link OrchestratorResumeAuthenticator}
-     * runs first and unconditionally decides this - records one if it found a valid identity
-     * cookie (step-up), or leaves it unrecorded (anonymous flow) otherwise. Every later
-     * authenticator that touches a channel checks this INSTEAD of re-resolving the anchor itself:
-     * if true, {@link #readAnchor} already has the answer; if false, THIS is the first to
-     * establish it, as an initial login.
-     */
-    static boolean anchorEstablished(AuthenticationFlowContext context) {
-        return readAnchor(context) != null;
-    }
 
     /** Copied into the UserSessionModel automatically at session creation (docs/ideen/web-keycloak-kanal.md #10). */
     static final String USER_SESSION_NOTE_ACR = "orchestrator_acr";
@@ -143,15 +108,48 @@ final class OrchestratorNotes {
      * SSO session" mid-flow is the same one {@code auth-cookie} itself uses to answer it: verify the
      * raw identity cookie directly via {@link AuthenticationManager#authenticateIdentityCookie}.
      *
-     * Called ONLY from {@link OrchestratorResumeAuthenticator}, which runs first in the flow and
-     * records the outcome via {@link #recordAnchor} right away - every LATER authenticator just
-     * checks {@link #anchorEstablished} instead of asking this question (or verifying the cookie)
-     * itself again.
+     * Called from {@link OrchestratorResumeAuthenticator#authenticate} (mid-flow, to decide
+     * whether this is a step-up) and again from its own {@code onTopFlowSuccess} (end-of-flow, to
+     * resolve which session RestoreData should be bound to) - the two ends of that class's own
+     * RestoreData lifecycle.
      */
-    static UserSessionModel resolveExistingUserSession(AuthenticationFlowContext context) {
+    static UserSessionModel resolveExistingUserSession(KeycloakSession session, RealmModel realm) {
         AuthenticationManager.AuthResult authResult =
-                AuthenticationManager.authenticateIdentityCookie(context.getSession(), context.getRealm(), true);
+                AuthenticationManager.authenticateIdentityCookie(session, realm, true);
         return authResult == null ? null : authResult.session();
+    }
+
+    /**
+     * The Section 6 end-of-flow RestoreData hook (docs/ideen/web-keycloak-kanal.md #6) - called
+     * from {@link OrchestratorResumeAuthenticator#onTopFlowSuccess}, which fires once, at the true
+     * end of the WHOLE top-level flow (after LoA-1/LoA-2, whichever ran, are already done) -
+     * replacing the separate OrchestratorRestoreDataListener event listener entirely. Takes
+     * {@code session}/{@code authSession} directly rather than an {@link AuthenticationFlowContext}
+     * because {@code onTopFlowSuccess} only ever hands back an {@code AuthenticationFlowModel}, not
+     * a context - the same {@code session.getContext().getAuthenticationSession()} pattern
+     * Keycloak's own {@code ConditionalLoaAuthenticator.onTopFlowSuccess} uses.
+     *
+     * No UserSessionModel exists yet at this point for a first-time login (Keycloak only creates
+     * one once every authenticator has already succeeded), but {@code setUserSessionNote} works
+     * regardless - Keycloak copies every such note onto the real UserSessionModel once it exists
+     * ({@code TokenManager.attachAuthenticationSession}), so writing it here has the same effect as
+     * writing it directly on the session later would.
+     */
+    static void stashRestoreDataAtFlowEnd(KeycloakSession session, AuthenticationSessionModel authSession, OrchestratorClient client, Logger log) {
+        String channelSessionId = authSession.getAuthNote(CHANNEL_SESSION_ID);
+        if (channelSessionId == null) return; // Not a Keycloak-channel flow run.
+        try {
+            UserSessionModel existing = resolveExistingUserSession(session, authSession.getParentSession().getRealm());
+            String durableSessionId = existing != null ? existing.getId() : authSession.getParentSession().getId();
+            String restoreData = client.restoreData(channelSessionId, durableSessionId);
+            if (restoreData != null) {
+                authSession.setUserSessionNote(USER_SESSION_NOTE_RESTORE_DATA, restoreData);
+            }
+        } catch (Exception e) {
+            // Best-effort: a missed RestoreData write only means a later step-up starts without a
+            // running start (docs/ideen/web-keycloak-kanal.md #6), never a broken login.
+            log.warnf(e, "Failed to fetch/stash RestoreData for channel %s", channelSessionId);
+        }
     }
 
     static Long accountId(UserModel user) {

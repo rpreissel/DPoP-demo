@@ -70,7 +70,7 @@ class KcChannelController(
         )
         val body = request ?: KcChannelUpsertRequest()
         val response = kcChannelService.upsertChannel(
-            channelSessionId, assertion, body.accountId, body.targetAcr, body.amr, body.restoreData
+            channelSessionId, assertion, body.accountId, body.targetAcr, body.amr, body.restoreData, body.kcSessionId
         )
         return ResponseEntity.ok(response)
     }

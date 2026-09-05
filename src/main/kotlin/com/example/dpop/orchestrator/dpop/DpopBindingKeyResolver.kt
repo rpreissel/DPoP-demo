@@ -63,6 +63,6 @@ class DpopBindingKeyResolver(
             authorization.trim()
         }
         val assertion = peerAuthValidator.validate(token, request.method, buildRequestUrl(request))
-        return "${DeviceChannelAccessGuard.KC_ANCHOR_PREFIX}${assertion.kcSessionId}"
+        return "${DeviceChannelAccessGuard.KC_ANCHOR_PREFIX}${assertion.channelAnchor}"
     }
 }

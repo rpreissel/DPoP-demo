@@ -48,18 +48,22 @@ class KcChannelService(
         accountId: Long?,
         targetAcr: String?,
         amr: List<AmrEntry>? = null,
-        restoreDataToken: String? = null
+        restoreDataToken: String? = null,
+        restoreDataKcSessionId: String? = null
     ): ChannelResponse {
         // restoreDataToken is the bulk, one-shot counterpart of accountId/amr above (docs/ideen/
         // web-keycloak-kanal.md #6) - a prior, unrelated flow run's own state, resubmitted
-        // verbatim. decode() itself checks the token is bound to THIS assertion's own kcSessionId
-        // - anything else (wrong session, tampered, expired) comes back null, same as "nothing to
-        // restore". Merged with the live amr below; live wins on a conflicting method (the last
-        // occurrence wins in associateBy) since it reports what THIS flow run just proved, the
-        // more trustworthy claim. A restored method keeps ITS OWN original `source` (e.g. still
-        // `orchestrator` if that's what it was before the restore) - MethodEvidence.source travels
-        // with each entry, never assumed `kc` just because it arrived via this channel.
-        val restoreData = restoreDataToken?.let { restoreDataCodec.decode(it, assertion.kcSessionId) }
+        // verbatim. decode() checks the token is bound to [restoreDataKcSessionId] - Keycloak's
+        // actual, durable UserSessionModel id, sent explicitly alongside the token because it is
+        // NOT the same value as assertion.channelAnchor (which is only ever this flow run's own
+        // channelSessionId, see PeerAuthAssertion's own doc) - anything else (wrong session,
+        // tampered, expired) comes back null, same as "nothing to restore". Merged with the live
+        // amr below; live wins on a conflicting method (the last occurrence wins in associateBy)
+        // since it reports what THIS flow run just proved, the more trustworthy claim. A restored
+        // method keeps ITS OWN original `source` (e.g. still `orchestrator` if that's what it was
+        // before the restore) - MethodEvidence.source travels with each entry, never assumed `kc`
+        // just because it arrived via this channel.
+        val restoreData = restoreDataToken?.let { restoreDataCodec.decode(it, restoreDataKcSessionId) }
         val effectiveAccountId = accountId ?: restoreData?.accountId
         val restoredFactors = restoreData?.evidence?.factors.orEmpty()
         // method/maxAcr/factorTypes are fixed per authenticator TYPE, not resent per proof - see
@@ -99,7 +103,7 @@ class KcChannelService(
         if (existing == null) {
             sessionManagementService.createKcChannelSession(
                 channelSessionId,
-                assertion.kcSessionId,
+                assertion.channelAnchor,
                 effectiveAccountId,
                 CHANNEL_TTL,
                 toolRegistry.descriptors().map { it.toolId }.toSet()

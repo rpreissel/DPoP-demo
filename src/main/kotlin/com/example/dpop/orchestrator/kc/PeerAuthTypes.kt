@@ -3,16 +3,18 @@ package com.example.dpop.orchestrator.kc
 import java.time.Instant
 
 /**
- * A verified peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3) - proves "this really is
- * Keycloak, acting for this specific kc-Session", never who the end user is. [kcSessionId] is the
- * (eventual) `UserSessionModel` id regardless of whether that session exists yet - see
- * [com.example.dpop.orchestrator.session.ChannelSession.kcSessionId]'s own doc for why the
- * initial-login and step-up cases don't need separate fields here.
+ * A verified peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3/#4) - proves "this really is
+ * Keycloak, acting for this specific channel", never who the end user is. [channelAnchor] is
+ * always the calling flow run's own `channelSessionId` - unique per flow run, so two concurrent
+ * flows sharing the same underlying SSO session (e.g. two tabs stepping up at once) never share an
+ * anchor value. Deliberately NOT Keycloak's actual, durable `UserSessionModel` id - that value is
+ * carried separately, only where RestoreData needs it (see [com.example.dpop.orchestrator.api.v1.kc.KcChannelService]),
+ * never as this claim.
  */
 data class PeerAuthAssertion(
     val jti: String,
     val issuedAt: Instant,
-    val kcSessionId: String,
+    val channelAnchor: String,
     val subject: String?
 )
 

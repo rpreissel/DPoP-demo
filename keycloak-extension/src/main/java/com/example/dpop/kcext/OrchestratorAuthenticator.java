@@ -33,15 +33,11 @@ import java.util.Map;
  *       string (Section 9's mapping table lives in the tofu config that sets this property, one value
  *       per Condition-LoA subflow's execution).</li>
  * </ul>
+ *
  */
 public class OrchestratorAuthenticator implements Authenticator {
 
     private static final Logger LOG = Logger.getLogger(OrchestratorAuthenticator.class);
-    // The resolved kcSessionId anchor value itself - re-deriving it live on a LATER request (the
-    // browser's form POST back into action()) doesn't work: nothing about it carries over to the
-    // next HTTP request in the same flow on its own. Kept as an auth-session note under
-    // OrchestratorNotes.ANCHOR_VALUE so every authenticator that can establish this flow run's
-    // anchor agrees on the same note key.
 
     private final OrchestratorClient client = new OrchestratorClient(
             OrchestratorConfig.BASE_URL, OrchestratorConfig.PEER_AUTH_ISSUER, OrchestratorConfig.PEER_AUTH_AUDIENCE
@@ -50,19 +46,7 @@ public class OrchestratorAuthenticator implements Authenticator {
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         try {
-            // Whichever ran first in this flow - OrchestratorResumeAuthenticator (step-up: a valid
-            // SSO session was found) or OrchestratorUpdateAuthenticator (LoA-1's native password) -
-            // already established the anchor by the time this executes: this Condition-LoA-2
-            // execution is never the flow's first touch on any reachable path (Resume always runs
-            // before it, and LoA-1 always runs before it too whenever LoA-1's own condition isn't
-            // skipped by an already-sufficient step-up). Just read it back, never re-derive it.
-            String kcSessionId = anchor(context);
-
             String channelSessionId = OrchestratorNotes.channelSessionId(context);
-            // Surfaces on the eventual LOGIN event's details - OrchestratorRestoreDataListener reads
-            // it back there to know which channel to fetch RestoreData for (docs/ideen/
-            // web-keycloak-kanal.md #6); a plain Authenticator has no other end-of-flow hook.
-            context.getEvent().detail(OrchestratorNotes.CHANNEL_SESSION_ID, channelSessionId);
             // Deliberately NOT gated on `stepUp` (= a UserSessionModel already exists): a step-up
             // request against an existing SSO session that auth-cookie found insufficient for the
             // requested level still resolves context.getUser() (the cookie authenticator attaches
@@ -87,7 +71,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             // either again from this authenticator (which never itself proves anything native, and
             // runs after Resume already had its one chance) only re-triggers a no-op evidence merge.
             OrchestratorClient.ChannelResponse response = client.upsertChannel(
-                    channelSessionId, kcSessionId, accountId, targetAcr, List.of(), null
+                    channelSessionId, accountId, targetAcr, List.of(), null, null
             );
             handleResponse(context, response, null);
         } catch (OrchestratorClient.OrchestratorApiException e) {
@@ -103,7 +87,6 @@ public class OrchestratorAuthenticator implements Authenticator {
     public void action(AuthenticationFlowContext context) {
         try {
             AuthenticationSessionModel authSession = context.getAuthenticationSession();
-            String kcSessionId = anchor(context);
             String channelSessionId = OrchestratorNotes.channelSessionId(context);
 
             MultivaluedMap<String, String> form = context.getHttpRequest().getDecodedFormParameters();
@@ -116,7 +99,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                     context.challenge(errorForm(context, "Bitte eine Methode auswählen."));
                     return;
                 }
-                response = client.activateTool(kcSessionId, channelSessionId, selectedToolId);
+                response = client.activateTool(channelSessionId, selectedToolId);
             } else {
                 String toolId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_ID);
                 String toolSessionId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID);
@@ -125,13 +108,13 @@ public class OrchestratorAuthenticator implements Authenticator {
                     return;
                 }
                 if ("true".equals(form.getFirst("orchestrator_abandon"))) {
-                    response = client.abandonTool(kcSessionId, toolSessionId, toolId);
+                    response = client.abandonTool(channelSessionId, toolSessionId, toolId);
                 } else {
                     Map<String, String> fields = new LinkedHashMap<>();
                     form.forEach((key, values) -> {
                         if (!key.startsWith("orchestrator_") && !values.isEmpty()) fields.put(key, values.get(0));
                     });
-                    response = client.patchTool(kcSessionId, toolSessionId, toolId, fields);
+                    response = client.patchTool(channelSessionId, toolSessionId, toolId, fields);
                 }
             }
             handleResponse(context, response, form);
@@ -172,7 +155,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             if (staticToolId != null && !staticToolId.isBlank() && options.contains(staticToolId)) {
                 try {
                     OrchestratorClient.ChannelResponse activated = client.activateTool(
-                            anchor(context), OrchestratorNotes.channelSessionId(context), staticToolId
+                            OrchestratorNotes.channelSessionId(context), staticToolId
                     );
                     handleResponse(context, activated, lastForm);
                     return;
@@ -194,7 +177,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                 // is never null.
                 try {
                     OrchestratorClient.ChannelResponse activated = client.activateTool(
-                            anchor(context), OrchestratorNotes.channelSessionId(context), next.toolId()
+                            OrchestratorNotes.channelSessionId(context), next.toolId()
                     );
                     handleResponse(context, activated, lastForm);
                 } catch (OrchestratorClient.OrchestratorApiException e) {
@@ -215,10 +198,6 @@ public class OrchestratorAuthenticator implements Authenticator {
 
         LOG.warnf("Unhandled orchestrator next: type=%s step=%s", next.type(), next.step());
         context.failure(AuthenticationFlowError.INTERNAL_ERROR);
-    }
-
-    private String anchor(AuthenticationFlowContext context) {
-        return OrchestratorNotes.readAnchor(context);
     }
 
     private UserModel findOrCreateUser(AuthenticationFlowContext context, long accountId) {
