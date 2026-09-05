@@ -1,0 +1,30 @@
+# Profile fuer den echten Web-/Keycloak-Kanal (docs/ideen/web-keycloak-kanal.md), gegen das per
+# podman-compose gestartete Keycloak statt des Mock-Keycloak-Frontends (application.yml's Default).
+# Start: `podman-compose up --build` (compose.yml) fuer Keycloak+Tofu-Realm, parallel dazu
+# `./gradlew bootRun --args='--spring.profiles.active=keycloak'` fuer den Orchestrator selbst.
+kc:
+  peer-auth:
+    issuer: dpop-demo-keycloak
+    audience: dpop-demo-orchestrator
+    # HTTP ist auf Keycloak-Seite komplett aus (compose.yml) - dieser Fetch (wie auch der
+    # Account-Sync unten) laeuft daher ueber HTTPS gegen das selbstsignierte start-dev-Zertifikat.
+    # KeycloakTlsConfig (nur `keycloak`-Profil) installiert dafuer einen Trust-all-SSLContext -
+    # demo-only, siehe dessen eigene Doku.
+    jwks-uri: https://localhost:8543/realms/dpop-demo/orchestrator-jwks/.well-known/jwks.json
+    jwks-cache-ttl-seconds: 600
+    # Grosszuegig statt der Default-30s: die Podman-Machine-VM (macOS) auf diesem Rechner driftet
+    # merklich schneller als in 30s tolerierbar, sobald der Host kurz schlaeft - ein reines
+    # Lokal-Testing-Problem dieser Umgebung, kein Sicherheitsanspruch dieses Profils.
+    max-clock-skew-seconds: 300
+    max-age-seconds: 300
+
+# Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
+# in einen Keycloak-User - macht die frueher tofu-deklarierten Demo-User ueberfluessig.
+# admin-client-id/-secret gehoert dem in infra/tofu/keycloak/main.tf angelegten Service-Account-
+# Client mit der realm-management-Rolle manage-users.
+keycloak-sync:
+  base-url: https://localhost:8543
+  realm: dpop-demo
+  admin-client-id: orchestrator-admin
+  admin-client-secret: change-me-orchestrator-admin
+  default-password: Demo1234!

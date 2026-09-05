@@ -31,6 +31,7 @@ import { JourneyLogView } from './components/JourneyLogView'
 import { PromptView } from './components/PromptView'
 import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
 import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
+import { KeycloakSyncView } from './components/KeycloakSyncView'
 import { UnavailableTools } from './components/UnavailableTools'
 import { DiagramHint } from './components/DiagramHint'
 import { MockKeycloakView, type MockKeycloakState } from './components/MockKeycloakView'
@@ -676,11 +677,12 @@ function App() {
 
           {activeTab === 'mock-keycloak' && <MockKeycloakView onStateChange={setKcState} />}
 
-          {activeTab === 'journeylog' && <JourneyLogView dpop={dpop} />}
+          {activeTab === 'journeylog' && <JourneyLogView dpop={dpop} channelSessionId={channelSessionId} />}
 
           {activeTab === 'settings' && (
             <>
               <AdminToolAvailabilityView />
+              <KeycloakSyncView />
               <div className="card">
                 <h2>Demo-Konfiguration</h2>
                 <p>Wirkt erst auf den nächsten im Demo-Reiter neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>

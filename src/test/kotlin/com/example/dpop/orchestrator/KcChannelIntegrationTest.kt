@@ -31,11 +31,10 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
 
-    private fun stubAssertion(kcAuthSessionId: String? = null, kcSessionId: String? = null) {
+    private fun stubAssertion(kcSessionId: String) {
         every { peerAuthValidator.validate(any(), any(), any()) } returns PeerAuthAssertion(
             jti = UUID.randomUUID().toString(),
             issuedAt = Instant.now(),
-            kcAuthSessionId = kcAuthSessionId,
             kcSessionId = kcSessionId,
             subject = null
         )
@@ -77,7 +76,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("PATCH is called with a kcAuthSessionId anchor (initial login)") {
                 Then("it creates the channel and offers the initial-login candidates") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(kcAuthSessionId = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(kcSessionId = "kc-auth-session-${UUID.randomUUID()}")
                     val response = kcPatch(channelSessionId)
 
                     response.channel()["channelSessionId"] shouldBe channelSessionId.toString()
@@ -91,7 +90,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("PATCH is called twice with the same id and anchor") {
                 Then("the second call resumes the very same channel (idempotent upsert)") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(kcAuthSessionId = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(kcSessionId = "kc-auth-session-${UUID.randomUUID()}")
                     val first = kcPatch(channelSessionId)
                     val second = kcPatch(channelSessionId)
 
@@ -102,9 +101,9 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("a later PATCH on the same id presents a different kc-anchor") {
                 Then("it is rejected as a binding mismatch") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(kcAuthSessionId = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(kcSessionId = "kc-auth-session-${UUID.randomUUID()}")
                     kcPatch(channelSessionId)
-                    stubAssertion(kcAuthSessionId = "a-completely-different-anchor")
+                    stubAssertion(kcSessionId = "a-completely-different-anchor")
 
                     val rejected = assertThrows<HttpClientErrorException> { kcPatchRaw(channelSessionId) }
                     rejected.statusCode shouldBe HttpStatus.FORBIDDEN
@@ -175,7 +174,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     val email = registerWithEmailAndPassword()
 
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(kcAuthSessionId = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(kcSessionId = "kc-auth-session-${UUID.randomUUID()}")
                     val initial = kcPatch(channelSessionId)
                     @Suppress("UNCHECKED_CAST")
                     (initial.stepData()["options"] as List<String>) shouldNotContain "ident-fsc"
@@ -201,7 +200,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     val email = registerWithEmailAndPassword()
                     val channelSessionId = UUID.randomUUID()
                     val anchor = "kc-auth-session-${UUID.randomUUID()}"
-                    stubAssertion(kcAuthSessionId = anchor)
+                    stubAssertion(kcSessionId = anchor)
                     kcPatch(channelSessionId)
                     val toolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup")
                         .nextRaw()["toolSessionId"] as String
@@ -212,7 +211,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
 
                     // Same channel, same anchor - Keycloak (or a naive mock) resends "password" as
                     // if it were native evidence too.
-                    stubAssertion(kcAuthSessionId = anchor)
+                    stubAssertion(kcSessionId = anchor)
                     val resumed = kcPatch(channelSessionId, """{"amr":[{"nativeToolId":"kc-password-form","amrSourceId":"kc-password-form-exec-1"}]}""")
 
                     @Suppress("UNCHECKED_CAST")

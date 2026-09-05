@@ -8,18 +8,38 @@ import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_spi.EnrollmentRef
 import java.time.Instant
 import java.util.UUID
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+/**
+ * Fired after any account mutation this service makes - the account-sync mechanism (see
+ * `orchestrator.kc.KeycloakAccountSyncListener`, only wired up under the `keycloak` Spring
+ * profile) listens for this to keep a mirrored Keycloak user in sync, but this event itself is
+ * profile-agnostic and free to publish always: nothing here depends on who's listening.
+ * [accountId] alone (not a snapshot) - a listener that needs the current state re-reads it via
+ * [AccountService.findAccount], the same way every other reader does.
+ */
+data class AccountChanged(val accountId: Long)
+
+/** Fired once an account row is actually gone - unlike [AccountChanged], nothing left to re-read, so this carries everything a listener gets. */
+data class AccountDeleted(val accountId: Long)
+
 @Service
-class AccountService(private val accountRepository: AccountRepository) : AccountDirectory {
+class AccountService(
+    private val accountRepository: AccountRepository,
+    private val eventPublisher: ApplicationEventPublisher
+) : AccountDirectory {
 
     /** Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md). */
     @Transactional
     fun findOrCreateAccount(personId: Long): AccountProfile {
-        val account = accountRepository.findByPersonId(personId) ?: Account(personId, Instant.now())
-        return toProfile(accountRepository.save(account))
+        val existing = accountRepository.findByPersonId(personId)
+        val account = existing ?: Account(personId, Instant.now())
+        val profile = toProfile(accountRepository.save(account))
+        if (existing == null) eventPublisher.publishEvent(AccountChanged(profile.accountId))
+        return profile
     }
 
     @Transactional
@@ -31,7 +51,9 @@ class AccountService(private val accountRepository: AccountRepository) : Account
     ): AccountProfile {
         val account = getOrThrow(accountId)
         account.addIdentification(AccountIdentification(method, loa, Instant.now(), details))
-        return toProfile(accountRepository.save(account))
+        val profile = toProfile(accountRepository.save(account))
+        eventPublisher.publishEvent(AccountChanged(accountId))
+        return profile
     }
 
     /**
@@ -68,7 +90,9 @@ class AccountService(private val accountRepository: AccountRepository) : Account
                 this.label = label
             }
         )
-        return toProfile(accountRepository.save(account))
+        val profile = toProfile(accountRepository.save(account))
+        eventPublisher.publishEvent(AccountChanged(accountId))
+        return profile
     }
 
     /**
@@ -82,12 +106,18 @@ class AccountService(private val accountRepository: AccountRepository) : Account
     fun deactivateAuthenticationMethod(accountId: Long, methodInstanceId: String): AccountProfile {
         val account = getOrThrow(accountId)
         account.authenticationMethods.filter { it.id == methodInstanceId && it.active }.forEach { it.active = false }
-        return toProfile(accountRepository.save(account))
+        val profile = toProfile(accountRepository.save(account))
+        eventPublisher.publishEvent(AccountChanged(accountId))
+        return profile
     }
 
     @Transactional(readOnly = true)
     fun findAccount(accountId: Long): AccountProfile? =
         accountRepository.findByIdOrNull(accountId)?.let { toProfile(it) }
+
+    /** Every account id that currently exists - the full-reconciliation counterpart of the per-event [AccountChanged]/[AccountDeleted] (see `KeycloakAccountSyncService`'s explicit "Sync with Keycloak" action, which also needs to find KEYCLOAK-side orphans nothing here still references). */
+    @Transactional(readOnly = true)
+    fun allAccountIds(): List<Long> = accountRepository.findAll().mapNotNull { it.id }
 
     /**
      * Deletes only the account row itself - this module must never depend on a method module
@@ -98,6 +128,7 @@ class AccountService(private val accountRepository: AccountRepository) : Account
     @Transactional
     fun deleteAccount(accountId: Long) {
         accountRepository.deleteById(accountId)
+        eventPublisher.publishEvent(AccountDeleted(accountId))
     }
 
     /**
@@ -127,7 +158,9 @@ class AccountService(private val accountRepository: AccountRepository) : Account
         val account = getOrThrow(accountId)
         account.email = email
         account.emailConfirmedAt = Instant.now()
-        return toProfile(accountRepository.save(account))
+        val profile = toProfile(accountRepository.save(account))
+        eventPublisher.publishEvent(AccountChanged(accountId))
+        return profile
     }
 
     @Transactional(readOnly = true)

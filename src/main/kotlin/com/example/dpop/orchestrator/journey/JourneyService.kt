@@ -348,8 +348,40 @@ class JourneyService(
             channel.authEvidenceId = authEvidenceService.createForAccount(accountId).authEvidenceId
             sessionManagementService.updateChannelSession(channel)
         }
-        authEvidenceService.applyEvidenceUpdate(checkNotNull(channel.authEvidenceId), updates, source)
+        val authEvidenceId = checkNotNull(channel.authEvidenceId)
+        // [source]'s set BEFORE the update - compared against [updates] below to decide whether
+        // this call actually changed anything worth logging. Needed because every caller resends
+        // its COMPLETE current set on every call, no delta (docs/ideen/web-keycloak-kanal.md #9,
+        // "kein Delta") - e.g. every LoA-2 selectMethod poll re-reports the very same native
+        // password proof, and logging that identically on each poll would drown the one real entry
+        // (the first time it was proven) in noise.
+        val before = authEvidenceService.getAuthEvidence(authEvidenceId)?.amrEvidence.orEmpty()
+            .filter { it.source == source }
+            .map { Triple(it.method, it.loa, it.amrSourceId) }
+            .toSet()
+        val after = updates.map { Triple(it.method.value, it.loa.value, it.amrSourceId) }.toSet()
+
+        authEvidenceService.applyEvidenceUpdate(authEvidenceId, updates, source)
         sessionManagementService.recordEvent(channel.channelSessionId, journey.journeyId, "EVIDENCE_UPDATE_APPLIED", source)
+        if (before != after) {
+            // JourneyEvent.EvidenceUpdated carries no payload of its own (a strategy only ever
+            // needs to re-check AuthPolicy.isSatisfied, never the update itself - see
+            // IntentStrategy.kt), so the generic advance() below logs an empty-detail entry. This
+            // one records WHAT actually changed (docs/ideen/web-keycloak-kanal.md #8: native/
+            // external evidence, source=kc) - without it, the journey log would show every tool
+            // outcome in full but go silent on every Keycloak-native factor, even though it's just
+            // as real a step in the journey's path.
+            journeyLogService.record(
+                channel, journey, "EXTERNAL_EVIDENCE_REPORTED",
+                journeyState = codec.read(journey)::class.simpleName,
+                detail = mapOf(
+                    "source" to source,
+                    "methods" to updates.map {
+                        mapOf("method" to it.method.value, "loa" to it.loa.value, "factorTypes" to it.factorTypes.map { t -> t.name }, "amrSourceId" to it.amrSourceId)
+                    }
+                )
+            )
+        }
         advance(journey, channel, JourneyEvent.EvidenceUpdated)
     }
 
@@ -358,12 +390,30 @@ class JourneyService(
     private fun advance(journey: AuthJourney, channel: ChannelSession, event: JourneyEvent): Step {
         val strategy = strategyFor(journey.intent!!)
         val state = codec.read(journey)
-        val decision = strategy.decideErased(state, event, contextFor(journey, channel))
-        journeyLogService.record(
-            channel, journey, event::class.simpleName!!,
-            journeyState = state::class.simpleName,
-            detail = eventDetail(event) + decisionDetail(decision, journey, channel)
-        )
+        val ctx = contextFor(journey, channel)
+        val decision = strategy.decideErased(state, event, ctx)
+        // EvidenceUpdated fires on every kc-facade upsertChannel call, even a pure re-send of
+        // already-known evidence with no floor change (the caller always resends its full current
+        // set, never a delta - docs/ideen/web-keycloak-kanal.md #9) - logging that as if it were a
+        // fresh transition would duplicate the SAME "Advance to SelectMethod, candidates X" entry
+        // on every poll. Only log it when the decision actually leads somewhere new; a genuine
+        // proof/floor-raise always produces a DIFFERENT state (different candidates, or
+        // Authenticated), so this never suppresses a real transition.
+        val isNoOpEvidenceUpdate = event is JourneyEvent.EvidenceUpdated && decision is Decision.Advance && decision.to == state
+        if (!isNoOpEvidenceUpdate) {
+            journeyLogService.record(
+                channel, journey, event::class.simpleName!!,
+                journeyState = state::class.simpleName,
+                // acrFloor is what this step was actually judged against; resolvedAcr is the
+                // account's own CURRENT combined level from ctx.evidence (MFA-bump included, see
+                // DefaultAuthPolicy.resolveAcr) - a single Completed entry's own achievedAcr only
+                // ever reflects that ONE tool's individual ceiling (e.g. "loa1" for email alone),
+                // so without this the log looks like the login never reached loa2 even when the
+                // combination of two loa1 factors just did.
+                detail = eventDetail(event) + decisionDetail(decision, journey, channel) +
+                    mapOf("acrFloor" to ctx.acrFloor, "resolvedAcr" to ctx.policy.resolveAcr(ctx.evidence, ctx.account))
+            )
+        }
         return applyDecision(journey, channel, decision)
     }
 

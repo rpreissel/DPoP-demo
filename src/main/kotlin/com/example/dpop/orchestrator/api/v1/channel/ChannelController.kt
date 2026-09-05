@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1.channel
 
+import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -373,6 +374,20 @@ class ChannelController(
         @RequestParam(defaultValue = "15") minValiditySeconds: Long
     ): ResponseEntity<TokenResponse> {
         return ResponseEntity.ok(channelService.getToken(channelSessionId, bindingKeyRef, minValiditySeconds))
+    }
+
+    @GetMapping("/{channelSessionId}/journey-log")
+    @Operation(
+        summary = "Read this channel's account's journey log",
+        description = "Every journey step ever recorded under this channel's OWN account, across every channel " +
+            "(APP or KEYCLOAK alike) that account was ever authenticated on - not just this one. Empty, not an " +
+            "error, when this channel has no account bound yet."
+    )
+    fun getJourneyLog(
+        @PathVariable channelSessionId: UUID,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<JourneyLogResponse> {
+        return ResponseEntity.ok(channelService.getJourneyLog(channelSessionId, bindingKeyRef))
     }
 
     @GetMapping("/{channelSessionId}/idclaims")

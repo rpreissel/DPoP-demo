@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
+import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
@@ -112,6 +113,18 @@ class ChannelService(
             null
         }
         return MethodsResponse(toActiveMethodViews(methods))
+    }
+
+    /**
+     * Every journey step ever recorded under this channel's OWN account, across every channel
+     * (APP or KEYCLOAK) that account was ever authenticated on - the account-scoped counterpart
+     * of `JourneyLogController`'s own bindingKeyRef-scoped log, which a KEYCLOAK channel has no
+     * bindingKeyRef to look up by at all (docs/ideen/web-keycloak-kanal.md #5). Empty, not an
+     * error, when this channel has no account bound yet.
+     */
+    fun getJourneyLog(channelSessionId: UUID, bindingKeyRef: String): JourneyLogResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        return channel.accountId?.let { journeyLogService.getLogForAccount(it) } ?: JourneyLogResponse(emptyList())
     }
 
     /**

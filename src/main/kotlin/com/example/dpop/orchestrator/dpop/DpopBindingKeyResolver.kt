@@ -63,8 +63,6 @@ class DpopBindingKeyResolver(
             authorization.trim()
         }
         val assertion = peerAuthValidator.validate(token, request.method, buildRequestUrl(request))
-        val anchor = assertion.kcSessionId ?: assertion.kcAuthSessionId
-            ?: throw DpopValidationException("Peer-auth assertion carries no kc-anchor")
-        return "${DeviceChannelAccessGuard.KC_ANCHOR_PREFIX}$anchor"
+        return "${DeviceChannelAccessGuard.KC_ANCHOR_PREFIX}${assertion.kcSessionId}"
     }
 }

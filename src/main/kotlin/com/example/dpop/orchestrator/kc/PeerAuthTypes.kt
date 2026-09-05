@@ -4,15 +4,15 @@ import java.time.Instant
 
 /**
  * A verified peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3) - proves "this really is
- * Keycloak, acting for this specific kc-Auth-/User-Session", never who the end user is. Exactly
- * one of [kcAuthSessionId] (initial login, no `sub` yet) or [kcSessionId] (step-up, `sub`
- * vorhanden) is set, matching which of the two Web-Kanal cases this request concerns.
+ * Keycloak, acting for this specific kc-Session", never who the end user is. [kcSessionId] is the
+ * (eventual) `UserSessionModel` id regardless of whether that session exists yet - see
+ * [com.example.dpop.orchestrator.session.ChannelSession.kcSessionId]'s own doc for why the
+ * initial-login and step-up cases don't need separate fields here.
  */
 data class PeerAuthAssertion(
     val jti: String,
     val issuedAt: Instant,
-    val kcAuthSessionId: String?,
-    val kcSessionId: String?,
+    val kcSessionId: String,
     val subject: String?
 )
 

@@ -38,8 +38,7 @@ class DeviceChannelAccessGuard(
             ?: throw OrchestratorException.notFound("Channel session not found: $channelSessionId")
         val matches = if (bindingKeyRef.startsWith(KC_ANCHOR_PREFIX)) {
             val presented = bindingKeyRef.removePrefix(KC_ANCHOR_PREFIX)
-            val expected = channel.kcSessionId ?: channel.kcAuthSessionId
-            constantTimeEquals(expected, presented)
+            constantTimeEquals(channel.kcSessionId, presented)
         } else {
             // Constant-time, though both sides are public thumbprints rather than secrets - the
             // cheapest way to keep this from becoming one if the binding ever carries more.
@@ -64,8 +63,8 @@ class DeviceChannelAccessGuard(
 /**
  * WEB implementation (docs/ideen/web-keycloak-kanal.md #2/#4): the kc-anchor alone never
  * authorizes anything - Keycloak's peer-auth assertion must independently claim the same
- * `kcAuthSessionId`/`kcSessionId` this channel was opened with, otherwise a leaked
- * `channelSessionId` plus any validly signed Keycloak assertion would be enough to hijack it.
+ * `kcSessionId` this channel was opened with, otherwise a leaked `channelSessionId` plus any
+ * validly signed Keycloak assertion would be enough to hijack it.
  */
 @Component
 class KcChannelAccessGuard(
@@ -75,11 +74,7 @@ class KcChannelAccessGuard(
     fun requireChannel(channelSessionId: UUID, assertion: PeerAuthAssertion): ChannelSession {
         val channel = sessionManagementService.findChannelSessionById(channelSessionId)
             ?: throw OrchestratorException.notFound("Channel session not found: $channelSessionId")
-        val matches = when {
-            assertion.kcSessionId != null -> constantTimeEquals(channel.kcSessionId, assertion.kcSessionId)
-            assertion.kcAuthSessionId != null -> constantTimeEquals(channel.kcAuthSessionId, assertion.kcAuthSessionId)
-            else -> false
-        }
+        val matches = constantTimeEquals(channel.kcSessionId, assertion.kcSessionId)
         if (!matches) {
             throw OrchestratorException.bindingMismatch("Keycloak assertion does not match this channel's kc-anchor")
         }

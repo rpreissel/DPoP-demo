@@ -122,6 +122,22 @@ tasks.named<ProcessResources>("processResources") {
     dependsOn(npmBuild)
 }
 
+// `./gradlew bootRunKc` - same as bootRun, just with the `keycloak` profile active (real Keycloak
+// via podman-compose, see compose.yml/docs/ideen/web-keycloak-kanal.md, instead of the default
+// profile's Mock-Keycloak frontend). Equivalent to `bootRun --args='--spring.profiles.active=keycloak'`,
+// just without having to remember/retype that every time.
+tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {
+    group = "application"
+    description = "Runs the app with the 'keycloak' Spring profile active (real Keycloak via podman-compose)."
+    classpath = sourceSets["main"].runtimeClasspath
+    // Hardcoded rather than derived from the "bootRun" task's own resolved mainClass: reading a
+    // Provider off another task creates an implicit Gradle task dependency, which for "bootRun"
+    // itself means actually EXECUTING it (launching the app under the default profile) as a
+    // "configuration" step - it blocks, so bootRunKc would never even start.
+    mainClass.set("com.example.dpop.DpopApplicationKt")
+    systemProperty("spring.profiles.active", "keycloak")
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
 }

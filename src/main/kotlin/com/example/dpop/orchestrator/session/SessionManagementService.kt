@@ -51,15 +51,13 @@ class SessionManagementService(
      */
     fun createKcChannelSession(
         channelSessionId: UUID,
-        kcAuthSessionId: String?,
-        kcSessionId: String?,
+        kcSessionId: String,
         accountId: Long?,
         ttl: Duration,
         availableTools: Set<String>
     ): ChannelSession {
         val session = ChannelSession(ChannelSession.Channel.KEYCLOAK, null, Instant.now().plus(ttl))
         session.channelSessionId = channelSessionId
-        session.kcAuthSessionId = kcAuthSessionId
         session.kcSessionId = kcSessionId
         session.accountId = accountId
         session.entryIntent = AuthIntent.KC_SELECT_METHOD

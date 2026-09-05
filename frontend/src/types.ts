@@ -140,6 +140,8 @@ export interface ChannelResponse {
  */
 export interface JourneyLogEntryView {
   channelSessionId: string
+  /** Null until the channel resolves an account (e.g. before identification). */
+  accountId?: number
   /** Null for a channel-level event with no journey of its own (e.g. logout with nothing running). */
   journeyId?: string
   /** Set when journeyId ran as another journey's precondition (docs/04-orchestrierung.md #6). */

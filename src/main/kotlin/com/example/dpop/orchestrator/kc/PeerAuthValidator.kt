@@ -62,17 +62,9 @@ class PeerAuthValidator(
         validateSignature(signedJWT, jwk)
         validateClaims(claims, httpMethod, httpUrl)
 
-        val kcAuthSessionId = claims.getStringClaim("kc_auth_session_id")
         val kcSessionId = claims.getStringClaim("kc_session_id")
-        if (kcAuthSessionId.isNullOrBlank() && kcSessionId.isNullOrBlank()) {
-            throw PeerAuthValidationException(
-                "Peer-auth assertion carries neither kc_auth_session_id nor kc_session_id"
-            )
-        }
-        if (!kcAuthSessionId.isNullOrBlank() && !kcSessionId.isNullOrBlank()) {
-            throw PeerAuthValidationException(
-                "Peer-auth assertion carries both kc_auth_session_id and kc_session_id - exactly one is expected"
-            )
+        if (kcSessionId.isNullOrBlank()) {
+            throw PeerAuthValidationException("Peer-auth assertion is missing kc_session_id")
         }
 
         val jti = claims.jwtid
@@ -90,7 +82,7 @@ class PeerAuthValidator(
             throw PeerAuthValidationException("Peer-auth assertion replay detected", e)
         }
 
-        return PeerAuthAssertion(jti, issuedAt, kcAuthSessionId, kcSessionId, claims.subject)
+        return PeerAuthAssertion(jti, issuedAt, kcSessionId, claims.subject)
     }
 
     private fun validateSignature(signedJWT: SignedJWT, jwk: JWK) {

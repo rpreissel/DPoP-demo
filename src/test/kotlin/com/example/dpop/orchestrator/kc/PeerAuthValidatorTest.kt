@@ -15,7 +15,6 @@ import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -58,8 +57,7 @@ class PeerAuthValidatorTest : BehaviorSpec({
         jti: String? = UUID.randomUUID().toString(),
         iss: String? = issuer,
         aud: String? = audience,
-        kcAuthSessionId: String? = "auth-session-1",
-        kcSessionId: String? = null,
+        kcSessionId: String? = "session-1",
         subject: String? = null,
         algorithm: JWSAlgorithm = JWSAlgorithm.ES256,
         keyId: String = kid
@@ -72,7 +70,6 @@ class PeerAuthValidatorTest : BehaviorSpec({
         jti?.let { claimsBuilder.jwtID(it) }
         iss?.let { claimsBuilder.issuer(it) }
         aud?.let { claimsBuilder.audience(it) }
-        kcAuthSessionId?.let { claimsBuilder.claim("kc_auth_session_id", it) }
         kcSessionId?.let { claimsBuilder.claim("kc_session_id", it) }
         subject?.let { claimsBuilder.subject(it) }
         val signedJWT = SignedJWT(header, claimsBuilder.build())
@@ -80,32 +77,30 @@ class PeerAuthValidatorTest : BehaviorSpec({
         return signedJWT.serialize()
     }
 
-    given("a validly signed, fresh initial-login assertion") {
+    given("a validly signed, fresh assertion") {
         `when`("validating it") {
             then("it succeeds and reports the assertion's context") {
                 val key = ECKeyGenerator(Curve.P_256).generate()
                 val jti = UUID.randomUUID().toString()
-                val assertion = signAssertion(key, jti = jti, kcAuthSessionId = "auth-session-42")
+                val assertion = signAssertion(key, jti = jti, kcSessionId = "session-42")
 
                 val result = validator(jwkSourceReturning(key)).validate(assertion, method, url)
 
                 result.jti shouldBe jti
-                result.kcAuthSessionId shouldBe "auth-session-42"
-                result.kcSessionId.shouldBeNull()
+                result.kcSessionId shouldBe "session-42"
             }
         }
     }
 
-    given("a validly signed step-up assertion") {
-        then("kcSessionId and the subject come through, kcAuthSessionId does not") {
+    given("a validly signed assertion with a subject") {
+        then("kcSessionId and the subject both come through") {
             val key = ECKeyGenerator(Curve.P_256).generate()
-            val assertion = signAssertion(key, kcAuthSessionId = null, kcSessionId = "user-session-7", subject = "kc-sub-7")
+            val assertion = signAssertion(key, kcSessionId = "user-session-7", subject = "kc-sub-7")
 
             val result = validator(jwkSourceReturning(key)).validate(assertion, method, url)
 
             result.kcSessionId shouldBe "user-session-7"
             result.subject shouldBe "kc-sub-7"
-            result.kcAuthSessionId.shouldBeNull()
         }
     }
 
@@ -151,7 +146,7 @@ class PeerAuthValidatorTest : BehaviorSpec({
                 .audience(audience)
                 .claim("htm", method)
                 .claim("htu", url)
-                .claim("kc_auth_session_id", "auth-session-rsa")
+                .claim("kc_session_id", "session-rsa")
                 .build()
             val jwt = SignedJWT(header, claims)
             jwt.sign(RSASSASigner(rsaKey.toPrivateKey()))
@@ -159,7 +154,7 @@ class PeerAuthValidatorTest : BehaviorSpec({
 
             val result = validator(jwkSource).validate(jwt.serialize(), method, url)
 
-            result.kcAuthSessionId shouldBe "auth-session-rsa"
+            result.kcSessionId shouldBe "session-rsa"
         }
     }
 
@@ -212,8 +207,8 @@ class PeerAuthValidatorTest : BehaviorSpec({
             val assertion = signAssertion(key, htu = "https://example.test/somewhere-else")
             shouldThrow<PeerAuthValidationException> { validator(jwkSourceReturning(key)).validate(assertion, method, url) }
         }
-        then("carrying neither kc_auth_session_id nor kc_session_id is rejected") {
-            val assertion = signAssertion(key, kcAuthSessionId = null, kcSessionId = null)
+        then("carrying no kc_session_id is rejected") {
+            val assertion = signAssertion(key, kcSessionId = null)
             shouldThrow<PeerAuthValidationException> { validator(jwkSourceReturning(key)).validate(assertion, method, url) }
         }
         then("a missing jti is rejected") {

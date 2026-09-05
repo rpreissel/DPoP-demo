@@ -99,7 +99,6 @@ class KcChannelService(
         if (existing == null) {
             sessionManagementService.createKcChannelSession(
                 channelSessionId,
-                assertion.kcAuthSessionId,
                 assertion.kcSessionId,
                 effectiveAccountId,
                 CHANNEL_TTL,

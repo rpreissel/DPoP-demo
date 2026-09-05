@@ -110,6 +110,11 @@ export function getJourneyLog(dpop: DpopKeyPair): Promise<JourneyLogResponse> {
   return call(dpop, 'GET', '/orchestrator/api/v1/journey-log')
 }
 
+/** Every journey step ever recorded under this channel's own account, across every channel (APP or KEYCLOAK) that account was ever authenticated on - not just this one. Empty when no account is bound yet. */
+export function getAccountJourneyLog(dpop: DpopKeyPair, channelSessionId: string): Promise<JourneyLogResponse> {
+  return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}/journey-log`)
+}
+
 /** Abandons the running AuthJourney; the response already offers a fresh start where applicable. */
 export function cancelJourney(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/journey`)
@@ -220,6 +225,16 @@ export function fetchToolAvailability(): Promise<ToolAvailabilityEntry[]> {
 
 export function setToolAvailability(toolId: string, enabled: boolean, reason?: string): Promise<void> {
   return callPlain('PUT', `/orchestrator/api/v1/admin/tools/${toolId}/availability`, { enabled, reason })
+}
+
+export interface KeycloakSyncResult {
+  upserted: number
+  deletedOrphans: number
+}
+
+/** Only exists when the backend runs with the `keycloak` Spring profile active - 404s otherwise, which KeycloakSyncView treats as "feature not available here", not an error. */
+export function syncKeycloak(): Promise<KeycloakSyncResult> {
+  return callPlain('POST', '/orchestrator/api/v1/kc/sync')
 }
 
 /**

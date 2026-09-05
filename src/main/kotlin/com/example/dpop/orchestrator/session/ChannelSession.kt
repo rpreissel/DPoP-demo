@@ -23,7 +23,7 @@ class ChannelSession(
     @Column(name = "channel", nullable = false, length = 20)
     var channel: Channel? = null,
 
-    /** APP-only (docs/ideen/web-keycloak-kanal.md #5) - null on KEYCLOAK channels, which anchor via [kcAuthSessionId]/[kcSessionId] instead. */
+    /** APP-only (docs/ideen/web-keycloak-kanal.md #5) - null on KEYCLOAK channels, which anchor via [kcSessionId] instead. */
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 
@@ -31,31 +31,29 @@ class ChannelSession(
     var expiresAt: Instant? = null
 ) {
     /**
-     * KEYCLOAK-only kc-anchor for the initial login, before Keycloak has a `sub` (docs/ideen/
-     * web-keycloak-kanal.md #2) - Keycloak's own `AuthenticationSessionModel` id, fresh per
-     * flow run. Mutually exclusive with [kcSessionId]: a channel carries at most one of the
-     * two kc-anchor fields, matching which of the two Web-Kanal cases it was opened for.
-     */
-    @Column(name = "kc_auth_session_id", length = 64)
-    var kcAuthSessionId: String? = null
-
-    /**
-     * KEYCLOAK-only kc-anchor for step-up, once Keycloak already knows the user (docs/ideen/
-     * web-keycloak-kanal.md #2/#9) - Keycloak's established `UserSessionModel` id, carried in
-     * the peer-auth assertion so [ChannelAccessGuard] can verify the caller acts for this exact,
-     * already-authenticated user session. Mutually exclusive with [kcAuthSessionId], same as that
-     * field's own doc says. Deliberately NOT a lookup key for finding a prior [channelSessionId]:
-     * Keycloak only promotes an `AuthenticationSessionModel` into this `UserSessionModel` at the
-     * very END of a successful flow, so at step-up flow START there is no earlier channel under
-     * THIS UserSession to find yet in general - each flow run, step-up included, still gets its
-     * own fresh [channelSessionId], derived from that run's own fresh [kcAuthSessionId]. Evidence
-     * continuity across flow runs is a Keycloak-side concern instead (docs/ideen/web-keycloak-
-     * kanal.md #6/#9): the `OrchestratorAuthenticator`'s end-of-flow lifecycle hook fetches a
-     * signed `RestoreData` token (`GET .../restore-data`, bound to THIS id) and stashes it in a
-     * `UserSessionModel` note, and a later step-up's initial authenticator reads it back out and
-     * hands it to the fresh channel's own first `PATCH` call as `restoreData` - a separate field
-     * from `KcChannelUpsertRequest.amr`, not the same wire-contract shape: `restoreData` is a
-     * one-shot snapshot that may already be meaningfully old, `amr` a live per-step report.
+     * KEYCLOAK-only kc-anchor (docs/ideen/web-keycloak-kanal.md #2/#4) - the id of the
+     * `UserSessionModel` this channel is bound to, carried in the peer-auth assertion so
+     * [ChannelAccessGuard] can verify the caller acts for this exact identity: without this, a
+     * leaked `channelSessionId` plus any validly-signed Keycloak assertion would be enough to
+     * hijack the channel, since the signature alone only proves "this really came from Keycloak,"
+     * not "for this specific one of Keycloak's many concurrent flows."
+     *
+     * Present even BEFORE Keycloak has a `sub` (the initial-login case, no UserSessionModel yet):
+     * the extension anchors to `AuthenticationSessionModel.getParentSession().getId()` there, which
+     * is exactly the id Keycloak's own `AuthenticationProcessor.attachSession()` uses when it
+     * mints the real `UserSessionModel` moments later - so "the id this channel is anchored to"
+     * and "the id the resulting UserSession will have" are the same value from the start, with no
+     * separate initial-login/step-up cases to keep distinct here.
+     *
+     * Deliberately NOT a lookup key for finding a prior [channelSessionId]: each flow run, step-up
+     * included, still gets its own fresh [channelSessionId]. Evidence continuity across flow runs
+     * is a Keycloak-side concern instead (docs/ideen/web-keycloak-kanal.md #6/#9): the
+     * `OrchestratorAuthenticator`'s end-of-flow lifecycle hook fetches a signed `RestoreData` token
+     * (`GET .../restore-data`, bound to THIS id) and stashes it in a `UserSessionModel` note, and a
+     * later step-up's initial authenticator reads it back out and hands it to the fresh channel's
+     * own first `PATCH` call as `restoreData` - a separate field from `KcChannelUpsertRequest.amr`,
+     * not the same wire-contract shape: `restoreData` is a one-shot snapshot that may already be
+     * meaningfully old, `amr` a live per-step report.
      */
     @Column(name = "kc_session_id", length = 64)
     var kcSessionId: String? = null

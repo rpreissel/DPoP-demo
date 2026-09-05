@@ -27,6 +27,10 @@ class JourneyLogEntry(
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 
+    /** Null until the channel resolves an account (e.g. before identification) - the lookup key every facade's entries share once one is known, unlike [bindingKeyRef] which is APP-only. */
+    @Column(name = "account_id")
+    var accountId: Long? = null,
+
     @Column(name = "channel_session_id", nullable = false)
     var channelSessionId: UUID? = null,
 

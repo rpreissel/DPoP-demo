@@ -81,10 +81,9 @@ class KcChannelController(
         description = "For the Authenticator's end-of-flow lifecycle hook only (docs/ideen/" +
             "web-keycloak-kanal.md #6) - reads back what this channel accumulated, to stash in a " +
             "Keycloak UserSessionModel note and resubmit at a later flow's start. kcSessionId is " +
-            "the UserSessionModel id Keycloak just assigned - this backend never learns it any " +
-            "other way (the channel itself may still only carry a kcAuthSessionId anchor at this " +
-            "point) - the returned token is bound to exactly this value, not to the channel's own " +
-            "anchor, since it must remain valid across the flow-run boundary that anchor does not."
+            "passed explicitly (not read off the channel's own anchor) because the returned token " +
+            "must remain valid across the flow-run boundary the channel itself does not survive - " +
+            "a fresh channel next flow run, but the very same UserSessionModel id."
     )
     fun getRestoreData(
         @PathVariable channelSessionId: UUID,

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DpopKeyPair } from '../dpop'
-import { describeError, getJourneyLog } from '../api'
+import { describeError, getAccountJourneyLog, getJourneyLog } from '../api'
 import type { JourneyLogEntryView } from '../types'
 
 interface Props {
   dpop: DpopKeyPair | null
+  /** When known, fetches every journey step for this channel's own ACCOUNT (across every channel it was ever bound to, APP or KEYCLOAK alike) instead of just this device's own bindingKeyRef - see getAccountJourneyLog. */
+  channelSessionId?: string
 }
 
 /** Labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
@@ -29,6 +31,11 @@ const KEY_LABELS: Record<string, string> = {
   answer: 'Answer',
   methodInstanceId: 'Method ID',
   label: 'Label',
+  acrFloor: 'ACR Floor',
+  amrSourceId: 'AMR Source',
+  loa: 'LoA',
+  source: 'Source',
+  methods: 'Methods',
 }
 
 function labelFor(key: string): string {
@@ -72,10 +79,27 @@ function formatDetail(detail: Record<string, unknown>): DetailChip[] {
   return chips
 }
 
+/** One array entry as a compact "key=value, key2=value2" string - used for arrays of objects (e.g. `methods`), where joining the raw elements would just print "[object Object]". */
+function describeItem(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (Array.isArray(value)) return value.map(describeItem).join('+')
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .map(([k, v]) => `${labelFor(k)}=${describeItem(v)}`)
+      .join(', ')
+  }
+  return String(value)
+}
+
 function flatten(keyPath: string, value: unknown): DetailChip[] {
   if (value === null || value === undefined || value === '') return []
   if (Array.isArray(value)) {
-    return value.length === 0 ? [] : [{ key: keyPath, label: labelFor(keyPath), value: value.join(', ') }]
+    if (value.length === 0) return []
+    const text = value.some((v) => v !== null && typeof v === 'object')
+      ? value.map(describeItem).join(' | ')
+      : value.join(', ')
+    return [{ key: keyPath, label: labelFor(keyPath), value: text }]
   }
   if (typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => flatten(`${keyPath}.${k}`, v))
@@ -152,12 +176,14 @@ function buildJourneyTree(byJourney: Map<string, JourneyScopedEntry[]>): Journey
 
 /**
  * The JourneyLog tab (docs/04-orchestrierung.md) - a demo/debug view of every journey step ever
- * recorded for THIS device's own bindingKeyRef (the backend resolves it from the DPoP proof, no
- * channelSessionId needed), filterable/groupable by channelSessionId and journeyId. Channels and
- * journeys are opaque UUIDs with no meaning of their own, so both the filters and the group
- * headings identify them by when they started (plus the intent, for a journey) instead.
+ * recorded for the account bound to [channelSessionId] (across every channel it was ever
+ * authenticated on, APP or KEYCLOAK alike), or - before any channel/account is known yet - just
+ * THIS device's own bindingKeyRef (the backend resolves that from the DPoP proof, no
+ * channelSessionId needed). Filterable/groupable by channelSessionId and journeyId either way.
+ * Channels and journeys are opaque UUIDs with no meaning of their own, so both the filters and the
+ * group headings identify them by when they started (plus the intent, for a journey) instead.
  */
-export function JourneyLogView({ dpop }: Props) {
+export function JourneyLogView({ dpop, channelSessionId }: Props) {
   const [entries, setEntries] = useState<JourneyLogEntryView[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -168,13 +194,17 @@ export function JourneyLogView({ dpop }: Props) {
     if (!dpop) return
     setLoading(true)
     setError(null)
-    getJourneyLog(dpop)
+    // Account-scoped once a channel (and so its account, if bound) is known - shows every journey
+    // that account ever ran, including ones started on a Keycloak channel with no bindingKeyRef of
+    // its own; falls back to the plain per-device view before any channel exists yet.
+    const request = channelSessionId ? getAccountJourneyLog(dpop, channelSessionId) : getJourneyLog(dpop)
+    request
       .then((response) => setEntries(response.entries))
       .catch((err) => setError(describeError('Journey-Log laden fehlgeschlagen', err)))
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [dpop])
+  useEffect(load, [dpop, channelSessionId])
 
   // Oldest first within a journey's own steps (the backend returns newest-first, the natural
   // order for an API default) - groupedNewestFirst below re-sorts the ChannelSession/Journey
