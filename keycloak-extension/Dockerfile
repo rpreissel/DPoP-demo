@@ -1,12 +1,16 @@
-FROM docker.io/maven:3.9.9-eclipse-temurin-21 AS builder
+FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /workspace
-COPY keycloak-extension /workspace
-RUN mvn -q package
+COPY gradlew ./
+COPY gradle/ gradle/
+COPY settings.gradle.kts build.gradle.kts ./
+COPY keycloak-extension/build.gradle.kts keycloak-extension/build.gradle.kts
+COPY keycloak-extension/src keycloak-extension/src
+RUN ./gradlew --no-daemon :keycloak-extension:shadowJar
 
 FROM quay.io/keycloak/keycloak:26.5.5
 
-COPY --from=builder /workspace/target/dpop-demo-keycloak-extension-0.1.0.jar /opt/keycloak/providers/dpop-demo-keycloak-extension.jar
+COPY --from=builder /workspace/keycloak-extension/build/libs/dpop-demo-keycloak-extension-0.1.0.jar /opt/keycloak/providers/dpop-demo-keycloak-extension.jar
 COPY keycloak-extension/src/main/resources/theme/orchestrator /opt/keycloak/themes/orchestrator
 
 # start-dev does NOT auto-generate an HTTPS certificate on this version - a self-signed one, baked

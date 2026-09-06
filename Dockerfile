@@ -18,9 +18,11 @@ WORKDIR /app
 COPY gradlew ./
 COPY gradle/ gradle/
 COPY settings.gradle.kts build.gradle.kts ./
+COPY keycloak-extension/build.gradle.kts keycloak-extension/build.gradle.kts
 # Dependencies vorziehen, damit der Layer nur bei Aenderung der Build-Dateien neu laeuft.
 RUN ./gradlew --no-daemon dependencies --configuration runtimeClasspath > /dev/null 2>&1 || true
 COPY src/ src/
+COPY keycloak-extension/src keycloak-extension/src
 COPY --from=frontend /app/src/main/resources/static/ src/main/resources/static/
 RUN ./gradlew --no-daemon bootJar -x npmInstall -x npmBuild
 

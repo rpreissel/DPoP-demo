@@ -26,3 +26,5 @@ val tkNexusReachable = java.net.Socket().use {
 gradle.extra["tkNexusReachable"] = tkNexusReachable
 
 rootProject.name = "dpop-demo"
+
+include("keycloak-extension")
