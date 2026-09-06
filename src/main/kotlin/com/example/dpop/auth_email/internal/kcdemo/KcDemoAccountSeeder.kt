@@ -1,6 +1,7 @@
 package com.example.dpop.auth_email.internal.kcdemo
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.EnrollmentRef
 import org.slf4j.LoggerFactory
@@ -23,13 +24,19 @@ import org.springframework.stereotype.Component
  * Idempotent by construction (`accountId`/`personId` come from PersonDirectory - see
  * infra/tofu/keycloak/main.tf's `orchestratorAccountId` comment for why person insertion order
  * matters here): re-running on an existing DB skips any person who already has an active "email"
- * method instead of piling up deactivated duplicates on every restart.
+ * (or "password") method instead of piling up deactivated duplicates on every restart.
+ *
+ * Also seeds a demo password (DPoP-demo-25q): via [PasswordCredentialPort] (`tool_api`, implemented
+ * by `auth_password`) rather than `auth_password` directly - same module-boundary reasoning as the
+ * email side above, `auth_email` (this module) may only reach `account` and `tool_api`, never
+ * another method module directly.
  */
 @Component
 @Profile("keycloak")
 internal class KcDemoAccountSeeder(
     private val personDirectory: PersonDirectory,
-    private val accountService: AccountService
+    private val accountService: AccountService,
+    private val passwordCredentialPort: PasswordCredentialPort
 ) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(KcDemoAccountSeeder::class.java)
@@ -52,6 +59,16 @@ internal class KcDemoAccountSeeder(
                     details = emptyMap()
                 )
             }
+            if (profile.activeAuthenticationMethods.none { it.method == "password" }) {
+                val enrollmentRef = passwordCredentialPort.setNew(DEMO_PASSWORD)
+                accountService.addAuthenticationMethod(
+                    profile.accountId,
+                    "password",
+                    enrollmentRef,
+                    enrolledUnderAcr = "loa1",
+                    details = emptyMap()
+                )
+            }
             log.info(
                 "kc demo seed: {} -> orchestrator accountId={} (Keycloak user attribute orchestratorAccountId, see infra/tofu/keycloak/main.tf)",
                 person.kvnr, profile.accountId
@@ -62,6 +79,14 @@ internal class KcDemoAccountSeeder(
     private data class TestPerson(val kvnr: String, val email: String)
 
     companion object {
+        // Demo-only shared default (was previously KeycloakAdminClient's hardcoded
+        // reset-password value, removed when native Keycloak login started delegating to this
+        // same auth_password store - a real onboarding flow would never hand out a shared password).
+        // Same literal as auth_password's own DEMO_PASSWORD (DemoPassword.kt) - one demo password
+        // project-wide; duplicated rather than imported since auth_email may not depend on
+        // auth_password directly (module boundary).
+        private const val DEMO_PASSWORD = "Demo1234!"
+
         // Same three persons/kvnrs as V2__testdata.sql - kept in that exact order because a fresh
         // DB assigns account ids sequentially in the order accounts are first created, and
         // infra/tofu/keycloak/main.tf's keycloak_user resources hardcode the resulting ids
