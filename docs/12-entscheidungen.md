@@ -151,15 +151,29 @@ den der Server nicht verhindern kann.
 
 ## ADR-7: Web-Kanal ohne mTLS, signierte Request-Assertion statt Client-Zertifikat
 
-**Entscheidung** *(Zielbild, Epic „Web-/Keycloak-Kanal" noch nicht umgesetzt)*: Die
-Server-zu-Server-Strecke Keycloak -> Orchestrator im Web-Kanal wird **ohne mTLS** abgesichert; statt
-eines Client-Zertifikats verifiziert der Orchestrator eine signierte Request-Assertion von
-Keycloak. Der Browser spricht dabei nie direkt mit dem Orchestrator.
+**Entscheidung** (umgesetzt): Die Server-zu-Server-Strecke Keycloak -> Orchestrator im Web-Kanal
+wird **ohne mTLS** abgesichert; statt eines Client-Zertifikats verifiziert der Orchestrator eine
+signierte Request-Assertion von Keycloak (`PeerAuthValidator`, [05-api.md](05-api.md) Abschnitt 3).
+Der Browser spricht dabei nie direkt mit dem Orchestrator.
 
-**Erwogene Alternative**: mTLS zwischen Keycloak und Orchestrator — beiderseitige
-Zertifikatsprüfung auf Transportebene.
+Ein einziges JWT pro Request statt Access-Token-plus-separatem-Proof: Beim initialen Login gibt es
+noch kein `sub` — ein Access Token ohne `sub` wäre schräg, und man bräuchte zwei
+Anspruchssätze. Die Assertion sagt stattdessen einfach "ich handle für diesen Kanal-Anker, Nutzer
+ggf. noch unbekannt".
 
-**Warum diese**: mTLS bringt in vielen Deployments zusätzlichen Betriebsaufwand (Zertifikats-
+**Erwogene Alternativen**:
+
+- **mTLS** zwischen Keycloak und Orchestrator — beiderseitige Zertifikatsprüfung auf
+  Transportebene.
+- **Token Exchange** — verworfen als unnötig: Keycloak besitzt die Session ohnehin und kann die
+  Assertion in-process ausstellen, kein zusätzlicher HTTP-Roundtrip nötig.
+- **Keycloak hält einen DPoP-Key als Geräte-Ersatz** — verworfen: DPoPs Wert kommt daher, dass der
+  Schlüssel nicht-exportierbar auf einem unvertrauten Client liegt. Hält ein Server ihn, ist es
+  faktisch ein Shared Secret mit asymmetrischer Zeremonie. Pro Nutzer wäre es zusätzlich fatal:
+  `DeviceAccountLink` würde bei jedem Web-Login treffen, die Geräte-Wiedererkennung sagt still
+  immer ja.
+
+**Warum die signierte Assertion**: mTLS bringt in vielen Deployments zusätzlichen Betriebsaufwand (Zertifikats-
 Rollout, -Rotation, -Widerruf für zwei Serverdienste) mit, den eine signierte Anwendungsebene-
 Assertion nicht braucht — die Signatur lässt sich mit demselben Schlüsselmaterial prüfen, das
 Keycloak ohnehin für Tokens verwendet, ohne eine zweite PKI für Transportzertifikate zu
@@ -169,4 +183,42 @@ die eine Server-zu-Server-Strecke beschränkt, für die die Signaturprüfung aus
 **Preis**: Die Sicherheit der Strecke hängt vollständig an der Signaturprüfung der Anwendung
 (korrekte Schlüsselverwaltung, Ablaufprüfung, Replay-Schutz) — mTLS hätte einen Teil davon
 (Peer-Identität, Verschlüsselung) bereits auf Transportebene erzwungen, unabhängig von
-Anwendungscode.
+Anwendungscode. Ein kompromittiertes Keycloak kann jeden Nutzer imitieren — das ist der
+kc-first-Architektur inhärent, auch mTLS ändert daran nichts.
+
+---
+
+## ADR-8: Keycloak bleibt Journey-Eigentümer seiner eigenen nativen Schritte, statt vollständiger Delegation oder Identity-Brokering
+
+**Entscheidung** (umgesetzt): Der Web-Kanal lässt Keycloak seine eigene, native
+Authentifizierungs-Flow-Konfiguration (Conditional-LoA-Subflows, natives Passwort-Login) fahren
+und ruft den Orchestrator nur innerhalb einer bereits laufenden, persistenten `AuthJourney` für die
+Schritte auf, die Keycloak selbst nicht kann (`KC_SELECT_METHOD`, [04-orchestrierung.md](04-orchestrierung.md)
+Abschnitt 3). Der Orchestrator bleibt für die Dauer eines Flow-Durchlaufs alleinige, kombinierende
+ACR/AMR-Instanz ([05-api.md](05-api.md) Abschnitt 3).
+
+**Erwogene Alternativen**:
+
+- **Orchestrator als externer OIDC-Identity-Provider** (Keycloak bindet den Orchestrator per
+  Identity Brokering ein, Browser-Redirect zu einer eigenen Orchestrator-Web-UI): verletzt die
+  Leitplanke "Browser spricht nie mit dem Orchestrator" direkt — der Orchestrator bräuchte eine
+  eigene, öffentlich erreichbare, gehärtete Web-UI.
+- **Volle Journey-Delegation** (der Orchestrator wäre alleiniger Journey- und ACR/AMR-Eigentümer,
+  Keycloak würde jedes Formular über einen einzigen generischen Authenticator rendern, nie eigene
+  Authenticatoren nutzen): architektonisch sauber, verzichtet aber komplett auf Keycloaks
+  eingebaute Fähigkeiten (natives Passwort-Login, OTP/TOTP, WebAuthn/Passkey,
+  Social-Login-Brokering, die gesamte Conditional-LoA-Maschinerie) — genau die Fähigkeiten, derentwegen
+  eine Keycloak-Anbindung überhaupt Sinn ergibt.
+- **Zustandslose Einzel-Tool-Aufrufe ohne Journey** (Keycloak bleibt vollständig Journey-Eigentümer,
+  ruft den Orchestrator nur für einzelne, isolierte Faktoren ohne begleitende `ChannelSession` auf):
+  näher an der gewählten Lösung, aber ohne die persistente Journey verliert der Orchestrator die
+  Fähigkeit, mehrere eigene Tools im selben Login mit gemeinsamer Evidenz zu verrechnen. Bleibt als
+  Muster sinnvoll für Touchpoints außerhalb eines zusammenhängenden Login-/Step-up-Flows (eine
+  Keycloak-„Required Action", eine Selbstbedienungs-Aktion in der Account-Konsole), aber nicht als
+  Ersatz für den Login-Flow selbst.
+
+**Preis**: Split-Brain-Risiko zwischen zwei Zustandshaltern (Keycloaks Flow-Struktur, der
+Orchestrator-Journey) — abgefedert dadurch, dass jede Seite klar eine eigene, nicht überlappende
+Zuständigkeit trägt (Keycloak entscheidet OB und WELCHES ACR-Level angefragt ist, der Orchestrator
+WAS innerhalb einer Stufe passiert und wie sich mehrere Nachweise zu einem Gesamt-ACR
+kombinieren).

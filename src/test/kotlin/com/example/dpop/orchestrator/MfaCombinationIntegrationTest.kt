@@ -38,11 +38,11 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 val offered = post("/orchestrator/api/v1/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa3"}""")
                 offered.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
 
-                // Declining RE_IDENTIFY (Decision.Cancel) only gives up on THAT sub-journey - its
+                // Declining RE_IDENTIFY (Transition.Cancel) only gives up on THAT sub-journey - its
                 // parent (this STEP_UP) was merely SUSPENDED waiting for it, not gone, so it
                 // resumes (JourneyService: SUSPENDED-parent handoff, symmetric to a successful
                 // finish()) via JourneyEvent.SubJourneyCancelled. StepUpState.Start reacts to that
-                // event itself and gives up (Decision.Cancel) instead of blindly re-deriving from
+                // event itself and gives up (Transition.Cancel) instead of blindly re-deriving from
                 // unchanged evidence, which would just re-offer the identical confirm prompt
                 // forever - so the channel correctly falls back to AUTHENTICATED
                 // (StepUpStrategy.onCancel) rather than either looping or discarding the still-valid

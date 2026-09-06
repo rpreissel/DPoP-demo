@@ -64,7 +64,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
 
                 // Abbrechen on RE_IDENTIFY's own confirm. Both nested Cancels resolve up the chain
                 // (RE_IDENTIFY -> STEP_UP -> DELETE_ACCOUNT); DELETE_ACCOUNT itself is top-level (no
-                // suspended parent of its own), so its own Decision.Cancel falls back to
+                // suspended parent of its own), so its own Transition.Cancel falls back to
                 // DeleteAccountStrategy.onCancel = AUTHENTICATED directly - deletion never even
                 // reaches a lesser reconfirmation fallback (which would have accepted the very
                 // sms proof that couldn't reach loa2 in the first place).

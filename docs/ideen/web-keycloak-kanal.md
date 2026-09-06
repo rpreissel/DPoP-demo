@@ -1,13 +1,16 @@
 # Idee: Web-/Keycloak-Kanal als zweite Fassade (`kc`)
 
-Status: **Konzept, nicht umgesetzt**. Kein ADR - noch keine formale Entscheidung,
-sondern eine Spur, der man später folgen kann - deshalb hier unter `ideen/`, nicht
-unter [12-entscheidungen.md](../12-entscheidungen.md). Als Ergebnis der Untersuchung
-angenommen: eine **persistente, Keycloak-getriebene Journey** - Keycloak steuert den
-Flow über seine eigene, native Konfiguration (Authenticatoren, Conditional-LoA), der
-Orchestrator bleibt für die Dauer eines Flow-Durchlaufs alleinige, kombinierende
-ACR/AMR-Instanz. Zwei geprüfte Alternativen und ihre Ablehnungsgründe stehen kurz
-zusammengefasst in Abschnitt 13.
+Status: **Größtenteils umgesetzt** (bd-Epics `DPoP-demo-f9o` 10/11, `DPoP-demo-3yd` 6/8 -
+nur die Logout-Semantik, Abschnitt 11, ist noch offen). Die tragenden Entscheidungen sind
+inzwischen kanonisch dokumentiert:
+[02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 1 (Kanal-Anker),
+[05-api.md](../05-api.md) Abschnitt 3 (Endpunkt, Peer-Auth, `authData`, RestoreData),
+[04-orchestrierung.md](../04-orchestrierung.md) Abschnitt 2/3 (`KC_SELECT_METHOD`),
+[12-entscheidungen.md](../12-entscheidungen.md) ADR-7/ADR-8 (verworfene Alternativen).
+Dieses Dokument bleibt bestehen, weil ~60 Code-Kommentare quer durch Backend und
+Keycloak-Extension per Abschnittsnummer darauf verweisen - für neue Referenzen bitte
+die kanonischen Dokumente oben verwenden. Abweichungen zwischen ursprünglichem Entwurf
+und tatsächlicher Umsetzung sind als Kästen markiert (z. B. Abschnitt 2).
 
 ---
 
@@ -32,6 +35,15 @@ für Faktoren, die es nur im Orchestrator gibt.
 ---
 
 ## 2) Kanal-Anker-Modell
+
+> **Umgesetzt, abweichend vom ursprünglichen Entwurf unten.** Statt zweier separater
+> Ankerfelder (`kcAuthSessionId`/`kcSessionId`) trägt `ChannelSession` ein einziges Feld
+> `channelAnchor` - immer der eigene `channelSessionId`-Wert DIESES Flow-Durchlaufs, nie
+> Keycloaks durables `UserSessionModel` (das hätte zwei GLEICHZEITIGEN Flow-Durchläufen
+> derselben SSO-Session, z. B. zwei parallel steppenden Tabs, denselben Anker gegeben).
+> Kanonisch jetzt: [02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 1 ("Kanal-Anker,
+> je Fassade verschieden"). Der ursprüngliche Zwei-Felder-Entwurf blieb hier nur aus
+> historischem Interesse stehen (siehe DPoP-demo-3yd.9).
 
 Beide Fassaden tun strukturell dasselbe: Identität nachweisen, dann gegen das prüfen,
 womit der Kanal angelegt wurde. Nur der Anker unterscheidet sich:
@@ -498,7 +510,10 @@ kc-getrieben. Das ist eine fachliche Entscheidung, die noch aussteht.
   braucht dieselbe TTL-basierte Aufräumlogik wie beim App-Kanal (kein
   `DELETE`-Äquivalent von Keycloak-Seite garantiert) - siehe Abschnitt 8 zum
   begrenzten Schaden, weil bereits abgeschlossene Faktoren trotzdem übertragen
-  wurden.
+  wurden. `AuthJourney`s TTL-Aufräumung ist kanalneutral - kein Web-spezifischer
+  Rest mehr offen.
+- **Nur noch Abschnitt 11 (Logout-Semantik) ist fachlich unentschieden** - alles
+  andere in diesem Dokument ist umgesetzt, siehe Status-Hinweis oben.
 
 ---
 
@@ -541,6 +556,8 @@ Login-Flow selbst.
 ---
 
 ## 14) Sinnvolle Umsetzungsreihenfolge
+
+**Historisch - so tatsächlich umgesetzt**, bis auf Schritt 7 (weiterhin offen).
 
 1. **Kanal-Anker-Modell** (Abschnitt 2) - Grundlage für Guard und Peer-Auth.
 2. Darauf aufbauend, parallel möglich:

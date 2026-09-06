@@ -1,15 +1,14 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
-import com.example.dpop.orchestrator.journey.Decision
 import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.session.ChannelState
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -32,56 +31,45 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
 
     override fun initialState(ctx: JourneyContext): LookupLoginState = LookupLoginState.Start
 
-    override fun interpret(state: LookupLoginState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
-        when (outcome) {
-            // The only intent that trusts a tool to resolve the account itself - but only on the
-            // FIRST proof, which is the one that has no account yet. Any further factor runs
-            // against the account already bound by that first one, exactly like every other
-            // intent, so it must not be able to name a different one.
-            is ToolOutcome.Completed.Authenticated -> Effect.AcceptProof(
-                useOutcomeAccount = state is LookupLoginState.Credential,
-                bindDevice = false
-            )
-            // Neither can be offered by any state of this intent; reaching here would mean the
-            // state machine let through a tool it never offered.
-            is ToolOutcome.Completed.Identified,
-            is ToolOutcome.Completed.Enrolled ->
-                error("${tool.toolId} is not offered by LOGIN_LOOKUP")
-        }
-
-    override fun decide(state: LookupLoginState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun transition(state: LookupLoginState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
             is LookupLoginState.Start -> when (event) {
                 // Re-check whether the fresh proof already closes the gap before offering again.
                 is JourneyEvent.SubJourneyFinished -> settleOrRaise(ctx)
                 // No new evidence - re-deriving would just re-request the same RE_IDENTIFY again.
-                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
+                is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
                 else -> {
                     // The offered set IS "every tool that can resolve the account itself" - derived
                     // from the catalog, never listed. AuthPolicy.candidateTools cannot be used: it
                     // needs a resolved account, which by definition does not exist yet.
                     val tools = CandidateTools.forLookupLogin(ctx)
-                    if (tools.isEmpty()) Decision.Abort("Kein Login-Verfahren ohne Geraetebindung verfuegbar")
-                    else Decision.Advance(LookupLoginState.Credential(tools))
+                    if (tools.isEmpty()) Transition.Abort("Kein Login-Verfahren ohne Geraetebindung verfuegbar")
+                    else Transition.To(LookupLoginState.Credential(tools))
                 }
             }
 
+            // The only intent that trusts a tool to resolve the account itself - but only on the
+            // FIRST proof, which is the one that has no account yet.
             is LookupLoginState.Credential -> when (event) {
+                is JourneyEvent.Completed -> Transition.Perform(proofAction(event, useOutcomeAccount = true), resumeState = state)
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) Decision.Cancel
-                    else Decision.Advance(state.copy(declined = declined, active = null))
+                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
+                    else Transition.To(state.copy(declined = declined, active = null))
                 }
                 else -> settleOrRaise(ctx)
             }
 
+            // Any further factor runs against the account already bound by the first one, exactly
+            // like every other intent, so it must not be able to name a different one.
             is LookupLoginState.AdditionalFactor -> when (event) {
+                is JourneyEvent.Completed -> Transition.Perform(proofAction(event, useOutcomeAccount = false), resumeState = state)
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     // Giving up here cannot mean "finish anyway": the floor is still unmet, and
                     // finishing would put the channel in AUTHENTICATED below its own level.
-                    if ((state.offered.toSet() - declined).isEmpty()) Decision.Cancel
-                    else Decision.Advance(state.copy(declined = declined, active = null))
+                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
+                    else Transition.To(state.copy(declined = declined, active = null))
                 }
                 else -> settleOrRaise(ctx)
             }
@@ -90,15 +78,28 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             // but only ACCEPT asks the machine to actually link the device.
             is LookupLoginState.OfferBinding -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Decision.Execute(Effect.LinkDevice(state.accountId))
-                    DECLINE -> Decision.Authenticated
+                    ACCEPT -> Transition.Perform(Action.LinkDevice(state.accountId), resumeState = state)
+                    DECLINE -> Transition.Authenticated
                     else -> error("OfferBinding does not understand answer '${event.answer}'")
                 }
+                is JourneyEvent.ActionCompleted -> Transition.Authenticated
                 else -> error("OfferBinding only accepts JourneyEvent.Answered")
             }
         }
 
     override fun cancelledTo(state: LookupLoginState): ChannelState = ChannelState.ANONYMOUS
+
+    /**
+     * Neither [ToolOutcome.Completed.Identified] nor [ToolOutcome.Completed.Enrolled] can be
+     * offered by any state of this intent; reaching here would mean the state machine let through
+     * a tool it never offered.
+     */
+    private fun proofAction(event: JourneyEvent.Completed, useOutcomeAccount: Boolean): Action =
+        when (val outcome = event.outcome) {
+            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount, bindDevice = false)
+            is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled ->
+                error("${event.tool.toolId} is not offered by LOGIN_LOOKUP")
+        }
 
     /**
      * The channel's own acrFloor applies here like it does to every other intent - forgetting it
@@ -111,19 +112,19 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
      * stays available: it adds no lasting credential, only re-confirms the same account at a
      * higher trust level (`RE_IDENTIFY`'s `ConfirmIdentity`).
      */
-    private fun settleOrRaise(ctx: JourneyContext): Decision {
+    private fun settleOrRaise(ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
-            return Decision.Advance(LookupLoginState.OfferBinding(account.accountId))
+            return Transition.To(LookupLoginState.OfferBinding(account.accountId))
         }
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
         if (candidates.isNotEmpty()) {
-            return Decision.Advance(LookupLoginState.AdditionalFactor(candidates))
+            return Transition.To(LookupLoginState.AdditionalFactor(candidates))
         }
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
-            Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, ctx.acrFloor, resumeWith = LookupLoginState.Start)
+            Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, ctx.acrFloor, resumeWith = LookupLoginState.Start)
         } else {
-            Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+            Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
         }
     }
 

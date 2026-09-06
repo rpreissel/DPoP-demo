@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DpopKeyPair } from '../dpop.ts'
 import { getIdClaims, getToken } from '../api.ts'
 import type { IdTokenClaims, TokenResponse } from '../types'
@@ -31,14 +31,27 @@ export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
   const [claims, setClaims] = useState<IdTokenClaims | null>(null)
   const [error, setError] = useState('')
 
-  function loadToken(minValiditySeconds?: number) {
+  // Guards the initial, effect-driven load against StrictMode's double effect-invocation in dev
+  // (see App.tsx's activatingToolIdRef/loadingSecurityDetailsRef for the same pattern): without
+  // it, the second invocation fires its own concurrent getToken() before the first has landed,
+  // and the loser comes back as a CONCURRENT_MODIFICATION error instead of a harmless duplicate
+  // mint. Only guards the mount-time call - the buttons below call loadToken() directly, a single
+  // user click is never "concurrent" with itself.
+  const loadingInitialTokenRef = useRef(false)
+
+  function loadToken(minValiditySeconds?: number, onSettled?: () => void) {
     getToken(dpop, channelSessionId, minValiditySeconds)
       .then(setToken)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(onSettled)
   }
 
   useEffect(() => {
-    loadToken()
+    if (loadingInitialTokenRef.current) return
+    loadingInitialTokenRef.current = true
+    loadToken(undefined, () => {
+      loadingInitialTokenRef.current = false
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpop, channelSessionId])
 

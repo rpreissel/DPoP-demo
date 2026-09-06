@@ -113,18 +113,24 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     protected fun post(url: String, body: String = "{}"): Map<String, Any?> =
         restTemplate.exchange(
-            "http://localhost:$port$url", HttpMethod.POST, HttpEntity(withDefaultAvailableTools(url, body), headers()), mapType
+            "http://localhost:$port$url",
+            HttpMethod.POST,
+            HttpEntity(if (url == "/orchestrator/api/v1/app/channels") withDefaultAvailableTools(body) else body, headers()),
+            mapType
         ).let { it.statusCode.is2xxSuccessful shouldBe true; it.body!! }
 
     /**
-     * `availableTools` is a required field on `POST /channels` (docs/03-tool-architektur.md,
-     * availability) - every one of the ~60 call sites across these suites would otherwise need it
-     * spelled out by hand. Centralized here instead: unless a test already declares its own
-     * `availableTools` (to test a restricted set), it gets the full catalog, i.e. "this client
-     * supports everything" - the neutral default for flows not about availability itself.
+     * `availableTools` is a required field on channel creation (docs/03-tool-architektur.md,
+     * availability) - every one of the ~60 call sites across these suites, App and kc-facade alike,
+     * would otherwise need it spelled out by hand. Centralized here instead: unless a test already
+     * declares its own `availableTools` (to test a restricted set), it gets the full catalog, i.e.
+     * "this client supports everything" - the neutral default for flows not about availability
+     * itself. `protected`, not `private`: [KcChannelIntegrationTest] builds its PATCH bodies
+     * independently of [post] (a different HTTP method, its own headers) but needs the exact same
+     * default.
      */
-    private fun withDefaultAvailableTools(url: String, body: String): String {
-        if (url != "/orchestrator/api/v1/app/channels" || body.contains("availableTools")) return body
+    protected fun withDefaultAvailableTools(body: String): String {
+        if (body.contains("availableTools")) return body
         val allToolIds = toolRegistry.descriptors().joinToString(",", "[", "]") { "\"${it.toolId}\"" }
         return if (body.isBlank() || body.trim() == "{}") {
             """{"availableTools":$allToolIds}"""

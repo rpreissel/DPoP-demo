@@ -43,6 +43,14 @@ sealed interface JourneyState {
      * says so by ignoring this, and the compiler forces every new state to make that choice.
      */
     fun withActive(active: ToolRef?): JourneyState
+
+    /**
+     * State-owned flags worth surfacing in the journey log (e.g. [com.example.dpop.orchestrator.
+     * journey.state.KcSelectMethodState.accountAlreadyKnown]) - default empty so most states need
+     * not override it. Lets `JourneyService` log them generically, without downcasting to any
+     * concrete state to reach a field only that one carries.
+     */
+    val logDetail: Map<String, Any?> get() = emptyMap()
 }
 
 /**

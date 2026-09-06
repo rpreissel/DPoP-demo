@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.KcChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.policy.AuthEvidence
@@ -56,12 +57,13 @@ class KcChannelService(
         // actual, durable UserSessionModel id, sent explicitly alongside the token because it is
         // NOT the same value as assertion.channelAnchor (which is only ever this flow run's own
         // channelSessionId, see PeerAuthAssertion's own doc) - anything else (wrong session,
-        // tampered, expired) comes back null, same as "nothing to restore". Merged with the live
-        // amr below; live wins on a conflicting method (the last occurrence wins in associateBy)
-        // since it reports what THIS flow run just proved, the more trustworthy claim. A restored
-        // method keeps ITS OWN original `source` (e.g. still `orchestrator` if that's what it was
-        // before the restore) - MethodEvidence.source travels with each entry, never assumed `kc`
-        // just because it arrived via this channel.
+        // tampered, expired) comes back null, same as "nothing to restore". A restored method
+        // keeps ITS OWN original `source` (e.g. still `orchestrator` if that's what it was before
+        // the restore) - MethodEvidence.source travels with each entry, never assumed `kc` just
+        // because it arrived via this channel. Never coincides with a non-empty [amr] in practice:
+        // the only caller that ever sends a restoreDataToken (OrchestratorResumeAuthenticator)
+        // always sends an empty amr alongside it, and always mints a brand-new channelSessionId -
+        // see [restoredFactors]/[liveFactors] below, applied separately for exactly that reason.
         val restoreData = restoreDataToken?.let { restoreDataCodec.decode(it, restoreDataKcSessionId) }
         val effectiveAccountId = accountId ?: restoreData?.accountId
         val restoredFactors = restoreData?.evidence?.factors.orEmpty()
@@ -86,11 +88,15 @@ class KcChannelService(
                 AcrLevel(AcrLevels.HIGHEST),
                 descriptor.factorTypes,
                 source = AmrSource.KEYCLOAK,
-                amrSourceId = entry.amrSourceId,
+                // nativeToolId prefixed on, colon-separated: amrSourceId alone (Keycloak's execution
+                // id) is opaque to a human reading the journey log - this way the log itself names
+                // WHICH native authenticator proved it, without a separate field every consumer of
+                // MethodEvidence would need to carry along. Stable across re-reports of the same
+                // proof (entry.nativeToolId never changes for a given execution), so the "refresh,
+                // not a new proof" comparisons elsewhere (amrSourceId equality) keep working.
+                amrSourceId = "${entry.nativeToolId}:${entry.amrSourceId}",
             )
         }
-        val mergedFactors = (restoredFactors + liveFactors).associateBy { it.method }.values.toList()
-
         // Fails fast and clearly - without this, an unknown accountId still gets bound to the
         // channel (accountId alone is just a Long) and only surfaces once some later step tries
         // to actually resolve the account, as an unrelated-looking internal error.
@@ -98,8 +104,8 @@ class KcChannelService(
             throw OrchestratorException.notFound("Account not found: $effectiveAccountId")
         }
 
-        val existing = sessionManagementService.findChannelSessionById(channelSessionId)
-        if (existing == null) {
+        val isFreshChannel = sessionManagementService.findChannelSessionById(channelSessionId) == null
+        if (isFreshChannel) {
             sessionManagementService.createKcChannelSession(
                 channelSessionId,
                 assertion.channelAnchor,
@@ -129,20 +135,31 @@ class KcChannelService(
 
         targetAcr?.let { sessionManagementService.raiseChannelAcrFloor(channelSessionId, it) }
 
-        // Ensures the entry journey exists (fresh channel) before evidence can be merged into it.
-        var response = channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
+        // restoredFactors only ever arrives paired with a channel THIS call just created (see
+        // restoreDataToken's own doc) - applied as the entry journey's own Anfangs-Übergang
+        // (docs/ideen/journey-strategie-vereinheitlichung.md #3, JourneyService.start's
+        // `seedAction`), so the journey's own first decision already sees the real picture, not a
+        // stale, evidence-blind snapshot immediately superseded a moment later.
+        var response = if (isFreshChannel && restoredFactors.isNotEmpty()) {
+            channelService.resumeChannel(
+                sessionManagementService.findChannelSessionById(channelSessionId)!!,
+                Action.ApplyRestoredEvidence(AmrSource.KEYCLOAK, restoredFactors)
+            )
+        } else {
+            channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
+        }
 
-        // What a native Keycloak authenticator already established (docs/ideen/web-keycloak-kanal.md
-        // #8/#9) - combined into the SAME evidence an orchestrator tool proof would produce, via
-        // JourneyService.applyEvidenceUpdate, then re-derived into the response actually returned.
-        // mergedFactors is the COMPLETE currently-valid kc set for this call (restoreData + live
-        // amr together) - applyEvidenceUpdate syncs kc-sourced records against it, dropping any
-        // whose method is missing (a restored orchestrator-sourced entry is exempt, see above).
-        if (mergedFactors.isNotEmpty()) {
+        // What a native Keycloak authenticator already established THIS run (docs/ideen/web-
+        // keycloak-kanal.md #8/#9) - combined into the SAME evidence an orchestrator tool proof
+        // would produce, via JourneyService.applyEvidenceUpdate, then re-derived into the response
+        // actually returned. Always applied to an already-existing journey (either the one just
+        // started above, or one from an earlier call on this same channel) - never restoredFactors
+        // too, which this call's earlier branch already applied before any journey existed.
+        if (liveFactors.isNotEmpty()) {
             val journey = journeyService.findActive(channelSessionId)
             if (journey != null) {
                 val channel = sessionManagementService.findChannelSessionById(channelSessionId)!!
-                journeyService.applyEvidenceUpdate(journey, channel, AmrSource.KEYCLOAK, mergedFactors)
+                journeyService.applyEvidenceUpdate(journey, channel, AmrSource.KEYCLOAK, liveFactors)
                 response = channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
             }
         }

@@ -1,8 +1,8 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.AuthIntent
-import com.example.dpop.orchestrator.journey.Decision
 import com.example.dpop.orchestrator.journey.JourneyContext
+import com.example.dpop.orchestrator.journey.Transition
 import org.springframework.stereotype.Component
 
 /**
@@ -23,5 +23,5 @@ class RegisterStrategy : FastAccessStrategy() {
 
     override val intent: AuthIntent = AuthIntent.REGISTER
 
-    override fun firstOffer(ctx: JourneyContext): Decision = offerIdentification(ctx)
+    override fun firstOffer(ctx: JourneyContext): Transition = offerIdentification(ctx)
 }

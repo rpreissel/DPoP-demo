@@ -1,16 +1,15 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
-import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -27,6 +26,12 @@ import org.springframework.stereotype.Component
  * on its own (evidence of unknown age) does an explicit re-proof of any one active factor run
  * first - unlike an ordinary step-up, this re-proof is never skipped just because loa2 was already
  * reached, and accepts any active factor regardless of its own level (see [DeleteAccountState]).
+ *
+ * That re-proof's own outcome is deliberately never recorded as `MethodEvidence` (a known
+ * behaviour change from the pre-`transition()` design, docs/ideen/journey-strategie-
+ * vereinheitlichung.md #5): unlike every other proof in this journey, it authorizes exactly one
+ * immediate action, never a durable claim about what this account can prove again later - so it
+ * goes straight to [Action.DeleteAccount] instead of first through [Action.AcceptProof].
  */
 @Component
 class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
@@ -35,25 +40,14 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
 
     override fun initialState(ctx: JourneyContext): DeleteAccountState = DeleteAccountState.ConfirmPending
 
-    override fun interpret(state: DeleteAccountState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
-        when (outcome) {
-            // The account is already known from the channel; the point of this proof is only to
-            // show the caller is still present, not to (re-)establish which account it is.
-            is ToolOutcome.Completed.Authenticated ->
-                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = false)
-            is ToolOutcome.Completed.Identified,
-            is ToolOutcome.Completed.Enrolled ->
-                error("${tool.toolId} is not offered by DELETE_ACCOUNT")
-        }
-
-    override fun decide(state: DeleteAccountState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun transition(state: DeleteAccountState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
             is DeleteAccountState.ConfirmPending -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
                     // No gate before this point (see class doc) - it only applies once the user
                     // actually said yes.
                     "accept" -> gate(ctx) ?: offerReconfirmation(ctx)
-                    "decline" -> Decision.Cancel
+                    "decline" -> Transition.Cancel
                     else -> error("ConfirmPending does not understand answer '${event.answer}'")
                 }
                 // Resumed after gate()'s own step-up - only reachable via a prior "accept" (gate()
@@ -70,48 +64,59 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // first place - delete the account anyway by just re-proving that same loa1 factor,
                 // defeating the loa2 gate this class's own doc says must hold.
                 is JourneyEvent.SubJourneyFinished ->
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Effect.DeleteAccount.REQUIRED_ACR)) {
-                        Decision.Execute(Effect.DeleteAccount(ctx.requireAccount().accountId), then = Decision.Logout)
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Action.DeleteAccount.REQUIRED_ACR)) {
+                        Transition.Perform(Action.DeleteAccount(ctx.requireAccount().accountId), resumeState = state)
                     } else {
-                        Decision.Cancel
+                        Transition.Cancel
                     }
                 // The gate's own STEP_UP was declined instead - same reasoning as above, not a
                 // lesser fallback.
-                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
+                is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
+                // The gate's own step-up proof just finished executing the delete above - end the channel.
+                is JourneyEvent.ActionCompleted -> Transition.Logout
                 // Started: always present the prompt, unconditionally.
-                else -> Decision.Advance(state)
+                else -> Transition.To(state)
             }
 
             is DeleteAccountState.ConfirmationRequired -> when (event) {
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) Decision.Cancel
-                    else Decision.Advance(state.copy(declined = declined, active = null))
+                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
+                    else Transition.To(state.copy(declined = declined, active = null))
                 }
-                // Any active factor, at any level, is sufficient (docs/orchestrator/journey/CandidateTools.kt,
-                // forReconfirmation) - there is no further step once one was proven.
-                else -> Decision.Execute(Effect.DeleteAccount(ctx.requireAccount().accountId), then = Decision.Logout)
+                // Any active factor, at any level, is sufficient (CandidateTools.forReconfirmation)
+                // - there is no further step once one was proven, straight to the delete (see
+                // class doc for why this skips Action.AcceptProof).
+                is JourneyEvent.Completed -> when (event.outcome) {
+                    is ToolOutcome.Completed.Authenticated ->
+                        Transition.Perform(Action.DeleteAccount(ctx.requireAccount().accountId), resumeState = state)
+                    is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled ->
+                        error("${event.tool.toolId} is not offered by DELETE_ACCOUNT")
+                }
+                // The delete just ran - end the channel.
+                is JourneyEvent.ActionCompleted -> Transition.Logout
+                else -> error("ConfirmationRequired does not understand $event")
             }
         }
 
     override fun cancelledTo(state: DeleteAccountState): ChannelState = ChannelState.AUTHENTICATED
 
     /** Null once the session already carries loa2 and the caller may proceed. */
-    private fun gate(ctx: JourneyContext): Decision? {
+    private fun gate(ctx: JourneyContext): Transition? {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, Effect.DeleteAccount.REQUIRED_ACR, account)) return null
-        return Decision.RequireSubJourney(AuthIntent.STEP_UP, Effect.DeleteAccount.REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
+        if (ctx.policy.isSatisfied(ctx.evidence, Action.DeleteAccount.REQUIRED_ACR, account)) return null
+        return Transition.RequireSubJourney(AuthIntent.STEP_UP, Action.DeleteAccount.REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
     }
 
-    private fun offerReconfirmation(ctx: JourneyContext): Decision {
+    private fun offerReconfirmation(ctx: JourneyContext): Transition {
         val candidates = CandidateTools.forReconfirmation(ctx.requireAccount(), ctx)
         // No active factor left to re-prove is unreachable in practice (an AUTHENTICATED channel
         // implies at least one), but Abort - never a silent auto-delete - is the correct fallback
         // if it ever happened.
         return if (candidates.isEmpty()) {
-            Decision.Abort("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar")
+            Transition.Abort("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar")
         } else {
-            Decision.Advance(DeleteAccountState.ConfirmationRequired(candidates))
+            Transition.To(DeleteAccountState.ConfirmationRequired(candidates))
         }
     }
 }

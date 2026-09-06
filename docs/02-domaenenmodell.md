@@ -11,7 +11,9 @@ Wie die Tools darauf aufsetzen, beschreibt [03-tool-architektur.md](03-tool-arch
 classDiagram
   class ChannelSession {
     UUID channelSessionId
+    Channel channel
     string bindingKeyRef
+    string channelAnchor
     long accountId
     UUID authContextId
     ChannelState state
@@ -45,7 +47,17 @@ classDiagram
   ChannelSession "1" --> "0..*" SessionEvent : audited-by
 ```
 
-`DeviceAccountLink` ist bewusst **nicht** mit `ChannelSession` verknüpft — genau das ist der Punkt: die einzige langlebige, von einer einzelnen `ChannelSession` unabhängige Zuordnung Gerät -> Account (`bindingKeyRef -> accountId`), Details in [DPoP-Bindung](09-dpop.md) Abschnitt 3.
+`DeviceAccountLink` ist bewusst **nicht** mit `ChannelSession` verknüpft — genau das ist der Punkt: die einzige langlebige, von einer einzelnen `ChannelSession` unabhängige Zuordnung Gerät -> Account (`bindingKeyRef -> accountId`), Details in [DPoP-Bindung](09-dpop.md) Abschnitt 3. Bewusst **APP-only**: Im Web-Kanal gibt es kein Gerät, das eine solche Zuordnung tragen könnte — `bindingKeyRef` bleibt dort `null`.
+
+**Kanal-Anker, je Fassade verschieden.** Beide Fassaden tun strukturell dasselbe (Identität
+nachweisen, dann gegen das prüfen, womit der Kanal angelegt wurde), nur der Anker unterscheidet
+sich: `APP` nutzt `bindingKeyRef` (Geräteschlüssel, DPoP-Proof dagegen); `KEYCLOAK` nutzt
+`channelAnchor` (immer der eigene `channelSessionId`-Wert DIESES Flow-Durchlaufs, in der
+Peer-Auth-Assertion mitgeführt) — bewusst nicht Keycloaks durables `UserSessionModel`, damit zwei
+GLEICHZEITIGE Flow-Durchläufe derselben SSO-Session (zwei Tabs, die parallel steppen) nie denselben
+Anker teilen. `ChannelAccessGuard` ([05-api.md](05-api.md) Abschnitt 3) ist ein Vertrag mit zwei
+Implementierungen für genau diese zwei Nachweisformen — die Ressource dahinter (`ChannelSession`)
+bleibt identisch.
 
 ---
 
@@ -103,7 +115,7 @@ stateDiagram-v2
 
 ## 4) Enumerationen
 
-- `Channel`: `APP`, `WEB`
+- `Channel`: `APP`, `KEYCLOAK` — welche Fassade den Kanal geöffnet hat, für dessen ganze Lebenszeit fest ([05-api.md](05-api.md) Abschnitt 3).
 - `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`, `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
 - `AuthIntent`: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT` — Ziel *samt* Führungsstrategie ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). `DELETE_ACCOUNT` ist wie `MANAGE_AUTH_METHODS` nur auf einem bereits `AUTHENTICATED`-Kanal erreichbar, dreht die Reihenfolge aber bewusst um: erst eine unbedingte, immer verlangte Ja/Nein-Bestätigung (`Prompt`, siehe [API](05-api.md) Abschnitt "Das `Prompt`-Objekt") — das kostet nichts und darf nicht hinter einem Step-up versteckt sein, den der Aufrufer vielleicht gar nicht will —, erst danach, nur bei Zustimmung, dasselbe loa2-Gate wie vor `MANAGE_AUTH_METHODS`. War die Session schon vorher bei loa2 (Evidenz unbekannten Alters), verlangt das Gate zusätzlich einen frisch erneut bewiesenen, beliebigen aktiven Faktor; musste das Gate stattdessen erst einen Step-up auslösen, zählt der dabei erbrachte Nachweis bereits als dieser und die Löschung folgt direkt.
 - `JourneyLifecycle`: `STARTED`, `SUSPENDED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`

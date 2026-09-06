@@ -1,16 +1,17 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.id_fsc.IdentFscDescriptor
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
-import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.assertions.throwables.shouldThrow
@@ -41,22 +42,25 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         }
     }
 
-    given("interpret") {
-        val state = ReIdentifyState.OfferReIdent("loa2", "loa1")
+    given("Identifying, a completed tool") {
+        val state = ReIdentifyState.Identifying("loa2", "loa1", listOf("ident-fsc"))
 
         then("Identified always confirms the caller's already-known account, never adopts a different one") {
-            strategy.interpret(state, IdentFscDescriptor, ToolOutcome.Completed.Identified(personId = 1L)) shouldBe Effect.ConfirmIdentity
+            val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+            val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
+            strategy.transition(state, event, ctx()) shouldBe
+                Transition.Perform(Action.ConfirmIdentity(IdentFscDescriptor, outcome), resumeState = state)
         }
 
         then("Authenticated is not offered by this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.interpret(state, IdentFscDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("fsc")))
+                strategy.transition(state, JourneyEvent.Completed(IdentFscDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("fsc"))), ctx())
             }
         }
 
         then("Enrolled is not offered by this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.interpret(state, IdentFscDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("fsc", "ref")))
+                strategy.transition(state, JourneyEvent.Completed(IdentFscDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("fsc", "ref"))), ctx())
             }
         }
     }
@@ -70,9 +74,9 @@ class ReIdentifyStrategyTest : BehaviorSpec({
 
         `when`("accepted") {
             then("advances to Identifying, offering exactly the reachable IDENT tool(s)") {
-                val decision = strategy.decide(state, JourneyEvent.Answered("accept"), theCtx)
-                decision.shouldBeInstanceOf<Decision.Advance>()
-                val to = (decision as Decision.Advance).to
+                val transition = strategy.transition(state, JourneyEvent.Answered("accept"), theCtx)
+                transition.shouldBeInstanceOf<Transition.To>()
+                val to = (transition as Transition.To).state
                 to.shouldBeInstanceOf<ReIdentifyState.Identifying>()
                 to as ReIdentifyState.Identifying
                 to.targetAcr shouldBe "loa2"
@@ -83,19 +87,19 @@ class ReIdentifyStrategyTest : BehaviorSpec({
 
         `when`("declined") {
             then("cancels") {
-                strategy.decide(state, JourneyEvent.Answered("decline"), theCtx) shouldBe Decision.Cancel
+                strategy.transition(state, JourneyEvent.Answered("decline"), theCtx) shouldBe Transition.Cancel
             }
         }
 
         `when`("an unrecognized answer is given") {
             then("fails loudly rather than guessing") {
-                shouldThrow<IllegalStateException> { strategy.decide(state, JourneyEvent.Answered("maybe"), theCtx) }
+                shouldThrow<IllegalStateException> { strategy.transition(state, JourneyEvent.Answered("maybe"), theCtx) }
             }
         }
 
         `when`("(re-)started without an answer yet") {
             then("re-presents the same prompt, unconditionally") {
-                strategy.decide(state, JourneyEvent.Started, theCtx) shouldBe Decision.Advance(state)
+                strategy.transition(state, JourneyEvent.Started, theCtx) shouldBe Transition.To(state)
             }
         }
     }
@@ -110,7 +114,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         val state = ReIdentifyState.OfferReIdent("loa2", "loa1")
 
         then("accepting still cancels rather than erroring") {
-            strategy.decide(state, JourneyEvent.Answered("accept"), theCtx) shouldBe Decision.Cancel
+            strategy.transition(state, JourneyEvent.Answered("accept"), theCtx) shouldBe Transition.Cancel
         }
     }
 
@@ -121,22 +125,25 @@ class ReIdentifyStrategyTest : BehaviorSpec({
 
         `when`("one is abandoned but another remains") {
             then("advances, marking only that one declined") {
-                strategy.decide(state, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe
-                    Decision.Advance(state.copy(declined = setOf("ident-fsc"), active = null))
+                strategy.transition(state, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe
+                    Transition.To(state.copy(declined = setOf("ident-fsc"), active = null))
             }
         }
 
         `when`("the last remaining candidate is abandoned too") {
             val exhausted = state.copy(declined = setOf("ident-eid"))
             then("cancels - giving up here is not an error") {
-                strategy.decide(exhausted, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe Decision.Cancel
+                strategy.transition(exhausted, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe Transition.Cancel
             }
         }
 
-        `when`("a proof completes") {
+        `when`("a proof completes, then is resumed (ActionCompleted)") {
             then("finishes directly - the identification's own maxAcr already IS the achieved level") {
-                val completed = JourneyEvent.Completed(IdentFscDescriptor, ToolOutcome.Completed.Identified(personId = 1L))
-                strategy.decide(state, completed, theCtx) shouldBe Decision.Authenticated
+                val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+                val completed = JourneyEvent.Completed(IdentFscDescriptor, outcome)
+                strategy.transition(state, completed, theCtx) shouldBe
+                    Transition.Perform(Action.ConfirmIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
             }
         }
     }

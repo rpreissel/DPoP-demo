@@ -45,7 +45,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             "http://localhost:$port/orchestrator/api/v1/kc/channels/$channelSessionId",
             HttpMethod.PATCH,
             HttpEntity(
-                body,
+                withDefaultAvailableTools(body),
                 HttpHeaders().apply {
                     set("Authorization", "Bearer mock-peer-auth-token")
                     set("Content-Type", "application/json")

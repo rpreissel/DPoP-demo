@@ -282,11 +282,19 @@ function App() {
    * response settled `next` into authenticated), so it's only left set once this effect has
    * already backfilled it for the CURRENT authenticated state - a later re-authentication (e.g.
    * after a step-up) clears it again via applyResponse first, firing this effect anew.
+   *
+   * loadingSecurityDetailsRef guards against StrictMode's double effect-invocation in dev, same
+   * reasoning as activatingToolIdRef above: without it, the second invocation fires its own
+   * concurrent getChannel() before the first has set currentAcr, and the loser can come back as a
+   * CONCURRENT_MODIFICATION error instead of just being a wasted duplicate read.
    */
+  const loadingSecurityDetailsRef = useRef(false)
   useEffect(() => {
     if (!dpop || !channelSessionId) return
     if (next?.type !== 'orchestrator' || next.context !== 'authentication' || next.step !== 'authenticated') return
     if (currentAcr !== undefined) return
+    if (loadingSecurityDetailsRef.current) return
+    loadingSecurityDetailsRef.current = true
 
     getChannel(dpop, channelSessionId)
       .then((response) => {
@@ -295,6 +303,9 @@ function App() {
         setActiveMethods(response.channel.activeMethods)
       })
       .catch((err) => setError(describeError('Sicherheitsdetails laden fehlgeschlagen', err)))
+      .finally(() => {
+        loadingSecurityDetailsRef.current = false
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpop, channelSessionId, next, currentAcr])
 

@@ -1,8 +1,8 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.AuthIntent
-import com.example.dpop.orchestrator.journey.Decision
 import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
@@ -32,17 +32,17 @@ class RegisterStrategyTest : BehaviorSpec({
         val acc = account(method("device", "loa2", details = deviceDetails()), method("sms", "loa2"))
 
         then("skips PreferredAuth/AuthChoice entirely and goes straight to identification") {
-            val decision = strategy.decide(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc))
-            decision.shouldBeInstanceOf<Decision.Advance>()
-            (decision as Decision.Advance).to.shouldBeInstanceOf<FastAccessState.Identifying>()
+            val transition = strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc))
+            transition.shouldBeInstanceOf<Transition.To>()
+            (transition as Transition.To).state.shouldBeInstanceOf<FastAccessState.Identifying>()
         }
     }
 
     given("Start, no account known yet") {
         then("behaves exactly like FAST_ACCESS in this case - both fall to identification") {
-            val decision = strategy.decide(FastAccessState.Start, JourneyEvent.Started, ctx(account = null))
-            decision.shouldBeInstanceOf<Decision.Advance>()
-            (decision as Decision.Advance).to.shouldBeInstanceOf<FastAccessState.Identifying>()
+            val transition = strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = null))
+            transition.shouldBeInstanceOf<Transition.To>()
+            (transition as Transition.To).state.shouldBeInstanceOf<FastAccessState.Identifying>()
         }
     }
 })

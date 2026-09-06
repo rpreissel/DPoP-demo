@@ -40,7 +40,18 @@ function notifyApiCall(entry: ApiCallLogEntry) {
   for (const listener of apiCallListeners) listener(entry)
 }
 
-async function call<T>(dpop: DpopKeyPair, method: string, path: string, body?: unknown): Promise<T> {
+/**
+ * A genuine race on the same session's optimistically-locked row (two tabs, a doubled effect, a
+ * client retry overlapping the original) - not just a StrictMode artifact (OrchestratorException
+ * Handler.handleConcurrentModification's own doc: "the loser should retry against freshly-read
+ * state"). Retried here, once, rather than serializing writes server-side: the conflict means the
+ * write never applied at all (optimistic locking fails BEFORE any commit), so a retry is always
+ * safe regardless of HTTP method, and a per-session lock would pay a serialization cost on every
+ * request just to avoid a case this rare.
+ */
+const CONCURRENT_MODIFICATION_RETRY_DELAY_MS = 150
+
+async function call<T>(dpop: DpopKeyPair, method: string, path: string, body?: unknown, isRetry = false): Promise<T> {
   const url = `${window.location.origin}${path}`
   const proof = await createDpopProof(dpop.keyPair, method, url)
   let response: Response
@@ -64,6 +75,10 @@ async function call<T>(dpop: DpopKeyPair, method: string, path: string, body?: u
       message = parsed.message ?? message
     } catch {
       // Response body wasn't the documented {error, message} shape - fall back to raw text.
+    }
+    if (!isRetry && errorCode === 'CONCURRENT_MODIFICATION') {
+      await new Promise((resolve) => setTimeout(resolve, CONCURRENT_MODIFICATION_RETRY_DELAY_MS))
+      return call(dpop, method, path, body, true)
     }
     notifyApiCall({ method, path, requestBody: body, status: response.status, error: message })
     throw new ApiError(response.status, errorCode, message)

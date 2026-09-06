@@ -9,7 +9,8 @@ import java.util.UUID
 @Service
 @Transactional
 class AuthEvidenceService(
-    private val authEvidenceRepository: AuthEvidenceRepository
+    private val authEvidenceRepository: AuthEvidenceRepository,
+    private val sessionManagementService: SessionManagementService
 ) {
 
     fun createForAccount(accountId: Long): AuthEvidence =
@@ -40,5 +41,22 @@ class AuthEvidenceService(
             ?: throw IllegalArgumentException("AuthEvidence not found: $authEvidenceId")
         evidence.replaceForSource(source, updates)
         authEvidenceRepository.save(evidence)
+    }
+
+    /**
+     * The one place a [ChannelSession] gets linked to its own AuthEvidence trail (starting a
+     * fresh one for its account if none exists yet) and then synced via [applyEvidenceUpdate] -
+     * both [ChannelSession] and this service already live in the `session` package, so the
+     * linking itself belongs here, not duplicated in `orchestrator.journey.JourneyService` (which
+     * only ever needs to decide WHICH JourneyEvent fires and HOW the change gets logged, journey-
+     * scoped or channel-scoped - never how [channel] and its evidence get wired together).
+     */
+    fun attachToChannel(channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
+        val accountId = checkNotNull(channel.accountId) { "Evidence update without a known account" }
+        if (channel.authEvidenceId == null) {
+            channel.authEvidenceId = createForAccount(accountId).authEvidenceId
+            sessionManagementService.updateChannelSession(channel)
+        }
+        applyEvidenceUpdate(checkNotNull(channel.authEvidenceId), updates, source)
     }
 }

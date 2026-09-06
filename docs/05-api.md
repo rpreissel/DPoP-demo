@@ -189,34 +189,67 @@ Erreichbar nur über `POST /channels` mit `intent: "lookup_login"` — nie über
 
 ## 3) Web/Keycloak-Fassade (Keycloak-first)
 
-**Geplant, noch nicht gebaut** (bd-Epic `DPoP-demo-bqi`, 0/7 – ersetzt das früher hier dokumentierte
-`processes/login`/`processes/step-up`-Muster).
+**Umgesetzt.** Anders als die App-Fassade spricht der Browser hier nie mit dem Orchestrator — die
+Strecke Keycloak → Orchestrator ist reine Server-zu-Server-Kommunikation über Keycloaks eigenes
+Java-SPI-Plugin (`keycloak-extension/`). Ein einziger fassaden-spezifischer Endpunkt, Upsert-
+Semantik statt Erzeugen-dann-Fortsetzen:
 
-Designentscheidung (bd `DPoP-demo-bqi.5`): **ein einziger** fassaden-spezifischer Endpunkt —
+- `PATCH /orchestrator/api/v1/kc/channels/{channelSessionId}` — legt den Kanal beim ersten Aufruf
+  unter dieser Keycloak-gewählten ID an, setzt ihn bei jedem weiteren Aufruf fort. Die ID stammt aus
+  Keycloaks eigenem, laufendem Auth-Flow (`AuthenticationSessionModel`/`UserSessionModel`), nie vom
+  Orchestrator vergeben — das macht den Aufruf idempotent (ein wiederholter `PATCH` auf dieselbe ID
+  liefert dasselbe Ergebnis) und erspart einen separaten "ID merken und zurückschicken"-Umlauf, den
+  das `POST`-Muster der App-Fassade dafür braucht.
 
-- `POST /orchestrator/api/v1/kc/channels` — etabliert eine `ChannelSession(WEB)`, verankert an der
-  kc-Auth-Session (initialer Login) bzw. User-Session (Step-up). Antwort in derselben `ChannelResponse`-
-  Form wie `POST /app/channels`.
+Body (alle Felder optional, `KcChannelUpsertRequest`):
+
+| Feld | Bedeutung |
+|---|---|
+| `accountId` | Der Account, den Keycloak schon kennt (`sub` vorhanden, Step-up) — bindet den Kanal sofort, nie später überschrieben. |
+| `targetAcr` | Keycloaks angefragtes LoA-Level, bereits in einen Orchestrator-ACR-String übersetzt — hebt nur die Kanal-Untergrenze an, nie herab. Ohne dieses Ziel könnte `KC_SELECT_METHOD` (Abschnitt 3 in [Orchestrierung](04-orchestrierung.md)) seine Kandidaten nicht sinnvoll filtern. |
+| `amr` | Liste `{nativeToolId, amrSourceId}` — was ein natives Keycloak-Verfahren (nie ein Orchestrator-Tool) DIESEN Flow-Durchlauf gerade bewiesen hat. Methode/Loa/Faktortypen löst der Orchestrator serverseitig über `nativeToolId` auf (`NativeAuthenticatorDescriptor`), nicht mitgeschickt — genau wie ein Orchestrator-Tool seine Evidenz aus dem eigenen `ToolDescriptor` bezieht. Immer die VOLLSTÄNDIGE, aktuell gültige Menge, kein Delta. |
+| `restoreData` / `kcSessionId` | Ein signiertes Token aus `GET .../restore-data` einer FRÜHEREN, unabhängigen `ChannelSession` (derselben Keycloak-User-Session) — reicht die dort erreichte Evidenz an einen frisch angelegten Kanal weiter, bevor dessen erste Journey-Entscheidung überhaupt läuft. `kcSessionId` bindet das Token an Keycloaks durables `UserSessionModel`, unabhängig vom flow-lokalen Kanal-Anker. Ein falsches/abgelaufenes/manipuliertes Token kommt als `null` zurück, nie als Fehler — bedeutet nur "ohne Vorlauf starten". |
+| `availableTools` | Welche `toolId`s das Keycloak-Theme rendern kann (ein `WebToolRenderer` pro Tool) — nur beim ersten Aufruf gelesen, das Web-Pendant zu `availableTools` bei `POST /app/channels`. |
+
+`GET .../{channelSessionId}/restore-data?kcSessionId=...` — nur für Keycloaks eigenen
+Flow-Ende-Hook: liest zurück, was dieser Kanal akkumuliert hat, signiert als Token, das an genau
+diese `kcSessionId` gebunden ist (`RestoreDataCodec`). Keycloak legt es in einer
+`UserSessionModel`-Note ab und reicht es bei einem SPÄTEREN Step-up unverändert als `restoreData`
+im ersten `PATCH` des neuen Kanals zurück.
 
 Danach läuft **alles** über dieselben fassadenneutralen Endpunkte wie die App-Fassade — kein
 `/kc/`-Präfix, keine Duplikate von Tool-Aktivierung & Co.:
 
-- `GET`/`DELETE .../channels/{channelSessionId}`, `.../step-ups`, `.../journey`, `.../methods`,
+- `GET .../channels/{channelSessionId}`, `.../step-ups`, `.../journey`, `.../methods`,
   `.../enrollments`, `.../token`, `.../idclaims` (Abschnitt 2)
 - `POST .../channels/{channelSessionId}/tools/{toolId}` (Aktivierung), danach `PATCH`/`GET
   /tools/{toolSessionId}/{toolId}` — identisch zur App-Fassade
 
-Statt DPoP-Proof authentifiziert sich Keycloak selbst über eine signierte Request-Assertion (kein
-mTLS, bd `DPoP-demo-bqi.4`): ein JWT pro Request mit `iss=keycloak`, `aud=orchestrator`, `htm`/`htu`
-dieses Requests, `jti`+`iat` (derselbe Replay-Cache und dasselbe `max-clock-skew-seconds`-Fenster
-wie bei DPoP), plus Kontext — `kcAuthSessionId` beim initialen Login (noch kein `sub`, der
-Orchestrator ermittelt den Account erst im Ablauf) bzw. `kcSessionId`/`sub` beim Step-up (Nutzer
-bereits bekannt). Verifikation gegen Keycloaks JWKS, ein Schlüsselpaar pro Client, nicht pro Nutzer.
+Statt DPoP-Proof authentifiziert sich Keycloak selbst über eine signierte Peer-Auth-Assertion im
+`Authorization`-Header (kein mTLS, ADR-7): ein JWT pro Request mit `iss=keycloak`,
+`aud=orchestrator`, `htm`/`htu` dieses Requests, `jti`+`iat` (derselbe Replay-Cache und dasselbe
+`max-clock-skew-seconds`-Fenster wie bei DPoP, [09-dpop.md](09-dpop.md)), plus der Kanal-Anker
+dieses Flow-Durchlaufs (`channelAnchor`) — der Guard prüft ihn gegen exakt diesen Kanal
+(`KcChannelAccessGuard`), sonst würde eine geleakte `channelSessionId` plus irgendeine gültig
+signierte Keycloak-Assertion zum Kanal-Hijack reichen. Verifikation gegen Keycloaks JWKS, ein
+Schlüsselpaar pro Client, nicht pro Nutzer.
 
-Web-Login ist der bereits gebaute Lookup-Login (kein Gerät im Web-Kanal, `DeviceAccountLink` bleibt
-APP-only, bd `DPoP-demo-bqi.1`): ohne Gerätebindung bleiben nur die `-lookup`-Tools
-(`deviceBound=false`). `intent=fast_access` ist im Web bedeutungslos, da es auf
-`DeviceAccountLink` aufsetzt — bleiben `register`/`lookup_login` als explizite Wahl.
+Jede Antwort an einen `KEYCLOAK`-Kanal trägt zusätzlich `authData` (`accountId`/`acr`/`amr`,
+niemals bei `APP`) — Keycloaks eigener `OrchestratorAuthenticator` schreibt es sofort in seine
+Session-Notes, damit ein späterer nativer Schritt und Keycloaks eigene Conditional-LoA-Maschinerie
+immer den aktuellen Stand sehen. `amr` bildet dabei Methode auf Quelle ab (`"kc"` für eine native
+Selbstauskunft Keycloaks, `"orchestrator"` für ein abgeschlossenes Orchestrator-Tool) — rein
+informativ, den kombinierten `acr` bestimmt weiterhin ausschließlich der Orchestrator.
+
+Der Web-Kanal kennt kein Gerät — `DeviceAccountLink` bleibt APP-only
+([02-domaenenmodell.md](02-domaenenmodell.md)). Login läuft über den bereits gebauten
+Lookup-Login bzw. über den eigenen Entry-Intent `KC_SELECT_METHOD`
+([04-orchestrierung.md](04-orchestrierung.md) Abschnitt 3), der Keycloak die Auswahl unter allen
+kc-nutzbaren Tools überlässt, statt selbst eine Fallback-Kette zu fahren.
+
+**Offen:** Die Logout-Semantik im Web-Kanal ist noch nicht entschieden — ob `DELETE
+/channels/{id}` für `KEYCLOAK`-Kanäle clientseitig überhaupt aufrufbar sein soll, oder ausschließlich
+kc-getrieben (Keycloaks eigener Logout-Flow folgt dem Orchestrator-Kanal nur nach, nicht umgekehrt).
 
 ---
 

@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
@@ -162,7 +163,13 @@ class ChannelService(
      * active journey" logic for the kc-facade's upsert endpoint (docs/ideen/web-keycloak-kanal.md
      * #6) instead of duplicating it - only channel creation differs per facade.
      */
-    internal fun resumeChannel(channel: ChannelSession): ChannelResponse {
+    /**
+     * [seedAction] only ever matters for the fresh-journey branch below (a channel with an
+     * already-active journey never re-fires it; an already-AUTHENTICATED one never starts a new
+     * one either) - `null` by default, see [JourneyService.start]'s own doc for when a caller
+     * (`KcChannelService`'s RestoreData case) needs one.
+     */
+    internal fun resumeChannel(channel: ChannelSession, seedAction: Action? = null): ChannelResponse {
         // LOGGED_OUT is terminal (docs/02-domaenenmodell.md #3) - without this, a GET on an old
         // channelSessionId would silently hand back a fresh login attempt on a dead channel.
         if (channel.state == ChannelState.LOGGED_OUT) return respond(channel)
@@ -171,11 +178,11 @@ class ChannelService(
         journeyService.findActive(channelId)?.let { return respond(channel, journeyService.nextOf(it, channel)) }
         if (channel.state == ChannelState.AUTHENTICATED) return respond(channel)
 
-        return startEntryJourney(channel)
+        return startEntryJourney(channel, seedAction)
     }
 
-    private fun startEntryJourney(channel: ChannelSession): ChannelResponse {
-        val step = journeyService.startEntryJourney(channel)
+    private fun startEntryJourney(channel: ChannelSession, seedAction: Action? = null): ChannelResponse {
+        val step = journeyService.startEntryJourney(channel, seedAction)
         return respond(sessionManagementService.findChannelSessionById(channel.channelSessionId!!)!!, step.next, step.stepData)
     }
 

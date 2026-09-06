@@ -1,15 +1,14 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
-import com.example.dpop.orchestrator.journey.Decision
-import com.example.dpop.orchestrator.journey.Effect
 import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
-import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -17,7 +16,7 @@ import org.springframework.stereotype.Component
  * Raise the level of an already authenticated session (docs/04-orchestrierung.md #3).
  *
  * Whenever no active method can close the gap - whether this runs standalone or as another
- * journey's precondition ([JourneyContext.isSubJourney]) - a [Decision.RequireSubJourney] into
+ * journey's precondition ([JourneyContext.isSubJourney]) - a [Transition.RequireSubJourney] into
  * `RE_IDENTIFY` ([ReIdentifyStrategy]) asks first before ever falling through to a fresh
  * identification: re-identification is a heavier action than picking another factor, so it's
  * never a silent shortcut, and this way the confirmation/interpretation logic lives in exactly
@@ -34,61 +33,63 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     override fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): StepUpState =
         StepUpState.Start(targetAcr, startingAcr)
 
-    override fun interpret(state: StepUpState, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect =
-        when (outcome) {
-            is ToolOutcome.Completed.Authenticated ->
-                Effect.AcceptProof(useOutcomeAccount = false, bindDevice = true)
-            is ToolOutcome.Completed.Identified,
-            is ToolOutcome.Completed.Enrolled -> error("${tool.toolId} is not offered by STEP_UP")
-        }
-
-    override fun decide(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Decision =
+    override fun transition(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
+            // No tool is ever activatable here (see AuthChoice), so this never actually sees a
+            // Completed event - only the sub-journey/give-up-vs-offer events below.
             is StepUpState.Start -> when (event) {
                 // Re-check whether the fresh proof already closes the gap before offering again.
                 is JourneyEvent.SubJourneyFinished -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
                 // No new evidence - re-deriving would just re-request the same RE_IDENTIFY again.
-                is JourneyEvent.SubJourneyCancelled -> Decision.Cancel
+                is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
                 else -> offerAuth(state.targetAcr, state.startingAcr, ctx)
             }
 
             is StepUpState.AuthChoice -> when (event) {
+                is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     if ((state.offered.toSet() - declined).isEmpty()) {
-                        offerReIdentOrGiveUp(state.targetAcr, state.startingAcr, ctx, whenNone = Decision.Cancel)
+                        offerReIdentOrGiveUp(state.targetAcr, state.startingAcr, ctx, whenNone = Transition.Cancel)
                     } else {
-                        Decision.Advance(state.copy(declined = declined, active = null))
+                        Transition.To(state.copy(declined = declined, active = null))
                     }
                 }
+                // ActionCompleted: re-check with the fresh, post-proof context.
                 else -> finishOrContinue(state.targetAcr, state.startingAcr, ctx)
             }
         }
 
     override fun cancelledTo(state: StepUpState): ChannelState = ChannelState.AUTHENTICATED
 
-    private fun finishOrContinue(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
+    private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
+        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount = false, bindDevice = true)
+        is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled ->
+            error("${event.tool.toolId} is not offered by STEP_UP")
+    }
+
+    private fun finishOrContinue(targetAcr: String, startingAcr: String, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Decision.Authenticated
+        if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Transition.Authenticated
         return offerAuth(targetAcr, startingAcr, ctx)
     }
 
-    private fun offerAuth(targetAcr: String, startingAcr: String, ctx: JourneyContext): Decision {
+    private fun offerAuth(targetAcr: String, startingAcr: String, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         val candidates = CandidateTools.forAuth(account, targetAcr, ctx)
         if (candidates.isNotEmpty()) {
-            return Decision.Advance(StepUpState.AuthChoice(targetAcr, startingAcr, candidates))
+            return Transition.To(StepUpState.AuthChoice(targetAcr, startingAcr, candidates))
         }
         return offerReIdentOrGiveUp(
             targetAcr, startingAcr, ctx,
-            whenNone = Decision.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}")
+            whenNone = Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}")
         )
     }
 
     /** Asks first (see class doc) if re-identification could close the gap; [whenNone] otherwise. */
-    private fun offerReIdentOrGiveUp(targetAcr: String, startingAcr: String, ctx: JourneyContext, whenNone: Decision): Decision =
+    private fun offerReIdentOrGiveUp(targetAcr: String, startingAcr: String, ctx: JourneyContext, whenNone: Transition): Transition =
         if (CandidateTools.forReIdentification(targetAcr, ctx).isNotEmpty()) {
-            Decision.RequireSubJourney(AuthIntent.RE_IDENTIFY, targetAcr, resumeWith = StepUpState.Start(targetAcr, startingAcr))
+            Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, targetAcr, resumeWith = StepUpState.Start(targetAcr, startingAcr))
         } else {
             whenNone
         }

@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -12,10 +13,15 @@ import com.example.dpop.tool_spi.ToolOutcome
 /**
  * The SPI each intent implements - symmetric to `tool_spi`, where tools describe themselves.
  *
- * A strategy DECIDES, it never ACTS: it gets a read-only [JourneyContext] and names an [Effect]
+ * A strategy DECIDES, it never ACTS: it gets a read-only [JourneyContext] and names an [Action]
  * for JourneyService to execute. Everything with a side effect - creating accounts, recording
  * evidence, writing device links, capping ACR - is executed centrally by [JourneyService] and is
  * not reachable from here.
+ *
+ * `transition` is the transition function (classical automaton terminology: `δ`) - the one and
+ * only place a strategy answers "what happens next". "First offer", "a tool just completed", "a
+ * tool was abandoned", "an action just finished" and "a sub-journey came back" are all the same
+ * question with a different [JourneyEvent], not four separate methods.
  */
 interface IntentStrategy<S : JourneyState> {
     /** Which [AuthIntent] this strategy implements - one bean per entry in that enum. */
@@ -26,33 +32,24 @@ interface IntentStrategy<S : JourneyState> {
 
     /**
      * Where this intent begins when entered as another journey's precondition
-     * ([Decision.RequireSubJourney]) instead of directly. Needs [targetAcr] because a
+     * ([Transition.RequireSubJourney]) instead of directly. Needs [targetAcr] because a
      * sub-journey's goal is set by whoever demanded it - a directly entered journey gets its goal
      * from [JourneyContext] via [initialState] instead.
      *
      * The default is a runtime error, not a compile error: nothing here can check statically that
-     * only intents actually named in some [Decision.RequireSubJourney] override this.
+     * only intents actually named in some [Transition.RequireSubJourney] override this.
      */
     fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): S =
         error("$intent cannot be entered as a sub-journey")
 
     /**
-     * What a completed tool MEANS here - a pure value, no execution. The same successful
-     * `ident-fsc` is "find or create the account" under FAST and "confirm the known account, else
-     * 409" under STEP_UP/MANAGE. JourneyService executes the returned [Effect] and refreshes
-     * [JourneyContext] (evidence, ACR) BEFORE calling [decide] with the resulting
-     * `JourneyEvent.Completed` - that ordering is why this stays a separate method from [decide]
-     * instead of folding into it: [decide]'s own logic (e.g. "is the floor satisfied now?") needs
-     * the POST-effect context, which only exists once this has already run.
+     * The one and only transition. A completed tool's outcome answers "what did it establish" via
+     * [Transition.Perform]: JourneyService executes the returned [Action], refreshes
+     * [JourneyContext] from the result, and calls this again with [JourneyEvent.ActionCompleted] -
+     * so a strategy's own follow-up logic (e.g. "is the floor satisfied now?") always sees the
+     * POST-action context, never the stale one the tool outcome arrived with.
      */
-    fun interpret(state: S, tool: ToolDescriptor, outcome: ToolOutcome.Completed): Effect
-
-    /**
-     * The one and only transition. "First offer", "after a completed tool", "after an abandoned
-     * tool" and "back from a sub-journey" all answer the same question, so they are one method
-     * with an event parameter instead of four.
-     */
-    fun decide(state: S, event: JourneyEvent, ctx: JourneyContext): Decision
+    fun transition(state: S, event: JourneyEvent, ctx: JourneyContext): Transition
 
     /** Which channel state a cancelled journey of this intent falls back to. */
     fun cancelledTo(state: S): ChannelState
@@ -106,17 +103,25 @@ sealed interface JourneyEvent {
      * Keycloak (the caller supplies `source` explicitly); an intent no such caller ever reaches
      * (e.g. anything APP-only) simply never receives it.
      */
-    data object EvidenceUpdated : JourneyEvent
+    data object EvidenceReported : JourneyEvent
 
-    /** A tool finished successfully; [outcome] is what [IntentStrategy.interpret] turns into an [Effect]. */
+    /** A tool finished successfully; [outcome] is what a strategy turns into an [Action]. */
     data class Completed(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed) : JourneyEvent
 
     /** "Back"/"Switch": the user abandoned an activated tool without finishing it. */
     data class Abandoned(val tool: ToolDescriptor) : JourneyEvent
 
     /**
+     * A [Transition.Perform]'s [Action] just finished executing, against a freshly derived
+     * [JourneyContext] - see [IntentStrategy.transition]'s own doc. Every state a strategy names
+     * as [Transition.Perform.resumeState] must have an arm for this event: it is the only event
+     * that state will ever actually see next.
+     */
+    data object ActionCompleted : JourneyEvent
+
+    /**
      * [intent] names WHICH sub-journey just finished - a resumed parent must never assume this by
-     * construction ("only one caller today"), because a future second [Decision.RequireSubJourney]
+     * construction ("only one caller today"), because a future second [Transition.RequireSubJourney]
      * from the same state would then silently be mistaken for the first. `DeleteAccountStrategy`'s
      * `ConfirmPending` branch is the one consumer that actually checks it.
      *
@@ -141,7 +146,7 @@ sealed interface JourneyEvent {
      * An explicit answer to whatever an [AnswerableState] is waiting on, instead of a tool run -
      * see [JourneyService.answer]. [answer] is a plain string, not a boolean: today's only case is
      * accept/decline, but nothing here should have to change the day some future action needs more
-     * than two choices - the owning intent's own [IntentStrategy.decide] alone decides which
+     * than two choices - the owning intent's own [IntentStrategy.transition] alone decides which
      * values are valid.
      */
     data class Answered(val answer: String) : JourneyEvent
@@ -152,92 +157,112 @@ sealed interface JourneyEvent {
  * routing derivation live once in [JourneyService], not once per intent.
  *
  * There is no separate "offer these tools" variant: a state already carries what it offers
- * ([JourneyState.activatable]), so [Advance] to that state IS the offer.
+ * ([JourneyState.activatable]), so [To] to that state IS the offer.
  */
-sealed interface Decision {
-    /** Move the journey to [to]; what it now offers is read straight off that state. */
-    data class Advance(val to: JourneyState) : Decision
+sealed interface Transition {
+    /** Move the journey to [state]; what it now offers is read straight off that state. */
+    data class To(val state: JourneyState) : Transition
 
     /** Run another intent first, then resume this journey at [resumeWith]. */
     data class RequireSubJourney(
         val intent: AuthIntent,
         val targetAcr: String,
         val resumeWith: JourneyState
-    ) : Decision
+    ) : Transition
 
     /** Goal reached: consume the journey, the channel becomes AUTHENTICATED. */
-    data object Authenticated : Decision
+    data object Authenticated : Transition
 
     /**
      * The user gave up (abandoned the last thing this journey could offer). Distinct from
      * [Abort]: nothing went wrong, so this ends like an explicit cancel - via
      * [IntentStrategy.cancelledTo], with a fresh start offered afterwards - rather than as a 410.
      */
-    data object Cancel : Decision
+    data object Cancel : Transition
 
     /**
-     * Run [effect], then continue as [then] - deactivating a method, linking a device, or
-     * deleting an account, each of which continues the journey afterward with [then]
-     * (ordinarily [Authenticated] or [Logout]).
+     * Run [action], then resume the journey at [resumeState] with [JourneyEvent.ActionCompleted]
+     * once it has - the state a completed tool outcome or a strategy's own action (deactivating a
+     * method, linking a device, deleting an account) continues at afterward.
      */
-    data class Execute(val effect: Effect, val then: Decision = Authenticated) : Decision
+    data class Perform(val action: Action, val resumeState: JourneyState) : Transition
 
     /**
      * Confirmed logout: ends the channel for good. The journey is consumed, authContext
-     * discarded, channel becomes LOGGED_OUT. Also the natural [Execute.then] for
-     * [Effect.DeleteAccount].
+     * discarded, channel becomes LOGGED_OUT. Also the natural resume target after
+     * [Action.DeleteAccount].
      */
-    data object Logout : Decision
+    data object Logout : Transition
 
     /** No way forward at all. Ends the journey with 410 - never a mere "no candidates left". */
-    data class Abort(val reason: String) : Decision
+    data class Abort(val reason: String) : Transition
 }
 
 /**
  * A named side effect a strategy decided, for [JourneyService] to actually execute - the strategy
  * never acts itself (see [IntentStrategy]'s own class doc). Two origins share this one
- * vocabulary: the first four variants answer "what did a just-completed tool establish" (returned
- * by [IntentStrategy.interpret]); the rest are a strategy's own effects wrapped in
- * [Decision.Execute], continuing the journey with [Decision.Execute.then] afterward.
+ * vocabulary: the first four variants answer "what did a just-completed tool establish" (carried
+ * by a [Transition.Perform] returned in reaction to [JourneyEvent.Completed], with the very
+ * [ToolDescriptor]/[ToolOutcome] that arrived with it); the rest are a strategy's own actions,
+ * likewise wrapped in [Transition.Perform].
  */
-sealed interface Effect {
+sealed interface Action {
     /** Find or create the account for the identified person and record the identification. */
-    data object AdoptIdentity : Effect
+    data class AdoptIdentity(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
 
     /** The identified person must match the already-known account, else 409. */
-    data object ConfirmIdentity : Effect
+    data class ConfirmIdentity(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
 
-    /** A new credential was enrolled; [bindDevice] says whether it should also link this device. */
-    data class AdoptCredential(val bindDevice: Boolean) : Effect
+    /**
+     * A new credential was enrolled; [bindDevice] says whether it should also link this device.
+     */
+    data class AdoptCredential(
+        val tool: ToolDescriptor,
+        val outcome: ToolOutcome.Completed.Enrolled,
+        val bindDevice: Boolean
+    ) : Action
 
     /**
      * [useOutcomeAccount] is what makes lookup-based login safe: only an intent that expects a
-     * tool to resolve the account itself accepts `Authenticated.accountId`. Everywhere else the
-     * account must already be known from channel or journey.
+     * tool to resolve the account itself accepts `outcome.accountId`. Everywhere else the account
+     * must already be known from channel or journey.
      */
-    data class AcceptProof(val useOutcomeAccount: Boolean, val bindDevice: Boolean) : Effect
+    data class AcceptProof(
+        val tool: ToolDescriptor,
+        val outcome: ToolOutcome.Completed.Authenticated,
+        val useOutcomeAccount: Boolean,
+        val bindDevice: Boolean
+    ) : Action
+
+    /**
+     * Prime a fresh channel's evidence from [methods] before this journey's own first decision -
+     * the Anfangs-Übergang ([JourneyService.start]'s `seedAction`, docs/ideen/journey-strategie-
+     * vereinheitlichung.md #3), never a strategy's own decision: no strategy ever sees this
+     * action, it is applied mechanically before `initialState()` even runs.
+     */
+    data class ApplyRestoredEvidence(val source: String, val methods: List<MethodEvidence>) : Action
 
     /**
      * Deactivate a method instance. Not a tool run; the strategy decides it, the machine executes
      * it (rejecting self-lockout).
      */
-    data class Remove(val methodInstanceId: String) : Effect
+    data class Remove(val methodInstanceId: String) : Action
 
     /**
-     * Link the current device to [accountId] - the effect an accepted device-binding offer asks
+     * Link the current device to [accountId] - the action an accepted device-binding offer asks
      * for (see [JourneyEvent.Answered]).
      */
-    data class LinkDevice(val accountId: Long) : Effect
+    data class LinkDevice(val accountId: Long) : Action
 
     /**
-     * Delete the account and everything it owns. An irreversible effect, so [JourneyService]
+     * Delete the account and everything it owns. An irreversible action, so [JourneyService]
      * independently re-checks [REQUIRED_ACR] against the CURRENT evidence right before executing
      * it, exactly like it independently re-checks self-lockout before [Remove].
      */
-    data class DeleteAccount(val accountId: Long) : Effect {
+    data class DeleteAccount(val accountId: Long) : Action {
         companion object {
             /**
-             * The ACR JourneyService independently re-checks right before executing this effect.
+             * The ACR JourneyService independently re-checks right before executing this action.
              * Lives here rather than in `DeleteAccountStrategy` so the generic machine can
              * reference it without importing a concrete [IntentStrategy] implementation.
              */

@@ -185,7 +185,7 @@ Der Reihe nach, weil jeder Schritt den vorherigen als zu eng entlarvt hat:
 3. **Generalisiert**: Ein wiederverwendbarer `resolveIdentity(kvnr, claimed)`-Mechanismus, der für
    jedes Identifizierungsverfahren gleich funktioniert (nur die tatsächlich behaupteten Felder
    werden geprüft, `ClaimedIdentity` mit lauter optionalen Feldern), aber die *Bedeutung* eines
-   `NotFound`/`Mismatch`-Ergebnisses ist journey-spezifisch (`IntentStrategy.interpret()`, das es
+   `NotFound`/`Mismatch`-Ergebnisses ist journey-spezifisch (`IntentStrategy.transition()`, das es
    für genau sowas schon gibt): bei Registrierung ist "nicht gefunden" harmlos (neu anlegen), bei
    Step-Up mitten im Vorgang ist "eine andere Person gefunden" ein harter Fehler.
 

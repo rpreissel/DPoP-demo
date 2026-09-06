@@ -79,15 +79,24 @@ Details: [04-orchestrierung.md](04-orchestrierung.md)
 
 ### Web (Keycloak-first)
 
-1. Browser/BFF hat Keycloak-Session.
-2. Keycloak-Authenticator startet bei Bedarf Step-up beim Orchestrator.
-3. Backend erstellt eine `AuthJourney(STEP_UP)` und referenziert die `ChannelSession(WEB)`.
-4. Nach fachlichem Erfolg aktualisiert Keycloak den IAM-Kontext.
-5. Backend synchronisiert `AuthContext.currentAcr/currentAmr`.
-6. `ChannelSession.state` bleibt oder wird wieder `AUTHENTICATED`.
+Der Browser spricht nie direkt mit dem Orchestrator - Keycloaks eigenes Java-SPI-Plugin ruft ihn
+server-zu-server auf, authentifiziert per signierter Peer-Auth-Assertion statt DPoP.
 
-Beide Kanäle nutzen nach dem Start dieselben kanalneutralen Tool-URLs. Nur der Einstieg
-unterscheidet sich: Die App legt einen Kanal an, Keycloak startet eine Journey.
+1. Keycloaks natives Login (Conditional-LoA-Subflow) ruft bei Bedarf den Orchestrator per
+   `PATCH /orchestrator/api/v1/kc/channels/{channelSessionId}` auf - Upsert-Semantik, legt den
+   Kanal (`ChannelSession(KEYCLOAK)`) beim ersten Aufruf unter der von Keycloak gewählten ID an.
+2. Backend startet dabei die Entry-Journey `KC_SELECT_METHOD` und bietet alle kc-nutzbaren Tools
+   als einen `selectMethod`-Schritt an ([04-orchestrierung.md](04-orchestrierung.md)).
+3. Keycloaks `OrchestratorAuthenticator` rendert das passende Formular, reicht Eingaben per
+   `PATCH`/`POST` an dieselben kanalneutralen Tool-Endpunkte wie die App weiter.
+4. Nach fachlichem Erfolg schreibt der Authenticator `authData` (`accountId`/`acr`/`amr`) sofort in
+   Keycloaks eigene Session-Notes; ein Protocol Mapper übernimmt sie beim Token-Mint in die
+   `acr`/`amr`-Claims.
+5. `ChannelSession.state` wechselt auf `AUTHENTICATED`, sobald das angefragte Niveau erreicht ist.
+
+Beide Kanäle nutzen nach dem Einstieg dieselben kanalneutralen Tool-URLs. Nur der Einstieg
+unterscheidet sich: Die App legt per `POST` einen Kanal an, Keycloak upserted ihn per `PATCH` unter
+einer selbstgewählten ID.
 
 Details: [05-api.md](05-api.md)
 
