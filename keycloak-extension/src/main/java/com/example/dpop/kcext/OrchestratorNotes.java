@@ -24,7 +24,7 @@ import java.util.UUID;
  * them, so OrchestratorAuthenticator and OrchestratorUpdateAuthenticator agree on the same shapes
  * without duplicating parsing logic.
  */
-final class OrchestratorNotes {
+public final class OrchestratorNotes {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -39,9 +39,15 @@ final class OrchestratorNotes {
     /** Set once restoreData was already submitted this flow run, so a later resume doesn't resend it. */
     static final String RESTORE_SUBMITTED = "orchestrator_restore_submitted";
 
-    /** Copied into the UserSessionModel automatically at session creation (docs/ideen/web-keycloak-kanal.md #10). */
-    static final String USER_SESSION_NOTE_ACR = "orchestrator_acr";
-    static final String USER_SESSION_NOTE_AMR = "orchestrator_amr";
+    /**
+     * Copied into the UserSessionModel automatically at session creation (docs/ideen/web-keycloak-kanal.md #10).
+     * Public: also written directly by {@link com.example.dpop.kcext.grant.AccountTokenGrantType}
+     * (DPoP-demo-xso) for the App-channel custom grant's own session, which never runs through
+     * {@link OrchestratorAuthenticator} - same note keys, same {@link OrchestratorAcrAmrMapper}
+     * reads them for either origin.
+     */
+    public static final String USER_SESSION_NOTE_ACR = "orchestrator_acr";
+    public static final String USER_SESSION_NOTE_AMR = "orchestrator_amr";
     /** Written directly onto an existing UserSessionModel by the end-of-flow restore-data hook - see OrchestratorEventListener. */
     static final String USER_SESSION_NOTE_RESTORE_DATA = "orchestrator_restore_data";
 

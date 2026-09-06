@@ -23,10 +23,12 @@ import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
+import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -57,7 +59,10 @@ class JourneyService(
     private val authPolicy: AuthPolicy,
     private val toolAvailabilityService: ToolAvailabilityService,
     private val accountDeletionService: AccountDeletionService,
-    private val journeyLogService: JourneyLogService
+    private val journeyLogService: JourneyLogService,
+    // Optional: only present under the `keycloak` profile (KeycloakAdminClient's own doc) -
+    // JourneyService itself runs in every profile, so it must tolerate the bean being absent.
+    private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
 ) {
     /**
      * `next` plus whatever the step needs to render - the pair every caller wants back. `next` is
@@ -550,6 +555,20 @@ class JourneyService(
             journey.consume()
             journeyRepository.save(journey)
             journeyLogService.record(channel, journey, "LOGGED_OUT", journeyState = "LoggedOut")
+            // The App channel has no browser/cookie of its own to end - but it may hold a real
+            // Keycloak session from the custom account-token grant (DPoP-demo-xso,
+            // AccountTokenGrantType's reused session, AuthContext.keycloakSessionId). Ending only
+            // THAT one session here keeps "logout means logout" true for this channel, without
+            // touching any other session the same account happens to also be logged into
+            // elsewhere (e.g. a separate Web-channel browser login). The Web channel's own logout
+            // stays entirely Keycloak's (docs/ideen/web-keycloak-kanal.md #11) - never reaches this
+            // transition for that channel.
+            if (channel.channel == ChannelSession.Channel.APP) {
+                channel.authContextId
+                    ?.let { authContextService.getAuthContext(it) }
+                    ?.keycloakSessionId
+                    ?.let { sessionId -> runCatching { keycloakAdminClient.getIfAvailable()?.logoutSession(sessionId) } }
+            }
             channel.authContextId = null
             channel.authEvidenceId = null
             channel.state = ChannelState.LOGGED_OUT

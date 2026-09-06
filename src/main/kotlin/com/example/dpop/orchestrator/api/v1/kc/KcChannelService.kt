@@ -177,6 +177,15 @@ class KcChannelService(
      */
     fun restoreData(channelSessionId: UUID, assertion: PeerAuthAssertion, kcSessionId: String): String? {
         val channel = kcChannelAccessGuard.requireChannel(channelSessionId, assertion)
+        // This is the one call every completed kc flow run makes unconditionally
+        // (OrchestratorResumeAuthenticator.onTopFlowSuccess, docs/ideen/web-keycloak-kanal.md #6) -
+        // piggybacking the durable session id's first-ever appearance onto it means RetentionJob
+        // (DPoP-demo-f9o.12) gets it for free, with no separate write path or Keycloak-extension
+        // change needed.
+        if (channel.durableKcSessionId != kcSessionId) {
+            channel.durableKcSessionId = kcSessionId
+            sessionManagementService.updateChannelSession(channel)
+        }
         val storedEvidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         val factors = storedEvidence?.amrEvidence?.map { it.toMethodEvidence() }
         if (channel.accountId == null && factors.isNullOrEmpty()) return null

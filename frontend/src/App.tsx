@@ -13,7 +13,9 @@ import {
   createChannel,
   deactivateMethod,
   describeError,
+  getAccountJourneyLog,
   getChannel,
+  getJourneyLog,
   startLogout,
   onApiCall,
   raiseRequiredAcr,
@@ -35,7 +37,10 @@ import { KeycloakSyncView } from './components/KeycloakSyncView'
 import { UnavailableTools } from './components/UnavailableTools'
 import { DiagramHint } from './components/DiagramHint'
 import { MockKeycloakView, type MockKeycloakState } from './components/MockKeycloakView'
+import { WebChannelView } from './components/WebChannelView'
 import { onKcApiCall } from './kcApi'
+import { getWebJourneyLog } from './webApi'
+import type { TokenSet } from './webOidc'
 import { CURRENT_STEP_BY_STATE_TYPE, currentJourneyDiagramKey, journeyContextLabel, JOURNEY_DIAGRAMS } from './journeyDiagrams'
 
 interface ActiveTool {
@@ -43,13 +48,18 @@ interface ActiveTool {
   toolId: string
 }
 
-type Tab = 'welcome' | 'demo' | 'mock-keycloak' | 'journeylog' | 'settings'
-const TABS: Tab[] = ['welcome', 'demo', 'mock-keycloak', 'journeylog', 'settings']
+/** The two demo channels, each a self-contained section with its own Demo/Journey-Log/Einstellungen - "Welcome" sits above both as a shared landing page, not a channel of its own. */
+type Section = 'welcome' | 'app' | 'web'
+type SubTab = 'demo' | 'journeylog' | 'settings' | 'mock'
+const SECTIONS: Section[] = ['welcome', 'app', 'web']
+const SUB_TABS: SubTab[] = ['demo', 'journeylog', 'settings', 'mock']
 
-/** The tab lives in the URL hash (no router dependency needed for three static tabs) so a reload or a shared link keeps/opens the same one, instead of always falling back to "welcome". */
-function tabFromHash(): Tab {
-  const hash = window.location.hash.slice(1)
-  return (TABS as string[]).includes(hash) ? (hash as Tab) : 'welcome'
+/** The section/sub-tab pair lives in the URL hash ("app/journeylog", bare "app" meaning its own default "demo") so a reload or a shared link keeps/opens the same place instead of always falling back to "welcome". */
+function tabFromHash(): { section: Section; sub: SubTab } {
+  const [rawSection, rawSub] = window.location.hash.slice(1).split('/')
+  const section = (SECTIONS as string[]).includes(rawSection) ? (rawSection as Section) : 'welcome'
+  const sub = (SUB_TABS as string[]).includes(rawSub) ? (rawSub as SubTab) : 'demo'
+  return { section, sub }
 }
 
 /** Swagger UI isn't proxied by the vite dev server (only /orchestrator is, see vite.config.ts) - in dev it lives on the backend's own port, in a same-origin deployment it's just window.location.origin. */
@@ -98,7 +108,11 @@ function App() {
     setAvailableToolsState(toolIds)
     storeAvailableTools(toolIds)
   }
-  const [activeTab, setActiveTabState] = useState<Tab>(() => tabFromHash())
+  const [{ section, sub }, setTabState] = useState(() => tabFromHash())
+  // The Web-Kanal's own real Keycloak tokens (webOidc.ts) - lifted here (not kept inside
+  // WebChannelView) purely so the Journey-Log sub-tab can read the current accessToken too,
+  // the same reason kcState/kcDebugLog live here instead of inside MockKeycloakView.
+  const [webTokens, setWebTokens] = useState<TokenSet | null>(null)
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
@@ -114,14 +128,15 @@ function App() {
   // clearing the in-memory state while still reflecting localStorage accurately afterwards.
   const [rememberedChannelSessionId, setRememberedChannelSessionId] = useState(() => loadChannelSessionId())
 
-  /** Keeps the URL hash in sync so a reload, a shared link, or the browser's own back/forward button all land on the right tab. */
-  function setActiveTab(tab: Tab) {
-    setActiveTabState(tab)
-    if (window.location.hash.slice(1) !== tab) window.location.hash = tab
+  /** Keeps the URL hash in sync so a reload, a shared link, or the browser's own back/forward button all land on the right place. `demo` is left off the hash (the section's own default) so "app"/"web" alone still mean "that channel's Demo tab". */
+  function setActiveTab(newSection: Section, newSub: SubTab = 'demo') {
+    setTabState({ section: newSection, sub: newSub })
+    const hash = newSection === 'welcome' ? 'welcome' : newSub === 'demo' ? newSection : `${newSection}/${newSub}`
+    if (window.location.hash.slice(1) !== hash) window.location.hash = hash
   }
 
   useEffect(() => {
-    const onHashChange = () => setActiveTabState(tabFromHash())
+    const onHashChange = () => setTabState(tabFromHash())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
@@ -530,49 +545,57 @@ function App() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <div className={activeTab === 'journeylog' ? 'app app-wide' : 'app'}>
+        <div className={sub === 'journeylog' ? 'app app-wide' : 'app'}>
           <header className="app-header">
             <h1>Identity Journey</h1>
             <p>
               Identifikation, Authentifizierung und Step-up zum Ausprobieren - mehrere Verfahren, deren
-              Ablauf das Backend als Journey steuert (DPoP-gesichert).
+              Ablauf das Backend als Journey steuert.
             </p>
           </header>
 
-          <nav className="app-tabs" role="tablist" aria-label="Bereiche">
-            <button role="tab" aria-selected={activeTab === 'welcome'} className={activeTab === 'welcome' ? 'active' : ''} onClick={() => setActiveTab('welcome')}>
-              Willkommen
-            </button>
-            <button role="tab" aria-selected={activeTab === 'demo'} className={activeTab === 'demo' ? 'active' : ''} onClick={() => setActiveTab('demo')}>
-              Demo
-            </button>
-            <button role="tab" aria-selected={activeTab === 'mock-keycloak'} className={activeTab === 'mock-keycloak' ? 'active' : ''} onClick={() => setActiveTab('mock-keycloak')}>
-              Mock-Keycloak
-            </button>
-            <button role="tab" aria-selected={activeTab === 'journeylog'} className={activeTab === 'journeylog' ? 'active' : ''} onClick={() => setActiveTab('journeylog')}>
-              Journey-Log
-            </button>
-            <button role="tab" aria-selected={activeTab === 'settings'} className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>
-              Einstellungen
-            </button>
-          </nav>
+          {(section === 'app' || section === 'web') && (
+            <nav className="app-tabs app-subtabs" role="tablist" aria-label="Bereich-Unterreiter">
+              <button className="secondary small back-button" onClick={() => setActiveTab('welcome')} aria-label="Zurück zur Startseite">
+                ← Startseite
+              </button>
+              <span className="app-subtabs-title">{section === 'app' ? 'App-Kanal' : 'Web-Kanal'}</span>
+              <button role="tab" aria-selected={sub === 'demo'} className={sub === 'demo' ? 'active' : ''} onClick={() => setActiveTab(section, 'demo')}>
+                Demo
+              </button>
+              {section === 'web' && (
+                <button role="tab" aria-selected={sub === 'mock'} className={sub === 'mock' ? 'active' : ''} onClick={() => setActiveTab(section, 'mock')}>
+                  Mock-Keycloak (Dev)
+                </button>
+              )}
+              <button role="tab" aria-selected={sub === 'journeylog'} className={sub === 'journeylog' ? 'active' : ''} onClick={() => setActiveTab(section, 'journeylog')}>
+                Journey-Log
+              </button>
+              <button role="tab" aria-selected={sub === 'settings'} className={sub === 'settings' ? 'active' : ''} onClick={() => setActiveTab(section, 'settings')}>
+                Einstellungen
+              </button>
+            </nav>
+          )}
 
-          {activeTab === 'welcome' && (
+          {section === 'welcome' && (
             <div className="card welcome-card">
               <h2>Worum geht es hier?</h2>
               <p>
-                In dieser Demo weisen Sie Ihre Identität klassisch nach: durch Identifikation (Freischaltcode
-                oder eID) oder Authentifizierung per SMS, E-Mail, Passwort oder einem geräteeigenen Schlüssel -
-                einzeln oder kombiniert für ein höheres Sicherheitsniveau (Step-up). Jede Anfrage ist zusätzlich
-                kryptografisch an <strong>dieses Gerät</strong> gebunden (DPoP) - das schützt vor gestohlenen
-                Tokens und lässt ein wiederkehrendes Gerät automatisch erkennen.
+                Diese Demo zeigt zwei Wege, wie ein Client Identität nachweist und einen AccessToken bekommt.
+                Der <strong>App-Kanal</strong> ist ein DPoP-gebundener nativer Client: Identifikation
+                (Freischaltcode oder eID) oder Authentifizierung per SMS, E-Mail, Passwort oder einem
+                geräteeigenen Schlüssel, einzeln oder kombiniert für ein höheres Sicherheitsniveau (Step-up) -
+                das Backend steuert den Ablauf serverseitig als Journey, das AccessToken kommt (Mock oder
+                echt, je nach Profil) vom Orchestrator selbst. Der <strong>Web-Kanal</strong> ist dagegen ein
+                echter Browser-Client gegen ein echtes Keycloak: Login per Redirect (loa1 oder loa2), danach
+                AccessToken/IdToken direkt von Keycloak, mit Step-up und Logout ebenfalls direkt gegen
+                Keycloak - der Browser spricht hier nie direkt mit dem Orchestrator (nur Keycloaks eigene
+                Erweiterung tut das, server-seitig).
               </p>
-              <p>
-                Welche Verfahren dabei zur Wahl stehen und in welcher Reihenfolge, entscheidet nicht diese
-                Oberfläche, sondern das Backend anhand des jeweiligen Vorgangs (Registrierung, Login, Step-up,
-                Verwaltung) - jeder dieser Vorgänge läuft als eigene, serverseitig gesteuerte Journey.
-              </p>
-              <p className="welcome-cta">👉 Der Reiter „Demo" oben startet den eigentlichen Vorgang.</p>
+              <div className="form-actions">
+                <button onClick={() => setActiveTab('app')}>Zum App-Kanal</button>
+                <button onClick={() => setActiveTab('web')}>Zum Web-Kanal</button>
+              </div>
               <ul className="status-list">
                 <li>
                   <span className="label">Quellcode</span>
@@ -602,7 +625,7 @@ function App() {
             </div>
           )}
 
-          {activeTab === 'welcome' && (
+          {section === 'welcome' && (
             <div className="card">
               <h2>Wichtige Begriffe für die Demo</h2>
               <p>
@@ -670,12 +693,12 @@ function App() {
                 Journeys mit eigenem Ziel.
               </p>
               <p>
-                Ist ein Channel angemeldet, lässt sich abrufen, was in echt <strong>Keycloak</strong>{' '}
-                ausstellen würde: ein <strong>AccessToken</strong> und ein <strong>RefreshToken</strong> (in
-                dieser Demo simuliert - die echte Keycloak-Anbindung ist noch nicht gebaut). Das AccessToken
-                geht ins Frontend; das RefreshToken verlässt das Backend nie und wird dort im Hintergrund
-                genutzt, um bei Bedarf ein neues AccessToken zu holen, ohne dass Sie sich erneut anmelden
-                müssen.
+                Ist ein App-Kanal-Channel angemeldet, lässt sich ein <strong>AccessToken</strong> und ein{' '}
+                <strong>RefreshToken</strong> abrufen - je nach Backend-Profil ein Mock-JWT oder (Profil{' '}
+                <code>keycloak</code>) ein echter, von Keycloak signierter Token. Das AccessToken geht ins
+                Frontend; das RefreshToken verlässt das Backend nie und wird dort im Hintergrund genutzt, um
+                bei Bedarf ein neues AccessToken zu holen, ohne dass Sie sich erneut anmelden müssen. Der
+                Web-Kanal bekommt seine Tokens dagegen direkt von Keycloak selbst, siehe dessen eigenen Tab.
               </p>
               <p>
                 Details zu allem oben im{' '}
@@ -686,16 +709,21 @@ function App() {
             </div>
           )}
 
-          {activeTab === 'mock-keycloak' && <MockKeycloakView onStateChange={setKcState} />}
+          {section === 'web' && sub === 'mock' && <MockKeycloakView onStateChange={setKcState} />}
 
-          {activeTab === 'journeylog' && <JourneyLogView dpop={dpop} channelSessionId={channelSessionId} />}
+          {sub === 'journeylog' && section === 'app' && (
+            <JourneyLogView fetchLog={dpop ? () => (channelSessionId ? getAccountJourneyLog(dpop, channelSessionId) : getJourneyLog(dpop)) : null} />
+          )}
 
-          {activeTab === 'settings' && (
+          {sub === 'journeylog' && section === 'web' && (
+            <JourneyLogView fetchLog={webTokens ? () => getWebJourneyLog(webTokens.accessToken) : null} />
+          )}
+
+          {section === 'app' && sub === 'settings' && (
             <>
               <AdminToolAvailabilityView />
-              <KeycloakSyncView />
               <div className="card">
-                <h2>Demo-Konfiguration</h2>
+                <h2>Demo-Konfiguration (App-Kanal)</h2>
                 <p>Wirkt erst auf den nächsten im Demo-Reiter neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>
                 <label className="field-row">
                   Startniveau:
@@ -729,14 +757,41 @@ function App() {
             </>
           )}
 
-          {error && activeTab === 'demo' && (
+          {section === 'web' && sub === 'settings' && (
+            <>
+              <KeycloakSyncView />
+              <div className="card">
+                <h2>Web-Kanal-Info</h2>
+                <ul className="status-list">
+                  <li>
+                    <span className="label">Realm</span>
+                    <span className="value">dpop-demo</span>
+                  </li>
+                  <li>
+                    <span className="label">Client</span>
+                    <span className="value">dpop-demo-web (public, PKCE)</span>
+                  </li>
+                  <li>
+                    <span className="label">Keycloak</span>
+                    <a className="value" href="https://localhost:8543" target="_blank" rel="noreferrer">
+                      https://localhost:8543
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {error && section === 'app' && sub === 'demo' && (
             <div className="card error-card">
               <h2>Fehler</h2>
               <p>{error}</p>
             </div>
           )}
 
-          {activeTab === 'demo' && (
+          {section === 'web' && sub === 'demo' && <WebChannelView onTokens={setWebTokens} />}
+
+          {section === 'app' && sub === 'demo' && (
           <>
           <UnavailableTools availableTools={availableTools} />
 
@@ -911,7 +966,7 @@ function App() {
         </div>
       </div>
 
-      {activeTab === 'demo' && (
+      {section === 'app' && sub === 'demo' && (
         <DebugSidebar
           channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
           log={debugLog}
@@ -920,7 +975,7 @@ function App() {
         />
       )}
 
-      {activeTab === 'mock-keycloak' && (
+      {section === 'web' && sub === 'mock' && (
         <DebugSidebar
           channel={{ channelSessionId: kcState.channelSessionId, channelState: kcState.channelState, next: kcState.next, stepData: kcState.stepData, demo: kcState.demo, authData: kcState.authData }}
           log={kcDebugLog}

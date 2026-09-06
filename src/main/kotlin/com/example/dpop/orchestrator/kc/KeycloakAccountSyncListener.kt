@@ -31,7 +31,9 @@ import org.springframework.transaction.event.TransactionalEventListener
 class KeycloakAccountSyncListener(
     private val accountService: AccountService,
     private val extStammdatenService: ExtStammdatenService,
-    private val keycloakAdminClient: KeycloakAdminClient
+    private val keycloakAdminClient: KeycloakAdminClient,
+    private val accountKeypairService: AccountKeypairService,
+    private val accountKeycloakKeypairRepository: AccountKeycloakKeypairRepository
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAccountSyncListener::class.java)
 
@@ -41,6 +43,9 @@ class KeycloakAccountSyncListener(
         val person = extStammdatenService.findPersonById(profile.personId)
         try {
             keycloakAdminClient.upsertUser(profile.accountId, profile.email, person?.vorname, person?.name)
+            val keypair = accountKeypairService.keypairFor(profile.accountId)
+            val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
+            keycloakAdminClient.setPublicKeyCredential(profile.accountId, keypair.publicKeyJwk, activeMethods)
         } catch (e: Exception) {
             log.warn("Keycloak account sync failed for accountId={}", event.accountId, e)
         }
@@ -52,6 +57,13 @@ class KeycloakAccountSyncListener(
             keycloakAdminClient.deleteUser(event.accountId)
         } catch (e: Exception) {
             log.warn("Keycloak account sync (delete) failed for accountId={}", event.accountId, e)
+        }
+        // Local-only, no Keycloak round-trip needed - safe to do even if the deleteUser() call
+        // above failed, unlike deleteUser() itself this can't leave anything orphaned on the
+        // Keycloak side. deleteById() would throw if no row exists (e.g. non-keycloak-synced
+        // account) - existsById() guard keeps this a true no-op then.
+        if (accountKeycloakKeypairRepository.existsById(event.accountId)) {
+            accountKeycloakKeypairRepository.deleteById(event.accountId)
         }
     }
 }

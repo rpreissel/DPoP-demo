@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { DpopKeyPair } from '../dpop'
-import { describeError, getAccountJourneyLog, getJourneyLog } from '../api'
-import type { JourneyLogEntryView } from '../types'
+import { describeError } from '../api'
+import type { JourneyLogEntryView, JourneyLogResponse } from '../types'
 
 interface Props {
-  dpop: DpopKeyPair | null
-  /** When known, fetches every journey step for this channel's own ACCOUNT (across every channel it was ever bound to, APP or KEYCLOAK alike) instead of just this device's own bindingKeyRef - see getAccountJourneyLog. */
-  channelSessionId?: string
+  /**
+   * `null` while there's nothing to fetch for yet (e.g. no DPoP key/no AccessToken loaded);
+   * otherwise the one call that resolves this view's data - the App channel fetches per-device
+   * or per-account via DPoP (see App.tsx), the Web channel via its own real Keycloak AccessToken
+   * as Bearer auth (see WebChannelView.tsx) - this component doesn't care which.
+   */
+  fetchLog: (() => Promise<JourneyLogResponse>) | null
 }
 
 /** Labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
@@ -183,7 +186,7 @@ function buildJourneyTree(byJourney: Map<string, JourneyScopedEntry[]>): Journey
  * Channels and journeys are opaque UUIDs with no meaning of their own, so both the filters and the
  * group headings identify them by when they started (plus the intent, for a journey) instead.
  */
-export function JourneyLogView({ dpop, channelSessionId }: Props) {
+export function JourneyLogView({ fetchLog }: Props) {
   const [entries, setEntries] = useState<JourneyLogEntryView[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -191,20 +194,17 @@ export function JourneyLogView({ dpop, channelSessionId }: Props) {
   const [journeyFilter, setJourneyFilter] = useState<string>('')
 
   function load() {
-    if (!dpop) return
+    if (!fetchLog) return
     setLoading(true)
     setError(null)
-    // Account-scoped once a channel (and so its account, if bound) is known - shows every journey
-    // that account ever ran, including ones started on a Keycloak channel with no bindingKeyRef of
-    // its own; falls back to the plain per-device view before any channel exists yet.
-    const request = channelSessionId ? getAccountJourneyLog(dpop, channelSessionId) : getJourneyLog(dpop)
-    request
+    fetchLog()
       .then((response) => setEntries(response.entries))
       .catch((err) => setError(describeError('Journey-Log laden fehlgeschlagen', err)))
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [dpop, channelSessionId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, [fetchLog])
 
   // Oldest first within a journey's own steps (the backend returns newest-first, the natural
   // order for an API default) - groupedNewestFirst below re-sorts the ChannelSession/Journey

@@ -34,13 +34,17 @@ function channelResponse(overrides: Partial<ChannelResponse> & { channel: Channe
   return { next: undefined, stepData: undefined, demo: undefined, ...overrides }
 }
 
-/** The three-tab split (Willkommen/Demo/Einstellungen) defaults to Willkommen - every test here exercises the Demo tab's content, so it always has to switch first. */
+/** Willkommen/App-Kanal/Web-Kanal defaults to Willkommen, and App-Kanal itself defaults to its own Demo sub-tab - every test here exercises the App-channel Demo content, so it always has to jump in via the Willkommen page's own link first (the Demo sub-tab is then already active). */
 async function switchToDemoTab(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('tab', { name: 'Demo' }))
+  await user.click(await screen.findByRole('button', { name: 'Zum App-Kanal' }))
 }
 
 beforeEach(() => {
   window.localStorage.clear()
+  // Each test relies on mounting fresh on the Willkommen page (switchToDemoTab clicks its "Zum
+  // App-Kanal" jump link) - without resetting the hash, a later test in this file would inherit
+  // whichever section/sub-tab the previous one navigated to and find no such link to click.
+  window.location.hash = ''
   vi.clearAllMocks()
 })
 

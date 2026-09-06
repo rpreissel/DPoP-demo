@@ -46,8 +46,13 @@ class AuthContext(
     @Column(name = "token_handle", length = 4096)
     var tokenHandle: String? = null
 
-    /** Never exposed to the frontend (docs/05-api.md) - a credential, unlike [tokenHandle]'s parsed-JWT display use. */
-    @Column(name = "refresh_token_handle", length = 255)
+    /**
+     * Never exposed to the frontend (docs/05-api.md) - a credential, unlike [tokenHandle]'s
+     * parsed-JWT display use. Same generous length as [tokenHandle] (V25): the `keycloak` profile
+     * stores a real, full-size Keycloak refresh_token JWT here, not just the short opaque mock
+     * secret (`mockrt_<uuid>`) the default profile still uses.
+     */
+    @Column(name = "refresh_token_handle", length = 4096)
     var refreshTokenHandle: String? = null
 
     @Column(name = "auth_time", nullable = false)

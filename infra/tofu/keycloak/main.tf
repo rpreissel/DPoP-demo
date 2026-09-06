@@ -95,22 +95,26 @@ resource "keycloak_realm_events" "realm_events" {
   ]
 }
 
-# The browser-facing RP client (mock frontend) - deliberately separate from
+# The browser-facing RP client (real Web-Kanal demo UI) - deliberately separate from
 # keycloak_openid_client.orchestrator_admin below: this one only ever runs the authorization_code
 # flow a real browser drives, never a service account, and must never be handed admin rights.
 # orchestrator_admin is the exact opposite - a backend-only service account with realm-management
 # rights, no browser flow at all. Two different trust levels, two different clients.
+#
+# PUBLIC + PKCE (S256), not CONFIDENTIAL: the Web-Kanal demo UI exchanges the authorization code
+# for tokens directly from the browser (no backend token-exchange proxy) - a confidential client's
+# secret would otherwise have to ship inside the browser bundle, defeating the point of having one.
 resource "keycloak_openid_client" "browser" {
-  realm_id                     = keycloak_realm.realm.id
-  client_id                    = var.browser_client_id
-  name                         = var.browser_client_id
-  access_type                  = "CONFIDENTIAL"
-  standard_flow_enabled        = true
+  realm_id                    = keycloak_realm.realm.id
+  client_id                   = var.browser_client_id
+  name                        = var.browser_client_id
+  access_type                 = "PUBLIC"
+  standard_flow_enabled       = true
   direct_access_grants_enabled = false
-  service_accounts_enabled     = false
-  valid_redirect_uris          = ["http://localhost:8080/*", "http://localhost:5173/*"]
-  web_origins                  = ["http://localhost:8080", "http://localhost:5173"]
-  client_secret                = var.browser_client_secret
+  service_accounts_enabled    = false
+  valid_redirect_uris         = ["http://localhost:8080/*", "http://localhost:5173/*"]
+  web_origins                 = ["http://localhost:8080", "http://localhost:5173"]
+  pkce_code_challenge_method  = "S256"
 
   authentication_flow_binding_overrides {
     browser_id = keycloak_authentication_flow.orchestrator_browser.id
@@ -137,6 +141,22 @@ resource "keycloak_generic_protocol_mapper" "orchestrator_acr_amr" {
     "access.token.claim" = "true"
     "id.token.claim"     = "true"
   }
+}
+
+# Lets the orchestrator resolve accountId directly from a real AccessToken's own claims
+# (KeycloakOidcTokenValidator, demo-only Web-Kanal Journey-Log read path) instead of having to
+# reverse-engineer it via the Keycloak session id - a built-in mapper type, no custom Java needed,
+# reading the SAME orchestratorAccountId user attribute account-sync already writes.
+resource "keycloak_openid_user_attribute_protocol_mapper" "orchestrator_account_id" {
+  realm_id            = keycloak_realm.realm.id
+  client_scope_id     = keycloak_openid_client_scope.orchestrator_claims_scope.id
+  name                = "orchestrator-account-id"
+  user_attribute      = "orchestratorAccountId"
+  claim_name          = "orchestrator_account_id"
+  claim_value_type    = "String"
+  add_to_id_token     = true
+  add_to_access_token = true
+  add_to_userinfo     = true
 }
 
 resource "keycloak_openid_client_default_scopes" "browser_default_scopes" {
@@ -364,4 +384,18 @@ resource "keycloak_openid_client_service_account_role" "orchestrator_admin_manag
   service_account_user_id = keycloak_openid_client.orchestrator_admin.service_account_user_id
   client_id               = data.keycloak_openid_client.realm_management.id
   role                    = "manage-users"
+}
+
+# Same "orchestrator-claims" scope the browser client already gets (see browser_default_scopes) -
+# without it, OrchestratorAcrAmrMapper never runs for the custom account-token grant's own tokens
+# (DPoP-demo-xso), since that grant authenticates as THIS client, not the browser one.
+resource "keycloak_openid_client_default_scopes" "orchestrator_admin_default_scopes" {
+  realm_id  = keycloak_realm.realm.id
+  client_id = keycloak_openid_client.orchestrator_admin.id
+  default_scopes = [
+    "profile",
+    "email",
+    "roles",
+    keycloak_openid_client_scope.orchestrator_claims_scope.name,
+  ]
 }

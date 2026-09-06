@@ -21,7 +21,8 @@ data class KeycloakSyncResult(val upserted: Int, val deletedOrphans: Int)
 class KeycloakAccountSyncService(
     private val accountService: AccountService,
     private val extStammdatenService: ExtStammdatenService,
-    private val keycloakAdminClient: KeycloakAdminClient
+    private val keycloakAdminClient: KeycloakAdminClient,
+    private val accountKeypairService: AccountKeypairService
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAccountSyncService::class.java)
 
@@ -32,6 +33,9 @@ class KeycloakAccountSyncService(
             val profile = accountService.findAccount(accountId) ?: return@forEach
             val person = extStammdatenService.findPersonById(profile.personId)
             keycloakAdminClient.upsertUser(accountId, profile.email, person?.vorname, person?.name)
+            val keypair = accountKeypairService.keypairFor(accountId)
+            val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
+            keycloakAdminClient.setPublicKeyCredential(accountId, keypair.publicKeyJwk, activeMethods)
         }
 
         val syncedAccountIds = keycloakAdminClient.findAllSyncedAccountIds()

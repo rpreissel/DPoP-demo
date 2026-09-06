@@ -222,3 +222,103 @@ Orchestrator-Journey) — abgefedert dadurch, dass jede Seite klar eine eigene, 
 Zuständigkeit trägt (Keycloak entscheidet OB und WELCHES ACR-Level angefragt ist, der Orchestrator
 WAS innerhalb einer Stufe passiert und wie sich mehrere Nachweise zu einem Gesamt-ACR
 kombinieren).
+
+---
+
+## ADR-9: Profilabhängiges Token-Retrieval — Account-Keypair + custom OAuth2-Grant statt geteiltem Admin-Secret
+
+**Entscheidung** (umgesetzt, DPoP-demo-xso): `GET .../{channelSessionId}/token` ist **`APP`-Kanal-
+only** — ein `KEYCLOAK`-Kanal hat nie einen `AuthContext` und braucht auch keinen: dessen Client
+hält bereits echte Keycloak-Tokens aus dem normalen Browser-Login (`dpop-demo-web`,
+authorization_code) und erneuert sie direkt gegen Keycloak, nie über den Orchestrator
+(`ChannelService.getToken` weist `KEYCLOAK` explizit mit `409` ab). Für `APP` bleibt der Endpunkt
+im Default-Profil das bestehende Mock-JWT (`TokenService`); im `keycloak`-Profil liefert er einen
+echten, von Keycloak signierten AccessToken (`KcTokenProvider`, [05-api.md](05-api.md) Abschnitt
+2) — gemeinsame `TokenProvider`-Schnittstelle, Umschaltung ausschließlich über Spring-Profile,
+kein Laufzeit-Zweig ([04-orchestrierung.md](04-orchestrierung.md) kennt das gleiche Muster für
+`ChannelAccessGuard`).
+
+Ein Step-up desselben Accounts mintet innerhalb dieser einen Keycloak-Session ein neues Token,
+nicht in einer parallelen: `AccountTokenGrantType` markiert die von ihm angelegte
+`UserSessionModel` mit einer eigenen Session-Note und sucht sie bei jedem weiteren Aufruf für
+denselben Account zuerst wieder, statt bedingungslos eine neue anzulegen. Ihre Lebensdauer folgt
+den normalen realm-weiten `SSO Session Idle`/`SSO Session Max`-Einstellungen (Keycloak-Default 30
+Min/10 h) - der Grant gibt dafür (anders als ursprünglich geplant) ein echtes, opakes
+`refresh_token` aus (`useRefreshToken() == true`), statt zustandslos zu bleiben: Keycloaks
+Standard-`refresh_token`-Grant bumpt `lastSessionRefresh` bereits von sich aus bei jeder Erneuerung
+(`TokenManager.generateRefreshToken`), was die Idle-Time genau wie bei einer echten Browser-Session
+verlängert, ohne dass dieser Code das selbst nachbauen müsste. `KcTokenProvider` nutzt diesen
+Standard-Grant für jede reine Fristverlängerung (`KeycloakAdminClient.refreshAccountToken`) - ohne
+Assertion, ohne den Account-Private-Key anzufassen - und geht nur dann erneut über den custom
+Account-Token-Grant (mit frischer, signierter Assertion), wenn sich ACR/AMR seit dem letzten Mint
+tatsächlich geändert haben. Die absolute `SSO Session Max`-Grenze bleibt davon unberührt - wie bei
+jeder Keycloak-Session erzwingt sie irgendwann eine neue Session, unabhängig von der Aktivität.
+
+Die Assertion trägt dafür `acr`/`amr` als eigene, signierte Claims - `AccountTokenGrantType`
+kopiert sie unverändert in dieselben `UserSessionModel`-Notes, die `OrchestratorAuthenticator` auf
+der WEB-Kanal-Seite ohnehin schon schreibt (`orchestrator_acr`/`orchestrator_amr`), sodass der
+bereits registrierte `OrchestratorAcrAmrMapper` (Client-Scope `orchestrator-claims`, jetzt auch
+Default-Scope von `orchestrator-admin`, nicht nur von `dpop-demo-web`) sie unverändert in den
+echten AccessToken schreibt - der Orchestrator bleibt damit für `APP` wie für `KEYCLOAK` gleichermaßen
+die alleinige ACR/AMR-Instanz, nur der Transportweg unterscheidet sich.
+
+Unabhängig vom Profil gilt außerdem: ein Step-up, der die zugrunde liegende `AuthEvidence` verändert
+(`AuthEvidenceService.applyEvidence`/`applyEvidenceUpdate`), verwirft aktiv das im `AuthContext`
+gecachte Access- UND RefreshToken (`tokenHandle`/`tokenExpiresAt`/`refreshTokenHandle`/
+`refreshExpiresAt` auf `null`) — sonst würde `KcTokenProvider`s eigener Refresh-Pfad die alte
+Keycloak-Session mit den alten ACR/AMR-Notes einfach weiter verlängern, ohne den Step-up je zu
+bemerken. Für `TokenService`s Mock-Pfad ist nur die erste Hälfte sicherheitsrelevant (der Mock
+mintet bei jedem Aufruf ohnehin frisch aus der aktuellen Evidenz), das gemeinsame Verwerfen beider
+Felder kostet dort lediglich ein überflüssiges neues Mock-RefreshToken.
+
+Dafür erzeugt der Orchestrator bei jedem Keycloak-Account-Sync ein eigenes, asymmetrisches
+Schlüsselpaar pro Account (`account_keycloak_keypair`, EC P-256) und spiegelt den Public Key als
+echtes Keycloak-`Credential` (Typ `orchestrator-public-key`, `KeycloakAdminClient.setPublicKeyCredential`)
+auf den Keycloak-User — bewusst nicht als Attribut: Proof-of-possession-Material gehört in den
+Credential-Store, nicht neben `email`/`firstName` in dieselben, deutlich leichter versehentlich
+exportierten Profildaten. Da Keycloaks Admin-REST-API keinen generischen "beliebigen Credential-Typ
+setzen"-Endpunkt kennt (nur den fest verdrahteten Passwort-Reset), schreibt eine eigene
+`AdminRealmResourceProvider`-Erweiterung (`AccountPublicKeyResource`, gemountet unter
+`/admin/realms/{realm}/orchestrator-keys/{accountId}`) den Credential serverseitig — Keycloaks
+eigene Admin-Authentifizierung/-Autorisierung greift dabei automatisch, da dieser Erweiterungspunkt
+hinter derselben `/admin/realms/{realm}/...`-Fassade hängt wie jeder eingebaute Endpunkt.
+Ein neuer custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
+`AccountTokenGrantType`, Keycloaks offizielle, pluggable `OAuth2GrantType`-SPI in
+`keycloak-server-spi-private`, registriert über `META-INF/services` wie schon
+`AuthenticatorFactory`) verlangt zusätzlich zur normalen Client-Authentifizierung des
+Orchestrators eine mit dem account-spezifischen Private Key signierte, kurzlebige Assertion
+(`sub`=accountId, `aud`=Grant-URN, `exp` <= 60s) und mintet erst dann einen echten AccessToken für
+diesen Nutzer.
+
+**Erwogene Alternativen**:
+
+- **Ein einzelnes geteiltes Admin-Secret** (der bereits bestehende `keycloak-sync`-Service-Account
+  ruft direkt einen Token für einen beliebigen Nutzer ab, z. B. via Token-Exchange oder
+  Impersonation): verworfen — ein einziges kompromittiertes Secret könnte dann für JEDEN Account
+  einen echten Token ausstellen, nicht nur für den eigenen. Der Blast Radius eines Leaks wäre
+  maximal statt auf einen Account begrenzt.
+- **Nur die umgekehrte Richtung erlauben** (Keycloak ruft den Orchestrator, nie umgekehrt; der
+  Orchestrator triggert Keycloak nur indirekt, z. B. per Redirect/Custom-Flow-Schritt): verworfen
+  für diesen konkreten Anwendungsfall — `GET .../token` ist ein synchroner API-Aufruf eines
+  Orchestrator-Clients, der eine sofortige Antwort braucht; ein Trigger-und-Warte-Umweg über
+  Keycloak würde daran nichts sicherer machen, nur komplizierter.
+- **`private_key_jwt`-Client-Authentifizierung statt `client_secret`** für die Admin-/Sync-Strecke
+  selbst (RFC 7523, secret-frei wie ADR-7): sinnvolle, unabhängige Härtung derselben Philosophie,
+  aber orthogonal zu diesem ADR — betrifft die Account-Sync-Strecke, nicht das Token-Retrieval,
+  und wurde bewusst nicht mit umgesetzt, um dieses Feature nicht aufzublähen.
+
+**Warum das Account-Keypair**: Es überträgt dasselbe Prinzip wie ADR-7 (Signatur statt Secret,
+asymmetrisch statt geteilt) auf eine zweite Richtung — hier nicht pro Client/Node wie ADR-7,
+sondern pro Account, weil genau das der Blast Radius ist, der eingegrenzt werden soll: ein Leak
+trifft höchstens einen Account, nie das gesamte System. Die Assertion selbst bleibt bewusst
+kurzlebig (`exp` <= 60s) und wird nur beim ERSTEN Mint bzw. bei einer tatsächlichen ACR/AMR-
+Änderung gebraucht - jede reine Fristverlängerung dazwischen läuft über das von Keycloak
+ausgegebene `refresh_token`, ohne den Account-Private-Key erneut anzufassen.
+
+**Preis**: Ein weiterer, account-gebundener Datensatz (`account_keycloak_keypair`) mit eigenem
+Lebenszyklus (erzeugt bei Sync, gelöscht bei `AccountDeleted`, [07-betrieb.md](07-betrieb.md)
+Abschnitt 3) sowie ein zusätzliches, projektspezifisches Stück Keycloak-Erweiterung, das bei einem
+Keycloak-Versions-Upgrade gegen die `server-spi-private`-Schnittstelle (bewusst als "private"
+markiert, keine stabile Public-API-Garantie) mitgeprüft werden muss. Demo-only: Der Private Key
+liegt aktuell unverschlüsselt in der Datenbank (bekannte, offene Lücke, kein produktionsreifer
+Zustand).

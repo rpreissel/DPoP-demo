@@ -20,6 +20,7 @@ import com.example.dpop.orchestrator.session.ChannelCreationThrottleService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
+import com.example.dpop.orchestrator.session.TokenProvider
 import com.example.dpop.orchestrator.session.TokenService
 import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.tool_api.ActiveMethodView
@@ -49,6 +50,7 @@ class ChannelService(
     private val channelAccessGuard: ChannelAccessGuard,
     private val journeyService: JourneyService,
     private val tokenService: TokenService,
+    private val tokenProvider: TokenProvider,
     private val channelCreationThrottleService: ChannelCreationThrottleService,
     private val journeyLogService: JourneyLogService
 ) {
@@ -129,15 +131,21 @@ class ChannelService(
     }
 
     /**
-     * The mock Keycloak AccessToken (docs/11-umsetzungsplan.md: real Keycloak facade out of
-     * scope). Covers both first issuance and refresh - [minValiditySeconds] is the caller's
-     * tolerance, the backend alone decides whether the existing token still qualifies or a new
-     * one gets minted (via the remembered RefreshToken, never exposed here).
+     * The AccessToken - Mock (default profile) or a real, Keycloak-signed one (`keycloak`
+     * profile, DPoP-demo-xso) depending on [tokenProvider]. `APP`-only: a `KEYCLOAK` channel never
+     * has an [ChannelSession.authContextId] to mint one from - its client already holds real
+     * Keycloak tokens from the standard browser login and refreshes directly against Keycloak,
+     * never through the orchestrator. Covers both first issuance and refresh -
+     * [minValiditySeconds] is the caller's tolerance, the backend alone decides whether the
+     * existing token still qualifies or a new one gets minted.
      */
     fun getToken(channelSessionId: UUID, bindingKeyRef: String, minValiditySeconds: Long): TokenResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         requireAuthenticated(channel)
-        val pair = tokenService.tokenFor(channel.authContextId!!, minValiditySeconds)
+        if (channel.channel != ChannelSession.Channel.APP) {
+            throw OrchestratorException.invalidState("Token retrieval is only supported for APP channels")
+        }
+        val pair = tokenProvider.tokenFor(channel, minValiditySeconds)
         return TokenResponse(accessToken = pair.accessToken, accessExpiresAt = pair.accessExpiresAt, refreshExpiresAt = pair.refreshExpiresAt)
     }
 

@@ -90,6 +90,38 @@ Zwei Varianten:
 
 In beiden Fällen lebt die `channelSessionId` danach nicht weiter — ein neuer Kanal braucht einen neuen `POST`. Die Gerätebindung bleibt nutzbar: `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) sorgt dafür, dass der nächste `POST` das Gerät wiedererkennt.
 
+### AccessToken (`GET .../{channelSessionId}/token`)
+
+**`APP`-Kanal-only** (DPoP-demo-xso, ADR-9): ein `KEYCLOAK`-Kanal hat nie einen `AuthContext`, aus
+dem sich ein Token minten ließe, und braucht auch keinen — dessen Client hält bereits echte
+Keycloak-Tokens aus dem normalen Browser-Login und erneuert sie direkt gegen Keycloak, nie über den
+Orchestrator. `ChannelService.getToken` weist einen `KEYCLOAK`-Kanal deshalb mit `409
+INVALID_STATE_TRANSITION` ab, bevor `TokenProvider` überhaupt aufgerufen wird. Für `APP` selbst
+entscheidet `TokenProvider` profilabhängig:
+
+- **Default-Profil** (`MockTokenProvider`): liefert unverändert `TokenService`s Mock-JWT
+  (`alg=none`, `iss=mock-keycloak`) — kein echtes Keycloak beteiligt, wie bisher.
+- **`keycloak`-Profil** (`KcTokenProvider`): liefert einen echten, von Keycloak signierten
+  AccessToken, der auch echte `acr`/`amr`-Claims trägt (über den bestehenden
+  `OrchestratorAcrAmrMapper`, wie beim WEB-Kanal). Drei Fälle, dieselbe Struktur wie
+  `TokenService.tokenFor`: (1) noch lange genug gültig → unverändert zurück; (2) läuft ab, aber
+  ACR/AMR unverändert → billige Erneuerung über Keycloaks eigenen `refresh_token`-Grant, ohne
+  Account-Private-Key; (3) kein gültiges RefreshToken mehr (Erstausstellung oder ein Step-up hat
+  den Cache gerade invalidiert) → frische, signierte Assertion (Private Key AUS
+  `account_keycloak_keypair`, trägt `acr`/`amr` selbst als Claims) über den custom OAuth2-Grant
+  (`urn:dpop-demo:account-token`, `keycloak-extension`s `AccountTokenGrantType`; Details: ADR-9).
+  Alle Aufrufe für denselben Account teilen sich dabei dieselbe Keycloak-Session
+  (`AccountTokenGrantType` sucht sie über eine eigene Session-Note wieder, statt bei jedem Aufruf
+  eine neue anzulegen) — ein späteres Step-up mintet ein neues Token in derselben Session, nicht in
+  einer parallelen.
+
+`minValiditySeconds` verhält sich in beiden Profilen identisch (Rückgabe unverändert, solange das
+aktuelle AccessToken noch lange genug gilt) — mit einer Ausnahme: ein Step-up, der die zugrunde
+liegende `AuthEvidence` verändert (`AuthEvidenceService.applyEvidence`/`applyEvidenceUpdate`),
+verwirft das gecachte Token aktiv, egal wie lange es zeitlich noch gültig wäre. Ohne das würde ein
+Client, der kurz nach einem Step-up erneut `.../token` aufruft, bis zu die volle TTL lang noch das
+alte, Vor-Step-up-Token/-Claims zurückbekommen.
+
 ### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)
 
 Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst vom policy-getriebenen REGISTRATION/STEP_UP-Ablauf ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).

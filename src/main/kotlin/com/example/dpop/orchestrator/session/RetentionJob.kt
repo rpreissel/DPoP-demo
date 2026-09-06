@@ -1,6 +1,9 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
+import com.example.dpop.orchestrator.kc.KeycloakAdminClient
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -21,8 +24,12 @@ class RetentionJob(
     private val channelSessionRepository: ChannelSessionRepository,
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceRepository: AuthEvidenceRepository,
-    private val sessionEventRepository: SessionEventRepository
+    private val sessionEventRepository: SessionEventRepository,
+    // Optional: only present under the `keycloak` profile (KeycloakAdminClient.kt's own doc) -
+    // RetentionJob itself runs in every profile, so it must tolerate the bean being absent.
+    private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
 ) {
+    private val log = LoggerFactory.getLogger(RetentionJob::class.java)
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
@@ -34,18 +41,49 @@ class RetentionJob(
             now.minus(JOURNEY_RETENTION), now.minus(JOURNEY_RETENTION)
         )
 
+        val confirmedDeadKcChannels = confirmedDeadKcChannels(now)
+        deleteChannels(confirmedDeadKcChannels)
+
         val expiredChannels = channelSessionRepository.findByExpiresAtBefore(now.minus(CHANNEL_SESSION_RETENTION))
-        val orphanedAuthContextIds = expiredChannels.mapNotNull { it.authContextId }
-        val orphanedAuthEvidenceIds = expiredChannels.mapNotNull { it.authEvidenceId }
-        channelSessionRepository.deleteAll(expiredChannels)
+            .filterNot { it.channelSessionId in confirmedDeadKcChannels.mapNotNull { c -> c.channelSessionId } }
+        deleteChannels(expiredChannels)
+
+        sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
+    }
+
+    /**
+     * `KEYCLOAK` channels whose own (short, per-flow-run) TTL already passed AND whose durable
+     * Keycloak session is affirmatively confirmed gone - safe to delete now instead of waiting out
+     * [CHANNEL_SESSION_RETENTION] like every other channel (DPoP-demo-f9o.12, docs/ideen/
+     * web-keycloak-kanal.md #11): Keycloak owns logout entirely and never tells the orchestrator
+     * when it happens, so without this, a channel whose session already ended sits around for up
+     * to [CHANNEL_SESSION_RETENTION] for no reason. A channel this can't affirmatively confirm
+     * (no client configured, no durable session id recorded yet, or the Admin API call itself
+     * failed) is deliberately left alone here - [KeycloakAdminClient.isSessionAlive]'s own doc on
+     * why `null` must never be treated as "gone".
+     */
+    private fun confirmedDeadKcChannels(now: Instant): List<ChannelSession> {
+        val client = keycloakAdminClient.getIfAvailable() ?: return emptyList()
+        return channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelSession.Channel.KEYCLOAK, now)
+            .filter { channel ->
+                val accountId = channel.accountId
+                val sessionId = channel.durableKcSessionId
+                accountId != null && sessionId != null && client.isSessionAlive(accountId, sessionId) == false
+            }
+    }
+
+    private fun deleteChannels(channels: List<ChannelSession>) {
+        if (channels.isEmpty()) return
+        val orphanedAuthContextIds = channels.mapNotNull { it.authContextId }
+        val orphanedAuthEvidenceIds = channels.mapNotNull { it.authEvidenceId }
+        channelSessionRepository.deleteAll(channels)
         if (orphanedAuthContextIds.isNotEmpty()) {
             authContextRepository.deleteAllById(orphanedAuthContextIds)
         }
         if (orphanedAuthEvidenceIds.isNotEmpty()) {
             authEvidenceRepository.deleteAllById(orphanedAuthEvidenceIds)
         }
-
-        sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
+        log.info("Retention: deleted {} channel session(s)", channels.size)
     }
 
     companion object {

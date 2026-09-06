@@ -92,6 +92,76 @@ class KeycloakAdminClient(
         return authorized().get().uri(uri).retrieve().body<List<Map<String, Any?>>>().orEmpty().isNotEmpty()
     }
 
+    /**
+     * Whether [durableSessionId] (a `UserSessionModel` id, `ChannelSession.durableKcSessionId` -
+     * never `ChannelSession.channelAnchor`, which names a single flow run, not the durable SSO
+     * session) still shows up among [accountId]'s current Keycloak sessions - the check
+     * `RetentionJob` (DPoP-demo-f9o.12) needs before treating an expired `KEYCLOAK` channel as
+     * safe to delete early: since Keycloak owns logout entirely (docs/ideen/web-keycloak-kanal.md
+     * #11) and never tells the orchestrator when it happens, a channel whose session already ended
+     * would otherwise sit around for the full retention window for no reason.
+     *
+     * `null`, not `false`, when the answer genuinely can't be determined (no matching Keycloak
+     * user, or the Admin API call itself failed) - the caller's only correct response to "I don't
+     * know" is to fall back to the existing time-based retention, never to guess either way.
+     */
+    fun isSessionAlive(accountId: Long, durableSessionId: String): Boolean? {
+        val userId = findUserId(accountId) ?: return null
+        return try {
+            val sessions = authorized().get()
+                .uri("/admin/realms/{realm}/users/{id}/sessions", realm, userId)
+                .retrieve().body<List<Map<String, Any?>>>().orEmpty()
+            sessions.any { it["id"] == durableSessionId }
+        } catch (e: Exception) {
+            log.warn("Keycloak session-liveness check failed for accountId={}: {}", accountId, e.message)
+            null
+        }
+    }
+
+    /**
+     * Mirrors [AccountKeypairService]'s per-account public key onto Keycloak as a genuine
+     * `orchestrator-public-key` Credential (DPoP-demo-xso) - not a plain user attribute, which
+     * would sit right next to every other exportable profile field instead of in the credential
+     * store proof-of-possession material actually belongs in. Written via the custom
+     * `AdminRealmResourceProvider` extension (`keycloak-extension`'s `AccountPublicKeyResource`,
+     * mounted at `/admin/realms/{realm}/orchestrator-keys/{accountId}`) since Keycloak's own Admin
+     * REST API has no generic "set an arbitrary credential type" endpoint - only the hardcoded
+     * password reset. `AccountTokenGrantType` reads the key back to verify the orchestrator's
+     * signed assertion for that account; [activeAuthMethods] is stored alongside it purely for
+     * display (never read by the grant) - an admin or the account owner looking at this credential
+     * in Keycloak can then see what it theoretically attests to (e.g. `["password", "sms"]`)
+     * without cross-referencing the orchestrator's own account record. Called on every
+     * [com.example.dpop.account.AccountChanged] (`KeycloakAccountSyncListener`), which already
+     * fires on every method enrollment/deactivation - so this list is never more than one sync
+     * behind the account's real, current method set. A no-op if the user doesn't exist yet (sync
+     * ordering: the caller always upserts the user first).
+     */
+    fun setPublicKeyCredential(accountId: Long, publicKeyJwk: String, activeAuthMethods: List<String>) {
+        if (findUserId(accountId) == null) return
+        authorized().post()
+            .uri("/admin/realms/{realm}/orchestrator-keys/{accountId}", realm, accountId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("publicKeyJwk" to publicKeyJwk, "authMethods" to activeAuthMethods))
+            .retrieve().toBodilessEntity()
+    }
+
+    /**
+     * Ends exactly ONE Keycloak session (`DELETE /admin/realms/{realm}/sessions/{sessionId}`) -
+     * the App-channel counterpart of "logout stays with Keycloak" for the Web channel
+     * (docs/ideen/web-keycloak-kanal.md #11): an App-channel `LogoutIntent` completion
+     * (`JourneyService`'s `Transition.Logout`) has no browser/cookie of its own to end, but the
+     * same account may also hold a real Keycloak session from the custom account-token grant
+     * (DPoP-demo-xso, `AccountTokenGrantType`'s reused session, `AuthContext.keycloakSessionId`).
+     * Deliberately the single-session endpoint, not `POST .../users/{id}/logout` (every session):
+     * an App-channel logout ends only what THAT channel itself was using, never a Web-channel
+     * browser session the same account happens to also be logged into elsewhere. Best-effort by
+     * design, like every other call this class's callers wrap: a failed logout here must never
+     * turn an already-completed App-channel logout into a failed request.
+     */
+    fun logoutSession(keycloakSessionId: String) {
+        authorized().delete().uri("/admin/realms/{realm}/sessions/{sessionId}", realm, keycloakSessionId).retrieve().toBodilessEntity()
+    }
+
     fun deleteUser(accountId: Long) {
         val userId = findUserId(accountId) ?: return
         authorized().delete().uri("/admin/realms/{realm}/users/{id}", realm, userId).retrieve().toBodilessEntity()
@@ -164,6 +234,51 @@ class KeycloakAdminClient(
             .contentType(MediaType.APPLICATION_JSON).body(credential).retrieve().toBodilessEntity()
     }
 
+    /**
+     * Calls the keycloak-extension's custom `urn:dpop-demo:account-token` grant (DPoP-demo-xso.3)
+     * to mint a real, Keycloak-signed access token for [accountId] - [assertion] is the JWT
+     * [com.example.dpop.orchestrator.session.KcTokenProvider] signed with that account's own
+     * private key ([AccountKeypairService]), proving the caller holds it. Client-authenticates as
+     * the same service account [accessToken] already uses; the grant is otherwise independent of
+     * the admin API this class is mostly about.
+     */
+    fun requestAccountToken(accountId: Long, assertion: String): AccountTokenResponse {
+        val form = "grant_type=$ACCOUNT_TOKEN_GRANT_TYPE" +
+            "&client_id=$adminClientId&client_secret=$adminClientSecret" +
+            "&account_id=$accountId&assertion=$assertion"
+        return tokenResponse(form)
+    }
+
+    /**
+     * The cheap renewal path: a plain OAuth2 `refresh_token` grant against the SAME session
+     * [requestAccountToken] created/reused - no assertion, no account private key involved, since
+     * nothing about the account's ACR/AMR changed (that invariant is [KcTokenProvider]'s to keep,
+     * not this method's - it only ever gets called when the caller already decided a refresh is
+     * safe). Standard `refresh_token` grants also bump Keycloak's own `lastSessionRefresh`, which
+     * is what keeps the reused session's SSO Session Idle timeout alive.
+     */
+    fun refreshAccountToken(refreshToken: String): AccountTokenResponse {
+        val form = "grant_type=refresh_token" +
+            "&client_id=$adminClientId&client_secret=$adminClientSecret" +
+            "&refresh_token=$refreshToken"
+        return tokenResponse(form)
+    }
+
+    private fun tokenResponse(form: String): AccountTokenResponse {
+        val response = restClient.post()
+            .uri("/realms/{realm}/protocol/openid-connect/token", realm)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(form)
+            .retrieve()
+            .body<Map<String, Any?>>()
+            ?: error("Keycloak token endpoint returned no body")
+        val accessToken = response["access_token"] as? String ?: error("Keycloak token response has no access_token")
+        val expiresInSeconds = (response["expires_in"] as? Number)?.toLong() ?: 60L
+        val refreshToken = response["refresh_token"] as? String
+        val refreshExpiresInSeconds = (response["refresh_expires_in"] as? Number)?.toLong()
+        return AccountTokenResponse(accessToken, expiresInSeconds, refreshToken, refreshExpiresInSeconds)
+    }
+
     /** [restClient] pre-authorized with a valid (cached, auto-refreshed) service-account access token. */
     private fun authorized(): RestClient =
         restClient.mutate().defaultHeader("Authorization", "Bearer ${accessToken()}").build()
@@ -195,5 +310,15 @@ class KeycloakAdminClient(
 
     companion object {
         private const val PAGE_SIZE = 100
+
+        /** Must match [com.example.dpop.kcext.grant.AccountTokenGrantType.GRANT_TYPE] on the keycloak-extension side. */
+        const val ACCOUNT_TOKEN_GRANT_TYPE = "urn:dpop-demo:account-token"
     }
 }
+
+data class AccountTokenResponse(
+    val accessToken: String,
+    val expiresInSeconds: Long,
+    val refreshToken: String? = null,
+    val refreshExpiresInSeconds: Long? = null
+)

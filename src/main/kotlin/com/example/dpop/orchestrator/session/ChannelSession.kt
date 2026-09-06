@@ -54,6 +54,20 @@ class ChannelSession(
     var channelAnchor: String? = null
 
     /**
+     * KEYCLOAK-only (DPoP-demo-f9o.12), distinct from [channelAnchor]: Keycloak's own durable
+     * `UserSessionModel` id, not this one flow run's anchor - only known once a flow completes
+     * successfully (`OrchestratorResumeAuthenticator.onTopFlowSuccess`'s `restoreData` call, docs/
+     * ideen/web-keycloak-kanal.md #6, sets it via [com.example.dpop.orchestrator.api.v1.kc.
+     * KcChannelService.restoreData] as a side effect of that same call - no separate write path).
+     * `null` for every APP channel and for a KEYCLOAK channel whose flow never completed. Exists
+     * solely so [com.example.dpop.orchestrator.session.RetentionJob] can ask Keycloak's Admin API
+     * whether the underlying session is still alive before deciding how urgently to clean up -
+     * never read for any authorization decision, that stays [channelAnchor]'s job alone.
+     */
+    @Column(name = "kc_durable_session_id", length = 64)
+    var durableKcSessionId: String? = null
+
+    /**
      * Self-assigned rather than `@GeneratedValue`, so the kc-facade can override it with its own,
      * client-chosen id before the first save (docs/ideen/web-keycloak-kanal.md #6 - upsert
      * semantics, idempotent retries) while APP callers, which never touch this field, keep

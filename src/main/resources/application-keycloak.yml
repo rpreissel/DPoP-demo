@@ -17,6 +17,15 @@ kc:
     # Lokal-Testing-Problem dieser Umgebung, kein Sicherheitsanspruch dieses Profils.
     max-clock-skew-seconds: 300
     max-age-seconds: 300
+  # Demo-only convenience read path (KeycloakOidcTokenValidator): the Web-Kanal demo UI's
+  # Journey-Log tab calls the orchestrator directly with the browser's own real Keycloak
+  # AccessToken - the production kc-facade contract ("Browser spricht nie direkt mit dem
+  # Orchestrator") only binds the actual login/tool-execution traffic, not this read-only debug
+  # view. Verified against Keycloak's OWN realm signing key (not the ephemeral peer-auth one above).
+  oidc:
+    issuer: https://localhost:8543/realms/dpop-demo
+    certs-uri: https://localhost:8543/realms/dpop-demo/protocol/openid-connect/certs
+    jwks-cache-ttl-seconds: 600
 
 # Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
 # in einen Keycloak-User - macht die frueher tofu-deklarierten Demo-User ueberfluessig.

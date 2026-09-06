@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.api.v1
 
 import com.example.dpop.orchestrator.dpop.DpopValidationException
+import com.example.dpop.orchestrator.kc.OidcTokenValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import org.springframework.http.HttpStatus
@@ -27,6 +28,11 @@ class OrchestratorExceptionHandler {
     /** Missing/invalid Keycloak peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3) - same contract as DPoP: 401. */
     @ExceptionHandler(PeerAuthValidationException::class)
     fun handlePeerAuthValidation(e: PeerAuthValidationException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
+
+    /** Missing/invalid real Keycloak OIDC AccessToken (`KeycloakOidcTokenValidator`, demo-only Web-Kanal Journey-Log read path) - same 401 contract as the other two bearer-proof kinds. */
+    @ExceptionHandler(OidcTokenValidationException::class)
+    fun handleOidcTokenValidation(e: OidcTokenValidationException): ResponseEntity<Map<String, String>> =
         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
 
     @ExceptionHandler(OrchestratorException::class)

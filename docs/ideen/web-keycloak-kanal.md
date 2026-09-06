@@ -1,7 +1,9 @@
 # Idee: Web-/Keycloak-Kanal als zweite Fassade (`kc`)
 
-Status: **Größtenteils umgesetzt** (bd-Epics `DPoP-demo-f9o` 10/11, `DPoP-demo-3yd` 6/8 -
-nur die Logout-Semantik, Abschnitt 11, ist noch offen). Die tragenden Entscheidungen sind
+Status: **Umgesetzt** (bd-Epic `DPoP-demo-f9o`, inkl. Logout-Semantik und deren
+Aufräum-Konsequenz, Abschnitt 11). Das Folge-Epic `DPoP-demo-3yd` (echte Keycloak-Anbindung,
+über den ursprünglichen Entwurf hier hinausgehend) hat noch zwei offene Punkte (`3yd.4`, `3yd.6`)
+- siehe dessen eigene bd-Beschreibung, nicht Teil dieser Idee. Die tragenden Entscheidungen sind
 inzwischen kanonisch dokumentiert:
 [02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 1 (Kanal-Anker),
 [05-api.md](../05-api.md) Abschnitt 3 (Endpunkt, Peer-Auth, `authData`, RestoreData),
@@ -485,12 +487,28 @@ heute externe HTTP-Aufrufe machen.
 
 ---
 
-## 11) Offen: Logout-Semantik im Web-Kanal
+## 11) Logout-Semantik im Web-Kanal
 
-In der App beendet `DELETE /channels/{id}` die Sitzung endgültig. Im Web gehört der
-Logout Keycloak; der Orchestrator-Kanal folgt nur nach. Offen ist, ob der Endpunkt
-für WEB-Kanäle clientseitig überhaupt aufrufbar sein soll, oder ausschließlich
-kc-getrieben. Das ist eine fachliche Entscheidung, die noch aussteht.
+**Entschieden (2026-09-06):** Logout bleibt vollständig bei Keycloak - der `KEYCLOAK`-Kanal ruft
+den Orchestrator dafür nie auf, weder `DELETE /channels/{id}` noch ein kc-eigenes Äquivalent. Nach
+Keycloaks eigenem Logout wird die zugehörige `ChannelSession` einfach nicht mehr benutzt. In der App
+beendet `DELETE /channels/{id}` die Sitzung dagegen aktiv, weil dort der Orchestrator selbst der
+Session-Eigentümer ist ([02-domaenenmodell.md](../02-domaenenmodell.md)).
+
+**Umgesetzt (Folge davon, `DPoP-demo-f9o.12`):** `RetentionJob`
+(`orchestrator/session/RetentionJob.kt`, [07-betrieb.md](../07-betrieb.md) Abschnitt 3) räumte
+bisher rein zeitbasiert auf (`expiresAt` + Retention-Dauer, kanaltyp-unabhängig) - für
+`KEYCLOAK`-Kanäle reichte das nicht, weil Keycloak den Orchestrator nie über ein Logout
+informiert. Der Job fragt jetzt vor dem Löschen einer bereits abgelaufenen `KEYCLOAK`-Kanal-Zeile
+zusätzlich bei Keycloak nach (`KeycloakAdminClient.isSessionAlive`, Admin-REST-API,
+`GET .../users/{id}/sessions`) und räumt bei bestätigt beendeter Session sofort auf statt erst
+nach der vollen 30-Tage-Frist. `ChannelSession.durableKcSessionId` (neue Spalte, unterscheidet
+sich von `channelAnchor` - siehe Abschnitt 2) trägt dafür Keycloaks durable `UserSessionModel`-Id,
+geschrieben als Nebeneffekt des ohnehin bei jedem Flow-Ende laufenden
+`GET .../restore-data`-Aufrufs (`KcChannelService.restoreData`) - kein neuer
+Keycloak-Extension-Code nötig. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil,
+keine durable Id bekannt, oder der Admin-API-Aufruf selbst schlägt fehl) führt nie zu einem
+Löschen, sondern lässt den Kanal in die normale Zeit-basierte Aufräumung zurückfallen.
 
 ---
 
