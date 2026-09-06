@@ -32,7 +32,7 @@ class KeycloakAccountSyncService(
         existingAccountIds.forEach { accountId ->
             val profile = accountService.findAccount(accountId) ?: return@forEach
             val person = extStammdatenService.findPersonById(profile.personId)
-            keycloakAdminClient.upsertUser(accountId, profile.email, person?.vorname, person?.name)
+            keycloakAdminClient.upsertUser(accountId, profile.email, profile.emailConfirmed, person?.vorname, person?.name)
             val keypair = accountKeypairService.keypairFor(accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
             keycloakAdminClient.setPublicKeyCredential(accountId, keypair.publicKeyJwk, activeMethods)

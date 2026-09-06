@@ -122,6 +122,31 @@ final class OrchestratorClient {
         return ChannelResponse.from(send("DELETE", path, channelSessionId, null));
     }
 
+    /**
+     * Stateless password verify/set for Keycloak's native password credential
+     * ({@code OrchestratorPasswordStorageProvider}) - unlike every other call above, there is no
+     * Channel/ToolSession here: the account id is already known (Keycloak's own
+     * {@code orchestratorAccountId} user attribute), so it goes straight in the URL path, which
+     * {@code htu} already binds. The peer-auth assertion's {@code channel_anchor} claim (normally
+     * a channelSessionId) is repurposed to carry the account id instead - checked explicitly by
+     * the orchestrator's {@code MgmtPasswordController} against the same path value.
+     */
+    boolean verifyPassword(long accountId, String password) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/tools/auth-password/mgmt/" + accountId;
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("password", password);
+        JsonNode response = send("POST", path, String.valueOf(accountId), body);
+        return response.path("valid").asBoolean(false);
+    }
+
+    /** See {@link #verifyPassword(long, String)} - same anchor convention. */
+    void setPassword(long accountId, String newPassword) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/tools/enroll-password/mgmt/" + accountId;
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("newPassword", newPassword);
+        send("POST", path, String.valueOf(accountId), body);
+    }
+
     private JsonNode send(String method, String path, String channelSessionId, JsonNode body) throws IOException, InterruptedException {
         String url = baseUrl + path;
         String assertion = signer.sign(method, url, channelSessionId);

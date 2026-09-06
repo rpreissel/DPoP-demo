@@ -36,4 +36,3 @@ keycloak-sync:
   realm: dpop-demo
   admin-client-id: orchestrator-admin
   admin-client-secret: change-me-orchestrator-admin
-  default-password: Demo1234!

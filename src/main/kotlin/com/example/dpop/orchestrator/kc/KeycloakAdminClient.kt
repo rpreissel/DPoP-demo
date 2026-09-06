@@ -33,12 +33,7 @@ class KeycloakAdminClient(
     @Value("\${keycloak-sync.base-url}") private val baseUrl: String,
     @Value("\${keycloak-sync.realm}") private val realm: String,
     @Value("\${keycloak-sync.admin-client-id}") private val adminClientId: String,
-    @Value("\${keycloak-sync.admin-client-secret}") private val adminClientSecret: String,
-    // Demo-only: a real identity system would never hand out a shared default password. This
-    // stands in for whatever real onboarding flow would set the user's first credential, purely
-    // so the native LoA1 password login (docs/ideen/web-keycloak-kanal.md #9) has something to
-    // authenticate a freshly-synced account with.
-    @Value("\${keycloak-sync.default-password:Demo1234!}") private val defaultPassword: String
+    @Value("\${keycloak-sync.admin-client-secret}") private val adminClientSecret: String
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAdminClient::class.java)
     private val restClient = RestClient.builder().baseUrl(baseUrl).build()
@@ -46,23 +41,30 @@ class KeycloakAdminClient(
     @Volatile
     private var cachedToken: CachedToken? = null
 
+    @Volatile
+    private var cachedPasswordStorageComponentId: String? = null
+
     /**
      * Creates the Keycloak user for [accountId] if none exists yet (username derived from
-     * [firstName]/[lastName], with the demo default password), else updates its email. The
-     * username is chosen ONCE, at creation, and never touched again on any later sync: recomputing
-     * it on every call would let it drift (or even collide) as OTHER accounts are created/deleted
-     * around it - e.g. "max-muster-2" must stay "max-muster-2" forever once assigned, even after
-     * the account originally holding "max-muster" is deleted and that name becomes free again.
+     * [firstName]/[lastName]), else updates its email. The username is chosen ONCE, at creation,
+     * and never touched again on any later sync: recomputing it on every call would let it drift
+     * (or even collide) as OTHER accounts are created/deleted around it - e.g. "max-muster-2" must
+     * stay "max-muster-2" forever once assigned, even after the account originally holding
+     * "max-muster" is deleted and that name becomes free again.
+     *
+     * No password is set here (and none used to be meaningful beyond a demo placeholder): a newly
+     * created user is `federationLink`-ed to `OrchestratorPasswordStorageProvider` (DPoP-demo-25q),
+     * which delegates the "password" credential type to the orchestrator's own `auth_password`
+     * store - there is nothing local for this method to seed.
      */
-    fun upsertUser(accountId: Long, email: String?, firstName: String?, lastName: String?) {
+    fun upsertUser(accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?) {
         val existingUserId = findUserId(accountId)
         if (existingUserId == null) {
             val username = uniqueUsername(firstName, lastName, accountId)
-            val userId = createUser(accountId, username, email, firstName, lastName)
-            resetPassword(userId)
+            val userId = createUser(accountId, username, email, emailConfirmed, firstName, lastName)
             log.info("Keycloak account sync: created user {} ({}) for accountId={}", userId, username, accountId)
         } else {
-            updateEmail(existingUserId, email)
+            updateEmail(existingUserId, email, emailConfirmed)
             log.info("Keycloak account sync: updated user {} for accountId={}", existingUserId, accountId)
         }
     }
@@ -206,14 +208,18 @@ class KeycloakAdminClient(
         return users.firstOrNull()?.get("id") as? String
     }
 
-    private fun createUser(accountId: Long, username: String, email: String?, firstName: String?, lastName: String?): String {
+    private fun createUser(accountId: Long, username: String, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?): String {
         val body = buildMap<String, Any?> {
             put("username", username)
             put("enabled", true)
-            if (email != null) put("email", email)
+            if (email != null) {
+                put("email", email)
+                put("emailVerified", emailConfirmed)
+            }
             if (firstName != null) put("firstName", firstName)
             if (lastName != null) put("lastName", lastName)
             put("attributes", mapOf("orchestratorAccountId" to listOf(accountId.toString())))
+            passwordStorageComponentId()?.let { put("federationLink", it) }
         }
         val response = authorized().post().uri("/admin/realms/{realm}/users", realm)
             .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity()
@@ -222,16 +228,37 @@ class KeycloakAdminClient(
         return location.substringAfterLast('/')
     }
 
-    private fun updateEmail(userId: String, email: String?) {
+    private fun updateEmail(userId: String, email: String?, emailConfirmed: Boolean) {
         if (email == null) return
         authorized().put().uri("/admin/realms/{realm}/users/{id}", realm, userId)
-            .contentType(MediaType.APPLICATION_JSON).body(mapOf("email" to email)).retrieve().toBodilessEntity()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("email" to email, "emailVerified" to emailConfirmed))
+            .retrieve().toBodilessEntity()
     }
 
-    private fun resetPassword(userId: String) {
-        val credential = mapOf("type" to "password", "value" to defaultPassword, "temporary" to false)
-        authorized().put().uri("/admin/realms/{realm}/users/{id}/reset-password", realm, userId)
-            .contentType(MediaType.APPLICATION_JSON).body(credential).retrieve().toBodilessEntity()
+    /**
+     * The `OrchestratorPasswordStorageProvider` User Federation component's id (DPoP-demo-25q) -
+     * provisioned once per realm by `infra/tofu/keycloak/main.tf`'s `keycloak_custom_user_federation`
+     * resource, whose id varies per environment, so it's looked up by `providerId` rather than
+     * hardcoded. Cached: it never changes while this process runs. `null` (silently skipped by the
+     * caller) if the component isn't provisioned yet - the same graceful-degradation the rest of
+     * this sync already applies elsewhere, never a hard failure of the whole sync.
+     */
+    private fun passwordStorageComponentId(): String? {
+        cachedPasswordStorageComponentId?.let { return it }
+        val id = try {
+            val uri = UriComponentsBuilder.fromPath("/admin/realms/{realm}/components")
+                .queryParam("type", "org.keycloak.storage.UserStorageProvider")
+                .buildAndExpand(realm)
+                .toUriString()
+            val components = authorized().get().uri(uri).retrieve().body<List<Map<String, Any?>>>().orEmpty()
+            components.firstOrNull { it["providerId"] == "orchestrator-password" }?.get("id") as? String
+        } catch (e: Exception) {
+            log.warn("Failed to look up the orchestrator-password federation component: {}", e.message)
+            null
+        }
+        cachedPasswordStorageComponentId = id
+        return id
     }
 
     /**

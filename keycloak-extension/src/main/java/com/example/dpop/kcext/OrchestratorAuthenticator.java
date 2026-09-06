@@ -15,6 +15,7 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserProvider;
 import org.keycloak.sessions.AuthenticationSessionModel;
+import org.keycloak.storage.UserStorageProvider;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -218,6 +219,17 @@ public class OrchestratorAuthenticator implements Authenticator {
         UserModel created = users.addUser(realm, "orchestrator-account-" + accountId);
         created.setEnabled(true);
         created.setSingleAttribute(OrchestratorNotes.USER_ATTR_ACCOUNT_ID, String.valueOf(accountId));
+        // Routes the "password" credential type to OrchestratorPasswordStorageProvider instead of
+        // Keycloak's own built-in JPA password provider (docs/ideen/web-keycloak-kanal.md,
+        // DPoP-demo-25q) - Keycloak dispatches CredentialInputValidator/-Updater for a
+        // federation-linked user to the linked UserStorageProvider component, so this is enough on
+        // its own; no provider-priority configuration needed. The component itself is provisioned
+        // once per realm (infra/tofu/keycloak/main.tf's keycloak_custom_user_federation resource),
+        // found here by provider id since its component id varies per environment.
+        realm.getStorageProviders(UserStorageProvider.class)
+                .filter(c -> OrchestratorPasswordStorageProviderFactory.PROVIDER_ID.equals(c.getProviderId()))
+                .findFirst()
+                .ifPresent(component -> created.setFederationLink(component.getId()));
         return created;
     }
 

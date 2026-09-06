@@ -386,6 +386,15 @@ resource "keycloak_openid_client_service_account_role" "orchestrator_admin_manag
   role                    = "manage-users"
 }
 
+# Needed for KeycloakAdminClient.passwordStorageComponentId() (DPoP-demo-25q) - GET
+# .../components is guarded by the realm's general "view realm" permission, not manage-users.
+resource "keycloak_openid_client_service_account_role" "orchestrator_admin_view_realm" {
+  realm_id                = keycloak_realm.realm.id
+  service_account_user_id = keycloak_openid_client.orchestrator_admin.service_account_user_id
+  client_id               = data.keycloak_openid_client.realm_management.id
+  role                    = "view-realm"
+}
+
 # Same "orchestrator-claims" scope the browser client already gets (see browser_default_scopes) -
 # without it, OrchestratorAcrAmrMapper never runs for the custom account-token grant's own tokens
 # (DPoP-demo-xso), since that grant authenticates as THIS client, not the browser one.
@@ -398,4 +407,20 @@ resource "keycloak_openid_client_default_scopes" "orchestrator_admin_default_sco
     "roles",
     keycloak_openid_client_scope.orchestrator_claims_scope.name,
   ]
+}
+
+# ── Native password credential -> orchestrator's own auth_password store (DPoP-demo-25q) ──────────
+
+# Routes the "password" credential type for every federation-linked user to
+# OrchestratorPasswordStorageProvider instead of Keycloak's built-in JPA password provider - no
+# password is ever stored in Keycloak itself, same principle as an LDAP federation provider
+# delegating to its directory (docs/ideen/web-keycloak-kanal.md). KeycloakAdminClient.createUser
+# looks this component up by provider_id (its own id varies per environment/import, so it can't be
+# hardcoded there) and sets it as every newly synced user's federationLink.
+resource "keycloak_custom_user_federation" "orchestrator_password" {
+  name        = "orchestrator-password"
+  realm_id    = keycloak_realm.realm.id
+  provider_id = "orchestrator-password"
+  enabled     = true
+  priority    = 0
 }
