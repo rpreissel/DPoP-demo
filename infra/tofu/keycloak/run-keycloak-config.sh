@@ -8,11 +8,12 @@ mkdir -p "${STATE_DIR}"
 
 # Keycloak 26's health endpoints live on the management interface (port 9000 by default), not the
 # app port itself - same swap auth-sandbox-2's own run script makes. HTTP is disabled entirely
-# (compose.yml), so KEYCLOAK_URL is already https://keycloak:8443 - --no-check-certificate is fine
-# here, this is a one-shot in-cluster readiness poll, not a browser trusting the cert.
+# (compose.yml), so KEYCLOAK_URL is already https://keycloak:8443 - -k (insecure) is fine here,
+# this is a one-shot in-cluster readiness poll, not a browser trusting the cert. curl statt wget,
+# weil das schon Teil des OpenTofu-Images ist (infra/tofu/Dockerfile) - kein Extra-Paket dafuer.
 MANAGEMENT_URL="${KEYCLOAK_URL/:8443/:9000}"
 
-until wget -q --no-check-certificate -O /dev/null "${MANAGEMENT_URL}/health/ready"; do
+until curl -sfk -o /dev/null "${MANAGEMENT_URL}/health/ready"; do
   echo "waiting for keycloak..."
   sleep 3
 done

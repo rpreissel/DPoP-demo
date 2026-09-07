@@ -57,7 +57,7 @@ Vorlage unter [`.env.work.example`](.env.work.example) bei, einfach kopieren:
 | `ORCHESTRATOR_FRONTEND_BASE_IMAGE` | `registry.access.redhat.com/ubi9/nodejs-22:latest` | `Dockerfile` — Frontend-Build-Stage (Vite) |
 | `ORCHESTRATOR_BUILD_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21:latest` | `Dockerfile` — Gradle-Build-Stage |
 | `ORCHESTRATOR_RUNTIME_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21-runtime:latest` | `Dockerfile` — Laufzeit-Image |
-| `OPENTOFU_BASE_IMAGE` | `registry.access.redhat.com/ubi9/ubi-minimal:latest` | `infra/tofu/Dockerfile` — Basis für das selbstgebaute OpenTofu-Image |
+| `OPENTOFU_BASE_IMAGE` | `registry.access.redhat.com/ubi9/ubi:latest` | `infra/tofu/Dockerfile` — Basis für das selbstgebaute OpenTofu-Image |
 | `OPENTOFU_VERSION` | `1.8.8` | `infra/tofu/Dockerfile` — welches OpenTofu-Release installiert wird |
 | `OPENTOFU_DOWNLOAD_BASE_URL` | `https://github.com/opentofu/opentofu/releases/download` | `infra/tofu/Dockerfile` — woher das Release-ZIP + `SHA256SUMS` geladen werden (öffentlich, kein Red-Hat-Äquivalent) |
 | `GRADLE_DISTRIBUTION_URL` | leer (nutzt die in `gradle/wrapper/gradle-wrapper.properties` eingecheckte, öffentliche URL) | Gradle-Build-Stage in `Dockerfile` und `keycloak-extension/Dockerfile` — überschreibt `distributionUrl`, falls `services.gradle.org` in der Umgebung nicht erreichbar ist |
@@ -74,10 +74,13 @@ Tool vorhanden ist, wird zur Build-Zeit erkannt, nicht angenommen.
 
 Es gibt kein offizielles Red-Hat-Image für OpenTofu — weder `registry.redhat.io` noch das
 authentifizierungsfreie `registry.access.redhat.com` führen eins. `keycloak-config` baut das
-Image deshalb selbst über `infra/tofu/Dockerfile`: eine `ubi9/ubi-minimal`-Basis (bewusst schon
-im Default Red Hat, nicht Alpine/Docker Hub — Alpine wäre am Arbeitsplatz ohnehin nicht
-erreichbar), auf der das OpenTofu-Standalone-Binary von den GitHub-Releases geladen, per
-`SHA256SUMS` verifiziert und nach `/usr/local/bin/tofu` installiert wird.
+Image deshalb selbst über `infra/tofu/Dockerfile`: das volle `ubi9/ubi` (bewusst schon im Default
+Red Hat, nicht Alpine/Docker Hub — Alpine wäre am Arbeitsplatz ohnehin nicht erreichbar; bewusst
+nicht `ubi9-minimal`, weil das volle Image `curl`/`tar`/`gzip`/`bash`/`sha256sum` schon mitbringt),
+auf dem das OpenTofu-Standalone-Binary (`.tar.gz`-Release-Asset, kein `unzip` nötig) von den
+GitHub-Releases geladen, per `SHA256SUMS` verifiziert und nach `/usr/local/bin/tofu` installiert
+wird — ganz ohne `microdnf install`. `run-keycloak-config.sh` nutzt dafür `curl` statt `wget` als
+Health-Check-Client (identisches Verhalten, aber kein zusätzliches Paket).
 
 Alle drei Stellhebel sind einzeln überschreibbar — Basis-Image, Version, Download-Quelle —, falls
 `github.com` am Arbeitsplatz nicht erreichbar ist und stattdessen ein internes Mirror-Verzeichnis
@@ -118,7 +121,7 @@ KEYCLOAK_BUILDER_BASE_IMAGE=registry.redhat.io/ubi9/openjdk-21:latest
 ORCHESTRATOR_FRONTEND_BASE_IMAGE=registry.redhat.io/ubi9/nodejs-22:latest
 ORCHESTRATOR_BUILD_BASE_IMAGE=registry.redhat.io/ubi9/openjdk-21:latest
 ORCHESTRATOR_RUNTIME_BASE_IMAGE=registry.redhat.io/ubi9/openjdk-21-runtime:latest
-OPENTOFU_BASE_IMAGE=registry.redhat.io/ubi9/ubi-minimal:latest
+OPENTOFU_BASE_IMAGE=registry.redhat.io/ubi9/ubi:latest
 OPENTOFU_DOWNLOAD_BASE_URL=https://nxrm.dst.tk-inline.net/repository/opentofu-mirror/releases/download
 GRADLE_DISTRIBUTION_URL=https://nxrm.dst.tk-inline.net/repository/tk-gradle-distributions/de/tk/build/tkeasy/tkeasy-gradle-distribution/9.4.1/tkeasy-gradle-distribution-9.4.1-tk1.zip
 ```
