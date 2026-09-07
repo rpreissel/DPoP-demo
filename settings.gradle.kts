@@ -28,3 +28,4 @@ gradle.extra["tkNexusReachable"] = tkNexusReachable
 rootProject.name = "dpop-demo"
 
 include("keycloak-extension")
+include("keycloak-migrations")

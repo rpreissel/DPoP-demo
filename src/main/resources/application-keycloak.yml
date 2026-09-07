@@ -28,11 +28,25 @@ kc:
     jwks-cache-ttl-seconds: 600
 
 # Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
-# in einen Keycloak-User - macht die frueher tofu-deklarierten Demo-User ueberfluessig.
-# admin-client-id/-secret gehoert dem in infra/tofu/keycloak/main.tf angelegten Service-Account-
-# Client mit der realm-management-Rolle manage-users.
+# in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig.
+# admin-client-id/-secret gehoert dem in keycloak-migrations/migrations/V5__orchestrator_admin_client.kc.kts
+# angelegten Service-Account-Client mit der realm-management-Rolle manage-users.
 keycloak-sync:
   base-url: https://localhost:8543
   realm: dpop-demo
   admin-client-id: orchestrator-admin
   admin-client-secret: change-me-orchestrator-admin
+
+# KeycloakMigrationRunnerStartup: wendet alle .kc.kts-Dateien aus keycloak-migrations/migrations
+# beim Start des Orchestrators an - Ersatz für den frueheren separaten Tofu-Schritt. Braucht echte
+# Master-Realm-Admin-Credentials (nicht keycloak-sync's orchestrator-admin-Service-Account oben -
+# der wird von V5 erst angelegt, existiert beim allerersten Lauf also noch nicht).
+# base-url per Default fuer den Host-Lauf (./gradlew bootRun); im Compose-Netzwerk ueberschreibt
+# KEYCLOAK_MIGRATE_BASE_URL auf https://keycloak:8443, migrations-dir bleibt gleich (siehe
+# Dockerfile - die migrations/ liegen dort ebenfalls unter /app/keycloak-migrations/migrations).
+keycloak-migrate:
+  base-url: ${KEYCLOAK_MIGRATE_BASE_URL:https://localhost:8543}
+  realm: ${KEYCLOAK_REALM:dpop-demo}
+  admin-username: ${KEYCLOAK_ADMIN:admin}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+  migrations-dir: keycloak-migrations/migrations

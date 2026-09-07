@@ -43,5 +43,13 @@ class KeycloakTlsConfig {
         SSLContext.setDefault(sslContext)
         HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.socketFactory)
         HttpsURLConnection.setDefaultHostnameVerifier(HostnameVerifier { _, _ -> true })
+        // HttpsURLConnection's defaults above don't reach java.net.http.HttpClient (what Spring's
+        // RestClient actually builds internally) - it does its own hostname/SAN check independent
+        // of the TrustManager, via SSLParameters' endpoint identification algorithm. This internal
+        // JDK property is the documented way to switch that off JVM-wide; without it, KeycloakAdminClient's
+        // calls against the compose-internal hostname "keycloak" (cert only covers localhost/127.0.0.1,
+        // see keycloak-extension/Dockerfile) fail with "No subject alternative DNS name matching
+        // keycloak found" even though the certificate itself is trusted.
+        System.setProperty("jdk.internal.httpclient.disableHostnameVerification", "true")
     }
 }

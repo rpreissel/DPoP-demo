@@ -45,10 +45,15 @@ RUN if [ -n "$GRADLE_DISTRIBUTION_URL" ]; then \
     fi
 COPY settings.gradle.kts build.gradle.kts ./
 COPY keycloak-extension/build.gradle.kts keycloak-extension/build.gradle.kts
+# keycloak-migrations ist eine echte Compile-Abhaengigkeit der Root-App (implementation(project(":keycloak-migrations"))
+# in build.gradle.kts), nicht nur ein separat gebautes Artefakt wie keycloak-extension - ihr
+# Quellcode muss deshalb hier mit rein, sonst schlaegt schon die Dependency-Aufloesung fehl.
+COPY keycloak-migrations/build.gradle.kts keycloak-migrations/build.gradle.kts
 # Dependencies vorziehen, damit der Layer nur bei Aenderung der Build-Dateien neu laeuft.
 RUN ./gradlew --no-daemon dependencies --configuration runtimeClasspath > /dev/null 2>&1 || true
 COPY src/ src/
 COPY keycloak-extension/src keycloak-extension/src
+COPY keycloak-migrations/src keycloak-migrations/src
 COPY --from=frontend /app/src/main/resources/static/ src/main/resources/static/
 RUN ./gradlew --no-daemon bootJar -x npmInstall -x npmBuild
 
@@ -74,7 +79,22 @@ RUN if command -v addgroup >/dev/null 2>&1; then \
       groupadd -r dpop && useradd -r -g dpop dpop; \
     fi \
  && mkdir -p /data && chown dpop:dpop /data
-COPY --from=build --chown=dpop:dpop /app/build/libs/*.jar app.jar
+COPY --from=build /app/build/libs/*.jar boot.jar
+# kotlin-scripting-jvm-host (KeycloakMigrationRunnerStartup) bricht in der gepackten Boot-Fat-Jar
+# ("java -jar boot.jar") mit mehreren "Unable to find ..."-Fehlern ab (Stdlib-Erkennung, dann
+# extensions/compiler.xml) - kotlin-compiler-embeddable geht von einem klassischen, flachen
+# Classpath aus einzelnen Jar-Dateien aus (java.class.path-Scan), nicht von Boots
+# BOOT-INF/lib-Nested-Jars. jarmode=tools extract entpackt genau so einen flachen Classpath
+# (app.jar + lib/*.jar) - Standard-Spring-Boot-Mechanismus fuer exakt diesen Interop-Fall.
+RUN java -Djarmode=tools -jar boot.jar extract --destination /tmp/extracted \
+ && mv /tmp/extracted/boot.jar app.jar \
+ && mv /tmp/extracted/lib . \
+ && rm -rf boot.jar /tmp/extracted
+# KeycloakMigrationRunnerStartup liest diese Dateien zur Laufzeit (kein Build-Artefakt, kein
+# Gradle-Resource-Prozessing) - relativer Pfad passt zu keycloak-migrate.migrations-dir
+# (application-keycloak.yml), WORKDIR ist /app.
+COPY keycloak-migrations/migrations keycloak-migrations/migrations
+RUN chown -R dpop:dpop /app
 USER dpop
 
 EXPOSE 8080
@@ -82,4 +102,4 @@ EXPOSE 8080
 # MaxRAMPercentage statt fester Heap-Groesse: die JVM liest das Container-Limit, das in
 # fly.toml steht, statt dass beide Zahlen getrennt gepflegt werden muessen.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -cp 'app.jar:lib/*' com.example.dpop.DpopApplicationKt"]

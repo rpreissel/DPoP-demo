@@ -1,9 +1,8 @@
 # Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/ideen/web-keycloak-kanal.md), als Ersatz fuer
-# das reine Mock-Keycloak-Frontend (bd DPoP-demo-f9o.9) im echten Betrieb. Der Orchestrator selbst
-# laeuft standardmaessig NICHT in diesem Compose - er bleibt die lokale H2-Datei-Instanz (./gradlew
-# bootRun auf Port 8080), Keycloak ruft ihn ueber host.containers.internal an (siehe extra_hosts
-# unten). Wer ihn stattdessen containerisiert mitlaufen lassen will, startet mit
-# `podman-compose --profile orchestrator up` (Service unten, siehe dessen eigene Doku).
+# das reine Mock-Keycloak-Frontend (bd DPoP-demo-f9o.9) im echten Betrieb. `compose up` startet
+# beides: Keycloak UND den containerisierten Orchestrator - der wendet beim eigenen Start ueber
+# KeycloakMigrationRunnerStartup automatisch alle keycloak-migrations/migrations/*.kc.kts an
+# (Ersatz fuer den frueheren separaten Tofu-Schritt, siehe git-history fuer infra/tofu).
 services:
   keycloak:
     build:
@@ -21,7 +20,7 @@ services:
         GRADLE_DISTRIBUTION_URL: ${GRADLE_DISTRIBUTION_URL:-}
     environment:
       # HTTP komplett aus - nur noch HTTPS, auch fuer Server-zu-Server-Aufrufe (Orchestrator ->
-      # Keycloak Admin-API/JWKS, Tofu-Provider). Cookie-basierte SSO-Wiedererkennung (auth-cookie,
+      # Keycloak Admin-API/JWKS). Cookie-basierte SSO-Wiedererkennung (auth-cookie,
       # Grundlage fuer den Step-up-Pfad docs/ideen/web-keycloak-kanal.md #9) braucht ohnehin einen
       # "secure context" - der Browser verweigert sonst das Cookie bei Cross-Origin-Requests.
       KC_HTTP_ENABLED: 'false'
@@ -48,54 +47,22 @@ services:
       - keycloak-data:/opt/keycloak/data
     command: ["start-dev", "--https-port=8443"]
     healthcheck:
-      # Nur ein Lebenszeichen fuer Podman selbst - das eigentliche Warten auf "wirklich bereit"
-      # macht run-keycloak-config.sh gegen /health/ready, genau wie in auth-sandbox-2.
-      test: ["CMD-SHELL", "exit 0"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
+      # Kein curl/wget/openssl in diesem Image, aber bash - ein reiner TCP-Connect-Test auf den
+      # Management-Port (9000) reicht als "ist wenigstens so weit hochgefahren"-Signal, gegen das
+      # der Orchestrator-Service unten seinen depends_on/service_healthy stellt.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9000' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 60
 
-  keycloak-config:
-    # Selbst gebaut statt ghcr.io/opentofu/opentofu zu ziehen - es gibt kein offizielles
-    # Red-Hat-Image fuer OpenTofu, und ghcr.io ist an manchen Arbeitsplaetzen nicht erreichbar.
-    # infra/tofu/Dockerfile installiert das Standalone-Binary auf einer UBI-Minimal-Basis; alle
-    # drei Stellhebel (Basis-Image, Version, Download-URL) sind von aussen ueberschreibbar, siehe
-    # dessen eigene Doku.
-    build:
-      context: ./infra/tofu
-      dockerfile: Dockerfile
-      args:
-        OPENTOFU_BASE_IMAGE: ${OPENTOFU_BASE_IMAGE:-registry.access.redhat.com/ubi9/ubi-minimal:latest}
-        OPENTOFU_VERSION: ${OPENTOFU_VERSION:-1.8.8}
-        OPENTOFU_DOWNLOAD_BASE_URL: ${OPENTOFU_DOWNLOAD_BASE_URL:-https://github.com/opentofu/opentofu/releases/download}
-    environment:
-      KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-dpop-demo}
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KEYCLOAK_BROWSER_CLIENT_ID: ${KEYCLOAK_BROWSER_CLIENT_ID:-dpop-demo-web}
-      KEYCLOAK_BROWSER_CLIENT_SECRET: ${KEYCLOAK_BROWSER_CLIENT_SECRET:-change-me-browser}
-      ORCHESTRATOR_ADMIN_CLIENT_SECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
-      TOFU_STATE_DIR: ${TOFU_STATE_DIR:-/state}
-    depends_on:
-      keycloak:
-        condition: service_started
-    volumes:
-      - ./infra/tofu/keycloak:/workspace
-      - tofu-state:${TOFU_STATE_DIR:-/state}
-    working_dir: /workspace
-    entrypoint: ["/bin/sh", "/workspace/run-keycloak-config.sh"]
-    restart: on-failure
-
-  # Optionaler, containerisierter Orchestrator - laeuft NICHT bei einem einfachen
-  # `podman-compose up` mit, sondern nur, wenn das Profil explizit angefordert wird:
-  #   podman-compose --profile orchestrator up
-  # Der Normalfall bleibt ./gradlew bootRun --args='--spring.profiles.active=keycloak' auf dem
-  # Host (siehe application-keycloak.yml) - dieser Service ist nur ein Ersatz dafuer, falls man
-  # auch den Orchestrator containerisiert braucht (z.B. um das gesamte Setup portabel auf einer
-  # anderen Maschine/Umgebung hochzufahren, siehe Basis-Image-Args unten).
+  # Containerisierter Orchestrator - wendet beim eigenen Start automatisch alle
+  # keycloak-migrations/migrations/*.kc.kts an (KeycloakMigrationRunnerStartup, nur im
+  # `keycloak`-Spring-Profil aktiv). restart: on-failure faengt den Fall ab, dass Keycloaks
+  # HTTPS-Listener trotz offenem TCP-Port (Healthcheck oben) noch nicht wirklich anfragebereit
+  # ist - der komplette Container(=JVM)-Neustart ist grober als ein interner Retry-Loop, aber
+  # ausreichend fuer lokales Compose-Hochfahren.
   orchestrator:
-    profiles: ["orchestrator"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -106,10 +73,12 @@ services:
         RUNTIME_BASE_IMAGE: ${ORCHESTRATOR_RUNTIME_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21-runtime:latest}
         GRADLE_DISTRIBUTION_URL: ${GRADLE_DISTRIBUTION_URL:-}
     depends_on:
-      # Wartet auf den fertigen Tofu-Realm-Import, nicht nur auf den gestarteten Keycloak-
-      # Container - ohne Realm/Clients kann der Orchestrator seine Keycloak-Aufrufe nicht machen.
-      keycloak-config:
-        condition: service_completed_successfully
+      # service_healthy statt nur service_started: erst wenn Keycloaks Management-Port offen ist
+      # (Healthcheck oben), macht ein erster Migrations-Versuch ueberhaupt Sinn - restart:
+      # on-failure oben faengt ab, was trotzdem noch zu frueh dran ist.
+      keycloak:
+        condition: service_healthy
+    restart: on-failure
     environment:
       SPRING_PROFILES_ACTIVE: keycloak
       # /data liegt auf dem eigenen Volume (siehe unten), analog zu application-fly.yml.
@@ -118,6 +87,11 @@ services:
       # application-keycloak.yml (das ist fuer den Host-Lauf per gradlew gedacht). Das
       # selbstsignierte Zertifikat wird trotzdem akzeptiert, siehe KeycloakTlsConfig.kt
       # (Trust-all + Hostname-Verifier-all, nur im "keycloak"-Profil aktiv).
+      KEYCLOAK_MIGRATE_BASE_URL: https://keycloak:8443
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-dpop-demo}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      ORCHESTRATOR_ADMIN_CLIENT_SECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
       KC_PEERAUTH_JWKSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/orchestrator-jwks/.well-known/jwks.json
       KC_OIDC_ISSUER: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}
       KC_OIDC_CERTSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/protocol/openid-connect/certs
@@ -132,5 +106,4 @@ services:
 
 volumes:
   keycloak-data:
-  tofu-state:
   orchestrator-data:

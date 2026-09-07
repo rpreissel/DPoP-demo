@@ -28,6 +28,11 @@ RUN if [ -n "$GRADLE_DISTRIBUTION_URL" ]; then \
 COPY settings.gradle.kts build.gradle.kts ./
 COPY keycloak-extension/build.gradle.kts keycloak-extension/build.gradle.kts
 COPY keycloak-extension/src keycloak-extension/src
+# settings.gradle.kts listet auch :keycloak-migrations - Gradle evaluiert dessen build.gradle.kts
+# schon in der Konfigurationsphase (bevor :keycloak-extension:shadowJar ueberhaupt anlaeuft), auch
+# wenn dieses Image das Modul selbst nicht braucht. Ohne die Datei hier bricht die Konfiguration
+# mit "project directory exists and is writable" ab, weil keycloak-migrations/ sonst fehlt.
+COPY keycloak-migrations/build.gradle.kts keycloak-migrations/build.gradle.kts
 RUN ./gradlew --no-daemon :keycloak-extension:shadowJar
 
 FROM ${KEYCLOAK_BASE_IMAGE}

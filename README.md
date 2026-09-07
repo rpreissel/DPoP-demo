@@ -6,31 +6,16 @@
 podman-compose up --build
 ```
 
-Startet nur `keycloak` (echtes Keycloak, HTTPS auf Port 8543) und `keycloak-config`
-(OpenTofu-Realm-Import). Der Orchestrator läuft **nicht** mit — wie bisher lokal:
+Startet `keycloak` (echtes Keycloak, HTTPS auf Port 8543) und den containerisierten
+`orchestrator` (Port 8080, eigenes Volume `orchestrator-data` für die H2-Datei-DB). Der
+Orchestrator wendet beim eigenen Start automatisch alle `keycloak-migrations/migrations/*.kc.kts`
+an (`KeycloakMigrationRunnerStartup`, Ersatz für den früheren separaten OpenTofu-Realm-Import) und
+spricht Keycloak intern als `https://keycloak:8443` an, nicht `https://localhost:8543`.
 
-```bash
-./gradlew bootRun --args='--spring.profiles.active=keycloak'
-```
-
-## Orchestrator containerisiert mitlaufen lassen (optional)
-
-Der Orchestrator-Service ist hinter einem Compose-Profil versteckt und startet nur, wenn man
-ihn explizit anfordert:
-
-```bash
-podman-compose --profile orchestrator up --build
-```
-
-Damit laufen `keycloak`, `keycloak-config` und zusätzlich `orchestrator` (Port 8080, eigenes
-Volume `orchestrator-data` für die H2-Datei-DB, spricht Keycloak intern als `https://keycloak:8443`
-an statt `https://localhost:8543`). Der Service wartet auf den abgeschlossenen Realm-Import
-(`keycloak-config`), bevor er startet.
-
-Ohne `--profile orchestrator` bleibt alles wie im Standard-Start — die lokale `gradlew
-bootRun`-Instanz ist weiterhin der vorgesehene Weg, den Orchestrator zu betreiben; der
-Compose-Service ist nur ein Ersatz dafür, falls das gesamte Setup containerisiert (z. B. auf
-einer anderen Maschine) laufen soll.
+Alternativ weiterhin lokal per `./gradlew bootRun` betreibbar (z. B. für schnellere
+Iterationszyklen) — dann nur `keycloak` aus Compose starten und den Orchestrator-Service ignorieren
+(`podman-compose up keycloak`); `application-keycloak.yml` zeigt in dem Fall auf
+`https://localhost:8543`.
 
 ## Basis-Images von außen konfigurieren
 
@@ -57,9 +42,6 @@ Vorlage unter [`.env.work.example`](.env.work.example) bei, einfach kopieren:
 | `ORCHESTRATOR_FRONTEND_BASE_IMAGE` | `registry.access.redhat.com/ubi9/nodejs-22:latest` | `Dockerfile` — Frontend-Build-Stage (Vite) |
 | `ORCHESTRATOR_BUILD_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21:latest` | `Dockerfile` — Gradle-Build-Stage |
 | `ORCHESTRATOR_RUNTIME_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21-runtime:latest` | `Dockerfile` — Laufzeit-Image |
-| `OPENTOFU_BASE_IMAGE` | `registry.access.redhat.com/ubi9/ubi:latest` | `infra/tofu/Dockerfile` — Basis für das selbstgebaute OpenTofu-Image |
-| `OPENTOFU_VERSION` | `1.8.8` | `infra/tofu/Dockerfile` — welches OpenTofu-Release installiert wird |
-| `OPENTOFU_DOWNLOAD_BASE_URL` | `https://github.com/opentofu/opentofu/releases/download` | `infra/tofu/Dockerfile` — woher das Release-ZIP + `SHA256SUMS` geladen werden (öffentlich, kein Red-Hat-Äquivalent) |
 | `GRADLE_DISTRIBUTION_URL` | leer (nutzt die in `gradle/wrapper/gradle-wrapper.properties` eingecheckte, öffentliche URL) | Gradle-Build-Stage in `Dockerfile` und `keycloak-extension/Dockerfile` — überschreibt `distributionUrl`, falls `services.gradle.org` in der Umgebung nicht erreichbar ist |
 
 Die UBI-Build-Stages (`FRONTEND_BASE_IMAGE`, `BUILD_BASE_IMAGE`, `KEYCLOAK_BUILDER_BASE_IMAGE`)
@@ -69,23 +51,6 @@ verworfene Build-Stages irrelevant, aber ohne `USER root` fehlten die Rechte fü
 `gradlew`. Die Laufzeit-Stage (`RUNTIME_BASE_IMAGE`) legt weiterhin einen eigenen `dpop`-User an,
 mit `groupadd`/`useradd` (UBI, shadow-utils) statt `addgroup`/`adduser` (Alpine, BusyBox) — welches
 Tool vorhanden ist, wird zur Build-Zeit erkannt, nicht angenommen.
-
-### OpenTofu: selbstgebaut statt gezogen
-
-Es gibt kein offizielles Red-Hat-Image für OpenTofu — weder `registry.redhat.io` noch das
-authentifizierungsfreie `registry.access.redhat.com` führen eins. `keycloak-config` baut das
-Image deshalb selbst über `infra/tofu/Dockerfile`: das volle `ubi9/ubi` (bewusst schon im Default
-Red Hat, nicht Alpine/Docker Hub — Alpine wäre am Arbeitsplatz ohnehin nicht erreichbar; bewusst
-nicht `ubi9-minimal`, weil das volle Image `curl`/`tar`/`gzip`/`bash`/`sha256sum` schon mitbringt),
-auf dem das OpenTofu-Standalone-Binary (`.tar.gz`-Release-Asset, kein `unzip` nötig) von den
-GitHub-Releases geladen, per `SHA256SUMS` verifiziert und nach `/usr/local/bin/tofu` installiert
-wird — ganz ohne `microdnf install`. `run-keycloak-config.sh` nutzt dafür `curl` statt `wget` als
-Health-Check-Client (identisches Verhalten, aber kein zusätzliches Paket).
-
-Alle drei Stellhebel sind einzeln überschreibbar — Basis-Image, Version, Download-Quelle —, falls
-`github.com` am Arbeitsplatz nicht erreichbar ist und stattdessen ein internes Mirror-Verzeichnis
-mit derselben Struktur (`.../v<version>/tofu_<version>_linux_<arch>.zip` +
-`tofu_<version>_SHA256SUMS`) bereitsteht.
 
 ### Gradle-Distribution (`./inittk` vs. `GRADLE_DISTRIBUTION_URL`)
 
@@ -121,8 +86,6 @@ KEYCLOAK_BUILDER_BASE_IMAGE=registry.redhat.io/ubi9/openjdk-21:latest
 ORCHESTRATOR_FRONTEND_BASE_IMAGE=registry.redhat.io/ubi9/nodejs-22:latest
 ORCHESTRATOR_BUILD_BASE_IMAGE=registry.redhat.io/ubi9/openjdk-21:latest
 ORCHESTRATOR_RUNTIME_BASE_IMAGE=registry.redhat.io/ubi9/openjdk-21-runtime:latest
-OPENTOFU_BASE_IMAGE=registry.redhat.io/ubi9/ubi:latest
-OPENTOFU_DOWNLOAD_BASE_URL=https://nxrm.dst.tk-inline.net/repository/opentofu-mirror/releases/download
 GRADLE_DISTRIBUTION_URL=https://nxrm.dst.tk-inline.net/repository/tk-gradle-distributions/de/tk/build/tkeasy/tkeasy-gradle-distribution/9.4.1/tkeasy-gradle-distribution-9.4.1-tk1.zip
 ```
 
