@@ -1,12 +1,24 @@
 # Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/ideen/web-keycloak-kanal.md), als Ersatz fuer
 # das reine Mock-Keycloak-Frontend (bd DPoP-demo-f9o.9) im echten Betrieb. Der Orchestrator selbst
-# laeuft bewusst NICHT in diesem Compose - er bleibt die lokale H2-Datei-Instanz (./gradlew bootRun
-# auf Port 8080), Keycloak ruft ihn ueber host.containers.internal an (siehe extra_hosts unten).
+# laeuft standardmaessig NICHT in diesem Compose - er bleibt die lokale H2-Datei-Instanz (./gradlew
+# bootRun auf Port 8080), Keycloak ruft ihn ueber host.containers.internal an (siehe extra_hosts
+# unten). Wer ihn stattdessen containerisiert mitlaufen lassen will, startet mit
+# `podman-compose --profile orchestrator up` (Service unten, siehe dessen eigene Doku).
 services:
   keycloak:
     build:
       context: .
       dockerfile: keycloak-extension/Dockerfile
+      args:
+        # Woanders (z.B. am Arbeitsplatz mit Redhat-Keycloak statt Community-Keycloak) per Env-Var
+        # ueberschreibbar - siehe keycloak-extension/Dockerfile fuer die Defaults und die
+        # Begruendung, warum KEYCLOAK_BASE_IMAGE (anders als BUILDER_BASE_IMAGE) beim
+        # oeffentlichen Image bleibt.
+        BUILDER_BASE_IMAGE: ${KEYCLOAK_BUILDER_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21:latest}
+        KEYCLOAK_BASE_IMAGE: ${KEYCLOAK_BASE_IMAGE:-quay.io/keycloak/keycloak:26.5.5}
+        # Am Arbeitsplatz statt services.gradle.org, siehe ./inittk fuer denselben Austausch
+        # bei Host-Builds ausserhalb von Docker.
+        GRADLE_DISTRIBUTION_URL: ${GRADLE_DISTRIBUTION_URL:-}
     environment:
       # HTTP komplett aus - nur noch HTTPS, auch fuer Server-zu-Server-Aufrufe (Orchestrator ->
       # Keycloak Admin-API/JWKS, Tofu-Provider). Cookie-basierte SSO-Wiedererkennung (auth-cookie,
@@ -44,7 +56,18 @@ services:
       retries: 30
 
   keycloak-config:
-    image: ghcr.io/opentofu/opentofu:1.8.8
+    # Selbst gebaut statt ghcr.io/opentofu/opentofu zu ziehen - es gibt kein offizielles
+    # Red-Hat-Image fuer OpenTofu, und ghcr.io ist an manchen Arbeitsplaetzen nicht erreichbar.
+    # infra/tofu/Dockerfile installiert das Standalone-Binary auf einer UBI-Minimal-Basis; alle
+    # drei Stellhebel (Basis-Image, Version, Download-URL) sind von aussen ueberschreibbar, siehe
+    # dessen eigene Doku.
+    build:
+      context: ./infra/tofu
+      dockerfile: Dockerfile
+      args:
+        OPENTOFU_BASE_IMAGE: ${OPENTOFU_BASE_IMAGE:-registry.access.redhat.com/ubi9/ubi-minimal:latest}
+        OPENTOFU_VERSION: ${OPENTOFU_VERSION:-1.8.8}
+        OPENTOFU_DOWNLOAD_BASE_URL: ${OPENTOFU_DOWNLOAD_BASE_URL:-https://github.com/opentofu/opentofu/releases/download}
     environment:
       KEYCLOAK_URL: https://keycloak:8443
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-dpop-demo}
@@ -64,6 +87,50 @@ services:
     entrypoint: ["/bin/sh", "/workspace/run-keycloak-config.sh"]
     restart: on-failure
 
+  # Optionaler, containerisierter Orchestrator - laeuft NICHT bei einem einfachen
+  # `podman-compose up` mit, sondern nur, wenn das Profil explizit angefordert wird:
+  #   podman-compose --profile orchestrator up
+  # Der Normalfall bleibt ./gradlew bootRun --args='--spring.profiles.active=keycloak' auf dem
+  # Host (siehe application-keycloak.yml) - dieser Service ist nur ein Ersatz dafuer, falls man
+  # auch den Orchestrator containerisiert braucht (z.B. um das gesamte Setup portabel auf einer
+  # anderen Maschine/Umgebung hochzufahren, siehe Basis-Image-Args unten).
+  orchestrator:
+    profiles: ["orchestrator"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Wie bei keycloak: von aussen ueberschreibbar, Default zieht Red-Hat-UBI-Images.
+        FRONTEND_BASE_IMAGE: ${ORCHESTRATOR_FRONTEND_BASE_IMAGE:-registry.access.redhat.com/ubi9/nodejs-22:latest}
+        BUILD_BASE_IMAGE: ${ORCHESTRATOR_BUILD_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21:latest}
+        RUNTIME_BASE_IMAGE: ${ORCHESTRATOR_RUNTIME_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21-runtime:latest}
+        GRADLE_DISTRIBUTION_URL: ${GRADLE_DISTRIBUTION_URL:-}
+    depends_on:
+      # Wartet auf den fertigen Tofu-Realm-Import, nicht nur auf den gestarteten Keycloak-
+      # Container - ohne Realm/Clients kann der Orchestrator seine Keycloak-Aufrufe nicht machen.
+      keycloak-config:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: keycloak
+      # /data liegt auf dem eigenen Volume (siehe unten), analog zu application-fly.yml.
+      SPRING_DATASOURCE_URL: jdbc:h2:file:/data/dpopdb
+      # Im Compose-Netzwerk heisst Keycloak "keycloak", nicht "localhost" wie in
+      # application-keycloak.yml (das ist fuer den Host-Lauf per gradlew gedacht). Das
+      # selbstsignierte Zertifikat wird trotzdem akzeptiert, siehe KeycloakTlsConfig.kt
+      # (Trust-all + Hostname-Verifier-all, nur im "keycloak"-Profil aktiv).
+      KC_PEERAUTH_JWKSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/orchestrator-jwks/.well-known/jwks.json
+      KC_OIDC_ISSUER: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}
+      KC_OIDC_CERTSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/protocol/openid-connect/certs
+      KEYCLOAKSYNC_BASEURL: https://keycloak:8443
+      KEYCLOAKSYNC_REALM: ${KEYCLOAK_REALM:-dpop-demo}
+      KEYCLOAKSYNC_ADMINCLIENTID: orchestrator-admin
+      KEYCLOAKSYNC_ADMINCLIENTSECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
+    ports:
+      - "8080:8080"
+    volumes:
+      - orchestrator-data:/data
+
 volumes:
   keycloak-data:
   tofu-state:
+  orchestrator-data:
