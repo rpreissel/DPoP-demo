@@ -19,4 +19,13 @@ interface AuthJourneyRepository : JpaRepository<AuthJourney, UUID> {
 
     /** Retention clock starts at consumedAt or expiresAt, whichever applies (docs/07-betrieb.md #3). */
     fun deleteByConsumedAtBeforeOrExpiresAtBefore(consumedCutoff: Instant, expiresCutoff: Instant): Long
+
+    /**
+     * Companion to the age-based cleanup above: a ChannelSession about to be deleted
+     * (RetentionJob.deleteChannels) can still have a not-yet-aged-out AuthJourney pointing at it
+     * (e.g. a confirmed-dead KEYCLOAK channel whose own TTL is much shorter than the journey
+     * retention window) - must be cleared first or the FK_AUTH_JOURNEY_CHANNEL_SESSION
+     * constraint rejects the delete.
+     */
+    fun deleteByChannelSessionIdIn(channelSessionIds: Collection<UUID>): Long
 }

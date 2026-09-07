@@ -13,9 +13,13 @@ import java.time.Instant
 /**
  * Retention for the orchestrator's own possession chain (docs/07-betrieb.md #3): cleaned from
  * the inside out (ToolSession -> AuthJourney -> ChannelSession+AuthContext+AuthEvidence) so a
- * row's FK target is already gone by the time it would be deleted. SessionEvent is independent -
- * it deliberately outlives the sessions it references (dangling ids are expected, not a defect).
- * account.*, AuthSmsEnrollment and person/fsc_code belong to the account, never touched here.
+ * row's FK target is already gone by the time it would be deleted. The age-based AuthJourney
+ * sweep above only catches journeys old enough on their own clock, though, so [deleteChannels]
+ * additionally clears any journeys still pointing at the channels it is about to delete (a
+ * confirmed-dead KEYCLOAK channel can be much younger than the journey retention window).
+ * SessionEvent is independent - it deliberately outlives the sessions it references (dangling
+ * ids are expected, not a defect). account.*, AuthSmsEnrollment and person/fsc_code belong to
+ * the account, never touched here.
  */
 @Component
 class RetentionJob(
@@ -76,6 +80,10 @@ class RetentionJob(
         if (channels.isEmpty()) return
         val orphanedAuthContextIds = channels.mapNotNull { it.authContextId }
         val orphanedAuthEvidenceIds = channels.mapNotNull { it.authEvidenceId }
+        val channelSessionIds = channels.mapNotNull { it.channelSessionId }
+        if (channelSessionIds.isNotEmpty()) {
+            journeyRepository.deleteByChannelSessionIdIn(channelSessionIds)
+        }
         channelSessionRepository.deleteAll(channels)
         if (orphanedAuthContextIds.isNotEmpty()) {
             authContextRepository.deleteAllById(orphanedAuthContextIds)
