@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.kc
 import com.example.dpop.kcmigrate.MigrationRunner
 import com.example.dpop.kcmigrate.MigrationStepFailedException
 import com.example.dpop.kcmigrate.buildAdminClient
+import com.example.dpop.orchestrator.KeycloakGatedReadinessState
 import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -15,9 +16,16 @@ import org.springframework.stereotype.Component
 
 /**
  * Wendet alle .kc.kts-Dateien aus keycloak-migrations/migrations beim Start des Orchestrators an - Ersatz für den
- * separaten infra/tofu/keycloak-Schritt (docs zu MigrationRunner). Läuft als ApplicationRunner
- * (nach Kontext-Start, vor dem ersten bedienten Request), nicht als @PostConstruct - fügt sich
- * damit ins gleiche Bean-Lifecycle-Muster wie Flyways eigener Migrations-Hook.
+ * separaten infra/tofu/keycloak-Schritt (docs zu MigrationRunner). Läuft als ApplicationRunner,
+ * nicht als @PostConstruct - fügt sich damit ins gleiche Bean-Lifecycle-Muster wie Flyways eigener
+ * Migrations-Hook.
+ *
+ * ACHTUNG: ApplicationRunner laufen NICHT vor dem ersten bedienten Request - Tomcat öffnet den
+ * Port bereits während finishRefresh(), also bevor SpringApplication.run() die Runner aufruft.
+ * Ohne Gegenmaßnahme können echte Requests also mitten in diese Migrationen hineinlaufen und z.B.
+ * mit "invalid_client" scheitern, weil der orchestrator-admin-Client (V5) noch nicht existiert -
+ * [KeycloakGatedReadinessState]/[ReadinessGateFilter] blocken dieses Fenster mit einem klaren 503
+ * statt eines verwirrenden 500ers.
  *
  * Braucht echte Master-Realm-Admin-Credentials (keycloak-migrate.admin-*), nicht keycloak-sync's
  * orchestrator-admin-Service-Account (KeycloakAdminClient) - der wird von V5 erst angelegt,
@@ -34,6 +42,7 @@ class KeycloakMigrationRunnerStartup(
     // Erzwingt Spring, den Trust-all-SSLContext (siehe KeycloakAdminClient's gleiches Muster)
     // VOR diesem Runner zu installieren.
     @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
+    private val readinessState: KeycloakGatedReadinessState,
     @Value("\${keycloak-migrate.base-url}") private val baseUrl: String,
     @Value("\${keycloak-migrate.realm}") private val realm: String,
     @Value("\${keycloak-migrate.admin-username}") private val adminUsername: String,
@@ -59,5 +68,6 @@ class KeycloakMigrationRunnerStartup(
             kc.close()
         }
         log.info("Keycloak-Migrationen abgeschlossen.")
+        readinessState.markReady()
     }
 }
