@@ -142,3 +142,73 @@ tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// Trennt Gradle-Build von Podman-Build: die Dockerfiles kopieren nur noch fertige Artefakte aus
+// build/podman/* (siehe .dockerignore - alles andere wird aus dem Build-Kontext ausgeschlossen),
+// statt Gradle/npm selbst innerhalb des Containers laufen zu lassen. Muss vor `podman-compose
+// build`/`up --build` einmal laufen: `./gradlew stagePodmanArtifacts`.
+val podmanStageDir = layout.buildDirectory.dir("podman")
+
+val stageOrchestratorArtifact = tasks.register<Exec>("stageOrchestratorArtifact") {
+    group = "podman"
+    description = "Entpackt den Boot-Jar in einen flachen Classpath unter build/podman/orchestrator."
+    dependsOn(tasks.named("bootJar"))
+    val destination = podmanStageDir.map { it.dir("orchestrator") }
+    val bootJarFile = tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar").flatMap { it.archiveFile }
+    inputs.file(bootJarFile)
+    outputs.dir(destination)
+    doFirst {
+        destination.get().asFile.deleteRecursively()
+    }
+    // kotlin-scripting-jvm-host (KeycloakMigrationRunnerStartup) bricht in der gepackten
+    // Boot-Fat-Jar ab (siehe Dockerfile-Kommentar) - jarmode=tools extract liefert stattdessen
+    // einen klassischen, flachen Classpath (Haupt-Jar + lib/*.jar).
+    commandLine(
+        "java", "-Djarmode=tools", "-jar", bootJarFile.get().asFile.absolutePath,
+        "extract", "--destination", destination.get().asFile.absolutePath,
+    )
+    // Die extrahierte Haupt-Jar behaelt ihren urspruenglichen Namen (z.B.
+    // dpop-demo-0.0.1-SNAPSHOT.jar), nicht "app.jar" - explizit umbenennen, weil das Dockerfile
+    // per fixem Namen darauf zugreift (ENTRYPOINT -cp 'app.jar:lib/*').
+    doLast {
+        val destDir = destination.get().asFile
+        val extractedJar = destDir.listFiles { f -> f.isFile && f.extension == "jar" }!!.single()
+        extractedJar.renameTo(destDir.resolve("app.jar"))
+    }
+}
+
+val stageOrchestratorMigrations = tasks.register<Copy>("stageOrchestratorMigrations") {
+    group = "podman"
+    dependsOn(stageOrchestratorArtifact)
+    from("keycloak-migrations/migrations")
+    into(podmanStageDir.map { it.dir("orchestrator/keycloak-migrations/migrations") })
+}
+
+val stageKeycloakArtifact = tasks.register<Copy>("stageKeycloakArtifact") {
+    group = "podman"
+    description = "Kopiert den Extension-Shadow-Jar und das Theme nach build/podman/keycloak."
+    dependsOn(":keycloak-extension:shadowJar")
+    from(project(":keycloak-extension").tasks.named("shadowJar")) {
+        rename { "dpop-demo-keycloak-extension.jar" }
+    }
+    from("keycloak-extension/src/main/resources/theme") {
+        into("theme")
+    }
+    into(podmanStageDir.map { it.dir("keycloak") })
+}
+
+val stagePodmanArtifacts = tasks.register("stagePodmanArtifacts") {
+    group = "podman"
+    description = "Baut Orchestrator-Jar, Frontend und Keycloak-Extension und legt beide unter build/podman ab, damit podman-compose build/up nur noch fertige Artefakte kopiert."
+    dependsOn(stageOrchestratorMigrations, stageKeycloakArtifact)
+}
+
+// Haengt das Staging an den normalen Build-Lifecycle: wer `./gradlew build`/`assemble` laufen
+// laesst, bekommt build/podman automatisch aktuell mit - kein separater, leicht zu vergessender
+// Handaufruf von stagePodmanArtifacts noetig, bevor `podman-compose build`/`up --build` folgt.
+// Gradle selbst ruft dabei kein podman-compose auf - das bleibt bewusst ein eigener,
+// von aussen angestossener Schritt (Podman-Aufrufe brauchen ggf. eine laufende Podman-Machine
+// bzw. Rootless-Setup, das ein Gradle-Build nicht voraussetzen sollte).
+tasks.named("assemble") {
+    dependsOn(stagePodmanArtifacts)
+}

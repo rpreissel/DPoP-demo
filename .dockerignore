@@ -1,7 +1,11 @@
 # Der Build-Kontext geht komplett zu Fly hoch - alles hier draussen ist Uploadzeit.
 .git/
 .gradle/
-build/
+# Beide Dockerfiles (Root + keycloak-extension) kopieren nur noch fertige Artefakte aus
+# build/podman (siehe stagePodmanArtifacts in build.gradle.kts) - alles andere unter build/
+# (Klassen, Test-Reports, Gradle-Zwischenstaende) bleibt draussen.
+build/*
+!build/podman
 frontend/node_modules/
 frontend/dist/
 frontend/test-results/

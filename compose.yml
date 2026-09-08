@@ -3,6 +3,10 @@
 # beides: Keycloak UND den containerisierten Orchestrator - der wendet beim eigenen Start ueber
 # KeycloakMigrationRunnerStartup automatisch alle keycloak-migrations/migrations/*.kc.kts an
 # (Ersatz fuer den frueheren separaten Tofu-Schritt, siehe git-history fuer infra/tofu).
+#
+# Beide Dockerfiles bauen nichts mehr selbst - `./gradlew stagePodmanArtifacts` muss vorher einmal
+# auf dem Host laufen (baut Jar/Frontend/Extension-Jar und legt sie unter build/podman ab), dann
+# kopieren `podman-compose build`/`up --build` nur noch fertige Artefakte in die Images.
 services:
   keycloak:
     build:
@@ -10,14 +14,11 @@ services:
       dockerfile: keycloak-extension/Dockerfile
       args:
         # Woanders (z.B. am Arbeitsplatz mit Redhat-Keycloak statt Community-Keycloak) per Env-Var
-        # ueberschreibbar - siehe keycloak-extension/Dockerfile fuer die Defaults und die
-        # Begruendung, warum KEYCLOAK_BASE_IMAGE (anders als BUILDER_BASE_IMAGE) beim
-        # oeffentlichen Image bleibt.
-        BUILDER_BASE_IMAGE: ${KEYCLOAK_BUILDER_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21:latest}
+        # ueberschreibbar - siehe keycloak-extension/Dockerfile fuer die Begruendung, warum
+        # KEYCLOAK_BASE_IMAGE beim oeffentlichen Image bleibt. Das Dockerfile baut nichts mehr mit
+        # Gradle selbst (siehe `./gradlew stagePodmanArtifacts`), deshalb gibt es hier keine
+        # Builder-/Gradle-Distribution-Args mehr.
         KEYCLOAK_BASE_IMAGE: ${KEYCLOAK_BASE_IMAGE:-quay.io/keycloak/keycloak:26.5.5}
-        # Am Arbeitsplatz statt services.gradle.org, siehe ./inittk fuer denselben Austausch
-        # bei Host-Builds ausserhalb von Docker.
-        GRADLE_DISTRIBUTION_URL: ${GRADLE_DISTRIBUTION_URL:-}
     environment:
       # HTTP komplett aus - nur noch HTTPS, auch fuer Server-zu-Server-Aufrufe (Orchestrator ->
       # Keycloak Admin-API/JWKS). Cookie-basierte SSO-Wiedererkennung (auth-cookie,
@@ -47,31 +48,40 @@ services:
       - keycloak-data:/opt/keycloak/data
     command: ["start-dev", "--https-port=8443"]
     healthcheck:
-      # Kein curl/wget/openssl in diesem Image, aber bash - ein reiner TCP-Connect-Test auf den
-      # Management-Port (9000) reicht als "ist wenigstens so weit hochgefahren"-Signal, gegen das
-      # der Orchestrator-Service unten seinen depends_on/service_healthy stellt.
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9000' >/dev/null 2>&1"]
-      interval: 5s
+      # Kein curl/wget/openssl in diesem Image, aber ein voller JDK (jdk.compiler-Modul vorhanden)
+      # - JwksHealthCheck.java (Single-File-Source-Launch, JEP 330) fragt statt eines reinen
+      # TCP-Connects gezielt das JWKS des Master-Realms ab. Das ist ein echter
+      # Anwendungsebenen-Check: ein reiner Port-Connect beweist nur, dass irgendein Listener
+      # gebunden hat, nicht dass Keycloaks REST-Schicht (Realm-Subsystem, Datenbankverbindung etc.)
+      # tatsaechlich Anfragen beantwortet - genau die Luecke, die vorher ueber
+      # restart: on-failure unten kaschiert wurde, weil der TCP-Port in seltenen Faellen offen sein
+      # kann, bevor die REST-Schicht wirklich bereit ist.
+      #
+      # interval kurz gehalten, damit depends_on/service_healthy unten den Orchestrator nicht
+      # unnoetig lange blockiert; restart: on-failure bleibt trotzdem als Sicherheitsnetz, falls
+      # `podman wait --condition=healthy` sich doch einmal mit Podmans eigener
+      # Healthcheck-Initialisierung ueberschneidet.
+      test: ["CMD-SHELL", "java /opt/keycloak/healthcheck/JwksHealthCheck.java >/dev/null 2>&1"]
+      interval: 2s
       timeout: 3s
-      start_period: 10s
-      retries: 60
+      start_period: 5s
+      retries: 150
 
   # Containerisierter Orchestrator - wendet beim eigenen Start automatisch alle
   # keycloak-migrations/migrations/*.kc.kts an (KeycloakMigrationRunnerStartup, nur im
-  # `keycloak`-Spring-Profil aktiv). restart: on-failure faengt den Fall ab, dass Keycloaks
-  # HTTPS-Listener trotz offenem TCP-Port (Healthcheck oben) noch nicht wirklich anfragebereit
-  # ist - der komplette Container(=JVM)-Neustart ist grober als ein interner Retry-Loop, aber
-  # ausreichend fuer lokales Compose-Hochfahren.
+  # `keycloak`-Spring-Profil aktiv). restart: on-failure bleibt als Sicherheitsnetz stehen (siehe
+  # Healthcheck-Kommentar oben) - seit der JWKS-basierte Healthcheck echte REST-Bereitschaft statt
+  # nur eines offenen TCP-Ports prueft, greift es im Normalfall nicht mehr (verifiziert:
+  # RestartCount=0 ueber mehrere frische `podman-compose up`-Laeufe).
   orchestrator:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        # Wie bei keycloak: von aussen ueberschreibbar, Default zieht Red-Hat-UBI-Images.
-        FRONTEND_BASE_IMAGE: ${ORCHESTRATOR_FRONTEND_BASE_IMAGE:-registry.access.redhat.com/ubi9/nodejs-22:latest}
-        BUILD_BASE_IMAGE: ${ORCHESTRATOR_BUILD_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21:latest}
+        # Wie bei keycloak: von aussen ueberschreibbar, Default zieht Red-Hat-UBI-Images. Das
+        # Dockerfile ist reines Laufzeit-Image (siehe `./gradlew stagePodmanArtifacts`), deshalb
+        # gibt es hier keine Frontend-/Build-/Gradle-Distribution-Args mehr.
         RUNTIME_BASE_IMAGE: ${ORCHESTRATOR_RUNTIME_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21-runtime:latest}
-        GRADLE_DISTRIBUTION_URL: ${GRADLE_DISTRIBUTION_URL:-}
     depends_on:
       # service_healthy statt nur service_started: erst wenn Keycloaks Management-Port offen ist
       # (Healthcheck oben), macht ein erster Migrations-Versuch ueberhaupt Sinn - restart:
