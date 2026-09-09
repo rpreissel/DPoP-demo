@@ -258,9 +258,17 @@ Die Assertion trägt dafür `acr`/`amr` als eigene, signierte Claims - `AccountT
 kopiert sie unverändert in dieselben `UserSessionModel`-Notes, die `OrchestratorAuthenticator` auf
 der WEB-Kanal-Seite ohnehin schon schreibt (`orchestrator_acr`/`orchestrator_amr`), sodass der
 bereits registrierte `OrchestratorAcrAmrMapper` (Client-Scope `orchestrator-claims`, jetzt auch
-Default-Scope von `orchestrator-admin`, nicht nur von `dpop-demo-web`) sie unverändert in den
+Default-Scope von `orchestrator-app-token`, nicht nur von `dpop-demo-web`) sie unverändert in den
 echten AccessToken schreibt - der Orchestrator bleibt damit für `APP` wie für `KEYCLOAK` gleichermaßen
 die alleinige ACR/AMR-Instanz, nur der Transportweg unterscheidet sich.
+
+`KeycloakAdminClient.requestAccountToken`/`refreshAccountToken` authentifizieren sich dafür als
+eigener, privilegienloser Client `orchestrator-app-token` (V8), nicht als `orchestrator-admin` -
+`AccountTokenGrantType` prüft keinerlei Client-Rolle, braucht also keine der realm-management-
+Rechte (`manage-users`/`view-realm`), die `orchestrator-admin` für seine Admin-REST-Sync-Aufgaben
+(`upsertUser`, `setPublicKeyCredential`, ...) trägt. Genau das war der ursprüngliche Punkt dieses
+ADRs ("statt geteiltem Admin-Secret") - die frühere Implementierung hatte beide Zwecke
+versehentlich wieder auf denselben Client-Secret zusammengeführt.
 
 Unabhängig vom Profil gilt außerdem: ein Step-up, der die zugrunde liegende `AuthEvidence` verändert
 (`AuthEvidenceService.applyEvidence`/`applyEvidenceUpdate`), verwirft aktiv das im `AuthContext`

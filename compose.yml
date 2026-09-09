@@ -107,6 +107,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       ORCHESTRATOR_ADMIN_CLIENT_SECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
+      ORCHESTRATOR_APP_CLIENT_SECRET: ${ORCHESTRATOR_APP_CLIENT_SECRET:-change-me-orchestrator-app-token}
       KC_PEERAUTH_JWKSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/orchestrator-jwks/.well-known/jwks.json
       # The browser receives its access token from Keycloak's public host port. Keep this
       # external issuer separate from the internal service URLs used for JWKS and admin calls.
@@ -116,6 +117,8 @@ services:
       KEYCLOAKSYNC_REALM: ${KEYCLOAK_REALM:-dpop-demo}
       KEYCLOAKSYNC_ADMINCLIENTID: orchestrator-admin
       KEYCLOAKSYNC_ADMINCLIENTSECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
+      KEYCLOAKSYNC_APPCLIENTID: orchestrator-app-token
+      KEYCLOAKSYNC_APPCLIENTSECRET: ${ORCHESTRATOR_APP_CLIENT_SECRET:-change-me-orchestrator-app-token}
     ports:
       - "8080:8080"
     volumes:

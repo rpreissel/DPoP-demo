@@ -31,11 +31,16 @@ kc:
 # in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig.
 # admin-client-id/-secret gehoert dem in keycloak-migrations/migrations/V5__orchestrator_admin_client.kc.kts
 # angelegten Service-Account-Client mit der realm-management-Rolle manage-users.
+# app-client-id/-secret gehoert dem separaten, privilegienlosen Client aus
+# keycloak-migrations/migrations/V8__orchestrator_app_client.kc.kts - ausschliesslich fuer den
+# Custom-Account-Token-Grant (APP-Kanal-Login), nie fuer die Admin-REST-API.
 keycloak-sync:
   base-url: https://localhost:8543
   realm: dpop-demo
   admin-client-id: orchestrator-admin
   admin-client-secret: change-me-orchestrator-admin
+  app-client-id: orchestrator-app-token
+  app-client-secret: change-me-orchestrator-app-token
 
 # KeycloakMigrationRunnerStartup: wendet alle .kc.kts-Dateien aus keycloak-migrations/migrations
 # beim Start des Orchestrators an - Ersatz für den frueheren separaten Tofu-Schritt. Braucht echte

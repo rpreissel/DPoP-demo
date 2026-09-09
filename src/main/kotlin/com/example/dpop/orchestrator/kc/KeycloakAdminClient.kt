@@ -21,6 +21,13 @@ import org.springframework.web.util.UriComponentsBuilder
  * Authenticates as its OWN client's service account (`keycloak-sync.admin-client-id`), which
  * `infra/tofu/keycloak/main.tf` grants the realm-management `manage-users` role - the standard
  * Keycloak pattern for a backend that manages users without a human admin session.
+ *
+ * The custom `urn:dpop-demo:account-token` grant ([requestAccountToken]/[refreshAccountToken]) is
+ * client-authenticated separately, as `keycloak-sync.app-client-id`
+ * (`orchestrator-app-token`, V8) - NOT as the admin client above. `AccountTokenGrantType` never
+ * checks the calling client's roles, so it needs no admin/realm-management privilege at all;
+ * reusing the admin client there would just be an unused-but-present privilege escalation on the
+ * client that mints real end-user tokens.
  */
 @Component
 @Profile("keycloak")
@@ -33,7 +40,9 @@ class KeycloakAdminClient(
     @Value("\${keycloak-sync.base-url}") private val baseUrl: String,
     @Value("\${keycloak-sync.realm}") private val realm: String,
     @Value("\${keycloak-sync.admin-client-id}") private val adminClientId: String,
-    @Value("\${keycloak-sync.admin-client-secret}") private val adminClientSecret: String
+    @Value("\${keycloak-sync.admin-client-secret}") private val adminClientSecret: String,
+    @Value("\${keycloak-sync.app-client-id}") private val appClientId: String,
+    @Value("\${keycloak-sync.app-client-secret}") private val appClientSecret: String
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAdminClient::class.java)
     private val restClient = RestClient.builder().baseUrl(baseUrl).build()
@@ -266,12 +275,14 @@ class KeycloakAdminClient(
      * to mint a real, Keycloak-signed access token for [accountId] - [assertion] is the JWT
      * [com.example.dpop.orchestrator.session.KcTokenProvider] signed with that account's own
      * private key ([AccountKeypairService]), proving the caller holds it. Client-authenticates as
-     * the same service account [accessToken] already uses; the grant is otherwise independent of
-     * the admin API this class is mostly about.
+     * the dedicated `orchestrator-app-token` client (V8) - deliberately NOT [accessToken]'s admin
+     * service account: the grant is otherwise independent of the admin API this class is mostly
+     * about, and `AccountTokenGrantType` (keycloak-extension) never checks the calling client's
+     * roles, so it has no business running under admin privileges.
      */
     fun requestAccountToken(accountId: Long, assertion: String): AccountTokenResponse {
         val form = "grant_type=$ACCOUNT_TOKEN_GRANT_TYPE" +
-            "&client_id=$adminClientId&client_secret=$adminClientSecret" +
+            "&client_id=$appClientId&client_secret=$appClientSecret" +
             "&account_id=$accountId&assertion=$assertion"
         return tokenResponse(form)
     }
@@ -286,7 +297,7 @@ class KeycloakAdminClient(
      */
     fun refreshAccountToken(refreshToken: String): AccountTokenResponse {
         val form = "grant_type=refresh_token" +
-            "&client_id=$adminClientId&client_secret=$adminClientSecret" +
+            "&client_id=$appClientId&client_secret=$appClientSecret" +
             "&refresh_token=$refreshToken"
         return tokenResponse(form)
     }
