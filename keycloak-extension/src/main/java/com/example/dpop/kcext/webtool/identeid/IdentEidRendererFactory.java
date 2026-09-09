@@ -37,6 +37,7 @@ public class IdentEidRendererFactory extends AbstractWebToolRendererFactory {
         if (!SUPPORTED_STEPS.contains(ctx.step())) return null;
         return form
                 .setAttribute("step", ctx.step())
+                .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
                 .createForm("tool-ident-eid.ftl");
     }
 }

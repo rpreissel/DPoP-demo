@@ -1,15 +1,25 @@
 import { useState } from 'react'
+import { DemoPersonPicker } from '../../components/DemoPersonPicker'
+import type { DemoPerson } from '../../types'
 
 interface IdentEidFormProps {
   onSubmit: (fields: { kvnr: string; name: string; vorname: string }) => void
   error?: string
+  /** Demo-only: all seeded personas, offered as a picker that fills KVNR/name/vorname together. */
+  demoPersons?: DemoPerson[]
 }
 
 /** toolId=ident-eid / step=input: KVNR, name and vorname to find the person before the simulated card read. */
-export function IdentEidForm({ onSubmit, error }: IdentEidFormProps) {
+export function IdentEidForm({ onSubmit, error, demoPersons }: IdentEidFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
   const [name, setName] = useState('Muster')
   const [vorname, setVorname] = useState('Max')
+
+  function selectPerson(person: DemoPerson) {
+    setKvnr(person.kvnr)
+    setName(person.name)
+    setVorname(person.vorname)
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -24,6 +34,7 @@ export function IdentEidForm({ onSubmit, error }: IdentEidFormProps) {
         Testdaten vorbelegt: <code>{kvnr}</code> / <code>{name}</code>, <code>{vorname}</code>
       </div>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
+        <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
           <label htmlFor="eid-kvnr">KVNR</label>
           <input id="eid-kvnr" value={kvnr} onChange={(e) => setKvnr(e.target.value)} required />

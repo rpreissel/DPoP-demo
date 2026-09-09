@@ -1,4 +1,5 @@
 <#import "template.ftl" as layout>
+<#import "demo-person-picker.ftl" as demoPerson>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "form">
         <h2 class="${properties.kcFormHeaderClass!}">${title}</h2>
@@ -6,6 +7,7 @@
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "card">
                 <p class="${properties.kcLabelClass!}">Demo-Modus: Das Auslesen der Karte wird simuliert; Testdaten sind bereits vorbelegt.</p>
+                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"geburtsdatum":"geburtsdatum","strasse":"strasse","hausnummer":"hausnummer","plz":"plz","ort":"ort"}' />
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="geburtsdatum" class="${properties.kcLabelClass!}">Geburtsdatum</label>
                     <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" value="1985-06-15"/>
@@ -34,6 +36,7 @@
                 </div>
             <#else>
                 <p class="${properties.kcLabelClass!}">Testdaten vorbelegt: A123456789 / Muster, Max</p>
+                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"kvnr":"kvnr","name":"name","vorname":"vorname"}' />
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="kvnr" class="${properties.kcLabelClass!}">Krankenversichertennummer</label>
                     <input type="text" id="kvnr" name="kvnr" class="${properties.kcInputClass!}" value="A123456789"/>

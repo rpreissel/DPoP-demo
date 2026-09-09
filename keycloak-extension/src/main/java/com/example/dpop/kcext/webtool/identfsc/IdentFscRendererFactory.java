@@ -49,6 +49,7 @@ public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
                 .setAttribute("needsKvnr", missingFields.contains("kvnr"))
                 .setAttribute("needsName", missingFields.contains("name"))
                 .setAttribute("needsVorname", missingFields.contains("vorname"))
+                .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
                 .createForm("tool-ident-fsc.ftl");
     }
 }

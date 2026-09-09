@@ -73,6 +73,20 @@ export interface JourneyDebugStep {
   note?: string
 }
 
+/** One seeded demo persona - same shape backend's `DemoPerson` (tool_spi/Demo.kt) sends. */
+export interface DemoPerson {
+  kvnr: string
+  name: string
+  vorname: string
+  email: string
+  strasse: string
+  hausnummer: string
+  plz: string
+  ort: string
+  geburtsdatum: string
+  fscCode: string
+}
+
 /** Demo-only values, never part of the production contract (docs/05-api.md #2). */
 export interface DemoInfo {
   accountId?: number
@@ -85,6 +99,8 @@ export interface DemoInfo {
   password?: string
   /** Fixed demo email (same value for enroll-email and both lookup-based logins), prefilled so testers never have to remember one. */
   email?: string
+  /** All seeded demo personas, attached centrally by the orchestrator (not per tool) - offered as a picker wherever a demo value is prefilled. */
+  persons?: DemoPerson[]
 }
 
 /**

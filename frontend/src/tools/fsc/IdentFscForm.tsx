@@ -1,16 +1,27 @@
 import { useState } from 'react'
+import { DemoPersonPicker } from '../../components/DemoPersonPicker'
+import type { DemoPerson } from '../../types'
 
 interface IdentFscFormProps {
   onSubmit: (fields: { kvnr: string; name: string; vorname: string; fsc: string }) => void
   error?: string
+  /** Demo-only: all seeded personas, offered as a picker that fills KVNR/name/vorname/FSC together. */
+  demoPersons?: DemoPerson[]
 }
 
 /** toolId=ident-fsc / step=input (docs/06-ablaeufe.md #2): KVNR, name, and the mailed FSC together. */
-export function IdentFscForm({ onSubmit, error }: IdentFscFormProps) {
+export function IdentFscForm({ onSubmit, error, demoPersons }: IdentFscFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
   const [name, setName] = useState('Muster')
   const [vorname, setVorname] = useState('Max')
   const [fsc, setFsc] = useState('VALIDCODE')
+
+  function selectPerson(person: DemoPerson) {
+    setKvnr(person.kvnr)
+    setName(person.name)
+    setVorname(person.vorname)
+    setFsc(person.fscCode)
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -25,6 +36,7 @@ export function IdentFscForm({ onSubmit, error }: IdentFscFormProps) {
         Testdaten vorbelegt: <code>{kvnr}</code> / <code>{name}</code>, <code>{vorname}</code> / Code <code>{fsc}</code>
       </div>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
+        <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
           <label htmlFor="kvnr">KVNR</label>
           <input id="kvnr" value={kvnr} onChange={(e) => setKvnr(e.target.value)} required />

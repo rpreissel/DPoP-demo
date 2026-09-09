@@ -1,10 +1,12 @@
 <#import "template.ftl" as layout>
+<#import "demo-person-picker.ftl" as demoPerson>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "form">
         <h2 class="${properties.kcFormHeaderClass!}">${title}</h2>
         <p class="${properties.kcLabelClass!}">${hint}</p>
         <p class="${properties.kcLabelClass!}">Testdaten vorbelegt: A123456789 / Muster, Max / Code VALIDCODE</p>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
+            <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"kvnr":"kvnr","name":"name","vorname":"vorname","fsc":"fscCode"}' />
             <#if needsKvnr!true>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="kvnr" class="${properties.kcLabelClass!}">Krankenversichertennummer</label>

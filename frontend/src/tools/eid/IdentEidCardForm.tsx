@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { DemoPersonPicker } from '../../components/DemoPersonPicker'
+import type { DemoPerson } from '../../types'
 
 interface IdentEidCardFormProps {
   onSubmit: (fields: {
@@ -9,15 +11,25 @@ interface IdentEidCardFormProps {
     ort: string
   }) => void
   error?: string
+  /** Demo-only: all seeded personas, offered as a picker that fills geburtsdatum/address together. */
+  demoPersons?: DemoPerson[]
 }
 
 /** toolId=ident-eid / step=card: simulates reading the eID card's Ausweisdaten (possession factor). */
-export function IdentEidCardForm({ onSubmit, error }: IdentEidCardFormProps) {
+export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardFormProps) {
   const [geburtsdatum, setGeburtsdatum] = useState('1985-06-15')
   const [strasse, setStrasse] = useState('Musterstraße')
   const [hausnummer, setHausnummer] = useState('1')
   const [plz, setPlz] = useState('12345')
   const [ort, setOrt] = useState('Musterstadt')
+
+  function selectPerson(person: DemoPerson) {
+    setGeburtsdatum(person.geburtsdatum)
+    setStrasse(person.strasse)
+    setHausnummer(person.hausnummer)
+    setPlz(person.plz)
+    setOrt(person.ort)
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -30,6 +42,7 @@ export function IdentEidCardForm({ onSubmit, error }: IdentEidCardFormProps) {
       <p>Halten Sie Ihren Personalausweis an das Lesegerät. Die ausgelesenen Ausweisdaten werden mit den Stammdaten abgeglichen.</p>
       <div className="hint">Demo-Modus: Das Auslesen der Karte wird simuliert; Testdaten sind bereits vorbelegt.</div>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
+        <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
           <label htmlFor="eid-geburtsdatum">Geburtsdatum</label>
           <input

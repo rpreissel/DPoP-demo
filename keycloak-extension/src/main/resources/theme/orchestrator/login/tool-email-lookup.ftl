@@ -1,4 +1,5 @@
 <#import "template.ftl" as layout>
+<#import "demo-person-picker.ftl" as demoPerson>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "form">
         <h2 class="${properties.kcFormHeaderClass!}">${title}</h2>
@@ -13,6 +14,7 @@
                     </#if>
                 </div>
             <#else>
+                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"email":"email"}' />
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="email" class="${properties.kcLabelClass!}">E-Mail-Adresse</label>
                     <input type="email" id="email" name="email" class="${properties.kcInputClass!}" autocomplete="off"/>

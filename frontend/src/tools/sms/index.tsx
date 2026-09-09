@@ -35,7 +35,14 @@ export const authSmsLookup: ToolModule = {
   meta: { icon: ICON, label: LABEL, hint: 'E-Mail-Adresse + SMS-Code' },
   render(ctx) {
     if (ctx.step === 'auth') {
-      return <EmailLookupForm onSubmit={(email) => requestSmsLookup(ctx, email)} error={ctx.stepData?.error} demoEmail={ctx.demo?.email} />
+      return (
+        <EmailLookupForm
+          onSubmit={(email) => requestSmsLookup(ctx, email)}
+          error={ctx.stepData?.error}
+          demoEmail={ctx.demo?.email}
+          demoPersons={ctx.demo?.persons}
+        />
+      )
     }
     if (ctx.step === 'tanInput') {
       return <TanInputForm onSubmit={(tan) => submitSmsTan(ctx, tan)} error={ctx.stepData?.error} demoTan={ctx.demo?.tan} />

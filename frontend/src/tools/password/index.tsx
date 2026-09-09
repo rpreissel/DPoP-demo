@@ -40,6 +40,7 @@ export const authPasswordLookup: ToolModule = {
           error={ctx.stepData?.error}
           demoPassword={ctx.demo?.password}
           demoEmail={ctx.demo?.email}
+          demoPersons={ctx.demo?.persons}
         />
       )
     }

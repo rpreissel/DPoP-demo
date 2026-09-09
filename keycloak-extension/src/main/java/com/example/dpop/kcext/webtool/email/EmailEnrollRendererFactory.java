@@ -42,6 +42,7 @@ public class EmailEnrollRendererFactory extends AbstractWebToolRendererFactory {
                 .setAttribute("step", ctx.step())
                 .setAttribute("demoEmail", demoEmail != null ? demoEmail.asText() : null)
                 .setAttribute("demoTan", demoTan != null ? demoTan.asText() : null)
+                .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
                 .createForm("tool-email-enroll.ftl");
     }
 }

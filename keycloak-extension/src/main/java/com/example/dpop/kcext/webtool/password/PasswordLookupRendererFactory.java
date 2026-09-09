@@ -34,6 +34,7 @@ public class PasswordLookupRendererFactory extends AbstractWebToolRendererFactor
         return form
                 .setAttribute("demoEmail", demoEmail != null ? demoEmail.asText() : null)
                 .setAttribute("demoPassword", demoPassword != null ? demoPassword.asText() : null)
+                .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
                 .createForm("tool-password-lookup.ftl");
     }
 }

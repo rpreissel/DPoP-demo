@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { DemoPersonPicker } from '../../components/DemoPersonPicker'
+import type { DemoPerson } from '../../types'
 
 interface EmailPasswordLookupFormProps {
   onSubmit: (fields: { email: string; password: string }) => void
@@ -7,10 +9,12 @@ interface EmailPasswordLookupFormProps {
   demoPassword?: string
   /** Demo-only: the fixed email every account in this demo is confirmed with, prefilled so testers don't have to remember it. */
   demoEmail?: string
+  /** Demo-only: all seeded personas, offered as a picker that fills the email field. */
+  demoPersons?: DemoPerson[]
 }
 
 /** toolId=auth-password-lookup / step=auth: "Login ohne DPoP" - self-verifying, email+password submitted together in one call. */
-export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEmail }: EmailPasswordLookupFormProps) {
+export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEmail, demoPersons }: EmailPasswordLookupFormProps) {
   const [email, setEmail] = useState(demoEmail ?? '')
   const [password, setPassword] = useState(demoPassword ?? '')
 
@@ -21,6 +25,10 @@ export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEma
   useEffect(() => {
     if (demoPassword) setPassword(demoPassword)
   }, [demoPassword])
+
+  function selectPerson(person: DemoPerson) {
+    setEmail(person.email)
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -38,6 +46,7 @@ export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEma
       )}
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
+        <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
           <label htmlFor="email">E-Mail-Adresse</label>
           <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

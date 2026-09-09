@@ -8,8 +8,24 @@ export const identEid: ToolModule = {
   toolId: 'ident-eid',
   meta: { icon: '🆔', label: 'eID', hint: 'Online-Ausweisfunktion (simuliert)' },
   render(ctx) {
-    if (ctx.step === 'input') return <IdentEidForm onSubmit={(fields) => submitEidLookup(ctx, fields)} error={ctx.stepData?.error} />
-    if (ctx.step === 'card') return <IdentEidCardForm onSubmit={(fields) => submitEidCard(ctx, fields)} error={ctx.stepData?.error} />
+    if (ctx.step === 'input') {
+      return (
+        <IdentEidForm
+          onSubmit={(fields) => submitEidLookup(ctx, fields)}
+          error={ctx.stepData?.error}
+          demoPersons={ctx.demo?.persons}
+        />
+      )
+    }
+    if (ctx.step === 'card') {
+      return (
+        <IdentEidCardForm
+          onSubmit={(fields) => submitEidCard(ctx, fields)}
+          error={ctx.stepData?.error}
+          demoPersons={ctx.demo?.persons}
+        />
+      )
+    }
     if (ctx.step === 'pin') return <IdentEidPinForm onSubmit={(pin) => submitEidPin(ctx, pin)} error={ctx.stepData?.error} />
     return null
   },

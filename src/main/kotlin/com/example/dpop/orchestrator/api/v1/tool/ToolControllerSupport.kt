@@ -19,6 +19,7 @@ import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_api.ToolContext
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
+import com.example.dpop.tool_spi.DEMO_PERSONS
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Service
@@ -287,13 +288,20 @@ class ToolControllerSupport(
         return channelAccessGuard.requireChannel(journeyChannelId, context.bindingKeyRef)
     }
 
-    /** personId is read back off the account rather than carried along - it is already stored there. */
+    /**
+     * personId is read back off the account rather than carried along - it is already stored there.
+     *
+     * `persons` (all seeded demo personas) is attached here, once, for every tool - not by each
+     * tool's own `demoData(...)` call - so a frontend persona picker works everywhere without
+     * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
+     */
     private fun demoInfo(journey: AuthJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
         val isAuthenticated = channel.state == ChannelState.AUTHENTICATED
         val journeys = journeyService.debugChain(channel)
         if (!isAuthenticated && values.isNullOrEmpty() && journeys.isEmpty()) return null
         val personId = journey.accountId?.let { accountService.findAccount(it)?.personId }
-        return DemoInfo(accountId = journey.accountId, personId = personId, journeys = journeys, values = values ?: emptyMap())
+        val enrichedValues = (values ?: emptyMap()) + ("persons" to DEMO_PERSONS)
+        return DemoInfo(accountId = journey.accountId, personId = personId, journeys = journeys, values = enrichedValues)
     }
 
     companion object {
