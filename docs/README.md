@@ -11,10 +11,16 @@ Nicht Teil dieser Dokumentation:
 - Infrastruktur-Details (Redis/DB-Cluster/Secrets-Management)
 
 ---
+## Schnellstart für Agents (token-sparend)
+
+Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich benötigten Kapitel öffnen.
+
+---
 ## Wo finde ich was
 
 | Dokument | Inhalt | Gut für |
 |---|---|---|
+| [00-agent-quickstart.md](00-agent-quickstart.md) | Kompakter Projektkontext und zielgerichteter Lesepfad für Agents | Token-sparender Einstieg |
 | [01-ueberblick.md](01-ueberblick.md) | Die tragenden Konzepte in Kurzform | Einstieg, erster Überblick |
 | [02-domaenenmodell.md](02-domaenenmodell.md) | Entitäten, Zustände, Enumerationen, Persistenz-Regeln | „Wie sieht das Datenmodell aus?" |
 | [03-tool-architektur.md](03-tool-architektur.md) | Tool-Katalog, Descriptor, `ToolOutcome`, Modulklassen | Ein neues Verfahren anbinden |
@@ -92,4 +98,3 @@ Keycloak-Anbindung — sie ist explizit außerhalb dieses Umbaus.
 ## Hinweis zu zukünftigen Änderungen
 
 Bei zukünftigen Änderungswünschen an dieser Dokumentation weise ich dich aktiv darauf hin, wenn neue Anforderungen oder Formulierungen mit bisher getroffenen Aussagen in Konflikt stehen könnten. Ich stelle die betroffene Stelle und den Widerspruch dar und überlasse dir die Entscheidung, wie damit umgegangen werden soll, indem ich dich interaktiv frage.
-
