@@ -8,6 +8,7 @@ import org.keycloak.models.credential.PasswordCredentialModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.storage.UserStorageProvider;
+import org.keycloak.storage.user.UserRegistrationProvider;
 
 import java.io.IOException;
 import java.util.stream.Stream;
@@ -21,7 +22,8 @@ import java.util.stream.Stream;
  * exactly as it is; only the "password" credential type is routed here, via
  * {@link UserModel#getFederationLink()} pointing at this provider's component id.
  */
-public class OrchestratorPasswordStorageProvider implements UserStorageProvider, CredentialInputValidator, CredentialInputUpdater {
+public class OrchestratorPasswordStorageProvider implements UserStorageProvider, UserRegistrationProvider,
+        CredentialInputValidator, CredentialInputUpdater {
 
     private static final Logger LOG = Logger.getLogger(OrchestratorPasswordStorageProvider.class);
 
@@ -29,6 +31,18 @@ public class OrchestratorPasswordStorageProvider implements UserStorageProvider,
 
     OrchestratorPasswordStorageProvider(OrchestratorClient client) {
         this.client = client;
+    }
+
+    @Override
+    public UserModel addUser(RealmModel realm, String username) {
+        // Users remain local Keycloak users; this provider only participates in their removal.
+        return null;
+    }
+
+    @Override
+    public boolean removeUser(RealmModel realm, UserModel user) {
+        // UserStorageManager delegates to local storage after this provider approves removal.
+        return true;
     }
 
     @Override

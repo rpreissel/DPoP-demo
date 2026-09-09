@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
- * toolId=enroll-email: registers a confirmed email address as a knowledge/possession factor,
+ * toolId=enroll-email: registers a confirmed email address as a knowledge factor,
  * mirroring enroll-sms (docs/06-ablaeufe.md #4) - a mock confirmation code stands in for a real
  * mail send, exactly like the mock SMS gateway.
  *

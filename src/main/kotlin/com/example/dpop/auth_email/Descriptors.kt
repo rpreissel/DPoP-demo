@@ -20,7 +20,7 @@ object EnrollEmailDescriptor : ToolDescriptor {
     override val toolId = "enroll-email"
     override val role = MethodRole.ENROLLMENT
     override val method = EMAIL_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
+    override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
     override val confirmsAccountEmail = true
 }
@@ -30,7 +30,7 @@ object AuthEmailUseDescriptor : ToolDescriptor {
     override val toolId = "auth-email"
     override val role = MethodRole.DEVICE_AUTH
     override val method = EMAIL_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
+    override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
 }
 
@@ -39,6 +39,6 @@ object AuthEmailLookupDescriptor : ToolDescriptor {
     override val toolId = "auth-email-lookup"
     override val role = MethodRole.LOOKUP_AUTH
     override val method = EMAIL_METHOD
-    override val factorTypes = setOf(FactorType.POSSESSION)
+    override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"
 }

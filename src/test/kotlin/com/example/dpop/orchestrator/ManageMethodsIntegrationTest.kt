@@ -105,12 +105,9 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             `when`("deactivating a method that would drop below the channel's floor") {
                 then("it is rejected") {
 
-                // sms+email alone (both POSSESSION, registerAndAuthenticate's default) can't demonstrate
-                // this anymore: email alone already covers the default loa1 floor, so deactivating sms
-                // wouldn't drop below it. Use an explicit loa2 channel with sms+email+password instead
-                // (same recipe as mfaCombination_smsAndPasswordTogetherReachLoa2Test) - sms/email are both
-                // POSSESSION, password is the only KNOWLEDGE factor, so deactivating IT is what breaks the
-                // MFA combination the loa2 floor requires.
+                // sms (POSSESSION) + email (KNOWLEDGE) alone already reach loa2.
+                // Password (KNOWLEDGE) is redundant for the MFA requirement, so deactivating it is allowed.
+                // But deactivating EMAIL (the only KNOWLEDGE factor) would drop below loa2, so that's rejected.
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
@@ -124,15 +121,13 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 }
                 patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
                 enrollEmail(channelSessionId)
-                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
-                patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
 
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
-                val passwordInstanceId = methods.first { it["method"] == "password" }["id"] as String
+                val emailInstanceId = methods.first { it["method"] == "email" }["id"] as String
 
                 val exception = assertThrows<HttpClientErrorException> {
-                    delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$passwordInstanceId")
+                    delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$emailInstanceId")
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT
 
@@ -168,7 +163,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
 
         given("a fresh channel") {
             `when`("starting MANAGE with only loa1 session evidence") {
-                then("it steps up to loa2 first") {
+                then("it offers email as the complementary factor for loa2") {
 
                 // Register with fsc+sms in one continuous session (loa2), then simulate a completely
                 // fresh app session on the same device: DeviceAccountLink skips straight to LOGIN via
@@ -184,24 +179,21 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
-                // The account has only sms enrolled - no second AUTH method exists to combine with, so
-                // without re-identification this would be a dead end (the bug this test guards against).
-                // MANAGE must offer ident-fsc as a way to reach loa2 instead of erroring out - confirmed
-                // first via the shared RE_IDENTIFY sub-journey (ReIdentifyState.OfferReIdent), never a silent fallback.
+                // Email is the enrolled KNOWLEDGE factor complementary to SMS (POSSESSION), so MANAGE
+                // can step up through existing authentication methods without re-identification.
                 val started = triggerEnrollmentStepUp(newChannelSessionId)
-                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
-                // Exact candidate computation is unit-tested (ReIdentifyStrategyTest) - here only the
-                // real HTTP round trip through the sub-journey matters.
-                val accepted = post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
-                accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
-
-                val reIdentified = reIdentifyViaFsc(newChannelSessionId)
-                // Re-identification alone already reaches loa2, so the step-up sub-journey ends - and the
-                // ORIGINAL wish resumes right there. The user does not have to ask for the enrollment a
-                // second time; that is the whole point of parking the wish rather than replacing it.
-                reIdentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
+                started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
+                val (emailCode, emailActivation) = captureMockTan {
+                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-email")
+                }
+                val emailToolSessionId = emailActivation.nextRaw()["toolSessionId"] as String
+                val steppedUp = patch(
+                    "/orchestrator/api/v1/tools/$emailToolSessionId/auth-email",
+                    """{"code":"$emailCode"}"""
+                )
+                steppedUp.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
+                steppedUp.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
 
                 val afterStepUp = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterStepUp.channel()["currentAcr"] shouldBe "loa2"
@@ -212,8 +204,8 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
         }
 
         given("a fresh channel") {
-            `when`("re-identifying as a different person during a MANAGE step-up") {
-                then("it is rejected") {
+            `when`("starting MANAGE after proving only SMS") {
+                then("it uses the enrolled email before offering re-identification") {
 
                 registerAndAuthenticate()
                 val loginStart = post("/orchestrator/api/v1/app/channels")
@@ -224,19 +216,8 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
 
-                post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
-                post("/orchestrator/api/v1/channels/$newChannelSessionId/answer", """{"answer":"accept"}""")
-                val identToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-
-                // A different KVNR resolves to a different person/account - must not silently take over
-                // this session's account.
-                val exception = assertThrows<HttpClientErrorException> {
-                    patch(
-                        "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                        """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
-                    )
-                }
-                exception.statusCode shouldBe HttpStatus.CONFLICT
+                val started = post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
+                started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
 
 
                 }

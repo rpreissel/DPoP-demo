@@ -20,7 +20,7 @@ Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregatio
 | `ident-eid` | `IDENTIFICATION` | `eid` | `{possession,knowledge}` | `loa3` | — |
 | `enroll-sms` / `auth-sms` | `ENROLLMENT` / `DEVICE_AUTH` | `sms` | `{possession}` | `loa1` | `false` |
 | `enroll-password` / `auth-password` | `ENROLLMENT` / `DEVICE_AUTH` | `password` | `{knowledge}` | `loa1` | `false` |
-| `enroll-email` / `auth-email` | `ENROLLMENT` / `DEVICE_AUTH` | `email` | `{possession}` | `loa1` | `false` |
+| `enroll-email` / `auth-email` | `ENROLLMENT` / `DEVICE_AUTH` | `email` | `{knowledge}` | `loa1` | `false` |
 | `auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup` | `LOOKUP_AUTH` | `sms`/`password`/`email` | wie Zwilling | `loa1` | `false` |
 | `enroll-device` / `auth-device` | `ENROLLMENT` / `DEVICE_AUTH` | `device` | `{possession,knowledge,inherence}` | `loa2` | `true` |
 
