@@ -18,7 +18,7 @@ repositories {
     mavenCentral()
 }
 
-val keycloakVersion = "26.5.5"
+val keycloakVersion = "26.6.4"
 
 dependencies {
     // Provided by the Keycloak runtime - not shaded into the provider jar.

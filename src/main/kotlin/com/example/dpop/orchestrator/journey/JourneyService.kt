@@ -223,6 +223,10 @@ class JourneyService(
      */
     fun nextOf(journey: AuthJourney, channel: ChannelSession): Next = nextFor(codec.read(journey), availableToolsOf(channel))
 
+    /** Returns the complete current step, including selection options and prompts. */
+    fun stepOf(journey: AuthJourney, channel: ChannelSession): Step =
+        stepFor(codec.read(journey), availableToolsOf(channel))
+
     private fun nextFor(state: JourneyState, availableTools: Set<String>): Next {
         state.active?.let { return Next.tool(it.toolId, it.step, it.toolSessionId) }
         val activatable = state.activatable(availableTools)

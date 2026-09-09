@@ -183,7 +183,10 @@ class ChannelService(
         if (channel.state == ChannelState.LOGGED_OUT) return respond(channel)
 
         val channelId = channel.channelSessionId!!
-        journeyService.findActive(channelId)?.let { return respond(channel, journeyService.nextOf(it, channel)) }
+        journeyService.findActive(channelId)?.let {
+            val step = journeyService.stepOf(it, channel)
+            return respond(channel, step.next, step.stepData)
+        }
         if (channel.state == ChannelState.AUTHENTICATED) return respond(channel)
 
         return startEntryJourney(channel, seedAction)

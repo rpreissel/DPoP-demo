@@ -158,16 +158,29 @@ public class OrchestratorAuthenticator implements Authenticator {
             String staticToolId = context.getAuthenticatorConfig() == null ? null
                     : context.getAuthenticatorConfig().getConfig().get("toolId");
             List<String> options = response.stepDataOptions();
-            if (staticToolId != null && !staticToolId.isBlank() && options.contains(staticToolId)) {
+            LOG.debugf("Orchestrator method selection: configured toolId='%s', options=%s",
+                    staticToolId, options);
+            if (staticToolId != null && !staticToolId.isBlank()) {
                 try {
                     OrchestratorClient.ChannelResponse activated = client.activateTool(
                             OrchestratorNotes.channelSessionId(context), staticToolId
                     );
                     handleResponse(context, activated, lastForm);
                     return;
+                } catch (OrchestratorClient.OrchestratorApiException e) {
+                    LOG.warnf(e, "Static tool pre-selection '%s' failed", staticToolId);
+                    context.challenge(errorForm(context, "Das konfigurierte Anmeldeverfahren ist derzeit nicht verfügbar."));
+                    return;
                 } catch (Exception e) {
-                    LOG.warnf(e, "Static tool pre-selection '%s' failed, falling back to selectMethod form", staticToolId);
+                    LOG.error("Static tool pre-selection '" + staticToolId + "' failed", e);
+                    context.failure(AuthenticationFlowError.INTERNAL_ERROR);
+                    return;
                 }
+            }
+            if (options.isEmpty()) {
+                context.challenge(errorForm(context,
+                        "Kein Anmeldeverfahren verfügbar. Prüfen Sie die Tool-ID der LoA-Execution."));
+                return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "select");
             context.challenge(selectForm(context, options, null));
@@ -299,7 +312,7 @@ public class OrchestratorAuthenticator implements Authenticator {
         if ("select".equals(pendingKind)) {
             // Re-render with whatever options this authenticator last knew - a fresh authenticate()
             // pass on retry re-fetches the real, current list; here we only need something to show.
-            return selectForm(context, List.of(), error);
+            return errorForm(context, error != null ? error : "Die Auswahl der Anmeldemethode ist fehlgeschlagen.");
         }
         return context.form().setAuthenticationSession(authSession).setError(error).createForm("orchestrator-error.ftl");
     }

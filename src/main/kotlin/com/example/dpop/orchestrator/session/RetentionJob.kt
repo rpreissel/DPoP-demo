@@ -41,9 +41,12 @@ class RetentionJob(
         val now = Instant.now()
 
         toolSessionRepository.deleteByExpiresAtBefore(now.minus(TOOL_SESSION_RETENTION))
-        journeyRepository.deleteByConsumedAtBeforeOrExpiresAtBefore(
-            now.minus(JOURNEY_RETENTION), now.minus(JOURNEY_RETENTION)
-        )
+        val journeyCutoff = now.minus(JOURNEY_RETENTION)
+        val retainedJourneyIds = journeyRepository.findIdsForRetention(journeyCutoff)
+        if (retainedJourneyIds.isNotEmpty()) {
+            toolSessionRepository.deleteByJourneyIdIn(retainedJourneyIds)
+            journeyRepository.deleteAllByIdInBatch(retainedJourneyIds)
+        }
 
         val confirmedDeadKcChannels = confirmedDeadKcChannels(now)
         deleteChannels(confirmedDeadKcChannels)
@@ -82,7 +85,11 @@ class RetentionJob(
         val orphanedAuthEvidenceIds = channels.mapNotNull { it.authEvidenceId }
         val channelSessionIds = channels.mapNotNull { it.channelSessionId }
         if (channelSessionIds.isNotEmpty()) {
-            journeyRepository.deleteByChannelSessionIdIn(channelSessionIds)
+            val journeyIds = journeyRepository.findIdsByChannelSessionIdIn(channelSessionIds)
+            if (journeyIds.isNotEmpty()) {
+                toolSessionRepository.deleteByJourneyIdIn(journeyIds)
+                journeyRepository.deleteAllByIdInBatch(journeyIds)
+            }
         }
         channelSessionRepository.deleteAll(channels)
         if (orphanedAuthContextIds.isNotEmpty()) {

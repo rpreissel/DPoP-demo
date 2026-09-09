@@ -6,6 +6,8 @@ import java.util.UUID
 interface JourneyLogRepository : JpaRepository<JourneyLogEntry, UUID> {
     fun findByBindingKeyRefOrderByCreatedAtDesc(bindingKeyRef: String): List<JourneyLogEntry>
 
+    fun findByAccountIdOrderByCreatedAtDesc(accountId: Long): List<JourneyLogEntry>
+
     /**
      * Keyed on channelSessionId, not the entry's own [JourneyLogEntry.accountId] - an entry logged
      * BEFORE this channel's account was bound (e.g. the journey's own "Started") never gets that

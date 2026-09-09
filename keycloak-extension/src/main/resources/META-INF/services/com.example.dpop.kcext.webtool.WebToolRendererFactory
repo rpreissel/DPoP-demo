@@ -4,3 +4,6 @@ com.example.dpop.kcext.webtool.password.PasswordLookupRendererFactory
 com.example.dpop.kcext.webtool.email.EmailAuthRendererFactory
 com.example.dpop.kcext.webtool.email.EmailEnrollRendererFactory
 com.example.dpop.kcext.webtool.email.EmailLookupRendererFactory
+com.example.dpop.kcext.webtool.sms.SmsAuthRendererFactory
+com.example.dpop.kcext.webtool.sms.SmsEnrollRendererFactory
+com.example.dpop.kcext.webtool.sms.SmsLookupRendererFactory

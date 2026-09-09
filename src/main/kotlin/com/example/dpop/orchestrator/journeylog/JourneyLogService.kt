@@ -90,8 +90,15 @@ class JourneyLogService(
      */
     fun getLogForAccount(accountId: Long): JourneyLogResponse {
         val channelSessionIds = channelSessionRepository.findByAccountId(accountId).mapNotNull { it.channelSessionId }
-        if (channelSessionIds.isEmpty()) return JourneyLogResponse(emptyList())
-        return JourneyLogResponse(journeyLogRepository.findByChannelSessionIdInOrderByCreatedAtDesc(channelSessionIds).map { it.toView() })
+        val channelEntries = if (channelSessionIds.isEmpty()) {
+            emptyList()
+        } else {
+            journeyLogRepository.findByChannelSessionIdInOrderByCreatedAtDesc(channelSessionIds)
+        }
+        val entries = (channelEntries + journeyLogRepository.findByAccountIdOrderByCreatedAtDesc(accountId))
+            .distinctBy { it.logId }
+            .sortedByDescending { it.createdAt }
+        return JourneyLogResponse(entries.map { it.toView() })
     }
 
     private fun JourneyLogEntry.toView() = JourneyLogEntryView(

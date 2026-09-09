@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
 import './App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, Next, StepData } from './types'
@@ -113,6 +113,14 @@ function App() {
   // WebChannelView) purely so the Journey-Log sub-tab can read the current accessToken too,
   // the same reason kcState/kcDebugLog live here instead of inside MockKeycloakView.
   const [webTokens, setWebTokens] = useState<TokenSet | null>(null)
+  const appJourneyLogFetcher = useCallback(
+    () => (channelSessionId ? getAccountJourneyLog(dpop!, channelSessionId) : getJourneyLog(dpop!)),
+    [channelSessionId, dpop],
+  )
+  const webJourneyLogFetcher = useCallback(
+    () => getWebJourneyLog(webTokens!.accessToken),
+    [webTokens],
+  )
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
@@ -712,11 +720,11 @@ function App() {
           {section === 'web' && sub === 'mock' && <MockKeycloakView onStateChange={setKcState} />}
 
           {sub === 'journeylog' && section === 'app' && (
-            <JourneyLogView fetchLog={dpop ? () => (channelSessionId ? getAccountJourneyLog(dpop, channelSessionId) : getJourneyLog(dpop)) : null} />
+            <JourneyLogView fetchLog={dpop ? appJourneyLogFetcher : null} />
           )}
 
           {sub === 'journeylog' && section === 'web' && (
-            <JourneyLogView fetchLog={webTokens ? () => getWebJourneyLog(webTokens.accessToken) : null} />
+            <JourneyLogView fetchLog={webTokens ? webJourneyLogFetcher : null} />
           )}
 
           {section === 'app' && sub === 'settings' && (

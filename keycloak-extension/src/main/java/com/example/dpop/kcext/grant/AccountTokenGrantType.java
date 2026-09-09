@@ -30,6 +30,7 @@ import org.keycloak.sessions.RootAuthenticationSessionModel;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -201,6 +202,11 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
     @Override
     public EventType getEventType() {
         return EventType.LOGIN;
+    }
+
+    @Override
+    public Set<String> getTokenParameterNames() {
+        return Set.of(ACCOUNT_ID_PARAM, ASSERTION_PARAM);
     }
 
     // Lets Keycloak's own refresh_token grant renew the token later without re-signing/re-

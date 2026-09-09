@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 import java.text.ParseException
 import java.time.Instant
+import java.net.URI
 
 class OidcTokenValidationException(message: String) : RuntimeException(message)
 
@@ -58,7 +59,9 @@ class KeycloakOidcTokenValidator(
         } catch (e: ParseException) {
             throw OidcTokenValidationException("Invalid token claims")
         }
-        if (claims.issuer != expectedIssuer) throw OidcTokenValidationException("Unexpected issuer: ${claims.issuer}")
+        if (!isExpectedIssuer(claims.issuer)) {
+            throw OidcTokenValidationException("Unexpected issuer: ${claims.issuer}")
+        }
         val expiresAt = claims.expirationTime?.toInstant() ?: throw OidcTokenValidationException("Token has no exp claim")
         if (expiresAt.isBefore(Instant.now())) throw OidcTokenValidationException("Token expired")
 
@@ -78,4 +81,27 @@ class KeycloakOidcTokenValidator(
         }
         if (!valid) throw OidcTokenValidationException("Invalid token signature")
     }
+
+    /**
+     * Keycloak's local HTTPS setup can expose the same realm issuer with a trailing slash or with
+     * the scheme rewritten by the development proxy. Keep the configured issuer authoritative for
+     * host and realm path; only allow the scheme alias for localhost.
+     */
+    private fun isExpectedIssuer(actual: String?): Boolean {
+        if (actual == null) return false
+        val configured = normalizeIssuer(expectedIssuer)
+        val token = normalizeIssuer(actual)
+        if (token == configured) return true
+
+        val configuredUri = runCatching { URI(configured) }.getOrNull() ?: return false
+        val tokenUri = runCatching { URI(token) }.getOrNull() ?: return false
+        return configuredUri.host == "localhost" &&
+            tokenUri.host == configuredUri.host &&
+            tokenUri.port == configuredUri.port &&
+            tokenUri.path == configuredUri.path &&
+            tokenUri.scheme in setOf("http", "https") &&
+            configuredUri.scheme in setOf("http", "https")
+    }
+
+    private fun normalizeIssuer(issuer: String): String = issuer.trimEnd('/')
 }

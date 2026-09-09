@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
 import java.time.Instant
 import java.util.UUID
@@ -18,6 +19,14 @@ interface AuthJourneyRepository : JpaRepository<AuthJourney, UUID> {
     ): AuthJourney?
 
     /** Retention clock starts at consumedAt or expiresAt, whichever applies (docs/07-betrieb.md #3). */
+    @Query(
+        """
+        select j.journeyId from AuthJourney j
+        where j.consumedAt < :cutoff or j.expiresAt < :cutoff
+        """
+    )
+    fun findIdsForRetention(cutoff: Instant): List<UUID>
+
     fun deleteByConsumedAtBeforeOrExpiresAtBefore(consumedCutoff: Instant, expiresCutoff: Instant): Long
 
     /**
@@ -28,4 +37,7 @@ interface AuthJourneyRepository : JpaRepository<AuthJourney, UUID> {
      * constraint rejects the delete.
      */
     fun deleteByChannelSessionIdIn(channelSessionIds: Collection<UUID>): Long
+
+    @Query("select j.journeyId from AuthJourney j where j.channelSessionId in :channelSessionIds")
+    fun findIdsByChannelSessionIdIn(channelSessionIds: Collection<UUID>): List<UUID>
 }

@@ -102,7 +102,9 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       ORCHESTRATOR_ADMIN_CLIENT_SECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
       KC_PEERAUTH_JWKSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/orchestrator-jwks/.well-known/jwks.json
-      KC_OIDC_ISSUER: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}
+      # The browser receives its access token from Keycloak's public host port. Keep this
+      # external issuer separate from the internal service URLs used for JWKS and admin calls.
+      KC_OIDC_ISSUER: https://localhost:8543/realms/${KEYCLOAK_REALM:-dpop-demo}
       KC_OIDC_CERTSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-dpop-demo}/protocol/openid-connect/certs
       KEYCLOAKSYNC_BASEURL: https://keycloak:8443
       KEYCLOAKSYNC_REALM: ${KEYCLOAK_REALM:-dpop-demo}
