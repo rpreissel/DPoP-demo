@@ -10,8 +10,8 @@ import jakarta.servlet.http.HttpServletRequest
  * from the connection the servlet container sees, which is the proxy's - not the client's. A
  * proxy that terminates TLS makes every proof fail with "htu claim does not match request URL",
  * because the client signed `https://host/...` and this builds `http://host:8080/...`. Turning
- * the strategy on lets `ForwardedHeaderFilter` restore the original scheme/host/port first (see
- * `application-fly.yml`), which is safe only where a trusted proxy overwrites `X-Forwarded-*`.
+ * the strategy on lets `ForwardedHeaderFilter` restore the original scheme/host/port first, which
+ * is safe only where a trusted proxy overwrites `X-Forwarded-*`.
  */
 fun buildRequestUrl(request: HttpServletRequest): String = buildString {
     append(request.scheme).append("://").append(request.serverName)

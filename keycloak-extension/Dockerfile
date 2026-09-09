@@ -1,7 +1,11 @@
 # Reines Laufzeit-Image - der Build passiert vorher auf dem Host per
-# `./gradlew stagePodmanArtifacts` (baut :keycloak-extension:shadowJar und kopiert Jar + Theme
-# nach build/podman/keycloak). Dieses Dockerfile kopiert nur noch das fertige Ergebnis;
-# .dockerignore blendet den Rest des Repos aus dem Build-Kontext aus.
+# `./gradlew stagePodmanArtifacts` (baut :keycloak-extension:shadowJar und kopiert Jar, Theme,
+# Healthcheck und dieses Dockerfile selbst nach build/podman/keycloak, siehe stageKeycloakArtifact
+# in build.gradle.kts). Dieses Dockerfile kopiert nur noch das fertige Ergebnis, mit Pfaden
+# relativ zu build/podman/keycloak - genau das ist auch der Build-Kontext, den compose.yml fuer
+# den keycloak-Service angibt. So muss Podman nicht mehr das ganze Repo (inkl. .git,
+# node_modules, Gradle-Caches) durchlaufen und hochladen, sondern nur noch das kleine
+# Staging-Verzeichnis.
 #
 # Keycloak selbst bleibt beim oeffentlichen Community-Image: das Red-Hat-Pendant
 # (registry.redhat.io/rhbk/keycloak-rhel9) braucht eine aktive Subscription zum Pull (anonym 403)
@@ -12,11 +16,11 @@ ARG KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:26.5.5
 
 FROM ${KEYCLOAK_BASE_IMAGE}
 
-COPY build/podman/keycloak/dpop-demo-keycloak-extension.jar /opt/keycloak/providers/dpop-demo-keycloak-extension.jar
-COPY build/podman/keycloak/theme/orchestrator /opt/keycloak/themes/orchestrator
+COPY dpop-demo-keycloak-extension.jar /opt/keycloak/providers/dpop-demo-keycloak-extension.jar
+COPY theme/orchestrator /opt/keycloak/themes/orchestrator
 # Healthcheck-Programm (siehe compose.yml) - Single-File-Source-Launch (JEP 330, `java
 # JwksHealthCheck.java`), kein separates javac noetig.
-COPY keycloak-extension/healthcheck/JwksHealthCheck.java /opt/keycloak/healthcheck/JwksHealthCheck.java
+COPY healthcheck/JwksHealthCheck.java /opt/keycloak/healthcheck/JwksHealthCheck.java
 
 # start-dev does NOT auto-generate an HTTPS certificate on this version - a self-signed one, baked
 # in at build time, is enough for local dev (docs/ideen/web-keycloak-kanal.md #1: only the client

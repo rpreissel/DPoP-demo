@@ -143,9 +143,10 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-// Trennt Gradle-Build von Podman-Build: die Dockerfiles kopieren nur noch fertige Artefakte aus
-// build/podman/* (siehe .dockerignore - alles andere wird aus dem Build-Kontext ausgeschlossen),
-// statt Gradle/npm selbst innerhalb des Containers laufen zu lassen. Muss vor `podman-compose
+// Trennt Gradle-Build von Podman-Build: die Dockerfiles (mitsamt sich selbst, siehe
+// stageOrchestratorDockerfile/stageKeycloakArtifact unten) kopieren nur noch fertige Artefakte aus
+// build/podman/*, statt Gradle/npm selbst innerhalb des Containers laufen zu lassen und statt dass
+// Podman das gesamte Repo als Build-Kontext einlesen muesste. Muss vor `podman-compose
 // build`/`up --build` einmal laufen: `./gradlew stagePodmanArtifacts`.
 val podmanStageDir = layout.buildDirectory.dir("podman")
 
@@ -184,9 +185,22 @@ val stageOrchestratorMigrations = tasks.register<Copy>("stageOrchestratorMigrati
     into(podmanStageDir.map { it.dir("orchestrator/keycloak-migrations/migrations") })
 }
 
+// Kopiert das Dockerfile mit nach build/podman/orchestrator, damit compose.yml dieses
+// Staging-Verzeichnis (statt des gesamten Repo-Wurzelverzeichnisses) als Build-Kontext angeben
+// kann: Podman muss dann nur noch die paar fertigen Artefakte hochladen/hashen, nicht mehr .git,
+// node_modules, Gradle-Caches etc. erst durchlaufen. Das Dockerfile selbst nutzt bereits
+// kontext-relative COPY-Pfade, keine Umschreibung noetig.
+val stageOrchestratorDockerfile = tasks.register<Copy>("stageOrchestratorDockerfile") {
+    group = "podman"
+    description = "Kopiert das Dockerfile nach build/podman/orchestrator."
+    dependsOn(stageOrchestratorArtifact)
+    from("Dockerfile")
+    into(podmanStageDir.map { it.dir("orchestrator") })
+}
+
 val stageKeycloakArtifact = tasks.register<Copy>("stageKeycloakArtifact") {
     group = "podman"
-    description = "Kopiert den Extension-Shadow-Jar und das Theme nach build/podman/keycloak."
+    description = "Kopiert Extension-Shadow-Jar, Theme, Healthcheck und Dockerfile nach build/podman/keycloak."
     dependsOn(":keycloak-extension:shadowJar")
     from(project(":keycloak-extension").tasks.named("shadowJar")) {
         rename { "dpop-demo-keycloak-extension.jar" }
@@ -194,13 +208,17 @@ val stageKeycloakArtifact = tasks.register<Copy>("stageKeycloakArtifact") {
     from("keycloak-extension/src/main/resources/theme") {
         into("theme")
     }
+    from("keycloak-extension/healthcheck/JwksHealthCheck.java") {
+        into("healthcheck")
+    }
+    from("keycloak-extension/Dockerfile")
     into(podmanStageDir.map { it.dir("keycloak") })
 }
 
 val stagePodmanArtifacts = tasks.register("stagePodmanArtifacts") {
     group = "podman"
     description = "Baut Orchestrator-Jar, Frontend und Keycloak-Extension und legt beide unter build/podman ab, damit podman-compose build/up nur noch fertige Artefakte kopiert."
-    dependsOn(stageOrchestratorMigrations, stageKeycloakArtifact)
+    dependsOn(stageOrchestratorMigrations, stageOrchestratorDockerfile, stageKeycloakArtifact)
 }
 
 // Haengt das Staging an den normalen Build-Lifecycle: wer `./gradlew build`/`assemble` laufen

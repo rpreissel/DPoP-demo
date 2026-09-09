@@ -1,9 +1,10 @@
 # Reines Laufzeit-Image - der Build selbst passiert vorher auf dem Host per
 # `./gradlew stagePodmanArtifacts` (baut Jar + Frontend, entpackt den Boot-Jar in einen flachen
-# Classpath unter build/podman/orchestrator). Dieses Dockerfile kopiert nur noch das fertige
-# Ergebnis; .dockerignore blendet den Rest des Repos (Quellen, node_modules, Gradle-Caches) aus
-# dem Build-Kontext aus, ein COPY schlaegt also klar fehl, falls stagePodmanArtifacts vergessen
-# wurde, statt heimlich veraltete Artefakte zu erwischen.
+# Classpath unter build/podman/orchestrator, kopiert dieses Dockerfile selbst mit dorthin - siehe
+# stageOrchestratorDockerfile in build.gradle.kts). Dieses Dockerfile kopiert nur noch das fertige
+# Ergebnis, mit Pfaden relativ zu build/podman/orchestrator - genau das gibt compose.yml auch als
+# Build-Kontext an, statt des ganzen Repos (kein Scan/Upload von .git, node_modules,
+# Gradle-Caches mehr noetig).
 #
 # Basis-Image ist von aussen ueberschreibbar (compose.yml build.args). Default ist Red Hat (UBI,
 # authentifizierungsfrei ueber registry.access.redhat.com) - auch zuhause, nicht nur am
@@ -18,9 +19,9 @@ FROM ${RUNTIME_BASE_IMAGE} AS runtime
 USER root
 WORKDIR /app
 
-# Das Volume wird unter /data gemountet (fly.toml). Es gehoert dem Anwendungsnutzer, weil
-# die H2-Datei zur Laufzeit angelegt und geschrieben wird - als root zu laufen, nur damit
-# ein Verzeichnis beschreibbar ist, waere der falsche Tausch.
+# Das Volume wird unter /data gemountet (compose.yml, orchestrator-data). Es gehoert dem
+# Anwendungsnutzer, weil die H2-Datei zur Laufzeit angelegt und geschrieben wird - als root zu
+# laufen, nur damit ein Verzeichnis beschreibbar ist, waere der falsche Tausch.
 #
 # addgroup/adduser (Busybox, Alpine) und groupadd/useradd (shadow-utils, UBI/RHEL) sind beide
 # noetig, nicht austauschbar - welches Tool da ist, haengt vom ueberschreibbaren
@@ -35,13 +36,13 @@ RUN if command -v addgroup >/dev/null 2>&1; then \
 # app.jar, lib/*.jar (flacher Classpath, siehe stagePodmanArtifacts in build.gradle.kts) und
 # keycloak-migrations/migrations (von KeycloakMigrationRunnerStartup zur Laufzeit gelesen, kein
 # Gradle-Resource-Prozessing) kommen alle schon fertig aus dem Staging-Verzeichnis.
-COPY build/podman/orchestrator/ ./
+COPY ./ ./
 RUN chown -R dpop:dpop /app
 USER dpop
 
 EXPOSE 8080
 
-# MaxRAMPercentage statt fester Heap-Groesse: die JVM liest das Container-Limit, das in
-# fly.toml steht, statt dass beide Zahlen getrennt gepflegt werden muessen.
+# MaxRAMPercentage statt fester Heap-Groesse: die JVM liest das Container-Limit direkt, statt dass
+# es zusaetzlich als separate Zahl gepflegt werden muesste.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -cp 'app.jar:lib/*' com.example.dpop.DpopApplicationKt"]

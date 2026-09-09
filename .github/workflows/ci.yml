@@ -1,16 +1,9 @@
-name: Fly Deploy
+name: CI
 
 on:
   push:
     branches: [main]
-  # Damit ein Rollback oder ein Deploy ohne neuen Commit moeglich ist, ohne leeren Commit.
-  workflow_dispatch:
-
-# Ein Deploy nach dem anderen. Die App laeuft auf einer einzigen Maschine mit Volume - zwei
-# gleichzeitige Deploys wuerden sich um dieselbe Maschine streiten.
-concurrency:
-  group: fly-deploy
-  cancel-in-progress: false
+  pull_request:
 
 jobs:
   test:
@@ -45,22 +38,3 @@ jobs:
       - name: Frontend-Tests
         working-directory: frontend
         run: npm test
-
-  deploy:
-    name: Deploy
-    needs: test
-    runs-on: ubuntu-latest
-    # Deployt nur aus dem Repo selbst, nie aus einem Fork-PR - dort gibt es das Secret ohnehin
-    # nicht, aber der Lauf soll gar nicht erst starten.
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      # --remote-only: gebaut wird auf Fly, nicht im Runner. Der Runner laedt nur den
-      # Build-Kontext hoch (siehe .dockerignore), das spart hier den Docker-Setup komplett.
-      - name: flyctl deploy
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

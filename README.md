@@ -17,13 +17,16 @@ wenn man ausschließlich staged, ohne sonst etwas zu bauen:
 ./gradlew stagePodmanArtifacts
 ```
 
-Beide Dockerfiles (`Dockerfile`, `keycloak-extension/Dockerfile`) kopieren nur noch aus
-`build/podman/*` — sie enthalten selbst kein Gradle, kein npm und keinen Quellcode mehr,
-`.dockerignore` blendet den Rest des Repos aus dem Build-Kontext aus. Fehlt das Staging oder ist es
-veraltet, bricht der jeweilige `COPY`-Schritt mit einem klaren "not found"-Fehler ab statt still
-ein altes Artefakt zu erwischen. `podman-compose build`/`up --build` selbst bleibt bewusst ein
-eigener, von Hand angestoßener Schritt — Gradle ruft kein Podman auf, damit ein normaler
-Gradle-Build nicht von einer laufenden Podman-Machine abhängt.
+`stagePodmanArtifacts` kopiert dabei auch beide Dockerfiles selbst mit nach `build/podman/*` — sie
+nutzen `COPY`-Pfade relativ zu ihrem jeweiligen Staging-Verzeichnis. `compose.yml` gibt deshalb
+`build/podman/orchestrator` bzw. `build/podman/keycloak` — nicht das Repo-Wurzelverzeichnis — als
+Build-Kontext an: Podman muss so nur noch die paar fertigen Artefakte hashen/hochladen, nicht mehr
+das ganze Repo (`.git`, `frontend/node_modules`, Gradle-Caches, …) einlesen. Fehlt das Staging oder
+ist es veraltet, bricht der jeweilige `COPY`-Schritt mit einem klaren "not found"-Fehler ab statt
+still ein altes Artefakt zu erwischen.
+`podman-compose build`/`up --build` selbst bleibt bewusst ein eigener, von Hand angestoßener
+Schritt — Gradle ruft kein Podman auf, damit ein normaler Gradle-Build nicht von einer laufenden
+Podman-Machine abhängt.
 
 `podman-compose up --build` startet `keycloak` (echtes Keycloak, HTTPS auf Port 8543) und den
 containerisierten `orchestrator` (Port 8080, eigenes Volume `orchestrator-data` für die
