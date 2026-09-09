@@ -7,3 +7,5 @@ com.example.dpop.kcext.webtool.email.EmailLookupRendererFactory
 com.example.dpop.kcext.webtool.sms.SmsAuthRendererFactory
 com.example.dpop.kcext.webtool.sms.SmsEnrollRendererFactory
 com.example.dpop.kcext.webtool.sms.SmsLookupRendererFactory
+com.example.dpop.kcext.webtool.identfsc.IdentFscRendererFactory
+com.example.dpop.kcext.webtool.identeid.IdentEidRendererFactory

@@ -1,8 +1,11 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
-        ${toolId}
+        ${title!toolId}
     <#elseif section = "form">
+        <#if hint??>
+            <p class="${properties.kcLabelClass!}">${hint}</p>
+        </#if>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#list fields?keys as fieldName>
                 <div class="${properties.kcFormGroupClass!}">

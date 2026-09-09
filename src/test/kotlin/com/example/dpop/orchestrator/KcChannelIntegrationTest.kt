@@ -267,6 +267,87 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        Given("a fresh kc channel opened with intent=register") {
+            When("PATCH is called with intent=register") {
+                Then("it offers identification, never the login-only lookup candidates") {
+                    val channelSessionId = UUID.randomUUID()
+                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    val response = kcPatch(channelSessionId, """{"intent":"register"}""")
+
+                    response.channel()["state"] shouldBe "REGISTERING"
+                    @Suppress("UNCHECKED_CAST")
+                    val options = response.stepData()["options"] as List<String>
+                    options shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+                }
+            }
+
+            When("an unknown intent is named") {
+                Then("it is rejected up front, never silently mapped to kc_select_method") {
+                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    val rejected = assertThrows<HttpClientErrorException> {
+                        kcPatchRaw(UUID.randomUUID(), withDefaultAvailableTools("""{"intent":"lookup_login"}"""))
+                    }
+                    rejected.statusCode shouldBe HttpStatus.CONFLICT
+                }
+            }
+
+            When("identification, sms enrollment, the shared email obligation and the web-only password obligation are all driven through") {
+                Then("the channel ends up AUTHENTICATED, email confirmed and enroll-password last") {
+                    val channelSessionId = UUID.randomUUID()
+                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    kcPatch(channelSessionId, """{"intent":"register"}""")
+
+                    val identToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc")
+                        .nextRaw()["toolSessionId"] as String
+                    val afterIdent = kcPatchTool(
+                        "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+                        """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    )
+                    // enroll-password isn't even a candidate yet - it requires a confirmed email
+                    // (ToolDescriptor.requiresConfirmedEmail), which this fresh account doesn't
+                    // have (docs/03-tool-architektur.md #1).
+                    @Suppress("UNCHECKED_CAST")
+                    (afterIdent.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder
+                        listOf("enroll-sms", "enroll-email", "enroll-device")
+
+                    val smsToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
+                        .nextRaw()["toolSessionId"] as String
+                    val (smsTan, _) = captureMockTan {
+                        kcPatchTool("/orchestrator/api/v1/tools/$smsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+                    }
+                    val afterSms = kcPatchTool("/orchestrator/api/v1/tools/$smsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
+
+                    // The floor (default loa1) is already reached by sms alone, but the shared
+                    // email obligation from Identifying is still open - single remaining
+                    // candidate skips the selection page (docs/04-orchestrierung.md #4).
+                    afterSms.next()["toolId"] shouldBe "enroll-email"
+
+                    val emailToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email")
+                        .nextRaw()["toolSessionId"] as String
+                    val (emailCode, _) = captureMockTan {
+                        kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/enroll-email", """{"email":"max@example.com"}""")
+                    }
+                    val afterEmail = kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/enroll-email", """{"code":"$emailCode"}""")
+
+                    // Only now, with the email confirmed, does the Web-only password obligation
+                    // kick in - without it this would already be AUTHENTICATED.
+                    afterEmail.next()["toolId"] shouldBe "enroll-password"
+                    afterEmail.channel()["state"] shouldBe "REGISTERING"
+
+                    val passwordToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password")
+                        .nextRaw()["toolSessionId"] as String
+                    val finished = kcPatchTool(
+                        "/orchestrator/api/v1/tools/$passwordToolSessionId/enroll-password",
+                        """{"password":"correct-horse-battery"}"""
+                    )
+
+                    // AUTHENTICATED only after ALL THREE obligations (sufficient method, confirmed
+                    // email, password) cleared.
+                    finished.channel()["state"] shouldBe "AUTHENTICATED"
+                }
+            }
+        }
+
         Given("an authenticated App channel") {
             When("the channel is resumed") {
                 Then("its response never carries authData - authData is KEYCLOAK-only") {

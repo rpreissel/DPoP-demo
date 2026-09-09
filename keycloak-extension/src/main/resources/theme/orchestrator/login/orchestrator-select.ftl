@@ -1,8 +1,11 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
-        Anmeldemethode wählen
+        ${title!"Anmeldemethode wählen"}
     <#elseif section = "form">
+        <#if description??>
+            <p class="${properties.kcLabelClass!}">${description}</p>
+        </#if>
         <form id="kc-orchestrator-select-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#list options as option>
                 <div class="${properties.kcFormGroupClass!}">

@@ -51,7 +51,18 @@ data class KcChannelUpsertRequest(
             "(a later upsert resumes the already-persisted set); a channel-anonymous caller that " +
             "omits this gets none of the orchestrator's tools, never all of them."
     )
-    val availableTools: List<String>? = null
+    val availableTools: List<String>? = null,
+    @field:Schema(
+        description = "Only read on this channel's first call, same restriction as availableTools " +
+            "- the kc facade's own, deliberately narrow counterpart to the App facade's `intent` " +
+            "request parameter (docs/05-api.md #\"POST /app/channels: intent-Parameter\"). Omitted " +
+            "(or null) means kc_select_method, the existing login/step-up behaviour. Only " +
+            "kc_select_method and register are accepted here - unlike the App facade, not every " +
+            "AuthIntent.isEntryIntent value: fast_access/lookup_login assume an APP-shaped channel " +
+            "this facade never has.",
+        example = "register"
+    )
+    val intent: String? = null
 )
 
 /**

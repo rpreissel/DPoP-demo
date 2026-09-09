@@ -1,6 +1,7 @@
 package com.example.dpop.kcext;
 
 import com.example.dpop.kcext.webtool.WebToolAvailability;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import com.example.dpop.kcext.webtool.WebToolRenderer;
 import com.example.dpop.kcext.webtool.WebToolRendererFactory;
@@ -37,6 +38,9 @@ import java.util.Map;
  *   <li>{@code targetAcr} - this execution's LoA level, already translated into an orchestrator ACR
  *       string (Section 9's mapping table lives in the tofu config that sets this property, one value
  *       per Condition-LoA subflow's execution).</li>
+ *   <li>{@code intent} - which kc entry intent a fresh channel starts with (docs/04-orchestrierung.md
+ *       #2/#3): empty means {@code kc_select_method} (today's login/step-up behaviour), {@code register}
+ *       runs identification + enrollment instead. Only read on the channel's very first call.</li>
  * </ul>
  *
  */
@@ -68,6 +72,14 @@ public class OrchestratorAuthenticator implements Authenticator {
             String targetAcr = OrchestratorNotes.requestedAcr(context);
             if (targetAcr == null) targetAcr = staticTargetAcr;
 
+            // The kc facade's own, deliberately narrow intent switch (docs/04-orchestrierung.md
+            // #2/#3): unconfigured means kc_select_method, today's login/step-up behaviour -
+            // admin-configurable per execution, same idiom as the static toolId pre-selection
+            // below. Only meaningful on this channel's very first call; a later resume ignores it
+            // server-side (KcChannelService.entryIntentFor is only consulted when isFreshChannel).
+            String intent = context.getAuthenticatorConfig() == null ? null
+                    : context.getAuthenticatorConfig().getConfig().get("intent");
+
             // Deliberately NOT OrchestratorNotes.nativeAmr(context), and no restoreData here:
             // OrchestratorResumeAuthenticator is this flow run's one dedicated place for both -
             // reporting a native proof happens via OrchestratorUpdateAuthenticator's OWN
@@ -77,7 +89,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             // runs after Resume already had its one chance) only re-triggers a no-op evidence merge.
             OrchestratorClient.ChannelResponse response = client.upsertChannel(
                     channelSessionId, accountId, targetAcr, List.of(), null, null,
-                    WebToolAvailability.renderableToolIds(context.getSession())
+                    WebToolAvailability.renderableToolIds(context.getSession()), intent
             );
             handleResponse(context, response, null);
         } catch (OrchestratorClient.OrchestratorApiException e) {
@@ -183,7 +195,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                 return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "select");
-            context.challenge(selectForm(context, options, null));
+            context.challenge(selectForm(context, options, response, null));
             return;
         }
 
@@ -246,14 +258,29 @@ public class OrchestratorAuthenticator implements Authenticator {
         return created;
     }
 
-    private Response selectForm(AuthenticationFlowContext context, List<String> options, String error) {
+    /**
+     * {@code response} is null only on the retry path ({@link #currentChallenge}, which has no
+     * fresh {@code ChannelResponse} to read from) - falls back to a generic heading there rather
+     * than failing, since a retry error still has to render something.
+     */
+    private Response selectForm(AuthenticationFlowContext context, List<String> options, OrchestratorClient.ChannelResponse response, String error) {
         Map<String, String> optionLabels = new LinkedHashMap<>();
         for (String option : options) {
             WebToolRendererFactory factory = rendererFactoryFor(context.getSession(), option);
             if (factory != null) optionLabels.put(option, factory.title());
         }
+        // The backend already names this specific selection screen (JourneyState.selectionTitle/
+        // -Description, docs/04-orchestrierung.md #4) - "Identifikation erforderlich",
+        // "Anmeldeverfahren einrichten", "Passwort einrichten" are all real, DIFFERENT screens that
+        // must not collapse into one generic "Anmeldemethode wählen" heading, same reasoning as
+        // frontend/src/types.ts's own OfferingState.selectionTitle doc.
+        String title = response != null && response.stepData().get("title") != null
+                ? response.stepData().get("title").asText() : "Anmeldemethode wählen";
+        JsonNode descriptionNode = response != null ? response.stepData().get("description") : null;
         var form = context.form()
                 .setAuthenticationSession(context.getAuthenticationSession())
+                .setAttribute("title", title)
+                .setAttribute("description", descriptionNode != null ? descriptionNode.asText() : null)
                 .setAttribute("options", options)
                 .setAttribute("optionLabels", optionLabels);
         if (error != null) form.setError(error);

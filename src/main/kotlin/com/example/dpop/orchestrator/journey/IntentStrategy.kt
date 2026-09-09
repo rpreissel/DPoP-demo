@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -60,6 +61,13 @@ interface IntentStrategy<S : JourneyState> {
  * questions, they change nothing.
  */
 data class JourneyContext(
+    /**
+     * Which facade opened this channel (docs/02-domaenenmodell.md #4). Named explicitly rather
+     * than inferred from [bindingKeyRef] being null - a strategy that needs to branch on channel
+     * type (e.g. a Web-only enrollment obligation) should read a declared fact, not an implicit
+     * side effect of a different, APP-only concept.
+     */
+    val channel: ChannelSession.Channel,
     /** The account this journey concerns, once resolved - `null` before any identification/lookup. */
     val account: AccountProfile?,
     /** What this channel's session has already proven. */

@@ -71,7 +71,17 @@ public class OrchestratorAuthenticatorFactory implements AuthenticatorFactory {
                 + "string (e.g. loa2) - set on step-up executions, one per Condition-LoA subflow "
                 + "(docs/ideen/web-keycloak-kanal.md #9).");
 
-        return List.of(toolId, targetAcr);
+        ProviderConfigProperty intent = new ProviderConfigProperty();
+        intent.setName("intent");
+        intent.setLabel("Entry intent");
+        intent.setType(ProviderConfigProperty.STRING_TYPE);
+        intent.setHelpText("Only meaningful on the channel's very first call (a fresh login/registration "
+                + "flow run, never a step-up). Leave empty for kc_select_method (today's login/step-up "
+                + "behaviour). Set to 'register' on the registration flow's entry execution to run "
+                + "identification + enrollment instead (docs/04-orchestrierung.md #2/#3). Any other value "
+                + "is rejected by the orchestrator.");
+
+        return List.of(toolId, targetAcr, intent);
     }
 
     @Override

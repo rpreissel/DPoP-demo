@@ -890,6 +890,7 @@ class JourneyService(
         val accountId = journey.accountId ?: channel.accountId
         val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         return JourneyContext(
+            channel = checkNotNull(channel.channel) { "ChannelSession without a channel type" },
             account = accountId?.let { accountService.findAccount(it) },
             evidence = evidence?.toCoreEvidence() ?: AuthEvidence(emptyList()),
             acrFloor = acrFloorOf(channel),

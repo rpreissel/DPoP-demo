@@ -19,6 +19,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.FactorType
 import java.time.Instant
@@ -97,6 +98,7 @@ object StrategyTestFixtures {
         bindingKeyRef: String = BINDING_KEY,
         linkedAccountId: Long? = null,
         isSubJourney: Boolean = false,
-        availableTools: Set<String> = allToolIds
-    ) = JourneyContext(account, evidence, acrFloor, bindingKeyRef, linkedAccountId, isSubJourney, policy, catalog, availableTools)
+        availableTools: Set<String> = allToolIds,
+        channel: ChannelSession.Channel = ChannelSession.Channel.APP
+    ) = JourneyContext(channel, account, evidence, acrFloor, bindingKeyRef, linkedAccountId, isSubJourney, policy, catalog, availableTools)
 }

@@ -82,6 +82,18 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 else -> afterEnrollment(ctx, state.emailObligation)
             }
+
+            // FAST_ACCESS itself never produces this state (see PasswordObligation's own KDoc) -
+            // this arm exists only because the sealed `when` must stay exhaustive; the discharge
+            // logic lives entirely in the (overridable) afterEnrollment re-check below, same
+            // pattern as ConfirmingEmail/Enrolling above.
+            is FastAccessState.PasswordObligation -> when (event) {
+                is JourneyEvent.Abandoned -> reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
+                // Reached only after the email obligation (if any) already discharged - see this
+                // state's own KDoc - so the re-check below never has one still open.
+                else -> afterEnrollment(ctx, emailObligation = false)
+            }
         }
 
     override fun cancelledTo(state: FastAccessState): ChannelState = ChannelState.ANONYMOUS
@@ -166,7 +178,7 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
      * after it. Reversing them would force one particular method before the user has chosen any,
      * even though setting up email is one of the choices that satisfies both at once.
      */
-    private fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
+    protected open fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
         val account = ctx.requireAccount()
         val reachable = ctx.policy.canAccountReach(account, ctx.acrFloor)
         if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {

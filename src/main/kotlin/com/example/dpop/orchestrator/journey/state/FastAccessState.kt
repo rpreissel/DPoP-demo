@@ -19,7 +19,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = FastAccessState.AuthChoice::class, name = "AuthChoice"),
     JsonSubTypes.Type(value = FastAccessState.Identifying::class, name = "Identifying"),
     JsonSubTypes.Type(value = FastAccessState.ConfirmingEmail::class, name = "ConfirmingEmail"),
-    JsonSubTypes.Type(value = FastAccessState.Enrolling::class, name = "Enrolling")
+    JsonSubTypes.Type(value = FastAccessState.Enrolling::class, name = "Enrolling"),
+    JsonSubTypes.Type(value = FastAccessState.PasswordObligation::class, name = "PasswordObligation")
 )
 sealed interface FastAccessState : JourneyState {
 
@@ -97,5 +98,31 @@ sealed interface FastAccessState : JourneyState {
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
         override val selectionDescription: String get() = "Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein."
+    }
+
+    /**
+     * Web-channel-only third obligation (docs/04-orchestrierung.md #8, RegisterStrategy): a
+     * REGISTER run on the KEYCLOAK channel must always end up with a password credential, not just
+     * any sufficient one - unlike [emailObligation], this does not cross intents (FAST_ACCESS never
+     * produces this state) and does not cross channels (an APP REGISTER run never does either), so
+     * it is a channel-scoped exception rather than the intent-crossing "third obligation" the
+     * emailObligation KDoc leaves open.
+     *
+     * Ordered AFTER [ConfirmingEmail], not before: `enroll-password` itself requires a confirmed
+     * account email (`ToolDescriptor.requiresConfirmedEmail`, docs/03-tool-architektur.md #1) - it
+     * cannot be a candidate at all before that obligation is discharged, so the only order that is
+     * actually reachable is "sufficient method, then email, then password". Choosing
+     * `enroll-password` directly in [Enrolling] is only possible once the email is already
+     * confirmed for the same reason, and discharges this obligation before it is ever reached.
+     */
+    data class PasswordObligation(
+        override val offered: List<String>,
+        override val declined: Set<String> = emptySet(),
+        override val active: ToolRef? = null
+    ) : FastAccessState, OfferingState {
+        override fun withActive(active: ToolRef?) = copy(active = active)
+        override val selectionContext: String get() = "enrollment"
+        override val selectionTitle: String get() = "Passwort einrichten"
+        override val selectionDescription: String get() = "Für die Registrierung über das Web-Portal ist ein Passwort als Anmeldeverfahren erforderlich."
     }
 }

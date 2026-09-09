@@ -14,6 +14,14 @@ Keycloak-Extension per Abschnittsnummer darauf verweisen - für neue Referenzen 
 die kanonischen Dokumente oben verwenden. Abweichungen zwischen ursprünglichem Entwurf
 und tatsächlicher Umsetzung sind als Kästen markiert (z. B. Abschnitt 2).
 
+**Ergänzung (DPoP-demo-urt, 2026-09-09):** Registrierung über den Web-Kanal - `REGISTER` als
+zweiter, Web-nutzbarer Entry-Intent neben `KC_SELECT_METHOD`, komplett Keycloak-delegiert, plus
+eine Web-only dritte Pflicht (`PasswordObligation`). Kanonisch jetzt in
+[04-orchestrierung.md](../04-orchestrierung.md) (Abschnitte 2, "REGISTER", 8) und
+[05-api.md](../05-api.md) Abschnitt 3 (`intent`-Feld). Betrifft Abschnitt 6 unten (der
+Einstiegspunkt akzeptiert jetzt `intent`) und Abschnitt 7 (der `OrchestratorAuthenticator`
+bekommt eine zusätzliche `intent`-Config neben dem schon vorhandenen statischen `toolId`).
+
 ---
 
 ## 1) Ausgangslage und Leitplanken

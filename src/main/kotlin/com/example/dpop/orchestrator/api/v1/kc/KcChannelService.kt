@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.api.v1.KcChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.policy.AuthEvidence
@@ -49,7 +50,8 @@ class KcChannelService(
         amr: List<AmrEntry>? = null,
         restoreDataToken: String? = null,
         restoreDataKcSessionId: String? = null,
-        availableTools: List<String>? = null
+        availableTools: List<String>? = null,
+        intent: String? = null
     ): ChannelResponse {
         // restoreDataToken is the bulk, one-shot counterpart of accountId/amr above (docs/ideen/
         // web-keycloak-kanal.md #6) - a prior, unrelated flow run's own state, resubmitted
@@ -117,7 +119,8 @@ class KcChannelService(
                 // (ChannelService.initializeChannel), never widened back to the orchestrator's whole
                 // catalog: an unfiltered "everything" default is exactly the App-Kanal-parity gap
                 // DPoP-demo-3yd.6 closes.
-                availableTools.orEmpty().toSet()
+                availableTools.orEmpty().toSet(),
+                entryIntentFor(intent)
             )
         } else {
             // Even a guessed channelSessionId is never enough on its own - the assertion must
@@ -191,6 +194,22 @@ class KcChannelService(
         if (channel.accountId == null && factors.isNullOrEmpty()) return null
         val coreEvidence = factors?.takeIf { it.isNotEmpty() }?.let { AuthEvidence(it) }
         return restoreDataCodec.encode(RestoreData(accountId = channel.accountId, evidence = coreEvidence), kcSessionId)
+    }
+
+    /**
+     * The kc facade's own, deliberately narrow reading of `intent` - unlike the App facade's
+     * [AuthIntent.fromRequest], `null` means [AuthIntent.KC_SELECT_METHOD] here (this facade's
+     * existing default), and only [AuthIntent.KC_SELECT_METHOD]/[AuthIntent.REGISTER] are accepted
+     * at all: FAST_ACCESS/LOOKUP_LOGIN assume an APP-shaped channel (device binding, DPoP) this
+     * facade never has (docs/04-orchestrierung.md #2/#3).
+     */
+    private fun entryIntentFor(intent: String?): AuthIntent {
+        if (intent == null) return AuthIntent.KC_SELECT_METHOD
+        val resolved = AuthIntent.fromRequest(intent)
+        if (resolved != AuthIntent.KC_SELECT_METHOD && resolved != AuthIntent.REGISTER) {
+            throw OrchestratorException.invalidState("Unbekannter oder fuer den kc-Kanal nicht zugelassener intent: $intent")
+        }
+        return resolved
     }
 
     companion object {

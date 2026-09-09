@@ -42,8 +42,12 @@ class SessionManagementService(
      * KEYCLOAK-only upsert-creation (docs/ideen/web-keycloak-kanal.md #6): unlike
      * [createChannelSession], the id is CLIENT-chosen (Keycloak's own fresh
      * `AuthenticationSessionModel` id) rather than self-assigned - the caller (`KcChannelService`)
-     * already checked no channel exists under it. `entryIntent` is always `KC_SELECT_METHOD`;
-     * there is only one kc entry intent.
+     * already checked no channel exists under it. `entryIntent` is [KC_SELECT_METHOD] by default
+     * (login/step-up, unchanged behaviour) or [REGISTER] when the caller's registration flow asks
+     * for it explicitly (docs/04-orchestrierung.md #2/#3) - the kc facade's own, deliberately
+     * narrow counterpart to the App facade's `intent` request parameter (`ChannelService.
+     * initializeChannel`), not every [AuthIntent.isEntryIntent] value: FAST_ACCESS/LOOKUP_LOGIN
+     * assume an APP-shaped channel this facade never has.
      *
      * [availableTools] IS an App-style client declaration (DPoP-demo-3yd.6) - the kc-facade's
      * extension sends exactly the toolIds it has its own rendering for (one
@@ -56,13 +60,14 @@ class SessionManagementService(
         channelAnchor: String,
         accountId: Long?,
         ttl: Duration,
-        availableTools: Set<String>
+        availableTools: Set<String>,
+        entryIntent: AuthIntent = AuthIntent.KC_SELECT_METHOD
     ): ChannelSession {
         val session = ChannelSession(ChannelSession.Channel.KEYCLOAK, null, Instant.now().plus(ttl))
         session.channelSessionId = channelSessionId
         session.channelAnchor = channelAnchor
         session.accountId = accountId
-        session.entryIntent = AuthIntent.KC_SELECT_METHOD
+        session.entryIntent = entryIntent
         session.availableClientTools = availableTools.toMutableSet()
         return channelSessionRepository.save(session)
     }

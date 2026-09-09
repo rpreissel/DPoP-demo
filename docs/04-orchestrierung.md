@@ -131,15 +131,16 @@ flowchart LR
 
 ## 2) Die Intents
 
-Vier **Entry-Intents** starten eine neue Sitzung (drei App-, ein Web-Kanal-eigener), fünf weitere
-laufen innerhalb einer bestehenden:
+Vier **Entry-Intents** starten eine neue Sitzung auf dem `APP`-Kanal, `KC_SELECT_METHOD` ist der
+Web-Kanal-eigene Login/Step-up-Einstieg, `REGISTER` ist zusätzlich auch über den Web-Kanal
+erreichbar (Registrierung, s. u.); fünf weitere laufen innerhalb einer bestehenden Sitzung:
 
 | `AuthIntent` | Ziel | Einstieg |
 |---|---|---|
 | `FAST_ACCESS` | So schnell wie möglich in einen Login auf diesem Gerät — und so, dass es künftig wieder klappt | `POST /channels` (Default) |
-| `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /channels` mit `intent=register` |
+| `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /channels` mit `intent=register` (App) bzw. `PATCH /kc/channels/{id}` mit `intent=register` (Web, s. u.) |
 | `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=lookup_login` |
-| `KC_SELECT_METHOD` | Web-Kanal-Entry: alle kc-nutzbaren Tools als einen `selectMethod`-Schritt anbieten, Keycloak fährt die eigentliche Fallback-Logik selbst | einziger Entry-Intent des `KEYCLOAK`-Kanals ([05-api.md](05-api.md) Abschnitt 3) |
+| `KC_SELECT_METHOD` | Web-Kanal-Entry für Login/Step-up: alle kc-nutzbaren Tools als einen `selectMethod`-Schritt anbieten, Keycloak fährt die eigentliche Fallback-Logik selbst | Default-Entry-Intent des `KEYCLOAK`-Kanals ([05-api.md](05-api.md) Abschnitt 3) |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE_AUTH_METHODS` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
 | `DELETE_ACCOUNT` | Konto unwiderruflich löschen | nur auf einem `AUTHENTICATED`-Kanal |
@@ -255,10 +256,33 @@ stateDiagram-v2
   Identifying --> Enrolling: Identität festgestellt
   Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
   Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
+  Enrolling --> PasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
-  ConfirmingEmail --> Finished: E-Mail bestätigt
+  ConfirmingEmail --> PasswordObligation: E-Mail bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  ConfirmingEmail --> Finished: E-Mail bestätigt, keine weitere Pflicht offen
+  PasswordObligation --> Finished: Passwort eingerichtet
   Finished --> [*]
+
+  note right of PasswordObligation
+    Nur REGISTER auf dem KEYCLOAK-Kanal
+    (Abschnitt 8). App-REGISTER und
+    FAST_ACCESS erreichen diesen
+    Zustand nie.
+  end note
 ```
+
+**Web-Kanal (seit DPoP-demo-urt):** `REGISTER` ist neben `KC_SELECT_METHOD` ein zweiter,
+Web-nutzbarer Entry-Intent — `PATCH /kc/channels/{channelSessionId}` mit `intent=register`
+([05-api.md](05-api.md) Abschnitt 3). Komplett Keycloak-delegiert: kein natives
+Registrierungsformular, `ident-fsc`/`ident-eid` und `enroll-*` laufen über dieselben
+Web-Tool-Renderer wie jeder andere Schritt. Für diesen Kanal gilt zusätzlich eine dritte,
+kanalgebundene Pflicht — `PasswordObligation`, Abschnitt 8.
+
+Findet `Identifying` dabei einen **bereits existierenden** Account (KVNR-Treffer) mit schon
+ausreichender aktiver Methode, läuft der Nachweis über `AuthChoice`/`afterProof`, nicht über
+`Enrolling`/`afterEnrollment` — `PasswordObligation` (wie die E-Mail-Pflicht) greift dort
+bewusst **nicht**: ein wiedererkannter, bereits eingerichteter Account wird wie ein gewöhnlicher
+Login behandelt, keine rückwirkende Pflicht.
 
 ### `LOOKUP_LOGIN`
 
@@ -316,8 +340,9 @@ Timing-Padding); in einem Produktivsystem wäre das der nächste Ausbau.
 
 ### `KC_SELECT_METHOD`
 
-Der einzige Entry-Intent des `KEYCLOAK`-Kanals ([05-api.md](05-api.md) Abschnitt 3, `ADR-8`
-in [12-entscheidungen.md](12-entscheidungen.md)): ein einziger Zustand, der unconditional alle
+Der Default-Entry-Intent des `KEYCLOAK`-Kanals für Login/Step-up ([05-api.md](05-api.md)
+Abschnitt 3, `ADR-8` in [12-entscheidungen.md](12-entscheidungen.md)) — `REGISTER` ist der zweite,
+für die Registrierung (Abschnitt "REGISTER" oben). Ein einziger Zustand, der unconditional alle
 kc-nutzbaren Tools als einen `selectMethod`-Schritt anbietet — keine Fallback-Kette, kein
 Enrollment-Angebot, keine Sufficiency-Prüfung VOR dem Anbieten. Das ist bewusst so: Keycloaks
 eigene, native Flow-Konfiguration (Conditional-LoA-Subflows) entscheidet bereits, OB und WELCHES
@@ -796,3 +821,32 @@ Drift-Risiko ohne aktuellen Nutzen.
 bedeutet denselben Zustand in mehreren Hierarchien. Bei genau zwei Pflichten, die beide ohnehin
 Zustände sind, ist das der bessere Tausch; bei einer dritten, intent-übergreifenden Pflicht gehört
 die Entscheidung neu geprüft.
+
+### Eine dritte Pflicht, aber kanalgebunden statt intent-übergreifend
+
+`PasswordObligation` (`RegisterStrategy`, DPoP-demo-urt) ist die oben angekündigte dritte Pflicht —
+tatsächlich eingetreten, aber anders geschnitten als der "Preis"-Absatz befürchtet: Sie betrifft
+**keinen zweiten Intent** (nur `REGISTER`, nie `FAST_ACCESS`), sondern ist auf einen Kanal begrenzt
+(nur `KEYCLOAK`, nie `APP`). `RegisterStrategy` überschreibt dafür `afterEnrollment` allein und
+wrapt dessen Basisentscheidung: Nur wenn diese `Transition.Authenticated` zurückgeben würde *und*
+der Kanal `KEYCLOAK` ist *und* noch keine aktive `password`-Methode existiert, wird stattdessen
+`PasswordObligation` eingeschoben. `FAST_ACCESS` erzeugt den Zustand deshalb nie, obwohl er Teil
+derselben geteilten `FastAccessState`-Zustandsmenge ist.
+
+**Reihenfolge, technisch erzwungen, nicht gewählt**: `PasswordObligation` steht *nach*
+`ConfirmingEmail`, nicht davor — `enroll-password` selbst setzt eine bestätigte E-Mail voraus
+(`ToolDescriptor.requiresConfirmedEmail`, [Tool-Architektur](03-tool-architektur.md) Abschnitt 1);
+`enroll-password` ist vor bestätigter E-Mail nicht einmal Kandidat. Die Kette lautet deshalb
+zwingend `Enrolling → ConfirmingEmail → PasswordObligation`, unabhängig davon, welche Reihenfolge
+fachlich naheliegender schiene.
+
+**Geltungsbereich wie bei der E-Mail-Pflicht**: Findet `Identifying` einen bereits existierenden
+Account mit schon ausreichender Methode, läuft der Nachweis über `AuthChoice`/`afterProof`, niemals
+über `afterEnrollment` — `PasswordObligation` greift dort bewusst nicht, exakt dieselbe Ausnahme,
+die `afterProof` für die E-Mail-Pflicht schon dokumentiert ("ein Account, der nur einloggt, wird
+nie rückwirkend blockiert").
+
+Kandidaten für `PasswordObligation` werden wie überall über den Katalog aufgelöst (`role ==
+ENROLLMENT && method == "password"`, geschnitten mit `availableTools`) — nie über einen
+hartcodierten `toolId`-String —, damit App und Web grundsätzlich unterschiedliche Tools für
+dieselbe Methode registrieren könnten, ohne diese Strategie anzufassen.

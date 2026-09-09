@@ -83,7 +83,7 @@ public class OrchestratorResumeAuthenticator implements AuthenticationFlowCallba
                 // own id travels along ONLY as the RestoreData binding, never as the anchor itself.
                 OrchestratorClient.ChannelResponse response = client.upsertChannel(
                         newChannelSessionId, accountId, OrchestratorNotes.requestedAcr(context), List.of(), restoreData, existingUserSession.getId(),
-                        WebToolAvailability.renderableToolIds(context.getSession())
+                        WebToolAvailability.renderableToolIds(context.getSession()), null
                 );
                 if (response.authDataAcr() != null) {
                     authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());

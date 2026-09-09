@@ -54,12 +54,19 @@ final class OrchestratorClient {
             List<AmrEntry> amr,
             String restoreData,
             String durableKcSessionId,
-            List<String> availableTools
+            List<String> availableTools,
+            String intent
     ) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/kc/channels/" + channelSessionId;
         ObjectNode body = MAPPER.createObjectNode();
         if (accountId != null) body.put("accountId", accountId);
         if (targetAcr != null) body.put("targetAcr", targetAcr);
+        // Only meaningful on this channel's first call too, same as availableTools above
+        // (docs/05-api.md #"POST /app/channels: intent-Parameter", kc-facade's own counterpart).
+        // Omitted (null/blank) means the facade's own default (kc_select_method, i.e. today's
+        // login/step-up behaviour) - only the initial-login OrchestratorAuthenticator ever sends
+        // this, never Resume/Update, which only ever continue an already-existing channel.
+        if (intent != null && !intent.isBlank()) body.put("intent", intent);
         // Only meaningful on this channel's first call (KcChannelService.upsertChannel creates the
         // channel then, never on a later resume) - sent every time regardless, same as the App
         // channel's own `availableTools` (frontend/src/tools/registry.ts's knownToolIds), since this
@@ -271,7 +278,13 @@ final class OrchestratorClient {
         }
 
         boolean isSelectMethod() {
-            return "orchestrator".equals(type) && "selectMethod".equals(step);
+            // "selectIdentificationMethod" is Identifying's own step name (docs/04-orchestrierung.md
+            // #4/#5, FastAccessState.Identifying.selectionStep) - the same generic multi-option
+            // selection screen as every other OfferingState's default "selectMethod", just named
+            // differently because it's REGISTER's own identification choice, not an auth choice.
+            // Never reachable before DPoP-demo-urt (REGISTER had no kc-facade path), so this arm
+            // was previously unexercised by anything actually calling into it.
+            return "orchestrator".equals(type) && ("selectMethod".equals(step) || "selectIdentificationMethod".equals(step));
         }
 
         boolean isAuthenticated() {

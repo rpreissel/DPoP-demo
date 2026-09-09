@@ -32,6 +32,14 @@ dependencies {
     // runtime, so it has to be shaded into the provider jar.
     implementation("com.nimbusds:nimbus-jose-jwt:9.37.3")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+
+    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.shadowJar {

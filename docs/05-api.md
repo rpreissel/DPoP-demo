@@ -242,6 +242,7 @@ Body (alle Felder optional, `KcChannelUpsertRequest`):
 | `amr` | Liste `{nativeToolId, amrSourceId}` — was ein natives Keycloak-Verfahren (nie ein Orchestrator-Tool) DIESEN Flow-Durchlauf gerade bewiesen hat. Methode/Loa/Faktortypen löst der Orchestrator serverseitig über `nativeToolId` auf (`NativeAuthenticatorDescriptor`), nicht mitgeschickt — genau wie ein Orchestrator-Tool seine Evidenz aus dem eigenen `ToolDescriptor` bezieht. Immer die VOLLSTÄNDIGE, aktuell gültige Menge, kein Delta. |
 | `restoreData` / `kcSessionId` | Ein signiertes Token aus `GET .../restore-data` einer FRÜHEREN, unabhängigen `ChannelSession` (derselben Keycloak-User-Session) — reicht die dort erreichte Evidenz an einen frisch angelegten Kanal weiter, bevor dessen erste Journey-Entscheidung überhaupt läuft. `kcSessionId` bindet das Token an Keycloaks durables `UserSessionModel`, unabhängig vom flow-lokalen Kanal-Anker. Ein falsches/abgelaufenes/manipuliertes Token kommt als `null` zurück, nie als Fehler — bedeutet nur "ohne Vorlauf starten". |
 | `availableTools` | Welche `toolId`s das Keycloak-Theme rendern kann (ein `WebToolRenderer` pro Tool) — nur beim ersten Aufruf gelesen, das Web-Pendant zu `availableTools` bei `POST /app/channels`. |
+| `intent` | Nur beim ersten Aufruf gelesen, wie `availableTools`. Deutlich enger als das App-Pendant (`POST /app/channels`, s. o.): weggelassen bedeutet `kc_select_method` (unverändertes Login/Step-up-Verhalten), akzeptiert wird sonst ausschließlich `register` — nicht jeder `AuthIntent.isEntryIntent`-Wert, da `fast_access`/`lookup_login` einen App-förmigen Kanal (Gerätebindung, DPoP) voraussetzen, den diese Fassade nie hat. Ein unbekannter oder unzulässiger Wert wird abgelehnt (`409`), nie still auf `kc_select_method` zurückgemappt. |
 
 `GET .../{channelSessionId}/restore-data?kcSessionId=...` — nur für Keycloaks eigenen
 Flow-Ende-Hook: liest zurück, was dieser Kanal akkumuliert hat, signiert als Token, das an genau
@@ -277,7 +278,10 @@ Der Web-Kanal kennt kein Gerät — `DeviceAccountLink` bleibt APP-only
 ([02-domaenenmodell.md](02-domaenenmodell.md)). Login läuft über den bereits gebauten
 Lookup-Login bzw. über den eigenen Entry-Intent `KC_SELECT_METHOD`
 ([04-orchestrierung.md](04-orchestrierung.md) Abschnitt 3), der Keycloak die Auswahl unter allen
-kc-nutzbaren Tools überlässt, statt selbst eine Fallback-Kette zu fahren.
+kc-nutzbaren Tools überlässt, statt selbst eine Fallback-Kette zu fahren. Registrierung läuft
+stattdessen über `REGISTER` (`intent=register`, s. o.) — komplett Keycloak-delegiert, kein
+natives Registrierungsformular; `ident-fsc`/`ident-eid`/`enroll-*` laufen über dieselben
+`WebToolRenderer` wie jeder andere Schritt.
 
 **Offen:** Die Logout-Semantik im Web-Kanal ist noch nicht entschieden — ob `DELETE
 /channels/{id}` für `KEYCLOAK`-Kanäle clientseitig überhaupt aufrufbar sein soll, oder ausschließlich
