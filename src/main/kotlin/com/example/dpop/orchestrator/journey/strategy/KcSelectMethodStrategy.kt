@@ -71,7 +71,7 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
             is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(
                 event.tool, outcome, useOutcomeAccount = !state.accountAlreadyKnown, bindDevice = false
             )
-            is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled ->
+            is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved ->
                 error("${event.tool.toolId} is not offered by KC_SELECT_METHOD")
         }
 

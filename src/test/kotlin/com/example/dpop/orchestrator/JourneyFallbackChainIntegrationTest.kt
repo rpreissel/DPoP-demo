@@ -138,7 +138,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             val afterCancel = delete("/orchestrator/api/v1/channels/$channelSessionId/journey")
             afterCancel.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            afterCancel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
+            afterCancel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
         }
         }
     }

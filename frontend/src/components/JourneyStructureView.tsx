@@ -14,7 +14,7 @@ interface JourneyStructureViewProps {
   journeys?: JourneyDebugStep[]
   /** Where the channel is headed right now - a real ToolSession (`type: 'tool'`) or an orchestrator-owned screen (`type: 'orchestrator'`, e.g. a selection or confirmation page) alike, both shown as the innermost box. */
   next?: Next
-  journeyKind?: 'auto' | 'register' | 'login'
+  journeyKind?: 'auto' | 'register' | 'login' | 'confirmPeerLogin'
   onClear: () => void
   /** Restarts the innermost (actually running) journey from scratch, same intent - a Journey-level action, so it lives on the Journey box, not among the fachlich flow controls. Omitted (no button rendered) once there's nothing left to cancel. */
   onCancelJourney?: () => void

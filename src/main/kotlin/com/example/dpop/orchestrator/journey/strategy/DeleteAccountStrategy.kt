@@ -90,7 +90,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 is JourneyEvent.Completed -> when (event.outcome) {
                     is ToolOutcome.Completed.Authenticated ->
                         Transition.Perform(Action.DeleteAccount(ctx.requireAccount().accountId), resumeState = state)
-                    is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled ->
+                    is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved ->
                         error("${event.tool.toolId} is not offered by DELETE_ACCOUNT")
                 }
                 // The delete just ran - end the channel.

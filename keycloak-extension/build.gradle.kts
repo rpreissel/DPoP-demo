@@ -32,6 +32,10 @@ dependencies {
     // runtime, so it has to be shaded into the provider jar.
     implementation("com.nimbusds:nimbus-jose-jwt:9.37.3")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+    // QR encoding for auth-qr/auth-qr-lookup's WebToolRenderer (docs/ideen/qr-login-ueber-app.md
+    // #7/#8) - core only, no `javase` artifact: the BitMatrix -> PNG conversion is small enough to
+    // write directly (QrImageEncoder) without pulling in its extra dependencies.
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")

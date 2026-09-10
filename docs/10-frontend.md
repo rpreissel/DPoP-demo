@@ -44,6 +44,26 @@ Nach erfolgreicher Anmeldung zeigt die Ansicht zwei getrennte, aber verwandte Ab
 
 `EntryChoiceLinks` bietet, solange der Kanal weder `AUTHENTICATED` noch `LOGGED_OUT` ist, den Wechsel auf `intent="lookup_login"`/`"register"` an — bewusst nicht nur auf den allerersten Bildschirm beschränkt, ein Nutzer darf auch mitten in einem mehrstufigen Ablauf anders neu starten. Für den Lookup-Login selbst existiert je Methode ein eigenes Formular (SMS/Passwort/E-Mail); die jeweilige Bestätigungseingabe (TAN/Code) teilt sich das Formular mit dem geräte-gebundenen Pendant, da beide denselben `next.step` nutzen.
 
+### Web-Login per QR bestätigen (AuthIntent.CONFIRM_PEER_LOGIN)
+
+Zwei gleichwertige Einstiege, passend zu `CONFIRM_PEER_LOGIN`s doppelter Erreichbarkeit
+([Orchestrierung](04-orchestrierung.md) Abschnitt 2, docs/ideen/qr-login-ueber-app.md #4):
+
+- **Startbildschirm** („Wie möchten Sie starten?"): ein Eintrag „Web-Login per QR bestätigen" neben
+  Automatisch/Registrieren/Neu anmelden, mit Diagramm-Hover wie die anderen. Setzt ein auf diesem
+  Gerät bereits bekanntes Konto voraus — ohne `DeviceAccountLink` bricht die Journey sofort ab.
+- **Authentifizierte Ansicht** (`AuthenticationCompletedView`): ein eigener Abschnitt „Web-Login per
+  QR bestätigen" mit Button, der `POST /channels/{id}/peer-logins` auslöst — für den Fall, dass die
+  App schon offen und angemeldet ist, wenn der QR-Code gescannt wird.
+
+Beide Wege laufen auf denselben `next` hinaus (loa2 nicht erreicht → dieselbe Tool-Navigation wie
+jeder andere Step-up; loa2 bereits erreicht → direkt `confirm-qr-login`). Der Demo-Link, den die
+Web-Seite anzeigt, zeigt auf die eigene Origin dieses Frontends mit `?pairingCode=...` — Öffnen
+landet direkt in dieser App statt in einem fiktiven nativen Deep-Link-Schema; der Wert wird beim
+Laden aus der URL übernommen und dort sofort wieder entfernt (`pendingPairingCode`). Das eigentliche
+Eingabefeld dafür gehört zum `confirm-qr-login`-Tool selbst (noch nicht gebaut, docs/ideen/qr-login-
+ueber-app.md #9) — bislang wird der Code nur übernommen und als Hinweis angezeigt.
+
 ---
 
 ## 3) Navigation ausschließlich über `next`

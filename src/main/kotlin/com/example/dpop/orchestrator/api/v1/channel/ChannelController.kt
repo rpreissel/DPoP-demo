@@ -281,6 +281,32 @@ class ChannelController(
         return ResponseEntity.ok(channelService.startManageMethods(channelSessionId, bindingKeyRef))
     }
 
+    @PostMapping("/{channelSessionId}/peer-logins")
+    @Operation(
+        summary = "Confirm a WEB-channel QR login from this already-authenticated APP channel",
+        description = "Channel must already be AUTHENTICATED (docs/ideen/qr-login-ueber-app.md #4). Same " +
+            "AuthIntent.CONFIRM_PEER_LOGIN as the cold-entry path via POST /app/channels - gates on loa2 " +
+            "(step-up offered first if below it), then offers confirm-qr-login as the one candidate.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Already at loa2 - confirm-qr-login offered directly.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa2"},
+                      "next": {"type": "tool", "toolId": "confirm-qr-login", "step": "input"}
+                    }
+                """)])]
+            )
+        ]
+    )
+    fun confirmPeerLogin(
+        @PathVariable channelSessionId: UUID,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<ChannelResponse> {
+        return ResponseEntity.ok(channelService.startPeerLogin(channelSessionId, bindingKeyRef))
+    }
+
     @PostMapping("/{channelSessionId}/account-deletions")
     @Operation(
         summary = "Delete the account of an already authenticated channel",

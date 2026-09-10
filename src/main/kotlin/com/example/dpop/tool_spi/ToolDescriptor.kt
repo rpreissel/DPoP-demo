@@ -70,13 +70,20 @@ interface ToolDescriptor {
 enum class ToolCategory {
     IDENT,
     ENROLL,
-    AUTH
+    AUTH,
+
+    /**
+     * A tool that decides on another channel's pending request instead of proving or establishing
+     * anything about its own channel/account - never contributes to the own channel's ACR/AMR
+     * balance, never a candidate for closing a gap (docs/ideen/qr-login-ueber-app.md #3).
+     */
+    SIDE_ACTION
 }
 
 /**
  * The role a tool plays with respect to its [ToolDescriptor.method]. `(method, role)` together
  * uniquely identify a concrete procedure - `(method, category)` alone does not, since
- * [MethodRole.DEVICE_AUTH] and [MethodRole.LOOKUP_AUTH] share `category=AUTH`.
+ * [MethodRole.IDENTIFIED_AUTH] and [MethodRole.LOOKUP_AUTH] share `category=AUTH`.
  */
 enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) {
     /** Resolves identity (e.g. `ident-fsc`) - never establishes a durable credential. */
@@ -89,14 +96,22 @@ enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) 
      * Proves a credential for an account already known via the current channel/process (e.g.
      * `auth-sms`, `auth-device`).
      */
-    DEVICE_AUTH(ToolCategory.AUTH, "auth"),
+    IDENTIFIED_AUTH(ToolCategory.AUTH, "auth"),
 
     /**
-     * Proves the same underlying credential as its [DEVICE_AUTH] sibling, but resolves the
+     * Proves the same underlying credential as its [IDENTIFIED_AUTH] sibling, but resolves the
      * account itself from a submitted identifier (e.g. `auth-sms-lookup`) instead of relying on
      * the channel already knowing it.
      */
-    LOOKUP_AUTH(ToolCategory.AUTH, "auth")
+    LOOKUP_AUTH(ToolCategory.AUTH, "auth"),
+
+    /**
+     * Approves or declines a pending request that originated on a DIFFERENT channel (e.g.
+     * `confirm-qr-login` deciding a `auth-qr`/`auth-qr-lookup` pairing,
+     * docs/ideen/qr-login-ueber-app.md #3) - structurally unlike every other role, which answers
+     * "who am I"/"what can I prove" for its OWN channel.
+     */
+    PEER_APPROVAL(ToolCategory.SIDE_ACTION, "input")
 }
 
 /** A kind of authentication factor a method can provide. */

@@ -196,7 +196,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val channelSessionId = loginStart.channel()["channelSessionId"] as String
                 loginStart.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
+                loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
 
                 val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
                 val authenticated = patch(
@@ -433,7 +433,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 @Suppress("UNCHECKED_CAST")
-                channelResponse.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup")
+                channelResponse.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
 
 
                 }

@@ -88,7 +88,7 @@ interface ToolEndpoint {
      * Whether [accountId] is currently locked out by the account-level brute-force throttle.
      *
      * For tools that resolve the account THEMSELVES from submitted input (LOOKUP_AUTH). A
-     * DEVICE_AUTH tool needs nothing here: its channel already knows the account, so
+     * IDENTIFIED_AUTH tool needs nothing here: its channel already knows the account, so
      * [beginActivation] checks the same throttle and rejects with an explicit 423.
      *
      * The caller must fold a `true` into its own ordinary, constant-shape failure - in practice

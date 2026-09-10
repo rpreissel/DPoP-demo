@@ -9,6 +9,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
+import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
@@ -61,8 +62,9 @@ class ChannelService(
      * client must remember `channelSessionId` and call [getChannel] to resume.
      *
      * [intent] picks the strategy for this channel and is REMEMBERED on it: resume and cancel
-     * restart the same one. Only FAST consults the durable [DeviceAccountLink] - REGISTER and
-     * LOGIN_LOOKUP both mean "not the account this device already knows".
+     * restart the same one. Only FAST and CONFIRM_PEER_LOGIN consult the durable
+     * [DeviceAccountLink] - REGISTER and LOGIN_LOOKUP both mean "not the account this device
+     * already knows".
      */
     fun initializeChannel(
         bindingKeyRef: String,
@@ -81,7 +83,10 @@ class ChannelService(
             throw OrchestratorException.invalidState("$entryIntent kann keinen Kanal eroeffnen")
         }
 
-        val linkedAccountId = if (entryIntent == AuthIntent.FAST_ACCESS) {
+        // CONFIRM_PEER_LOGIN's cold-entry path depends on this exactly like FAST_ACCESS: no
+        // DeviceAccountLink means no known account, which its own strategy treats as an immediate
+        // abort rather than falling into identification/registration (see AuthIntent's own doc).
+        val linkedAccountId = if (entryIntent == AuthIntent.FAST_ACCESS || entryIntent == AuthIntent.CONFIRM_PEER_LOGIN) {
             sessionManagementService.findLinkedAccountId(bindingKeyRef)
         } else {
             null
@@ -294,6 +299,27 @@ class ChannelService(
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
         val step = journeyService.start(channel, AuthIntent.MANAGE_AUTH_METHODS, seed = wish)
+        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+    }
+
+    /**
+     * Confirm a WEB-channel QR login from this already-authenticated APP channel
+     * (docs/ideen/qr-login-ueber-app.md #4) - the "already open app" entry into
+     * [AuthIntent.CONFIRM_PEER_LOGIN], resource-oriented like [startManageMethods]. The cold-entry
+     * path is a plain `POST /app/channels` with that same intent instead; both converge on
+     * [ConfirmPeerLoginState.Requested].
+     */
+    fun startPeerLogin(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
+        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        if (channel.state != ChannelState.AUTHENTICATED) {
+            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to confirm a peer login")
+        }
+        checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
+
+        val step = journeyService.start(
+            channel, AuthIntent.CONFIRM_PEER_LOGIN,
+            seed = ConfirmPeerLoginState.Requested(startedAuthenticated = true)
+        )
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 

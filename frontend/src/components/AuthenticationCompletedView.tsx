@@ -42,6 +42,7 @@ interface AuthenticationCompletedViewProps {
   onDeactivateMethod: (methodInstanceId: string) => void
   onStepUp: (requiredAcr: string) => void
   onDeleteAccount: () => void
+  onPeerLogin: () => void
   manageError?: string
   infoMessage?: string
 }
@@ -58,6 +59,7 @@ export function AuthenticationCompletedView({
   onDeactivateMethod,
   onStepUp,
   onDeleteAccount,
+  onPeerLogin,
   manageError,
   infoMessage,
 }: AuthenticationCompletedViewProps) {
@@ -108,6 +110,14 @@ export function AuthenticationCompletedView({
           </div>
         </>
       )}
+
+      <SectionHeading text="Web-Login per QR bestätigen" diagram="confirmPeerLogin" />
+      <p>Ein Browser wartet auf eine Bestätigung von diesem Konto (docs/ideen/qr-login-ueber-app.md).</p>
+      <div className="form-actions">
+        <button className="secondary" onClick={onPeerLogin}>
+          Web-Login bestätigen
+        </button>
+      </div>
 
       <SectionHeading text="Anmeldeverfahren verwalten" diagram="manageMethods" />
       {manageError && <div className="hint">{manageError}</div>}

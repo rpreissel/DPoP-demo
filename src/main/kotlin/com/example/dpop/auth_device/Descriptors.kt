@@ -28,7 +28,7 @@ internal const val DEVICE_ENROLLMENT_TYPE = "device_enrollment"
 @Component
 object AuthDeviceDescriptor : ToolDescriptor {
     override val toolId = "auth-device"
-    override val role = MethodRole.DEVICE_AUTH
+    override val role = MethodRole.IDENTIFIED_AUTH
     override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = "loa2"
@@ -36,7 +36,7 @@ object AuthDeviceDescriptor : ToolDescriptor {
     // be identical across every tool sharing this method (a future LOOKUP_AUTH sibling, for
     // instance, could legitimately answer differently). Callers that need this for a SPECIFIC
     // tool resolve its own descriptor unambiguously by (method, role) - MethodRole, unlike
-    // category, fully distinguishes DEVICE_AUTH from LOOKUP_AUTH - never an arbitrary descriptor
+    // category, fully distinguishes IDENTIFIED_AUTH from LOOKUP_AUTH - never an arbitrary descriptor
     // picked by method name alone (DefaultAuthPolicy.candidateTools).
     override val allowsMultipleInstances = true
 

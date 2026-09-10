@@ -201,7 +201,7 @@ class FastAccessStrategyTest : BehaviorSpec({
                 to.shouldBeInstanceOf<FastAccessState.Enrolling>()
                 to as FastAccessState.Enrolling
                 to.emailObligation shouldBe true
-                to.offered shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device")
+                to.offered shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
             }
         }
     }

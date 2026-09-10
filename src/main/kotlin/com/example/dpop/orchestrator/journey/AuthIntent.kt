@@ -34,6 +34,20 @@ enum class AuthIntent {
     /** Add or remove authentication methods. Only on an AUTHENTICATED channel. */
     MANAGE_AUTH_METHODS,
 
+    /**
+     * Approve or decline a WEB-channel login that a `auth-qr`/`auth-qr-lookup` pairing is waiting
+     * on (docs/ideen/qr-login-ueber-app.md #4). Reachable BOTH ways at once, unlike every other
+     * intent here: as an entry intent (a cold app scanning the QR, `POST /app/channels`) and, just
+     * as directly, on an already-authenticated channel (an app already open when the QR is
+     * scanned) - both converge on the exact same state/gate, so neither path needs its own
+     * strategy. Never offers identification/registration even on the cold-entry path: the loa2 gate
+     * is [STEP_UP], which only ever offers device-bound methods for an ALREADY known account
+     * (`DeviceAccountLink`) - no account known at all means an immediate abort, never a fallback
+     * into registering one. That is the one thing this intent decides for itself, before ever
+     * reaching the shared gate.
+     */
+    CONFIRM_PEER_LOGIN,
+
     /** Delete the account itself, after a fresh re-confirmation. Only on an AUTHENTICATED channel. */
     DELETE_ACCOUNT,
 
@@ -50,9 +64,13 @@ enum class AuthIntent {
      */
     RE_IDENTIFY;
 
-    /** The three intents a client may name when entering a channel; STEP_UP/MANAGE_AUTH_METHODS are reached from an authenticated one. */
+    /**
+     * The intents a client may name when entering a channel; STEP_UP/MANAGE_AUTH_METHODS are
+     * reached from an authenticated one only. [CONFIRM_PEER_LOGIN] is the one exception that is
+     * BOTH - see its own doc.
+     */
     val isEntryIntent: Boolean
-        get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN || this == KC_SELECT_METHOD
+        get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN || this == KC_SELECT_METHOD || this == CONFIRM_PEER_LOGIN
 
     companion object {
         /**

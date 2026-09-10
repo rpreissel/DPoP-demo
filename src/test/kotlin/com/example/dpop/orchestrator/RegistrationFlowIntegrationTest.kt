@@ -67,7 +67,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 val identified = patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
                 identified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                identified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device")
+                identified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
 
                 // 5) Activate enroll-sms
                 val enrollActivation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")

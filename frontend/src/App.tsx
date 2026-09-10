@@ -21,8 +21,16 @@ import {
   raiseRequiredAcr,
   startAccountDeletion,
   startManageMethods,
+  startPeerLogin,
 } from './api.ts'
-import { forgetChannelSessionId, loadAvailableTools, loadChannelSessionId, storeAvailableTools, storeChannelSessionId } from './session.ts'
+import {
+  forgetChannelSessionId,
+  loadAvailableTools,
+  loadChannelSessionId,
+  storeAvailableTools,
+  storeChannelSessionId,
+  storePendingPairingCode,
+} from './session.ts'
 import { shorten } from './format.ts'
 import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
 import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
@@ -84,7 +92,13 @@ function App() {
   // Which entry choice started the current channel - drives the journey-shape hover hint in
   // JourneyStructureView. Unknown after a resume (a prior session's choice isn't remembered), so no
   // hint is offered there rather than guessing.
-  const [journeyKind, setJourneyKind] = useState<'auto' | 'register' | 'login' | undefined>()
+  const [journeyKind, setJourneyKind] = useState<'auto' | 'register' | 'login' | 'confirmPeerLogin' | undefined>()
+  // Set from the WEB channel's demo link (?pairingCode=..., docs/ideen/qr-login-ueber-app.md #6) -
+  // the Keycloak-side QR page's demo link points straight back at this app's own origin, so opening
+  // it lands here directly instead of a fictitious native deep-link scheme. Only captured/surfaced
+  // for now (shown as a banner near the entry choice); actually submitting it as confirm-qr-login's
+  // own `pairingCode` field is bmh.4/bmh.6 (that tool doesn't exist yet).
+  const [pendingPairingCode, setPendingPairingCode] = useState<string | undefined>()
   // How many OTHER candidates existed when the current activeTool was reached - "Anderes
   // Verfahren" only makes sense to offer when this is > 0, otherwise abandoning would just
   // re-offer the very same tool (a mandatory single-candidate step is its own only fallback).
@@ -147,6 +161,25 @@ function App() {
     const onHashChange = () => setTabState(tabFromHash())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  // The WEB channel's demo link (docs/ideen/qr-login-ueber-app.md #6) points straight at this
+  // app's own origin with ?pairingCode=... - opening it lands here directly, no fictitious native
+  // deep-link scheme needed for the demo. Read once on load and strip it from the URL immediately
+  // (same reasoning as the hash-based tab state: the query string is not a routing source of
+  // truth); persisted via session.ts so confirm-qr-login's own input step (tools/qr) can pre-fill
+  // it once activated, independent of how many screens sit in between.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const pairingCode = params.get('pairingCode')
+    if (!pairingCode) return
+    setPendingPairingCode(pairingCode)
+    storePendingPairingCode(pairingCode)
+    logEvent('QR-Pairing-Code aus Link übernommen', { response: { pairingCode } })
+    params.delete('pairingCode')
+    const query = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function logEvent(label: string, extra?: { request?: unknown; response?: unknown; error?: string }) {
@@ -338,7 +371,7 @@ function App() {
    * channel with the corresponding `intent` - the backend's AuthIntent name (AuthIntent.fromRequest),
    * "auto" omits it (today's default: DeviceAccountLink found -> LOGIN, else REGISTRATION).
    */
-  async function handleStart(mode: 'resume' | 'auto' | 'login' | 'register') {
+  async function handleStart(mode: 'resume' | 'auto' | 'login' | 'register' | 'confirmPeerLogin') {
     if (!dpop) return
     try {
       setError('')
@@ -355,7 +388,8 @@ function App() {
         }
         return
       }
-      const intent = mode === 'auto' ? undefined : mode === 'login' ? 'lookup_login' : mode
+      const intent =
+        mode === 'auto' ? undefined : mode === 'login' ? 'lookup_login' : mode === 'confirmPeerLogin' ? 'confirm_peer_login' : mode
       setJourneyKind(mode)
       const response = await createChannel(dpop, requiredAcr || undefined, intent, availableTools)
       applyResponse(response)
@@ -452,6 +486,18 @@ function App() {
       applyResponse(response)
     } catch (err) {
       setError(describeError('Hinzufügen fehlgeschlagen', err))
+    }
+  }
+
+  /** Confirm a WEB-channel QR login from this already-authenticated channel - gates on loa2 (offers step-up first if needed), then confirm-qr-login, same as the cold-entry 'confirmPeerLogin' start choice. */
+  async function handlePeerLogin() {
+    if (!dpop || !channelSessionId) return
+    try {
+      setError('')
+      const response = await startPeerLogin(dpop, channelSessionId)
+      applyResponse(response)
+    } catch (err) {
+      setError(describeError('Web-Login-Bestätigung fehlgeschlagen', err))
     }
   }
 
@@ -854,6 +900,11 @@ function App() {
             <>
               <div className="card">
                 <h2>Wie möchten Sie starten?</h2>
+                {pendingPairingCode && (
+                  <p className="hint">
+                    QR-Code erkannt (Pairing-Code {pendingPairingCode}) - wählen Sie „Web-Login per QR bestätigen".
+                  </p>
+                )}
                 <ul className="method-choice-list">
                   {rememberedChannelSessionId && (
                     <li>
@@ -919,6 +970,26 @@ function App() {
                       </button>
                     </DiagramHint>
                   </li>
+                  <li>
+                    <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin}>
+                      <button
+                        className="method-choice"
+                        onClick={() => handleStart('confirmPeerLogin')}
+                        aria-label="Web-Login per QR bestätigen"
+                      >
+                        <span className="method-choice-icon" aria-hidden="true">
+                          📷
+                        </span>
+                        <span className="method-choice-text">
+                          <span className="method-choice-label">Web-Login per QR bestätigen</span>
+                          <span className="method-choice-hint">
+                            Ein Browser wartet auf eine Bestätigung von diesem Gerät (docs/ideen/qr-login-ueber-app.md).
+                            Setzt ein hier schon bekanntes Konto voraus.
+                          </span>
+                        </span>
+                      </button>
+                    </DiagramHint>
+                  </li>
                 </ul>
               </div>
             </>
@@ -951,6 +1022,7 @@ function App() {
               onDeactivateMethod={handleDeactivateMethod}
               onDeleteAccount={handleDeleteAccount}
               onStepUp={handleStepUp}
+              onPeerLogin={handlePeerLogin}
               manageError={error || undefined}
               infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}
             />

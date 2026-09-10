@@ -30,7 +30,7 @@ class OrchestratorException(
         /**
          * Account-level brute-force throttle tripped (LoginThrottleService) - independent of any
          * single ToolSession. Only ever raised where the account is ALREADY established for the
-         * caller (a DEVICE_AUTH tool on a channel that knows its account); a lookup-based tool
+         * caller (a IDENTIFIED_AUTH tool on a channel that knows its account); a lookup-based tool
          * must fold its lock into the tool's ordinary failure instead, or this response becomes
          * an account-existence oracle.
          */

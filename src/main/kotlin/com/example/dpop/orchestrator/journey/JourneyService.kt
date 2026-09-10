@@ -457,6 +457,7 @@ class JourneyService(
             is ToolOutcome.Completed.Identified -> mapOf("personId" to outcome.personId)
             is ToolOutcome.Completed.Enrolled -> mapOf("enrollmentRef" to outcome.enrollmentRef.toString())
             is ToolOutcome.Completed.Authenticated -> mapOf("accountId" to outcome.accountId)
+            is ToolOutcome.Completed.Approved -> emptyMap()
         }
         return common + specific
     }
@@ -512,6 +513,7 @@ class JourneyService(
         is Action.AdoptIdentity, is Action.ConfirmIdentity -> emptyMap()
         is Action.AdoptCredential -> mapOf("bindDevice" to action.bindDevice)
         is Action.AcceptProof -> mapOf("useOutcomeAccount" to action.useOutcomeAccount, "bindDevice" to action.bindDevice)
+        is Action.RecordApproval -> emptyMap()
         is Action.ApplyRestoredEvidence -> mapOf("source" to action.source, "methods" to methodEvidenceDetail(action.methods))
         is Action.Remove -> {
             val accountId = journey.accountId ?: channel.accountId
@@ -692,6 +694,13 @@ class JourneyService(
 
             is Action.ApplyRestoredEvidence ->
                 mergeEvidence(journey, channel, action.source, action.methods)
+
+            // The tool already performed its own domain effect (writing QrLoginRequest) before
+            // reporting Approved - nothing left to do here beyond the same bookkeeping every
+            // tool-outcome action gets. achievedAcr/amr are empty by construction (see
+            // ToolOutcome.Completed.Approved's own doc), so this never changes what the channel's
+            // own evidence says it has proven.
+            is Action.RecordApproval -> recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
 
             is Action.Remove -> removeMethod(journey, channel, action.methodInstanceId)
 

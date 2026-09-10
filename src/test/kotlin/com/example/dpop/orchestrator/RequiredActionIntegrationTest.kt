@@ -111,7 +111,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // proving the absent obligation does not quietly waive other, unrelated preconditions.
             reIdentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device")
+            reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device", "enroll-qr")
         }
         }
     }

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 data class ToolCatalogEntry(
     @field:Schema(example = "auth-sms") val toolId: String,
     @field:Schema(example = "sms") val method: String,
-    @field:Schema(example = "DEVICE_AUTH") val role: String
+    @field:Schema(example = "IDENTIFIED_AUTH") val role: String
 )
 
 /**
@@ -38,7 +38,7 @@ class ToolCatalogController(private val toolRegistry: ToolHandlerRegistry) {
                     [
                       {"toolId": "ident-fsc", "method": "fsc", "role": "IDENTIFICATION"},
                       {"toolId": "enroll-sms", "method": "sms", "role": "ENROLLMENT"},
-                      {"toolId": "auth-sms", "method": "sms", "role": "DEVICE_AUTH"},
+                      {"toolId": "auth-sms", "method": "sms", "role": "IDENTIFIED_AUTH"},
                       {"toolId": "auth-sms-lookup", "method": "sms", "role": "LOOKUP_AUTH"}
                     ]
                 """)])]

@@ -85,7 +85,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
     given("AddRequested, loa2 satisfied but nothing left to enroll") {
         val acc = account(
-            method("sms", "loa2"), method("password", "loa2"), method("email", "loa2"), method("device", "loa2")
+            method("sms", "loa2"), method("password", "loa2"), method("email", "loa2"), method("device", "loa2"), method("qr", "loa2")
         )
         val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
 

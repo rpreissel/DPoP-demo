@@ -31,8 +31,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
     val identFsc = descriptor("ident-fsc", MethodRole.IDENTIFICATION, "fsc", setOf(FactorType.POSSESSION), "loa2")
     val enrollSms = descriptor("enroll-sms", MethodRole.ENROLLMENT, "sms", setOf(FactorType.POSSESSION), "loa2")
-    val authSms = descriptor("auth-sms", MethodRole.DEVICE_AUTH, "sms", setOf(FactorType.POSSESSION), "loa2")
-    val authPasskey = descriptor("auth-passkey", MethodRole.DEVICE_AUTH, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
+    val authSms = descriptor("auth-sms", MethodRole.IDENTIFIED_AUTH, "sms", setOf(FactorType.POSSESSION), "loa2")
+    val authPasskey = descriptor("auth-passkey", MethodRole.IDENTIFIED_AUTH, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
     val enrollPasskey = descriptor("enroll-passkey", MethodRole.ENROLLMENT, "passkey", setOf(FactorType.POSSESSION, FactorType.INHERENCE), "loa3")
 
     val registry = ToolHandlerRegistry(listOf(identFsc, enrollSms, authSms, authPasskey, enrollPasskey))
@@ -166,8 +166,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             }
 
             then("two combinable methods enrolled only under a lower level name the enrolledUnderAcr cap as the blocker") {
-                val tokenA = descriptor("auth-a", MethodRole.DEVICE_AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
-                val tokenB = descriptor("auth-b", MethodRole.DEVICE_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
+                val tokenA = descriptor("auth-a", MethodRole.IDENTIFIED_AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
+                val tokenB = descriptor("auth-b", MethodRole.IDENTIFIED_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
                 val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
                 val bothWeak = account(method("a", enrolledUnderAcr = "loa1"), method("b", enrolledUnderAcr = "loa1"))
 
@@ -188,8 +188,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
     }
 
     given("two loa1-only tools of different factor types (a=possession, b=knowledge), distinct from the shared catalog") {
-        val tokenA = descriptor("auth-a", MethodRole.DEVICE_AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
-        val tokenB = descriptor("auth-b", MethodRole.DEVICE_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
+        val tokenA = descriptor("auth-a", MethodRole.IDENTIFIED_AUTH, "a", setOf(FactorType.POSSESSION), "loa1")
+        val tokenB = descriptor("auth-b", MethodRole.IDENTIFIED_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa1")
         val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
         // enrolledUnderAcr is entirely the caller's own claim now (AuthEvidence.enrolledUnderAcr,
         // never re-derived from the account inside AuthPolicy) - each scenario below builds its

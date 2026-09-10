@@ -155,6 +155,11 @@ export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string):
   return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/enrollments`)
 }
 
+/** Confirm a WEB-channel QR login from this already-AUTHENTICATED channel (AuthIntent.CONFIRM_PEER_LOGIN, docs/ideen/qr-login-ueber-app.md #4) - gates on loa2 (step-up offered first if below it), then offers confirm-qr-login. */
+export function startPeerLogin(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/peer-logins`)
+}
+
 /** Deactivates an active method instance (addressed by its own id, not by method name - a method can have several active instances, e.g. multiple devices); rejected (409) if it would drop the account below this channel's required level. */
 export function deactivateMethod(dpop: DpopKeyPair, channelSessionId: string, methodInstanceId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/methods/${methodInstanceId}`)

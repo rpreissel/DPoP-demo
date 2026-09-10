@@ -82,7 +82,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
                 transition.shouldBeInstanceOf<Transition.To>()
                 val to = (transition as Transition.To).state
                 to.shouldBeInstanceOf<LookupLoginState.Credential>()
-                (to as LookupLoginState.Credential).offered shouldContainExactly listOf("auth-sms-lookup", "auth-email-lookup", "auth-password-lookup")
+                (to as LookupLoginState.Credential).offered shouldContainExactly listOf("auth-sms-lookup", "auth-email-lookup", "auth-password-lookup", "auth-qr-lookup")
             }
         }
 

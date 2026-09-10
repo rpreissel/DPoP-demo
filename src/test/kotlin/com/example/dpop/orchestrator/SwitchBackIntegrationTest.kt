@@ -61,7 +61,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
                 result.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                result.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device")
+                result.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
 
                 // The abandoned tool session is gone even though we re-activate the same toolId.
                 val exception = assertThrows<HttpClientErrorException> {

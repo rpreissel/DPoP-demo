@@ -19,7 +19,7 @@ sealed interface ToolOutcome {
      * the right brute-force counter. They exist because a tool that resolves its own subject is
      * the only place that knows it: for a LOOKUP_AUTH tool the account is not on the channel
      * (that is the whole point of lookup login), and for an IDENT tool no account exists yet at
-     * all. Exactly one is ever set, and only by the tools that resolve one - a DEVICE_AUTH tool
+     * all. Exactly one is ever set, and only by the tools that resolve one - a IDENTIFIED_AUTH tool
      * leaves both null, because its caller already knows the account from the channel.
      *
      * Leaving them null is always safe for the response; it only means the attempt goes
@@ -65,7 +65,7 @@ sealed interface ToolOutcome {
             val auditDetails: Map<String, Any?>? = null
         ) : Completed
 
-        /** A [DEVICE_AUTH][MethodRole.DEVICE_AUTH] or [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool succeeded. */
+        /** A [IDENTIFIED_AUTH][MethodRole.IDENTIFIED_AUTH] or [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool succeeded. */
         data class Authenticated(
             override val amr: List<String>,
             override val achievedAcr: String? = null,
@@ -73,9 +73,20 @@ sealed interface ToolOutcome {
             /**
              * Set only by a [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool, which resolves the
              * account itself from a submitted identifier. Left `null` by a
-             * [DEVICE_AUTH][MethodRole.DEVICE_AUTH] tool, whose caller already knows the account.
+             * [IDENTIFIED_AUTH][MethodRole.IDENTIFIED_AUTH] tool, whose caller already knows the account.
              */
             val accountId: Long? = null
+        ) : Completed
+
+        /**
+         * A [PEER_APPROVAL][MethodRole.PEER_APPROVAL] tool approved a pending request from another
+         * channel. Declining is not a separate variant - it is an ordinary [Failed], since the
+         * existing retry/abandon handling already covers it.
+         */
+        data class Approved(
+            override val amr: List<String> = emptyList(),
+            override val achievedAcr: String? = null,
+            override val factorTypes: Set<FactorType> = emptySet(),
         ) : Completed
     }
 }

@@ -133,7 +133,9 @@ flowchart LR
 
 Vier **Entry-Intents** starten eine neue Sitzung auf dem `APP`-Kanal, `KC_SELECT_METHOD` ist der
 Web-Kanal-eigene Login/Step-up-Einstieg, `REGISTER` ist zusätzlich auch über den Web-Kanal
-erreichbar (Registrierung, s. u.); fünf weitere laufen innerhalb einer bestehenden Sitzung:
+erreichbar (Registrierung, s. u.); fünf weitere laufen innerhalb einer bestehenden Sitzung.
+`CONFIRM_PEER_LOGIN` ist die eine Ausnahme, die **beides zugleich** ist (docs/ideen/qr-login-ueber-
+app.md #4):
 
 | `AuthIntent` | Ziel | Einstieg |
 |---|---|---|
@@ -143,9 +145,16 @@ erreichbar (Registrierung, s. u.); fünf weitere laufen innerhalb einer bestehen
 | `KC_SELECT_METHOD` | Web-Kanal-Entry für Login/Step-up: alle kc-nutzbaren Tools als einen `selectMethod`-Schritt anbieten, Keycloak fährt die eigentliche Fallback-Logik selbst | Default-Entry-Intent des `KEYCLOAK`-Kanals ([05-api.md](05-api.md) Abschnitt 3) |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE_AUTH_METHODS` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
+| `CONFIRM_PEER_LOGIN` | Einen wartenden `auth-qr`/`auth-qr-lookup`-Login des Web-Kanals bestätigen oder ablehnen | `POST /channels` mit `intent=confirm_peer_login` **oder** `POST /channels/{id}/peer-logins` auf einem bereits `AUTHENTICATED`-Kanal — beide laufen auf demselben Gate zusammen |
 | `DELETE_ACCOUNT` | Konto unwiderruflich löschen | nur auf einem `AUTHENTICATED`-Kanal |
 | `LOGOUT` | Bestätigtes Abmelden | nur auf einem `AUTHENTICATED`-Kanal |
 | `RE_IDENTIFY` | Erneute Identifizierung als geteilte SubJourney | nie direkt, nur über `RequireSubJourney` |
+
+`CONFIRM_PEER_LOGIN`s kalter Einstieg bietet nie eine Identifikation/Registrierung an: ist noch
+kein Konto über `DeviceAccountLink` bekannt, bricht die Journey sofort ab (410) statt in
+`FAST_ACCESS`s Fallback-Kette zu fallen — ein Peer-Approval darf nie der Anlass sein, sich frisch
+eine Identität zu verschaffen. Ist ein Konto bekannt, gilt exakt derselbe `STEP_UP`-Gate wie bei
+`MANAGE_AUTH_METHODS`, unabhängig davon, ob der Kanal kalt oder schon `AUTHENTICATED` gestartet ist.
 
 Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST_ACCESS`: das Ende der
 Fallback-Kette, wenn keine vorhandene Methode mehr greift. Ob dabei ein Account entsteht oder

@@ -75,12 +75,12 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 val afterSms = patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-                // Two candidates are left (enroll-email, enroll-device; sms is already active, password
-                // still needs a confirmed email first) - a selection page is offered, not a single-
-                // candidate skip.
+                // Candidates are left (enroll-email, enroll-device, enroll-qr; sms is already active,
+                // password still needs a confirmed email first) - a selection page is offered, not a
+                // single-candidate skip.
                 afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                afterSms.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device")
+                afterSms.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device", "enroll-qr")
 
                 // Second factor (email, a KNOWLEDGE factor): sms (POSSESSION) + email (KNOWLEDGE) are
                 // two different factor types, so together they reach loa2 - authentication succeeds.

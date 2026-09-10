@@ -47,7 +47,7 @@ internal object CandidateTools {
      */
     fun preferredDeviceAuth(account: AccountProfile, ctx: JourneyContext): String? {
         val deviceAuthTools = ctx.catalog.descriptors()
-            .filter { it.role == MethodRole.DEVICE_AUTH && it.allowsMultipleInstances }
+            .filter { it.role == MethodRole.IDENTIFIED_AUTH && it.allowsMultipleInstances }
         val preferred = deviceAuthTools.firstOrNull { descriptor ->
             account.activeAuthenticationMethods.any {
                 it.method == descriptor.method && descriptor.matchesCaller(it.details, ctx.bindingKeyRef)
@@ -60,7 +60,7 @@ internal object CandidateTools {
         ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef))
 
     /**
-     * Every active DEVICE_AUTH method the account has, for a fresh "prove you're still you"
+     * Every active IDENTIFIED_AUTH method the account has, for a fresh "prove you're still you"
      * re-confirmation (e.g. before deleting the account) - deliberately NOT [forAuth]: that one
      * excludes methods already proven this session (`evidence.amr`), because STEP_UP needs
      * additional assurance. A re-confirmation needs the opposite - re-presenting the very same,
@@ -70,7 +70,7 @@ internal object CandidateTools {
     fun forReconfirmation(account: AccountProfile, ctx: JourneyContext): List<String> =
         ctx.filterAvailable(
             ctx.catalog.descriptors()
-                .filter { it.role == MethodRole.DEVICE_AUTH }
+                .filter { it.role == MethodRole.IDENTIFIED_AUTH }
                 .mapNotNull { descriptor ->
                     val method = account.activeAuthenticationMethods.firstOrNull { it.method == descriptor.method }
                         ?: return@mapNotNull null

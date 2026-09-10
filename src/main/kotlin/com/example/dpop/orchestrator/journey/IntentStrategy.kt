@@ -251,6 +251,16 @@ sealed interface Action {
     data class ApplyRestoredEvidence(val source: String, val methods: List<MethodEvidence>) : Action
 
     /**
+     * A [ToolOutcome.Completed.Approved] tool approved a peer channel's pending request. The
+     * approval's own domain effect (e.g. writing `QrLoginRequest`) already happened inside the
+     * tool itself before it reported [ToolOutcome.Completed.Approved] - this action only carries
+     * the outcome through the same MethodEvidence bookkeeping every other tool-outcome action gets
+     * ([JourneyService.recordToolCompletion]), for consistency and auditing, not because anything
+     * about THIS channel's own evidence actually changed.
+     */
+    data class RecordApproval(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Approved) : Action
+
+    /**
      * Deactivate a method instance. Not a tool run; the strategy decides it, the machine executes
      * it (rejecting self-lockout).
      */

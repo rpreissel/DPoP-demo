@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.JourneyState
@@ -47,6 +48,7 @@ class JourneyStateCodec {
         AuthIntent.KC_SELECT_METHOD -> KcSelectMethodState::class.java
         AuthIntent.STEP_UP -> StepUpState::class.java
         AuthIntent.MANAGE_AUTH_METHODS -> ManageAuthMethodsState::class.java
+        AuthIntent.CONFIRM_PEER_LOGIN -> ConfirmPeerLoginState::class.java
         AuthIntent.DELETE_ACCOUNT -> DeleteAccountState::class.java
         AuthIntent.LOGOUT -> LogoutState::class.java
         AuthIntent.RE_IDENTIFY -> ReIdentifyState::class.java

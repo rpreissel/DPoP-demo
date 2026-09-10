@@ -61,7 +61,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // device are offered - two candidates means a selection page, not a single-candidate skip.
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
+                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device", "enroll-qr")
 
                 val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
@@ -89,10 +89,13 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
+                post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
+                val enrollQrToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-qr").nextRaw()["toolSessionId"] as String
+                patch("/orchestrator/api/v1/tools/$enrollQrToolSessionId/enroll-qr", "{}")
 
-                // sms, email and password are now active - enroll-device is the one remaining catalog
-                // candidate (single-candidate skip goes straight to it; the "nothing left" message is
-                // covered once device is also enrolled, see DeviceBindingIntegrationTest).
+                // sms, email, password and qr are now active - enroll-device is the one remaining
+                // catalog candidate (single-candidate skip goes straight to it; the "nothing left"
+                // message is covered once device is also enrolled, see DeviceBindingIntegrationTest).
                 val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-device", "step" to "enroll")
 
@@ -154,7 +157,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-password", "enroll-device")
+                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-password", "enroll-device", "enroll-qr")
 
 
                 }
@@ -193,7 +196,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 )
                 steppedUp.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                steppedUp.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device")
+                steppedUp.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device", "enroll-qr")
 
                 val afterStepUp = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterStepUp.channel()["currentAcr"] shouldBe "loa2"

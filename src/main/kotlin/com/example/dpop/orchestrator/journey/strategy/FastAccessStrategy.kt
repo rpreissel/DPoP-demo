@@ -111,6 +111,7 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
         // A device-bound tool never resolves the account itself - it could only have been
         // offered once the account was already known.
         is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount = false, bindDevice = true)
+        is ToolOutcome.Completed.Approved -> error("${event.tool.toolId} is not offered by FAST_ACCESS")
     }
 
     // Offers -------------------------------------------------------------------

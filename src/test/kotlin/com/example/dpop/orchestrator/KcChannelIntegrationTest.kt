@@ -308,7 +308,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // have (docs/03-tool-architektur.md #1).
                     @Suppress("UNCHECKED_CAST")
                     (afterIdent.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder
-                        listOf("enroll-sms", "enroll-email", "enroll-device")
+                        listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
 
                     val smsToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
                         .nextRaw()["toolSessionId"] as String

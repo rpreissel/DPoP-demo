@@ -40,3 +40,23 @@ export function loadAvailableTools(): string[] | null {
 export function storeAvailableTools(toolIds: string[]): void {
   localStorage.setItem(AVAILABLE_TOOLS_KEY, JSON.stringify(toolIds))
 }
+
+const PENDING_PAIRING_CODE_KEY = 'dpop-demo-pending-pairing-code'
+
+/**
+ * The QR pairing code picked up from a WEB channel's demo link (docs/ideen/qr-login-ueber-app.md
+ * #6, `?pairingCode=...`) - stored so `confirm-qr-login`'s own input step can pre-fill it once the
+ * tool actually activates, independent of however many screens/reloads sit between opening the
+ * link and reaching that step.
+ */
+export function loadPendingPairingCode(): string | null {
+  return localStorage.getItem(PENDING_PAIRING_CODE_KEY)
+}
+
+export function storePendingPairingCode(pairingCode: string): void {
+  localStorage.setItem(PENDING_PAIRING_CODE_KEY, pairingCode)
+}
+
+export function forgetPendingPairingCode(): void {
+  localStorage.removeItem(PENDING_PAIRING_CODE_KEY)
+}

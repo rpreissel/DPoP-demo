@@ -87,7 +87,7 @@ class ToolControllerSupport(
         val descriptor = toolRegistry.descriptorOf(toolId)
 
         validatePreconditions(toolId, channel)
-        // Only reachable for a tool whose account the CHANNEL already knows - i.e. a DEVICE_AUTH
+        // Only reachable for a tool whose account the CHANNEL already knows - i.e. a IDENTIFIED_AUTH
         // tool. A LOOKUP_AUTH tool has no accountId here by definition (it resolves one from
         // submitted input later), and an IDENT tool has none at all; those two are throttled at
         // the point they resolve their own subject, via isLockedOut/isIdentLockedOut, and answer
@@ -255,6 +255,12 @@ class ToolControllerSupport(
 
             // Nothing is guessed during an enrollment - the user chooses the credential.
             ToolCategory.ENROLL -> Unit
+
+            // Approves/declines a request that belongs to a DIFFERENT channel's account - nothing
+            // about the approving account's own credentials is guessed here. Brute-forcing the
+            // pending request itself (pairingCode) is a separate concern with its own protection
+            // (docs/ideen/qr-login-ueber-app.md #6), not this account's login throttle.
+            ToolCategory.SIDE_ACTION -> Unit
         }
     }
 

@@ -9,7 +9,7 @@ import java.time.Duration
  * Account-level throttle for AUTH-category tool attempts. Two entry points on purpose, because
  * the two kinds of AUTH tool must answer a lockout DIFFERENTLY:
  *
- * - A DEVICE_AUTH tool runs on a channel that already knows its account, so
+ * - A IDENTIFIED_AUTH tool runs on a channel that already knows its account, so
  *   [ToolControllerSupport.beginActivation] calls [assertNotLocked] and the caller gets an
  *   explicit 423 - there is nothing left to leak, the account is established.
  * - A LOOKUP_AUTH tool resolves the account from a submitted e-mail. Surfacing a lockout there

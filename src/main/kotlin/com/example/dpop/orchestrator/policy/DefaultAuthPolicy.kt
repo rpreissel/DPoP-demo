@@ -117,12 +117,12 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         }
 
         return remaining.mapNotNull { m ->
-            // A session with an already-known account must always be offered the DEVICE_AUTH tool
+            // A session with an already-known account must always be offered the IDENTIFIED_AUTH tool
             // for a method, never a LOOKUP_AUTH sibling that expects to resolve the account itself
             // from a submitted email (docs/03-tool-architektur.md). role (not category) is the
             // key that actually distinguishes the two - category=AUTH alone matches both.
             val descriptor = toolRegistry.descriptors()
-                .firstOrNull { it.role == MethodRole.DEVICE_AUTH && it.method == m.method }
+                .firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
                 ?: return@mapNotNull null
 
             // A multi-instance method's AUTH tool must only ever be offered on the exact physical
@@ -173,7 +173,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * MFA bump: >=2 DISTINCT methods among [evidence], together covering >=2 distinct factor
      * types, earn one tier above [base] - capped by the highest loa any of them was itself
      * enrolled under (docs/06-ablaeufe.md #1, extended; see class doc). Relies on an existing
-     * invariant this whole file already assumes: only a DEVICE_AUTH/LOOKUP_AUTH tool's outcome
+     * invariant this whole file already assumes: only a IDENTIFIED_AUTH/LOOKUP_AUTH tool's outcome
      * ever reports a non-empty `amr`/`factorTypes` at all (docs/tool_spi/ToolOutcome.kt) - an
      * identification like ident-fsc, which already prices its own trust into its own loa, never
      * contributes an `amr` entry here to begin with, so it can never be double-counted into this

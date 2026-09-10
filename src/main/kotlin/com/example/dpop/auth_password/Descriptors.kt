@@ -33,7 +33,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
 @Component
 object AuthPasswordUseDescriptor : ToolDescriptor {
     override val toolId = "auth-password"
-    override val role = MethodRole.DEVICE_AUTH
+    override val role = MethodRole.IDENTIFIED_AUTH
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"

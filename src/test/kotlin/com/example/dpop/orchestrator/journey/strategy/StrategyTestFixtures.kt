@@ -10,6 +10,10 @@ import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
 import com.example.dpop.auth_password.AuthPasswordUseDescriptor
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
+import com.example.dpop.auth_qr.AuthQrDescriptor
+import com.example.dpop.auth_qr.AuthQrLookupDescriptor
+import com.example.dpop.auth_qr.ConfirmQrLoginDescriptor
+import com.example.dpop.auth_qr.EnrollQrDescriptor
 import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
 import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
@@ -39,7 +43,8 @@ object StrategyTestFixtures {
             EnrollSmsDescriptor, AuthSmsUseDescriptor, AuthSmsLookupDescriptor,
             EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
             EnrollPasswordDescriptor, AuthPasswordUseDescriptor, AuthPasswordLookupDescriptor,
-            EnrollDeviceDescriptor, AuthDeviceDescriptor
+            EnrollDeviceDescriptor, AuthDeviceDescriptor,
+            EnrollQrDescriptor, AuthQrDescriptor, AuthQrLookupDescriptor, ConfirmQrLoginDescriptor
         )
     )
     val policy = DefaultAuthPolicy(catalog)

@@ -9,7 +9,15 @@ import type { JourneyDebugStep } from './types'
  * confirmation. Only the one branch each argument actually hinges on is drawn.
  */
 export const JOURNEY_DIAGRAMS: Record<
-  'channel' | 'auto' | 'register' | 'login' | 'stepUp' | 'manageMethods' | 'deleteAccount' | 'reIdentify',
+  | 'channel'
+  | 'auto'
+  | 'register'
+  | 'login'
+  | 'stepUp'
+  | 'manageMethods'
+  | 'deleteAccount'
+  | 'reIdentify'
+  | 'confirmPeerLogin',
   JourneyDiagramSpec
 > = {
   channel: {
@@ -83,6 +91,23 @@ export const JOURNEY_DIAGRAMS: Record<
       steps: ['Cancel'],
     },
   },
+  confirmPeerLogin: {
+    title: 'Web-Login per QR bestätigen (docs/ideen/qr-login-ueber-app.md)',
+    // Same anti-self-escalation gate as manageMethods (ConfirmPeerLoginStrategy.gate()): loa2
+    // first. The "Nein" branch covers BOTH real starting points alike, because the strategy itself
+    // does: a cold entry (no channel yet, ConfirmPeerLoginState.Requested as initialState()) and an
+    // already-authenticated-but-only-loa1 channel both fail the same isSatisfied(loa2) check and
+    // run through the exact same STEP_UP sub-journey - there is no separate "log in first" step in
+    // the code, so this diagram doesn't invent one either. Never identification/registration even
+    // from cold, see AuthIntent.CONFIRM_PEER_LOGIN's own KDoc.
+    steps: ['Bereits bei loa2?', 'Web-Login bestätigen', 'Bestätigt'],
+    branch: {
+      atIndex: 0,
+      mainLabel: 'Ja',
+      label: 'Nein',
+      steps: ['Anmelden bzw. Step-up (Faktor bestätigen)', 'Web-Login bestätigen', 'Bestätigt'],
+    },
+  },
   deleteAccount: {
     title: 'Konto löschen',
     // The yes/no confirmation always comes first, unconditionally - the loa2 gate only applies
@@ -135,6 +160,10 @@ export const CURRENT_STEP_BY_STATE_TYPE: Partial<Record<keyof typeof JOURNEY_DIA
     RemoveRequested: { index: 0 },
     Enrolling: { index: 1 },
   },
+  confirmPeerLogin: {
+    Requested: { index: 0 },
+    Confirming: { index: 1 },
+  },
   deleteAccount: {
     ConfirmPending: { index: 0 },
     ConfirmationRequired: { index: 2 },
@@ -154,6 +183,7 @@ export const INTENT_DIAGRAM_KEY: Record<string, keyof typeof JOURNEY_DIAGRAMS> =
   MANAGE_AUTH_METHODS: 'manageMethods',
   DELETE_ACCOUNT: 'deleteAccount',
   RE_IDENTIFY: 'reIdentify',
+  CONFIRM_PEER_LOGIN: 'confirmPeerLogin',
 }
 
 /**
@@ -165,7 +195,7 @@ export const INTENT_DIAGRAM_KEY: Record<string, keyof typeof JOURNEY_DIAGRAMS> =
  */
 export function currentJourneyDiagramKey(
   journeys: JourneyDebugStep[] | undefined,
-  journeyKind: 'auto' | 'register' | 'login' | undefined,
+  journeyKind: 'auto' | 'register' | 'login' | 'confirmPeerLogin' | undefined,
 ): keyof typeof JOURNEY_DIAGRAMS | undefined {
   if (!journeys || journeys.length === 0) return undefined
   const index = journeys.length - 1

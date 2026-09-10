@@ -28,7 +28,7 @@ object EnrollEmailDescriptor : ToolDescriptor {
 @Component
 object AuthEmailUseDescriptor : ToolDescriptor {
     override val toolId = "auth-email"
-    override val role = MethodRole.DEVICE_AUTH
+    override val role = MethodRole.IDENTIFIED_AUTH
     override val method = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = "loa1"

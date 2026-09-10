@@ -45,7 +45,7 @@ sealed interface DeleteAccountState : JourneyState {
         override val active: ToolRef? = null
     ) : DeleteAccountState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
-        // "auth" like every other state offering DEVICE_AUTH candidates (FastAccessState.AuthChoice,
+        // "auth" like every other state offering IDENTIFIED_AUTH candidates (FastAccessState.AuthChoice,
         // LookupLoginState.Credential, StepUpState.AuthChoice) - selectionContext names the KIND of
         // offer, not the intent, so the client's existing select-method routing needs no new entry.
         override val selectionContext: String get() = "auth"
