@@ -7,9 +7,7 @@ import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionProvider;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/ideen/
@@ -139,15 +137,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                     context.failure();
                     return;
                 }
-                if ("true".equals(form.getFirst("orchestrator_abandon"))) {
-                    response = client.abandonTool(channelSessionId, toolSessionId, toolId);
-                } else {
-                    Map<String, String> fields = new LinkedHashMap<>();
-                    form.forEach((key, values) -> {
-                        if (!key.startsWith("orchestrator_") && !values.isEmpty()) fields.put(key, values.get(0));
-                    });
-                    response = client.patchTool(channelSessionId, toolSessionId, toolId, fields);
-                }
+                response = OrchestratorNextDispatch.dispatchToolAction(client, channelSessionId, toolId, toolSessionId, form);
             }
             handleResponse(context, response, false);
         } catch (OrchestratorClient.OrchestratorApiException e) {
@@ -197,8 +187,9 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
             return;
         }
 
-        if (next.isSelectMethod()) {
-            List<String> options = response.stepDataOptions();
+        OrchestratorNextDispatch.Outcome outcome = OrchestratorNextDispatch.classify(next, response);
+        if (outcome instanceof OrchestratorNextDispatch.Select select) {
+            List<String> options = select.options();
             if (options.isEmpty()) {
                 renderList(context, channelSessionId, "Keine weiteren Anmeldeverfahren verfügbar.");
                 return;
@@ -208,26 +199,27 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
             return;
         }
 
-        if (next.isTool()) {
-            if (next.toolSessionId() == null) {
+        if (outcome instanceof OrchestratorNextDispatch.Tool tool) {
+            if (tool.autoActivate()) {
                 // Single-candidate auto-activation, same as OrchestratorAuthenticator's own case.
                 try {
-                    OrchestratorClient.ChannelResponse activated = client.activateTool(channelSessionId, next.toolId());
+                    OrchestratorClient.ChannelResponse activated = client.activateTool(channelSessionId, tool.next().toolId());
                     handleResponse(context, activated, false);
                 } catch (OrchestratorClient.OrchestratorApiException e) {
-                    LOG.warnf("Auto-activation of '%s' failed: %s", next.toolId(), e.getMessage());
+                    LOG.warnf("Auto-activation of '%s' failed: %s", tool.next().toolId(), e.getMessage());
                     context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Anmeldung derzeit nicht möglich."));
                 }
                 return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "tool");
-            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, next.toolId());
-            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, next.toolSessionId());
-            context.challenge(WebFormRenderer.toolForm(context.getSession(), context.form(), authSession, next, response, null));
+            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, tool.next().toolId());
+            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, tool.next().toolSessionId());
+            context.challenge(WebFormRenderer.toolForm(context.getSession(), context.form(), authSession, tool.next(), response, null));
             return;
         }
 
-        LOG.warnf("Unhandled orchestrator next: type=%s step=%s", next.type(), next.step());
+        OrchestratorNextDispatch.Unhandled unhandled = (OrchestratorNextDispatch.Unhandled) outcome;
+        LOG.warnf("Unhandled orchestrator next: type=%s step=%s", unhandled.next().type(), unhandled.next().step());
         context.failure();
     }
 

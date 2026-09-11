@@ -14,9 +14,7 @@ import org.keycloak.models.UserProvider;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.storage.UserStorageProvider;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The kc-facade's Keycloak-side driver (docs/ideen/web-keycloak-kanal.md #6/#7/#8) - a normal
@@ -125,15 +123,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                     context.failure(AuthenticationFlowError.INTERNAL_ERROR);
                     return;
                 }
-                if ("true".equals(form.getFirst("orchestrator_abandon"))) {
-                    response = client.abandonTool(channelSessionId, toolSessionId, toolId);
-                } else {
-                    Map<String, String> fields = new LinkedHashMap<>();
-                    form.forEach((key, values) -> {
-                        if (!key.startsWith("orchestrator_") && !values.isEmpty()) fields.put(key, values.get(0));
-                    });
-                    response = client.patchTool(channelSessionId, toolSessionId, toolId, fields);
-                }
+                response = OrchestratorNextDispatch.dispatchToolAction(client, channelSessionId, toolId, toolSessionId, form);
             }
             handleResponse(context, response, form);
         } catch (OrchestratorClient.OrchestratorApiException e) {
@@ -161,10 +151,11 @@ public class OrchestratorAuthenticator implements Authenticator {
             return;
         }
 
-        if (next.isSelectMethod()) {
+        OrchestratorNextDispatch.Outcome outcome = OrchestratorNextDispatch.classify(next, response);
+        if (outcome instanceof OrchestratorNextDispatch.Select select) {
             String staticToolId = context.getAuthenticatorConfig() == null ? null
                     : context.getAuthenticatorConfig().getConfig().get("toolId");
-            List<String> options = response.stepDataOptions();
+            List<String> options = select.options();
             LOG.debugf("Orchestrator method selection: configured toolId='%s', options=%s",
                     staticToolId, options);
             if (staticToolId != null && !staticToolId.isBlank()) {
@@ -194,8 +185,8 @@ public class OrchestratorAuthenticator implements Authenticator {
             return;
         }
 
-        if (next.isTool()) {
-            if (next.toolSessionId() == null) {
+        if (outcome instanceof OrchestratorNextDispatch.Tool tool) {
+            if (tool.autoActivate()) {
                 // A single-candidate auto-activation (JourneyService.nextFor: activatable.size == 1)
                 // only ever DESCRIBES which tool comes next - unlike the explicit "select" path
                 // below, it never minted an actual ToolSession server-side. Activate it now, exactly
@@ -203,26 +194,27 @@ public class OrchestratorAuthenticator implements Authenticator {
                 // is never null.
                 try {
                     OrchestratorClient.ChannelResponse activated = client.activateTool(
-                            OrchestratorNotes.channelSessionId(context), next.toolId()
+                            OrchestratorNotes.channelSessionId(context), tool.next().toolId()
                     );
                     handleResponse(context, activated, lastForm);
                 } catch (OrchestratorClient.OrchestratorApiException e) {
-                    LOG.warnf("Auto-activation of '%s' failed: %s", next.toolId(), e.getMessage());
+                    LOG.warnf("Auto-activation of '%s' failed: %s", tool.next().toolId(), e.getMessage());
                     context.challenge(errorForm(context, "Anmeldung derzeit nicht möglich."));
                 } catch (Exception e) {
-                    LOG.error("Auto-activation of '" + next.toolId() + "' failed", e);
+                    LOG.error("Auto-activation of '" + tool.next().toolId() + "' failed", e);
                     context.failure(AuthenticationFlowError.INTERNAL_ERROR);
                 }
                 return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "tool");
-            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, next.toolId());
-            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, next.toolSessionId());
-            context.challenge(toolForm(context, next, response, null));
+            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, tool.next().toolId());
+            authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, tool.next().toolSessionId());
+            context.challenge(toolForm(context, tool.next(), response, null));
             return;
         }
 
-        LOG.warnf("Unhandled orchestrator next: type=%s step=%s", next.type(), next.step());
+        OrchestratorNextDispatch.Unhandled unhandled = (OrchestratorNextDispatch.Unhandled) outcome;
+        LOG.warnf("Unhandled orchestrator next: type=%s step=%s", unhandled.next().type(), unhandled.next().step());
         context.failure(AuthenticationFlowError.INTERNAL_ERROR);
     }
 
