@@ -1,4 +1,8 @@
 :root {
+  /* Same reasoning as body's overflow-x below: the root element is the actual horizontally
+     scrolling box in most browsers, not body, so the clip has to sit here too or a hidden
+     DiagramHint popover still drags a scrollbar in. */
+  overflow-x: hidden;
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -50,6 +54,46 @@
   }
 }
 
+/* Per-Kanal-Farbschema: bewusst komplett eigenständige Paletten statt nur eines anderen
+   Akzenttons, damit App- und Web-Kanal auf den ersten Blick und unabhängig von der
+   OS-Farbschema-Einstellung des Nutzers auseinanderzuhalten sind. App-Kanal: dunkel + Lila (wirkt
+   wie eine native App). Web-Kanal: hell + Blau (wirkt wie eine gewöhnliche Business-Website). Beide
+   setzen `color-scheme` explizit, damit native Formularelemente (Selects etc.) mitziehen. */
+/* background/color hier explizit (nicht nur die Custom Properties) - sonst bleibt der
+   Kanal-Wrapper selbst transparent und das dunkle html-Grundlayout scheint um Cards/Navbar herum
+   durch, siehe .channel-web unten (heller Inhalt auf dunklem Rand sah kaputt aus). */
+.channel-app {
+  --text: #b7b0c6;
+  --text-h: #f4f1fb;
+  --bg: #16121f;
+  --border: #35294a;
+  --code-bg: #1f1830;
+  --accent: #b458ff;
+  --accent-bg: rgba(180, 88, 255, 0.16);
+  --accent-border: rgba(180, 88, 255, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.45) 0 10px 15px -3px, rgba(0, 0, 0, 0.3) 0 4px 6px -2px;
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.channel-web {
+  --text: #475569;
+  --text-h: #0f172a;
+  --bg: #ffffff;
+  --border: #d7e0ee;
+  --code-bg: #eef2f8;
+  --accent: #2563eb;
+  --accent-bg: rgba(37, 99, 235, 0.08);
+  --accent-border: rgba(37, 99, 235, 0.35);
+  --shadow:
+    rgba(15, 23, 42, 0.1) 0 10px 15px -3px, rgba(15, 23, 42, 0.05) 0 4px 6px -2px;
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--text);
+}
+
 #root {
   width: 100%;
   min-height: 100svh;
@@ -60,6 +104,12 @@
 
 body {
   margin: 0;
+  /* Diagram hover previews (DiagramHint) are absolutely positioned and can be wider than a narrow
+     viewport - even hidden (visibility:hidden, not display:none) they'd otherwise still inflate
+     the page's scrollable area and show a permanent horizontal scrollbar. Inner elements that need
+     their own horizontal scroll (journey-log table, the popover itself once open) set overflow-x
+     on themselves, so this page-level clip doesn't affect them. */
+  overflow-x: hidden;
 }
 
 h1,

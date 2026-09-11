@@ -57,6 +57,7 @@
   color: var(--text-muted, #888);
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .app-tabs button:hover {
@@ -68,19 +69,12 @@
   border-bottom-color: var(--accent);
 }
 
-.app-subtabs {
+.app-tabs {
   align-items: center;
 }
 
-.app-subtabs .back-button {
+.back-button {
   margin-right: 0.25rem;
-}
-
-.app-subtabs-title {
-  font-weight: 700;
-  color: var(--text-h);
-  margin-right: 0.75rem;
-  padding-bottom: 0.6rem;
 }
 
 .journey-context {
@@ -163,6 +157,13 @@
 .welcome-cta {
   margin-bottom: 0 !important;
   font-weight: 600;
+}
+
+/* Startseite: Kanal-Einstieg als dieselbe method-choice-Liste, die auch das "Wie möchten Sie
+   starten?"-Menü im App-Kanal benutzt - eine schon etablierte, ruhige Optik statt einer neuen,
+   auffälligen Kachel-Komponente. */
+.channel-choice-list {
+  margin-top: 1.25rem;
 }
 
 .journey-diagram {
@@ -980,4 +981,61 @@ button.small,
   .debug-sidebar {
     max-height: 40vh;
   }
+}
+
+/* Beide Kanal-Chromes (App/Web) teilen sich exakt dieselbe Topbar (ChannelNav.tsx) - Unterschied
+   ist ausschließlich das Farbschema (.channel-app/.channel-web, index.css) und die Breite der
+   Inhaltsspalte darunter, nicht die Navigationsstruktur selbst. So lesen sich beide Kanäle als
+   dieselbe Art UI in unterschiedlichen Farben statt als zwei verschiedene Designs. */
+.app-frame,
+.web-shell {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.channel-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.channel-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.channel-topbar-tabs {
+  border-bottom: none;
+  flex-wrap: wrap;
+}
+
+.channel-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.web-page {
+  width: 100%;
+  max-width: min(94vw, 1200px);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  text-align: left;
+}
+
+.web-page-wide {
+  max-width: 100%;
 }

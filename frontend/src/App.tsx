@@ -32,6 +32,7 @@ import {
   storePendingPairingCode,
 } from './session.ts'
 import { shorten } from './format.ts'
+import { AppChannelFrame } from './components/AppChannelFrame'
 import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
 import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
 import { EntryChoiceLinks } from './components/EntryChoiceLinks'
@@ -46,6 +47,7 @@ import { UnavailableTools } from './components/UnavailableTools'
 import { DiagramHint } from './components/DiagramHint'
 import { MockKeycloakView, type MockKeycloakState } from './components/MockKeycloakView'
 import { WebChannelView } from './components/WebChannelView'
+import { WebChannelLayout } from './components/WebChannelLayout'
 import { onKcApiCall } from './kcApi'
 import { getWebJourneyLog } from './webApi'
 import type { TokenSet } from './webOidc'
@@ -599,40 +601,17 @@ function App() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <div className={sub === 'journeylog' ? 'app app-wide' : 'app'}>
-          <header className="app-header">
+        {section === 'welcome' && (
+          <div className="app">
+            <header className="app-header">
             <h1>Identity Journey</h1>
             <p>
               Identifikation, Authentifizierung und Step-up zum Ausprobieren - mehrere Verfahren, deren
               Ablauf das Backend als Journey steuert.
             </p>
-          </header>
+            </header>
 
-          {(section === 'app' || section === 'web') && (
-            <nav className="app-tabs app-subtabs" role="tablist" aria-label="Bereich-Unterreiter">
-              <button className="secondary small back-button" onClick={() => setActiveTab('welcome')} aria-label="Zurück zur Startseite">
-                ← Startseite
-              </button>
-              <span className="app-subtabs-title">{section === 'app' ? 'App-Kanal' : 'Web-Kanal'}</span>
-              <button role="tab" aria-selected={sub === 'demo'} className={sub === 'demo' ? 'active' : ''} onClick={() => setActiveTab(section, 'demo')}>
-                Demo
-              </button>
-              {section === 'web' && (
-                <button role="tab" aria-selected={sub === 'mock'} className={sub === 'mock' ? 'active' : ''} onClick={() => setActiveTab(section, 'mock')}>
-                  Mock-Keycloak (Dev)
-                </button>
-              )}
-              <button role="tab" aria-selected={sub === 'journeylog'} className={sub === 'journeylog' ? 'active' : ''} onClick={() => setActiveTab(section, 'journeylog')}>
-                Journey-Log
-              </button>
-              <button role="tab" aria-selected={sub === 'settings'} className={sub === 'settings' ? 'active' : ''} onClick={() => setActiveTab(section, 'settings')}>
-                Einstellungen
-              </button>
-            </nav>
-          )}
-
-          {section === 'welcome' && (
-            <div className="card welcome-card">
+          <div className="card welcome-card">
               <h2>Worum geht es hier?</h2>
               <p>
                 Diese Demo zeigt zwei Wege, wie ein Client Identität nachweist und einen AccessToken bekommt.
@@ -646,10 +625,30 @@ function App() {
                 Keycloak - der Browser spricht hier nie direkt mit dem Orchestrator (nur Keycloaks eigene
                 Erweiterung tut das, server-seitig).
               </p>
-              <div className="form-actions">
-                <button onClick={() => setActiveTab('app')}>Zum App-Kanal</button>
-                <button onClick={() => setActiveTab('web')}>Zum Web-Kanal</button>
-              </div>
+              <ul className="method-choice-list channel-choice-list">
+                <li>
+                  <button className="method-choice" onClick={() => setActiveTab('app')} aria-label="Zum App-Kanal">
+                    <span className="method-choice-icon" aria-hidden="true">
+                      📱
+                    </span>
+                    <span className="method-choice-text">
+                      <span className="method-choice-label">Zum App-Kanal</span>
+                      <span className="method-choice-hint">Nativer, DPoP-gebundener Client - wie eine mobile App</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button className="method-choice" onClick={() => setActiveTab('web')} aria-label="Zum Web-Kanal">
+                    <span className="method-choice-icon" aria-hidden="true">
+                      🌐
+                    </span>
+                    <span className="method-choice-text">
+                      <span className="method-choice-label">Zum Web-Kanal</span>
+                      <span className="method-choice-hint">Echter Browser-Client gegen echtes Keycloak</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
               <ul className="status-list">
                 <li>
                   <span className="label">Quellcode</span>
@@ -677,10 +676,8 @@ function App() {
                 </li>
               </ul>
             </div>
-          )}
 
-          {section === 'welcome' && (
-            <div className="card">
+          <div className="card">
               <h2>Wichtige Begriffe für die Demo</h2>
               <p>
                 Ihr <strong>Konto</strong> (technisch ein <code>Account</code>) ist der Zugang, mit dem Sie in
@@ -761,19 +758,16 @@ function App() {
                 </a>.
               </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {section === 'web' && sub === 'mock' && <MockKeycloakView onStateChange={setKcState} />}
-
-          {sub === 'journeylog' && section === 'app' && (
+        {section === 'app' && (
+          <AppChannelFrame sub={sub} onSelectTab={(s) => setActiveTab('app', s)} onBack={() => setActiveTab('welcome')}>
+          {sub === 'journeylog' && (
             <JourneyLogView fetchLog={dpop ? appJourneyLogFetcher : null} />
           )}
 
-          {sub === 'journeylog' && section === 'web' && (
-            <JourneyLogView fetchLog={webTokens ? webJourneyLogFetcher : null} />
-          )}
-
-          {section === 'app' && sub === 'settings' && (
+          {sub === 'settings' && (
             <>
               <AdminToolAvailabilityView />
               <div className="card">
@@ -811,41 +805,14 @@ function App() {
             </>
           )}
 
-          {section === 'web' && sub === 'settings' && (
-            <>
-              <KeycloakSyncView />
-              <div className="card">
-                <h2>Web-Kanal-Info</h2>
-                <ul className="status-list">
-                  <li>
-                    <span className="label">Realm</span>
-                    <span className="value">dpop-demo</span>
-                  </li>
-                  <li>
-                    <span className="label">Client</span>
-                    <span className="value">dpop-demo-web (public, PKCE)</span>
-                  </li>
-                  <li>
-                    <span className="label">Keycloak</span>
-                    <a className="value" href="https://localhost:8543" target="_blank" rel="noreferrer">
-                      https://localhost:8543
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </>
-          )}
-
-          {error && section === 'app' && sub === 'demo' && (
+          {error && sub === 'demo' && (
             <div className="card error-card">
               <h2>Fehler</h2>
               <p>{error}</p>
             </div>
           )}
 
-          {section === 'web' && sub === 'demo' && <WebChannelView onTokens={setWebTokens} />}
-
-          {section === 'app' && sub === 'demo' && (
+          {sub === 'demo' && (
           <>
           <UnavailableTools availableTools={availableTools} />
 
@@ -926,69 +893,89 @@ function App() {
                     </li>
                   )}
                   <li>
-                    <DiagramHint spec={JOURNEY_DIAGRAMS.auto}>
-                      <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Automatisch anmelden">
-                        <span className="method-choice-icon" aria-hidden="true">
-                          🚀
+                    <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Automatisch anmelden">
+                      <span className="method-choice-icon" aria-hidden="true">
+                        🚀
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">
+                          Automatisch anmelden
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.auto} inline>
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Automatisch anmelden als Diagramm anzeigen">
+                              ℹ️
+                            </span>
+                          </DiagramHint>
                         </span>
-                        <span className="method-choice-text">
-                          <span className="method-choice-label">Automatisch anmelden</span>
-                          <span className="method-choice-hint">
-                            Empfohlen: Kennt dieses Gerät schon ein Konto, meldet es sich direkt an - sonst startet eine
-                            Registrierung.
-                          </span>
+                        <span className="method-choice-hint">
+                          Empfohlen: Kennt dieses Gerät schon ein Konto, meldet es sich direkt an - sonst startet eine
+                          Registrierung.
                         </span>
-                      </button>
-                    </DiagramHint>
+                      </span>
+                    </button>
                   </li>
                   <li>
-                    <DiagramHint spec={JOURNEY_DIAGRAMS.register}>
-                      <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neues Konto registrieren">
-                        <span className="method-choice-icon" aria-hidden="true">
-                          ✨
+                    <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neues Konto registrieren">
+                      <span className="method-choice-icon" aria-hidden="true">
+                        ✨
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">
+                          Neues Konto registrieren
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.register} inline>
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Neues Konto registrieren als Diagramm anzeigen">
+                              ℹ️
+                            </span>
+                          </DiagramHint>
                         </span>
-                        <span className="method-choice-text">
-                          <span className="method-choice-label">Neues Konto registrieren</span>
-                          <span className="method-choice-hint">
-                            Durchläuft immer die Registrierung, auch wenn dieses Gerät schon bekannt ist - bei
-                            derselben Test-Identität landen Sie wieder auf dem bestehenden Konto.
-                          </span>
+                        <span className="method-choice-hint">
+                          Durchläuft immer die Registrierung, auch wenn dieses Gerät schon bekannt ist - bei
+                          derselben Test-Identität landen Sie wieder auf dem bestehenden Konto.
                         </span>
-                      </button>
-                    </DiagramHint>
+                      </span>
+                    </button>
                   </li>
                   <li>
-                    <DiagramHint spec={JOURNEY_DIAGRAMS.login}>
-                      <button className="method-choice" onClick={() => handleStart('login')} aria-label="Neu anmelden">
-                        <span className="method-choice-icon" aria-hidden="true">
-                          🌐
+                    <button className="method-choice" onClick={() => handleStart('login')} aria-label="Neu anmelden">
+                      <span className="method-choice-icon" aria-hidden="true">
+                        🌐
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">
+                          Neu anmelden
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.login} inline>
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Neu anmelden als Diagramm anzeigen">
+                              ℹ️
+                            </span>
+                          </DiagramHint>
                         </span>
-                        <span className="method-choice-text">
-                          <span className="method-choice-label">Neu anmelden</span>
-                          <span className="method-choice-hint">Ohne dieses Gerät wiederzuerkennen anmelden, per E-Mail und Passwort oder Code.</span>
-                        </span>
-                      </button>
-                    </DiagramHint>
+                        <span className="method-choice-hint">Ohne dieses Gerät wiederzuerkennen anmelden, per E-Mail und Passwort oder Code.</span>
+                      </span>
+                    </button>
                   </li>
                   <li>
-                    <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin}>
-                      <button
-                        className="method-choice"
-                        onClick={() => handleStart('confirmPeerLogin')}
-                        aria-label="Web-Login per QR bestätigen"
-                      >
-                        <span className="method-choice-icon" aria-hidden="true">
-                          📷
+                    <button
+                      className="method-choice"
+                      onClick={() => handleStart('confirmPeerLogin')}
+                      aria-label="Web-Login per QR bestätigen"
+                    >
+                      <span className="method-choice-icon" aria-hidden="true">
+                        📷
+                      </span>
+                      <span className="method-choice-text">
+                        <span className="method-choice-label">
+                          Web-Login per QR bestätigen
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin} inline>
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Web-Login per QR bestätigen als Diagramm anzeigen">
+                              ℹ️
+                            </span>
+                          </DiagramHint>
                         </span>
-                        <span className="method-choice-text">
-                          <span className="method-choice-label">Web-Login per QR bestätigen</span>
-                          <span className="method-choice-hint">
-                            Ein Browser wartet auf eine Bestätigung von diesem Gerät (docs/ideen/qr-login-ueber-app.md).
-                            Setzt ein hier schon bekanntes Konto voraus.
-                          </span>
+                        <span className="method-choice-hint">
+                          Ein Browser wartet auf eine Bestätigung von diesem Gerät (docs/ideen/qr-login-ueber-app.md).
+                          Setzt ein hier schon bekanntes Konto voraus.
                         </span>
-                      </button>
-                    </DiagramHint>
+                      </span>
+                    </button>
                   </li>
                 </ul>
               </div>
@@ -1043,7 +1030,45 @@ function App() {
           )}
           </>
           )}
-        </div>
+          </AppChannelFrame>
+        )}
+
+        {section === 'web' && (
+          <WebChannelLayout sub={sub} onSelectTab={(s) => setActiveTab('web', s)} onBack={() => setActiveTab('welcome')}>
+          {sub === 'mock' && <MockKeycloakView onStateChange={setKcState} />}
+
+          {sub === 'journeylog' && (
+            <JourneyLogView fetchLog={webTokens ? webJourneyLogFetcher : null} />
+          )}
+
+          {sub === 'settings' && (
+            <>
+              <KeycloakSyncView />
+              <div className="card">
+                <h2>Web-Kanal-Info</h2>
+                <ul className="status-list">
+                  <li>
+                    <span className="label">Realm</span>
+                    <span className="value">dpop-demo</span>
+                  </li>
+                  <li>
+                    <span className="label">Client</span>
+                    <span className="value">dpop-demo-web (public, PKCE)</span>
+                  </li>
+                  <li>
+                    <span className="label">Keycloak</span>
+                    <a className="value" href="https://localhost:8543" target="_blank" rel="noreferrer">
+                      https://localhost:8543
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {sub === 'demo' && <WebChannelView onTokens={setWebTokens} />}
+          </WebChannelLayout>
+        )}
       </div>
 
       {section === 'app' && sub === 'demo' && (

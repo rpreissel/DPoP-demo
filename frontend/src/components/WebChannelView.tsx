@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { completeLoginIfRedirected, redirectToLogin, redirectToLogout, redirectToManageMethods, redirectToStepUp, refreshTokens, type TokenSet } from '../webOidc'
 import { parseJwtPayload } from '../jwt'
 import { shorten } from '../format'
+import { DiagramHint } from './DiagramHint'
+import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 
 const SESSION_KEY = 'web-kanal-tokens'
 
@@ -117,10 +119,44 @@ export function WebChannelView({ onTokens }: Props) {
       {error && <div className="error-card">{error}</div>}
 
       {!tokens && (
-        <div className="form-actions">
-          <button onClick={() => login('1')}>Login (loa1)</button>
-          <button onClick={() => login('2')}>Login (loa2)</button>
-        </div>
+        <ul className="method-choice-list">
+          <li>
+            <button className="method-choice" onClick={() => login('1')} aria-label="Login (loa1)">
+              <span className="method-choice-icon" aria-hidden="true">
+                🔑
+              </span>
+              <span className="method-choice-text">
+                <span className="method-choice-label">
+                  Login (loa1)
+                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa1} inline>
+                    <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa1) als Diagramm anzeigen">
+                      ℹ️
+                    </span>
+                  </DiagramHint>
+                </span>
+                <span className="method-choice-hint">Ein Faktor (Passwort oder Code) reicht für dieses Sicherheitsniveau.</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button className="method-choice" onClick={() => login('2')} aria-label="Login (loa2)">
+              <span className="method-choice-icon" aria-hidden="true">
+                🔐
+              </span>
+              <span className="method-choice-text">
+                <span className="method-choice-label">
+                  Login (loa2)
+                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa2} inline>
+                    <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa2) als Diagramm anzeigen">
+                      ℹ️
+                    </span>
+                  </DiagramHint>
+                </span>
+                <span className="method-choice-hint">Verlangt zusätzlich einen zweiten Faktor - höheres Sicherheitsniveau.</span>
+              </span>
+            </button>
+          </li>
+        </ul>
       )}
 
       {tokens && (

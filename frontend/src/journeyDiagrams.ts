@@ -17,7 +17,9 @@ export const JOURNEY_DIAGRAMS: Record<
   | 'manageMethods'
   | 'deleteAccount'
   | 'reIdentify'
-  | 'confirmPeerLogin',
+  | 'confirmPeerLogin'
+  | 'webLoginLoa1'
+  | 'webLoginLoa2',
   JourneyDiagramSpec
 > = {
   channel: {
@@ -120,6 +122,17 @@ export const JOURNEY_DIAGRAMS: Record<
       label: 'Nein',
       steps: ['Step-up (Faktor bestätigen)', 'Gelöscht'],
     },
+  },
+  // Kein Journey-Schritt des Orchestrators (siehe docs/04-orchestrierung.md) - der Browser
+  // spricht hier nie mit ihm, nur mit Keycloak selbst (webOidc.ts). Trotzdem als Diagramm gezeigt,
+  // damit der Web-Kanal-Einstieg dieselbe Hover-Vorschau wie der App-Kanal bekommt.
+  webLoginLoa1: {
+    title: 'Login (loa1)',
+    steps: ['Redirect zu Keycloak', 'Login (Passwort oder Code)', 'Zurück mit AccessToken (loa1)'],
+  },
+  webLoginLoa2: {
+    title: 'Login (loa2)',
+    steps: ['Redirect zu Keycloak', 'Login + 2. Faktor', 'Zurück mit AccessToken (loa2)'],
   },
 }
 
