@@ -50,6 +50,14 @@ class ConfirmQrLoginToolHandler(
                 if (!hasQrEnrollment) {
                     return ToolOutcome.Failed("QR-Login ist für dieses Konto nicht aktiviert.")
                 }
+                val expectedAccountId = qrLoginRequestRepository.findByIdOrNull(resolvedCode)?.expectedAccountId
+                if (expectedAccountId != null && expectedAccountId != accountId) {
+                    // auth-qr (Step-up auf einem bereits bekannten WEB-Konto) kennt sein Zielkonto
+                    // schon vorher - dann hier abbrechen statt scheinbar erfolgreich zu bestätigen
+                    // und erst den WEB-Poll (AuthQrToolHandler) den Mismatch entdecken zu lassen.
+                    // auth-qr-lookup setzt expectedAccountId bewusst nie, bleibt also unberührt.
+                    return ToolOutcome.Failed("Bestätigung passt nicht zu diesem Konto")
+                }
                 val rows = qrLoginRequestRepository.resolveIfPending(resolvedCode, QrLoginStatus.APPROVED, accountId)
                 if (rows == 1) {
                     ToolOutcome.Completed.Approved()
