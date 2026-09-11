@@ -21,9 +21,10 @@ Orchestrator. Registrierung ist kein eigener Zweck, sondern nur die einmalige
 Voraussetzung dafür, dass ein neuer Nutzer danach einloggen kann.
 
 Das `AccessToken` selbst stammt aus einem Standard-OIDC-Tokenfluss gegen Keycloak — der
-Orchestrator wickelt ihn serverseitig ab, die App bekommt nur das Ergebnis. Auch das
-Erneuern (Refresh) passiert im Backend über den Channel, nicht in der App: kein
-Refresh-Token, keine Token-Erneuerungslogik im Frontend.
+Orchestrator wickelt ihn serverseitig ab, die App bekommt nur das Ergebnis (je nach
+Backend-Profil ein Mock-JWT oder ein echtes, von Keycloak signiertes Token — für die App
+macht das keinen Unterschied). Auch das Erneuern (Refresh) passiert im Backend über den
+Channel, nicht in der App: kein Refresh-Token, keine Token-Erneuerungslogik im Frontend.
 
 Bevorzugtes Login-Mittel ist die **Gerätebindung**: einmal auf einem Gerät eingerichtet,
 beweist danach der Besitz dieses Geräts die Identität. Der Ablauf führt den Nutzer aktiv
@@ -74,6 +75,28 @@ App eine eigene UI-Komponente dafür. Was die App **nicht** selbst hat, ist die 
 *wann* welches Verfahren dran ist — das entscheidet ausschließlich das Backend über
 `next`; die Orchestrator-Engine startet ein Tool nur darüber und übergibt dann an dessen
 UI-Komponente.
+
+### Channel, Journey, Tool
+
+```mermaid
+flowchart TD
+  C["Channel<br/><em>Sitzung, dieses Gerät</em>"] --> J["Journey<br/><em>ein Ziel, z. B. Anmelden</em>"]
+  J --> T["Tool<br/><em>Verfahren, das gerade dran ist, z. B. auth-sms</em>"]
+```
+
+Ein `Channel` ist die Verbindung zwischen App und Backend für diesen Besuch, verankert am
+DPoP-Schlüssel dieses Geräts. Innerhalb läuft eine `Journey` — der vom Backend geführte
+Ablauf für genau ein Ziel: `LOGIN` (Registrieren, Automatisch anmelden oder Neu anmelden
+führen alle zum selben Ziel), `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`. Eine
+Journey besteht wiederum aus einem oder mehreren `Tool`s, benannt danach, ob sie ein
+Verfahren einrichten (`enroll-sms`) oder ein bereits eingerichtetes benutzen (`auth-sms`).
+Channel, Journey und Tool sind also ineinander geschachtelt, keine Kette von
+Vorher/Nachher — und genau das bildet `next` in jeder `ChannelResponse` ab.
+
+Ein Tool wird der Journey dabei nur angeboten, wenn es **beide** Seiten erlauben: die App
+muss es überhaupt rendern können (`availableTools`, beim Kanaleinstieg gemeldet), und das
+Backend darf es nicht gesperrt haben. Das ist auch der Mechanismus, der alte App-Versionen
+funktionsfähig hält (siehe oben) — kein Versions-Handshake, nur diese eine Liste.
 
 Zwei Ergänzungen aus der Praxis:
 

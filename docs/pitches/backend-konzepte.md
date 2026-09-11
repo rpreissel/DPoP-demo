@@ -66,6 +66,57 @@ flowchart LR
   M3 -.-> KOBIL
 ```
 
+### Zwei Kanäle, ein Modell
+
+Das Bild oben zeigt bewusst nur den App-Kanal (eigene UI, DPoP-Proof pro Request) — aus
+Backend-Sicht ist das aber nur eine von zwei Fassaden vor demselben Orchestrator. Ein
+`Channel` trägt seinen `channelType` (`APP`/`KEYCLOAK`) fest für seine ganze Lebenszeit
+([02-domaenenmodell.md](../02-domaenenmodell.md)), aber Journey/Tool/`next` — alles, was
+oben und im Sequenzdiagramm unten beschrieben ist — läuft für beide identisch.
+
+```mermaid
+flowchart LR
+  subgraph AppFacade["App-Fassade"]
+    App["native App<br/>eigene UI je Tool"]
+  end
+  subgraph WebFacade["Web-Fassade"]
+    Browser["Browser<br/>Keycloak-eigenes Theme"]
+    Ext["Keycloak-Extension<br/>(WebToolRenderer je Tool)"]
+    Browser <--> Ext
+  end
+  App -- "DPoP-Proof pro Request" --> O["Orchestrator<br/>next / stepData / Journey"]
+  Ext -- "server-zu-server, signierter Peer-Auth-Proof" --> O
+```
+
+Der Unterschied liegt allein darin, *wer rendert* und *wie der Request abgesichert ist*:
+Im App-Kanal spricht die App direkt mit dem Orchestrator und weist sich per DPoP-Proof
+aus; im Web-Kanal läuft der Browser komplett gegen Keycloaks eigenen Login (Redirect,
+`loa1`/`loa2` als `acr_values`) — erst Keycloaks serverseitige Extension ruft den
+Orchestrator auf, mit einem eigenen signierten Server-zu-Server-Nachweis statt eines
+DPoP-Proofs, und rendert jeden Tool-Schritt in Keycloaks eigenem Theme statt einer
+nativen UI-Komponente. Der Browser selbst bekommt den Orchestrator nie zu Gesicht.
+
+Das gilt auch für die Tokens am Ende der Journey: der App-Kanal bekommt sein
+`AccessToken` (und ein nie das Backend verlassendes `RefreshToken`) vom Orchestrator
+selbst ausgestellt — Mock-JWT oder echtes Keycloak-Token, je nach Profil. Der Web-Kanal
+bekommt seins direkt aus Keycloaks eigenem Token-Endpoint; der Orchestrator sieht davon
+serverseitig nur das, was die Extension ihm für den jeweiligen Tool-Schritt meldet, nie
+das Token selbst.
+
+### Channel, Journey, Tool
+
+```mermaid
+flowchart TD
+  C["Channel<br/><em>APP oder KEYCLOAK</em>"] --> J["Journey<br/><em>ein Ziel, z. B. Anmelden</em>"]
+  J --> T["Tool<br/><em>Verfahren, das gerade dran ist, z. B. auth-sms</em>"]
+```
+
+Ineinander geschachtelt, keine Kette von Vorher/Nachher — genau das bildet `next` in
+jeder `ChannelResponse` ab. Journeys sind nach ihrem Ziel benannt (`LOGIN`, `STEP_UP`,
+`MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`, dazu Web-spezifisch `KC_SELECT_METHOD` und
+`CONFIRM_PEER_LOGIN` für die kanalübergreifende QR-Anmeldung), Tools nach Verfahren und
+Zweck (`enroll-sms` richtet ein, `auth-sms` benutzt ein bereits eingerichtetes).
+
 Der Rest dieses Dokuments zoomt in genau die `Backend`-Box hinein: Wie hängen Orchestrator und
 ein Tool-Modul wie `auth_sms` an einem konkreten Schritt zusammen?
 

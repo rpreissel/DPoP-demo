@@ -13,24 +13,19 @@ export function WelcomeApp() {
     <div className="app">
       <header className="app-header">
         <h1>Identity Journey</h1>
-        <p>
-          Identifikation, Authentifizierung und Step-up zum Ausprobieren - mehrere Verfahren, deren
-          Ablauf das Backend als Journey steuert.
-        </p>
+        <p>Sich ausweisen, anmelden und bei Bedarf zusätzlich absichern (Step-up) zum Ausprobieren.</p>
       </header>
 
       <div className="card welcome-card">
         <h2>Worum geht es hier?</h2>
         <p>
-          Diese Demo zeigt zwei Wege, wie ein Client Identität nachweist und ein AccessToken bekommt.
-          Der <strong>App-Kanal</strong> ist ein DPoP-gebundener nativer Client: Identifikation
-          (Freischaltcode/eID) oder Authentifizierung per SMS, E-Mail, Passwort oder Geräteschlüssel,
-          einzeln oder kombiniert für höheres Sicherheitsniveau (Step-up) - der Orchestrator steuert
-          den Ablauf serverseitig als Journey und liefert das AccessToken selbst (Mock oder echt, je
-          nach Profil). Der <strong>Web-Kanal</strong> ist ein echter Browser-Client gegen echtes
-          Keycloak: Login per Redirect (loa1/loa2), AccessToken/IdToken direkt von Keycloak, Step-up
-          und Logout ebenfalls dort - der Browser spricht nie direkt mit dem Orchestrator (nur
-          Keycloaks eigene Erweiterung, server-seitig).
+          Diese Demo zeigt zwei Wege, wie man sich anmeldet und danach ein <strong>AccessToken</strong>{' '}
+          bekommt - den eigentlichen Ausweis, mit dem eine Anwendung Sie erkennt. Der{' '}
+          <strong>App-Kanal</strong> simuliert eine eigene App: Sie weisen sich einmalig aus
+          (Freischaltcode oder eID) und melden sich danach mit SMS, E-Mail, Passwort oder einem
+          Geräteschlüssel an - auch mehrere davon kombiniert für ein höheres Sicherheitsniveau. Der{' '}
+          <strong>Web-Kanal</strong> simuliert dagegen einen ganz normalen Website-Login über einen
+          echten Identitätsanbieter (Keycloak).
         </p>
         <ul className="method-choice-list channel-choice-list">
           <li>
@@ -87,82 +82,43 @@ export function WelcomeApp() {
       <div className="card">
         <h2>Wichtige Begriffe für die Demo</h2>
         <p>
-          Ihr <strong>Konto</strong> (technisch ein <code>Account</code>) ist der Zugang, mit dem Sie in
-          dieser Demo angemeldet sind - er entsteht bei der Registrierung. Dabei
-          weisen Sie sich einmalig per <strong>Identifikation</strong> aus ("das bin ich": Freischaltcode
-          oder eID) gegen ein <strong>externes Personenregister</strong> - die <strong>Person</strong>{' '}
-          selbst kommt aus diesem fremden System und gehört nicht dem Konto; das Konto verweist nur
-          darauf. Identifizieren Sie sich später mit derselben Test-Identität erneut, findet die Demo
-          dieselbe Person wieder und landet auf demselben Konto statt einem neuen - deshalb bleibt die
-          Person beim Löschen eines Kontos auch unangetastet. Für die spätere, wiederholte Anmeldung
-          ("ich bin's wieder") dienen dagegen <strong>Anmeldeverfahren</strong>: SMS, E-Mail, Passwort
-          oder ein geräteeigener Schlüssel, einzeln oder kombiniert.
+          Ihr <strong>Konto</strong> ist der Zugang, mit dem Sie in dieser Demo angemeldet sind - er
+          entsteht bei der Registrierung. Dabei weisen Sie sich einmalig per{' '}
+          <strong>Identifikation</strong> aus ("das bin ich": Freischaltcode oder eID) - die Person
+          dahinter bleibt vom Konto getrennt gedacht: Identifizieren Sie sich später mit derselben
+          Test-Identität erneut, landet die Demo auf demselben Konto statt einem neuen. Für die
+          spätere, wiederholte Anmeldung ("ich bin's wieder") dienen dagegen{' '}
+          <strong>Anmeldeverfahren</strong>: SMS, E-Mail, Passwort oder ein geräteeigener Schlüssel,
+          einzeln oder kombiniert.
         </p>
         <p>
           Wie stark Ihre Identität gerade nachgewiesen ist, drückt das <strong>Sicherheitsniveau</strong>{' '}
-          aus (in der Demo <code>loa1</code>/<code>loa2</code> genannt). Ein Verfahren reicht oft schon;
-          für empfindlichere Aktionen verlangt die Demo einen zusätzlichen Nachweis, den{' '}
-          <strong>Step-up</strong> - ohne sich komplett neu anzumelden.
+          aus. Ein Verfahren reicht oft schon; für empfindlichere Aktionen verlangt die Demo einen
+          zusätzlichen Nachweis, den <strong>Step-up</strong> - ohne sich komplett neu anzumelden.
         </p>
         <p>
-          Zwei Dinge werden dabei leicht verwechselt, weil beide "Gerät" im Namen tragen. Die{' '}
-          <strong>DPoP-Bindung</strong> beweist nur <em>welches Gerät</em> gerade spricht - niemals, dass
-          der Nutzer davor tatsächlich der ist, für den er sich ausgibt. Sie bindet jede Anfrage
-          kryptografisch an dieses Gerät und lässt ein bereits bekanntes Gerät automatisch wiedererkennen
-          ("Automatisch anmelden" schlägt dann direkt den zuletzt genutzten Login vor, "Neu anmelden"
-          verzichtet bewusst darauf) - bleibt dabei aber reine Wiedererkennung, kein Identitätsnachweis.
-          Der <strong>Geräteschlüssel</strong> als
-          Anmeldeverfahren ("device") ist dagegen ein echter Identitätsnachweis: ein nicht extrahierbarer,
-          geräteeigener Schlüssel, den erst ein System-PIN oder Biometrie freischaltet - das zählt als
-          vollwertiges Verfahren wie SMS/E-Mail/Passwort.
-        </p>
-
-        <div className="nesting-diagram">
-          <div className="nesting-box nesting-box--1">
-            <span className="nesting-label">Channel <em>(Sitzung, dieses Gerät)</em></span>
-            <div className="nesting-box nesting-box--2">
-              <span className="nesting-label">Journey <em>(ein Ziel, z. B. Anmelden)</em></span>
-              <div className="nesting-box nesting-box--3">
-                <span className="nesting-label">Tool <em>(Verfahren, z. B. auth-sms)</em></span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p>
-          Ein <strong>Channel</strong> ist die Verbindung zwischen App und Backend für diesen Besuch,
-          verankert am DPoP-Schlüssel dieses Geräts (im Demo-Tab als "Sitzung" angezeigt); innerhalb
-          läuft eine <strong>Journey</strong> - der vom
-          Backend geführte Ablauf für genau ein Ziel, nicht die Oberfläche entscheidet den nächsten
-          Schritt. Eine Journey besteht wiederum aus einem oder mehreren <strong>Tools</strong>, dem
-          konkreten Verfahren, das gerade dran ist - benannt danach, ob es ein Verfahren einrichtet
-          (<code>enroll-sms</code>) oder ein bereits eingerichtetes benutzt (<code>auth-sms</code>).
-          Channel, Journey und Tool sind also ineinander geschachtelt, keine Kette von Vorher/Nachher.
-          Ein Tool wird der Journey dabei nur angeboten, wenn es <strong>beide</strong> Seiten erlauben:
-          das Frontend muss es überhaupt darstellen können, und das Backend darf es nicht gesperrt haben -
-          beides einzeln einstellbar unter Einstellungen ("Verfügbare Tools auf diesem Client" bzw.
-          "Admin: Tool-Verfügbarkeit").
+          Zwei Dinge werden dabei leicht verwechselt, weil beide etwas mit dem Gerät zu tun haben. Dass
+          dieses Gerät wiedererkannt wird, beweist nur, <em>welches Gerät</em> gerade spricht - nicht,
+          dass davor wirklich die Person sitzt, für die es sich ausgibt ("Automatisch anmelden" nutzt
+          das aus, "Neu anmelden" verzichtet bewusst darauf). Ein eigens eingerichteter{' '}
+          <strong>Geräteschlüssel</strong> dagegen ist ein echtes Anmeldeverfahren, erst freigeschaltet
+          durch System-PIN oder Biometrie - gleichwertig zu SMS, E-Mail oder Passwort.
         </p>
         <p>
-          Welches Ziel eine Journey verfolgt, sehen Sie an ihren Aktionen im Demo-Tab: <strong>Login</strong>{' '}
-          (Registrieren, Automatisch anmelden oder Neu anmelden - alle drei Wege führen zum selben Ziel:
-          einem angemeldeten Channel mit Zugang zum AccessToken), <strong>Step-up</strong>{' '}
-          (Sicherheitsniveau erhöhen, ohne sich neu anzumelden), <strong>Manage</strong> (weiteres
-          Verfahren einrichten oder eines deaktivieren) und <strong>Konto löschen</strong> sind je eigene
-          Journeys mit eigenem Ziel.
+          Jeder Ablauf - Login, Registrierung, Sicherheitsniveau erhöhen, Anmeldeverfahren verwalten,
+          Konto löschen - wird dabei vollständig vom Backend geführt: Die Oberfläche entscheidet nie
+          selbst, was als Nächstes kommt, sie zeigt nur den jeweils aktuellen Schritt an.
         </p>
         <p>
-          Ist ein App-Kanal-Channel angemeldet, lässt sich ein <strong>AccessToken</strong> und ein{' '}
-          <strong>RefreshToken</strong> abrufen - je nach Backend-Profil ein Mock-JWT oder (Profil{' '}
-          <code>keycloak</code>) ein echter, von Keycloak signierter Token. Das AccessToken geht ins
-          Frontend; das RefreshToken verlässt das Backend nie und wird dort im Hintergrund genutzt, um
-          bei Bedarf ein neues AccessToken zu holen, ohne dass Sie sich erneut anmelden müssen. Der
-          Web-Kanal bekommt seine Tokens dagegen direkt von Keycloak selbst, siehe dessen eigenen Tab.
+          Ist der App-Kanal angemeldet, lässt sich ein <strong>AccessToken</strong> abrufen -
+          der eigentliche Ausweis, mit dem eine echte Anwendung Sie erkennen würde. Der Web-Kanal
+          bekommt seins dagegen direkt von Keycloak selbst.
         </p>
         <p>
           Details zu allem oben im{' '}
           <a href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/02-domaenenmodell.md" target="_blank" rel="noreferrer">
             Domänenmodell
-          </a>.
+          </a>, den Aufbau dahinter erklären die Konzepte-Pitches oben.
         </p>
       </div>
     </div>
