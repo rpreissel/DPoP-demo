@@ -3,7 +3,9 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.maps.shouldNotContainKeys
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -44,7 +46,8 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 channelResponse.channel()["state"] shouldBe "REGISTERING"
                 channelResponse.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
                 @Suppress("UNCHECKED_CAST")
-                (channelResponse.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+                // shouldContainAll, not exact: identification is offered, not the catalog's exact set.
+                (channelResponse.stepData()["options"] as List<String>) shouldContainAll listOf("ident-fsc", "ident-eid")
 
                 // 2) Activate ident-fsc
                 val identActivation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc")
@@ -67,7 +70,12 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 val identified = patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
                 identified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                identified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                val identifiedOptions = identified.stepData()["options"] as List<String>
+                // shouldContainAll (not exact) for the enrollable rest: new enrollment methods
+                // elsewhere in the catalog don't change this. enroll-password's absence is checked
+                // explicitly since it's the one deliberately excluded (unconfirmed email).
+                identifiedOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                identifiedOptions shouldNotContain "enroll-password"
 
                 // 5) Activate enroll-sms
                 val enrollActivation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")

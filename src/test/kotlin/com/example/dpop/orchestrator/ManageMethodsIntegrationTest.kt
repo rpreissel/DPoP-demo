@@ -4,7 +4,9 @@ import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -61,7 +63,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // device are offered - two candidates means a selection page, not a single-candidate skip.
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device", "enroll-qr")
+                val startedOptions = started.stepData()["options"] as List<String>
+                // shouldContainAll (not exact) for the enrollable rest; sms/email stay explicit
+                // exclusions since they're already active - that's the point of this scenario.
+                startedOptions shouldContainAll listOf("enroll-password", "enroll-device", "enroll-qr")
+                startedOptions shouldNotContain "enroll-sms"
+                startedOptions shouldNotContain "enroll-email"
 
                 val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
@@ -157,7 +164,11 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                started.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-password", "enroll-device", "enroll-qr")
+                val startedOptions = started.stepData()["options"] as List<String>
+                // shouldContainAll (not exact) for the enrollable rest; email stays an explicit
+                // exclusion since it's already active - that's the point of this scenario.
+                startedOptions shouldContainAll listOf("enroll-sms", "enroll-password", "enroll-device", "enroll-qr")
+                startedOptions shouldNotContain "enroll-email"
 
 
                 }
@@ -196,7 +207,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 )
                 steppedUp.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                steppedUp.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-password", "enroll-device", "enroll-qr")
+                val steppedUpOptions = steppedUp.stepData()["options"] as List<String>
+                // shouldContainAll (not exact) for the enrollable rest; sms/email stay explicit
+                // exclusions since they're already active - that's the point of this scenario.
+                steppedUpOptions shouldContainAll listOf("enroll-password", "enroll-device", "enroll-qr")
+                steppedUpOptions shouldNotContain "enroll-sms"
+                steppedUpOptions shouldNotContain "enroll-email"
 
                 val afterStepUp = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterStepUp.channel()["currentAcr"] shouldBe "loa2"

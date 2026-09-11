@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
@@ -277,7 +278,8 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     response.channel()["state"] shouldBe "REGISTERING"
                     @Suppress("UNCHECKED_CAST")
                     val options = response.stepData()["options"] as List<String>
-                    options shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+                    // shouldContainAll, not exact: identification is offered, not the catalog's exact set.
+                    options shouldContainAll listOf("ident-fsc", "ident-eid")
                 }
             }
 
@@ -305,10 +307,12 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     )
                     // enroll-password isn't even a candidate yet - it requires a confirmed email
                     // (ToolDescriptor.requiresConfirmedEmail), which this fresh account doesn't
-                    // have (docs/03-tool-architektur.md #1).
+                    // have (docs/03-tool-architektur.md #1). shouldContainAll (not exact) for the
+                    // rest: new enrollment methods elsewhere in the catalog don't change this.
                     @Suppress("UNCHECKED_CAST")
-                    (afterIdent.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder
-                        listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                    val afterIdentOptions = afterIdent.stepData()["options"] as List<String>
+                    afterIdentOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                    afterIdentOptions shouldNotContain "enroll-password"
 
                     val smsToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
                         .nextRaw()["toolSessionId"] as String

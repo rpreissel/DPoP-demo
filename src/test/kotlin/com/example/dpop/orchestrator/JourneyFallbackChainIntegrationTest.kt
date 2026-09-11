@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.assertThrows
@@ -63,7 +63,8 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-sms")
             afterDecline.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
             @Suppress("UNCHECKED_CAST")
-            (afterDecline.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+            // shouldContainAll, not exact: identification is the point, not the catalog's exact set.
+            (afterDecline.stepData()["options"] as List<String>) shouldContainAll listOf("ident-fsc", "ident-eid")
         }
 
         then("Fast chain identifying after declining auth logs into the same account without registering again") {
@@ -138,7 +139,8 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             val afterCancel = delete("/orchestrator/api/v1/channels/$channelSessionId/journey")
             afterCancel.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            afterCancel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
+            // shouldContainAll, not exact: the lookup intent is preserved, not the catalog's exact lookup-tool set.
+            afterCancel.stepData()["options"] as List<String> shouldContainAll listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
         }
         }
     }

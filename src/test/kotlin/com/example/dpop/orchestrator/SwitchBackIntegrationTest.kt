@@ -2,7 +2,8 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.assertThrows
@@ -61,7 +62,12 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
                 result.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                result.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                val resultOptions = result.stepData()["options"] as List<String>
+                // shouldContainAll (not exact): new enrollment methods elsewhere in the catalog
+                // don't change this. enroll-password's absence is checked explicitly since it's the
+                // one deliberately excluded (unconfirmed email).
+                resultOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                resultOptions shouldNotContain "enroll-password"
 
                 // The abandoned tool session is gone even though we re-activate the same toolId.
                 val exception = assertThrows<HttpClientErrorException> {

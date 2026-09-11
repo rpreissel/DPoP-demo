@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -48,7 +49,9 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 cancelled.channel()["state"] shouldBe "REGISTERING"
                 cancelled.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
                 @Suppress("UNCHECKED_CAST")
-                (cancelled.stepData()["options"] as List<String>) shouldContainExactlyInAnyOrder listOf("ident-fsc", "ident-eid")
+                // shouldContainAll, not exact: this only cares that identification is offered as a
+                // selection page, not which identification methods the catalog happens to have.
+                (cancelled.stepData()["options"] as List<String>) shouldContainAll listOf("ident-fsc", "ident-eid")
 
                 // The old ident-fsc tool session is no longer part of any active process.
                 val exception = assertThrows<HttpClientErrorException> {

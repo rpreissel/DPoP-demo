@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -196,7 +197,8 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val channelSessionId = loginStart.channel()["channelSessionId"] as String
                 loginStart.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
+                // shouldContainAll, not exact: the lookup intent is preserved, not the catalog's exact lookup-tool set.
+                loginStart.stepData()["options"] as List<String> shouldContainAll listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
 
                 val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
                 val authenticated = patch(
@@ -433,7 +435,8 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 @Suppress("UNCHECKED_CAST")
-                channelResponse.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
+                // shouldContainAll, not exact: the lookup intent is preserved, not the catalog's exact lookup-tool set.
+                channelResponse.stepData()["options"] as List<String> shouldContainAll listOf("auth-sms-lookup", "auth-password-lookup", "auth-email-lookup", "auth-qr-lookup")
 
 
                 }

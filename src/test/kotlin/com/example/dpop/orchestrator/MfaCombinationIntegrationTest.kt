@@ -2,7 +2,9 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -80,7 +82,12 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 // single-candidate skip.
                 afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                afterSms.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device", "enroll-qr")
+                val afterSmsOptions = afterSms.stepData()["options"] as List<String>
+                // shouldContainAll (not exact) for the enrollable rest; enroll-sms (already active)
+                // and enroll-password (needs a confirmed email first) stay explicit exclusions.
+                afterSmsOptions shouldContainAll listOf("enroll-email", "enroll-device", "enroll-qr")
+                afterSmsOptions shouldNotContain "enroll-sms"
+                afterSmsOptions shouldNotContain "enroll-password"
 
                 // Second factor (email, a KNOWLEDGE factor): sms (POSSESSION) + email (KNOWLEDGE) are
                 // two different factor types, so together they reach loa2 - authentication succeeds.

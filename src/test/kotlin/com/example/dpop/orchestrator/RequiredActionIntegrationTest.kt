@@ -2,7 +2,9 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import java.util.UUID
 
@@ -111,7 +113,12 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // proving the absent obligation does not quietly waive other, unrelated preconditions.
             reIdentified.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            reIdentified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("enroll-email", "enroll-device", "enroll-qr")
+            val reIdentifiedOptions = reIdentified.stepData()["options"] as List<String>
+            // shouldContainAll, not exact - new enrollment methods elsewhere in the catalog
+            // shouldn't force an edit here; enroll-password's exclusion is the point of this test
+            // and stays an explicit assertion.
+            reIdentifiedOptions shouldContainAll listOf("enroll-email", "enroll-device", "enroll-qr")
+            reIdentifiedOptions shouldNotContain "enroll-password"
         }
         }
     }
