@@ -7,6 +7,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
@@ -29,9 +30,6 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
 
     /** Never entered without a target; only reachable as a sub-journey, which seeds the real one. */
     override fun initialState(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = "none")
-
-    override fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): StepUpState =
-        StepUpState.Start(targetAcr, startingAcr)
 
     override fun transition(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
@@ -93,7 +91,16 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
      */
     private fun offerReIdentOrGiveUp(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, ctx: JourneyContext, whenNone: Transition): Transition =
         if (allowReIdentification && CandidateTools.forReIdentification(targetAcr, ctx).isNotEmpty()) {
-            Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, targetAcr, resumeWith = StepUpState.Start(targetAcr, startingAcr))
+            Transition.RequireSubJourney(
+                AuthIntent.RE_IDENTIFY,
+                // ctx.currentAcr, not the (possibly stale) startingAcr this STEP_UP run started
+                // with - RE_IDENTIFY's own startingAcr only ever decides ANONYMOUS vs AUTHENTICATED
+                // on cancel (ReIdentifyStrategy.cancelledTo), and a channel STEP_UP runs on is
+                // always already-authenticated either way, so this is observational accuracy, not
+                // a behavior change.
+                seedWith = ReIdentifyState.forSubJourney(targetAcr, ctx.currentAcr),
+                resumeWith = StepUpState.Start(targetAcr, startingAcr)
+            )
         } else {
             whenNone
         }

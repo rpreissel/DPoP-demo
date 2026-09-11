@@ -662,9 +662,12 @@ Bei genau einem Kandidaten entfällt die Auswahlseite — bei einer Wahl ist nic
 Symmetrisch zu `tool_spi`: dort beschreiben sich Tools selbst, hier beschreiben sich Intents
 selbst. Jede Strategie ist ein Moore-Automat für ihren eigenen Zustandstyp: eine
 Übergangsfunktion `transition(state, event, ctx)` (klassische Automatensprache statt
-Business-Vokabular — `transition` ist wörtlich `δ`), dazu `initialState`/`initialStateForSubJourneyAcr`
-(wo sie beginnt — direkt, oder als Sub-Journey mit einem vorgegebenen Zielniveau statt dem des
-Kanals) und `cancelledTo` (wohin der Kanal bei Abbruch zurückfällt).
+Business-Vokabular — `transition` ist wörtlich `δ`), dazu `initialState(ctx)` (wo eine direkt
+eingetretene Journey beginnt) und `cancelledTo` (wohin der Kanal bei Abbruch zurückfällt). Eine
+Sub-Journey mit vorgegebenem Zielniveau statt dem des Kanals beginnt dagegen nicht über die SPI,
+sondern über die Companion-Factory des jeweiligen Zustands (`StepUpState.forSubJourney(...)`,
+`ReIdentifyState.forSubJourney(...)`) — nur `STEP_UP`/`RE_IDENTIFY` sind je als Sub-Journey
+gemeint, das gehört also nicht in die generische SPI, die jede Strategie implementiert.
 
 Das war nicht immer eine Methode: Bis zu docs/ideen/journey-strategie-vereinheitlichung.md liefen
 „was bedeutet ein abgeschlossenes Tool" (`interpret()`) und „wie reagiere ich auf ein Ereignis"
@@ -689,7 +692,7 @@ Eine `Transition` ist, was als Nächstes passieren soll:
 | Transition | Bedeutung |
 |---|---|
 | `To(state)` | weiter zu diesem Zustand — der Zustand trägt sein Angebot bereits selbst, es gibt kein separates „biete diese Tools an" |
-| `RequireSubJourney(intent, targetAcr, resumeWith)` | erst einen anderen Intent laufen lassen, danach hier bei `resumeWith` weiter |
+| `RequireSubJourney(intent, seedWith, resumeWith)` | erst `intent` laufen lassen, gestartet bei `seedWith` (die anfordernde Strategie baut das selbst über die Companion-Factory des Ziel-Zustands, z. B. `StepUpState.forSubJourney(...)` — dieselbe Idiomatik wie `resumeWith`), danach hier bei `resumeWith` weiter |
 | `Authenticated` | Ziel erreicht, Journey wird konsumiert |
 | `Cancel` | Nutzer gibt auf — endet wie ein ausdrückliches Abbrechen, nicht als Fehler |
 | `Perform(action, resumeState)` | `Action` ausführen, danach die Journey bei `resumeState` mit `ActionCompleted` fortsetzen |

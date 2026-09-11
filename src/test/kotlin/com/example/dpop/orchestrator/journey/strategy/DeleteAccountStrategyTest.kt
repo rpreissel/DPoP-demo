@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
@@ -85,7 +86,11 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("the loa2 gate parks the wish and demands a step-up first - only NOW, never before accepting") {
                 strategy.transition(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = DeleteAccountState.ConfirmPending)
+                    Transition.RequireSubJourney(
+                        AuthIntent.STEP_UP,
+                        seedWith = StepUpState.forSubJourney("loa2", "loa1"),
+                        resumeWith = DeleteAccountState.ConfirmPending
+                    )
             }
         }
 

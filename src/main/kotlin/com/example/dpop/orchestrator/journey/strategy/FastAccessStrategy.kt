@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.OfferingState
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -198,7 +199,11 @@ open class FastAccessStrategy : IntentStrategy<FastAccessState> {
             return Transition.To(FastAccessState.Enrolling(candidates, emailObligation = emailObligation))
         }
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
-            Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, ctx.acrFloor, resumeWith = FastAccessState.Start)
+            Transition.RequireSubJourney(
+                AuthIntent.RE_IDENTIFY,
+                seedWith = ReIdentifyState.forSubJourney(ctx.acrFloor, ctx.currentAcr),
+                resumeWith = FastAccessState.Start
+            )
         } else {
             Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
         }

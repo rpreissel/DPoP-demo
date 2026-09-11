@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
@@ -36,9 +37,9 @@ class StepUpStrategyTest : BehaviorSpec({
         }
     }
 
-    given("initialStateForSubJourneyAcr") {
+    given("StepUpState.forSubJourney") {
         then("seeds Start with exactly the given target/starting acr") {
-            strategy.initialStateForSubJourneyAcr("loa2", "loa1") shouldBe StepUpState.Start("loa2", "loa1")
+            StepUpState.forSubJourney("loa2", "loa1") shouldBe StepUpState.Start("loa2", "loa1")
         }
     }
 
@@ -85,7 +86,11 @@ class StepUpStrategyTest : BehaviorSpec({
 
         then("requires the shared RE_IDENTIFY sub-journey instead of aborting") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
-            transition shouldBe Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = StepUpState.Start("loa2", "loa1"))
+            transition shouldBe Transition.RequireSubJourney(
+                AuthIntent.RE_IDENTIFY,
+                seedWith = ReIdentifyState.forSubJourney("loa2", "loa1"),
+                resumeWith = StepUpState.Start("loa2", "loa1")
+            )
         }
     }
 
@@ -176,7 +181,11 @@ class StepUpStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("requires the shared RE_IDENTIFY sub-journey") {
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = StepUpState.Start("loa2", "loa1"))
+                    Transition.RequireSubJourney(
+                        AuthIntent.RE_IDENTIFY,
+                        seedWith = ReIdentifyState.forSubJourney("loa2", "loa1"),
+                        resumeWith = StepUpState.Start("loa2", "loa1")
+                    )
             }
         }
 

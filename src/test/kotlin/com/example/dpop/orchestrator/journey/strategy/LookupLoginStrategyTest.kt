@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
@@ -152,7 +153,11 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2")
             then("requires the shared RE_IDENTIFY sub-journey - it only re-confirms this account, never adopts a different one") {
                 strategy.transition(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = LookupLoginState.Start)
+                    Transition.RequireSubJourney(
+                        AuthIntent.RE_IDENTIFY,
+                        seedWith = ReIdentifyState.forSubJourney("loa2", "loa1"),
+                        resumeWith = LookupLoginState.Start
+                    )
             }
         }
 

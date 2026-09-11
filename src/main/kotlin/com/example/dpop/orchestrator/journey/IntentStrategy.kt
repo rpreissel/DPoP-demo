@@ -32,18 +32,6 @@ interface IntentStrategy<S : JourneyState> {
     fun initialState(ctx: JourneyContext): S
 
     /**
-     * Where this intent begins when entered as another journey's precondition
-     * ([Transition.RequireSubJourney]) instead of directly. Needs [targetAcr] because a
-     * sub-journey's goal is set by whoever demanded it - a directly entered journey gets its goal
-     * from [JourneyContext] via [initialState] instead.
-     *
-     * The default is a runtime error, not a compile error: nothing here can check statically that
-     * only intents actually named in some [Transition.RequireSubJourney] override this.
-     */
-    fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): S =
-        error("$intent cannot be entered as a sub-journey")
-
-    /**
      * The one and only transition. A completed tool's outcome answers "what did it establish" via
      * [Transition.Perform]: JourneyService executes the returned [Action], refreshes
      * [JourneyContext] from the result, and calls this again with [JourneyEvent.ActionCompleted] -
@@ -94,6 +82,13 @@ data class JourneyContext(
 ) {
     fun requireAccount(): AccountProfile =
         checkNotNull(account) { "Strategy asked for an account before one was resolved" }
+
+    /**
+     * The ACR this channel's evidence resolves to right now - convenience for a strategy building
+     * a [Transition.RequireSubJourney]'s own `seedWith` (the sub-journey's `startingAcr`), so every
+     * such call site doesn't have to repeat `policy.resolveAcr(evidence, account)` itself.
+     */
+    val currentAcr: String get() = policy.resolveAcr(evidence, account)
 }
 
 /** What just happened to the journey. */
@@ -172,16 +167,15 @@ sealed interface Transition {
     data class To(val state: JourneyState) : Transition
 
     /**
-     * Run another intent first, then resume this journey at [resumeWith].
-     *
-     * [allowReIdentification] only reaches [initialStateForSubJourneyAcr] - meaningless unless
-     * [intent] is `STEP_UP` (see that param's own doc).
+     * Run [intent] first, seeded at [seedWith] (the requesting strategy builds this itself via
+     * that intent's own state's companion factory, e.g. `StepUpState.forSubJourney(...)` - same
+     * idiom as [resumeWith] already builds ITS OWN journey's continuation state directly), then
+     * resume this journey at [resumeWith] once it finishes.
      */
     data class RequireSubJourney(
         val intent: AuthIntent,
-        val targetAcr: String,
-        val resumeWith: JourneyState,
-        val allowReIdentification: Boolean = true
+        val seedWith: JourneyState,
+        val resumeWith: JourneyState
     ) : Transition
 
     /** Goal reached: consume the journey, the channel becomes AUTHENTICATED. */

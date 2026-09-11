@@ -7,6 +7,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
@@ -69,7 +70,11 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
         then("parks the wish and demands a step-up first, without losing it") {
             strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx) shouldBe
-                Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ManageAuthMethodsState.AddRequested)
+                Transition.RequireSubJourney(
+                    AuthIntent.STEP_UP,
+                    seedWith = StepUpState.forSubJourney("loa2", "loa1"),
+                    resumeWith = ManageAuthMethodsState.AddRequested
+                )
         }
     }
 
@@ -113,7 +118,11 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         then("parks the wish and demands a step-up first") {
             strategy.transition(state, JourneyEvent.Started, theCtx) shouldBe
-                Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = state)
+                Transition.RequireSubJourney(
+                    AuthIntent.STEP_UP,
+                    seedWith = StepUpState.forSubJourney("loa2", "loa1"),
+                    resumeWith = state
+                )
         }
     }
 

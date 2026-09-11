@@ -20,6 +20,15 @@ sealed interface ReIdentifyState : JourneyState {
     /** The goal this sub-journey was started for - not the channel's durable floor. */
     val targetAcr: String
 
+    companion object {
+        /**
+         * The seed a strategy hands [com.example.dpop.orchestrator.journey.Transition.RequireSubJourney]
+         * when no active method can close its own gap - the one place that knows how a fresh
+         * RE_IDENTIFY run is represented, so callers never construct [OfferReIdent] themselves.
+         */
+        fun forSubJourney(targetAcr: String, startingAcr: String): ReIdentifyState = OfferReIdent(targetAcr, startingAcr)
+    }
+
     /**
      * The channel's own acr right before this sub-journey started - `"none"` for a not-yet-
      * authenticated channel (FAST_ACCESS/LOOKUP_LOGIN), a real level for an already-AUTHENTICATED

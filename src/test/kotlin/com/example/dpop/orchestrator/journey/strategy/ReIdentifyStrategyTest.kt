@@ -36,9 +36,9 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         }
     }
 
-    given("initialStateForSubJourneyAcr") {
+    given("ReIdentifyState.forSubJourney") {
         then("seeds OfferReIdent with exactly the given target/starting acr") {
-            strategy.initialStateForSubJourneyAcr("loa2", "loa1") shouldBe ReIdentifyState.OfferReIdent("loa2", "loa1")
+            ReIdentifyState.forSubJourney("loa2", "loa1") shouldBe ReIdentifyState.OfferReIdent("loa2", "loa1")
         }
     }
 

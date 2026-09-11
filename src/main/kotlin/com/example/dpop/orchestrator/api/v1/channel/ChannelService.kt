@@ -228,7 +228,6 @@ class ChannelService(
 
         val step = journeyService.startTowardAcr(
             refreshed,
-            AuthIntent.STEP_UP,
             targetAcr = floor,
             startingAcr = authPolicy.resolveAcr(currentEvidence(refreshed), account)
         )

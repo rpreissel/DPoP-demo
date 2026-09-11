@@ -12,6 +12,17 @@ sealed interface StepUpState : JourneyState {
     /** The goal of THIS run - distinct from the channel's durable `acrFloor`. */
     val targetAcr: String
 
+    companion object {
+        /**
+         * The seed a strategy hands [com.example.dpop.orchestrator.journey.Transition.RequireSubJourney]
+         * when it needs STEP_UP to run as its own precondition (docs/04-orchestrierung.md #6) - the
+         * one place that knows how a fresh STEP_UP run is represented, so callers never construct
+         * [Start] themselves.
+         */
+        fun forSubJourney(targetAcr: String, startingAcr: String, allowReIdentification: Boolean = true): StepUpState =
+            Start(targetAcr, startingAcr, allowReIdentification)
+    }
+
     data class Start(
         override val targetAcr: String,
         val startingAcr: String,

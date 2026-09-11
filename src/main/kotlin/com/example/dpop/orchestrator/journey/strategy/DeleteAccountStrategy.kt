@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
@@ -105,7 +106,11 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
     private fun gate(ctx: JourneyContext): Transition? {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, Action.DeleteAccount.REQUIRED_ACR, account)) return null
-        return Transition.RequireSubJourney(AuthIntent.STEP_UP, Action.DeleteAccount.REQUIRED_ACR, resumeWith = DeleteAccountState.ConfirmPending)
+        return Transition.RequireSubJourney(
+            AuthIntent.STEP_UP,
+            seedWith = StepUpState.forSubJourney(Action.DeleteAccount.REQUIRED_ACR, ctx.currentAcr),
+            resumeWith = DeleteAccountState.ConfirmPending
+        )
     }
 
     private fun offerReconfirmation(ctx: JourneyContext): Transition {

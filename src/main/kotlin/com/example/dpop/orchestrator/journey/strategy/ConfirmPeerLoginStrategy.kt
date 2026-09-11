@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
@@ -132,13 +133,13 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
             ?: return Transition.Abort("Dieses Gerät ist noch keinem Konto zugeordnet - bitte zuerst regulär anmelden.")
         if (ctx.policy.isSatisfied(ctx.evidence, REQUIRED_ACR, account)) return null
         return Transition.RequireSubJourney(
-            AuthIntent.STEP_UP, REQUIRED_ACR,
-            resumeWith = ConfirmPeerLoginState.Requested(startedAuthenticated),
+            AuthIntent.STEP_UP,
             // Never RE_IDENTIFY here (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1) - a
             // peer-approval must never let someone acquire a fresh identity just to confirm
             // someone else's login; a device-bound account that can't reach loa2 on its own active
             // methods aborts instead (StepUpStrategy.offerAuth's own Abort branch).
-            allowReIdentification = false
+            seedWith = StepUpState.forSubJourney(REQUIRED_ACR, ctx.currentAcr, allowReIdentification = false),
+            resumeWith = ConfirmPeerLoginState.Requested(startedAuthenticated)
         )
     }
 

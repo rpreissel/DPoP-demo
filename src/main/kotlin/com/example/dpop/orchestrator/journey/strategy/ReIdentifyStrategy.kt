@@ -29,9 +29,6 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
     /** Never entered without a target; only reachable as a sub-journey, which seeds the real one. */
     override fun initialState(ctx: JourneyContext): ReIdentifyState = ReIdentifyState.OfferReIdent(ctx.acrFloor, startingAcr = "none")
 
-    override fun initialStateForSubJourneyAcr(targetAcr: String, startingAcr: String): ReIdentifyState =
-        ReIdentifyState.OfferReIdent(targetAcr, startingAcr)
-
     override fun transition(state: ReIdentifyState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
             is ReIdentifyState.OfferReIdent -> when (event) {

@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.FastAccessState
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.deviceDetails
@@ -278,7 +279,11 @@ class FastAccessStrategyTest : BehaviorSpec({
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, useOutcomeAccount = false, bindDevice = true), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.RE_IDENTIFY, "loa2", resumeWith = FastAccessState.Start)
+                    Transition.RequireSubJourney(
+                        AuthIntent.RE_IDENTIFY,
+                        seedWith = ReIdentifyState.forSubJourney("loa2", "loa1"),
+                        resumeWith = FastAccessState.Start
+                    )
             }
         }
 

@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.state.ToolRef
 import com.example.dpop.tool_api.JourneyDebugStep
@@ -137,12 +138,13 @@ class JourneyService(
     }
 
     /**
-     * Starts [intent] seeded toward [targetAcr] - the same seed a sub-journey of this intent would
-     * get ([IntentStrategy.initialStateForSubJourneyAcr]), just entered directly (e.g. the App
-     * channel's own step-up trigger) instead of as another journey's precondition.
+     * Starts STEP_UP seeded toward [targetAcr], entered directly (the App channel's own step-up
+     * trigger) instead of as another journey's precondition - the only caller of this ever wants
+     * STEP_UP specifically, so it seeds via [StepUpState.forSubJourney] itself rather than through
+     * some generic per-intent seeding mechanism.
      */
-    fun startTowardAcr(channel: ChannelSession, intent: AuthIntent, targetAcr: String, startingAcr: String): Step =
-        start(channel, intent, seed = strategyFor(intent).initialStateForSubJourneyAcr(targetAcr, startingAcr))
+    fun startTowardAcr(channel: ChannelSession, targetAcr: String, startingAcr: String): Step =
+        start(channel, AuthIntent.STEP_UP, seed = StepUpState.forSubJourney(targetAcr, startingAcr))
 
     /**
      * Starts (or restarts) whatever intent this channel was entered with. The intent lives on the
@@ -482,7 +484,15 @@ class JourneyService(
             )
         }
         is Transition.RequireSubJourney -> mapOf(
-            "decision" to "RequireSubJourney", "subIntent" to transition.intent.name, "targetAcr" to transition.targetAcr
+            "decision" to "RequireSubJourney", "subIntent" to transition.intent.name,
+            // Demo/log-only: both concrete seed types happen to carry a targetAcr, but under two
+            // unrelated sealed interfaces - a plain `when` here is fine, this is observability, not
+            // the seeding contract itself (see Transition.RequireSubJourney's own doc).
+            "targetAcr" to when (val seed = transition.seedWith) {
+                is StepUpState -> seed.targetAcr
+                is ReIdentifyState -> seed.targetAcr
+                else -> null
+            }
         )
         // [state] is whatever was active right BEFORE this transition - e.g. the RestoreData
         // Anfangs-Übergang can leave a fresh channel Authenticated on its very first Started, with
@@ -542,7 +552,7 @@ class JourneyService(
             start(
                 channel,
                 transition.intent,
-                seed = seedFor(transition, channel),
+                seed = transition.seedWith,
                 parentJourneyId = journey.journeyId
             )
         }
@@ -760,18 +770,6 @@ class JourneyService(
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "TOOL_COMPLETED:${tool.toolId}", "orchestrator"
         )
-    }
-
-    /**
-     * [Transition.RequireSubJourney.allowReIdentification] only means anything to `STEP_UP`
-     * ([StepUpState.Start.allowReIdentification]'s own doc) - overridden here via `copy` rather
-     * than threaded through [IntentStrategy.initialStateForSubJourneyAcr] itself, so that generic
-     * SPI method stays free of a concept every OTHER sub-journeyable intent would otherwise have to
-     * declare and ignore.
-     */
-    private fun seedFor(transition: Transition.RequireSubJourney, channel: ChannelSession): JourneyState {
-        val seed = strategyFor(transition.intent).initialStateForSubJourneyAcr(transition.targetAcr, currentAcrOf(channel))
-        return if (seed is StepUpState.Start) seed.copy(allowReIdentification = transition.allowReIdentification) else seed
     }
 
     private fun finish(journey: AuthJourney, channel: ChannelSession): Step {

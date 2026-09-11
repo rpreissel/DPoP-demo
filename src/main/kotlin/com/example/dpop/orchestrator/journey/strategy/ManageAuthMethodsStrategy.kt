@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -78,7 +79,11 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
     private fun gate(requested: ManageAuthMethodsState, ctx: JourneyContext): Transition? {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, REQUIRED_ACR, account)) return null
-        return Transition.RequireSubJourney(AuthIntent.STEP_UP, REQUIRED_ACR, resumeWith = requested)
+        return Transition.RequireSubJourney(
+            AuthIntent.STEP_UP,
+            seedWith = StepUpState.forSubJourney(REQUIRED_ACR, ctx.currentAcr),
+            resumeWith = requested
+        )
     }
 
     private fun offerEnrollment(ctx: JourneyContext): Transition {
