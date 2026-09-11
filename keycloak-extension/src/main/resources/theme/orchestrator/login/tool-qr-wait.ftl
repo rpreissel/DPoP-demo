@@ -1,34 +1,37 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=true; section>
-    <#if section = "form">
-        <h2 class="${properties.kcFormHeaderClass!}">${title}</h2>
-        <p class="${properties.kcLabelClass!}">${hint}</p>
+    <#if section = "header">
+        ${title}
+    <#elseif section = "form">
+        <#if hint??>
+            <p class="orchestrator-subtitle">${hint}</p>
+        </#if>
 
-        <div class="${properties.kcFormGroupClass!}" style="text-align:center;">
+        <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <img src="${qrDataUri}" alt="QR-Code" width="220" height="220"/>
         </div>
 
-        <div class="${properties.kcFormGroupClass!}" style="text-align:center;">
+        <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <#-- Manuelle Eingabe ist ein gleichwertiger Weg, kein Fallback (docs/ideen/qr-login-
                  ueber-app.md #6) - der Code muss deshalb hier auch gut lesbar/abschreibbar stehen,
                  nicht nur im QR-Bild bzw. versteckt in der Demo-Link-URL. -->
-            <p>Pairing-Code: <strong style="font-size:1.4em; letter-spacing:0.1em;">${pairingCode}</strong></p>
+            <p>Pairing-Code: <strong class="orchestrator-qr-code">${pairingCode}</strong></p>
         </div>
 
-        <div class="${properties.kcFormGroupClass!}" style="text-align:center;">
+        <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <#-- verificationCode is never typed anywhere - only compared by eye against the app
                  screen (QR-jacking countermeasure, docs/ideen/qr-login-ueber-app.md #6). -->
             <#if verificationCode??>
-                <p>Vergleichscode: <strong style="font-size:1.4em;">${verificationCode}</strong></p>
-                <p class="${properties.kcLabelClass!}">
+                <p>Vergleichscode: <strong class="orchestrator-qr-code">${verificationCode}</strong></p>
+                <p class="orchestrator-hint">
                     Bestätigen Sie in der App nur, wenn dort derselbe Code angezeigt wird.
                 </p>
             </#if>
         </div>
 
-        <div class="${properties.kcFormGroupClass!}" style="text-align:center;">
+        <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <a href="${deepLink}">${deepLink}</a>
-            <p class="${properties.kcLabelClass!}">
+            <p class="orchestrator-hint">
                 Demo-Link: öffnet die App direkt (ohne Kamera) mit vorbefülltem Pairing-Code.
             </p>
         </div>

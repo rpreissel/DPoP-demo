@@ -4,7 +4,7 @@
         ${title!"Anmeldemethode wählen"}
     <#elseif section = "form">
         <#if description??>
-            <p class="${properties.kcLabelClass!}">${description}</p>
+            <p class="orchestrator-subtitle">${description}</p>
         </#if>
         <form id="kc-orchestrator-select-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#list options as option>

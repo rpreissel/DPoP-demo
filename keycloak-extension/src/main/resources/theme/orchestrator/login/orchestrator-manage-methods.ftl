@@ -4,10 +4,10 @@
         Anmeldeverfahren verwalten
     <#elseif section = "form">
         <#if methods?size == 0>
-            <p class="${properties.kcLabelClass!}">Noch keine Anmeldeverfahren aktiv.</p>
+            <p class="orchestrator-hint">Noch keine Anmeldeverfahren aktiv.</p>
         <#else>
             <#list methods as m>
-                <div class="${properties.kcFormGroupClass!}" style="display:flex; align-items:center; justify-content:space-between;">
+                <div class="orchestrator-method-row">
                     <span class="${properties.kcLabelClass!}">${m.label!m.method}</span>
                     <form action="${url.loginAction}" method="post">
                         <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
@@ -17,18 +17,15 @@
             </#list>
         </#if>
 
-        <form action="${url.loginAction}" method="post">
-            <div class="${properties.kcFormGroupClass!}">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
+        <div class="orchestrator-actions">
+            <form action="${url.loginAction}" method="post">
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}"
                         type="submit" name="action" value="add">Neues Verfahren hinzufügen</button>
-            </div>
-        </form>
-
-        <form action="${url.loginAction}" method="post">
-            <div class="${properties.kcFormGroupClass!}">
+            </form>
+            <form action="${url.loginAction}" method="post">
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
                         type="submit" name="action" value="done">Fertig</button>
-            </div>
-        </form>
+            </form>
+        </div>
     </#if>
 </@layout.registrationLayout>

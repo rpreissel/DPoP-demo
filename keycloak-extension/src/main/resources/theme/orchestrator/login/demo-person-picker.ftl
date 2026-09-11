@@ -6,7 +6,7 @@
      '{"email":"email"}' or '{"kvnr":"kvnr","name":"name","vorname":"vorname","fsc":"fscCode"}'. -->
 <#macro personPicker personsJson fieldMapJson>
     <#if personsJson?? && personsJson != "null">
-        <div class="${properties.kcFormGroupClass!}">
+        <div class="${properties.kcFormGroupClass!} orchestrator-demo-picker">
             <label for="demoPerson" class="${properties.kcLabelClass!}">Demo-Person</label>
             <select id="demoPerson" class="${properties.kcInputClass!}">
                 <option value="">— manuell eingeben —</option>

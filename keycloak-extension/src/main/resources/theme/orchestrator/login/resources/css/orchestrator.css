@@ -1,0 +1,103 @@
+/* Orchestrator demo theme: widen the narrow base card, align form rows, restore
+   proper page headings. Layered on top of the inherited "keycloak" login theme. */
+
+.login-pf-page .card-pf,
+.card-pf {
+    max-width: 640px;
+}
+
+#kc-page-title {
+    margin-bottom: 0.25rem;
+}
+
+.orchestrator-subtitle {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+    color: var(--pf-global--Color--200, #72767b);
+}
+
+/* form-horizontal (Bootstrap) is combined with PatternFly form controls in this
+   theme; neither alone lays rows out correctly, so force a simple, consistent
+   stacked layout instead of relying on either framework's grid. */
+.form-horizontal .form-group {
+    display: block;
+    width: 100%;
+    margin: 0 0 1rem;
+}
+
+.form-horizontal .form-group label {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.35rem;
+    text-align: left;
+}
+
+.form-horizontal .form-group input,
+.form-horizontal .form-group select {
+    display: block;
+    width: 100%;
+}
+
+.orchestrator-hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.85em;
+    color: var(--pf-global--Color--200, #72767b);
+}
+
+/* Two fields that belong together (e.g. street/house number, zip/city) sit
+   side by side once the card is wide enough. */
+.orchestrator-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1rem;
+}
+
+@media (max-width: 480px) {
+    .orchestrator-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.orchestrator-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.orchestrator-actions .pf-c-button,
+.orchestrator-actions form {
+    flex: 1;
+}
+
+.orchestrator-actions form .pf-c-button {
+    width: 100%;
+}
+
+.orchestrator-demo-picker {
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px dashed var(--pf-global--BorderColor--100, #d2d2d2);
+}
+
+.orchestrator-qr-center {
+    text-align: center;
+}
+
+.orchestrator-qr-code {
+    font-size: 1.4em;
+    letter-spacing: 0.1em;
+}
+
+.orchestrator-method-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--pf-global--BorderColor--100, #d2d2d2);
+}
+
+.orchestrator-method-row:last-of-type {
+    border-bottom: none;
+}

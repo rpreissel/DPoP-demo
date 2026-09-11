@@ -4,7 +4,7 @@
         ${title!toolId}
     <#elseif section = "form">
         <#if hint??>
-            <p class="${properties.kcLabelClass!}">${hint}</p>
+            <p class="orchestrator-subtitle">${hint}</p>
         </#if>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#list fields?keys as fieldName>
@@ -17,12 +17,9 @@
                            value="${fields[fieldName]!''}" autocomplete="off"/>
                 </div>
             </#list>
-            <div class="${properties.kcFormGroupClass!}">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
-                        type="submit">Weiter</button>
-            </div>
-            <div class="${properties.kcFormGroupClass!}">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
+            <div class="orchestrator-actions">
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">Weiter</button>
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
                         type="submit" name="orchestrator_abandon" value="true">Zurück</button>
             </div>
         </form>
