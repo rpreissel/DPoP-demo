@@ -13,6 +13,7 @@ import { parseJwtPayload } from '../jwt'
 import { shorten } from '../format'
 import { DiagramHint } from './DiagramHint'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
+import { Disclosure } from './Disclosure'
 
 const SESSION_KEY = 'web-kanal-tokens'
 
@@ -199,16 +200,12 @@ export function WebChannelView({ onTokens }: Props) {
         <>
           <ul className="status-list">
             <li>
-              <span className="label">AccessToken</span>
-              <span className="value" title={tokens.accessToken}>{shorten(tokens.accessToken, 12, 8)}</span>
-            </li>
-            <li>
               <span className="label">Gültig noch</span>
-              <span className="value">{formatRemaining(tokens.expiresAt)}</span>
+              <span className="value value-plain">{formatRemaining(tokens.expiresAt)}</span>
             </li>
             <li>
-              <span className="label">acr</span>
-              <span className="value">{currentAcr ?? '–'}</span>
+              <span className="label">Sicherheitsniveau (acr)</span>
+              <span className="value value-plain">{currentAcr ?? '–'}</span>
             </li>
           </ul>
 
@@ -229,33 +226,42 @@ export function WebChannelView({ onTokens }: Props) {
             </button>
           </div>
 
-          {accessClaims && (
-            <>
-              <h4>AccessToken-Claims</h4>
-              <ul className="status-list">
-                {Object.entries(accessClaims).map(([key, value]) => (
-                  <li key={key}>
-                    <span className="label">{key}</span>
-                    <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          <Disclosure summary="Technische Details (Token, Claims)">
+            <ul className="status-list">
+              <li>
+                <span className="label">AccessToken</span>
+                <span className="value" title={tokens.accessToken}>{shorten(tokens.accessToken, 12, 8)}</span>
+              </li>
+            </ul>
 
-          {idClaims && (
-            <>
-              <h4>IdToken-Claims</h4>
-              <ul className="status-list">
-                {Object.entries(idClaims).map(([key, value]) => (
-                  <li key={key}>
-                    <span className="label">{key}</span>
-                    <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+            {accessClaims && (
+              <>
+                <h4>AccessToken-Claims</h4>
+                <ul className="status-list">
+                  {Object.entries(accessClaims).map(([key, value]) => (
+                    <li key={key}>
+                      <span className="label">{key}</span>
+                      <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {idClaims && (
+              <>
+                <h4>IdToken-Claims</h4>
+                <ul className="status-list">
+                  {Object.entries(idClaims).map(([key, value]) => (
+                    <li key={key}>
+                      <span className="label">{key}</span>
+                      <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Disclosure>
         </>
       )}
     </div>

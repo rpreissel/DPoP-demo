@@ -4,6 +4,7 @@ import { getIdClaims, getToken } from '../api.ts'
 import type { IdTokenClaims, TokenResponse } from '../types'
 import { shorten } from '../format.ts'
 import { parseJwtPayload } from '../jwt.ts'
+import { Disclosure } from './Disclosure'
 
 interface TokenPanelProps {
   dpop: DpopKeyPair
@@ -21,10 +22,12 @@ function formatRemaining(expiresAt: string): string {
 }
 
 /**
- * Mock Keycloak AccessToken (docs/05-api.md #2) - self-contained like AdminToolAvailabilityView:
- * loads its own data, doesn't route through App.tsx's applyResponse. Backend decides on every
- * getToken() call whether the current AccessToken still qualifies or a new one gets minted; this
- * panel never sees or sends a RefreshToken value, only its expiry.
+ * App-Kanal AccessToken, vom Orchestrator geholt (docs/05-api.md #2) - je nach Backend-Profil ein
+ * Mock-JWT oder ein echtes, von Keycloak signiertes Token; diese Ansicht unterscheidet die beiden
+ * bewusst nicht. Self-contained like AdminToolAvailabilityView: loads its own data, doesn't route
+ * through App.tsx's applyResponse. Backend decides on every getToken() call whether the current
+ * AccessToken still qualifies or a new one gets minted; this panel never sees or sends a
+ * RefreshToken value, only its expiry.
  */
 export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
   const [token, setToken] = useState<TokenResponse | null>(null)
@@ -65,31 +68,45 @@ export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
 
   return (
     <div className="card">
-      <h3 className="section-heading">Mock-Keycloak-AccessToken</h3>
+      <h3 className="section-heading">AccessToken</h3>
       {error && <div className="hint">{error}</div>}
       {token && (
-        <>
-          <ul className="status-list">
-            <li>
-              <span className="label">AccessToken</span>
-              <span className="value" title={token.accessToken}>{shorten(token.accessToken, 12, 8)}</span>
-            </li>
-            <li>
-              <span className="label">Typ</span>
-              <span className="value">{token.tokenType}</span>
-            </li>
-            <li>
-              <span className="label">Gültig noch</span>
-              <span className="value">{formatRemaining(token.accessExpiresAt)}</span>
-            </li>
-            <li>
-              <span className="label">RefreshToken gültig noch</span>
-              <span className="value">{formatRemaining(token.refreshExpiresAt)}</span>
-            </li>
-          </ul>
+        <ul className="status-list">
+          <li>
+            <span className="label">Gültig noch</span>
+            <span className="value value-plain">{formatRemaining(token.accessExpiresAt)}</span>
+          </li>
+          <li>
+            <span className="label">RefreshToken gültig noch</span>
+            <span className="value value-plain">{formatRemaining(token.refreshExpiresAt)}</span>
+          </li>
+        </ul>
+      )}
+      <div className="form-actions">
+        <button className="secondary" onClick={() => loadToken(FORCE_REFRESH_MIN_VALIDITY_SECONDS)}>
+          AccessToken aktualisieren
+        </button>
+        <button className="secondary" onClick={loadClaims}>
+          ID-Claims laden
+        </button>
+      </div>
+      {(token || claims) && (
+        <Disclosure summary="Technische Details (Token, Claims)">
+          {token && (
+            <ul className="status-list">
+              <li>
+                <span className="label">AccessToken</span>
+                <span className="value" title={token.accessToken}>{shorten(token.accessToken, 12, 8)}</span>
+              </li>
+              <li>
+                <span className="label">Typ</span>
+                <span className="value">{token.tokenType}</span>
+              </li>
+            </ul>
+          )}
           {payload && (
             <>
-              <h4>Geparste Claims</h4>
+              <h4>Geparste AccessToken-Claims</h4>
               <ul className="status-list">
                 {Object.entries(payload).map(([key, value]) => (
                   <li key={key}>
@@ -100,25 +117,20 @@ export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
               </ul>
             </>
           )}
-        </>
-      )}
-      <div className="form-actions">
-        <button className="secondary" onClick={() => loadToken(FORCE_REFRESH_MIN_VALIDITY_SECONDS)}>
-          AccessToken aktualisieren
-        </button>
-        <button className="secondary" onClick={loadClaims}>
-          ID-Claims laden
-        </button>
-      </div>
-      {claims && (
-        <ul className="status-list">
-          {Object.entries(claims).map(([key, value]) => (
-            <li key={key}>
-              <span className="label">{key}</span>
-              <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
-            </li>
-          ))}
-        </ul>
+          {claims && (
+            <>
+              <h4>ID-Claims</h4>
+              <ul className="status-list">
+                {Object.entries(claims).map(([key, value]) => (
+                  <li key={key}>
+                    <span className="label">{key}</span>
+                    <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </Disclosure>
       )}
     </div>
   )

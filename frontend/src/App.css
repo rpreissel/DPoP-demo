@@ -542,6 +542,39 @@ button.method-choice:active {
   font-weight: 600;
 }
 
+.disclosure {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.disclosure-summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+  list-style: none;
+}
+
+.disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  transition: transform 0.15s ease;
+}
+
+.disclosure[open] > .disclosure-summary::before {
+  transform: rotate(90deg);
+}
+
+.disclosure-body {
+  margin-top: 0.75rem;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

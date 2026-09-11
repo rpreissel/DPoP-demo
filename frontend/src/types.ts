@@ -104,8 +104,9 @@ export interface DemoInfo {
 }
 
 /**
- * Mock Keycloak AccessToken (docs/05-api.md #2) - accessToken is a spec-shaped unsecured JWT
- * (alg=none), parse and display its payload directly, no verification needed. refreshToken is
+ * App-Kanal AccessToken (docs/05-api.md #2) - je nach Backend-Profil entweder ein spec-shaped
+ * unsecured JWT (alg=none, Default-Profil) oder ein echtes, von Keycloak signiertes Token
+ * (keycloak-Profil); beide werden hier nur zum Anzeigen geparst, nie verifiziert. refreshToken is
  * deliberately NOT part of this shape - it's a credential and never leaves the backend.
  */
 export interface TokenResponse {
