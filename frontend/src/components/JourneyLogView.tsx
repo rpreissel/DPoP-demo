@@ -113,6 +113,12 @@ function flatten(keyPath: string, value: unknown): DetailChip[] {
 const dateTimeFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'medium' })
 const timeFormat = new Intl.DateTimeFormat('de-DE', { timeStyle: 'medium' })
 
+function channelTypeLabel(channelType?: string): string {
+  if (channelType === 'APP') return 'App'
+  if (channelType === 'KEYCLOAK') return 'Kc/Web'
+  return 'Unbekannt'
+}
+
 /** A journey-scoped entry, narrowed from JourneyLogEntryView once journeyId/intent are known to be set. */
 interface JourneyScopedEntry extends JourneyLogEntryView {
   journeyId: string
@@ -144,6 +150,10 @@ function groupChannelLevelEntries(entries: JourneyLogEntryView[]): Map<string, J
     byChannel.set(entry.channelSessionId, [...list, entry])
   }
   return byChannel
+}
+
+function firstChannelType(entries: JourneyLogEntryView[]): string | undefined {
+  return entries.find((entry) => entry.channelType)?.channelType
 }
 
 interface JourneyNode {
@@ -214,9 +224,11 @@ export function JourneyLogView({ fetchLog }: Props) {
   // Filter options double as the "identity" shown for a channel/journey: its start time (plus
   // intent for a journey), newest first - the id itself is never shown, just used as the <option> value.
   const channelOptions = useMemo(() => {
-    const firstSeen = new Map<string, string>()
-    for (const e of chronological) if (!firstSeen.has(e.channelSessionId)) firstSeen.set(e.channelSessionId, e.createdAt)
-    return [...firstSeen.entries()].sort(([, a], [, b]) => b.localeCompare(a))
+    const firstSeen = new Map<string, { createdAt: string; channelType?: string }>()
+    for (const e of chronological) {
+      if (!firstSeen.has(e.channelSessionId)) firstSeen.set(e.channelSessionId, { createdAt: e.createdAt, channelType: e.channelType })
+    }
+    return [...firstSeen.entries()].sort(([, a], [, b]) => b.createdAt.localeCompare(a.createdAt))
   }, [chronological])
 
   const journeyOptions = useMemo(() => {
@@ -248,7 +260,14 @@ export function JourneyLogView({ fetchLog }: Props) {
       const allEntries = [...[...byJourney.values()].flat(), ...channelLevelEntries]
       const latest = allEntries.reduce((max, e) => (e.createdAt > max ? e.createdAt : max), allEntries[0].createdAt)
       const earliest = allEntries.reduce((min, e) => (e.createdAt < min ? e.createdAt : min), allEntries[0].createdAt)
-      return { channelSessionId, journeyTree: buildJourneyTree(byJourney), channelLevelEntries, latest, earliest }
+      return {
+        channelSessionId,
+        channelType: firstChannelType(allEntries),
+        journeyTree: buildJourneyTree(byJourney),
+        channelLevelEntries,
+        latest,
+        earliest,
+      }
     })
     .sort((a, b) => b.latest.localeCompare(a.latest))
 
@@ -272,9 +291,9 @@ export function JourneyLogView({ fetchLog }: Props) {
             }}
           >
             <option value="">Alle ({channelOptions.length})</option>
-            {channelOptions.map(([id, createdAt]) => (
+            {channelOptions.map(([id, { createdAt, channelType }]) => (
               <option key={id} value={id}>
-                {dateTimeFormat.format(new Date(createdAt))}
+                {channelTypeLabel(channelType)} · {dateTimeFormat.format(new Date(createdAt))}
               </option>
             ))}
           </select>
@@ -303,9 +322,12 @@ export function JourneyLogView({ fetchLog }: Props) {
       {loading && <p>Lädt…</p>}
       {!loading && filtered.length === 0 && !error && <p>Keine Einträge.</p>}
 
-      {groupedNewestFirst.map(({ channelSessionId, journeyTree, channelLevelEntries, earliest }) => (
+      {groupedNewestFirst.map(({ channelSessionId, channelType, journeyTree, channelLevelEntries, earliest }) => (
         <div key={channelSessionId} className="journey-log-channel">
-          <h3>ChannelSession vom {dateTimeFormat.format(new Date(earliest))}</h3>
+          <div className="journey-log-channel-header">
+            <h3>ChannelSession vom {dateTimeFormat.format(new Date(earliest))}</h3>
+            <span className="journey-log-channel-type">{channelTypeLabel(channelType)}</span>
+          </div>
           {channelLevelEntries.length > 0 && renderEntryTable(channelLevelEntries)}
           {journeyTree.map((node) => renderJourneyNode(node, 0))}
         </div>

@@ -156,6 +156,8 @@ export interface ChannelResponse {
  */
 export interface JourneyLogEntryView {
   channelSessionId: string
+  /** Origin facade for the entry: APP or KEYCLOAK. */
+  channelType?: string
   /** Null until the channel resolves an account (e.g. before identification). */
   accountId?: number
   /** Null for a channel-level event with no journey of its own (e.g. logout with nothing running). */

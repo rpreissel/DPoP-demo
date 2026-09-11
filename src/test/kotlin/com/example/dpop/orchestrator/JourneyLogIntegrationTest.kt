@@ -33,6 +33,7 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
 
                     entries shouldHaveAtLeastSize 1
                     entries.all { it["channelSessionId"] == channelSessionId } shouldBe true
+                    entries.all { it["channelType"] == "APP" } shouldBe true
                     entries.all { (it["intent"] as String).isNotBlank() } shouldBe true
                     entries.any { it["eventType"] == "Started" } shouldBe true
                     (entries.first()["createdAt"] as String).shouldNotBeBlank()
@@ -82,6 +83,7 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
                     val entries = log["entries"] as List<Map<String, Any?>>
                     val logoutEntry = entries.first { it["eventType"] == "LOGGED_OUT" }
                     logoutEntry["channelSessionId"] shouldBe channelSessionId
+                    logoutEntry["channelType"] shouldBe "APP"
                 }
             }
         }

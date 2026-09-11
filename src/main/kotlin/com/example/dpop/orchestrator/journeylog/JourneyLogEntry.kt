@@ -27,6 +27,10 @@ class JourneyLogEntry(
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 
+    /** Persisted source of the log entry itself - APP or KEYCLOAK - so the channel remains visible even after the session is gone. */
+    @Column(name = "channel_type", length = 20)
+    var channelType: String? = null,
+
     /** Null until the channel resolves an account (e.g. before identification) - the lookup key every facade's entries share once one is known, unlike [bindingKeyRef] which is APP-only. */
     @Column(name = "account_id")
     var accountId: Long? = null,

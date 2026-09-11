@@ -9,6 +9,8 @@ import java.util.UUID
 
 data class JourneyLogEntryView(
     val channelSessionId: UUID,
+    /** APP or KEYCLOAK - makes the originating facade visible in the log UI. */
+    val channelType: String?,
     /** Null until the channel resolves an account - see [JourneyLogEntry.accountId]. */
     val accountId: Long?,
     /** Null for a channel-level event with no journey of its own (see [JourneyLogService.recordForChannel]). */
@@ -42,6 +44,7 @@ class JourneyLogService(
         journeyLogRepository.save(
             JourneyLogEntry(
                 bindingKeyRef = channel.bindingKeyRef,
+                channelType = channel.channel?.name,
                 accountId = channel.accountId,
                 channelSessionId = checkNotNull(channel.channelSessionId),
                 journeyId = checkNotNull(journey.journeyId),
@@ -59,6 +62,7 @@ class JourneyLogService(
         journeyLogRepository.save(
             JourneyLogEntry(
                 bindingKeyRef = channel.bindingKeyRef,
+                channelType = channel.channel?.name,
                 accountId = channel.accountId,
                 channelSessionId = checkNotNull(channel.channelSessionId),
                 journeyId = null,
@@ -103,6 +107,7 @@ class JourneyLogService(
 
     private fun JourneyLogEntry.toView() = JourneyLogEntryView(
         channelSessionId = checkNotNull(channelSessionId),
+        channelType = channelType,
         accountId = accountId,
         journeyId = journeyId,
         parentJourneyId = parentJourneyId,
