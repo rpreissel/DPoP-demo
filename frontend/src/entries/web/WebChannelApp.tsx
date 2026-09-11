@@ -78,7 +78,7 @@ export function WebChannelApp() {
                 <ul className="status-list">
                   <li>
                     <span className="label">Realm</span>
-                    <span className="value">dpop-demo</span>
+                    <span className="value">Demo</span>
                   </li>
                   <li>
                     <span className="label">Client</span>

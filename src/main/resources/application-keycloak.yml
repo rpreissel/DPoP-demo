@@ -10,7 +10,7 @@ kc:
     # Account-Sync unten) laeuft daher ueber HTTPS gegen das selbstsignierte start-dev-Zertifikat.
     # KeycloakTlsConfig (nur `keycloak`-Profil) installiert dafuer einen Trust-all-SSLContext -
     # demo-only, siehe dessen eigene Doku.
-    jwks-uri: https://localhost:8543/realms/dpop-demo/orchestrator-jwks/.well-known/jwks.json
+    jwks-uri: https://localhost:8543/realms/Demo/orchestrator-jwks/.well-known/jwks.json
     jwks-cache-ttl-seconds: 600
     # Grosszuegig statt der Default-30s: die Podman-Machine-VM (macOS) auf diesem Rechner driftet
     # merklich schneller als in 30s tolerierbar, sobald der Host kurz schlaeft - ein reines
@@ -23,8 +23,8 @@ kc:
   # Orchestrator") only binds the actual login/tool-execution traffic, not this read-only debug
   # view. Verified against Keycloak's OWN realm signing key (not the ephemeral peer-auth one above).
   oidc:
-    issuer: https://localhost:8543/realms/dpop-demo
-    certs-uri: https://localhost:8543/realms/dpop-demo/protocol/openid-connect/certs
+    issuer: https://localhost:8543/realms/Demo
+    certs-uri: https://localhost:8543/realms/Demo/protocol/openid-connect/certs
     jwks-cache-ttl-seconds: 600
 
 # Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
@@ -36,7 +36,7 @@ kc:
 # Custom-Account-Token-Grant (APP-Kanal-Login), nie fuer die Admin-REST-API.
 keycloak-sync:
   base-url: https://localhost:8543
-  realm: dpop-demo
+  realm: Demo
   admin-client-id: orchestrator-admin
   admin-client-secret: change-me-orchestrator-admin
   app-client-id: orchestrator-app-token
@@ -51,7 +51,7 @@ keycloak-sync:
 # Dockerfile - die migrations/ liegen dort ebenfalls unter /app/keycloak-migrations/migrations).
 keycloak-migrate:
   base-url: ${KEYCLOAK_MIGRATE_BASE_URL:https://localhost:8543}
-  realm: ${KEYCLOAK_REALM:dpop-demo}
+  realm: ${KEYCLOAK_REALM:Demo}
   admin-username: ${KEYCLOAK_ADMIN:admin}
   admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
   migrations-dir: keycloak-migrations/migrations

@@ -12,7 +12,7 @@
  */
 
 const KEYCLOAK_BASE = 'https://localhost:8543'
-const REALM = 'dpop-demo'
+const REALM = 'Demo'
 const CLIENT_ID = 'dpop-demo-web'
 /**
  * Demo/Test-only zweiter Client (keycloak-migrations V10/V11): derselbe Realm, aber LoA-1 zeigt
