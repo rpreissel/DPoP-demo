@@ -5,8 +5,8 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(
-    description = "Upsert body for the kc-facade's one facade-specific endpoint (docs/ideen/" +
-        "web-keycloak-kanal.md #6/#8/#9). All fields are optional. accountId is the account " +
+    description = "Upsert body for the kc-facade's one facade-specific endpoint (docs/05-api.md " +
+        "Abschnitt 3). All fields are optional. accountId is the account " +
         "Keycloak already knows (sub vorhanden) - the channel is bound to it immediately, once, " +
         "never overwritten by a later call. targetAcr is Keycloak's requested LoA level, already " +
         "translated into an orchestrator ACR string, and only raises the channel's floor, never " +
@@ -37,8 +37,8 @@ data class KcChannelUpsertRequest(
     @field:Schema(
         description = "Required whenever restoreData is present, ignored otherwise. Keycloak's " +
             "own, durable UserSessionModel id - deliberately NOT read off the peer-auth assertion " +
-            "(the assertion's kc-anchor is always THIS flow run's own channelSessionId, docs/" +
-            "ideen/web-keycloak-kanal.md #4, so it can't verify a token minted for a DIFFERENT, " +
+            "(the assertion's kc-anchor is always THIS flow run's own channelSessionId, " +
+            "docs/02-domaenenmodell.md Abschnitt 1, so it can't verify a token minted for a DIFFERENT, " +
             "earlier flow run's channel). Must match what GET .../restore-data was called with to " +
             "produce this exact restoreData token."
     )
@@ -86,7 +86,7 @@ data class AmrEntry(
 
 /**
  * Everything the kc-facade's `OrchestratorAuthenticator` needs to hand a brand-new channel a
- * running start (docs/ideen/web-keycloak-kanal.md #6) - not just evidence, deliberately general:
+ * running start (docs/05-api.md Abschnitt 3) - not just evidence, deliberately general:
  * whatever this channel accumulated that a LATER, unrelated `ChannelSession` row (a fresh flow
  * run, e.g. a step-up) should be able to resume from without re-proving it. [evidence] is the
  * REAL `AuthEvidence` this channel accumulated - not a hand-rolled, lossy duplicate of it (an
@@ -110,7 +110,7 @@ data class RestoreData(
     val evidence: AuthEvidence? = null
 )
 
-/** Wire wrapper for `GET .../restore-data` (docs/ideen/web-keycloak-kanal.md #6) - a plain string response body would be an unusual shape next to the rest of this JSON API. */
+/** Wire wrapper for `GET .../restore-data` (docs/05-api.md Abschnitt 3) - a plain string response body would be an unusual shape next to the rest of this JSON API. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "The channel's current RestoreData, signed - null if there is nothing worth restoring yet.")
 data class RestoreDataResponse(val restoreData: String? = null)

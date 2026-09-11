@@ -49,7 +49,7 @@ public class OrchestratorAuthenticatorFactory implements AuthenticatorFactory {
 
     @Override
     public String getHelpText() {
-        return "Drives the orchestrator's kc-facade (docs/ideen/web-keycloak-kanal.md #6/#7) - offers "
+        return "Drives the orchestrator's kc-facade (docs/05-api.md Abschnitt 3) - offers "
                 + "every orchestrator tool this account can use, or (with 'Static tool id' set) always "
                 + "activates one directly instead of showing a selection.";
     }
@@ -61,7 +61,7 @@ public class OrchestratorAuthenticatorFactory implements AuthenticatorFactory {
         toolId.setLabel("Static tool id");
         toolId.setType(ProviderConfigProperty.STRING_TYPE);
         toolId.setHelpText("Only valid for account-independent tools (e.g. ident-fsc). Leave empty for "
-                + "step-up executions - their candidates are account-specific (docs/ideen/web-keycloak-kanal.md #7).");
+                + "step-up executions - their candidates are account-specific (docs/04-orchestrierung.md Abschnitt 3, KC_SELECT_METHOD).");
 
         ProviderConfigProperty targetAcr = new ProviderConfigProperty();
         targetAcr.setName("targetAcr");
@@ -69,7 +69,7 @@ public class OrchestratorAuthenticatorFactory implements AuthenticatorFactory {
         targetAcr.setType(ProviderConfigProperty.STRING_TYPE);
         targetAcr.setHelpText("This execution's LoA level, already translated to an orchestrator ACR "
                 + "string (e.g. loa2) - set on step-up executions, one per Condition-LoA subflow "
-                + "(docs/ideen/web-keycloak-kanal.md #9).");
+                + "(Keycloak-eigene LoA-Subflow-Konfiguration).");
 
         ProviderConfigProperty intent = new ProviderConfigProperty();
         intent.setName("intent");

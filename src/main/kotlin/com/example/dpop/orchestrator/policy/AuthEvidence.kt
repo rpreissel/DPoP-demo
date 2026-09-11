@@ -30,8 +30,8 @@ data class MethodEvidence(
     /**
      * This method's own ceiling for an MFA COMBINATION involving it (docs/06-ablaeufe.md #1) -
      * an orchestrator method's own account enrollment record; for a method with no such record
-     * (any method Keycloak reported natively, which this system never enrolls - docs/ideen/
-     * web-keycloak-kanal.md #8), the caller that assembled this evidence supplies one directly
+     * (any method Keycloak reported natively, which this system never enrolls - docs/05-api.md
+     * Abschnitt 3), the caller that assembled this evidence supplies one directly
      * (conservatively, its own [loa], unless it knows better). Null contributes nothing to the
      * cap, same as an account with no matching enrollment at all - never a special case to
      * detect, just what "no entry" already means.
@@ -53,7 +53,7 @@ data class MethodEvidence(
     /**
      * A stable identifier for whatever specifically produced this proof - a completed
      * orchestrator tool's own `toolId`, Keycloak's own authenticator/execution id for a natively
-     * reported method (docs/ideen/web-keycloak-kanal.md #6/#9), or `"simulation"` for a
+     * reported method (docs/05-api.md Abschnitt 3), or `"simulation"` for a
      * hypothetical candidate `AuthPolicy` itself projects (never real evidence, nothing "produced"
      * it) - always a real, deliberate value, never left blank: every caller that builds a
      * [MethodEvidence] knows exactly which of these three cases it is in.
@@ -65,8 +65,8 @@ data class MethodEvidence(
  * What this session has already proven, read from the AuthContext (docs/04-orchestrierung.md #2).
  *
  * Deliberately source-agnostic: whether a method in [factors] was proven by a completed
- * orchestrator tool or reported by Keycloak's own native authenticator (docs/ideen/
- * web-keycloak-kanal.md #8) makes no difference here or to [AuthPolicy] - the caller that
+ * orchestrator tool or reported by Keycloak's own native authenticator (docs/05-api.md
+ * Abschnitt 3) makes no difference here or to [AuthPolicy] - the caller that
  * assembles this already resolved each method's own loa and contributed factor types before
  * handing it over, so pricing never needs to look anything up itself.
  */
@@ -94,8 +94,8 @@ data class AuthEvidence(
          * ever sees the single per-method list. [factorTypes] is attached to EVERY method built
          * from [amr] in this call: a caller invoking [from] once per proven method (the common
          * case) gets exact per-method attribution for free; a caller reporting several methods
-         * from one coarser source (e.g. Keycloak's own "Selbstauskunft", docs/ideen/
-         * web-keycloak-kanal.md #8) gets the same flat union as before this was per-method at all
+         * from one coarser source (e.g. Keycloak's own "Selbstauskunft", docs/05-api.md
+         * Abschnitt 3) gets the same flat union as before this was per-method at all
          * - either way [AuthEvidence.factorTypes]'s derived union comes out identical to just
          * passing [factorTypes] through directly.
          */

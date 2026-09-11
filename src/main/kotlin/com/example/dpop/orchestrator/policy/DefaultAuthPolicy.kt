@@ -179,8 +179,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * contributes an `amr` entry here to begin with, so it can never be double-counted into this
      * bump just because it ran in the same session as an unrelated auth factor.
      *
-     * [MethodEvidence.enrolledUnderAcr] is entirely the assembling caller's own claim (docs/ideen/
-     * web-keycloak-kanal.md #8) - this method never reaches into an account's enrollment records
+     * [MethodEvidence.enrolledUnderAcr] is entirely the assembling caller's own claim (docs/05-api.md
+     * Abschnitt 3) - this method never reaches into an account's enrollment records
      * itself, for an orchestrator-proven method or a natively-reported one alike. A method with no
      * entry there simply contributes nothing to the cap, never a special case to detect: a bump
      * resting entirely on such methods is capped to "none" by construction, exactly as it already

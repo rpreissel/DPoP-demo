@@ -2,11 +2,13 @@ package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -24,6 +26,16 @@ import org.springframework.stereotype.Component
  * STEP_UP itself only ever offers device-bound methods for an already-known account, never
  * identification - which is exactly why this strategy needs exactly one guard of its own (no
  * account at all) rather than a whole restricted fallback chain.
+ *
+ * Same [DeleteAccountStrategy]-shaped re-proof requirement, and for the same reason: a channel
+ * that already independently satisfied loa2 (evidence of unknown age, possibly from a hijacked
+ * session) must still prove ONE fresh factor - any active one, regardless of its own level -
+ * right before offering `confirm-qr-login`, via [ConfirmPeerLoginState.ConfirmationRequired]. Only
+ * when the loa2 evidence was just freshly produced by THIS journey's own gate-triggered STEP_UP
+ * does that count as the fresh proof already, skipping straight to [ConfirmPeerLoginState.Confirming]
+ * - a redundant second re-proof right after a step-up would gain nothing. That re-proof's outcome
+ * is deliberately never recorded as `MethodEvidence` either (same reasoning as
+ * [DeleteAccountStrategy]): it authorizes exactly this one confirmation, never a durable claim.
  */
 @Component
 class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
@@ -35,12 +47,46 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
 
     override fun transition(state: ConfirmPeerLoginState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
-            // Same reasoning as ManageAuthMethodsStrategy.AddRequested: a genuine SubJourneyCancelled
-            // (the step-up was declined) ends this wish outright instead of re-requesting the
-            // identical step-up forever.
-            is ConfirmPeerLoginState.Requested ->
-                if (event is JourneyEvent.SubJourneyCancelled) Transition.Cancel
-                else gate(ctx, state.startedAuthenticated) ?: Transition.To(ConfirmPeerLoginState.Confirming(state.startedAuthenticated))
+            is ConfirmPeerLoginState.Requested -> when (event) {
+                // Same reasoning as ManageAuthMethodsStrategy.AddRequested: a genuine
+                // SubJourneyCancelled (the step-up was declined) ends this wish outright instead of
+                // re-requesting the identical step-up forever.
+                is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
+                // Returning from the gate's OWN step-up - that fresh loa2 proof already counts as
+                // the confirmation this intent requires, straight to Confirming, no redundant
+                // second re-proof (see class doc). Checked explicitly rather than assumed (same
+                // reasoning as DeleteAccountStrategy's own SubJourneyFinished branch): a future
+                // second sub-journey type, or a step-up that fell short of loa2, must not be
+                // silently mistaken for sufficient proof - falling back to the ordinary
+                // gate()/offerReconfirmation() path re-evaluates from scratch instead.
+                is JourneyEvent.SubJourneyFinished ->
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(REQUIRED_ACR)) {
+                        Transition.To(ConfirmPeerLoginState.Confirming(state.startedAuthenticated))
+                    } else {
+                        gate(ctx, state.startedAuthenticated) ?: offerReconfirmation(ctx, state.startedAuthenticated)
+                    }
+                // First evaluation (cold entry or an already-authenticated channel calling in) -
+                // gate() is null only when loa2 was ALREADY satisfied independently of this run,
+                // which is exactly the case that still needs one fresh re-proof.
+                else -> gate(ctx, state.startedAuthenticated) ?: offerReconfirmation(ctx, state.startedAuthenticated)
+            }
+
+            is ConfirmPeerLoginState.ConfirmationRequired -> when (event) {
+                is JourneyEvent.Abandoned -> {
+                    val declined = state.declined + event.tool.toolId
+                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
+                    else Transition.To(state.copy(declined = declined, active = null))
+                }
+                // Any active factor, at any level, is sufficient (CandidateTools.forReconfirmation)
+                // - the re-proof itself is never recorded as MethodEvidence (class doc), it just
+                // clears the way to Confirming.
+                is JourneyEvent.Completed -> when (event.outcome) {
+                    is ToolOutcome.Completed.Authenticated -> Transition.To(ConfirmPeerLoginState.Confirming(state.startedAuthenticated))
+                    is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved ->
+                        error("${event.tool.toolId} is not offered by CONFIRM_PEER_LOGIN's ConfirmationRequired")
+                }
+                else -> error("ConfirmationRequired does not understand $event")
+            }
 
             is ConfirmPeerLoginState.Confirming -> when (event) {
                 // Backing out of confirm-qr-login is not declining the wish - the only candidate
@@ -89,6 +135,16 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
             AuthIntent.STEP_UP, REQUIRED_ACR,
             resumeWith = ConfirmPeerLoginState.Requested(startedAuthenticated)
         )
+    }
+
+    /** 1:1 with [DeleteAccountStrategy]'s own `offerReconfirmation` - same candidate set, same "no active factor left" fallback. */
+    private fun offerReconfirmation(ctx: JourneyContext, startedAuthenticated: Boolean): Transition {
+        val candidates = CandidateTools.forReconfirmation(ctx.requireAccount(), ctx)
+        return if (candidates.isEmpty()) {
+            Transition.Abort("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar")
+        } else {
+            Transition.To(ConfirmPeerLoginState.ConfirmationRequired(startedAuthenticated, candidates))
+        }
     }
 
     companion object {

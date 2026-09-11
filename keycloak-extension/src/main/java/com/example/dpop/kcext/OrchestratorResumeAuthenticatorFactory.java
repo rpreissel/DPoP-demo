@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * {@link AuthenticationFlowCallbackFactory} (not just a plain {@code AuthenticatorFactory}) so
  * {@link OrchestratorResumeAuthenticator#onTopFlowSuccess} fires at the true end of the top-level
- * flow - the Section 6 RestoreData end-of-flow hook (docs/ideen/web-keycloak-kanal.md #6),
+ * flow - the RestoreData end-of-flow hook (docs/05-api.md Abschnitt 3),
  * replacing the separate OrchestratorRestoreDataListener. Only reachable because
  * infra/tofu/keycloak's own config wraps this execution in its own tiny subflow - see
  * OrchestratorResumeAuthenticator's own class doc for why that's required.
@@ -57,8 +57,8 @@ public class OrchestratorResumeAuthenticatorFactory implements AuthenticationFlo
 
     @Override
     public String getHelpText() {
-        return "First step of every orchestrator-driven browser flow run (docs/ideen/web-keycloak-kanal.md "
-                + "#6) - creates/resumes this run's channel and, on step-up, resubmits RestoreData. Place "
+        return "First step of every orchestrator-driven browser flow run (docs/05-api.md "
+                + "Abschnitt 3) - creates/resumes this run's channel and, on step-up, resubmits RestoreData. Place "
                 + "before auth-cookie so it covers the native-password branch too.";
     }
 

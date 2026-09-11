@@ -5,7 +5,7 @@ import io.kotest.matchers.shouldBe
 
 /**
  * [AuthDeviceDescriptor.matchesCaller] is the one place a null `callerBindingKeyRef` (a WEB
- * channel, which has no device, docs/ideen/web-keycloak-kanal.md #5) needs to behave correctly:
+ * channel, which has no device, docs/02-domaenenmodell.md Abschnitt 1) needs to behave correctly:
  * it must never match a real, device-enrolled instance.
  */
 class AuthDeviceDescriptorTest : BehaviorSpec({

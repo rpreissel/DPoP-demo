@@ -17,7 +17,7 @@ import org.springframework.web.client.HttpClientErrorException
 
 /**
  * Covers the stateless, Channel/ToolSession-free `mgmt` endpoints backing Keycloak's native
- * password credential (docs/ideen/web-keycloak-kanal.md, `OrchestratorPasswordStorageProvider`).
+ * password credential (`OrchestratorPasswordStorageProvider`).
  */
 class MgmtPasswordIntegrationTest : IntegrationTestSupport() {
 

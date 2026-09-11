@@ -1,4 +1,4 @@
-# Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/ideen/web-keycloak-kanal.md), als Ersatz fuer
+# Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), als Ersatz fuer
 # das reine Mock-Keycloak-Frontend (bd DPoP-demo-f9o.9) im echten Betrieb. `compose up` startet
 # beides: Keycloak UND den containerisierten Orchestrator - der wendet beim eigenen Start ueber
 # KeycloakMigrationRunnerStartup automatisch alle keycloak-migrations/migrations/*.kc.kts an
@@ -26,7 +26,7 @@ services:
     environment:
       # HTTP komplett aus - nur noch HTTPS, auch fuer Server-zu-Server-Aufrufe (Orchestrator ->
       # Keycloak Admin-API/JWKS). Cookie-basierte SSO-Wiedererkennung (auth-cookie,
-      # Grundlage fuer den Step-up-Pfad docs/ideen/web-keycloak-kanal.md #9) braucht ohnehin einen
+      # Grundlage fuer den Step-up-Pfad (Keycloak-eigene LoA-Subflow-Struktur) braucht ohnehin einen
       # "secure context" - der Browser verweigert sonst das Cookie bei Cross-Origin-Requests.
       KC_HTTP_ENABLED: 'false'
       KC_HOSTNAME: https://localhost:8543

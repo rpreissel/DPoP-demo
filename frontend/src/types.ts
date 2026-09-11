@@ -54,13 +54,20 @@ export interface ActiveMethodView {
 
 export interface ChannelBlock {
   channelSessionId: string
-  /** Which facade this channel was opened through - "APP" (DPoP) or "KEYCLOAK" (docs/ideen/web-keycloak-kanal.md). Fixed for the channel's whole lifetime. */
+  /** Which facade this channel was opened through - "APP" (DPoP) or "KEYCLOAK" (docs/02-domaenenmodell.md Abschnitt 1). Fixed for the channel's whole lifetime. */
   channelType: string
   state: string
   currentAcr?: string
   currentAmr?: string[]
   /** All active methods on the account, regardless of whether this session proved them - distinct from currentAmr (session evidence). */
   activeMethods?: ActiveMethodView[]
+}
+
+/** GET /app/channels/device-link - whether this device is already linked to an account, no channel/journey created. */
+export interface DeviceLinkResponse {
+  linked: boolean
+  accountId?: number
+  personName?: string
 }
 
 /** One journey in the running chain for a channel - see backend `JourneyDebugStep`. */
@@ -124,13 +131,15 @@ export interface IdTokenClaims {
   auth_time?: number
   accountId?: number
   personId?: number
+  /** "Vorname Name" of the person behind this account (PersonDirectory.displayName) - who is logged in. */
+  name?: string
   email?: string
   email_verified?: boolean
   [key: string]: unknown
 }
 
 /**
- * KEYCLOAK channels only (docs/ideen/web-keycloak-kanal.md #8) - what the OrchestratorAuthenticator
+ * KEYCLOAK channels only (docs/05-api.md Abschnitt 3) - what the OrchestratorAuthenticator
  * writes into Keycloak's own session notes on every response. Never present on an App channel's
  * responses.
  */

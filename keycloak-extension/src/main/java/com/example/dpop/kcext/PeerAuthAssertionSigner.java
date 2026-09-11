@@ -10,7 +10,8 @@ import java.util.Date;
 import java.util.UUID;
 
 /**
- * Builds and signs the one JWT per kc-facade request (docs/ideen/web-keycloak-kanal.md #3/#4) -
+ * Builds and signs the one JWT per kc-facade request (docs/12-entscheidungen.md ADR-7,
+ * docs/02-domaenenmodell.md Abschnitt 1) -
  * the server-side counterpart of the frontend's kcSigning.ts, now actually running where the real
  * Authenticator SPI plugin belongs. The {@code channel_anchor} claim is always THIS flow run's own
  * {@code channelSessionId} - unique per flow run, so two concurrent flows sharing the same

@@ -8,7 +8,7 @@ import java.security.MessageDigest
 import java.util.UUID
 
 /**
- * "Wer spricht hier, und darf er auf diesen Kanal?" (docs/ideen/web-keycloak-kanal.md #4) - one
+ * "Wer spricht hier, und darf er auf diesen Kanal?" (docs/02-domaenenmodell.md Abschnitt 1) - one
  * contract per facade rather than a single shared method, because the proof shape genuinely
  * differs (a bare device thumbprint vs. a verified Keycloak peer-auth assertion) and Kotlin has
  * no union type to unify them with. Both follow the same shape (`requireChannel(id, proof) ->
@@ -22,7 +22,7 @@ interface ChannelAccessGuard {
 
 /**
  * Both facades' implementation for the facade-neutral tool endpoints (docs/09-dpop.md #3,
- * docs/ideen/web-keycloak-kanal.md #6): those endpoints are shared, so this single guard must
+ * docs/05-api.md Abschnitt 3): those endpoints are shared, so this single guard must
  * accept whichever proof shape [DpopBindingKeyResolver] resolved - a bare DPoP thumbprint (App) or
  * a `"kc:"`-prefixed kc-anchor (Web). The kc entry point itself (`KcChannelService`) still goes
  * through [KcChannelAccessGuard] directly, with the strongly-typed [PeerAuthAssertion] rather than
@@ -61,7 +61,7 @@ class DeviceChannelAccessGuard(
 }
 
 /**
- * WEB implementation (docs/ideen/web-keycloak-kanal.md #2/#4): the kc-anchor alone never
+ * WEB implementation (docs/02-domaenenmodell.md Abschnitt 1): the kc-anchor alone never
  * authorizes anything - Keycloak's peer-auth assertion must independently claim the same
  * `kcSessionId` this channel was opened with, otherwise a leaked `channelSessionId` plus any
  * validly signed Keycloak assertion would be enough to hijack it.

@@ -4,7 +4,7 @@
 // LoA-2 schon heute Step-up-Kandidaten anbietet, nur eine Ebene früher angewendet.
 //
 // Grund: Am normalen "orchestrator-browser"-Flow (V2) ist LoA-1 bewusst festverdrahtet natives
-// Passwort (docs/ideen/web-keycloak-kanal.md #9) - dort lässt sich `auth-qr-lookup` (die
+// Passwort (Keycloak-eigene LoA-Subflow-Struktur) - dort lässt sich `auth-qr-lookup` (die
 // Kalt-Einstieg-Variante von QR-Login, KcSelectMethodStrategy.candidatesFor mit account == null)
 // nie erreichen, weil KcSelectMethodStrategy dort nur bei bereits bekanntem Account (Step-up ab
 // LoA-2) läuft. Dieser zweite Flow macht denselben kc_select_method-Screen (inkl. auth-qr-lookup)

@@ -39,7 +39,7 @@ class SessionManagementService(
     }
 
     /**
-     * KEYCLOAK-only upsert-creation (docs/ideen/web-keycloak-kanal.md #6): unlike
+     * KEYCLOAK-only upsert-creation (docs/05-api.md Abschnitt 3): unlike
      * [createChannelSession], the id is CLIENT-chosen (Keycloak's own fresh
      * `AuthenticationSessionModel` id) rather than self-assigned - the caller (`KcChannelService`)
      * already checked no channel exists under it. `entryIntent` is [KC_SELECT_METHOD] by default

@@ -23,7 +23,7 @@ class ChannelSession(
     @Column(name = "channel", nullable = false, length = 20)
     var channel: Channel? = null,
 
-    /** APP-only (docs/ideen/web-keycloak-kanal.md #5) - null on KEYCLOAK channels, which anchor via [channelAnchor] instead. */
+    /** APP-only (docs/02-domaenenmodell.md Abschnitt 1) - null on KEYCLOAK channels, which anchor via [channelAnchor] instead. */
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 
@@ -31,7 +31,7 @@ class ChannelSession(
     var expiresAt: Instant? = null
 ) {
     /**
-     * KEYCLOAK-only kc-anchor (docs/ideen/web-keycloak-kanal.md #2/#4) - always the extension's own
+     * KEYCLOAK-only kc-anchor (docs/02-domaenenmodell.md Abschnitt 1) - always the extension's own
      * `channelSessionId` for this flow run, carried in the peer-auth assertion so
      * [ChannelAccessGuard] can verify the caller acts for this exact flow run: without this, a
      * leaked `channelSessionId` plus any validly-signed Keycloak assertion would be enough to
@@ -43,7 +43,7 @@ class ChannelSession(
      * the column's old name (`kc_session_id`) - only the Kotlin property was renamed for clarity.
      *
      * Evidence continuity across SEPARATE flow runs is unrelated to this column - a Keycloak-side
-     * concern instead (docs/ideen/web-keycloak-kanal.md #6/#9): the `OrchestratorAuthenticator`'s
+     * concern instead (docs/05-api.md Abschnitt 3): the `OrchestratorAuthenticator`'s
      * end-of-flow lifecycle hook fetches a signed `RestoreData` token bound explicitly to
      * Keycloak's own, durable `UserSessionModel` id (`GET .../restore-data?kcSessionId=...` - a
      * completely different value from this column) and stashes it in a `UserSessionModel` note; a
@@ -56,8 +56,8 @@ class ChannelSession(
     /**
      * KEYCLOAK-only (DPoP-demo-f9o.12), distinct from [channelAnchor]: Keycloak's own durable
      * `UserSessionModel` id, not this one flow run's anchor - only known once a flow completes
-     * successfully (`OrchestratorResumeAuthenticator.onTopFlowSuccess`'s `restoreData` call, docs/
-     * ideen/web-keycloak-kanal.md #6, sets it via [com.example.dpop.orchestrator.api.v1.kc.
+     * successfully (`OrchestratorResumeAuthenticator.onTopFlowSuccess`'s `restoreData` call,
+     * docs/05-api.md Abschnitt 3, sets it via [com.example.dpop.orchestrator.api.v1.kc.
      * KcChannelService.restoreData] as a side effect of that same call - no separate write path).
      * `null` for every APP channel and for a KEYCLOAK channel whose flow never completed. Exists
      * solely so [com.example.dpop.orchestrator.session.RetentionJob] can ask Keycloak's Admin API
@@ -69,7 +69,7 @@ class ChannelSession(
 
     /**
      * Self-assigned rather than `@GeneratedValue`, so the kc-facade can override it with its own,
-     * client-chosen id before the first save (docs/ideen/web-keycloak-kanal.md #6 - upsert
+     * client-chosen id before the first save (docs/05-api.md Abschnitt 3 - upsert
      * semantics, idempotent retries) while APP callers, which never touch this field, keep
      * getting a fresh random id exactly as before.
      */
@@ -84,7 +84,7 @@ class ChannelSession(
     @Column(name = "state", nullable = false, length = 50)
     var state: ChannelState? = null
 
-    /** APP-only (docs/ideen/web-keycloak-kanal.md #6) - the KEYCLOAK channel never sets this, it has no App-style tokens to bind ([AuthContext]'s own doc). */
+    /** APP-only (docs/05-api.md Abschnitt 3) - the KEYCLOAK channel never sets this, it has no App-style tokens to bind ([AuthContext]'s own doc). */
     @Column(name = "auth_context_id")
     var authContextId: UUID? = null
 
@@ -92,7 +92,7 @@ class ChannelSession(
     @JoinColumn(name = "auth_context_id", insertable = false, updatable = false)
     var authContext: AuthContext? = null
 
-    /** Both channel types (docs/ideen/web-keycloak-kanal.md #6) - the evidence itself, unlike the App-only [authContextId]. */
+    /** Both channel types (docs/05-api.md Abschnitt 3) - the evidence itself, unlike the App-only [authContextId]. */
     @Column(name = "auth_evidence_id")
     var authEvidenceId: UUID? = null
 

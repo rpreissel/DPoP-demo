@@ -26,7 +26,7 @@ data class ChannelBlock(
     val channelSessionId: UUID,
     @field:Schema(
         description = "Which facade this channel was opened through - APP (DPoP) or KEYCLOAK " +
-            "(docs/ideen/web-keycloak-kanal.md). Fixed for the channel's whole lifetime.",
+            "(docs/02-domaenenmodell.md Abschnitt 1). Fixed for the channel's whole lifetime.",
         example = "APP"
     )
     val channelType: String,
@@ -48,7 +48,7 @@ data class ChannelBlock(
 
 /**
  * What the kc-facade's `OrchestratorAuthenticator` writes into Keycloak's own session notes on
- * every response (docs/ideen/web-keycloak-kanal.md #8) - `KEYCLOAK` channels only, `APP` never, the
+ * every response (docs/05-api.md Abschnitt 3) - `KEYCLOAK` channels only, `APP` never, the
  * same reasoning [ChannelBlock]'s own account fields already follow. Unlike those, NOT gated on
  * whether a factor was actually proven yet: `accountId` must surface the moment it's known (Keycloak sets
  * its user context off it immediately, mirroring `UsernamePasswordForm`), and always included
@@ -64,7 +64,7 @@ data class AuthData(
     @field:Schema(
         description = "Method -> who proved it: \"orchestrator\" for a completed orchestrator " +
             "tool, \"kc\" for evidence a native Keycloak authenticator already established " +
-            "(docs/ideen/web-keycloak-kanal.md #8). Informational only - the orchestrator alone " +
+            "(docs/05-api.md Abschnitt 3). Informational only - the orchestrator alone " +
             "still resolves the combined acr above, regardless of source.",
         example = "{\"password\": \"kc\", \"sms\": \"orchestrator\"}"
     )
@@ -87,7 +87,7 @@ data class ChannelResponse(
     val stepData: Map<String, Any?>? = null,
     @field:Schema(description = "Demo-only correlation IDs, never part of the production contract.")
     val demo: DemoInfo? = null,
-    @field:Schema(description = "KEYCLOAK channels only (docs/ideen/web-keycloak-kanal.md #8) - never present for APP.")
+    @field:Schema(description = "KEYCLOAK channels only (docs/05-api.md Abschnitt 3) - never present for APP.")
     val authData: AuthData? = null
 )
 

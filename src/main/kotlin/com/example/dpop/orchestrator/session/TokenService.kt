@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.session
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.tool_api.PersonDirectory
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.PlainJWT
 import org.springframework.data.repository.findByIdOrNull
@@ -33,7 +34,8 @@ class TokenService(
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceService: AuthEvidenceService,
     private val authPolicy: AuthPolicy,
-    private val accountService: AccountService
+    private val accountService: AccountService,
+    private val personDirectory: PersonDirectory
 ) {
 
     /**
@@ -85,6 +87,7 @@ class TokenService(
             "auth_time" to authContext.authTime?.epochSecond,
             "accountId" to authContext.accountId,
             "personId" to account?.personId,
+            "name" to account?.personId?.let { personDirectory.displayName(it) },
             "email" to account?.email,
             "email_verified" to (account?.emailConfirmed ?: false)
         )

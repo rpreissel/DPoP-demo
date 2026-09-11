@@ -9,7 +9,7 @@ interface QrLoginRequestRepository : JpaRepository<QrLoginRequest, String> {
 
     /**
      * The atomic, conditional transition every accept/reject goes through
-     * (docs/ideen/qr-login-ueber-app.md #6: "Nebenläufigkeit") - a plain read-then-write would let
+     * (docs/07-betrieb.md #5) - a plain read-then-write would let
      * two concurrent decisions both believe they won. Returns the number of rows changed: `0`
      * means the request was no longer `PENDING` by the time this ran.
      */

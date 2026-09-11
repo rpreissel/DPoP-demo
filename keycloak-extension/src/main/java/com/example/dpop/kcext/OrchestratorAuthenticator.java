@@ -17,7 +17,7 @@ import org.keycloak.storage.UserStorageProvider;
 import java.util.List;
 
 /**
- * The kc-facade's Keycloak-side driver (docs/ideen/web-keycloak-kanal.md #6/#7/#8) - a normal
+ * The kc-facade's Keycloak-side driver (docs/05-api.md Abschnitt 3) - a normal
  * Authentication SPI Authenticator, configurable per Authentication Execution just like Keycloak's
  * own built-ins. Same execution class handles the initial-login case (Section 2's "WEB, initialer
  * Login" anchor) and the step-up case ("WEB, Step-up") - which one applies is read off whether an
@@ -232,8 +232,7 @@ public class OrchestratorAuthenticator implements Authenticator {
         created.setEnabled(true);
         created.setSingleAttribute(OrchestratorNotes.USER_ATTR_ACCOUNT_ID, String.valueOf(accountId));
         // Routes the "password" credential type to OrchestratorPasswordStorageProvider instead of
-        // Keycloak's own built-in JPA password provider (docs/ideen/web-keycloak-kanal.md,
-        // DPoP-demo-25q) - Keycloak dispatches CredentialInputValidator/-Updater for a
+        // Keycloak's own built-in JPA password provider (DPoP-demo-25q) - Keycloak dispatches CredentialInputValidator/-Updater for a
         // federation-linked user to the linked UserStorageProvider component, so this is enough on
         // its own; no provider-priority configuration needed. The component itself is provisioned
         // once per realm (infra/tofu/keycloak/main.tf's keycloak_custom_user_federation resource),

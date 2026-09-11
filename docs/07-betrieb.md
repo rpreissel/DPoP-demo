@@ -65,3 +65,36 @@ Umgang mit den Referenzen:
 - Gesperrter Account: `423 Locked` (`OrchestratorException.accountLocked()`, Fehlercode `ACCOUNT_LOCKED`, Abschnitt 1).
 - Ein erfolgreicher AUTH-Abschluss setzt den Zähler zurück (`recordSuccess`), auch wenn zuvor kein Fehlversuch vorlag (dann ein No-op).
 - Migration: `V8__add_login_attempt_throttle.sql`. Aufbewahrung: siehe Tabelle in Abschnitt 3 — kein Session-Cleanup, der Zähler ist Bestandteil des Accounts.
+
+## 5) QR-Login (`auth_qr`): Pairing-Code-Sicherheit
+
+`confirm-qr-login`s `input`-Schritt nimmt einen vom Nutzer eingegebenen oder per Deep-Link
+vorbefüllten `pairingCode` entgegen ([Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`).
+Drei Maßnahmen sind umgesetzt:
+
+- **QR-Jacking-Schutz**: `verificationCode` (dreistellig) wird auf beiden Bildschirmen (Web-Seite
+  und App) gezeigt und nur per Auge verglichen, nie übertragen oder eingegeben — entwertet den
+  bekannten Angriff, bei dem ein Angreifer den eigenen QR-Code vom Opfer bestätigen lässt, solange
+  Opfer und Angreifer nicht gleichzeitig denselben Bildschirminhalt sehen. Schützt **nicht** gegen
+  einen Angreifer, der in Echtzeit beide Seiten kontrolliert (Live-Relay/MITM) — dieselbe Grenze
+  wie bei jedem Cross-Device-Abgleich dieser Art (z. B. FIDO/Passkey-QR-Flows).
+- **Atomarer Zustandsübergang**: `accept`/`reject` schreiben bedingt (`WHERE status = 'PENDING'`,
+  `QrLoginRequestRepository.resolveIfPending`) statt Lesen-dann-Schreiben — `0` betroffene Zeilen
+  heißt „bereits entschieden oder abgelaufen", nie ein zweiter Schreibversuch oder zwei Accounts
+  gleichzeitig als `resolvingAccountId`.
+- **`pairingCode`-Entropie**: 8 Zeichen aus einem verwechslungsarmen Alphabet (Crockford-Base32-
+  artig, ohne `I`/`L`/`O`/`U`), ~40 Bit — bewusst niedriger als ein reiner API-Token, weil der Code
+  ein Mensch fehlerfrei abschreiben können muss; manuelle Eingabe ist hier kein Fallback, sondern
+  ein gleichwertiger Weg neben QR/Deep-Link.
+
+**Noch offener Punkt**, analog zu Abschnitt 4: Weil manuelle Eingabe ein regulärer Weg ist, bräuchte
+der `input`-Schritt einen eigenen, IP-/anonymen Zähler auf fehlgeschlagene `pairingCode`-Lookups —
+`LoginAttemptThrottle` (Abschnitt 4) greift hier nicht, da an dieser Stelle noch kein Account
+bekannt ist, an den sich ein Zähler hängen ließe. Bei 8 Zeichen aus einem 32er-Alphabet ist das
+kein optionales Add-on, sondern Voraussetzung dafür, dass manuelle Eingabe unbegrenzt sicher
+angeboten werden darf — aktuell **nicht implementiert**.
+
+`QrLoginRequest.expiresAt` (5 Minuten, `QR_LOGIN_TTL`) orientiert sich an bestehenden TAN-Timeouts
+(`enroll-sms`/`auth-sms`), ist aber nicht weiter validiert; abgelaufene Zeilen räumt aktuell kein
+`RetentionJob` auf (anders als die Objekte in Abschnitt 3) — sie sind über `expiresAt` beim Lesen
+bereits unwirksam, bleiben aber als Daten stehen.

@@ -5,7 +5,7 @@ import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.provider.Provider;
 
 /**
- * One tool's own web-channel rendering (docs/ideen/web-keycloak-kanal.md, DPoP-demo-3yd.6) - the
+ * One tool's own web-channel rendering (DPoP-demo-3yd.6) - the
  * kc-facade's counterpart to the App channel's {@code ToolModule.render()}
  * (frontend/src/tools/types.ts). Registered as a normal Keycloak provider, looked up by toolId via
  * {@link WebToolRendererFactory#getId()} - {@code OrchestratorAuthenticator} falls back to the

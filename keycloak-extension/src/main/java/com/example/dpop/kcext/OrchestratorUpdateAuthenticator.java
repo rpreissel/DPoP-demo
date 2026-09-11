@@ -11,17 +11,16 @@ import org.keycloak.models.UserModel;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
 /**
- * Placed directly after a native step that can prove something itself (docs/ideen/
- * web-keycloak-kanal.md #9) - reports that proof to the orchestrator immediately, without
+ * Placed directly after a native step that can prove something itself - reports that proof to the orchestrator immediately, without
  * rendering anything of its own. Renders no form: {@link #authenticate} always resolves the step
  * (success or, on an orchestrator-side rejection, failure) without ever calling
  * {@link AuthenticationFlowContext#challenge}.
  *
  * Config: {@code nativeToolId} - the stable, per-authenticator-TYPE id a
  * {@code NativeAuthenticatorDescriptor} on the orchestrator side resolves method/loa/factorTypes
- * from (docs/ideen/web-keycloak-kanal.md #6). {@code amrSourceId} defaults to this execution's own
+ * from (docs/05-api.md Abschnitt 3). {@code amrSourceId} defaults to this execution's own
  * id if left empty - stable across a browser retry of the SAME execution, which is exactly the
- * "refresh, not a new proof" behaviour Section 6 asks for.
+ * "refresh, not a new proof" behaviour the wire contract asks for.
  */
 public class OrchestratorUpdateAuthenticator implements Authenticator {
 
@@ -53,7 +52,7 @@ public class OrchestratorUpdateAuthenticator implements Authenticator {
             // context.getUser() can already be set here even on an initial-login anchor run - a
             // native authenticator ahead of this one (e.g. auth-username-password-form)
             // may have resolved it from Keycloak's own credential store, independently of any
-            // orchestrator tool (docs/ideen/web-keycloak-kanal.md #6: "falls Keycloak den Nutzer
+            // orchestrator tool (docs/05-api.md Abschnitt 3: "falls Keycloak den Nutzer
             // schon kennt" is not step-up-only).
             Long accountId = OrchestratorNotes.accountId(context.getUser());
             // The channel's floor must reach the FULL level Keycloak's own flow will eventually

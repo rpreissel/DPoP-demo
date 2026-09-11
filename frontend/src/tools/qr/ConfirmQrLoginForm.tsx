@@ -6,7 +6,7 @@ interface ConfirmQrLoginFormProps {
 }
 
 /**
- * `confirm-qr-login`'s `confirm` step (docs/ideen/qr-login-ueber-app.md #5/#6) - the
+ * `confirm-qr-login`'s `confirm` step (docs/05-api.md, Peer-Login bestätigen; docs/07-betrieb.md #5) - the
  * verification code is never typed anywhere, only compared by eye against the WEB screen
  * (QR-jacking countermeasure). Only accept if it actually matches.
  */

@@ -5,7 +5,7 @@ import com.example.dpop.tool_spi.EnrollmentRef
 /**
  * Verify/replace the password credential behind an [EnrollmentRef], for callers that already know
  * the account id directly with no Channel/ToolSession involved - e.g. Keycloak's native password
- * login/change (docs/ideen/web-keycloak-kanal.md, `OrchestratorPasswordStorageProvider`),
+ * login/change (`OrchestratorPasswordStorageProvider`),
  * delegating to the same store the `auth-password`/`enroll-password` tool controllers use.
  */
 interface PasswordCredentialPort {

@@ -3,7 +3,7 @@ package com.example.dpop.orchestrator.kc
 import java.time.Instant
 
 /**
- * A verified peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3/#4) - proves "this really is
+ * A verified peer-auth assertion (docs/12-entscheidungen.md ADR-7, docs/02-domaenenmodell.md Abschnitt 1) - proves "this really is
  * Keycloak, acting for this specific channel", never who the end user is. [channelAnchor] is
  * always the calling flow run's own `channelSessionId` - unique per flow run, so two concurrent
  * flows sharing the same underlying SSO session (e.g. two tabs stepping up at once) never share an

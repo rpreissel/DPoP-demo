@@ -12,7 +12,7 @@ import java.util.UUID
 
 /**
  * toolId=confirm-qr-login: approve or decline a pending `auth-qr`/`auth-qr-lookup` pairing
- * (docs/ideen/qr-login-ueber-app.md #5/#6). Two steps: `input` resolves the pairing code the user
+ * (docs/05-api.md, Peer-Login bestätigen; docs/07-betrieb.md #5). Two steps: `input` resolves the pairing code the user
  * typed or the deep link pre-filled, `confirm` shows the verification code and takes the decision.
  *
  * Pure business logic; self-description lives in [ConfirmQrLoginDescriptor].
@@ -33,7 +33,7 @@ class ConfirmQrLoginToolHandler(
     /**
      * [hasQrEnrollment] is resolved by the controller (this module may not depend on `account`) -
      * an account without an active `enroll-qr` opt-in must never approve a pairing on its behalf
-     * (docs/ideen/qr-login-ueber-app.md #2).
+     * (docs/03-tool-architektur.md).
      */
     @Transactional
     fun patch(toolSessionId: UUID, pairingCode: String?, decision: String?, accountId: Long, hasQrEnrollment: Boolean): ToolOutcome {
@@ -76,7 +76,7 @@ class ConfirmQrLoginToolHandler(
         val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
         if (request == null || request.status != QrLoginStatus.PENDING || Instant.now().isAfter(request.expiresAt)) {
             // Stays on `input` - an unknown/expired/already-decided code is retryable, not a
-            // dead end (docs/ideen/qr-login-ueber-app.md #5).
+            // dead end (docs/05-api.md, Peer-Login bestätigen).
             return ToolOutcome.Failed("Anfrage nicht gefunden oder abgelaufen")
         }
         data.pairingCode = pairingCode

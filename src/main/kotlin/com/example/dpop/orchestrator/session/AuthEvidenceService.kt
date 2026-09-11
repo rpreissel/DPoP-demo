@@ -30,8 +30,8 @@ class AuthEvidenceService(
     }
 
     /**
-     * A sync of [source]'s complete, currently-valid set (docs/ideen/web-keycloak-kanal.md
-     * #6/#9) - see [AuthEvidence.replaceForSource]. [source] scopes which existing records are
+     * A sync of [source]'s complete, currently-valid set (docs/05-api.md
+     * Abschnitt 3) - see [AuthEvidence.replaceForSource]. [source] scopes which existing records are
      * eligible for removal (needed even when [updates] is empty - everything for that source
      * expired); each entry in [updates] still carries its own `MethodEvidence.source` for the
      * upgrade-vs-ignore decision. Used by

@@ -7,7 +7,7 @@ import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
 
 /**
- * This node's peer-auth signing key (docs/ideen/web-keycloak-kanal.md #3: "ein Schluesselpaar pro
+ * This node's peer-auth signing key (docs/12-entscheidungen.md ADR-7: "ein Schluesselpaar pro
  * Client, nicht pro Nutzer, nicht pro Session"). One key pair generated once per JVM, mirroring
  * MockKeycloakKeyProvider on the orchestrator side, but here on the real Keycloak side signing for
  * real instead of being handed to a browser. A restart rotates the key; the orchestrator's

@@ -122,6 +122,18 @@ verwirft das gecachte Token aktiv, egal wie lange es zeitlich noch gültig wäre
 Client, der kurz nach einem Step-up erneut `.../token` aufruft, bis zu die volle TTL lang noch das
 alte, Vor-Step-up-Token/-Claims zurückbekommen.
 
+### ID-Token-Claims (`GET .../{channelSessionId}/idclaims`)
+
+**`APP`-Kanal-only**, wie das AccessToken oben — dieselbe `requireAuthenticated`-Vorbedingung.
+Fachliche (nicht in die AccessToken-Signatur codierte) Claims: `sub`/`accountId`/`personId`,
+`acr`/`amr`, `auth_time`, `email`/`email_verified`, `name` ("Vorname Name" der Person,
+`PersonDirectory.displayName`). `name` ist die einzige Stelle, an der das Frontend erfährt, WER
+angemeldet ist — bewusst hier statt im `demo`-Objekt (das würde bei jeder Tool-Antwort mitberechnet,
+nicht nur beim ohnehin schon gezielt abgerufenen Claims-Aufruf) oder einem eigenen
+`/accounts/{id}`-Endpunkt (der bräuchte eine neue, von der Kanal-Autorisierung unabhängige
+Zugriffsprüfung) — derselbe `channelAccessGuard` wie überall sonst, derselbe Zweck wie ein echtes
+OIDC-ID-Token, nur eben als reine Business-Claims-Ressource statt eines signierten JWT.
+
 ### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)
 
 Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst vom policy-getriebenen REGISTRATION/STEP_UP-Ablauf ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).
@@ -182,6 +194,7 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 - `fast_access` (Default, auch bei weggelassenem `intent`): heutiges Verhalten — `DeviceAccountLink` gefunden -> LOGIN mit vorbefülltem Account, sonst REGISTRATION.
 - `lookup_login`: erzwingt lookup-basierten Login (E-Mail + Credential, siehe unten) — auch auf einem bereits verlinkten Gerät. Der Link-Lookup wird für diesen Kanal komplett übersprungen.
 - `register`: erzwingt eine frische REGISTRATION — auch auf einem bereits verlinkten Gerät (Zweitaccount). Übersteht der Kanal die Registrierung, überschreibt sie den bestehenden `DeviceAccountLink`.
+- `confirm_peer_login`: startet `AuthIntent.CONFIRM_PEER_LOGIN` — einen wartenden Web-Login (`auth-qr`/`auth-qr-lookup`) bestätigen/ablehnen (siehe unten, "Peer-Login bestätigen"). Auch von einem kalten, noch nicht authentifizierten Kanal aus erreichbar, aber nie mit Identifikation/Registrierung als Fallback.
 
 `requiredAcr` (optional) erspart der App den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up. Der Wert wirkt nur nach oben: Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
 
@@ -195,6 +208,17 @@ Liest den stabilen Kanalzustand — Resume-Einstieg und einfache Session-/Policy
 - `activeMethods`: der volle, kontostabile Methodenbestand als `{id, method, label}`-Objekte — unabhängig davon, was diese Sitzung geprüft hat. Enthält nie `fsc` (Identifikation liegt in `identifications`, nicht in `authenticationMethods`). `id` adressiert die Instanz für `DELETE`; `label` ist nur bei mehrfach-möglichen Methoden gesetzt (aktuell nur `device` — mehrere Geräte können je ein eigenes, benanntes Credential halten). `auth-device` erscheint als AUTH-Kandidat nur auf dem physischen Gerät, das den passenden Schlüssel hält (`docs/04-orchestrierung.md`); Deaktivieren selbst bleibt bewusst ungefiltert.
 
 Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer gesetzt — auch bei abgeschlossener Journey (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es bewusst nicht, da schon `next` selbst zeigt, ob ein Step-up ansteht. Nur bei `LOGGED_OUT` (terminal) fehlt `next` ganz.
+
+Wer angemeldet ist, gehört dagegen zu den **ID-Token-Claims** (`GET .../idclaims`, s. u.), nicht in
+diesen Block — dafür ist diese Ressource da, kein zweiter Träger derselben Aussage.
+
+### `GET /app/channels/device-link`
+
+Reiner Read: ob dieses Gerät (DPoP-Proof, keine `channelSessionId` nötig) bereits an einen Account
+gebunden ist (`DeviceAccountLink`, [Domänenmodell](02-domaenenmodell.md) Abschnitt 1) — legt **kein**
+Channel/Journey an. `{"linked": true, "accountId": 42, "personName": "Max Muster"}` bzw.
+`{"linked": false}`. Erlaubt der Startauswahl, "dieses Gerät gehört zu X" zu zeigen, bevor der Nutzer
+überhaupt wählt, wie er starten will.
 
 ### `POST /channels/{channelSessionId}/step-ups`: Step-up-Auslöser
 
@@ -216,6 +240,48 @@ Erreichbar nur über `POST /channels` mit `intent: "lookup_login"` — nie über
 - `auth-password-lookup` erwartet `{"email": "...", "password": "..."}` in einem einzigen `PATCH`.
 - Enumeration-Schutz: Eine unbekannte oder unbestätigte E-Mail verhält sich in Form und Timing identisch zu einem korrekt aufgelösten Account mit falschem Credential — nie eine eigene Fehlerform. Das gilt auch für die demo-Werte: `demo.email`/`demo.password` sind feste Konstanten, unabhängig vom tatsächlich aufgelösten Account, verraten also nichts.
 - Bei Erfolg schreibt der Orchestrator `DeviceAccountLink` für dieses Gerät neu — ein danach ohne `intent` (Default `fast_access`) angelegter Kanal erkennt das Gerät und bietet direkt den gewöhnlichen geräte-gebundenen LOGIN an.
+
+### Peer-Login bestätigen (AuthIntent.CONFIRM_PEER_LOGIN)
+
+Ein App-Kanal bestätigt/lehnt einen wartenden Web-Login ab, den eine `auth-qr`/`auth-qr-lookup`-
+Aktivierung des Web-Kanals angestoßen hat ([Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`).
+Zwei gleichwertige Einstiege, je nachdem ob die App gerade erst gescannt hat oder schon offen ist:
+
+- `POST /app/channels` mit `{"intent":"confirm_peer_login"}` — kalter Einstieg, siehe `intent`-Parameter oben.
+- `POST /channels/{channelSessionId}/peer-logins` (kein Body) — auf einem bereits `AUTHENTICATED`-Kanal.
+
+Beide liefern dieselbe `ChannelResponse`-Form und laufen auf demselben Gate zusammen:
+
+1. Kein Konto über `DeviceAccountLink` bekannt (nur beim kalten Einstieg möglich) → `410`, nie ein
+   Fallback auf Identifikation/Registrierung.
+2. Aktuelles Niveau unter `loa2` → ein Step-up-Schritt wie bei jedem anderen Step-up; der Client
+   folgt ihm und ruft den Einstiegs-Endpunkt danach erneut auf.
+3. Niveau bereits `loa2` — aber unabhängig von diesem Durchlauf erreicht (Evidenz unbekannten
+   Alters) → statt direkt weiter verlangt die Antwort einen frischen Nachweis über ein beliebiges
+   aktives `auth-*`-Verfahren, exakt wie bei „Account löschen" Schritt 3 oben (`next={"context":"auth","step":"selectMethod"}`
+   bei mehreren Kandidaten). **Ausnahme**: Musste Schritt 2 selbst erst einen Step-up auslösen,
+   zählt dieser frisch erbrachte Nachweis bereits als der hier geforderte.
+4. `confirm-qr-login` aktivieren:
+   - `POST .../tools/confirm-qr-login` (kein Body) → `stepData={"missingFields":["pairingCode"]}`.
+   - `PATCH .../confirm-qr-login` mit `{"pairingCode":"..."}` (aus dem QR-Code bzw. dem Demo-Link
+     vorbefüllt, [Frontend](10-frontend.md)) → bei gültiger, noch offener Anfrage
+     `stepData={"verificationCode":"..."}`, `next.step="confirm"`. Der Nutzer vergleicht diesen Code
+     mit dem auf der Web-Seite gezeigten (QR-Jacking-Schutz — ein reiner Blick-Abgleich, nie ein
+     übertragenes Feld). Unbekannter/abgelaufener/bereits entschiedener Code: `stepData.error`,
+     bleibt auf `input`, normale Retry-Logik.
+   - `PATCH .../confirm-qr-login` mit `{"decision":"accept"}` bzw. `{"decision":"reject"}`. `accept`
+     ohne aktives `enroll-qr` auf dem Konto: `stepData.error` ("QR-Login ist für dieses Konto nicht
+     aktiviert"), kein stillschweigendes Durchlassen.
+5. Erfolgreiches `accept`: `next={"type":"orchestrator","context":"authentication","step":"authenticated"}`
+   — war der Kanal vor diesem Aufruf noch nicht `AUTHENTICATED`, fragt die Antwort davor per
+   `Prompt` ("Jetzt abmelden?"), ob der Kanal angemeldet bleiben soll; `reject` liefert stattdessen
+   `stepData.error` ("Vom Nutzer abgelehnt"), der Web-Kanal erfährt das über seinen eigenen Poll (unten).
+
+Die WEB-Seite selbst (`auth-qr`/`auth-qr-lookup`) pollt denselben generischen Tool-Patch-Endpunkt
+mit leerem Body, solange die Anfrage noch offen ist — kein eigener Statusproxy nötig, ein leeres
+`PATCH` auf einen `InProgress`-Zustand kostet nirgends etwas (kein Attempt-/Login-Throttle). Bei
+`APPROVED` liefert derselbe `PATCH` `Completed.Authenticated`, bei `DENIED`/abgelaufen entsprechend
+`Failed` — für `auth-qr-lookup` inklusive des aufgelösten `accountId` im `demo`-Objekt.
 
 ---
 
@@ -286,6 +352,39 @@ natives Registrierungsformular; `ident-fsc`/`ident-eid`/`enroll-*` laufen über 
 **Offen:** Die Logout-Semantik im Web-Kanal ist noch nicht entschieden — ob `DELETE
 /channels/{id}` für `KEYCLOAK`-Kanäle clientseitig überhaupt aufrufbar sein soll, oder ausschließlich
 kc-getrieben (Keycloaks eigener Logout-Flow folgt dem Orchestrator-Kanal nur nach, nicht umgekehrt).
+
+### Anmeldeverfahren verwalten im Web-Kanal (Keycloak Required Action)
+
+`AuthIntent.MANAGE_AUTH_METHODS` ist wie oben (Abschnitt 2, "Methoden verwalten") beschrieben
+bereits vollständig fassadenneutral — `POST .../enrollments` authentifiziert über denselben
+`DpopBindingKeyResolver`, den die kc-Fassade längst für alle anderen Tool-Endpunkte nutzt. Der
+Web-Kanal braucht dafür **keinen neuen Orchestrator-Endpunkt**, nur einen eigenen Einstieg: eine
+Keycloak-`RequiredAction` (`getId()="orchestrator-manage-methods"`, `defaultAction=false` — nie
+erzwungen, nur über `kc_action` auslösbar), registriert im bestehenden `orchestrator-browser`-Flow
+und erreichbar über dieselbe `/auth`-URL wie ein normaler Login, ergänzt um
+`kc_action=orchestrator-manage-methods` (Keycloaks eigener Mechanismus für „bereits angemeldeter
+Nutzer löst selbst eine Zusatzaktion aus", analog zu Keycloaks eigenen „Passwort ändern"/„OTP
+einrichten"-Selbstbedienungslinks).
+
+Kein erzwungener zweiter Login nötig: Der vorangehende `orchestrator-browser`-Durchlauf nutzt das
+bestehende Keycloak-SSO-Cookie, `OrchestratorResumeAuthenticator` bringt den dabei zwangsläufig
+neuen Orchestrator-Kanal über `restoreData` (Abschnitt 3 oben) auf `AUTHENTICATED`, sofern die
+Evidenz noch reicht — reicht sie nicht, greift stattdessen die normale Login-/Step-up-Kaskade, kein
+Sonderfall. Schließt der Flow erfolgreich ab, ruft die Required Action `startEnrollments(...)` auf
+dem frischen, `AUTHENTICATED`-Kanal auf und rendert `next` über denselben `WebToolRenderer`-
+Dispatch wie jeder andere Schritt — dieselbe Kandidatenliste (Passwort, Gerät, E-Mail, QR, …), die
+der App-Kanal über `.../enrollments` auch bekommt. Frontend: `redirectToManageMethods()`
+(`webOidc.ts`) baut dieselbe `/auth`-URL wie `redirectToLogin`, Rückkehr über den bestehenden
+`completeLoginIfRedirected()`-Pfad — Button „Anmeldeverfahren verwalten" im Web-Kanal-Demo-Tab.
+
+Das Interpretieren von `next` (Auswahlbildschirm vs. Tool-Formular vs. Tool automatisch aktivieren)
+ist zwischen dem normalen Login/Step-up-Flow (`OrchestratorAuthenticator`) und dieser Required
+Action **gemeinsamer Code** (`OrchestratorNextDispatch.classify`/`dispatchToolAction`,
+`keycloak-extension`) — reine, Keycloak-typ-freie Klassifikation, nur die Reaktion darauf
+(`context.success()`/`failure()` vs. `RequiredActionContext`-Äquivalente) bleibt je Caller
+eigenständig, da beide Kontexttypen keinen gemeinsamen Übertyp haben. Vorher war diese
+Klassifikation wortgleich dupliziert — genau dort hatte die ACR/AMR-Übernahme nach einem Step-up in
+„Anmeldeverfahren verwalten" gefehlt (das Access-Token blieb fälschlich bei `loa1`).
 
 ---
 

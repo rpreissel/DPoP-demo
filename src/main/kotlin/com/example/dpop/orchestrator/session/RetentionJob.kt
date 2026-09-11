@@ -61,8 +61,8 @@ class RetentionJob(
     /**
      * `KEYCLOAK` channels whose own (short, per-flow-run) TTL already passed AND whose durable
      * Keycloak session is affirmatively confirmed gone - safe to delete now instead of waiting out
-     * [CHANNEL_SESSION_RETENTION] like every other channel (DPoP-demo-f9o.12, docs/ideen/
-     * web-keycloak-kanal.md #11): Keycloak owns logout entirely and never tells the orchestrator
+     * [CHANNEL_SESSION_RETENTION] like every other channel (DPoP-demo-f9o.12, docs/07-betrieb.md
+     * Abschnitt 3): Keycloak owns logout entirely and never tells the orchestrator
      * when it happens, so without this, a channel whose session already ended sits around for up
      * to [CHANNEL_SESSION_RETENTION] for no reason. A channel this can't affirmatively confirm
      * (no client configured, no durable session id recorded yet, or the Admin API call itself

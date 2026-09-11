@@ -19,7 +19,7 @@ import java.time.Instant
 import java.util.Date
 
 /**
- * Signs/verifies [RestoreData] as a compact JWT (docs/ideen/web-keycloak-kanal.md #6) - Keycloak
+ * Signs/verifies [RestoreData] as a compact JWT (docs/05-api.md Abschnitt 3) - Keycloak
  * only ever stores and echoes back an opaque token it cannot forge or reattribute to a different
  * UserSession, never the plain accountId/evidence values themselves. The token's `sub` is the
  * `kcSessionId` it was minted for; [decode] refuses anything not bound to the caller's OWN

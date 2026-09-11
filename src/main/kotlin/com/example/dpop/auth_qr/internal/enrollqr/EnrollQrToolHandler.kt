@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
- * toolId=enroll-qr: a pure opt-in, no credential handshake (docs/ideen/qr-login-ueber-app.md #5) -
+ * toolId=enroll-qr: a pure opt-in, no credential handshake (docs/03-tool-architektur.md) -
  * the PATCH call itself IS the confirmation, no field to fill in first.
  *
  * Pure business logic; self-description lives in [EnrollQrDescriptor].

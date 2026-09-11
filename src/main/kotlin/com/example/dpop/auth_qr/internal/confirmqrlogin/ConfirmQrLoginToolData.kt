@@ -10,7 +10,7 @@ import java.util.UUID
 /**
  * Attempt-scoped module data for toolId=confirm-qr-login. [pairingCode] is `null` until the
  * `input` step resolves a valid one - that transition from `null` to set is what moves this tool
- * from `input` to `confirm` (docs/ideen/qr-login-ueber-app.md #5).
+ * from `input` to `confirm` (docs/05-api.md, Peer-Login bestätigen).
  */
 @Entity
 @Table(name = "confirm_qr_login_tool_data")

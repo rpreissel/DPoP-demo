@@ -18,7 +18,7 @@ import java.util.UUID
  * the claims it mints without going through the channel. keycloakSessionId/keycloakSubject exist
  * for the shape of the target model but stay unused without the real Keycloak facade
  * (docs/11-umsetzungsplan.md, explicitly out of scope) - and moot anyway, since the KEYCLOAK
- * channel never creates an `AuthContext` at all (docs/ideen/web-keycloak-kanal.md #6: it has no
+ * channel never creates an `AuthContext` at all (docs/05-api.md Abschnitt 3: it has no
  * App-style tokens to bind).
  */
 @Entity

@@ -23,6 +23,8 @@ Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregatio
 | `enroll-email` / `auth-email` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `email` | `{knowledge}` | `loa1` | `false` |
 | `auth-sms-lookup` / `auth-password-lookup` / `auth-email-lookup` | `LOOKUP_AUTH` | `sms`/`password`/`email` | wie Zwilling | `loa1` | `false` |
 | `enroll-device` / `auth-device` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `device` | `{possession,knowledge,inherence}` | `loa2` | `true` |
+| `enroll-qr` / `auth-qr` / `auth-qr-lookup` | `ENROLLMENT` / `IDENTIFIED_AUTH` / `LOOKUP_AUTH` | `qr` | `{}` / `{possession}` / `{possession}` | `loa1` / `loa2` / `loa2` | `false` |
+| `confirm-qr-login` | `PEER_APPROVAL` | `qr` | `{}` | `loa2` | — |
 
 Entscheidungen dahinter:
 
@@ -33,6 +35,9 @@ Entscheidungen dahinter:
 - **Verfügbarkeit** hat zwei unabhängige Achsen, beide als `toolId`-Mengen: Der Client erklärt bei der Kanal-Erzeugung (`POST /channels`, Pflichtfeld `availableTools`), welche Tools er überhaupt rendern kann/der Nutzer nicht lokal abgewählt hat — fix für die Lebensdauer des Kanals. Das Backend kann zusätzlich jedes Tool global und zur Laufzeit sperren (`ToolAvailabilityService`, `PUT /admin/tools/{toolId}/availability`, ohne Neustart wirksam), z. B. bei Verdacht auf Kompromittierung. Beide Achsen werden live geschnitten (`JourneyContext.availableTools`) und wirken an zwei Stellen, aus demselben Grund wie bei `requiresConfirmedEmail`: `CandidateTools` filtert bei jeder Zustandsübergangs-Berechnung (entscheidet, ob z. B. auf Identifikation zurückgefallen wird), und `JourneyState.activatable()` filtert zusätzlich bei *jedem* Request neu — auch wenn seit der letzten Übergangsberechnung keine neue Journey-Transition stattfand, damit eine Backend-Sperre sofort wirkt, während ein Client noch auf einem bereits berechneten Angebot sitzt. `ToolControllerSupport.beginActivation` prüft defensiv ein drittes Mal gegen direkte Aktivierung unter Umgehung der Kandidatenliste. Bleibt für den fälligen Schritt nichts Verfügbares übrig, greift derselbe `exhausted`/Cancel-Fallback wie bei einer vollständig abgelehnten Kandidatenliste — kein eigener Fehlerzustand.
 - `role=LOOKUP_AUTH` markiert die `-lookup`-Zwillinge: Sie melden bewusst dieselbe `method` wie ihr `IDENTIFIED_AUTH`-Geschwister (dasselbe Credential, nur ein anderer Weg, es zu präsentieren) und lösen den Account selbst über eine eingegebene E-Mail auf, statt ihn schon über den Kanal zu kennen ([Orchestrierung](04-orchestrierung.md) Abschnitt 4). Ohne diese Unterscheidung könnte die normale Kandidatenermittlung für eine ganz gewöhnliche, bereits Account-gebundene Session mehrdeutig auf den `-lookup`-Zwilling statt das Original treffen — `category=AUTH` allein reicht dafür nicht, `role` schon.
 - `allowsMultipleInstances=true` (bislang nur `device`): mehrere aktive Instanzen derselben Methode dürfen gleichzeitig existieren, eine pro physischem Gerät, statt der sonst üblichen "eine aktive Instanz, neu enrollen ersetzt die alte"-Regel (`AccountService.addAuthenticationMethod`). Jede Instanz bekommt eine stabile `id` und einen vom Nutzer vergebenen `label` — ohne `id` ließe sich beim Deaktivieren nicht sagen, welches von mehreren gleichnamigen Geräten gemeint ist. `AuthPolicy.candidateTools` filtert `auth-device` zusätzlich auf die Instanz, deren `deviceBindingKeyRef` (das DPoP-bewiesene Geräte-Fingerprint des aufrufenden Kanals) zum anfragenden physischen Gerät passt — ein nicht-extrahierbarer Schlüssel kann strukturell nirgends sonst liegen, ihn anderswo anzubieten würde garantiert scheitern. Auf beiden Geschwistern (`enroll-device` UND `auth-device`) unabhängig deklariert, genau wie `maxAcr`/`factorTypes` — keine erzwungene Gleichheit zwischen Tool-Varianten (ein künftiger `LOOKUP_AUTH`-Zwilling dürfte hier legitim abweichen). Gelesen wird das Flag deshalb nie über eine mehrdeutige, nur-nach-Methodenname suchende Zuordnung, sondern stets vom bereits eindeutig per `(method, role)` aufgelösten Descriptor des konkret betrachteten Tools.
+
+- `enroll-qr`/`auth-qr`/`auth-qr-lookup` (Modul `auth_qr`, QR-Login des Web-Kanals, bestätigt über den App-Kanal — [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`) folgen demselben Enroll/Auth/Lookup-Dreiklang wie `sms`/`password`/`email`, mit einer Besonderheit: `enroll-qr` ist ein reiner Opt-in-Marker ohne Geheimnis (`factorTypes = {}`) — er beweist kein Credential, sondern erlaubt nur grundsätzlich, dass dieser Account künftig per QR bestätigt werden darf. Ohne dieses Opt-in würde `AuthPolicy.candidateTools` `auth-qr` für **jeden** Account anbieten, auch für einen, der nie eine App benutzt hat; `auth-qr-lookup` bleibt trotzdem immer anbietbar (wie ein Identifikationstool) — die Opt-in-Prüfung verschiebt sich dann auf die App-Seite (`confirm-qr-login`), die ohne aktives `enroll-qr` mit `Failed("QR-Login ist für dieses Konto nicht aktiviert")` abbricht, statt den Web-Login stillschweigend durchzulassen.
+- `confirm-qr-login` trägt die neue Rolle `MethodRole.PEER_APPROVAL` (Kategorie `SIDE_ACTION`, Abschnitt 2) — keine der bestehenden Rollen passt auf „ich bestätige den Login eines *anderen* Kanals, statt eigenes Handeln nachzuweisen".
 
 Zentral bleibt nur, was ein einzelnes Modul nicht wissen *kann*: welches Niveau sich aus einer **Kombination** von Nachweisen ergibt, und welches Niveau eine Ressource fordert — Sache der `AuthPolicy` ([Orchestrierung](04-orchestrierung.md)).
 
@@ -46,7 +51,7 @@ Jedes Tool bringt eine eigene, kleine Descriptor-Bean mit (`object EnrollSmsDesc
 |---|---|
 | `toolId` | z. B. `"auth-sms"` — frei vergeben, nie aus `role`/`method` abgeleitet (öffentlicher API-Vertrag) |
 | `method` | z. B. `"sms"` — verbindet `enroll-sms`/`auth-sms`/`auth-sms-lookup` |
-| `role` | `IDENTIFICATION` \| `ENROLLMENT` \| `IDENTIFIED_AUTH` \| `LOOKUP_AUTH`; `role.category` (`IDENT`/`ENROLL`/`AUTH`) wird direkt gelesen, nicht auf dem Descriptor dupliziert |
+| `role` | `IDENTIFICATION` \| `ENROLLMENT` \| `IDENTIFIED_AUTH` \| `LOOKUP_AUTH` \| `PEER_APPROVAL`; `role.category` (`IDENT`/`ENROLL`/`AUTH`/`SIDE_ACTION`) wird direkt gelesen, nicht auf dem Descriptor dupliziert |
 | `factorTypes`, `maxAcr` | statische Obergrenzen dieses Tools |
 | `requiresConfirmedEmail`, `allowsMultipleInstances` | beide `false` per Default |
 
@@ -66,10 +71,24 @@ fehlgeschlagen:
 | `Completed.Identified(personId, ...)` | Person identifiziert |
 | `Completed.Enrolled(enrollmentRef, ...)` | Methode eingerichtet |
 | `Completed.Authenticated(accountId?, ...)` | Nachweis erbracht — `accountId` nur bei `-lookup`-Tools gesetzt |
+| `Completed.Approved(...)` | Ein `PEER_APPROVAL`-Tool (`confirm-qr-login`) hat eine fremde Anfrage bestätigt |
 
 Jede `Completed`-Variante trägt zusätzlich `amr` (nachgewiesene Methoden, für
 `AuthContext.currentAmr`), `achievedAcr` und `factorTypes` (Teilmenge der `ToolDescriptor.factorTypes`).
 Die Variante *ist* die Kategorie und legt fest, was der Orchestrator tut.
+
+`ToolCategory.SIDE_ACTION` (statt eines feature-spezifischen `PEER`) benennt die geteilte
+Eigenschaft von `PEER_APPROVAL`-Tools: sie tragen nichts zur ACR/AMR-Bilanz des *eigenen* Kanals
+bei und sind nie Kandidat einer Lücken-Vorauswahl, nur explizit per `intent` aktiviert
+([Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`) — nicht nur "dieses eine QR-Feature".
+Bewusst **nicht** `MISC`/`OTHER`: ein echter Sammelbegriff würde künftige, tatsächlich andersartige
+Tools kommentarlos in dieselben `when`-Zweige stecken und die Exhaustivität unterlaufen, die
+`ToolCategory` als versiegeltes `enum` gerade herstellt — jede bestehende Stelle, die per `when`
+darüber verzweigt (Kandidatenermittlung, Verfügbarkeit), zwang der Compiler beim Hinzufügen von
+`SIDE_ACTION`, explizit zu entscheiden, was das dort bedeutet: `AuthPolicy.candidateTools`/
+`enrollmentCandidates` haben dafür einen eigenen `SIDE_ACTION`-Zweig, der schlicht nichts anbietet.
+Ablehnen einer Peer-Anfrage ist **kein** eigener `ToolOutcome` — `Failed(reason = "Vom Nutzer
+abgelehnt")` reicht, weil die bestehende Retry-/Abbruch-Logik dafür schon existiert.
 
 - `InProgress.data` ist **client-gerichtet** (der Nutzer muss es sehen, z. B. `missingFields`); `Completed`/`Failed` sind **orchestrator-gerichtet** und werden nie direkt an den Client durchgereicht (siehe [Orchestrierung](04-orchestrierung.md)). Ein Erfolgs-Bool wäre redundant — der Erfolg steckt schon im Typ.
 - `amr`/`achievedAcr` liefert jedes Tool selbst, weil dasselbe Verfahren je nach Ausführung unterschiedliche Niveaus erreichen kann.

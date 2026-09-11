@@ -1,5 +1,5 @@
 /**
- * The Web-Kanal demo UI's own OIDC client (docs/ideen/web-keycloak-kanal.md) - a REAL browser
+ * The Web-Kanal demo UI's own OIDC client (docs/05-api.md Abschnitt 3) - a REAL browser
  * redirect against the REAL Keycloak, authorization_code + PKCE (S256), token exchange done
  * directly here in the frontend. Deliberately not routed through the orchestrator: the
  * `dpop-demo-web` client is PUBLIC (infra/tofu/keycloak/main.tf) precisely so no client secret
@@ -19,7 +19,7 @@ const CLIENT_ID = 'dpop-demo-web'
  * dort den orchestrator-eigenen kc_select_method-Screen (inkl. auth-qr-lookup) statt des
  * produktionsnahen nativen Passwortformulars - der Haupt-Client (dpop-demo-web) lässt QR-Login nur
  * ab LoA-2 (Step-up) erreichen, weil LoA-1 dort bewusst festverdrahtet natives Passwort ist
- * (docs/ideen/web-keycloak-kanal.md #9).
+ * (Keycloak-eigene LoA-Subflow-Konfiguration).
  */
 const QR_TEST_CLIENT_ID = 'dpop-demo-web-qr-test'
 const SESSION_STORAGE_KEY = 'web-kanal-oidc'
@@ -98,8 +98,8 @@ export function redirectToQrTestLogin() {
 }
 
 /**
- * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/ideen/
- * manage-auth-methods-im-web-kanal.md) - the SAME `/auth` redirect as `redirectToLogin`, on the
+ * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/05-api.md, "Anmeldeverfahren
+ * verwalten im Web-Kanal") - the SAME `/auth` redirect as `redirectToLogin`, on the
  * SAME client/flow, just with `kc_action` appended: Keycloak's own mechanism for "an already
  * authenticated user triggers a self-service action". No `acr_values` here - this isn't an ACR
  * negotiation, MANAGE_AUTH_METHODS's own loa2 gate lives entirely in the orchestrator's journey,
@@ -150,7 +150,7 @@ export async function refreshTokens(refreshToken: string, clientId: string = CLI
   return exchangeToken(clientId, { grant_type: 'refresh_token', refresh_token: refreshToken })
 }
 
-/** Ends the real Keycloak session (not just this tab's tokens) - the Web channel's own logout stays entirely Keycloak's (docs/ideen/web-keycloak-kanal.md #11), never routed through the orchestrator. */
+/** Ends the real Keycloak session (not just this tab's tokens) - the Web channel's own logout stays entirely Keycloak's (docs/07-betrieb.md Abschnitt 3), never routed through the orchestrator. */
 export function redirectToLogout(idToken: string | undefined, clientId: string = CLIENT_ID) {
   const url = new URL(`${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/logout`)
   if (idToken) url.searchParams.set('id_token_hint', idToken)

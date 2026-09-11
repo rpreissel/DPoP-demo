@@ -11,7 +11,7 @@ public final class OrchestratorConfig {
     static final String PEER_AUTH_AUDIENCE = env("ORCHESTRATOR_PEER_AUTH_AUDIENCE", "dpop-demo-orchestrator");
     // Browser-reachable origin of the demo app (App-Kanal frontend) - NOT the same as BASE_URL,
     // which is server-to-server (Keycloak container -> orchestrator container). Used only to build
-    // auth-qr/auth-qr-lookup's demo deep link (docs/ideen/qr-login-ueber-app.md #6), so opening it
+    // auth-qr/auth-qr-lookup's demo deep link (docs/07-betrieb.md #5), so opening it
     // lands the browser directly in this app instead of a fictitious native deep-link scheme.
     // Public: read from webtool.qr, a different package, unlike every other field here.
     public static final String DEMO_APP_BASE_URL = env("DEMO_APP_BASE_URL", "http://localhost:8080");

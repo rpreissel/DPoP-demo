@@ -11,8 +11,8 @@
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="${fieldName}" class="${properties.kcLabelClass!}">${fieldName}</label>
                     <#-- Generic scaffold, not a per-tool UI: renders one text input per stepData key
-                         (docs/ideen/web-keycloak-kanal.md leaves the exact per-tool form fields to the
-                         orchestrator's own tool_api, this plugin doesn't special-case any of them). -->
+                         (the exact per-tool form fields are the orchestrator's own tool_api concern,
+                         this plugin doesn't special-case any of them). -->
                     <input type="text" id="${fieldName}" name="${fieldName}" class="${properties.kcInputClass!}"
                            value="${fields[fieldName]!''}" autocomplete="off"/>
                 </div>

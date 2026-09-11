@@ -1,9 +1,8 @@
 # Idee: Keycloakify statt FreeMarker für Login/Registrierung/Methodenverwaltung
 
-Status: **Konzept, nicht umgesetzt**. Zurückgestellt bis
-[Anmeldeverfahren im Web-Kanal verwalten](manage-auth-methods-im-web-kanal.md) umgesetzt ist —
-die dortige Required-Action-Lösung ist die Grundlage, auf der eine spätere Keycloakify-Migration
-für die Methodenverwaltung aufsetzen würde.
+Status: **Konzept, nicht umgesetzt**. Die Methodenverwaltung im Web-Kanal läuft inzwischen über eine
+Keycloak Required Action ([API](../05-api.md), "Anmeldeverfahren verwalten im Web-Kanal") — die
+Grundlage, auf der eine spätere Keycloakify-Migration für die Methodenverwaltung aufsetzen würde.
 
 ---
 
@@ -37,8 +36,8 @@ SPI-Logik — der Java-Code bliebe unverändert. Eine sauber abgegrenzte, risiko
 - Seiten, die nicht überschrieben werden, fallen automatisch auf Keycloaks Standard-Theme zurück —
   erlaubt inkrementelle Migration.
 - Der Browser spricht weiterhin **nur mit Keycloak** — keine Änderung an der Leitplanke
-  "Browser spricht nie mit dem Orchestrator" ([web-keycloak-kanal.md](web-keycloak-kanal.md) §1/
-  §13). Nur das Rendering-Backend wechselt.
+  "Browser spricht nie mit dem Orchestrator" ([12-entscheidungen.md](../12-entscheidungen.md)
+  ADR-8). Nur das Rendering-Backend wechselt.
 - Passt zur bestehenden Regel "rohes `stepData` durchreichen, nicht vorab extrahieren": der
   generische `orchestrator-tool.ftl`-Scaffold (ein Input pro `stepData`-Key) lässt sich 1:1 als
   generische React-Fallback-Komponente nachbauen, mit gezielten Overrides pro Tool.
@@ -64,9 +63,8 @@ SPI-Logik — der Java-Code bliebe unverändert. Eine sauber abgegrenzte, risiko
 
 ## 5) Methodenverwaltung: drei Optionen, keine Vorentscheidung
 
-Für die Methodenverwaltung selbst (siehe
-[manage-auth-methods-im-web-kanal.md](manage-auth-methods-im-web-kanal.md) für den orchestrator-
-seitigen Mechanismus) gibt es beim Rendering drei Optionen:
+Für die Methodenverwaltung selbst (siehe [API](../05-api.md), "Anmeldeverfahren verwalten im
+Web-Kanal", für den orchestrator-seitigen Mechanismus) gibt es beim Rendering drei Optionen:
 
 - **(A) Gleicher Mechanismus wie Login, nur andere Rendering-Schicht** — Keycloakify rendert die
   Required-Action-Seiten genauso wie die Login-Seiten, über denselben

@@ -18,8 +18,8 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 /**
- * Verifies the signed JWT Keycloak sends on every kc-facade request (docs/ideen/
- * web-keycloak-kanal.md #3) - one assertion per request instead of an access token plus a
+ * Verifies the signed JWT Keycloak sends on every kc-facade request (docs/12-entscheidungen.md
+ * ADR-7) - one assertion per request instead of an access token plus a
  * separate proof, because the initial login has no `sub` yet.
  *
  * Reuses [DpopReplayProtectionService] for single-use enforcement, keyed under a `kc:`-prefixed
@@ -77,7 +77,7 @@ class PeerAuthValidator(
         try {
             replayProtectionService.validateAndStore("kc:$kid", jti, replayKeyExpiresAt)
         } catch (e: DpopValidationException) {
-            // Shared single-use store (docs/ideen/web-keycloak-kanal.md #3) - reported under this
+            // Shared single-use store (docs/12-entscheidungen.md ADR-7) - reported under this
             // validator's own exception type so callers only ever catch PeerAuthValidationException.
             throw PeerAuthValidationException("Peer-auth assertion replay detected", e)
         }

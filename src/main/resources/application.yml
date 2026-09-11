@@ -48,7 +48,7 @@ springdoc:
 
 kc:
   peer-auth:
-    # docs/ideen/web-keycloak-kanal.md #3: one signed JWT per kc-facade request. Values below
+    # docs/05-api.md Abschnitt 3 / docs/12-entscheidungen.md ADR-7: one signed JWT per kc-facade request. Values below
     # match the (not yet built, DPoP-demo-f9o.9) Mock-Keycloak frontend, not a real realm -
     # point jwks-uri at a real Keycloak realm's certs endpoint for anything beyond the demo.
     issuer: mock-keycloak

@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
 import com.nimbusds.jwt.PlainJWT
@@ -66,8 +67,9 @@ class TokenServiceTest : BehaviorSpec({
         repository: AuthContextRepository,
         authEvidenceService: AuthEvidenceService = mockk(relaxed = true),
         authPolicy: AuthPolicy = policy(),
-        accountService: AccountService = mockk(relaxed = true)
-    ) = TokenService(repository, authEvidenceService, authPolicy, accountService)
+        accountService: AccountService = mockk(relaxed = true),
+        personDirectory: PersonDirectory = mockk(relaxed = true)
+    ) = TokenService(repository, authEvidenceService, authPolicy, accountService, personDirectory)
 
     given("an AccessToken that still has well over minValiditySeconds left") {
         val authContextId = UUID.randomUUID()

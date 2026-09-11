@@ -17,10 +17,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Talks to the orchestrator's one kc-facade endpoint (docs/ideen/web-keycloak-kanal.md #6/#10) -
+ * Talks to the orchestrator's one kc-facade endpoint (docs/05-api.md Abschnitt 3) -
  * plain {@code java.net.http.HttpClient}, same convention AuthApiClient in auth-sandbox-2's own
- * keycloak-extension follows. Every call carries a freshly signed peer-auth assertion (docs/ideen/
- * web-keycloak-kanal.md #3); there is no separate bearer token to fetch first, unlike a normal
+ * keycloak-extension follows. Every call carries a freshly signed peer-auth assertion (docs/12-entscheidungen.md
+ * ADR-7); there is no separate bearer token to fetch first, unlike a normal
  * OIDC client credentials call - Keycloak IS the caller identity here.
  */
 final class OrchestratorClient {
@@ -38,9 +38,9 @@ final class OrchestratorClient {
     }
 
     /**
-     * PATCH .../kc/channels/{channelSessionId} - upsert semantics (docs/ideen/web-keycloak-kanal.md
-     * #6). Signed with {@code channelSessionId} itself as the peer-auth anchor (docs/ideen/
-     * web-keycloak-kanal.md #4) - unique per flow run, so two concurrent flows (e.g. two tabs
+     * PATCH .../kc/channels/{channelSessionId} - upsert semantics (docs/05-api.md
+     * Abschnitt 3). Signed with {@code channelSessionId} itself as the peer-auth anchor (docs/02-domaenenmodell.md
+     * Abschnitt 1) - unique per flow run, so two concurrent flows (e.g. two tabs
      * stepping up the same SSO session at once) never share an anchor value even though they'd
      * share the same underlying UserSession. {@code durableKcSessionId} is a SEPARATE, optional
      * value - Keycloak's actual (eventual) UserSessionModel id - carried in the body only when
@@ -92,8 +92,8 @@ final class OrchestratorClient {
     }
 
     /**
-     * GET .../kc/channels/{channelSessionId}/restore-data - end-of-flow lifecycle hook (docs/ideen/
-     * web-keycloak-kanal.md #6). Signed with {@code channelSessionId} as the anchor, same as every
+     * GET .../kc/channels/{channelSessionId}/restore-data - end-of-flow lifecycle hook (docs/05-api.md
+     * Abschnitt 3). Signed with {@code channelSessionId} as the anchor, same as every
      * other call; {@code durableKcSessionId} (Keycloak's actual UserSessionModel id) is carried
      * separately as a query param purely because it's what the RETURNED token gets bound to - it
      * has nothing to do with THIS call's own authorization, which the anchor alone already covers.
@@ -107,8 +107,8 @@ final class OrchestratorClient {
 
     /**
      * POST .../channels/{channelSessionId}/enrollments - starts the MANAGE_AUTH_METHODS journey
-     * on an already-AUTHENTICATED channel (docs/ideen/manage-auth-methods-im-web-kanal.md).
-     * Already facade-neutral like {@link #activateTool}/{@link #patchTool} below - guarded by the
+     * on an already-AUTHENTICATED channel (docs/05-api.md, "Anmeldeverfahren verwalten im
+     * Web-Kanal"). Already facade-neutral like {@link #activateTool}/{@link #patchTool} below - guarded by the
      * same {@code @BindingKey} resolution (DpopBindingKeyResolver.kt), which accepts a peer-auth
      * assertion exactly like a DPoP proof. No request body: {@code channelSessionId} alone
      * addresses which channel, same as {@link #activateTool}.
@@ -120,8 +120,8 @@ final class OrchestratorClient {
 
     /**
      * GET .../channels/{channelSessionId}/methods - the active-methods list "manage" also needs
-     * to be a real management screen, not just an add-a-method form (docs/ideen/
-     * manage-auth-methods-im-web-kanal.md). Same facade-neutral guard as every other call here.
+     * to be a real management screen, not just an add-a-method form (docs/05-api.md,
+     * "Anmeldeverfahren verwalten im Web-Kanal"). Same facade-neutral guard as every other call here.
      */
     List<MethodView> getMethods(String channelSessionId) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/methods";
@@ -141,7 +141,7 @@ final class OrchestratorClient {
         return ChannelResponse.from(send("DELETE", path, channelSessionId, null));
     }
 
-    /** Same facade-neutral tool endpoints the App channel uses (docs/ideen/web-keycloak-kanal.md #6). */
+    /** Same facade-neutral tool endpoints the App channel uses (docs/05-api.md Abschnitt 3). */
     ChannelResponse activateTool(String channelSessionId, String toolId) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/tools/" + toolId;
         return ChannelResponse.from(send("POST", path, channelSessionId, MAPPER.createObjectNode()));
@@ -149,7 +149,7 @@ final class OrchestratorClient {
 
     /**
      * {@code channelSessionId} is passed purely for signing here - toolSessionId, unlike
-     * channelSessionId, isn't self-authorizing (docs/ideen/web-keycloak-kanal.md #4): this URL
+     * channelSessionId, isn't self-authorizing (docs/02-domaenenmodell.md Abschnitt 1): this URL
      * carries no channelSessionId of its own for {@code htu} to bind the assertion to, so the
      * anchor claim is the ONLY thing tying this call to the right channel.
      */
@@ -246,7 +246,7 @@ final class OrchestratorClient {
     record AmrEntry(String nativeToolId, String amrSourceId) {
     }
 
-    /** Mirrors AmrEntry (docs/ideen/web-keycloak-kanal.md #6) - just the two stable ids, never method/loa directly. */
+    /** Mirrors AmrEntry (docs/05-api.md Abschnitt 3) - just the two stable ids, never method/loa directly. */
     static final class OrchestratorApiException extends IOException {
         final int status;
         final String errorCode;

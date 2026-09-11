@@ -2,7 +2,7 @@ import { base64UrlEncode } from './dpop'
 
 /**
  * Client-side stand-in for the real Keycloak Java SPI plugin's peer-auth signing (bd
- * DPoP-demo-f9o.9, docs/ideen/web-keycloak-kanal.md #3) - demo/test only, never a real trust
+ * DPoP-demo-f9o.9, docs/05-api.md Abschnitt 3 / docs/12-entscheidungen.md ADR-7) - demo/test only, never a real trust
  * boundary. The private key is fetched from the backend's own `/mock-keycloak/signing-key`
  * (a capability no real Keycloak ever exposes) rather than generated here, so the same key the
  * backend's `PeerAuthValidator` already trusts (via `kc.peer-auth.jwks-uri`) gets used, without
@@ -46,7 +46,7 @@ export function getOrFetchKcSigningKey(): Promise<KcSigningKey> {
 
 /**
  * Exactly one of [kcAuthSessionId] (initial login) or [kcSessionId] (step-up) is set, matching
- * [PeerAuthAssertion]'s own invariant on the backend (docs/ideen/web-keycloak-kanal.md #3).
+ * [PeerAuthAssertion]'s own invariant on the backend (docs/02-domaenenmodell.md Abschnitt 1).
  */
 export async function createPeerAuthAssertion(
   key: KcSigningKey,

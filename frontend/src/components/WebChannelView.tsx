@@ -49,8 +49,8 @@ interface Props {
  * AccessToken/IdToken shown and refreshable, a step-up to loa2 if not already there, and a real
  * Keycloak logout. Unlike the App channel's TokenPanel (a Mock/real-via-orchestrator AccessToken
  * for a DPoP-bound App client), this token comes straight from Keycloak's own token endpoint -
- * there is no orchestrator round-trip in this tab at all, by design (docs/ideen/
- * web-keycloak-kanal.md: the orchestrator only ever hears from Keycloak's own server-side
+ * there is no orchestrator round-trip in this tab at all, by design (docs/12-entscheidungen.md
+ * ADR-8: the orchestrator only ever hears from Keycloak's own server-side
  * extension, never from this browser tab).
  */
 export function WebChannelView({ onTokens }: Props) {
@@ -198,6 +198,15 @@ export function WebChannelView({ onTokens }: Props) {
 
       {tokens && (
         <>
+          {/* "name" ist ein Standard-OIDC-Claim aus dem "profile"-Scope (Default-Scope beider
+              Browser-Clients, keycloak-migrations V4/V11) - Keycloaks eingebauter "full name"-
+              Protocol-Mapper aus firstName/lastName, die KeycloakAccountSyncListener beim
+              Account-Sync setzt. */}
+          {typeof idClaims?.name === 'string' && (
+            <p>
+              Angemeldet als <strong>{idClaims.name}</strong>.
+            </p>
+          )}
           <ul className="status-list">
             <li>
               <span className="label">Gültig noch</span>

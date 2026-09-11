@@ -15,7 +15,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 
 /**
- * Cross-channel QR login (docs/ideen/qr-login-ueber-app.md): a WEB `auth-qr-lookup`/`auth-qr`
+ * Cross-channel QR login (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN): a WEB `auth-qr-lookup`/`auth-qr`
  * activation is resolved by an already-authenticated APP channel's `confirm-qr-login`. Both sides
  * are the same orchestrator process/DB - no real Keycloak needed, only peer-auth is mocked
  * (same pattern as [KcChannelIntegrationTest]).
@@ -77,6 +77,22 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
         return channelSessionId to accountId
     }
 
+    /**
+     * `registerWithQrOptIn`'s channel independently satisfies loa2 by the time `/peer-logins` runs
+     * (sms + email both active) - `ConfirmPeerLoginStrategy`'s re-proof requirement (docs/04-
+     * orchestrierung.md, CONFIRM_PEER_LOGIN, same shape as `DeleteAccountStrategy`) then demands one fresh
+     * factor before `confirm-qr-login` is offered, regardless of that existing evidence. Resolves
+     * it via auth-sms, same TAN pattern as every other auth-sms test in this suite.
+     */
+    private fun resolveReconfirmation(appChannelSessionId: String) {
+        val (tan, activation) = captureMockTan {
+            post("/orchestrator/api/v1/channels/$appChannelSessionId/tools/auth-sms")
+        }
+        val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+        val resolved = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+        resolved.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "input")
+    }
+
     /** Activates auth-qr-lookup on a fresh WEB channel, returns (toolSessionId, pairingCode, verificationCode). */
     private fun startWebLookup(): Triple<String, String, String> {
         val webChannelSessionId = UUID.randomUUID()
@@ -99,7 +115,8 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
                 val (appChannelSessionId, accountId) = registerWithQrOptIn()
 
                 val started = post("/orchestrator/api/v1/channels/$appChannelSessionId/peer-logins")
-                started.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "input")
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+                resolveReconfirmation(appChannelSessionId)
                 val confirmToolSessionId =
                     post("/orchestrator/api/v1/channels/$appChannelSessionId/tools/confirm-qr-login").nextRaw()["toolSessionId"] as String
                 val confirmStep = patch(
@@ -131,6 +148,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
                 val (appChannelSessionId, _) = registerWithQrOptIn()
 
                 post("/orchestrator/api/v1/channels/$appChannelSessionId/peer-logins")
+                resolveReconfirmation(appChannelSessionId)
                 val confirmToolSessionId =
                     post("/orchestrator/api/v1/channels/$appChannelSessionId/tools/confirm-qr-login").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"pairingCode":"$pairingCode"}""")
@@ -155,6 +173,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
                 // A DIFFERENT account that never enrolled qr.
                 val noOptInChannelSessionId = registerAndAuthenticate()
                 post("/orchestrator/api/v1/channels/$noOptInChannelSessionId/peer-logins")
+                resolveReconfirmation(noOptInChannelSessionId)
                 val confirmToolSessionId =
                     post("/orchestrator/api/v1/channels/$noOptInChannelSessionId/tools/confirm-qr-login").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"pairingCode":"$pairingCode"}""")

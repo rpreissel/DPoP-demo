@@ -447,7 +447,8 @@ button.destructive,
   gap: 0.75rem;
 }
 
-button.method-choice {
+button.method-choice,
+a.method-choice {
   width: 100%;
   display: flex;
   /* center would align the icon against the WHOLE text block, so a row with a two-line hint
@@ -466,17 +467,21 @@ button.method-choice {
   background: var(--bg);
   color: var(--text-h);
   text-align: left;
+  text-decoration: none;
   font-weight: 400;
   cursor: pointer;
+  box-sizing: border-box;
   transition: border-color 0.15s, background 0.15s, transform 0.05s;
 }
 
-button.method-choice:hover {
+button.method-choice:hover,
+a.method-choice:hover {
   border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 
-button.method-choice:active {
+button.method-choice:active,
+a.method-choice:active {
   transform: translateY(1px);
 }
 

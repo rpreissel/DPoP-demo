@@ -24,8 +24,8 @@ interface MockKeycloakViewProps {
 }
 
 /**
- * Demo/test stand-in for the real Keycloak Java SPI plugin (bd DPoP-demo-f9o.9, docs/ideen/
- * web-keycloak-kanal.md #7) - drives the SAME facade-neutral endpoints the App channel uses (tool
+ * Demo/test stand-in for the real Keycloak Java SPI plugin (bd DPoP-demo-f9o.9, docs/05-api.md
+ * Abschnitt 3) - drives the SAME facade-neutral endpoints the App channel uses (tool
  * steps rendered via the actual tools/* components, see [ToolRenderContext.proof]), signed with a
  * Keycloak peer-auth assertion instead of DPoP. No `context.setUser()`/Protocol-Mapper equivalent:
  * `authData` is just shown, not written anywhere real.
@@ -44,21 +44,21 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
   const [response, setResponse] = useState<ChannelResponse | null>(null)
   const [error, setError] = useState('')
 
-  // Start form - covers both anchor cases (docs/ideen/web-keycloak-kanal.md #6/#8): initial login
+  // Start form - covers both anchor cases (docs/05-api.md Abschnitt 3): initial login
   // (no sub) vs. step-up (sub already known) - either with a target level or without one at all
   // (Keycloak resuming/reflecting an existing session without asking for more). Every start opens
-  // its own fresh channel, step-up included (docs/ideen/web-keycloak-kanal.md #6: a step-up's
+  // its own fresh channel, step-up included (docs/05-api.md Abschnitt 3: a step-up's
   // `ChannelSession` is never found/reused, only its evidence is carried over via the amr fields
   // below - simulating what the real Authenticator would have recovered from its own
   // UserSession-note hand-off).
   const [startMode, setStartMode] = useState<'login' | 'sub'>('login')
   const [accountIdInput, setAccountIdInput] = useState('')
   const [targetAcrInput, setTargetAcrInput] = useState('')
-  // Comma-separated nativeToolIds (docs/ideen/web-keycloak-kanal.md #6/#9) - method/loa/factorTypes
+  // Comma-separated nativeToolIds (docs/05-api.md Abschnitt 3) - method/loa/factorTypes
   // aren't entered here at all anymore, they're fixed per authenticator TYPE server-side
   // (NativeAuthenticatorRegistry). Known demo ids: kc-sms-form, kc-password-form, kc-otp-form.
   const [nativeToolIdsInput, setNativeToolIdsInput] = useState('kc-sms-form')
-  // A token fetched via GET .../restore-data (docs/ideen/web-keycloak-kanal.md #6) - stands in for
+  // A token fetched via GET .../restore-data (docs/05-api.md Abschnitt 3) - stands in for
   // what the real Authenticator's end-of-flow lifecycle hook would stash in a Keycloak
   // UserSession note, and kcSessionId is the value it's bound to (RestoreDataCodec checks a
   // resubmission's own assertion carries the SAME one). Deliberately never cleared by `reset()` -
@@ -86,13 +86,13 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelSessionId, response])
 
-  // Client-side-only convenience, not an orchestrator concern (docs/ideen/web-keycloak-kanal.md
-  // #6/#8): every "Sub vorhanden" run opens its own fresh channel, never a reused one - this
+  // Client-side-only convenience, not an orchestrator concern (docs/05-api.md
+  // Abschnitt 3): every "Sub vorhanden" run opens its own fresh channel, never a reused one - this
   // effect just mirrors the last channel's own authData into the form fields, so a tester doesn't
   // have to retype accountId/amr by hand for the next step-up. That mirroring IS the faithful
   // simulation now: it stands in for the real Authenticator reading its own evidence back out of
   // a Keycloak UserSession-note and handing it to the newly opened channel as its initial amr
-  // (docs/ideen/web-keycloak-kanal.md #6). Only fires while accountId is actually known (an
+  // (docs/05-api.md Abschnitt 3). Only fires while accountId is actually known (an
   // initial-login channel's still-empty authData must never clear a prefill that came from an
   // earlier, already-authenticated channel).
   useEffect(() => {
@@ -148,7 +148,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
       .map((nativeToolId) => ({ nativeToolId, amrSourceId: `${nativeToolId}-exec-1` }))
     try {
       setError('')
-      // Always a fresh channel, login or step-up alike (docs/ideen/web-keycloak-kanal.md #6) -
+      // Always a fresh channel, login or step-up alike (docs/05-api.md Abschnitt 3) -
       // only the anchor shape differs. A step-up reuses restoreKcSessionId (the value a prior
       // "RestoreData holen" click fetched a token for) as its OWN kcSessionId when one is on hand
       // - RestoreDataCodec.decode only honors a token bound to the resubmitting assertion's exact
@@ -176,7 +176,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
     }
   }
 
-  /** Simulates the Authenticator's end-of-flow lifecycle hook (docs/ideen/web-keycloak-kanal.md #6) fetching a fresh RestoreData token to stash in a Keycloak UserSession note. */
+  /** Simulates the Authenticator's end-of-flow lifecycle hook (docs/05-api.md Abschnitt 3) fetching a fresh RestoreData token to stash in a Keycloak UserSession note. */
   async function fetchRestoreData() {
     if (!signingKey || !channelSessionId || !anchor) return
     const kcSessionId = anchor.kcSessionId ?? `mock-user-session-${crypto.randomUUID()}`
@@ -201,7 +201,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
     try {
       setError('')
       await upsertKcChannel(signingKey, channelSessionId, anchor, accountId, undefined, amr)
-      // "Resume ohne Tool-Aufruf" (docs/ideen/web-keycloak-kanal.md #8): a SEPARATE, plain
+      // "Resume ohne Tool-Aufruf" (docs/05-api.md Abschnitt 3): a SEPARATE, plain
       // follow-up call with no native params at all - proves the merged evidence, and each
       // entry's own source ("kc" vs "orchestrator"), survives independently of the call that
       // produced it, exactly as the real OrchestratorAuthenticator would see it on its next visit.
@@ -258,7 +258,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
       <div className="card">
         <h2>Mock-Keycloak</h2>
         <p>
-          Simuliert Keycloaks <code>OrchestratorAuthenticator</code> (docs/ideen/web-keycloak-kanal.md) - ruft dieselben
+          Simuliert Keycloaks <code>OrchestratorAuthenticator</code> (docs/05-api.md Abschnitt 3) - ruft dieselben
           fassadenneutralen Endpunkte wie der App-Kanal auf, mit einer signierten Peer-Auth-Assertion statt DPoP. Nur für
           Demo/Test: kein echtes <code>context.setUser()</code>, <code>authData</code> wird hier nur angezeigt.
         </p>
@@ -285,7 +285,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
                   <p className="hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
                     accountId/amr vorbelegt aus der zuletzt bekannten authData - simuliert, was der reale
                     Authenticator hier aus seiner eigenen Keycloak-UserSession-Note zurückgelesen hätte, um den neu
-                    angelegten Kanal damit zu befüllen (docs/ideen/web-keycloak-kanal.md #6/#8).
+                    angelegten Kanal damit zu befüllen (docs/05-api.md Abschnitt 3).
                   </p>
                 )}
                 <div className="form-group">
@@ -327,7 +327,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
             <button className="secondary small" onClick={fetchRestoreData}>
               RestoreData holen
             </button>{' '}
-            simuliert den Lifecycle-Hook des Authenticators am Flow-Ende (docs/ideen/web-keycloak-kanal.md #6):
+            simuliert den Lifecycle-Hook des Authenticators am Flow-Ende (docs/05-api.md Abschnitt 3):
             {restoreDataToken ? ' Token vorhanden - wird beim nächsten "Sub vorhanden"-Start automatisch mitgeschickt.' : ' noch kein Token geholt.'}
           </p>
         )}
@@ -343,8 +343,8 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
             Steht für einen nativ konfigurierten Keycloak-Schritt (kein Orchestrator-Tool) - z. B. den eingebauten
             Cookie-/OTP-Authenticator. Wird sofort in die Evidenz dieses Kanals gemischt und direkt danach mit einem
             separaten, reinen Resume-Aufruf (kein Tool, kein amr) bestätigt - so bleibt sichtbar, dass authData.amr
-            (Methode → Quelle) auch unabhängig vom simulierenden Aufruf bestehen bleibt (docs/ideen/
-            web-keycloak-kanal.md #8).
+            (Methode → Quelle) auch unabhängig vom simulierenden Aufruf bestehen bleibt (docs/05-api.md
+            Abschnitt 3).
           </p>
           <div className="form-grid">
             <div className="form-group">

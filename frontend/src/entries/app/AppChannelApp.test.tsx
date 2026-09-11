@@ -1,10 +1,10 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
-import type { ChannelResponse } from './types'
+import { AppChannelApp } from './AppChannelApp'
+import type { ChannelResponse } from '../../types'
 
-vi.mock('./dpop.ts', () => ({
+vi.mock('../../dpop.ts', () => ({
   getOrCreateDpopKeyPair: vi.fn().mockResolvedValue({ keyPair: {} as CryptoKeyPair, publicJwk: {} as JsonWebKey }),
   computeJwkThumbprint: vi.fn().mockResolvedValue('fake-thumbprint'),
   resetDpopKeyPair: vi.fn().mockResolvedValue(undefined),
@@ -22,10 +22,11 @@ const api = vi.hoisted(() => ({
   activateTool: vi.fn(),
   patchTool: vi.fn(),
   getTool: vi.fn(),
+  startPeerLogin: vi.fn(),
 }))
 
-vi.mock('./api.ts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./api.ts')>()
+vi.mock('../../api.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api.ts')>()
   return { ...actual, ...api, onApiCall: () => () => {} }
 })
 
@@ -34,17 +35,13 @@ function channelResponse(overrides: Partial<ChannelResponse> & { channel: Channe
   return { next: undefined, stepData: undefined, demo: undefined, ...overrides }
 }
 
-/** Willkommen/App-Kanal/Web-Kanal defaults to Willkommen, and App-Kanal itself defaults to its own Demo sub-tab - every test here exercises the App-channel Demo content, so it always has to jump in via the Willkommen page's own link first (the Demo sub-tab is then already active). */
-async function switchToDemoTab(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Zum App-Kanal' }))
-}
-
 beforeEach(() => {
   window.localStorage.clear()
-  // Each test relies on mounting fresh on the Willkommen page (switchToDemoTab clicks its "Zum
-  // App-Kanal" jump link) - without resetting the hash, a later test in this file would inherit
-  // whichever section/sub-tab the previous one navigated to and find no such link to click.
+  // AppChannelApp is its own page now (no more Willkommen section to navigate away from) - still
+  // reset the hash/search so a later test doesn't inherit whichever sub-tab/query the previous one
+  // left behind.
   window.location.hash = ''
+  window.history.replaceState(null, '', '/')
   vi.clearAllMocks()
 })
 
@@ -62,9 +59,8 @@ describe('resume mid-tool (docs/05-api.md #2: next.toolSessionId)', () => {
       })
     )
 
-    render(<App />)
+    render(<AppChannelApp />)
     const user = userEvent.setup()
-    await switchToDemoTab(user)
 
     const resumeButton = await screen.findByRole('button', { name: /Sitzung fortsetzen/ })
     await user.click(resumeButton)
@@ -105,9 +101,8 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
       })
     )
 
-    render(<App />)
+    render(<AppChannelApp />)
     const user = userEvent.setup()
-    await switchToDemoTab(user)
 
     await user.click(await screen.findByRole('button', { name: 'Automatisch anmelden' }))
     await user.click(await screen.findByRole('button', { name: 'Code senden' }))
@@ -142,12 +137,71 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
       })
     )
 
-    render(<App />)
+    render(<AppChannelApp />)
     const user = userEvent.setup()
-    await switchToDemoTab(user)
     await user.click(await screen.findByRole('button', { name: /Sitzung fortsetzen/ }))
 
     await screen.findByText('loa2')
     expect(api.getChannel).toHaveBeenCalledTimes(1) // the resume GET itself - no extra backfill call
+  })
+})
+
+describe('URL-Einstieg per intent (docs/10-frontend.md #1)', () => {
+  it('startet confirm_peer_login automatisch und bereinigt die URL', async () => {
+    window.history.replaceState(null, '', '/?intent=confirm_peer_login&pairingCode=AB3D-7KQ2')
+    api.createChannel.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'STEP_UP_IN_PROGRESS' },
+        next: { type: 'tool', toolId: 'auth-device', step: 'auth', toolSessionId: 'ts-1' },
+      })
+    )
+
+    render(<AppChannelApp />)
+
+    await waitFor(() => expect(api.createChannel).toHaveBeenCalledWith(expect.anything(), undefined, 'confirm_peer_login', expect.anything()))
+    expect(window.location.search).toBe('')
+  })
+
+  it('bestätigt über den bereits authentifizierten Channel statt einen neuen anzulegen', async () => {
+    window.localStorage.setItem('dpop-demo-channel-session-id', 'chan-1')
+    window.history.replaceState(null, '', '/?intent=confirm_peer_login&pairingCode=AB3D-7KQ2')
+    api.getChannel.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'AUTHENTICATED', currentAcr: 'loa2' },
+        next: { type: 'orchestrator', context: 'authentication', step: 'authenticated' },
+      })
+    )
+    api.startPeerLogin.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'STEP_UP_IN_PROGRESS' },
+        next: { type: 'tool', toolId: 'confirm-qr-login', step: 'input', toolSessionId: 'ts-2' },
+      })
+    )
+
+    render(<AppChannelApp />)
+
+    await waitFor(() => expect(api.startPeerLogin).toHaveBeenCalledWith(expect.anything(), 'chan-1'))
+    expect(api.createChannel).not.toHaveBeenCalled()
+  })
+})
+
+describe('Back-Button bis zur Startauswahl (docs/10-frontend.md #1)', () => {
+  it('verlässt einen laufenden Vorgang lokal, ohne Backend-Aufruf', async () => {
+    api.createChannel.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
+        next: { type: 'tool', toolId: 'ident-fsc', step: 'input', toolSessionId: 'ts-1' },
+      })
+    )
+
+    render(<AppChannelApp />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Neues Konto registrieren' }))
+    await screen.findByRole('heading', { name: /Freischaltcode/ })
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+
+    await screen.findByRole('heading', { name: 'Wie möchten Sie starten?' })
+    expect(api.cancelJourney).not.toHaveBeenCalled()
   })
 })

@@ -24,18 +24,29 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 
 /**
- * The one facade-specific App endpoint (docs/05-api.md #2, bd DPoP-demo-bqi.5): everything else a
- * channel offers lives on the facade-neutral [ChannelController] below, shared with the future
- * kc-facade's own `POST /kc/channels`. Only creation differs per facade - it's where each facade's
- * own proof-of-caller happens (DPoP proof here; a signed Keycloak assertion for `/kc/channels`).
+ * The App-facade-specific endpoints (docs/05-api.md #2, bd DPoP-demo-bqi.5): everything a channel
+ * offers once it exists lives on the facade-neutral [ChannelController] below, shared with the
+ * future kc-facade's own `POST /kc/channels`. Creation, and the device-link read below, differ per
+ * facade - it's where each facade's own proof-of-caller happens (DPoP proof here; a signed
+ * Keycloak assertion for `/kc/channels`).
  */
 @RestController
 @RequestMapping("/orchestrator/api/v1/app/channels")
-@Tag(name = "App channels", description = "The App facade's one facade-specific endpoint - channel creation")
+@Tag(name = "App channels", description = "The App facade's own endpoints - channel creation and the device-link read")
 @SecurityRequirement(name = "dpop")
 class ChannelCreationController(
     private val channelService: ChannelService
 ) {
+
+    @GetMapping("/device-link")
+    @Operation(
+        summary = "Whether this device is already linked to an account",
+        description = "A pure read (docs/02-domaenenmodell.md #1) - no channel/journey created, just the same DPoP " +
+            "proof every other App-facade call already needs. Lets the entry screen show whose device this is " +
+            "before the user picks how to start."
+    )
+    fun getDeviceLink(@BindingKey bindingKeyRef: String): DeviceLinkResponse =
+        channelService.findDeviceLink(bindingKeyRef)
 
     @PostMapping
     @Operation(
@@ -284,7 +295,7 @@ class ChannelController(
     @PostMapping("/{channelSessionId}/peer-logins")
     @Operation(
         summary = "Confirm a WEB-channel QR login from this already-authenticated APP channel",
-        description = "Channel must already be AUTHENTICATED (docs/ideen/qr-login-ueber-app.md #4). Same " +
+        description = "Channel must already be AUTHENTICATED (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN). Same " +
             "AuthIntent.CONFIRM_PEER_LOGIN as the cold-entry path via POST /app/channels - gates on loa2 " +
             "(step-up offered first if below it), then offers confirm-qr-login as the one candidate.",
         responses = [
@@ -419,8 +430,9 @@ class ChannelController(
     @GetMapping("/{channelSessionId}/idclaims")
     @Operation(
         summary = "Get the fachliche ID-token claims",
-        description = "Business-facing claims (accountId/personId/email/acr/amr/auth_time) - a separate resource " +
-            "from the AccessToken's own claims, not encoded into it.",
+        description = "Business-facing claims (accountId/personId/name/email/acr/amr/auth_time) - a separate " +
+            "resource from the AccessToken's own claims, not encoded into it. name is the one place the client " +
+            "learns who is logged in (docs/05-api.md).",
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -428,6 +440,7 @@ class ChannelController(
                     {
                       "accountId": 42,
                       "personId": 7,
+                      "name": "Max Muster",
                       "email": "max.mustermann@example.com",
                       "acr": "loa2",
                       "amr": ["sms", "password"],

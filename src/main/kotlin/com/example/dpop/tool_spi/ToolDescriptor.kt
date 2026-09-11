@@ -75,7 +75,7 @@ enum class ToolCategory {
     /**
      * A tool that decides on another channel's pending request instead of proving or establishing
      * anything about its own channel/account - never contributes to the own channel's ACR/AMR
-     * balance, never a candidate for closing a gap (docs/ideen/qr-login-ueber-app.md #3).
+     * balance, never a candidate for closing a gap (docs/03-tool-architektur.md).
      */
     SIDE_ACTION
 }
@@ -108,7 +108,7 @@ enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) 
     /**
      * Approves or declines a pending request that originated on a DIFFERENT channel (e.g.
      * `confirm-qr-login` deciding a `auth-qr`/`auth-qr-lookup` pairing,
-     * docs/ideen/qr-login-ueber-app.md #3) - structurally unlike every other role, which answers
+     * docs/03-tool-architektur.md) - structurally unlike every other role, which answers
      * "who am I"/"what can I prove" for its OWN channel.
      */
     PEER_APPROVAL(ToolCategory.SIDE_ACTION, "input")

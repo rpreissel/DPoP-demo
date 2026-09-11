@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 /**
  * Demo-only: gives every V2__testdata.sql test person a real orchestrator account with one active
  * step-up method, so the `keycloak` profile's native-password/orchestrator-step-up flow
- * (docs/ideen/web-keycloak-kanal.md #9, infra/tofu/keycloak's LoA-1/LoA-2 split) has something real
+ * (Keycloak-eigene LoA-Subflow-Konfiguration, infra/tofu/keycloak's LoA-1/LoA-2 split) has something real
  * to demonstrate on first boot - LoA1 is native Keycloak password now, so the orchestrator itself
  * never establishes these accounts' identity; something has to.
  *

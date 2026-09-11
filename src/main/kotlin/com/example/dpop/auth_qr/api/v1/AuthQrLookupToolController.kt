@@ -50,7 +50,7 @@ class AuthQrLookupToolController(
     @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-qr-lookup")
     @Operation(
         summary = "Poll for the APP side's decision",
-        description = "No request body - the empty PATCH itself is the poll (docs/ideen/qr-login-ueber-app.md #5)."
+        description = "No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen)."
     )
     fun patch(
         @PathVariable toolSessionId: UUID,

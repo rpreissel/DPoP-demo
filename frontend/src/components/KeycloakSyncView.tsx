@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ApiError, syncKeycloak, type KeycloakSyncResult } from '../api.ts'
 
 /**
- * Explicit full reconciliation between orchestrator accounts and Keycloak users (docs/ideen/
- * web-keycloak-kanal.md) - the event-driven sync (KeycloakAccountSyncListener) already keeps
+ * Explicit full reconciliation between orchestrator accounts and Keycloak users - the event-driven
+ * sync (KeycloakAccountSyncListener) already keeps
  * things in step as changes happen; this covers what that can't: a missed event, or a Keycloak
  * user left over from a since-deleted account. Only exists as a backend endpoint under the
  * `keycloak` Spring profile - a 404 here means that profile isn't active, not a real error.

@@ -16,12 +16,12 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The standard way Keycloak gets a plugin's own values into a minted token (docs/ideen/
- * web-keycloak-kanal.md #10): at token-mint time the auth-notes {@link OrchestratorAuthenticator}
+ * The standard way Keycloak gets a plugin's own values into a minted token (docs/05-api.md
+ * Abschnitt 3): at token-mint time the auth-notes {@link OrchestratorAuthenticator}
  * wrote as user-session-notes across the flow have already materialized on the UserSessionModel -
  * this mapper just copies them into the acr/amr claims. Deliberately overwrites Keycloak's own acr
  * mapper output rather than merging with it: on a WEB channel the orchestrator is the sole,
- * combining ACR/AMR instance for the whole flow run (docs/ideen/web-keycloak-kanal.md #8), so its
+ * combining ACR/AMR instance for the whole flow run (docs/05-api.md Abschnitt 3), so its
  * value alone belongs in the token, not a union with Keycloak's native LoA tracking.
  */
 public class OrchestratorAcrAmrMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper {
@@ -45,7 +45,7 @@ public class OrchestratorAcrAmrMapper extends AbstractOIDCProtocolMapper impleme
 
     @Override
     public String getHelpText() {
-        return "Writes the orchestrator's combined acr/amr (docs/ideen/web-keycloak-kanal.md #8) into "
+        return "Writes the orchestrator's combined acr/amr (docs/05-api.md Abschnitt 3) into "
                 + "the token, read from the UserSessionModel notes OrchestratorAuthenticator wrote.";
     }
 

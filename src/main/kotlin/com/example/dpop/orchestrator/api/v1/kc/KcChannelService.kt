@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 /**
- * The kc-facade's one facade-specific endpoint's service (docs/ideen/web-keycloak-kanal.md #6):
+ * The kc-facade's one facade-specific endpoint's service (docs/05-api.md Abschnitt 3):
  * upsert semantics on a client(=Keycloak)-chosen [UUID] - resumes an existing channel or creates
  * it, then delegates to [ChannelService.resumeChannel] exactly like the App channel does, so
  * "which tool comes next" stays decided in exactly one place.
@@ -53,8 +53,8 @@ class KcChannelService(
         availableTools: List<String>? = null,
         intent: String? = null
     ): ChannelResponse {
-        // restoreDataToken is the bulk, one-shot counterpart of accountId/amr above (docs/ideen/
-        // web-keycloak-kanal.md #6) - a prior, unrelated flow run's own state, resubmitted
+        // restoreDataToken is the bulk, one-shot counterpart of accountId/amr above (docs/05-api.md
+        // Abschnitt 3) - a prior, unrelated flow run's own state, resubmitted
         // verbatim. decode() checks the token is bound to [restoreDataKcSessionId] - Keycloak's
         // actual, durable UserSessionModel id, sent explicitly alongside the token because it is
         // NOT the same value as assertion.channelAnchor (which is only ever this flow run's own
@@ -79,7 +79,7 @@ class KcChannelService(
             MethodEvidence(
                 MethodName(descriptor.method),
                 AcrLevel(descriptor.maxAcr),
-                // Deliberately UNCAPPED (docs/ideen/web-keycloak-kanal.md #9), not the method's
+                // Deliberately UNCAPPED (docs/05-api.md Abschnitt 3), not the method's
                 // own loa: the enrolledUnderAcr cap exists to stop an orchestrator combination
                 // from self-escalating past what an account's real enrollment history actually
                 // supports - a defense against a claim the orchestrator itself never verified.
@@ -124,10 +124,10 @@ class KcChannelService(
             )
         } else {
             // Even a guessed channelSessionId is never enough on its own - the assertion must
-            // independently claim the same kc-anchor this channel was opened with (docs/ideen/
-            // web-keycloak-kanal.md #4).
+            // independently claim the same kc-anchor this channel was opened with (docs/02-domaenenmodell.md
+            // Abschnitt 1).
             val channel = kcChannelAccessGuard.requireChannel(channelSessionId, assertion)
-            // Step-up (docs/ideen/web-keycloak-kanal.md #6): binds the channel to the account
+            // Step-up (docs/05-api.md Abschnitt 3): binds the channel to the account
             // Keycloak already knows, as soon as it first appears - never overwritten once set,
             // a later request naming a different account would be a mismatch, not a rebind.
             if (effectiveAccountId != null && channel.accountId == null) {
@@ -181,7 +181,7 @@ class KcChannelService(
     fun restoreData(channelSessionId: UUID, assertion: PeerAuthAssertion, kcSessionId: String): String? {
         val channel = kcChannelAccessGuard.requireChannel(channelSessionId, assertion)
         // This is the one call every completed kc flow run makes unconditionally
-        // (OrchestratorResumeAuthenticator.onTopFlowSuccess, docs/ideen/web-keycloak-kanal.md #6) -
+        // (OrchestratorResumeAuthenticator.onTopFlowSuccess, docs/05-api.md Abschnitt 3) -
         // piggybacking the durable session id's first-ever appearance onto it means RetentionJob
         // (DPoP-demo-f9o.12) gets it for free, with no separate write path or Keycloak-extension
         // change needed.

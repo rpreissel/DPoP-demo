@@ -7,7 +7,7 @@ import type { ToolRenderContext } from '../types'
  * through, just a convenience a tool's own api.ts may re-export when it happens to fit (see e.g.
  * tools/sms/api.ts). A tool with different needs writes its own api.ts without this import.
  *
- * The one place `ctx.proof` is actually read (docs/ideen/web-keycloak-kanal.md #6) - every tool
+ * The one place `ctx.proof` is actually read (docs/05-api.md Abschnitt 3) - every tool
  * module's own render() stays facade-agnostic, since the two facades' PATCH calls only differ in
  * how they're signed, never in body shape.
  */

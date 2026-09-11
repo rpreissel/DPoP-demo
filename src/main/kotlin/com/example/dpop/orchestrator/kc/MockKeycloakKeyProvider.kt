@@ -7,7 +7,7 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import org.springframework.stereotype.Component
 
 /**
- * The Mock-Keycloak frontend's signing key (docs/ideen/web-keycloak-kanal.md #3, bd
+ * The Mock-Keycloak frontend's signing key (docs/12-entscheidungen.md ADR-7, bd
  * DPoP-demo-f9o.9) - demo/test only, never a real trust boundary. One key pair generated fresh
  * per backend startup: the private half is handed to the frontend once (`GET
  * /mock-keycloak/signing-key`, never a real Keycloak capability) so it can sign peer-auth

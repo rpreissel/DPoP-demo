@@ -20,7 +20,7 @@
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <#-- verificationCode is never typed anywhere - only compared by eye against the app
-                 screen (QR-jacking countermeasure, docs/ideen/qr-login-ueber-app.md #6). -->
+                 screen (QR-jacking countermeasure, docs/07-betrieb.md #5). -->
             <#if verificationCode??>
                 <p>Vergleichscode: <strong class="orchestrator-qr-code">${verificationCode}</strong></p>
                 <p class="orchestrator-hint">
@@ -30,7 +30,15 @@
         </div>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
-            <a href="${deepLink}">${deepLink}</a>
+            <#-- Named target (not the default same-tab navigation): a click must not navigate this
+                 waiting WEB screen away. Same window name as Willkommen's own App-Kanal link
+                 (docs/10-frontend.md #0) - reuses an already-open App-Kanal tab when clicked from
+                 there, but NOT from here: this page's origin (this Keycloak host) differs from the
+                 App-Kanal's, and Chrome does not resolve named targets across origins even when both
+                 tabs share a common opener - each click opens a fresh tab (browsergetestet,
+                 docs/10-frontend.md #0). Harmless: intent=confirm_peer_login still lands correctly
+                 in whichever tab opens. -->
+            <a href="${deepLink}" target="dpop-demo-app-kanal">${deepLink}</a>
             <p class="orchestrator-hint">
                 Demo-Link: öffnet die App direkt (ohne Kamera) mit vorbefülltem Pairing-Code.
             </p>
@@ -44,8 +52,8 @@
         </form>
 
         <#-- Re-submits the (empty) form periodically to poll for the app's decision - safe to do
-             at this rate: an InProgress outcome never charges any attempt/login counter
-             (docs/ideen/qr-login-ueber-app.md #7). Stops once the page navigates away. -->
+             at this rate: an InProgress outcome never charges any attempt/login counter.
+             Stops once the page navigates away. -->
         <script>
             setTimeout(function () {
                 document.getElementById("kc-orchestrator-tool-form").submit();

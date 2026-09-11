@@ -9,8 +9,7 @@ import org.keycloak.storage.UserStorageProviderFactory;
 /**
  * Factory for {@link OrchestratorPasswordStorageProvider} - holds the long-lived
  * {@link OrchestratorClient} (one HTTP client + signer per factory instance, not re-created per
- * provider instance, same convention as {@link OrchestratorAuthenticator}'s ideal per
- * docs/ideen/web-keycloak-kanal.md #10).
+ * provider instance, same convention as {@link OrchestratorAuthenticator}'s own long-lived client).
  */
 public class OrchestratorPasswordStorageProviderFactory implements UserStorageProviderFactory<OrchestratorPasswordStorageProvider> {
 
@@ -26,7 +25,7 @@ public class OrchestratorPasswordStorageProviderFactory implements UserStoragePr
     @Override
     public String getHelpText() {
         return "Delegates password verify/change to the orchestrator's own auth_password store "
-                + "(docs/ideen/web-keycloak-kanal.md) - no password is ever stored in Keycloak itself, "
+                + "- no password is ever stored in Keycloak itself, "
                 + "same principle as an LDAP federation provider delegating to its directory.";
     }
 

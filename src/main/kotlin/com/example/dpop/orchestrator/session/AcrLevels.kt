@@ -11,7 +11,7 @@ object AcrLevels {
 
     private val order = listOf("none", "loa1", "loa2", "loa3")
 
-    /** The highest known level - the natural "no ceiling" value for a caller that deliberately does not want to cap an MFA-combination bump (docs/ideen/web-keycloak-kanal.md #9). */
+    /** The highest known level - the natural "no ceiling" value for a caller that deliberately does not want to cap an MFA-combination bump. */
     val HIGHEST: String get() = order.last()
 
     fun rank(acr: String?): Int = acr?.let { order.indexOf(it) }?.takeIf { it >= 0 } ?: 0

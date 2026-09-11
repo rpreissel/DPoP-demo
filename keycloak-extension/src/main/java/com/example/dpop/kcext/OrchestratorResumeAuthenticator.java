@@ -19,7 +19,7 @@ import java.util.List;
  * whether this browser already carries a valid Keycloak identity cookie
  * ({@link OrchestratorNotes#resolveExistingUserSession}, the same check {@code auth-cookie} itself
  * does), and the one and only place that resubmits whatever RestoreData a PRIOR flow run stashed
- * on that session (docs/ideen/web-keycloak-kanal.md #6). The resolved UserSessionModel is used ONLY
+ * on that session (docs/05-api.md Abschnitt 3). The resolved UserSessionModel is used ONLY
  * for that - to resolve the account and to bind the RestoreData resubmission - never as the
  * peer-auth anchor itself, which is always {@code channelSessionId} (see
  * PeerAuthAssertionSigner's own doc on why: it keeps concurrent flows sharing the same underlying

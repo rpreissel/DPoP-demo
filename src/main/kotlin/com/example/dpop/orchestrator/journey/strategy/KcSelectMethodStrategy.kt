@@ -13,7 +13,7 @@ import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
 /**
- * The Web-Kanal entry intent (docs/ideen/web-keycloak-kanal.md #7): a single `selectMethod`
+ * The Web-Kanal entry intent (docs/04-orchestrierung.md Abschnitt 3): a single `selectMethod`
  * step listing every kc-usable tool, unconditionally - no fallback chain, no enrollment offer,
  * no sufficiency check before offering. Keycloak's own flow configuration decides which
  * execution runs where and whether the reached level is enough; this strategy only ever answers
@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component
  *   lookup-login tools only ([CandidateTools.forLookupLogin]) - never identification
  *   ([CandidateTools.forIdentification]), which is an App-Kanal-only concept with no Keycloak
  *   equivalent, and never an enrollment.
- * - **Step-up** (account pre-set on the channel before this journey starts, docs/ideen/
- *   web-keycloak-kanal.md #6): only auth tools for that already-known account, like
+ * - **Step-up** (account pre-set on the channel before this journey starts, docs/05-api.md
+ *   Abschnitt 3): only auth tools for that already-known account, like
  *   `FAST_ACCESS` treats a recognized-but-unproven device.
  */
 @Component
@@ -82,8 +82,8 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
     }
 
     /**
-     * Never [CandidateTools.forIdentification] and never an enrollment (docs/ideen/
-     * web-keycloak-kanal.md #7) - the Web-Kanal only ever proves an EXISTING identity, either by
+     * Never [CandidateTools.forIdentification] and never an enrollment (docs/04-orchestrierung.md
+     * Abschnitt 3) - the Web-Kanal only ever proves an EXISTING identity, either by
      * resolving the account itself (no account yet: [CandidateTools.forLookupLogin]) or by
      * authenticating an already-known one ([CandidateTools.forAuth]). Fresh identification is an
      * App-Kanal-only concept (`ident-fsc`/`ident-eid`); Keycloak's own login screen has no

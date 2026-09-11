@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController
 
 /**
  * Backs the demo frontend's "Sync with Keycloak" settings button - only exists at all under the
- * `keycloak` Spring profile (docs/ideen/web-keycloak-kanal.md), same as
+ * `keycloak` Spring profile, same as
  * [com.example.dpop.orchestrator.kc.KeycloakAccountSyncService] itself; the default (Mock-Keycloak)
  * profile has no such endpoint to call.
  */

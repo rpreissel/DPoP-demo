@@ -11,7 +11,7 @@ import org.springframework.web.client.body
 import org.springframework.web.util.UriComponentsBuilder
 
 /**
- * The Keycloak-side half of the account-sync mechanism (docs/ideen/web-keycloak-kanal.md):
+ * The Keycloak-side half of the account-sync mechanism:
  * mirrors an orchestrator account into a Keycloak user via the Admin REST API, so
  * `infra/tofu/keycloak/main.tf` no longer needs to hand-declare demo users - every account
  * `AccountService` ever creates/changes/deletes gets its Keycloak user kept in sync automatically
@@ -108,8 +108,8 @@ class KeycloakAdminClient(
      * never `ChannelSession.channelAnchor`, which names a single flow run, not the durable SSO
      * session) still shows up among [accountId]'s current Keycloak sessions - the check
      * `RetentionJob` (DPoP-demo-f9o.12) needs before treating an expired `KEYCLOAK` channel as
-     * safe to delete early: since Keycloak owns logout entirely (docs/ideen/web-keycloak-kanal.md
-     * #11) and never tells the orchestrator when it happens, a channel whose session already ended
+     * safe to delete early: since Keycloak owns logout entirely (docs/07-betrieb.md
+     * Abschnitt 3) and never tells the orchestrator when it happens, a channel whose session already ended
      * would otherwise sit around for the full retention window for no reason.
      *
      * `null`, not `false`, when the answer genuinely can't be determined (no matching Keycloak
@@ -159,7 +159,7 @@ class KeycloakAdminClient(
     /**
      * Ends exactly ONE Keycloak session (`DELETE /admin/realms/{realm}/sessions/{sessionId}`) -
      * the App-channel counterpart of "logout stays with Keycloak" for the Web channel
-     * (docs/ideen/web-keycloak-kanal.md #11): an App-channel `LogoutIntent` completion
+     * (docs/07-betrieb.md Abschnitt 3): an App-channel `LogoutIntent` completion
      * (`JourneyService`'s `Transition.Logout`) has no browser/cookie of its own to end, but the
      * same account may also hold a real Keycloak session from the custom account-token grant
      * (DPoP-demo-xso, `AccountTokenGrantType`'s reused session, `AuthContext.keycloakSessionId`).

@@ -9,7 +9,7 @@ import java.time.Instant
 
 /**
  * The one long-lived row `enroll-qr` creates - a pure opt-in marker ("this account allows QR
- * login"), never a secret (docs/ideen/qr-login-ueber-app.md #2). Its only content is its own
+ * login"), never a secret (docs/03-tool-architektur.md). Its only content is its own
  * existence; referenced from `account.authenticationMethods` via the generic `EnrollmentRef`,
  * exactly like every other method's credential row.
  */

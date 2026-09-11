@@ -95,7 +95,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   confirmPeerLogin: {
-    title: 'Web-Login per QR bestätigen (docs/ideen/qr-login-ueber-app.md)',
+    title: 'Web-Login per QR bestätigen (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN)',
     // Same anti-self-escalation gate as manageMethods (ConfirmPeerLoginStrategy.gate()): loa2
     // first. The "Nein" branch covers BOTH real starting points alike, because the strategy itself
     // does: a cold entry (no channel yet, ConfirmPeerLoginState.Requested as initialState()) and an

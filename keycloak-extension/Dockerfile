@@ -23,7 +23,7 @@ COPY theme/orchestrator /opt/keycloak/themes/orchestrator
 COPY healthcheck/JwksHealthCheck.java /opt/keycloak/healthcheck/JwksHealthCheck.java
 
 # start-dev does NOT auto-generate an HTTPS certificate on this version - a self-signed one is
-# needed for local dev (docs/ideen/web-keycloak-kanal.md #1: only the client certificate is out of
+# needed for local dev (docs/12-entscheidungen.md ADR-7: only the client certificate is out of
 # scope, server-side TLS is still the baseline). Cookie-based SSO reuse (auth-cookie, the step-up
 # path's precondition) needs a secure context or the browser drops the cookie on cross-origin
 # requests. Deliberately NOT generated here at image-build time (that produced a fresh keypair on

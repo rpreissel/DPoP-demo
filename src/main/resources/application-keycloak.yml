@@ -1,4 +1,4 @@
-# Profile fuer den echten Web-/Keycloak-Kanal (docs/ideen/web-keycloak-kanal.md), gegen das per
+# Profile fuer den echten Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), gegen das per
 # podman-compose gestartete Keycloak statt des Mock-Keycloak-Frontends (application.yml's Default).
 # Start: `podman-compose up --build` (compose.yml) fuer Keycloak+Tofu-Realm, parallel dazu
 # `./gradlew bootRun --args='--spring.profiles.active=keycloak'` fuer den Orchestrator selbst.

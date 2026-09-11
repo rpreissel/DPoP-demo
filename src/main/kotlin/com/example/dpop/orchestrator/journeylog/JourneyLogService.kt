@@ -81,7 +81,7 @@ class JourneyLogService(
     /**
      * Every journey step ever recorded under [accountId], across every channel it was ever bound
      * to (APP or KEYCLOAK alike) - the account-scoped counterpart of [getLogFor], which only ever
-     * sees APP channels (KEYCLOAK ones have no bindingKeyRef, docs/ideen/web-keycloak-kanal.md #5).
+     * sees APP channels (KEYCLOAK ones have no bindingKeyRef, docs/02-domaenenmodell.md Abschnitt 1).
      * Callers must already have proven they ARE this account (a channel bound to it) - this method
      * itself does no authorization, same contract as [getLogFor] trusting its own bindingKeyRef.
      *

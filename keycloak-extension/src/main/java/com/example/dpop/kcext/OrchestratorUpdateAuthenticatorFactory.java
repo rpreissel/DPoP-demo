@@ -50,7 +50,7 @@ public class OrchestratorUpdateAuthenticatorFactory implements AuthenticatorFact
     @Override
     public String getHelpText() {
         return "Invisible step placed right after a native authenticator (e.g. auth-username-password-form) "
-                + "to report what it just proved to the orchestrator (docs/ideen/web-keycloak-kanal.md #9). "
+                + "to report what it just proved to the orchestrator. "
                 + "Never renders a form of its own.";
     }
 

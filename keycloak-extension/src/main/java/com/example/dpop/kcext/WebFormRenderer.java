@@ -15,8 +15,8 @@ import java.util.Map;
 
 /**
  * The form-building half of {@link OrchestratorAuthenticator}'s rendering, extracted so
- * {@link OrchestratorManageMethodsRequiredAction} can reuse it too (docs/ideen/
- * manage-auth-methods-im-web-kanal.md) - only what's genuinely identical between the two: which
+ * {@link OrchestratorManageMethodsRequiredAction} can reuse it too (docs/05-api.md,
+ * "Anmeldeverfahren verwalten im Web-Kanal") - only what's genuinely identical between the two: which
  * FreeMarker template to pick and which attributes to set on an already-obtained
  * {@link LoginFormsProvider}. Deliberately takes {@code session}/{@code form}/{@code authSession}
  * directly rather than a shared context abstraction - {@code AuthenticationFlowContext} and

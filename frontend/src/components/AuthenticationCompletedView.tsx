@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import type { DpopKeyPair } from '../dpop.ts'
 import type { ActiveMethodView, DemoInfo } from '../types'
+import { getIdClaims } from '../api.ts'
 import { DiagramHint } from './DiagramHint'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { TokenPanel } from './TokenPanel'
@@ -67,11 +69,29 @@ export function AuthenticationCompletedView({
   // it as a step-up target only makes sense if the channel isn't there already.
   const canStepUpToLoa2 = currentAcr !== 'loa2'
 
+  // Who is logged in - a real ID-token claim (docs/05-api.md, "ID-Token-Claims"), not the demo-only
+  // object FE-11 talks about below. Fetched once, on demand, same reasoning as the security-summary
+  // backfill (App.tsx) - not part of every response, only relevant once this screen is reached.
+  const [personName, setPersonName] = useState<string | undefined>()
+  useEffect(() => {
+    let active = true
+    getIdClaims(dpop, channelSessionId)
+      .then((claims) => {
+        if (active) setPersonName(typeof claims.name === 'string' ? claims.name : undefined)
+      })
+      .catch(() => {
+        // Non-fatal - the rest of this screen works fine without a name, no error surfaced for it.
+      })
+    return () => {
+      active = false
+    }
+  }, [dpop, channelSessionId])
+
   return (
     <>
     <div className="card success-card">
       <h2>Authentifizierung erfolgreich!</h2>
-      <p>Sie sind angemeldet.</p>
+      <p>{personName ? <>Angemeldet als <strong>{personName}</strong>.</> : 'Sie sind angemeldet.'}</p>
       <ul className="status-list">
         {currentAcr && (
           <li>
@@ -112,7 +132,7 @@ export function AuthenticationCompletedView({
       )}
 
       <SectionHeading text="Web-Login per QR bestätigen" diagram="confirmPeerLogin" />
-      <p>Ein Browser wartet auf eine Bestätigung von diesem Konto (docs/ideen/qr-login-ueber-app.md).</p>
+      <p>Ein Browser wartet auf eine Bestätigung von diesem Konto (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN).</p>
       <div className="form-actions">
         <button className="secondary" onClick={onPeerLogin}>
           Web-Login bestätigen

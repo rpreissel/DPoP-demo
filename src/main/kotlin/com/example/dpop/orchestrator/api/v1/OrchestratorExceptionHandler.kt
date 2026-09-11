@@ -25,7 +25,7 @@ class OrchestratorExceptionHandler {
     fun handleDpopValidation(e: DpopValidationException): ResponseEntity<Map<String, String>> =
         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))
 
-    /** Missing/invalid Keycloak peer-auth assertion (docs/ideen/web-keycloak-kanal.md #3) - same contract as DPoP: 401. */
+    /** Missing/invalid Keycloak peer-auth assertion (docs/12-entscheidungen.md ADR-7) - same contract as DPoP: 401. */
     @ExceptionHandler(PeerAuthValidationException::class)
     fun handlePeerAuthValidation(e: PeerAuthValidationException): ResponseEntity<Map<String, String>> =
         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to "UNAUTHORIZED", "message" to (e.message ?: "")))

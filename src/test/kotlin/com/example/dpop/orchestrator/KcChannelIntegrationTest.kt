@@ -19,7 +19,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
 
-/** Covers the kc-facade's one facade-specific endpoint (docs/ideen/web-keycloak-kanal.md #6). */
+/** Covers the kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3). */
 class KcChannelIntegrationTest : IntegrationTestSupport() {
 
     @MockkBean
@@ -58,7 +58,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
     private fun kcPatch(channelSessionId: UUID, body: String = "{}"): Map<String, Any?> =
         kcPatchRaw(channelSessionId, body).let { it.statusCode shouldBe HttpStatus.OK; it.body!! }
 
-    /** Same peer-auth-bearing headers, for the facade-neutral tool endpoints (docs/ideen/web-keycloak-kanal.md #6). */
+    /** Same peer-auth-bearing headers, for the facade-neutral tool endpoints (docs/05-api.md Abschnitt 3). */
     private fun kcHeaders(): HttpHeaders = HttpHeaders().apply {
         set("Authorization", "Bearer mock-peer-auth-token")
         set("Content-Type", "application/json")
@@ -155,7 +155,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     (response["authData"] as Map<*, *>)["accountId"] shouldBe accountId
                     @Suppress("UNCHECKED_CAST")
                     val options = response.stepData()["options"] as List<String>
-                    // targetAcr's real job (docs/ideen/web-keycloak-kanal.md #6/#9): candidates
+                    // targetAcr's real job (docs/05-api.md Abschnitt 3): candidates
                     // for an already-known account go through CandidateTools.forAuth alone, never
                     // forIdentification - an already-authenticated account is never re-offered fsc.
                     options shouldNotContain "ident-fsc"
@@ -241,7 +241,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                         """{"accountId":$accountId,"targetAcr":"loa2","amr":[{"nativeToolId":"kc-sms-form","amrSourceId":"kc-sms-form-exec-1"}]}"""
                     )
                     (partial["authData"] as Map<*, *>)["acr"] shouldBe "loa1"
-                    // amr is method -> source (docs/ideen/web-keycloak-kanal.md #8), never a bare
+                    // amr is method -> source (docs/05-api.md Abschnitt 3), never a bare
                     // list - "sms" was proven by a simulated native authenticator, not a tool.
                     @Suppress("UNCHECKED_CAST")
                     val partialAmr = (partial["authData"] as Map<String, Any?>)["amr"] as Map<String, String>
@@ -252,7 +252,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // factor types combine exactly like two orchestrator ones would
                     // (DefaultAuthPolicy's bump, deliberately not capped down for kc evidence -
                     // see KcChannelService). `amr` is the caller's COMPLETE currently-valid kc set
-                    // for THIS call (docs/ideen/web-keycloak-kanal.md #6/#9, AuthEvidence.
+                    // for THIS call (docs/05-api.md Abschnitt 3, AuthEvidence.
                     // replaceForSource) - a real Authenticator's own AmrUtils-style computation
                     // would resend "sms" here too if it is still valid, not just the newest proof;
                     // omitting it would mean it expired.

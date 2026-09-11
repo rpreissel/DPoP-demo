@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from './dpop.ts'
-import './App.css'
-import type { ActiveMethodView, ChannelResponse, DemoInfo, Next, StepData } from './types'
-import { getUIComponent } from './routing.ts'
-import { knownToolIds, renderToolStep } from './tools/registry'
-import type { ToolRenderContext } from './tools/types'
+import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
+import '../../App.css'
+import type { ActiveMethodView, ChannelResponse, DemoInfo, DeviceLinkResponse, Next, StepData } from '../../types'
+import { getUIComponent } from '../../routing.ts'
+import { knownToolIds, renderToolStep } from '../../tools/registry'
+import type { ToolRenderContext } from '../../tools/types'
 import {
   abandonTool,
   activateTool,
@@ -15,6 +15,7 @@ import {
   describeError,
   getAccountJourneyLog,
   getChannel,
+  getDeviceLink,
   getJourneyLog,
   startLogout,
   onApiCall,
@@ -22,7 +23,7 @@ import {
   startAccountDeletion,
   startManageMethods,
   startPeerLogin,
-} from './api.ts'
+} from '../../api.ts'
 import {
   forgetChannelSessionId,
   loadAvailableTools,
@@ -30,46 +31,35 @@ import {
   storeAvailableTools,
   storeChannelSessionId,
   storePendingPairingCode,
-} from './session.ts'
-import { shorten } from './format.ts'
-import { AppChannelFrame } from './components/AppChannelFrame'
-import { AuthenticationCompletedView } from './components/AuthenticationCompletedView'
-import { DebugSidebar, type DebugEvent } from './components/DebugSidebar'
-import { EntryChoiceLinks } from './components/EntryChoiceLinks'
-import { SelectMethodView } from './components/SelectMethodView'
-import { JourneyStructureView } from './components/JourneyStructureView'
-import { JourneyLogView } from './components/JourneyLogView'
-import { PromptView } from './components/PromptView'
-import { ToolAvailabilitySelector } from './components/ToolAvailabilitySelector'
-import { AdminToolAvailabilityView } from './components/AdminToolAvailabilityView'
-import { KeycloakSyncView } from './components/KeycloakSyncView'
-import { UnavailableTools } from './components/UnavailableTools'
-import { DiagramHint } from './components/DiagramHint'
-import { MockKeycloakView, type MockKeycloakState } from './components/MockKeycloakView'
-import { WebChannelView } from './components/WebChannelView'
-import { WebChannelLayout } from './components/WebChannelLayout'
-import { onKcApiCall } from './kcApi'
-import { getWebJourneyLog } from './webApi'
-import type { TokenSet } from './webOidc'
-import { CURRENT_STEP_BY_STATE_TYPE, currentJourneyDiagramKey, journeyContextLabel, JOURNEY_DIAGRAMS } from './journeyDiagrams'
+} from '../../session.ts'
+import { shorten } from '../../format.ts'
+import { AppChannelFrame } from '../../components/AppChannelFrame'
+import { AuthenticationCompletedView } from '../../components/AuthenticationCompletedView'
+import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
+import { EntryChoiceLinks } from '../../components/EntryChoiceLinks'
+import { SelectMethodView } from '../../components/SelectMethodView'
+import { JourneyStructureView } from '../../components/JourneyStructureView'
+import { JourneyLogView } from '../../components/JourneyLogView'
+import { PromptView } from '../../components/PromptView'
+import { ToolAvailabilitySelector } from '../../components/ToolAvailabilitySelector'
+import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
+import { UnavailableTools } from '../../components/UnavailableTools'
+import { DeviceIdentityCard } from '../../components/DeviceIdentityCard'
+import { DiagramHint } from '../../components/DiagramHint'
+import { CURRENT_STEP_BY_STATE_TYPE, currentJourneyDiagramKey, journeyContextLabel, JOURNEY_DIAGRAMS } from '../../journeyDiagrams'
 
 interface ActiveTool {
   toolSessionId: string
   toolId: string
 }
 
-/** The two demo channels, each a self-contained section with its own Demo/Journey-Log/Einstellungen - "Welcome" sits above both as a shared landing page, not a channel of its own. */
-type Section = 'welcome' | 'app' | 'web'
-type SubTab = 'demo' | 'journeylog' | 'settings' | 'mock'
-const SECTIONS: Section[] = ['welcome', 'app', 'web']
-const SUB_TABS: SubTab[] = ['demo', 'journeylog', 'settings', 'mock']
+type SubTab = 'demo' | 'journeylog' | 'settings'
+const SUB_TABS: SubTab[] = ['demo', 'journeylog', 'settings']
 
-/** The section/sub-tab pair lives in the URL hash ("app/journeylog", bare "app" meaning its own default "demo") so a reload or a shared link keeps/opens the same place instead of always falling back to "welcome". */
-function tabFromHash(): { section: Section; sub: SubTab } {
-  const [rawSection, rawSub] = window.location.hash.slice(1).split('/')
-  const section = (SECTIONS as string[]).includes(rawSection) ? (rawSection as Section) : 'welcome'
-  const sub = (SUB_TABS as string[]).includes(rawSub) ? (rawSub as SubTab) : 'demo'
-  return { section, sub }
+/** The sub-tab lives in the URL hash ("journeylog"/"settings", bare/empty meaning "demo") so a reload or a shared link keeps/opens the same place. */
+function subFromHash(): SubTab {
+  const raw = window.location.hash.slice(1)
+  return (SUB_TABS as string[]).includes(raw) ? (raw as SubTab) : 'demo'
 }
 
 /** Swagger UI isn't proxied by the vite dev server (only /orchestrator is, see vite.config.ts) - in dev it lives on the backend's own port, in a same-origin deployment it's just window.location.origin. */
@@ -79,9 +69,25 @@ const BACKEND_ORIGIN = window.location.port === '5173' ? 'http://localhost:8080'
 const H2_JDBC_URL = 'jdbc:h2:file:./data/dpopdb'
 const H2_USER = 'sa'
 
-function App() {
+/**
+ * Wire vocabulary of AuthIntent's entry intents (backend `AuthIntent.fromRequest`, case-
+ * insensitive) that this client-side entry point can act on, mapped to `handleStart`'s own mode
+ * names. Kept deliberately small - only intents this app can actually enter cold from a URL.
+ */
+const INTENT_TO_START_MODE: Record<string, 'auto' | 'login' | 'register' | 'confirmPeerLogin'> = {
+  fast_access: 'auto',
+  lookup_login: 'login',
+  register: 'register',
+  confirm_peer_login: 'confirmPeerLogin',
+}
+
+export function AppChannelApp() {
   const [dpop, setDpop] = useState<DpopKeyPair | null>(null)
   const [jwkThumbprint, setJwkThumbprint] = useState<string | undefined>()
+  // Whose device this is (DeviceAccountLink), shown on DeviceIdentityCard (FE-14) even before any
+  // channel exists - null means "not asked yet / still loading", distinct from an answered "not
+  // linked" (DeviceLinkResponse.linked === false).
+  const [deviceLink, setDeviceLink] = useState<DeviceLinkResponse | null>(null)
   const [channelSessionId, setChannelSessionId] = useState<string | undefined>()
   const [channelState, setChannelState] = useState<string | undefined>()
   const [currentAcr, setCurrentAcr] = useState<string | undefined>()
@@ -95,11 +101,11 @@ function App() {
   // JourneyStructureView. Unknown after a resume (a prior session's choice isn't remembered), so no
   // hint is offered there rather than guessing.
   const [journeyKind, setJourneyKind] = useState<'auto' | 'register' | 'login' | 'confirmPeerLogin' | undefined>()
-  // Set from the WEB channel's demo link (?pairingCode=..., docs/ideen/qr-login-ueber-app.md #6) -
-  // the Keycloak-side QR page's demo link points straight back at this app's own origin, so opening
+  // Set from the WEB channel's demo link (?pairingCode=..., docs/07-betrieb.md #5) -
+  // the Keycloak-side QR page's demo link points straight at this app's own /app/ entry, so opening
   // it lands here directly instead of a fictitious native deep-link scheme. Only captured/surfaced
-  // for now (shown as a banner near the entry choice); actually submitting it as confirm-qr-login's
-  // own `pairingCode` field is bmh.4/bmh.6 (that tool doesn't exist yet).
+  // for now (shown as a banner near the entry choice) besides driving the auto-start effect below;
+  // actually submitting it as confirm-qr-login's own `pairingCode` field is bmh.4/bmh.6.
   const [pendingPairingCode, setPendingPairingCode] = useState<string | undefined>()
   // How many OTHER candidates existed when the current activeTool was reached - "Anderes
   // Verfahren" only makes sense to offer when this is > 0, otherwise abandoning would just
@@ -124,64 +130,30 @@ function App() {
     setAvailableToolsState(toolIds)
     storeAvailableTools(toolIds)
   }
-  const [{ section, sub }, setTabState] = useState(() => tabFromHash())
-  // The Web-Kanal's own real Keycloak tokens (webOidc.ts) - lifted here (not kept inside
-  // WebChannelView) purely so the Journey-Log sub-tab can read the current accessToken too,
-  // the same reason kcState/kcDebugLog live here instead of inside MockKeycloakView.
-  const [webTokens, setWebTokens] = useState<TokenSet | null>(null)
+  const [sub, setSubState] = useState<SubTab>(() => subFromHash())
   const appJourneyLogFetcher = useCallback(
     () => (channelSessionId ? getAccountJourneyLog(dpop!, channelSessionId) : getJourneyLog(dpop!)),
     [channelSessionId, dpop],
   )
-  const webJourneyLogFetcher = useCallback(
-    () => getWebJourneyLog(webTokens!.accessToken),
-    [webTokens],
-  )
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
-  // Mock-Keycloak's own state/log, kept here rather than inside MockKeycloakView itself so its
-  // debug sidebar can sit at the SAME top-level position (app-shell sibling of app-main) the App
-  // channel's own DebugSidebar uses - nested one level down (inside the 960px .app column) it had
-  // no real viewport width to work with and sat cramped against the tool content.
-  const [kcState, setKcState] = useState<MockKeycloakState>({})
-  const [kcDebugLog, setKcDebugLog] = useState<DebugEvent[]>([])
-  const kcDebugIdRef = useRef(0)
   // Drives the "Sitzung fortsetzen" button's visibility on the "no channel" screen - kept in
   // sync explicitly (not derived from channelSessionId) since it must survive Clear/Logout
   // clearing the in-memory state while still reflecting localStorage accurately afterwards.
   const [rememberedChannelSessionId, setRememberedChannelSessionId] = useState(() => loadChannelSessionId())
 
-  /** Keeps the URL hash in sync so a reload, a shared link, or the browser's own back/forward button all land on the right place. `demo` is left off the hash (the section's own default) so "app"/"web" alone still mean "that channel's Demo tab". */
-  function setActiveTab(newSection: Section, newSub: SubTab = 'demo') {
-    setTabState({ section: newSection, sub: newSub })
-    const hash = newSection === 'welcome' ? 'welcome' : newSub === 'demo' ? newSection : `${newSection}/${newSub}`
+  /** Keeps the URL hash in sync so a reload, a shared link, or the browser's own back/forward button all land on the right place. */
+  function setActiveTab(newSub: SubTab) {
+    setSubState(newSub)
+    const hash = newSub === 'demo' ? '' : newSub
     if (window.location.hash.slice(1) !== hash) window.location.hash = hash
   }
 
   useEffect(() => {
-    const onHashChange = () => setTabState(tabFromHash())
+    const onHashChange = () => setSubState(subFromHash())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  // The WEB channel's demo link (docs/ideen/qr-login-ueber-app.md #6) points straight at this
-  // app's own origin with ?pairingCode=... - opening it lands here directly, no fictitious native
-  // deep-link scheme needed for the demo. Read once on load and strip it from the URL immediately
-  // (same reasoning as the hash-based tab state: the query string is not a routing source of
-  // truth); persisted via session.ts so confirm-qr-login's own input step (tools/qr) can pre-fill
-  // it once activated, independent of how many screens sit in between.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const pairingCode = params.get('pairingCode')
-    if (!pairingCode) return
-    setPendingPairingCode(pairingCode)
-    storePendingPairingCode(pairingCode)
-    logEvent('QR-Pairing-Code aus Link übernommen', { response: { pairingCode } })
-    params.delete('pairingCode')
-    const query = params.toString()
-    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function logEvent(label: string, extra?: { request?: unknown; response?: unknown; error?: string }) {
@@ -196,20 +168,6 @@ function App() {
       logEvent(`${entry.method} ${entry.path}`, { request: entry.requestBody, response: entry.responseBody, error: entry.error })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Same reporting for MockKeycloakView's own calls - subscribed here (not inside that
-  // component) so the log survives even though the sidebar itself renders at this level.
-  useEffect(() => {
-    return onKcApiCall((entry) => {
-      kcDebugIdRef.current += 1
-      setKcDebugLog((prev) =>
-        [
-          { id: kcDebugIdRef.current, time: new Date().toLocaleTimeString(), label: `${entry.method} ${entry.path}`, request: entry.requestBody, response: entry.responseBody, error: entry.error },
-          ...prev,
-        ].slice(0, 200),
-      )
-    })
   }, [])
 
   function clearChannelState() {
@@ -281,6 +239,127 @@ function App() {
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Refetches whenever the entry screen is showing (no channel) and a key is ready - covers the
+  // cases that actually change it: first mount, "Zur Startseite"/Logout-then-clear, and a
+  // recreated key (handleRecreateKey clears the channel too, landing back here). Deliberately not
+  // fetched while a channel is active - DeviceIdentityCard just keeps showing its last answer then.
+  useEffect(() => {
+    if (!dpop || channelSessionId) return
+    let active = true
+    getDeviceLink(dpop)
+      .then((link) => {
+        if (active) setDeviceLink(link)
+      })
+      .catch(() => {
+        // Non-fatal - DeviceIdentityCard just shows "…" a bit longer, no error banner for this.
+      })
+    return () => {
+      active = false
+    }
+  }, [dpop, channelSessionId])
+
+  /**
+   * URL entry point (docs/10-frontend.md #1, #QR): reads `intent` (AuthIntent's own wire
+   * vocabulary, same as `createChannel`'s `intent` body field) and `pairingCode` from the query
+   * string once `dpop` is ready, then strips both from the URL. Guarded by a ref against
+   * StrictMode's double effect-invocation (same pattern as `activatingToolIdRef` below).
+   *
+   * `confirm_peer_login` gets one extra step before falling back to a fresh channel: if this
+   * device already remembers a channel, it is loaded first - if that turns out to be
+   * AUTHENTICATED already, `handlePeerLogin` runs on THAT channel instead of discarding it via a
+   * brand-new `createChannel` call (which would force a full re-login from scratch). Which proof
+   * (if any) that actually requires is entirely the server's call (see `ConfirmPeerLoginStrategy`,
+   * docs/04-orchestrierung.md CONFIRM_PEER_LOGIN) - the client only decides WHICH channel
+   * to act on, never how much reauth it costs.
+   */
+  const urlEntryHandledRef = useRef(false)
+  useEffect(() => {
+    if (!dpop || urlEntryHandledRef.current) return
+    const params = new URLSearchParams(window.location.search)
+    const intentParam = params.get('intent')
+    const pairingCode = params.get('pairingCode')
+    if (!intentParam && !pairingCode) return
+    urlEntryHandledRef.current = true
+
+    if (pairingCode) {
+      setPendingPairingCode(pairingCode)
+      storePendingPairingCode(pairingCode)
+      logEvent('QR-Pairing-Code aus Link übernommen', { response: { pairingCode } })
+    }
+
+    params.delete('intent')
+    params.delete('pairingCode')
+    const query = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+
+    const mode = intentParam ? INTENT_TO_START_MODE[intentParam.toLowerCase()] : undefined
+    if (!mode) return
+
+    if (mode !== 'confirmPeerLogin') {
+      handleStart(mode)
+      return
+    }
+
+    const rememberedId = loadChannelSessionId()
+    if (!rememberedId) {
+      handleStart('confirmPeerLogin')
+      return
+    }
+    setJourneyKind('confirmPeerLogin')
+    getChannel(dpop, rememberedId)
+      .then((response) => {
+        if (response.channel.state !== 'AUTHENTICATED') {
+          forgetChannelSessionId()
+          setRememberedChannelSessionId(null)
+          return handleStart('confirmPeerLogin')
+        }
+        applyResponse(response)
+        // Not handlePeerLogin() - that closure was captured when this effect first ran (still
+        // seeing channelSessionId as undefined, since applyResponse's setState above hasn't
+        // committed yet) and would bail out on its own `!channelSessionId` guard. Acting directly
+        // on the id just resolved sidesteps the stale-closure trap entirely. A failure here (e.g.
+        // the loa2 gate) must NOT fall through to the outer catch below - that would discard the
+        // just-applied authenticated channel and start over from scratch - so it's reported via
+        // the normal error path instead.
+        return startPeerLogin(dpop, response.channel.channelSessionId)
+          .then((peerResponse) => applyResponse(peerResponse))
+          .catch((err) => setError(describeError('Web-Login-Bestätigung fehlgeschlagen', err)))
+      })
+      .catch(() => {
+        forgetChannelSessionId()
+        setRememberedChannelSessionId(null)
+        return handleStart('confirmPeerLogin')
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dpop])
+
+  /**
+   * Back-button support, scoped to "leave the running process, land on the start choice" (docs/
+   * 10-frontend.md #1) - not a step-by-step undo, the server-driven `next` chain is forward-only.
+   * `channelActiveRef` mirrors `channelSessionId` (a ref, not state, so the popstate listener
+   * below always reads the current value instead of the one captured at registration time).
+   */
+  const channelActiveRef = useRef(false)
+  useEffect(() => {
+    const wasActive = channelActiveRef.current
+    channelActiveRef.current = !!channelSessionId
+    if (!wasActive && channelSessionId) {
+      window.history.pushState({ dpopDemoChannel: true }, '', window.location.href)
+    }
+  }, [channelSessionId])
+
+  useEffect(() => {
+    function onPopState(event: PopStateEvent) {
+      const state = event.state as { dpopDemoChannel?: boolean } | null
+      if (!state?.dpopDemoChannel && channelActiveRef.current) {
+        handleClearChannel()
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -370,7 +449,7 @@ function App() {
   /**
    * Every explicit way a channel comes into existence (docs/04-orchestrierung.md, lookup-based
    * login): "resume" reads a remembered channelSessionId (GET), the rest each mint a brand-new
-   * channel with the corresponding `intent` - the backend's AuthIntent name (AuthIntent.fromRequest),
+   * channel with the corresponding `intent` (the backend's AuthIntent name (AuthIntent.fromRequest),
    * "auto" omits it (today's default: DeviceAccountLink found -> LOGIN, else REGISTRATION).
    */
   async function handleStart(mode: 'resume' | 'auto' | 'login' | 'register' | 'confirmPeerLogin') {
@@ -416,6 +495,7 @@ function App() {
       forgetChannelSessionId()
       setRememberedChannelSessionId(null)
       clearChannelState()
+      setDeviceLink(null)
       await resetDpopKeyPair()
       const keyPair = await getOrCreateDpopKeyPair()
       setDpop(keyPair)
@@ -601,168 +681,7 @@ function App() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        {section === 'welcome' && (
-          <div className="app">
-            <header className="app-header">
-            <h1>Identity Journey</h1>
-            <p>
-              Identifikation, Authentifizierung und Step-up zum Ausprobieren - mehrere Verfahren, deren
-              Ablauf das Backend als Journey steuert.
-            </p>
-            </header>
-
-          <div className="card welcome-card">
-              <h2>Worum geht es hier?</h2>
-              <p>
-                Diese Demo zeigt zwei Wege, wie ein Client Identität nachweist und einen AccessToken bekommt.
-                Der <strong>App-Kanal</strong> ist ein DPoP-gebundener nativer Client: Identifikation
-                (Freischaltcode oder eID) oder Authentifizierung per SMS, E-Mail, Passwort oder einem
-                geräteeigenen Schlüssel, einzeln oder kombiniert für ein höheres Sicherheitsniveau (Step-up) -
-                das Backend steuert den Ablauf serverseitig als Journey, das AccessToken kommt (Mock oder
-                echt, je nach Profil) vom Orchestrator selbst. Der <strong>Web-Kanal</strong> ist dagegen ein
-                echter Browser-Client gegen ein echtes Keycloak: Login per Redirect (loa1 oder loa2), danach
-                AccessToken/IdToken direkt von Keycloak, mit Step-up und Logout ebenfalls direkt gegen
-                Keycloak - der Browser spricht hier nie direkt mit dem Orchestrator (nur Keycloaks eigene
-                Erweiterung tut das, server-seitig).
-              </p>
-              <ul className="method-choice-list channel-choice-list">
-                <li>
-                  <button className="method-choice" onClick={() => setActiveTab('app')} aria-label="Zum App-Kanal">
-                    <span className="method-choice-icon" aria-hidden="true">
-                      📱
-                    </span>
-                    <span className="method-choice-text">
-                      <span className="method-choice-label">Zum App-Kanal</span>
-                      <span className="method-choice-hint">Nativer, DPoP-gebundener Client - wie eine mobile App</span>
-                    </span>
-                  </button>
-                </li>
-                <li>
-                  <button className="method-choice" onClick={() => setActiveTab('web')} aria-label="Zum Web-Kanal">
-                    <span className="method-choice-icon" aria-hidden="true">
-                      🌐
-                    </span>
-                    <span className="method-choice-text">
-                      <span className="method-choice-label">Zum Web-Kanal</span>
-                      <span className="method-choice-hint">Echter Browser-Client gegen echtes Keycloak</span>
-                    </span>
-                  </button>
-                </li>
-              </ul>
-              <ul className="status-list">
-                <li>
-                  <span className="label">Quellcode</span>
-                  <a className="value" href="https://github.com/rpreissel/DPoP-demo" target="_blank" rel="noreferrer">
-                    github.com/rpreissel/DPoP-demo
-                  </a>
-                </li>
-                <li>
-                  <span className="label">Dokumentation</span>
-                  <a className="value" href="https://github.com/rpreissel/DPoP-demo/tree/main/docs" target="_blank" rel="noreferrer">
-                    docs/ (Domänenmodell, Orchestrierung, API, DPoP, ...)
-                  </a>
-                </li>
-                <li>
-                  <span className="label">Konzepte für Frontend-Entwickler</span>
-                  <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/pitches/frontend-konzepte.md" target="_blank" rel="noreferrer">
-                    docs/pitches/frontend-konzepte.md
-                  </a>
-                </li>
-                <li>
-                  <span className="label">Konzepte für Backend-Entwickler</span>
-                  <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/pitches/backend-konzepte.md" target="_blank" rel="noreferrer">
-                    docs/pitches/backend-konzepte.md
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-          <div className="card">
-              <h2>Wichtige Begriffe für die Demo</h2>
-              <p>
-                Ihr <strong>Konto</strong> (technisch ein <code>Account</code>) ist der Zugang, mit dem Sie in
-                dieser Demo angemeldet sind - er entsteht bei der Registrierung. Dabei
-                weisen Sie sich einmalig per <strong>Identifikation</strong> aus ("das bin ich": Freischaltcode
-                oder eID) gegen ein <strong>externes Personenregister</strong> - die <strong>Person</strong>{' '}
-                selbst kommt aus diesem fremden System und gehört nicht dem Konto; das Konto verweist nur
-                darauf. Identifizieren Sie sich später mit derselben Test-Identität erneut, findet die Demo
-                dieselbe Person wieder und landet auf demselben Konto statt einem neuen - deshalb bleibt die
-                Person beim Löschen eines Kontos auch unangetastet. Für die spätere, wiederholte Anmeldung
-                ("ich bin's wieder") dienen dagegen <strong>Anmeldeverfahren</strong>: SMS, E-Mail, Passwort
-                oder ein geräteeigener Schlüssel, einzeln oder kombiniert.
-              </p>
-              <p>
-                Wie stark Ihre Identität gerade nachgewiesen ist, drückt das <strong>Sicherheitsniveau</strong>{' '}
-                aus (in der Demo <code>loa1</code>/<code>loa2</code> genannt). Ein Verfahren reicht oft schon;
-                für empfindlichere Aktionen verlangt die Demo einen zusätzlichen Nachweis, den{' '}
-                <strong>Step-up</strong> - ohne sich komplett neu anzumelden.
-              </p>
-              <p>
-                Zwei Dinge werden dabei leicht verwechselt, weil beide "Gerät" im Namen tragen. Die{' '}
-                <strong>DPoP-Bindung</strong> beweist nur <em>welches Gerät</em> gerade spricht - niemals, dass
-                der Nutzer davor tatsächlich der ist, für den er sich ausgibt. Sie bindet jede Anfrage
-                kryptografisch an dieses Gerät und lässt ein bereits bekanntes Gerät automatisch wiedererkennen
-                ("Automatisch anmelden" schlägt dann direkt den zuletzt genutzten Login vor, "Neu anmelden"
-                verzichtet bewusst darauf) - bleibt dabei aber reine Wiedererkennung, kein Identitätsnachweis.
-                Der <strong>Geräteschlüssel</strong> als
-                Anmeldeverfahren ("device") ist dagegen ein echter Identitätsnachweis: ein nicht extrahierbarer,
-                geräteeigener Schlüssel, den erst ein System-PIN oder Biometrie freischaltet - das zählt als
-                vollwertiges Verfahren wie SMS/E-Mail/Passwort.
-              </p>
-
-              <div className="nesting-diagram">
-                <div className="nesting-box nesting-box--1">
-                  <span className="nesting-label">Channel <em>(Sitzung, dieses Gerät)</em></span>
-                  <div className="nesting-box nesting-box--2">
-                    <span className="nesting-label">Journey <em>(ein Ziel, z. B. Anmelden)</em></span>
-                    <div className="nesting-box nesting-box--3">
-                      <span className="nesting-label">Tool <em>(Verfahren, z. B. auth-sms)</em></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <p>
-                Ein <strong>Channel</strong> ist die Verbindung zwischen App und Backend für diesen Besuch,
-                verankert am DPoP-Schlüssel dieses Geräts (im Demo-Tab als "Sitzung" angezeigt); innerhalb
-                läuft eine <strong>Journey</strong> - der vom
-                Backend geführte Ablauf für genau ein Ziel, nicht die Oberfläche entscheidet den nächsten
-                Schritt. Eine Journey besteht wiederum aus einem oder mehreren <strong>Tools</strong>, dem
-                konkreten Verfahren, das gerade dran ist - benannt danach, ob es ein Verfahren einrichtet
-                (<code>enroll-sms</code>) oder ein bereits eingerichtetes benutzt (<code>auth-sms</code>).
-                Channel, Journey und Tool sind also ineinander geschachtelt, keine Kette von Vorher/Nachher.
-                Ein Tool wird der Journey dabei nur angeboten, wenn es <strong>beide</strong> Seiten erlauben:
-                das Frontend muss es überhaupt darstellen können, und das Backend darf es nicht gesperrt haben -
-                beides einzeln einstellbar unter Einstellungen ("Verfügbare Tools auf diesem Client" bzw.
-                "Admin: Tool-Verfügbarkeit").
-              </p>
-              <p>
-                Welches Ziel eine Journey verfolgt, sehen Sie an ihren Aktionen im Demo-Tab: <strong>Login</strong>{' '}
-                (Registrieren, Automatisch anmelden oder Neu anmelden - alle drei Wege führen zum selben Ziel:
-                einem angemeldeten Channel mit Zugang zum AccessToken), <strong>Step-up</strong>{' '}
-                (Sicherheitsniveau erhöhen, ohne sich neu anzumelden), <strong>Manage</strong> (weiteres
-                Verfahren einrichten oder eines deaktivieren) und <strong>Konto löschen</strong> sind je eigene
-                Journeys mit eigenem Ziel.
-              </p>
-              <p>
-                Ist ein App-Kanal-Channel angemeldet, lässt sich ein <strong>AccessToken</strong> und ein{' '}
-                <strong>RefreshToken</strong> abrufen - je nach Backend-Profil ein Mock-JWT oder (Profil{' '}
-                <code>keycloak</code>) ein echter, von Keycloak signierter Token. Das AccessToken geht ins
-                Frontend; das RefreshToken verlässt das Backend nie und wird dort im Hintergrund genutzt, um
-                bei Bedarf ein neues AccessToken zu holen, ohne dass Sie sich erneut anmelden müssen. Der
-                Web-Kanal bekommt seine Tokens dagegen direkt von Keycloak selbst, siehe dessen eigenen Tab.
-              </p>
-              <p>
-                Details zu allem oben im{' '}
-                <a href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/02-domaenenmodell.md" target="_blank" rel="noreferrer">
-                  Domänenmodell
-                </a>.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {section === 'app' && (
-          <AppChannelFrame sub={sub} onSelectTab={(s) => setActiveTab('app', s)} onBack={() => setActiveTab('welcome')}>
+        <AppChannelFrame sub={sub} onSelectTab={(s) => setActiveTab(s as SubTab)} onBack={() => { window.location.href = '/' }}>
           {sub === 'journeylog' && (
             <JourneyLogView fetchLog={dpop ? appJourneyLogFetcher : null} />
           )}
@@ -865,6 +784,7 @@ function App() {
             </>
           ) : (
             <>
+              <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink} />
               <div className="card">
                 <h2>Wie möchten Sie starten?</h2>
                 {pendingPairingCode && (
@@ -971,7 +891,7 @@ function App() {
                           </DiagramHint>
                         </span>
                         <span className="method-choice-hint">
-                          Ein Browser wartet auf eine Bestätigung von diesem Gerät (docs/ideen/qr-login-ueber-app.md).
+                          Ein Browser wartet auf eine Bestätigung von diesem Gerät (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN).
                           Setzt ein hier schon bekanntes Konto voraus.
                         </span>
                       </span>
@@ -1019,8 +939,6 @@ function App() {
             <JourneyStructureView
               channelSessionId={channelSessionId}
               channelState={channelState}
-              jwkThumbprint={jwkThumbprint}
-              onRecreateKey={handleRecreateKey}
               journeys={demo?.journeys}
               next={next}
               journeyKind={journeyKind}
@@ -1030,48 +948,10 @@ function App() {
           )}
           </>
           )}
-          </AppChannelFrame>
-        )}
-
-        {section === 'web' && (
-          <WebChannelLayout sub={sub} onSelectTab={(s) => setActiveTab('web', s)} onBack={() => setActiveTab('welcome')}>
-          {sub === 'mock' && <MockKeycloakView onStateChange={setKcState} />}
-
-          {sub === 'journeylog' && (
-            <JourneyLogView fetchLog={webTokens ? webJourneyLogFetcher : null} />
-          )}
-
-          {sub === 'settings' && (
-            <>
-              <KeycloakSyncView />
-              <div className="card">
-                <h2>Web-Kanal-Info</h2>
-                <ul className="status-list">
-                  <li>
-                    <span className="label">Realm</span>
-                    <span className="value">dpop-demo</span>
-                  </li>
-                  <li>
-                    <span className="label">Client</span>
-                    <span className="value">dpop-demo-web (public, PKCE)</span>
-                  </li>
-                  <li>
-                    <span className="label">Keycloak</span>
-                    <a className="value" href="https://localhost:8543" target="_blank" rel="noreferrer">
-                      https://localhost:8543
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </>
-          )}
-
-          {sub === 'demo' && <WebChannelView onTokens={setWebTokens} />}
-          </WebChannelLayout>
-        )}
+        </AppChannelFrame>
       </div>
 
-      {section === 'app' && sub === 'demo' && (
+      {sub === 'demo' && (
         <DebugSidebar
           channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
           log={debugLog}
@@ -1079,17 +959,6 @@ function App() {
           onToggle={() => setDebugOpen((v) => !v)}
         />
       )}
-
-      {section === 'web' && sub === 'mock' && (
-        <DebugSidebar
-          channel={{ channelSessionId: kcState.channelSessionId, channelState: kcState.channelState, next: kcState.next, stepData: kcState.stepData, demo: kcState.demo, authData: kcState.authData }}
-          log={kcDebugLog}
-          open={debugOpen}
-          onToggle={() => setDebugOpen((v) => !v)}
-        />
-      )}
     </div>
   )
 }
-
-export default App

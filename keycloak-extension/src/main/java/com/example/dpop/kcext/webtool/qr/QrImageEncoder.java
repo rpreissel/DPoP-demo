@@ -17,7 +17,7 @@ import java.util.Map;
 /**
  * Renders a QR code as an inline PNG data URI - deliberately only `zxing-core` (a {@link BitMatrix}
  * in, a PNG byte array out), not the `javase` artifact, since the conversion is small enough to
- * write directly (docs/ideen/qr-login-ueber-app.md #7).
+ * write directly.
  */
 final class QrImageEncoder {
 

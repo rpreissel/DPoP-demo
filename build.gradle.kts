@@ -124,7 +124,7 @@ tasks.named<ProcessResources>("processResources") {
 }
 
 // `./gradlew bootRunKc` - same as bootRun, just with the `keycloak` profile active (real Keycloak
-// via podman-compose, see compose.yml/docs/ideen/web-keycloak-kanal.md, instead of the default
+// via podman-compose, see compose.yml/docs/05-api.md Abschnitt 3, instead of the default
 // profile's Mock-Keycloak frontend). Equivalent to `bootRun --args='--spring.profiles.active=keycloak'`,
 // just without having to remember/retype that every time.
 tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {

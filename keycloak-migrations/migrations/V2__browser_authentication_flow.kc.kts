@@ -5,7 +5,7 @@
 // innerhalb eines Flow-Levels automatisch nach Anlage-Reihenfolge, deshalb muss hier niemand
 // manuell mit priority hantieren, solange die Schritte in dieser Reihenfolge laufen.
 //
-// Struktur folgt docs/ideen/web-keycloak-kanal.md #9: LoA1 = natives Keycloak-Passwort (sofort an
+// Struktur folgt Keycloaks eigener LoA-Subflow-Konfiguration: LoA1 = natives Keycloak-Passwort (sofort an
 // den Orchestrator gemeldet), LoA2 = orchestrator-eigenes selectMethod.
 
 step("orchestrator-browser flow anlegen") {

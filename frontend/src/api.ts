@@ -1,5 +1,5 @@
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ActiveMethodView, ChannelResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
+import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
 
 /** Carries the server's own error/message (docs/07-betrieb.md #1) instead of a raw fetch string. */
 export class ApiError extends Error {
@@ -112,6 +112,11 @@ export function createChannel(
   return call(dpop, 'POST', '/orchestrator/api/v1/app/channels', body)
 }
 
+/** Whether this device is already linked to an account (docs/05-api.md) - a pure read, no channel/journey created. */
+export function getDeviceLink(dpop: DpopKeyPair): Promise<DeviceLinkResponse> {
+  return call(dpop, 'GET', '/orchestrator/api/v1/app/channels/device-link')
+}
+
 export function getChannel(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
   return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}`)
 }
@@ -155,7 +160,7 @@ export function startManageMethods(dpop: DpopKeyPair, channelSessionId: string):
   return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/enrollments`)
 }
 
-/** Confirm a WEB-channel QR login from this already-AUTHENTICATED channel (AuthIntent.CONFIRM_PEER_LOGIN, docs/ideen/qr-login-ueber-app.md #4) - gates on loa2 (step-up offered first if below it), then offers confirm-qr-login. */
+/** Confirm a WEB-channel QR login from this already-AUTHENTICATED channel (AuthIntent.CONFIRM_PEER_LOGIN, docs/04-orchestrierung.md) - gates on loa2 (step-up offered first if below it), then offers confirm-qr-login. */
 export function startPeerLogin(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
   return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/peer-logins`)
 }

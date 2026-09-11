@@ -68,3 +68,16 @@ data class TokenResponse(
     @field:Schema(example = "2026-08-29T18:00:00Z")
     val refreshExpiresAt: Instant
 )
+
+@Schema(
+    description = "Whether this device's DPoP key is already linked to an account (DeviceAccountLink, " +
+        "docs/02-domaenenmodell.md #1) - a pure read, no channel/journey created. Lets the entry screen show " +
+        "\"this device belongs to X\" before the user picks how to start."
+)
+data class DeviceLinkResponse(
+    val linked: Boolean,
+    @field:Schema(example = "42")
+    val accountId: Long? = null,
+    @field:Schema(example = "Max Muster", description = "Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.")
+    val personName: String? = null
+)

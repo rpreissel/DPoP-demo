@@ -259,7 +259,7 @@ class ToolControllerSupport(
             // Approves/declines a request that belongs to a DIFFERENT channel's account - nothing
             // about the approving account's own credentials is guessed here. Brute-forcing the
             // pending request itself (pairingCode) is a separate concern with its own protection
-            // (docs/ideen/qr-login-ueber-app.md #6), not this account's login throttle.
+            // (docs/07-betrieb.md #5), not this account's login throttle.
             ToolCategory.SIDE_ACTION -> Unit
         }
     }

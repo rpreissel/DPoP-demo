@@ -134,8 +134,7 @@ flowchart LR
 Vier **Entry-Intents** starten eine neue Sitzung auf dem `APP`-Kanal, `KC_SELECT_METHOD` ist der
 Web-Kanal-eigene Login/Step-up-Einstieg, `REGISTER` ist zusätzlich auch über den Web-Kanal
 erreichbar (Registrierung, s. u.); fünf weitere laufen innerhalb einer bestehenden Sitzung.
-`CONFIRM_PEER_LOGIN` ist die eine Ausnahme, die **beides zugleich** ist (docs/ideen/qr-login-ueber-
-app.md #4):
+`CONFIRM_PEER_LOGIN` ist die eine Ausnahme, die **beides zugleich** ist (eigener Abschnitt unten):
 
 | `AuthIntent` | Ziel | Einstieg |
 |---|---|---|
@@ -153,8 +152,10 @@ app.md #4):
 `CONFIRM_PEER_LOGIN`s kalter Einstieg bietet nie eine Identifikation/Registrierung an: ist noch
 kein Konto über `DeviceAccountLink` bekannt, bricht die Journey sofort ab (410) statt in
 `FAST_ACCESS`s Fallback-Kette zu fallen — ein Peer-Approval darf nie der Anlass sein, sich frisch
-eine Identität zu verschaffen. Ist ein Konto bekannt, gilt exakt derselbe `STEP_UP`-Gate wie bei
-`MANAGE_AUTH_METHODS`, unabhängig davon, ob der Kanal kalt oder schon `AUTHENTICATED` gestartet ist.
+eine Identität zu verschaffen. Ist ein Konto bekannt, gilt derselbe `STEP_UP`-Gate wie bei
+`MANAGE_AUTH_METHODS` — reichte das Niveau aber schon *vor* diesem Durchlauf, verlangt
+`CONFIRM_PEER_LOGIN` zusätzlich einen frischen Re-Proof wie `DELETE_ACCOUNT`, siehe eigener
+Abschnitt unten.
 
 Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST_ACCESS`: das Ende der
 Fallback-Kette, wenn keine vorhandene Methode mehr greift. Ob dabei ein Account entsteht oder
@@ -488,6 +489,80 @@ Die `loa2`-Vorbedingung selbst folgt derselben Anti-Selbsteskalations-Logik wie 
 `enrolledUnderAcr`-Deckelung (Abschnitt 8): Eine gekaperte `loa1`-Session darf nicht aus eigener
 Kraft Methoden hinzufügen oder entfernen. Das Entfernen prüft zusätzlich, dass der Account
 danach die Untergrenze des Kanals noch erreichen kann (`409`, Selbstsperrschutz).
+
+### `CONFIRM_PEER_LOGIN`
+
+Ein App-Kanal bestätigt oder lehnt einen Web-Login ab, den eine `auth-qr`/`auth-qr-lookup`-
+Aktivierung des Web-Kanals anstößt — „mit dem Handy einloggen" per QR-Code, analog zu WhatsApp
+Web/GitHub-CLI-Device-Flow. Zwei Eigenschaften unterscheiden das von jedem anderen Intent hier:
+Zwei Kanäle sind an einem Tool-Durchlauf beteiligt (bislang lebt ein `ToolOutcome` immer nur
+innerhalb der `ChannelSession`, die es aktiviert hat), und der App-Nutzer bestätigt fremdes
+Handeln statt eigenes nachzuweisen — strukturell etwas anderes als Identifikation, Enrollment oder
+Auth. Trotzdem bleibt der Journey-Vertrag selbst unverändert: `confirm-qr-login`s `ToolOutcome`
+wirkt nur auf die EIGENE `AuthJourney` (`Action.RecordApproval`); die eigentliche
+Kanal-übergreifende Kopplung — welchen Web-Login die Bestätigung eigentlich betrifft — lebt
+komplett im `auth_qr`-Modul, über eine gemeinsame `QrLoginRequest`-Zeile, die beide Seiten
+(dieselbe DB, derselbe Orchestrator-Prozess) lesen/schreiben. Kein Cross-Channel-Sonderfall im
+Journey-SPI nötig.
+
+`CONFIRM_PEER_LOGIN` ist **Entry-Intent und Aufsatz auf einer authentifizierten Session zugleich**
+(Abschnitt 2) — beide Wege landen auf demselben `Requested`:
+
+```mermaid
+stateDiagram-v2
+  [*] --> Requested
+  Requested --> [*]: kein Konto bekannt -> Abort (410)
+  Requested --> STEP_UP: loa2 noch nicht erreicht
+  STEP_UP --> Requested: SubJourneyFinished, loa2 nicht erreicht -> Gate erneut prüfen
+  STEP_UP --> Confirming: SubJourneyFinished, loa2 erreicht - zählt als der geforderte Re-Proof
+  STEP_UP --> [*]: SubJourneyCancelled -> Cancel
+  Requested --> ConfirmationRequired: loa2 bereits erreicht (unabhängig von diesem Durchlauf)
+  ConfirmationRequired --> ConfirmationRequired: ein Tool abgelehnt, weitere übrig
+  ConfirmationRequired --> [*]: alle abgelehnt -> Cancel
+  ConfirmationRequired --> Confirming: Nachweis erbracht
+  Confirming --> Confirming: confirm-qr-login abgebrochen, kommt zurück
+  Confirming --> AUTHENTICATED: bestätigt/abgelehnt, Kanal war schon vorher angemeldet
+  Confirming --> OfferLogout: bestätigt/abgelehnt, Kanal wurde nur für diese Bestätigung angemeldet
+  OfferLogout --> [*]: zugestimmt -> Logout
+  OfferLogout --> AUTHENTICATED: abgelehnt -> angemeldet bleiben
+```
+
+Drei Startzustände, eine Zustandsmenge:
+
+1. **Kanal noch nicht authentifiziert**: NUR der geräte-gebundene Login-Teil von `FAST_ACCESS`s
+   Fallback-Kette (`DeviceAccountLink` bekannt → dessen `IDENTIFIED_AUTH`-Kandidaten bis `loa1`,
+   über den `STEP_UP`-Zweig oben) — **keine** Identifikation/Registrierung. Ein Peer-Approval darf
+   nie dazu führen, dass jemand ohne bestehenden, bereits identifizierten Account sich per
+   Registrierung frisch eine Identität verschafft, nur um einen fremden Web-Login zu bestätigen.
+   Ohne `DeviceAccountLink` (kalter Start, z. B. App gerade erst installiert) endet die Journey
+   sofort ohne Angebot — der Nutzer muss sich zuerst ganz regulär einrichten.
+2. **Kanal authentifiziert, aber unter `loa2`**: derselbe `STEP_UP`-Gate wie bei
+   `MANAGE_AUTH_METHODS`. Der dabei erbrachte Nachweis zählt bereits als der in Schritt 3 verlangte
+   frische Faktor — kein redundanter zweiter Re-Proof direkt danach (`STEP_UP --> Confirming` oben,
+   geprüft über `SubJourneyFinished.achievedAcr`, nicht bloß angenommen — ein künftiger zweiter
+   Sub-Journey-Typ oder ein zu kurz gegriffener Step-up darf nie stillschweigend als ausreichend
+   gelten).
+3. **Kanal bereits bei `loa2` oder höher** (unabhängig von diesem Durchlauf, Evidenz unbekannten
+   Alters): **nicht** direkt weiter — genau wie bei `DELETE_ACCOUNT` verlangt dieser Fall
+   unconditionell einen frischen Re-Proof mit einem beliebigen aktiven Faktor
+   (`CandidateTools.forReconfirmation`, jedes Niveau reicht), bevor `confirm-qr-login` angeboten
+   wird (`ConfirmationRequired`). Eine bereits authentifizierte, aber evtl. gekaperte Sitzung darf
+   nicht allein auf Basis vorhandener, evtl. alter Evidenz einen fremden Login bestätigen. Der
+   Re-Proof wird — wie bei `DELETE_ACCOUNT` — nicht als `MethodEvidence` festgehalten, sondern
+   autorisiert nur diese eine Bestätigung.
+4. `confirm-qr-login` aktivieren (`Confirming`, einziger Kandidat). Backing out (`Abandoned`) ist
+   kein Ablehnen der Anfrage, nur ein Zurückkommen zum selben Kandidaten — wie bei
+   `MANAGE_AUTH_METHODS`s `Enrolling`.
+5. Ziel erreicht, sobald das Tool `Completed`/`Failed` meldet — keine Rückkehr in die
+   Kandidatenliste danach, die Journey endet mit diesem einen Tool. War der Kanal vor diesem
+   Durchlauf noch nicht authentifiziert, fragt `OfferLogout` explizit, ob er das jetzt bleiben soll
+   (`AnswerableState`, wie bei `LOOKUP_LOGIN`s Gerätebindungs-Angebot) — ein Kanal, der nur für
+   genau diese eine Bestätigung angemeldet wurde, bleibt nicht kommentarlos angemeldet.
+
+Der Pairing-Code selbst geht **nicht** über den Kanal-Erzeugungsvertrag — er ist ein ganz normales
+Eingabefeld des ersten `confirm-qr-login`-Schritts, genau wie `kvnr`/`fsc` bei `ident-fsc`. Der
+QR-Code (bzw. der Demo-Link) kodiert einen Deep-Link, der App-seitig `intent=confirm_peer_login`
+setzt und `pairingCode` vorbefüllt an das Tool durchreicht ([Frontend](10-frontend.md)).
 
 ### `DELETE_ACCOUNT`
 

@@ -25,7 +25,7 @@ data class MgmtPasswordSetRequest(val newPassword: String? = null)
 
 /**
  * Stateless, Channel/ToolSession-free password verify/set for Keycloak's native password
- * credential (docs/ideen/web-keycloak-kanal.md, `OrchestratorPasswordStorageProvider`). The
+ * credential (`OrchestratorPasswordStorageProvider`). The
  * account id is already known to the caller (Keycloak's `orchestratorAccountId` user attribute),
  * so unlike the app-channel `auth-password`/`enroll-password` tools there is no Channel/journey to
  * anchor to - `accountId` sits in the URL path instead, which the kc-peer-auth signature's `htu`

@@ -11,7 +11,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Shared rendering for `auth-qr`/`auth-qr-lookup` (docs/ideen/qr-login-ueber-app.md #5/#6/#7) -
+ * Shared rendering for `auth-qr`/`auth-qr-lookup` (docs/05-api.md, Peer-Login bestätigen) -
  * both wait on the exact same `waitForApp` step with the exact same `stepData` shape
  * ({@code pairingCode}, {@code verificationCode}), so only the two toolIds/labels differ.
  */
@@ -27,7 +27,11 @@ abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
         String pairingCode = pairingCodeNode.asText();
         String verificationCode = verificationCodeNode != null ? verificationCodeNode.asText() : null;
 
-        String deepLink = OrchestratorConfig.DEMO_APP_BASE_URL + "/?pairingCode="
+        // /app/ (not /?...) so the link lands directly in the App-Kanal's own app instead of the
+        // Willkommen page (docs/10-frontend.md #1); intent=confirm_peer_login is the same wire
+        // vocabulary AuthIntent.fromRequest already accepts on POST /app/channels, just carried via
+        // the URL instead of a request body (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN).
+        String deepLink = OrchestratorConfig.DEMO_APP_BASE_URL + "/app/?intent=confirm_peer_login&pairingCode="
                 + URLEncoder.encode(pairingCode, StandardCharsets.UTF_8);
 
         return form

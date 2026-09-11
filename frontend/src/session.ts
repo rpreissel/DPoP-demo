@@ -44,8 +44,8 @@ export function storeAvailableTools(toolIds: string[]): void {
 const PENDING_PAIRING_CODE_KEY = 'dpop-demo-pending-pairing-code'
 
 /**
- * The QR pairing code picked up from a WEB channel's demo link (docs/ideen/qr-login-ueber-app.md
- * #6, `?pairingCode=...`) - stored so `confirm-qr-login`'s own input step can pre-fill it once the
+ * The QR pairing code picked up from a WEB channel's demo link (docs/07-betrieb.md #5,
+ * `?pairingCode=...`) - stored so `confirm-qr-login`'s own input step can pre-fill it once the
  * tool actually activates, independent of however many screens/reloads sit between opening the
  * link and reaching that step.
  */

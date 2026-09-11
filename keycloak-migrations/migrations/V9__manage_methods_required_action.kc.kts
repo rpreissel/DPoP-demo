@@ -1,5 +1,5 @@
-// Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/ideen/
-// manage-auth-methods-im-web-kanal.md): eine Keycloak Required Action statt eines eigenen
+// Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/05-api.md, "Anmeldeverfahren
+// verwalten im Web-Kanal"): eine Keycloak Required Action statt eines eigenen
 // Clients/Flows - Keycloaks eingebauter Mechanismus fuer "bereits angemeldeter Nutzer loest
 // selbst eine Zusatzaktion aus" (kc_action=orchestrator-manage-methods), erreichbar ueber den
 // BESTEHENDEN dpop-demo-web-Client/orchestrator-browser-Flow (V2), ohne diesen anzufassen.

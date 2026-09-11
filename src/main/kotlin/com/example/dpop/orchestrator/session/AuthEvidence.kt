@@ -57,7 +57,7 @@ class AuthEvidence(
     /**
      * Who proved each entry in [currentAmr] - [AmrSource.ORCHESTRATOR] for a completed
      * orchestrator tool, [AmrSource.KEYCLOAK] for evidence a native Keycloak authenticator
-     * already established (docs/ideen/web-keycloak-kanal.md #8, `JourneyService.
+     * already established (docs/05-api.md Abschnitt 3, `JourneyService.
      * applyEvidenceUpdate`). Exposed via `AuthData.amr` (KEYCLOAK channels only) so Keycloak's own
      * flow can tell which of its own steps already ran vs. which the orchestrator contributed -
      * the orchestrator alone still resolves the combined `acr`, this is purely informational.
@@ -65,7 +65,7 @@ class AuthEvidence(
     val currentAmrSource: Map<String, String> get() = amrEvidence.associate { it.method to it.source }
 
     /**
-     * Each entry in [currentAmr]'s own loa (docs/ideen/web-keycloak-kanal.md #8) - the ONLY thing
+     * Each entry in [currentAmr]'s own loa (docs/05-api.md Abschnitt 3) - the ONLY thing
      * `AuthPolicy.resolveAcr` prices from (`AuthEvidence.MethodEvidence.loa`), regardless of
      * whether the entry came from a completed orchestrator tool (its own achieved/capped level) or
      * a native Keycloak authenticator's self-reported one; neither this field nor the policy that
@@ -77,8 +77,8 @@ class AuthEvidence(
      * Each entry in [currentAmr]'s own ceiling for an MFA combination involving it (docs/06-
      * ablaeufe.md #1, `AuthEvidence.MethodEvidence.enrolledUnderAcr`) - the caller that recorded
      * the entry always supplies this directly (an orchestrator method's own account enrollment
-     * record; a natively reported method's own conservative claim, docs/ideen/web-keycloak-kanal.md
-     * #8), never derived here.
+     * record; a natively reported method's own conservative claim, docs/05-api.md
+     * Abschnitt 3), never derived here.
      */
     val enrolledUnderAcr: Map<String, String> get() = amrEvidence.mapNotNull { r -> r.enrolledUnderAcr?.let { r.method to it } }.toMap()
 
@@ -107,7 +107,7 @@ class AuthEvidence(
      * current set", so a removal semantic makes no sense there. Each [update]'s own `source`
      * (`MethodEvidence.source`) wins for a method that has no recorded source yet, or that was
      * last reported as [AmrSource.KEYCLOAK] - Keycloak's own report is a "Selbstauskunft" the
-     * orchestrator can't verify (docs/ideen/web-keycloak-kanal.md #3), so an actual
+     * orchestrator can't verify (docs/12-entscheidungen.md ADR-7), so an actual
      * orchestrator-tool proof for the SAME method is always the stronger claim and upgrades it.
      * The reverse never happens: once a method is [AmrSource.ORCHESTRATOR], a later `kc`-sourced
      * report for it is silently ignored (source-wise; the method itself is unaffected). Not a
@@ -140,7 +140,7 @@ class AuthEvidence(
 
     /**
      * Sync, not merge: [updates] is the CALLER's complete, currently-valid set for [source] - not
-     * a delta (docs/ideen/web-keycloak-kanal.md #6/#9). Any existing [AmrRecord] whose `source`
+     * a delta (docs/05-api.md Abschnitt 3). Any existing [AmrRecord] whose `source`
      * is CURRENTLY [source] but whose method is missing from [updates] is dropped (it expired -
      * this is what makes a native method's possible time-based lifetime representable at all:
      * Keycloak recomputes its own still-valid AMR set, similar to its `AmrUtils`, and this mirrors

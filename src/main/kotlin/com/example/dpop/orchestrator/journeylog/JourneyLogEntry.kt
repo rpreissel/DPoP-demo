@@ -23,7 +23,7 @@ import java.util.UUID
 @Entity
 @Table(name = "journey_log")
 class JourneyLogEntry(
-    /** APP-only - null for WEB-channel entries, which have no DPoP binding key (docs/ideen/web-keycloak-kanal.md #5). */
+    /** APP-only - null for WEB-channel entries, which have no DPoP binding key (docs/02-domaenenmodell.md Abschnitt 1). */
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
 

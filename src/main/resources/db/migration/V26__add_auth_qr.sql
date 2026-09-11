@@ -1,4 +1,4 @@
--- auth_qr module (docs/ideen/qr-login-ueber-app.md) -------------------------
+-- auth_qr module (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN; docs/08-projektrahmen.md M11) ---
 
 -- The one long-lived credential row enroll-qr creates - a pure opt-in marker,
 -- no secret, referenced only via EnrollmentRef (auth_qr_optin).

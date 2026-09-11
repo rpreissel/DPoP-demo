@@ -10,8 +10,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Fetches and caches Keycloak's JWKS for peer-auth signature verification (docs/ideen/
- * web-keycloak-kanal.md #3). Refetches on an unknown `kid` rather than on every request, so key
+ * Fetches and caches Keycloak's JWKS for peer-auth signature verification
+ * (docs/12-entscheidungen.md ADR-7). Refetches on an unknown `kid` rather than on every request, so key
  * rotation on Keycloak's side doesn't need a restart here.
  */
 @Component

@@ -8,10 +8,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
 
 /**
- * `AuthIntent.CONFIRM_PEER_LOGIN` (docs/ideen/qr-login-ueber-app.md #4): the loa2 gate and its
+ * `AuthIntent.CONFIRM_PEER_LOGIN` (docs/04-orchestrierung.md): the loa2 gate and its
  * "no account at all -> abort, never identification" guard. Stops short of an actual approval -
- * `confirm-qr-login` itself is a separate module (docs/ideen/qr-login-ueber-app.md #9, not yet
- * built) - this only proves the intent/journey mechanics up to the point that tool would activate.
+ * `confirm-qr-login` itself lives in a separate module (`auth_qr`, docs/03-tool-architektur.md),
+ * exercised end-to-end by `AuthQrFlowIntegrationTest` - this only proves the intent/journey
+ * mechanics up to the point that tool would activate.
  */
 class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
 

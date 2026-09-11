@@ -1,4 +1,4 @@
--- WEB-Kanal-Anker (docs/ideen/web-keycloak-kanal.md #2): binding_key_ref bleibt APP-only und
+-- WEB-Kanal-Anker (docs/02-domaenenmodell.md Abschnitt 1): binding_key_ref bleibt APP-only und
 -- wird nullable; WEB-Kanaele verankern stattdessen ueber kc_auth_session_id (initialer Login)
 -- bzw. kc_session_id (Step-up).
 ALTER TABLE channel_session ALTER COLUMN binding_key_ref DROP NOT NULL;

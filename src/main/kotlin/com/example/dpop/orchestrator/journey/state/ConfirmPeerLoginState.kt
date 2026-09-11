@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * Approve or decline a WEB-channel login waiting on this account's peer approval
- * (docs/ideen/qr-login-ueber-app.md #4). Reached two ways at once
+ * (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN). Reached two ways at once
  * ([AuthIntent.CONFIRM_PEER_LOGIN]'s own doc) - a cold entry and an already-authenticated channel
  * both land on [Requested] and share the exact same gate from there, so there is no separate
  * "Start" state: the only thing that differs between the two entries is whether an account is
@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(
     JsonSubTypes.Type(value = ConfirmPeerLoginState.Requested::class, name = "Requested"),
+    JsonSubTypes.Type(value = ConfirmPeerLoginState.ConfirmationRequired::class, name = "ConfirmationRequired"),
     JsonSubTypes.Type(value = ConfirmPeerLoginState.Confirming::class, name = "Confirming"),
     JsonSubTypes.Type(value = ConfirmPeerLoginState.OfferLogout::class, name = "OfferLogout")
 )
@@ -36,6 +37,27 @@ sealed interface ConfirmPeerLoginState : JourneyState {
         override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
+    }
+
+    /**
+     * Re-prove any one active factor, fresh, right now - reached ONLY when the channel already
+     * satisfied loa2 on its own (evidence of unknown age), never when that loa2 evidence was just
+     * freshly produced by this journey's own step-up (`ConfirmPeerLoginStrategy`'s own doc). Same
+     * reasoning and shape as [com.example.dpop.orchestrator.journey.state.DeleteAccountState.ConfirmationRequired]:
+     * an already-authenticated but possibly hijacked session must not be able to vouch for a
+     * foreign login on the strength of old evidence alone.
+     */
+    data class ConfirmationRequired(
+        val startedAuthenticated: Boolean,
+        override val offered: List<String>,
+        override val declined: Set<String> = emptySet(),
+        override val active: ToolRef? = null
+    ) : ConfirmPeerLoginState, OfferingState {
+        override fun withActive(active: ToolRef?) = copy(active = active)
+        override val selectionContext: String get() = "auth"
+        override val selectionTitle: String get() = "Web-Login bestätigen – Identität erneut bestätigen"
+        override val selectionDescription: String?
+            get() = "Bevor Sie den Web-Login bestätigen, weisen Sie sich noch einmal aus."
     }
 
     /**

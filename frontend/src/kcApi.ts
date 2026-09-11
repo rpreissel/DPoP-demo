@@ -51,7 +51,7 @@ export function onKcApiCall(listener: ApiCallListener): () => void {
 }
 
 /**
- * One native authenticator proof (docs/ideen/web-keycloak-kanal.md #6/#8/#9) - just two ids, not
+ * One native authenticator proof (docs/05-api.md Abschnitt 3) - just two ids, not
  * method/loa/factorTypes: those are fixed per authenticator TYPE and resolved server-side from a
  * NativeAuthenticatorDescriptor keyed by nativeToolId, the same way an orchestrator tool's own
  * evidence is priced from its ToolDescriptor rather than resent on every outcome. nativeToolId is
@@ -64,15 +64,14 @@ export interface AmrEntry {
 }
 
 /**
- * The kc-facade's one facade-specific endpoint (docs/ideen/web-keycloak-kanal.md #6/#8) - upsert
+ * The kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3) - upsert
  * semantics on a Keycloak-chosen [channelSessionId]. [accountId]/[targetAcr] only matter on
  * step-up (kcSessionId anchor); omitted on initial login. [amr] simulates what native Keycloak
  * authenticators (never an orchestrator tool) already established THIS flow run, one entry per
  * method - merged into the channel's evidence and re-checked against the current floor.
  * [restoreDataToken] is a signed token a PRIOR, unrelated channel's own `fetchKcRestoreData`
  * returned - the bulk, one-shot counterpart to accountId/amr, simulating the Authenticator
- * resubmitting what it stashed in a Keycloak UserSession note (docs/ideen/web-keycloak-kanal.md
- * #6).
+ * resubmitting what it stashed in a Keycloak UserSession note (docs/05-api.md Abschnitt 3).
  */
 export function upsertKcChannel(
   key: KcSigningKey,
@@ -92,7 +91,7 @@ export function upsertKcChannel(
 }
 
 /**
- * GET .../restore-data (docs/ideen/web-keycloak-kanal.md #6) - what the real Authenticator's
+ * GET .../restore-data (docs/05-api.md Abschnitt 3) - what the real Authenticator's
  * end-of-flow lifecycle hook calls once a UserSessionModel exists, to get a signed token worth
  * stashing in a Keycloak session note for a later step-up's [upsertKcChannel] call to resubmit.
  * [kcSessionId] is that fresh UserSessionModel id - this backend has no other way to learn it yet,
@@ -115,8 +114,8 @@ export async function fetchKcRestoreData(
 }
 
 /**
- * A plain "what's next" call - no accountId/targetAcr/amr at all (docs/ideen/
- * web-keycloak-kanal.md #8: "resume ohne tool aufruf"). Real Keycloak calls this whenever it
+ * A plain "what's next" call - no accountId/targetAcr/amr at all (docs/05-api.md
+ * Abschnitt 3: "resume ohne tool aufruf"). Real Keycloak calls this whenever it
  * needs the orchestrator's current view of the channel without having anything new to report -
  * unlike a plain GET, this still goes through the same upsert endpoint every kc call uses.
  */
@@ -124,7 +123,7 @@ export function resumeKcChannel(key: KcSigningKey, channelSessionId: string, anc
   return upsertKcChannel(key, channelSessionId, anchor)
 }
 
-/** Same facade-neutral tool endpoints the App channel uses (docs/ideen/web-keycloak-kanal.md #6) - just signed with the kc peer-auth assertion instead of DPoP. */
+/** Same facade-neutral tool endpoints the App channel uses (docs/05-api.md Abschnitt 3) - just signed with the kc peer-auth assertion instead of DPoP. */
 export function activateKcTool(key: KcSigningKey, anchor: { kcAuthSessionId?: string; kcSessionId?: string }, channelSessionId: string, toolId: string): Promise<ChannelResponse> {
   return call('POST', `/orchestrator/api/v1/channels/${channelSessionId}/tools/${toolId}`, anchor, key)
 }

@@ -8,8 +8,6 @@ import { CURRENT_STEP_BY_STATE_TYPE, INTENT_DIAGRAM_KEY, JOURNEY_DIAGRAMS } from
 interface JourneyStructureViewProps {
   channelSessionId?: string
   channelState?: string
-  jwkThumbprint?: string
-  onRecreateKey: () => void
   /** The running journey chain, outermost first (docs/tool_api/Envelope.kt, JourneyDebugStep) - only present once demo.journeys was returned. */
   journeys?: JourneyDebugStep[]
   /** Where the channel is headed right now - a real ToolSession (`type: 'tool'`) or an orchestrator-owned screen (`type: 'orchestrator'`, e.g. a selection or confirmation page) alike, both shown as the innermost box. */
@@ -53,7 +51,7 @@ function nest(levels: Level[], baseDepth: number): ReactNode {
  * Journey ⊃ SubJourney ⊃ Tool, including any SUSPENDED parent journey (e.g. a step-up gate parked
  * mid-way while its sub-journey runs) that would otherwise be invisible from the outside.
  */
-export function JourneyStructureView({ channelSessionId, channelState, jwkThumbprint, onRecreateKey, journeys, next, journeyKind, onClear, onCancelJourney }: JourneyStructureViewProps) {
+export function JourneyStructureView({ channelSessionId, channelState, journeys, next, journeyKind, onClear, onCancelJourney }: JourneyStructureViewProps) {
   const [open, setOpen] = useState(false)
 
   if (!channelSessionId) return null
@@ -122,23 +120,6 @@ export function JourneyStructureView({ channelSessionId, channelState, jwkThumbp
       </div>
       {open && (
         <>
-          <ul className="status-list">
-            <li>
-              <span className="label">Geräte-Kennung</span>
-              <span className="value-with-action">
-                <span className="value" title={jwkThumbprint}>
-                  {shorten(jwkThumbprint)}
-                </span>
-                <button
-                  className="secondary small"
-                  onClick={onRecreateKey}
-                  title="Löscht diesen DPoP-Schlüssel und erzeugt einen neuen - das Gerät gilt danach als unbekannt, jede laufende Sitzung wird lokal verworfen."
-                >
-                  Neu erzeugen
-                </button>
-              </span>
-            </li>
-          </ul>
           <div className="nesting-diagram">
             <div className="nesting-box nesting-box--1">
               <span className="nesting-label">

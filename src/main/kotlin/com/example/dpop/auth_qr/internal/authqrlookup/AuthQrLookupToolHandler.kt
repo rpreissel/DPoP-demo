@@ -15,7 +15,7 @@ import java.util.UUID
 
 /**
  * toolId=auth-qr-lookup: the WEB channel does not know the account yet - it is revealed by
- * whichever account approves via `confirm-qr-login` (docs/ideen/qr-login-ueber-app.md #4/#5), a
+ * whichever account approves via `confirm-qr-login` (docs/04-orchestrierung.md; docs/05-api.md, Peer-Login bestätigen), a
  * passwordless "log in with your phone".
  *
  * Pure business logic; self-description lives in [AuthQrLookupDescriptor].

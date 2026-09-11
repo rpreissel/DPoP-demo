@@ -19,7 +19,7 @@ import org.springframework.web.method.support.ModelAndViewContainer
  * parameters. A tool controller no longer needs [DpopValidator]/[JwkThumbprintService] at all, so
  * it no longer needs to depend on the orchestrator for them.
  *
- * Facade-aware (docs/ideen/web-keycloak-kanal.md #6): the generic tool endpoints
+ * Facade-aware (docs/05-api.md Abschnitt 3): the generic tool endpoints
  * (`/channels/{id}/tools/{toolId}`, `/tools/{toolSessionId}/{toolId}`, ...) are facade-neutral by
  * design - the kc-facade's `OrchestratorAuthenticator` calls them exactly like the App client
  * does, just with a signed Keycloak assertion instead of a DPoP proof. Rather than duplicating

@@ -12,12 +12,12 @@ enum class QrLoginStatus { PENDING, APPROVED, DENIED, EXPIRED }
 
 /**
  * The one piece of state connecting a WEB `auth-qr`/`auth-qr-lookup` activation to an APP
- * `confirm-qr-login` decision (docs/ideen/qr-login-ueber-app.md #5) - both sides are the same
+ * `confirm-qr-login` decision (docs/05-api.md, Peer-Login bestätigen) - both sides are the same
  * orchestrator process/DB, so no cross-service call is needed to resolve it.
  *
  * [pairingCode] doubles as the primary key: it IS the lookup capability, not just a label
- * (docs/ideen/qr-login-ueber-app.md #6 - 8 chars, high enough entropy given the short TTL and the
- * rate limiting on failed lookups). [verificationCode] is deliberately much lower-entropy - it is
+ * (docs/07-betrieb.md #5 - 8 chars, high enough entropy given the short TTL; the anonymous rate
+ * limiting on failed lookups this assumes is not yet implemented, see that section). [verificationCode] is deliberately much lower-entropy - it is
  * never submitted anywhere, only compared by eye between the WEB and APP screens (QR-jacking
  * countermeasure, same doc section).
  *

@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 
 /**
  * Delegates Keycloak's native password credential to the orchestrator's own {@code auth_password}
- * store (docs/ideen/web-keycloak-kanal.md, DPoP-demo-25q) - LDAP-federation-style: no password is
+ * store (DPoP-demo-25q) - LDAP-federation-style: no password is
  * ever stored here, every check/change is a live HTTP round-trip. Deliberately NOT a
  * {@link org.keycloak.storage.user.UserLookupProvider} - the local, per-account Keycloak user
  * created/mirrored by {@link OrchestratorAuthenticator}/{@code KeycloakAccountSyncListener} stays

@@ -7,7 +7,7 @@ interface PairingCodeInputFormProps {
 }
 
 /**
- * `confirm-qr-login`'s `input` step (docs/ideen/qr-login-ueber-app.md #5) - the pairing code is
+ * `confirm-qr-login`'s `input` step (docs/05-api.md, Peer-Login bestätigen) - the pairing code is
  * either scanned/typed here manually, or pre-filled from the WEB channel's demo link
  * (App.tsx's URL-capture effect, persisted via session.ts). Consumed (forgotten) once submitted so
  * a later, unrelated confirm-qr-login run never silently reuses a stale code.
@@ -18,7 +18,7 @@ export function PairingCodeInputForm({ onSubmit, error }: PairingCodeInputFormPr
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     forgetPendingPairingCode()
-    // The stored/displayed form may include a grouping dash (docs/ideen/qr-login-ueber-app.md #6,
+    // The stored/displayed form may include a grouping dash (docs/07-betrieb.md #5,
     // "XXXX-XXXX") - the actual pairingCode value never contains one.
     onSubmit(pairingCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())
   }

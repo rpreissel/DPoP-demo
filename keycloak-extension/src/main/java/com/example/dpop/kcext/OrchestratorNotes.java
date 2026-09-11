@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Where this plugin keeps state across a single flow run (docs/ideen/web-keycloak-kanal.md #10) -
+ * Where this plugin keeps state across a single flow run -
  * one place for every auth-/user-session note key and the small bits of JSON bookkeeping around
  * them, so OrchestratorAuthenticator and OrchestratorUpdateAuthenticator agree on the same shapes
  * without duplicating parsing logic.
@@ -34,13 +34,13 @@ public final class OrchestratorNotes {
     static final String PENDING_KIND = "orchestrator_pending_kind";
     static final String PENDING_TOOL_ID = "orchestrator_pending_tool_id";
     static final String PENDING_TOOL_SESSION_ID = "orchestrator_pending_tool_session_id";
-    /** JSON array of {nativeToolId, amrSourceId} - the full, current set (docs/ideen/web-keycloak-kanal.md #9: no delta). */
+    /** JSON array of {nativeToolId, amrSourceId} - the full, current set (docs/05-api.md Abschnitt 3: no delta). */
     static final String NATIVE_AMR = "orchestrator_native_amr";
     /** Set once restoreData was already submitted this flow run, so a later resume doesn't resend it. */
     static final String RESTORE_SUBMITTED = "orchestrator_restore_submitted";
 
     /**
-     * Copied into the UserSessionModel automatically at session creation (docs/ideen/web-keycloak-kanal.md #10).
+     * Copied into the UserSessionModel automatically at session creation.
      * Public: also written directly by {@link com.example.dpop.kcext.grant.AccountTokenGrantType}
      * (DPoP-demo-xso) for the App-channel custom grant's own session, which never runs through
      * {@link OrchestratorAuthenticator} - same note keys, same {@link OrchestratorAcrAmrMapper}
@@ -58,7 +58,7 @@ public final class OrchestratorNotes {
     }
 
     /**
-     * Always the same value for the whole flow run (docs/ideen/web-keycloak-kanal.md #6: "immer
+     * Always the same value for the whole flow run (docs/05-api.md Abschnitt 3: "immer
      * insert, nie find"). Deliberately keyed on the per-CLIENT {@link AuthenticationSessionModel}'s
      * own tab id, not {@link AuthenticationSessionModel#getParentSession()}'s id: Keycloak reuses
      * the same {@code RootAuthenticationSessionModel} (and so the same parent id) across separate
@@ -136,7 +136,7 @@ public final class OrchestratorNotes {
     }
 
     /**
-     * The Section 6 end-of-flow RestoreData hook (docs/ideen/web-keycloak-kanal.md #6) - called
+     * The end-of-flow RestoreData hook (docs/05-api.md Abschnitt 3) - called
      * from {@link OrchestratorResumeAuthenticator#onTopFlowSuccess}, which fires once, at the true
      * end of the WHOLE top-level flow (after LoA-1/LoA-2, whichever ran, are already done) -
      * replacing the separate OrchestratorRestoreDataListener event listener entirely. Takes
@@ -163,7 +163,7 @@ public final class OrchestratorNotes {
             }
         } catch (Exception e) {
             // Best-effort: a missed RestoreData write only means a later step-up starts without a
-            // running start (docs/ideen/web-keycloak-kanal.md #6), never a broken login.
+            // running start (docs/05-api.md Abschnitt 3), never a broken login.
             log.warnf(e, "Failed to fetch/stash RestoreData for channel %s", channelSessionId);
         }
     }

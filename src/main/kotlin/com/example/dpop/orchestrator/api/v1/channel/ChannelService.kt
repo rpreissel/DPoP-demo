@@ -30,6 +30,7 @@ import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
+import com.example.dpop.tool_api.PersonDirectory
 import java.time.Duration
 import java.util.UUID
 import org.springframework.stereotype.Service
@@ -53,7 +54,8 @@ class ChannelService(
     private val tokenService: TokenService,
     private val tokenProvider: TokenProvider,
     private val channelCreationThrottleService: ChannelCreationThrottleService,
-    private val journeyLogService: JourneyLogService
+    private val journeyLogService: JourneyLogService,
+    private val personDirectory: PersonDirectory
 ) {
 
     /**
@@ -108,6 +110,19 @@ class ChannelService(
         resumeChannel(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
 
     /**
+     * Whether this device is already linked to an account (docs/02-domaenenmodell.md #1) - a pure
+     * read against [SessionManagementService.findLinkedAccountId], no channel/journey created.
+     * Lets the entry screen show "this device belongs to X" before the user picks how to start,
+     * the same `bindingKeyRef` proof every other App-facade call already requires.
+     */
+    fun findDeviceLink(bindingKeyRef: String): DeviceLinkResponse {
+        val accountId = sessionManagementService.findLinkedAccountId(bindingKeyRef) ?: return DeviceLinkResponse(linked = false)
+        val personId = accountService.findAccount(accountId)?.personId
+        val personName = personId?.let { personDirectory.displayName(it) }
+        return DeviceLinkResponse(linked = true, accountId = accountId, personName = personName)
+    }
+
+    /**
      * Same data as ChannelResponse.activeMethods, addressable as its own resource (docs/05-api.md
      * #2). Empty, not an error, when no evidence has been produced yet for this channel
      * ([ChannelSession.hasProvenFactor]) - including when a device was merely recognized
@@ -127,7 +142,7 @@ class ChannelService(
      * Every journey step ever recorded under this channel's OWN account, across every channel
      * (APP or KEYCLOAK) that account was ever authenticated on - the account-scoped counterpart
      * of `JourneyLogController`'s own bindingKeyRef-scoped log, which a KEYCLOAK channel has no
-     * bindingKeyRef to look up by at all (docs/ideen/web-keycloak-kanal.md #5). Empty, not an
+     * bindingKeyRef to look up by at all (docs/02-domaenenmodell.md Abschnitt 1). Empty, not an
      * error, when this channel has no account bound yet.
      */
     fun getJourneyLog(channelSessionId: UUID, bindingKeyRef: String): JourneyLogResponse {
@@ -173,8 +188,8 @@ class ChannelService(
 
     /**
      * `internal`, not `private`: [KcChannelService] reuses this same "resume and advance the
-     * active journey" logic for the kc-facade's upsert endpoint (docs/ideen/web-keycloak-kanal.md
-     * #6) instead of duplicating it - only channel creation differs per facade.
+     * active journey" logic for the kc-facade's upsert endpoint (docs/05-api.md
+     * Abschnitt 3) instead of duplicating it - only channel creation differs per facade.
      */
     /**
      * [seedAction] only ever matters for the fresh-journey branch below (a channel with an
@@ -304,7 +319,7 @@ class ChannelService(
 
     /**
      * Confirm a WEB-channel QR login from this already-authenticated APP channel
-     * (docs/ideen/qr-login-ueber-app.md #4) - the "already open app" entry into
+     * (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN) - the "already open app" entry into
      * [AuthIntent.CONFIRM_PEER_LOGIN], resource-oriented like [startManageMethods]. The cold-entry
      * path is a plain `POST /app/channels` with that same intent instead; both converge on
      * [ConfirmPeerLoginState.Requested].
@@ -371,7 +386,7 @@ class ChannelService(
     }
 
     /**
-     * `KEYCLOAK`-only (docs/ideen/web-keycloak-kanal.md #8) - `null` for `APP`. Used both by
+     * `KEYCLOAK`-only (docs/05-api.md Abschnitt 3) - `null` for `APP`. Used both by
      * [respond] here and by `ToolControllerSupport`'s own response building, so every KEYCLOAK
      * response carries it, entry point and tool activation/PATCH alike, not just this class's own.
      */

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
- * The single state of `KC_SELECT_METHOD` (docs/ideen/web-keycloak-kanal.md #7) - always offers
+ * The single state of `KC_SELECT_METHOD` (docs/04-orchestrierung.md Abschnitt 3) - always offers
  * every kc-usable tool as one `selectMethod` step, re-offered (narrowed by [declined]) until
  * either a proof closes the gap or nothing is left.
  */
@@ -16,7 +16,7 @@ sealed interface KcSelectMethodState : JourneyState {
 
     /**
      * Whether the account was already known when this offer was built (Web-Kanal step-up,
-     * docs/ideen/web-keycloak-kanal.md #6/#7) - decides how a `Completed.Authenticated` outcome
+     * docs/04-orchestrierung.md Abschnitt 3) - decides how a `Completed.Authenticated` outcome
      * is interpreted (trust the outcome's own account vs. only the already-bound one), the same
      * distinction `LookupLoginStrategy` makes via its own state shape - `interpret` never has
      * [com.example.dpop.orchestrator.journey.JourneyContext] to ask directly. Declared on the

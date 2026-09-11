@@ -4,8 +4,8 @@ import com.example.dpop.tool_spi.FactorType
 import org.springframework.stereotype.Component
 
 /**
- * Stable, per-authenticator-TYPE metadata for a native Keycloak authenticator (docs/ideen/
- * web-keycloak-kanal.md #6/#9) - the kc-facade's own mirror of `ToolDescriptor` on the
+ * Stable, per-authenticator-TYPE metadata for a native Keycloak authenticator (docs/05-api.md
+ * Abschnitt 3) - the kc-facade's own mirror of `ToolDescriptor` on the
  * orchestrator side, field for field: [method] and [maxAcr] are exactly as fixed per authenticator
  * TYPE as `ToolDescriptor.method`/`maxAcr` are per tool (many orchestrator tool handlers already
  * report `achievedAcr = descriptor.maxAcr` directly, never a caller-chosen value - the same idiom
@@ -29,7 +29,7 @@ data class NativeAuthenticatorDescriptor(
  * (an admin wiring up `OrchestratorAuthenticator`/native executions in a Keycloak flow). Kc-facade
  * -only, mirrors `ToolHandlerRegistry` in spirit but deliberately NOT the same registry: native
  * authenticators are not orchestrator tools, and the orchestrator's own catalog must stay ignorant
- * of them (docs/ideen/web-keycloak-kanal.md #8 - a natively reported method's evidence is priced
+ * of them (docs/05-api.md Abschnitt 3 - a natively reported method's evidence is priced
  * without any catalog lookup at all).
  */
 @Component

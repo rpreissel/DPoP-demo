@@ -16,7 +16,7 @@ import java.util.UUID
 /**
  * toolId=auth-qr: the account is already known via the channel (step-up/re-auth on a resolved
  * account) - approval must match [QrLoginRequest.expectedAccountId] exactly
- * (docs/ideen/qr-login-ueber-app.md #4/#5).
+ * (docs/04-orchestrierung.md; docs/05-api.md, Peer-Login bestätigen).
  *
  * Pure business logic; self-description lives in [AuthQrDescriptor].
  */

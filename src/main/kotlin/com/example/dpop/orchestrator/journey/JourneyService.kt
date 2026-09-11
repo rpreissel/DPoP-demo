@@ -333,8 +333,8 @@ class JourneyService(
     }
 
     /**
-     * A facade-neutral sync of [source]'s complete, currently-valid evidence set (docs/ideen/
-     * web-keycloak-kanal.md #6/#9) for a channel that already has a running journey - never a real
+     * A facade-neutral sync of [source]'s complete, currently-valid evidence set (docs/05-api.md
+     * Abschnitt 3) for a channel that already has a running journey - never a real
      * orchestrator tool outcome, so [AuthEvidenceService.attachToChannel] is called directly
      * instead of going through [applyOutcome]. This method itself knows nothing about Keycloak -
      * the caller (`KcChannelService`) supplies [source] explicitly (`AmrSource.KEYCLOAK` today,
@@ -366,7 +366,7 @@ class JourneyService(
     private fun mergeEvidence(journey: AuthJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
         // [source]'s set BEFORE the update - compared against [updates] below to decide whether
         // this call actually changed anything worth logging. Needed because every caller resends
-        // its COMPLETE current set on every call, no delta (docs/ideen/web-keycloak-kanal.md #9,
+        // its COMPLETE current set on every call, no delta (docs/05-api.md Abschnitt 3,
         // "kein Delta") - e.g. every LoA-2 selectMethod poll re-reports the very same native
         // password proof, and logging that identically on each poll would drown the one real entry
         // (the first time it was proven) in noise.
@@ -382,7 +382,7 @@ class JourneyService(
         if (before != after) {
             // The generic advance() call right after this logs the EvidenceReported transition
             // itself (with acrFloor/resolvedAcr), but not WHAT changed - this records that
-            // (docs/ideen/web-keycloak-kanal.md #8: native/external evidence, source=kc) - without
+            // (docs/05-api.md Abschnitt 3: native/external evidence, source=kc) - without
             // it, the journey log would show every tool outcome in full but go silent on every
             // Keycloak-native factor, even though it's just as real a step in the journey's path.
             // snake_case, not PascalCase: JourneyService buckets this at the machine's discretion,
@@ -410,7 +410,7 @@ class JourneyService(
         val transition = strategy.transitionErased(state, event, ctx)
         // EvidenceReported fires on every kc-facade upsertChannel call, even a pure re-send of
         // already-known evidence with no floor change (the caller always resends its full current
-        // set, never a delta - docs/ideen/web-keycloak-kanal.md #9) - logging that as if it were a
+        // set, never a delta - docs/05-api.md Abschnitt 3) - logging that as if it were a
         // fresh transition would duplicate the SAME "To SelectMethod, candidates X" entry on every
         // poll. Only log it when the transition actually leads somewhere new; a genuine
         // proof/floor-raise always produces a DIFFERENT state (different candidates, or
@@ -567,7 +567,7 @@ class JourneyService(
             // THAT one session here keeps "logout means logout" true for this channel, without
             // touching any other session the same account happens to also be logged into
             // elsewhere (e.g. a separate Web-channel browser login). The Web channel's own logout
-            // stays entirely Keycloak's (docs/ideen/web-keycloak-kanal.md #11) - never reaches this
+            // stays entirely Keycloak's (docs/07-betrieb.md Abschnitt 3) - never reaches this
             // transition for that channel.
             if (channel.channel == ChannelSession.Channel.APP) {
                 channel.authContextId
@@ -659,7 +659,7 @@ class JourneyService(
                     allowsMultipleInstances = action.tool.allowsMultipleInstances,
                     label = label
                 )
-                // KEYCLOAK has no device to link (docs/ideen/web-keycloak-kanal.md #5) - actively
+                // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
                 // suppressed, not just incidentally skipped by a null bindingKeyRef.
                 if (action.bindDevice && channel.channel == ChannelSession.Channel.APP) {
                     sessionManagementService.linkDeviceToAccount(
@@ -677,7 +677,7 @@ class JourneyService(
                     "Authenticated without a known account"
                 }
                 bindAccount(journey, channel, accountId)
-                // KEYCLOAK has no device to link (docs/ideen/web-keycloak-kanal.md #5) - actively
+                // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
                 // suppressed, not just incidentally skipped by a null bindingKeyRef.
                 if (action.bindDevice && channel.channel == ChannelSession.Channel.APP) {
                     sessionManagementService.linkDeviceToAccount(
@@ -704,7 +704,7 @@ class JourneyService(
 
             is Action.Remove -> removeMethod(journey, channel, action.methodInstanceId)
 
-            // KEYCLOAK has no device to link (docs/ideen/web-keycloak-kanal.md #5) - actively
+            // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
             // suppressed rather than left to a null bindingKeyRef, so a KEYCLOAK channel never
             // accumulates dead DeviceAccountLink rows even if a strategy ever offered this.
             is Action.LinkDevice -> if (channel.channel == ChannelSession.Channel.APP) {

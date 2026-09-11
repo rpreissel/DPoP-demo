@@ -20,7 +20,7 @@ enum class AuthIntent {
     LOOKUP_LOGIN,
 
     /**
-     * Entry intent for the kc-facade (docs/ideen/web-keycloak-kanal.md #7): always offers every
+     * Entry intent for the kc-facade (docs/04-orchestrierung.md Abschnitt 3): always offers every
      * kc-usable tool as a single `selectMethod` step, no fallback chain, no enrollment - Keycloak
      * drives the rest of its own flow natively. Serves both Web-Kanal cases from the same
      * strategy: initial login (no account yet, resolves one like [LOOKUP_LOGIN]) and step-up
@@ -36,7 +36,7 @@ enum class AuthIntent {
 
     /**
      * Approve or decline a WEB-channel login that a `auth-qr`/`auth-qr-lookup` pairing is waiting
-     * on (docs/ideen/qr-login-ueber-app.md #4). Reachable BOTH ways at once, unlike every other
+     * on (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN). Reachable BOTH ways at once, unlike every other
      * intent here: as an entry intent (a cold app scanning the QR, `POST /app/channels`) and, just
      * as directly, on an already-authenticated channel (an app already open when the QR is
      * scanned) - both converge on the exact same state/gate, so neither path needs its own

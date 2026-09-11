@@ -11,7 +11,7 @@ import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
 /**
- * Keeps a Keycloak user mirrored for every orchestrator account (docs/ideen/web-keycloak-kanal.md)
+ * Keeps a Keycloak user mirrored for every orchestrator account
  * - replaces the earlier `infra/tofu/keycloak/main.tf`-declared demo users entirely: whatever
  * `KcDemoAccountSeeder` (or any real account creation) does to an account, this reacts to and
  * pushes to Keycloak via [KeycloakAdminClient]. Only registered under the `keycloak` Spring

@@ -10,7 +10,7 @@ import org.keycloak.services.resource.RealmResourceProvider;
 /**
  * Publishes this node's peer-auth public key at
  * {@code /realms/{realm}/orchestrator-jwks/.well-known/jwks.json} - what the orchestrator's
- * {@code kc.peer-auth.jwks-uri} points at (docs/ideen/web-keycloak-kanal.md #3). A real Keycloak
+ * {@code kc.peer-auth.jwks-uri} points at (docs/12-entscheidungen.md ADR-7). A real Keycloak
  * realm's own {@code /protocol/openid-connect/certs} exists for token signing keys, which is a
  * different keypair for a different purpose - this extension deliberately publishes its own,
  * client-scoped key here rather than overloading the realm's token-signing keys.

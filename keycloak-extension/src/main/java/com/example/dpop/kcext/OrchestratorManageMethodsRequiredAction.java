@@ -10,8 +10,8 @@ import org.keycloak.sessions.AuthenticationSessionModel;
 import java.util.List;
 
 /**
- * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/ideen/
- * manage-auth-methods-im-web-kanal.md) - reachable via {@code kc_action=orchestrator-manage-methods}
+ * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/05-api.md, "Anmeldeverfahren
+ * verwalten im Web-Kanal") - reachable via {@code kc_action=orchestrator-manage-methods}
  * on the EXISTING login client/flow (V2, unchanged): Keycloak's own mechanism for "an already
  * authenticated user triggers a self-service action", same idiom as its built-in "update
  * password"/"configure OTP" links. Runs after {@code orchestrator-browser} already completed -
