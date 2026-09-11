@@ -89,6 +89,21 @@ class StepUpStrategyTest : BehaviorSpec({
         }
     }
 
+    given("Start with allowReIdentification = false, the only active method already used this run") {
+        // Same fixture as the "re-identification could still help" case above - RE_IDENTIFY WOULD
+        // be offered if allowed, proving this is the flag suppressing it, not just an absence of
+        // candidates (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1: never identification).
+        val acc = account(method("sms", "loa2"))
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
+        val state = StepUpState.Start("loa2", "loa1", allowReIdentification = false)
+
+        then("aborts instead of offering RE_IDENTIFY") {
+            val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
+            transition.shouldBeInstanceOf<Transition.Abort>()
+            (transition as Transition.Abort).reason shouldContain "nicht erreichbar"
+        }
+    }
+
     given("Start, nothing at all can close the gap (active method used, IDENT tools backend-disabled)") {
         val acc = account(method("sms", "loa2"))
         val theCtx = ctx(
@@ -169,6 +184,14 @@ class StepUpStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc))
             then("cancels - giving up here is not an error") {
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Transition.Cancel
+            }
+        }
+
+        `when`("re-identification could help, but this run forbids it (allowReIdentification = false)") {
+            val forbiddenState = state.copy(allowReIdentification = false)
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
+            then("cancels instead of requiring RE_IDENTIFY") {
+                strategy.transition(forbiddenState, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Transition.Cancel
             }
         }
     }

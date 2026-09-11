@@ -171,11 +171,17 @@ sealed interface Transition {
     /** Move the journey to [state]; what it now offers is read straight off that state. */
     data class To(val state: JourneyState) : Transition
 
-    /** Run another intent first, then resume this journey at [resumeWith]. */
+    /**
+     * Run another intent first, then resume this journey at [resumeWith].
+     *
+     * [allowReIdentification] only reaches [initialStateForSubJourneyAcr] - meaningless unless
+     * [intent] is `STEP_UP` (see that param's own doc).
+     */
     data class RequireSubJourney(
         val intent: AuthIntent,
         val targetAcr: String,
-        val resumeWith: JourneyState
+        val resumeWith: JourneyState,
+        val allowReIdentification: Boolean = true
     ) : Transition
 
     /** Goal reached: consume the journey, the channel becomes AUTHENTICATED. */

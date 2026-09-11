@@ -133,7 +133,12 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
         if (ctx.policy.isSatisfied(ctx.evidence, REQUIRED_ACR, account)) return null
         return Transition.RequireSubJourney(
             AuthIntent.STEP_UP, REQUIRED_ACR,
-            resumeWith = ConfirmPeerLoginState.Requested(startedAuthenticated)
+            resumeWith = ConfirmPeerLoginState.Requested(startedAuthenticated),
+            // Never RE_IDENTIFY here (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1) - a
+            // peer-approval must never let someone acquire a fresh identity just to confirm
+            // someone else's login; a device-bound account that can't reach loa2 on its own active
+            // methods aborts instead (StepUpStrategy.offerAuth's own Abort branch).
+            allowReIdentification = false
         )
     }
 

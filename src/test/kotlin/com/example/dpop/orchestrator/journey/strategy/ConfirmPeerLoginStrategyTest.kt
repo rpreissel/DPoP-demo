@@ -55,7 +55,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("the loa2 gate parks the wish and demands a step-up first") {
                 strategy.transition(ConfirmPeerLoginState.Requested(false), JourneyEvent.Started, theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ConfirmPeerLoginState.Requested(false))
+                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ConfirmPeerLoginState.Requested(false), allowReIdentification = false)
             }
         }
 
@@ -90,7 +90,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
             then("re-evaluates from scratch instead of silently accepting it as sufficient") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = "loa1")
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ConfirmPeerLoginState.Requested(false))
+                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ConfirmPeerLoginState.Requested(false), allowReIdentification = false)
             }
         }
 
@@ -100,7 +100,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa3")
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
-                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ConfirmPeerLoginState.Requested(false))
+                    Transition.RequireSubJourney(AuthIntent.STEP_UP, "loa2", resumeWith = ConfirmPeerLoginState.Requested(false), allowReIdentification = false)
             }
         }
     }

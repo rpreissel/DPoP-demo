@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
@@ -61,6 +62,29 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
                 val response = post("/orchestrator/api/v1/app/channels", """{"intent":"confirm_peer_login"}""")
                 response.channel()["state"] shouldBe "STEP_UP_IN_PROGRESS"
                 response.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
+
+                }
+            }
+        }
+
+        given("a device linked to an account whose only active method (sms) is now used up, still under loa2") {
+            `when`("the STEP_UP gate re-evaluates with no active method left to offer") {
+                then("aborts (410) instead of falling back to RE_IDENTIFY - a peer-approval must never trigger identification") {
+
+                registerWithSms()
+
+                val started = post("/orchestrator/api/v1/app/channels", """{"intent":"confirm_peer_login"}""")
+                val channelSessionId = started.channel()["channelSessionId"] as String
+                val (tan, activation) = captureMockTan {
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
+                }
+                val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
+
+                val exception = assertThrows<HttpClientErrorException> {
+                    patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
+                }
+                exception.statusCode shouldBe HttpStatus.GONE
+                exception.responseBodyAsString shouldContain "nicht erreichbar"
 
                 }
             }

@@ -26,6 +26,7 @@ import {
 } from '../../api.ts'
 import {
   forgetChannelSessionId,
+  forgetPendingPairingCode,
   loadAvailableTools,
   loadChannelSessionId,
   storeAvailableTools,
@@ -474,6 +475,18 @@ export function AppChannelApp() {
     }
   }
 
+  /**
+   * The explicit "Web-Login per QR bestätigen" choice on the entry screen - distinct from the
+   * `?pairingCode=...` deep-link path (URL-capture effect above), which is the only other writer
+   * of the pending pairing code. Without this, a code left over from an earlier deep link would
+   * silently resurface here even though the user is starting fresh and hasn't scanned anything new.
+   */
+  function handleConfirmPeerLoginChoice() {
+    forgetPendingPairingCode()
+    setPendingPairingCode(undefined)
+    handleStart('confirmPeerLogin')
+  }
+
   /** Local-only: forgets the remembered channelSessionId and resets all channel state - no backend call, unlike Logout. */
   function handleClearChannel() {
     forgetChannelSessionId()
@@ -852,7 +865,7 @@ export function AppChannelApp() {
                   <li>
                     <button
                       className="method-choice"
-                      onClick={() => handleStart('confirmPeerLogin')}
+                      onClick={handleConfirmPeerLoginChoice}
                       aria-label="Web-Login per QR bestätigen"
                     >
                       <span className="method-choice-icon" aria-hidden="true">

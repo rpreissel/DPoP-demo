@@ -12,7 +12,19 @@ sealed interface StepUpState : JourneyState {
     /** The goal of THIS run - distinct from the channel's durable `acrFloor`. */
     val targetAcr: String
 
-    data class Start(override val targetAcr: String, val startingAcr: String) : StepUpState {
+    data class Start(
+        override val targetAcr: String,
+        val startingAcr: String,
+        /**
+         * Whether a dead end here (no active method reaches [targetAcr]) may fall back to offering
+         * `RE_IDENTIFY` - false for [com.example.dpop.orchestrator.journey.AuthIntent.CONFIRM_PEER_LOGIN]'s
+         * own gate (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1: a peer-approval must never let
+         * someone acquire a fresh identity just to confirm someone else's login), true everywhere
+         * else this sub-journey is used ([com.example.dpop.orchestrator.journey.strategy.DeleteAccountStrategy],
+         * [com.example.dpop.orchestrator.journey.strategy.ManageAuthMethodsStrategy], a direct step-up trigger).
+         */
+        val allowReIdentification: Boolean = true
+    ) : StepUpState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
         override val active: ToolRef? get() = null
@@ -23,6 +35,7 @@ sealed interface StepUpState : JourneyState {
         override val targetAcr: String,
         val startingAcr: String,
         override val offered: List<String>,
+        val allowReIdentification: Boolean = true,
         override val declined: Set<String> = emptySet(),
         override val active: ToolRef? = null
     ) : StepUpState, OfferingState {

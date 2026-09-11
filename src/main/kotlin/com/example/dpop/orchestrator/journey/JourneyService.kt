@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
+import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.state.ToolRef
 import com.example.dpop.tool_api.JourneyDebugStep
 import com.example.dpop.tool_api.Next
@@ -761,8 +762,17 @@ class JourneyService(
         )
     }
 
-    private fun seedFor(transition: Transition.RequireSubJourney, channel: ChannelSession): JourneyState =
-        strategyFor(transition.intent).initialStateForSubJourneyAcr(transition.targetAcr, currentAcrOf(channel))
+    /**
+     * [Transition.RequireSubJourney.allowReIdentification] only means anything to `STEP_UP`
+     * ([StepUpState.Start.allowReIdentification]'s own doc) - overridden here via `copy` rather
+     * than threaded through [IntentStrategy.initialStateForSubJourneyAcr] itself, so that generic
+     * SPI method stays free of a concept every OTHER sub-journeyable intent would otherwise have to
+     * declare and ignore.
+     */
+    private fun seedFor(transition: Transition.RequireSubJourney, channel: ChannelSession): JourneyState {
+        val seed = strategyFor(transition.intent).initialStateForSubJourneyAcr(transition.targetAcr, currentAcrOf(channel))
+        return if (seed is StepUpState.Start) seed.copy(allowReIdentification = transition.allowReIdentification) else seed
+    }
 
     private fun finish(journey: AuthJourney, channel: ChannelSession): Step {
         journey.consume()
