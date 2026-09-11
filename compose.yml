@@ -32,7 +32,10 @@ services:
       KC_HOSTNAME: https://localhost:8543
       KC_HOSTNAME_STRICT: 'false'
       KC_HEALTH_ENABLED: 'true'
-      KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/server.keystore.p12
+      # Lives in the persistent keycloak-data volume, not /opt/keycloak/conf (image filesystem) -
+      # generated once by `command` below on first start, so it survives image rebuilds instead of
+      # getting a fresh keypair (and a new Chrome cert-trust prompt) every time.
+      KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/data/server.keystore.p12
       KC_HTTPS_KEY_STORE_PASSWORD: password
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -50,7 +53,20 @@ services:
       - "8543:8443"
     volumes:
       - keycloak-data:/opt/keycloak/data
-    command: ["start-dev", "--https-port=8443"]
+    # Generates the self-signed keystore into the persistent volume on first start only (see
+    # KC_HTTPS_KEY_STORE_FILE above) - a later rebuild finds it already there and reuses it as-is,
+    # keeping the cert (and Chrome's trust decision for it) stable across image rebuilds.
+    # entrypoint override needed: the base image's own ENTRYPOINT is kc.sh itself, so `command`
+    # alone would just be appended as kc.sh's own arguments (`kc.sh sh -c ...`), not run as a shell.
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if [ ! -f /opt/keycloak/data/server.keystore.p12 ]; then
+          keytool -genkeypair -alias server -keyalg RSA -keysize 2048 -validity 3650 \
+            -keystore /opt/keycloak/data/server.keystore.p12 -storetype PKCS12 -storepass password \
+            -dname "CN=localhost" -ext "SAN=dns:localhost,ip:127.0.0.1"
+        fi
+        exec /opt/keycloak/bin/kc.sh start-dev --https-port=8443
     healthcheck:
       # Kein curl/wget/openssl in diesem Image, aber ein voller JDK (jdk.compiler-Modul vorhanden)
       # - JwksHealthCheck.java (Single-File-Source-Launch, JEP 330) fragt statt eines reinen

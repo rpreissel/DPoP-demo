@@ -1,10 +1,6 @@
 package com.example.dpop.kcext;
 
 import com.example.dpop.kcext.webtool.WebToolAvailability;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.example.dpop.kcext.webtool.WebToolRenderContext;
-import com.example.dpop.kcext.webtool.WebToolRenderer;
-import com.example.dpop.kcext.webtool.WebToolRendererFactory;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
@@ -261,76 +257,19 @@ public class OrchestratorAuthenticator implements Authenticator {
     /**
      * {@code response} is null only on the retry path ({@link #currentChallenge}, which has no
      * fresh {@code ChannelResponse} to read from) - falls back to a generic heading there rather
-     * than failing, since a retry error still has to render something.
+     * than failing, since a retry error still has to render something. Form-building itself lives
+     * in {@link WebFormRenderer}, shared with {@link OrchestratorManageMethodsRequiredAction}.
      */
     private Response selectForm(AuthenticationFlowContext context, List<String> options, OrchestratorClient.ChannelResponse response, String error) {
-        Map<String, String> optionLabels = new LinkedHashMap<>();
-        for (String option : options) {
-            WebToolRendererFactory factory = rendererFactoryFor(context.getSession(), option);
-            if (factory != null) optionLabels.put(option, factory.title());
-        }
-        // The backend already names this specific selection screen (JourneyState.selectionTitle/
-        // -Description, docs/04-orchestrierung.md #4) - "Identifikation erforderlich",
-        // "Anmeldeverfahren einrichten", "Passwort einrichten" are all real, DIFFERENT screens that
-        // must not collapse into one generic "Anmeldemethode wählen" heading, same reasoning as
-        // frontend/src/types.ts's own OfferingState.selectionTitle doc.
-        String title = response != null && response.stepData().get("title") != null
-                ? response.stepData().get("title").asText() : "Anmeldemethode wählen";
-        JsonNode descriptionNode = response != null ? response.stepData().get("description") : null;
-        var form = context.form()
-                .setAuthenticationSession(context.getAuthenticationSession())
-                .setAttribute("title", title)
-                .setAttribute("description", descriptionNode != null ? descriptionNode.asText() : null)
-                .setAttribute("options", options)
-                .setAttribute("optionLabels", optionLabels);
-        if (error != null) form.setError(error);
-        return form.createForm("orchestrator-select.ftl");
+        return WebFormRenderer.selectForm(context.getSession(), context.form(), context.getAuthenticationSession(), options, response, error);
     }
 
     private Response toolForm(AuthenticationFlowContext context, OrchestratorClient.Next next, OrchestratorClient.ChannelResponse response, String error) {
-        String stepError = response.stepDataError();
-        String effectiveError = error != null ? error : stepError;
-
-        WebToolRenderer renderer = context.getSession().getProvider(WebToolRenderer.class, next.toolId());
-        if (renderer != null) {
-            WebToolRendererFactory factory = rendererFactoryFor(context.getSession(), next.toolId());
-            var form = context.form()
-                    .setAuthenticationSession(context.getAuthenticationSession())
-                    .setAttribute("toolId", next.toolId())
-                    .setAttribute("title", factory != null ? factory.title() : next.toolId())
-                    .setAttribute("hint", factory != null ? factory.hint() : "");
-            if (effectiveError != null) form.setError(effectiveError);
-            WebToolRenderContext ctx = new WebToolRenderContext(
-                    next.toolId(), next.step(), response.stepData(), response.demo(), effectiveError
-            );
-            Response rendered = renderer.render(form, ctx);
-            if (rendered != null) return rendered;
-        }
-
-        // Generic fallback for every toolId without its own WebToolRenderer: one text input per
-        // "missingFields" entry (e.g. tool_spi/AuthPasswordLookupFlow.kt) - the submitted body must
-        // use exactly those field names, not "missingFields" itself, which is just the manifest of
-        // what to render.
-        Map<String, String> fields = new LinkedHashMap<>();
-        var missingFields = response.stepData().get("missingFields");
-        if (missingFields != null && missingFields.isArray()) {
-            missingFields.forEach(fieldName -> fields.put(fieldName.asText(), ""));
-        }
-        var form = context.form()
-                .setAuthenticationSession(context.getAuthenticationSession())
-                .setAttribute("toolId", next.toolId())
-                .setAttribute("fields", fields);
-        if (effectiveError != null) form.setError(effectiveError);
-        return form.createForm("orchestrator-tool.ftl");
-    }
-
-    private WebToolRendererFactory rendererFactoryFor(KeycloakSession session, String toolId) {
-        return (WebToolRendererFactory) session.getKeycloakSessionFactory()
-                .getProviderFactory(WebToolRenderer.class, toolId);
+        return WebFormRenderer.toolForm(context.getSession(), context.form(), context.getAuthenticationSession(), next, response, error);
     }
 
     private Response errorForm(AuthenticationFlowContext context, String message) {
-        return context.form().setAuthenticationSession(context.getAuthenticationSession()).setError(message).createForm("orchestrator-error.ftl");
+        return WebFormRenderer.errorForm(context.form(), context.getAuthenticationSession(), message);
     }
 
     private Response currentChallenge(AuthenticationFlowContext context, String error) {

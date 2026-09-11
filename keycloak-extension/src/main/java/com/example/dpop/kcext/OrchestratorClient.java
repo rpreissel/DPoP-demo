@@ -105,6 +105,42 @@ final class OrchestratorClient {
         return restoreData.isTextual() ? restoreData.asText() : null;
     }
 
+    /**
+     * POST .../channels/{channelSessionId}/enrollments - starts the MANAGE_AUTH_METHODS journey
+     * on an already-AUTHENTICATED channel (docs/ideen/manage-auth-methods-im-web-kanal.md).
+     * Already facade-neutral like {@link #activateTool}/{@link #patchTool} below - guarded by the
+     * same {@code @BindingKey} resolution (DpopBindingKeyResolver.kt), which accepts a peer-auth
+     * assertion exactly like a DPoP proof. No request body: {@code channelSessionId} alone
+     * addresses which channel, same as {@link #activateTool}.
+     */
+    ChannelResponse startEnrollments(String channelSessionId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/enrollments";
+        return ChannelResponse.from(send("POST", path, channelSessionId, MAPPER.createObjectNode()));
+    }
+
+    /**
+     * GET .../channels/{channelSessionId}/methods - the active-methods list "manage" also needs
+     * to be a real management screen, not just an add-a-method form (docs/ideen/
+     * manage-auth-methods-im-web-kanal.md). Same facade-neutral guard as every other call here.
+     */
+    List<MethodView> getMethods(String channelSessionId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/methods";
+        JsonNode response = send("GET", path, channelSessionId, null);
+        List<MethodView> methods = new ArrayList<>();
+        response.path("methods").forEach(m -> methods.add(MethodView.from(m)));
+        return methods;
+    }
+
+    /**
+     * DELETE .../channels/{channelSessionId}/methods/{methodInstanceId} - deactivates one active
+     * method instance. Like enrollment, this can come back asking for a loa2 step-up first
+     * instead of finishing directly - same {@link ChannelResponse} shape, same dispatch loop.
+     */
+    ChannelResponse deactivateMethod(String channelSessionId, String methodInstanceId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/methods/" + methodInstanceId;
+        return ChannelResponse.from(send("DELETE", path, channelSessionId, null));
+    }
+
     /** Same facade-neutral tool endpoints the App channel uses (docs/ideen/web-keycloak-kanal.md #6). */
     ChannelResponse activateTool(String channelSessionId, String toolId) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/tools/" + toolId;
@@ -179,6 +215,18 @@ final class OrchestratorClient {
 
     private static String urlEncode(String value) {
         return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /** Mirrors ActiveMethodView (tool_api/Envelope.kt) - id/method/label, nothing more. */
+    record MethodView(String id, String method, String label) {
+        static MethodView from(JsonNode json) {
+            JsonNode labelNode = json.get("label");
+            return new MethodView(
+                    json.path("id").asText(null),
+                    json.path("method").asText(null),
+                    labelNode != null && labelNode.isTextual() ? labelNode.asText() : null
+            );
+        }
     }
 
     record AmrEntry(String nativeToolId, String amrSourceId) {

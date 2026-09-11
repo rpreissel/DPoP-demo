@@ -22,14 +22,15 @@ COPY theme/orchestrator /opt/keycloak/themes/orchestrator
 # JwksHealthCheck.java`), kein separates javac noetig.
 COPY healthcheck/JwksHealthCheck.java /opt/keycloak/healthcheck/JwksHealthCheck.java
 
-# start-dev does NOT auto-generate an HTTPS certificate on this version - a self-signed one, baked
-# in at build time, is enough for local dev (docs/ideen/web-keycloak-kanal.md #1: only the client
-# certificate is out of scope, server-side TLS is still the baseline). Cookie-based SSO reuse
-# (auth-cookie, the step-up path's precondition) needs a secure context or the browser drops the
-# cookie on cross-origin requests.
-RUN keytool -genkeypair -alias server -keyalg RSA -keysize 2048 -validity 3650 \
-      -keystore /opt/keycloak/conf/server.keystore.p12 -storetype PKCS12 -storepass password \
-      -dname "CN=localhost" -ext "SAN=dns:localhost,ip:127.0.0.1"
+# start-dev does NOT auto-generate an HTTPS certificate on this version - a self-signed one is
+# needed for local dev (docs/ideen/web-keycloak-kanal.md #1: only the client certificate is out of
+# scope, server-side TLS is still the baseline). Cookie-based SSO reuse (auth-cookie, the step-up
+# path's precondition) needs a secure context or the browser drops the cookie on cross-origin
+# requests. Deliberately NOT generated here at image-build time (that produced a fresh keypair on
+# every rebuild - Chrome then treats localhost:8543 as a NEW host and re-prompts/hard-blocks the
+# cert warning every time): compose.yml's command now generates it once into the persistent
+# keycloak-data volume on first container start and reuses it after, so the cert survives image
+# rebuilds and only ever changes if that volume is removed.
 
 USER keycloak
 RUN /opt/keycloak/bin/kc.sh build

@@ -75,6 +75,32 @@ export function redirectToStepUp() {
   return redirectToLogin('2')
 }
 
+/**
+ * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/ideen/
+ * manage-auth-methods-im-web-kanal.md) - the SAME `/auth` redirect as `redirectToLogin`, on the
+ * SAME client/flow, just with `kc_action` appended: Keycloak's own mechanism for "an already
+ * authenticated user triggers a self-service action". No `acr_values` here - this isn't an ACR
+ * negotiation, MANAGE_AUTH_METHODS's own loa2 gate lives entirely in the orchestrator's journey,
+ * invisible to Keycloak. If the SSO session is still valid, no login form appears at all; if not,
+ * the normal login runs first, then this action - one redirect covers both cases.
+ */
+export async function redirectToManageMethods() {
+  const codeVerifier = randomString(64)
+  const codeChallenge = await sha256Base64Url(codeVerifier)
+  const uri = redirectUri()
+  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ codeVerifier, redirectUri: uri } satisfies StoredVerifier))
+
+  const url = new URL(`${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/auth`)
+  url.searchParams.set('client_id', CLIENT_ID)
+  url.searchParams.set('redirect_uri', uri)
+  url.searchParams.set('response_type', 'code')
+  url.searchParams.set('scope', 'openid')
+  url.searchParams.set('kc_action', 'orchestrator-manage-methods')
+  url.searchParams.set('code_challenge', codeChallenge)
+  url.searchParams.set('code_challenge_method', 'S256')
+  window.location.assign(url.toString())
+}
+
 /** If the current URL carries a fresh `?code=...` from the redirect above, exchanges it for tokens and scrubs the query string; otherwise a no-op. Call once, on mount. */
 export async function completeLoginIfRedirected(): Promise<TokenSet | null> {
   const params = new URLSearchParams(window.location.search)

@@ -11,3 +11,4 @@ com.example.dpop.kcext.webtool.identfsc.IdentFscRendererFactory
 com.example.dpop.kcext.webtool.identeid.IdentEidRendererFactory
 com.example.dpop.kcext.webtool.qr.AuthQrRendererFactory
 com.example.dpop.kcext.webtool.qr.AuthQrLookupRendererFactory
+com.example.dpop.kcext.webtool.qr.EnrollQrRendererFactory

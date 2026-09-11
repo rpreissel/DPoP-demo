@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { completeLoginIfRedirected, redirectToLogin, redirectToLogout, redirectToStepUp, refreshTokens, type TokenSet } from '../webOidc'
+import { completeLoginIfRedirected, redirectToLogin, redirectToLogout, redirectToManageMethods, redirectToStepUp, refreshTokens, type TokenSet } from '../webOidc'
 import { parseJwtPayload } from '../jwt'
 import { shorten } from '../format'
 
@@ -91,6 +91,11 @@ export function WebChannelView({ onTokens }: Props) {
     redirectToStepUp().catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
+  function manageMethods() {
+    setError('')
+    redirectToManageMethods().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+  }
+
   function logout() {
     setTokens(null)
     storeTokens(null)
@@ -144,6 +149,9 @@ export function WebChannelView({ onTokens }: Props) {
                 Sicherheitsniveau auf loa2 erhöhen
               </button>
             )}
+            <button className="secondary" onClick={manageMethods}>
+              Anmeldeverfahren verwalten
+            </button>
             <button className="secondary" onClick={logout}>
               Abmelden (Keycloak-Logout)
             </button>

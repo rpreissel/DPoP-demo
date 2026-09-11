@@ -69,7 +69,17 @@ public final class OrchestratorNotes {
      * per flow run" here.
      */
     static String channelSessionId(AuthenticationFlowContext context) {
-        AuthenticationSessionModel authSession = context.getAuthenticationSession();
+        return channelSessionId(context.getAuthenticationSession());
+    }
+
+    /**
+     * Same as {@link #channelSessionId(AuthenticationFlowContext)}, taking the
+     * {@link AuthenticationSessionModel} directly - {@code RequiredActionContext} (unlike
+     * {@code AuthenticationFlowContext}) has no unifying supertype with it, but both expose the
+     * same {@code getAuthenticationSession()}, so this is the one shared entry point
+     * {@link OrchestratorManageMethodsRequiredAction} uses too.
+     */
+    static String channelSessionId(AuthenticationSessionModel authSession) {
         String existing = authSession.getAuthNote(CHANNEL_SESSION_ID);
         if (existing != null) return existing;
         String tabId = authSession.getTabId();
