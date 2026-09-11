@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../../App.css'
+import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
+import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
 import { WebChannelLayout } from '../../components/WebChannelLayout'
 import { WebChannelView } from '../../components/WebChannelView'
 import { JourneyLogView } from '../../components/JourneyLogView'
@@ -70,7 +72,7 @@ export function WebChannelApp() {
 
           {sub === 'settings' && (
             <>
-              <KeycloakSyncView />
+              <AdminToolAvailabilityView />
               <div className="card">
                 <h2>Web-Kanal-Info</h2>
                 <ul className="status-list">
@@ -90,6 +92,8 @@ export function WebChannelApp() {
                   </li>
                 </ul>
               </div>
+              <KeycloakSyncView />
+              <DeveloperToolsCard />
             </>
           )}
 
