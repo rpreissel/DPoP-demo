@@ -26,7 +26,7 @@ export function AppChannelFrame({ sub, onSelectTab, onBack, children }: Props) {
   return (
     <div className="app-frame channel-app">
       <ChannelNav badge="📱 App-Kanal" tabs={TABS} sub={sub} onSelectTab={onSelectTab} onBack={onBack} />
-      <div className="app">{children}</div>
+      <div className={sub === 'journeylog' ? 'app app-wide' : 'app'}>{children}</div>
     </div>
   )
 }
