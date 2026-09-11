@@ -22,6 +22,19 @@ eine Web-only dritte Pflicht (`PasswordObligation`). Kanonisch jetzt in
 Einstiegspunkt akzeptiert jetzt `intent`) und Abschnitt 7 (der `OrchestratorAuthenticator`
 bekommt eine zusätzliche `intent`-Config neben dem schon vorhandenen statischen `toolId`).
 
+**Ergänzung (2026-09-11):** Zweiter Browser-Flow/Client nur fürs Demo/Test von QR-Login auf LoA-1
+(`keycloak-migrations/migrations/V10__browser_qr_test_flow.kc.kts`,
+`V11__browser_qr_test_client.kc.kts`, Client `dpop-demo-web-qr-test`). Grund: am
+produktionsnahen Haupt-Client (V2/V4) ist LoA-1 bewusst festverdrahtet natives
+Keycloak-Passwort (siehe Abschnitt 9 unten) - `auth-qr-lookup`/andere `auth-*-lookup`-Tools
+(`KcSelectMethodStrategy` mit `account == null`) lassen sich dort nur über einen Step-up ab LoA-2
+erreichen, nie als allerersten Faktor. Der zweite Client bindet denselben Realm/dieselbe Journey-
+Logik an einen eigenen Flow, dessen LoA-1-Subflow direkt den `OrchestratorAuthenticator`
+(unkonfiguriertes `toolId`, `targetAcr=loa1`) nutzt statt `auth-username-password-form` - exakt
+dieselbe Technik, mit der LoA-2 schon immer arbeitet, nur eine Ebene früher. Frontend-seitig:
+`webOidc.ts`s `redirectToQrTestLogin()`, dritter Button in `WebChannelView`s Login-Liste. Kein neuer
+Code in Orchestrator/`tool_spi`/`auth_qr` - reine Keycloak-Realm-Konfiguration.
+
 ---
 
 ## 1) Ausgangslage und Leitplanken

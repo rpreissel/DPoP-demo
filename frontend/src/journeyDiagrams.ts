@@ -19,7 +19,8 @@ export const JOURNEY_DIAGRAMS: Record<
   | 'reIdentify'
   | 'confirmPeerLogin'
   | 'webLoginLoa1'
-  | 'webLoginLoa2',
+  | 'webLoginLoa2'
+  | 'webLoginQrTest',
   JourneyDiagramSpec
 > = {
   channel: {
@@ -133,6 +134,13 @@ export const JOURNEY_DIAGRAMS: Record<
   webLoginLoa2: {
     title: 'Login (loa2)',
     steps: ['Redirect zu Keycloak', 'Login + 2. Faktor', 'Zurück mit AccessToken (loa2)'],
+  },
+  // Nutzt einen eigenen Test-Client (keycloak-migrations V10/V11), dessen LoA-1 orchestrator-driven
+  // ist statt natives Passwort - einziger Weg, auth-qr-lookup (Kalt-Einstieg-QR-Login) am Browser
+  // schon auf LoA-1 zu erreichen, ohne vorher ein Passwort einzugeben.
+  webLoginQrTest: {
+    title: 'Login (loa1, QR-Test-Client)',
+    steps: ['Redirect zu Keycloak (Test-Client)', 'Verfahren wählen (inkl. QR)', 'Zurück mit AccessToken (loa1)'],
   },
 }
 

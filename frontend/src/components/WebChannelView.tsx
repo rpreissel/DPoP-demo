@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { completeLoginIfRedirected, redirectToLogin, redirectToLogout, redirectToManageMethods, redirectToStepUp, refreshTokens, type TokenSet } from '../webOidc'
+import {
+  completeLoginIfRedirected,
+  redirectToLogin,
+  redirectToLogout,
+  redirectToManageMethods,
+  redirectToQrTestLogin,
+  redirectToStepUp,
+  refreshTokens,
+  type TokenSet,
+} from '../webOidc'
 import { parseJwtPayload } from '../jwt'
 import { shorten } from '../format'
 import { DiagramHint } from './DiagramHint'
@@ -77,10 +86,15 @@ export function WebChannelView({ onTokens }: Props) {
     redirectToLogin(acrValue).catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
+  function loginQrTest() {
+    setError('')
+    redirectToQrTestLogin().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+  }
+
   function refresh() {
     if (!tokens?.refreshToken) return
     setError('')
-    refreshTokens(tokens.refreshToken)
+    refreshTokens(tokens.refreshToken, tokens.clientId)
       .then((fresh) => {
         setTokens(fresh)
         storeTokens(fresh)
@@ -90,7 +104,7 @@ export function WebChannelView({ onTokens }: Props) {
 
   function stepUp() {
     setError('')
-    redirectToStepUp().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    redirectToStepUp(tokens?.clientId).catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
   function manageMethods() {
@@ -99,9 +113,10 @@ export function WebChannelView({ onTokens }: Props) {
   }
 
   function logout() {
+    const clientId = tokens?.clientId
     setTokens(null)
     storeTokens(null)
-    redirectToLogout(tokens?.idToken)
+    redirectToLogout(tokens?.idToken, clientId)
   }
 
   const accessClaims = tokens ? parseJwtPayload(tokens.accessToken) : null
@@ -153,6 +168,27 @@ export function WebChannelView({ onTokens }: Props) {
                   </DiagramHint>
                 </span>
                 <span className="method-choice-hint">Verlangt zusätzlich einen zweiten Faktor - höheres Sicherheitsniveau.</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button className="method-choice" onClick={loginQrTest} aria-label="Login (loa1, QR-Test-Client)">
+              <span className="method-choice-icon" aria-hidden="true">
+                🧪
+              </span>
+              <span className="method-choice-text">
+                <span className="method-choice-label">
+                  Login (loa1, QR-Test-Client)
+                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginQrTest} inline>
+                    <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa1, QR-Test-Client) als Diagramm anzeigen">
+                      ℹ️
+                    </span>
+                  </DiagramHint>
+                </span>
+                <span className="method-choice-hint">
+                  Demo/Test only: eigener Client, dessen loa1 den Verfahren-wählen-Screen des Orchestrators zeigt
+                  (inkl. QR-Login), statt des normalen Client-Flows mit nativem Passwort zuerst.
+                </span>
               </span>
             </button>
           </li>
