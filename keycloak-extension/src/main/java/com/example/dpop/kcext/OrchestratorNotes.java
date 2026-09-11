@@ -168,6 +168,24 @@ public final class OrchestratorNotes {
         }
     }
 
+    /**
+     * Copies a {@link OrchestratorClient.ChannelResponse}'s acr/amr onto this flow run's
+     * user-session notes - the one place every caller that dispatches a {@code ChannelResponse}
+     * does this (was duplicated verbatim across {@link OrchestratorAuthenticator},
+     * {@link OrchestratorResumeAuthenticator}, {@link OrchestratorUpdateAuthenticator} and
+     * {@link OrchestratorManageMethodsRequiredAction} until this existed - the missing copy in the
+     * last of those is exactly why a step-up completed via "Anmeldeverfahren verwalten" never
+     * raised the acr Keycloak went on to mint into the next token).
+     */
+    static void applyAuthData(AuthenticationSessionModel authSession, OrchestratorClient.ChannelResponse response) {
+        if (response.authDataAcr() != null) {
+            authSession.setUserSessionNote(USER_SESSION_NOTE_ACR, response.authDataAcr());
+        }
+        if (!response.authDataAmr().isEmpty()) {
+            authSession.setUserSessionNote(USER_SESSION_NOTE_AMR, String.join(",", response.authDataAmr().keySet()));
+        }
+    }
+
     static Long accountId(UserModel user) {
         String value = user == null ? null : user.getFirstAttribute(USER_ATTR_ACCOUNT_ID);
         return value == null || value.isBlank() ? null : Long.parseLong(value);

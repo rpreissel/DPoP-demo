@@ -13,6 +13,10 @@
                             type="submit" name="toolId" value="${option}">${optionLabels[option]!option}</button>
                 </div>
             </#list>
+            <div class="${properties.kcFormGroupClass!}">
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
+                        type="submit" name="orchestrator_abandon" value="true">Abbrechen</button>
+            </div>
         </form>
     </#if>
 </@layout.registrationLayout>

@@ -115,6 +115,17 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
 
             OrchestratorClient.ChannelResponse response;
             if ("select".equals(pendingKind)) {
+                if ("true".equals(form.getFirst("orchestrator_abandon"))) {
+                    // Cancels whichever journey is currently active here - the step-up sub-journey
+                    // (gate()) or the top-level MANAGE_AUTH_METHODS journey itself (candidate
+                    // choice) - either way it resolves back to AUTHENTICATED (cancelledTo), so this
+                    // always lands on the list. Rendered directly with its own notice rather than
+                    // through handleResponse: that method's ADD/REMOVE phrasing ("hinzugefügt"/
+                    // "entfernt") would misreport an abandoned attempt as a completed one.
+                    client.abandonJourney(channelSessionId);
+                    renderList(context, channelSessionId, "Abgebrochen.");
+                    return;
+                }
                 String selectedToolId = form.getFirst("toolId");
                 if (selectedToolId == null || selectedToolId.isBlank()) {
                     context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Bitte eine Methode auswählen."));
@@ -166,6 +177,8 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
     private void handleResponse(RequiredActionContext context, OrchestratorClient.ChannelResponse response, boolean firstCall) throws Exception {
         AuthenticationSessionModel authSession = context.getAuthenticationSession();
         String channelSessionId = OrchestratorNotes.channelSessionId(authSession);
+
+        OrchestratorNotes.applyAuthData(authSession, response);
 
         // Deliberately NOT also checking channelState=="AUTHENTICATED" the way
         // OrchestratorAuthenticator's own handleResponse does: that shortcut only holds for

@@ -66,12 +66,7 @@ public class OrchestratorUpdateAuthenticator implements Authenticator {
                     channelSessionId, accountId, targetAcr, OrchestratorNotes.nativeAmr(context), null, null,
                     WebToolAvailability.renderableToolIds(context.getSession()), null
             );
-            if (response.authDataAcr() != null) {
-                authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());
-            }
-            if (!response.authDataAmr().isEmpty()) {
-                authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_AMR, String.join(",", response.authDataAmr().keySet()));
-            }
+            OrchestratorNotes.applyAuthData(authSession, response);
             context.success();
         } catch (Exception e) {
             LOG.error("OrchestratorUpdateAuthenticator failed", e);

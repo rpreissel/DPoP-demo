@@ -108,12 +108,16 @@ public class OrchestratorAuthenticator implements Authenticator {
 
             OrchestratorClient.ChannelResponse response;
             if ("select".equals(pendingKind)) {
-                String selectedToolId = form.getFirst("toolId");
-                if (selectedToolId == null || selectedToolId.isBlank()) {
-                    context.challenge(errorForm(context, "Bitte eine Methode auswählen."));
-                    return;
+                if ("true".equals(form.getFirst("orchestrator_abandon"))) {
+                    response = client.abandonJourney(channelSessionId);
+                } else {
+                    String selectedToolId = form.getFirst("toolId");
+                    if (selectedToolId == null || selectedToolId.isBlank()) {
+                        context.challenge(errorForm(context, "Bitte eine Methode auswählen."));
+                        return;
+                    }
+                    response = client.activateTool(channelSessionId, selectedToolId);
                 }
-                response = client.activateTool(channelSessionId, selectedToolId);
             } else {
                 String toolId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_ID);
                 String toolSessionId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID);
@@ -149,12 +153,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             context.setUser(user);
             authSession.setAuthenticatedUser(user);
         }
-        if (response.authDataAcr() != null) {
-            authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());
-        }
-        if (!response.authDataAmr().isEmpty()) {
-            authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_AMR, String.join(",", response.authDataAmr().keySet()));
-        }
+        OrchestratorNotes.applyAuthData(authSession, response);
 
         OrchestratorClient.Next next = response.next();
         if (next == null || next.isAuthenticated() || "AUTHENTICATED".equals(response.channelState())) {

@@ -166,6 +166,20 @@ final class OrchestratorClient {
     }
 
     /**
+     * DELETE .../channels/{channelSessionId}/journey - abandons the currently active journey
+     * BEFORE any candidate tool was picked (the "select" step, e.g. a loa2 step-up's method
+     * choice). Unlike {@link #abandonTool}, which backs out of an already-activated tool, this is
+     * the only way out of a select screen: cancelling a sub-journey (like MANAGE_AUTH_METHODS'
+     * step-up gate) resumes its parent as AUTHENTICATED, cancelling a top-level one restarts the
+     * channel's entry journey from scratch - either way the response's own {@code next} says what
+     * to render, same dispatch as every other call here.
+     */
+    ChannelResponse abandonJourney(String channelSessionId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/journey";
+        return ChannelResponse.from(send("DELETE", path, channelSessionId, null));
+    }
+
+    /**
      * Stateless password verify/set for Keycloak's native password credential
      * ({@code OrchestratorPasswordStorageProvider}) - unlike every other call above, there is no
      * Channel/ToolSession here: the account id is already known (Keycloak's own

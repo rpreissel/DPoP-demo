@@ -85,12 +85,7 @@ public class OrchestratorResumeAuthenticator implements AuthenticationFlowCallba
                         newChannelSessionId, accountId, OrchestratorNotes.requestedAcr(context), List.of(), restoreData, existingUserSession.getId(),
                         WebToolAvailability.renderableToolIds(context.getSession()), null
                 );
-                if (response.authDataAcr() != null) {
-                    authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, response.authDataAcr());
-                }
-                if (!response.authDataAmr().isEmpty()) {
-                    authSession.setUserSessionNote(OrchestratorNotes.USER_SESSION_NOTE_AMR, String.join(",", response.authDataAmr().keySet()));
-                }
+                OrchestratorNotes.applyAuthData(authSession, response);
             }
         } catch (Exception e) {
             LOG.warnf(e, "OrchestratorResumeAuthenticator failed - continuing without a resumed channel");
