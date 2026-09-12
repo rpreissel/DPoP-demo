@@ -123,6 +123,15 @@ einer laufenden Session betrachtet, sieht nicht, welche der drei Deckelungen ger
 muss über `AuthContext`, `authenticationMethods[].enrolledUnderAcr` und `identifications[].loa`
 gemeinsam nachvollzogen werden.
 
+**Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet den ersten Deckel (`identifications[].loa`)
+inzwischen nicht mehr implizit über einen undifferenzierten Maximalwert aller Nachweise, sondern
+als eigene, explizite Größe (IAL, `identityAssuranceLevel`), getrennt von der reinen
+Authentifizierungsstärke (AAL, `authenticatorAssuranceLevel`) — siehe
+[Orchestrierung](04-orchestrierung.md) Abschnitt 8, "IAL und AAL: zwei Fragen, eine `acr`-Zahl".
+Der nach außen sichtbare `acr`-Wert und diese ADR bleiben unverändert; die Trennung behebt lediglich
+einen zuvor bestehenden Fehler, bei dem eine Identifizierung sich mit einem einzelnen artfremden
+Auth-Faktor zu einem falschen MFA-Bump verbinden konnte.
+
 ---
 
 ## ADR-6: `next` als reine Adresse, feste Routing-Tabelle statt HATEOAS

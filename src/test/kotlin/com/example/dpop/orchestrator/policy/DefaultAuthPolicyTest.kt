@@ -213,6 +213,47 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 policy.resolveAcr(AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2")), account = null) shouldBe "loa2"
                 policy.resolveAcr(AuthEvidence.from(listOf("passkey"), setOf(FactorType.POSSESSION, FactorType.INHERENCE), mapOf("passkey" to "loa3")), account = null) shouldBe "loa3"
             }
+
+            then("a single IDENTITY tool covering two factor types on its own (e.g. ident-eid: card+PIN) satisfies MFA on the IDENTITY axis alone") {
+                val identEid = descriptor("ident-eid", MethodRole.IDENTIFICATION, "eid", setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), "loa3")
+                val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(identEid)))
+                val evidence = AuthEvidence.from(
+                    listOf("eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), mapOf("eid" to "loa3"),
+                    axis = mapOf("eid" to EvidenceAxis.IDENTITY)
+                )
+                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa3"
+                localPolicy.isSatisfied(evidence, "loa3", account = null) shouldBe true
+            }
+
+            then("a single ident-fsc reaches loa2 on its own IAL, not via an MFA bump") {
+                val identOnly = AuthEvidence.from(
+                    listOf("fsc"), setOf(FactorType.POSSESSION), mapOf("fsc" to "loa2"),
+                    axis = mapOf("fsc" to EvidenceAxis.IDENTITY)
+                )
+                policy.resolveAcr(identOnly, account = null) shouldBe "loa2"
+            }
+
+            then("an identification must NOT combine with one unrelated AUTH factor into a false MFA bump") {
+                // ident-fsc (POSSESSION, IDENTITY axis, loa2) plus a single KNOWLEDGE auth factor
+                // (e.g. password) enrolled under a generously-claimed loa3 must NOT be treated as
+                // if two AUTHENTICATOR factor types were proven together at loa3 - only "password
+                // alone" is what an attacker who steals the password actually has to defeat, and
+                // one method alone can never trigger the >=2-distinct-methods bump. Before the
+                // IAL/AAL split, this combination would have wrongly resolved to "loa3" (fsc's own
+                // loa2 base, bumped one tier via the fsc+password pairing, capped only by
+                // password's claimed enrolledUnderAcr of loa3).
+                val tokenPassword = descriptor("auth-password", MethodRole.IDENTIFIED_AUTH, "password", setOf(FactorType.KNOWLEDGE), "loa1")
+                val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(identFsc, tokenPassword)))
+                val evidence = AuthEvidence.from(
+                    amr = listOf("fsc", "password"),
+                    factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
+                    methodLoa = mapOf("fsc" to "loa2", "password" to "loa1"),
+                    enrolledUnderAcr = mapOf("password" to "loa3"),
+                    axis = mapOf("fsc" to EvidenceAxis.IDENTITY, "password" to EvidenceAxis.AUTHENTICATOR)
+                )
+                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
+                localPolicy.isSatisfied(evidence, "loa3", account = null) shouldBe false
+            }
         }
     }
 
@@ -257,6 +298,75 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
             then("the bump is conservatively withheld") {
                 localPolicy.resolveAcr(evidence, account = null) shouldBe "loa1"
+            }
+        }
+    }
+
+    given("loa2 as this project's label for NIST 800-63B AAL2 (docs/04-orchestrierung.md #8)") {
+        // AAL2 per NIST: "a multi-factor authenticator, OR a combination of two single-factor
+        // authenticators" - both are already loa2 today; this given-block pins that contract down
+        // explicitly so it survives future refactors as an intentional invariant, not an accident.
+
+        `when`("two single-factor AUTH tools of different kinds combine, with no identification at all") {
+            val tokenSms = descriptor("auth-sms", MethodRole.IDENTIFIED_AUTH, "sms", setOf(FactorType.POSSESSION), "loa1")
+            val tokenPassword = descriptor("auth-password", MethodRole.IDENTIFIED_AUTH, "password", setOf(FactorType.KNOWLEDGE), "loa1")
+            val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenSms, tokenPassword)))
+            val evidence = AuthEvidence.from(
+                amr = listOf("sms", "password"),
+                factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
+                methodLoa = mapOf("sms" to "loa1", "password" to "loa1"),
+                enrolledUnderAcr = mapOf("sms" to "loa2", "password" to "loa2")
+            )
+
+            then("NIST's 'two single-factor authenticators' path reaches loa2 (AAL2) on its own") {
+                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
+                localPolicy.isSatisfied(evidence, "loa2", account = null) shouldBe true
+            }
+        }
+
+        `when`("a single AUTH tool declares two factor types itself (device-like: possession+knowledge)") {
+            val tokenDevice = descriptor("auth-device", MethodRole.IDENTIFIED_AUTH, "device", setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), "loa2")
+            val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenDevice)))
+            val evidence = AuthEvidence.from(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), mapOf("device" to "loa2"))
+
+            then("NIST's 'multi-factor authenticator' path reaches loa2 (AAL2) alone, no combination needed") {
+                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
+                localPolicy.isSatisfied(evidence, "loa2", account = null) shouldBe true
+            }
+        }
+
+        `when`("only an identification tool ran this session, no AUTH factor at all") {
+            val evidence = AuthEvidence.from(
+                listOf("fsc"), setOf(FactorType.POSSESSION), mapOf("fsc" to "loa2"),
+                axis = mapOf("fsc" to EvidenceAxis.IDENTITY)
+            )
+
+            then("identification is an equally valid, not a lesser, path to the loa2/AAL2 threshold") {
+                policy.resolveAcr(evidence, account = null) shouldBe "loa2"
+                policy.isSatisfied(evidence, "loa2", account = null) shouldBe true
+            }
+        }
+
+        `when`("two ALREADY loa2-rated methods of different factor types combine") {
+            // NIST only defines a combination rule for reaching AAL2 (two single-factor
+            // authenticators) - there is no NIST rule that combining two already-strong methods
+            // reaches AAL3, which specifically requires a particular authenticator technology
+            // (hardware-based, verifier-impersonation-resistant). The generic bump must therefore
+            // never produce more than loa2, even when nothing else would stop it from reaching loa3.
+            val tokenA = descriptor("auth-a", MethodRole.IDENTIFIED_AUTH, "a", setOf(FactorType.POSSESSION), "loa2")
+            val tokenB = descriptor("auth-b", MethodRole.IDENTIFIED_AUTH, "b", setOf(FactorType.KNOWLEDGE), "loa2")
+            val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
+            val evidence = AuthEvidence.from(
+                amr = listOf("a", "b"),
+                factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
+                methodLoa = mapOf("a" to "loa2", "b" to "loa2"),
+                // Deliberately claims loa3 enrolledUnderAcr on both - even if nothing else would
+                // cap the bump, the NIST ceiling must still hold it at loa2.
+                enrolledUnderAcr = mapOf("a" to "loa3", "b" to "loa3")
+            )
+
+            then("the result stays at loa2, never bumps on to loa3") {
+                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
             }
         }
     }

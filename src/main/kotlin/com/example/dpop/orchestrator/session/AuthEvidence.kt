@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
+import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.tool_spi.FactorType
@@ -132,6 +133,7 @@ class AuthEvidence(
                 enrolledUnderAcr = update.enrolledUnderAcr?.value,
                 factorTypes = (existing?.factorTypes ?: emptySet()) + update.factorTypes,
                 amrSourceId = update.amrSourceId,
+                axis = update.axis,
             )
             amrEvidence = (amrEvidence.filterNot { it.method == method } + record).toMutableList()
         }
@@ -175,6 +177,8 @@ data class AmrRecord(
     val factorTypes: Set<FactorType> = emptySet(),
     /** Mirrors `orchestrator.policy.AuthEvidence.MethodEvidence.amrSourceId` - see its own doc for what this identifies and why it is never blank. */
     val amrSourceId: String,
+    /** Mirrors `orchestrator.policy.AuthEvidence.MethodEvidence.axis` - see [EvidenceAxis]. Defaulted for old rows persisted before this field existed. */
+    val axis: EvidenceAxis = EvidenceAxis.AUTHENTICATOR,
 )
 
 /**
@@ -184,7 +188,7 @@ data class AmrRecord(
  * The one seam every reader of a stored [AuthEvidence] should go through.
  */
 fun AmrRecord.toMethodEvidence(): MethodEvidence =
-    MethodEvidence(MethodName(method), AcrLevel(loa), enrolledUnderAcr?.let(::AcrLevel), factorTypes, source, amrSourceId)
+    MethodEvidence(MethodName(method), AcrLevel(loa), enrolledUnderAcr?.let(::AcrLevel), factorTypes, source, amrSourceId, axis)
 
 /** The real, core [CoreAuthEvidence] this channel's evidence currently is - see [AmrRecord.toMethodEvidence]. */
 fun AuthEvidence.toCoreEvidence(): CoreAuthEvidence = CoreAuthEvidence(amrEvidence.map { it.toMethodEvidence() })

@@ -33,6 +33,13 @@ sealed interface StepUpState : JourneyState {
          * someone acquire a fresh identity just to confirm someone else's login), true everywhere
          * else this sub-journey is used ([com.example.dpop.orchestrator.journey.strategy.DeleteAccountStrategy],
          * [com.example.dpop.orchestrator.journey.strategy.ManageAuthMethodsStrategy], a direct step-up trigger).
+         *
+         * Defaulting to `true` is deliberate, not just permissive: a re-identification is an
+         * EQUALLY VALID path to the loa2/NIST-AAL2 threshold, not a lesser fallback only reached
+         * once AUTH options are exhausted for lack of alternatives (docs/04-orchestrierung.md #8,
+         * "loa2 ist... das Projekt-eigene Label für NIST-800-63B-AAL2"). It only has to be turned
+         * off where offering it would be actively wrong (the peer-approval case above), never
+         * because it's "worse" than an AUTH combination.
          */
         val allowReIdentification: Boolean = true
     ) : StepUpState {

@@ -14,6 +14,7 @@ import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
+import com.example.dpop.orchestrator.policy.evidenceAxis
 import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
@@ -777,6 +778,7 @@ class JourneyService(
                 factorTypes = outcome.factorTypes,
                 source = AmrSource.ORCHESTRATOR,
                 amrSourceId = tool.toolId,
+                axis = tool.evidenceAxis(),
             )
         }
         authEvidenceService.applyEvidence(authEvidenceId, updates)

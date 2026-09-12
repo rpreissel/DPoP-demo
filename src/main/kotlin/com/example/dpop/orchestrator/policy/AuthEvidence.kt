@@ -3,6 +3,8 @@ package com.example.dpop.orchestrator.policy
 import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.ToolDescriptor
 
 /**
  * Nominal wrapper for an auth method identifier ("sms", "password", "eid", ...). Deliberately
@@ -16,6 +18,26 @@ import com.example.dpop.tool_spi.FactorType
 value class MethodName(val value: String) {
     override fun toString(): String = value
 }
+
+/**
+ * Which trust question a [MethodEvidence] entry answers - the split NIST 800-63 draws between
+ * IAL (Identity Assurance: "who is this?", established once by an IDENTIFICATION-role tool like
+ * `ident-fsc`) and AAL (Authenticator Assurance: "is this the same person who registered this
+ * credential, proven again right now?", established by ENROLLMENT/AUTH-role tools). Not tracked
+ * before this: `resolveAcr` used to fold both into one undifferentiated max, which let a stale
+ * identification's loa or factor type silently participate in an MFA bump it was never meant to
+ * (see [DefaultAuthPolicy] class doc) - an identification is a one-time historical event, never a
+ * factor re-presented at the moment of authentication, so it must never count toward "how hard is
+ * THIS login to break".
+ */
+enum class EvidenceAxis {
+    IDENTITY,
+    AUTHENTICATOR
+}
+
+/** [EvidenceAxis.IDENTITY] for an IDENTIFICATION-role tool, [EvidenceAxis.AUTHENTICATOR] for every other role that produces evidence (ENROLLMENT, AUTH). */
+fun ToolDescriptor.evidenceAxis(): EvidenceAxis =
+    if (role.category == ToolCategory.IDENT) EvidenceAxis.IDENTITY else EvidenceAxis.AUTHENTICATOR
 
 /**
  * One proven method's own evidence. Deliberately ONE record per method rather than several
@@ -59,6 +81,8 @@ data class MethodEvidence(
      * [MethodEvidence] knows exactly which of these three cases it is in.
      */
     val amrSourceId: String,
+    /** Which trust question this entry answers - see [EvidenceAxis]. Defaults to [EvidenceAxis.AUTHENTICATOR], the common case for every AUTH/ENROLL tool; only an IDENTIFICATION-role tool's outcome sets [EvidenceAxis.IDENTITY] (`JourneyService.recordToolCompletion`, via [evidenceAxis]). */
+    val axis: EvidenceAxis = EvidenceAxis.AUTHENTICATOR,
 )
 
 /**
@@ -106,6 +130,7 @@ data class AuthEvidence(
             enrolledUnderAcr: Map<String, String> = emptyMap(),
             source: Map<String, String> = emptyMap(),
             amrSourceId: Map<String, String> = emptyMap(),
+            axis: Map<String, EvidenceAxis> = emptyMap(),
         ): AuthEvidence = AuthEvidence(
             amr.distinct().map { m ->
                 MethodEvidence(
@@ -121,6 +146,9 @@ data class AuthEvidence(
                     // don't carry one through this flat factory) - still a real, deterministic
                     // value, never a fabricated placeholder.
                     amrSourceId[m] ?: m,
+                    // Defaults to AUTHENTICATOR, the common case - a caller building evidence for
+                    // an IDENTIFICATION-role method (e.g. "fsc") must say so explicitly.
+                    axis[m] ?: EvidenceAxis.AUTHENTICATOR,
                 )
             },
         )

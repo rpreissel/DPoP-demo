@@ -28,18 +28,62 @@ import org.springframework.stereotype.Component
  *
  * MFA is additionally, unconditionally required from loa3 upward regardless of catalog
  * combinations.
+ *
+ * `resolveAcr` splits its input into two independently computed levels before combining them: IAL
+ * ([identityAssuranceLevel], "who is this?" - an IDENTIFICATION tool's own loa, THIS session only,
+ * see that function's doc for why an account's past `identifications[].loa` is deliberately NOT
+ * also consulted here) and AAL ([authenticatorAssuranceLevel], "how strong is the proof at THIS
+ * login?" - the MFA-bump logic above, restricted to [EvidenceAxis.AUTHENTICATOR] evidence only).
+ * The result is simply `max(IAL, AAL)` - a single tool reaching loa2/loa3 on either axis alone
+ * (e.g. `ident-fsc`'s own maxAcr, `ident-eid`'s own two factor types, or a passkey's own two
+ * factor types) still reaches that level overall, exactly as before this split existed; what the
+ * split actually changes is that an IDENTIFICATION can no longer combine with an unrelated
+ * AUTHENTICATOR factor to manufacture a false MFA bump (see [applyMfaBump]'s doc).
  */
 @Component
 class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPolicy {
 
-    override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): String {
-        if (evidence.factors.isEmpty()) return "none"
-        return applyMfaBump(baseAcr(evidence.factors), evidence).value
+    override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): String =
+        AcrLevels.max(identityAssuranceLevel(evidence), authenticatorAssuranceLevel(evidence))
+
+    /**
+     * IAL: the highest loa any IDENTIFICATION has established THIS session ([evidence]'s own
+     * [EvidenceAxis.IDENTITY] entries) - deliberately NOT also falling back to [AccountProfile]'s
+     * persisted `identifications[].loa` from a past session: `AuthEvidence` is one-per-channel,
+     * cleared at logout, precisely so identity must be re-proven per session
+     * (`orchestrator.session.AuthEvidence`'s own class doc) - a fresh channel on a device that was
+     * never re-identified stays at whatever THIS session's own IDENTITY evidence says, "none" if
+     * there is none, regardless of what the account achieved in some earlier, unrelated session
+     * (`MfaCombinationIntegrationTest`: "no re-identification, so fsc's own loa2 isn't in play this
+     * time"). `identifications[].loa`'s OWN role in the three-way cap (ADR-5) already happens
+     * upstream of this - baked into `enrolledUnderAcr` at the moment a method was enrolled - not
+     * re-applied here a second time.
+     */
+    private fun identityAssuranceLevel(evidence: AuthEvidence): String {
+        val reachable = evidence.factors.filter { it.axis == EvidenceAxis.IDENTITY }
+            .maxOfOrNull { AcrLevels.rank(it.loa.value) } ?: return "none"
+        return AcrLevels.levelAt(reachable)
+    }
+
+    /**
+     * AAL: exactly the pre-existing [baseAcr]/[applyMfaBump] combination logic, but restricted to
+     * [EvidenceAxis.AUTHENTICATOR] entries - an IDENTIFICATION's loa/factor type must never leak
+     * into "how strong is the authenticator proof for THIS login", see class doc.
+     */
+    private fun authenticatorAssuranceLevel(evidence: AuthEvidence): String {
+        val authenticatorFactors = evidence.factors.filter { it.axis == EvidenceAxis.AUTHENTICATOR }
+        return applyMfaBump(baseAcr(authenticatorFactors), AuthEvidence(authenticatorFactors)).value
     }
 
     override fun isSatisfied(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile?): Boolean {
         val levelOk = AcrLevels.rank(resolveAcr(evidence, account)) >= AcrLevels.rank(requiredAcr)
-        val mfaOk = !requiresMfa(requiredAcr) || evidence.factorTypes.size >= 2
+        // Checked PER AXIS, never as one union across both: a single tool covering >=2 factor
+        // types on its own axis is self-contained MFA (e.g. ident-eid: card + PIN in one run,
+        // id_eid/Descriptors.kt) - but an IDENTITY factor type must still never combine with a
+        // separate, unrelated AUTHENTICATOR factor type to jointly manufacture MFA (see class doc).
+        val identityFactorTypes = evidence.factors.filter { it.axis == EvidenceAxis.IDENTITY }.flatMap { it.factorTypes }.toSet()
+        val authenticatorFactorTypes = evidence.factors.filter { it.axis == EvidenceAxis.AUTHENTICATOR }.flatMap { it.factorTypes }.toSet()
+        val mfaOk = !requiresMfa(requiredAcr) || identityFactorTypes.size >= 2 || authenticatorFactorTypes.size >= 2
         return levelOk && mfaOk
     }
 
@@ -172,12 +216,20 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     /**
      * MFA bump: >=2 DISTINCT methods among [evidence], together covering >=2 distinct factor
      * types, earn one tier above [base] - capped by the highest loa any of them was itself
-     * enrolled under (docs/06-ablaeufe.md #1, extended; see class doc). Relies on an existing
-     * invariant this whole file already assumes: only a IDENTIFIED_AUTH/LOOKUP_AUTH tool's outcome
-     * ever reports a non-empty `amr`/`factorTypes` at all (docs/tool_spi/ToolOutcome.kt) - an
-     * identification like ident-fsc, which already prices its own trust into its own loa, never
-     * contributes an `amr` entry here to begin with, so it can never be double-counted into this
-     * bump just because it ran in the same session as an unrelated auth factor.
+     * enrolled under (docs/06-ablaeufe.md #1, extended; see class doc).
+     *
+     * Correctness depends on the CALLER having already excluded [EvidenceAxis.IDENTITY] entries
+     * from [evidence] - this function itself does not filter by axis. [authenticatorAssuranceLevel]
+     * does that filtering before calling this; an identification like `ident-fsc` DOES produce a
+     * real `amr` entry (`ToolOutcome.Completed.Identified.amr`, contrary to what an earlier version
+     * of this doc claimed) and would otherwise be free to combine with one unrelated auth factor
+     * into a false MFA bump - exactly the double-counting this split exists to prevent (see class
+     * doc: an identification already prices its own trust into its own loa and is never
+     * re-presented at the moment of authentication, so it must not also buy MFA credit).
+     *
+     * [candidateTools] calls this directly, unfiltered, on its own projected session evidence -
+     * deliberately unchanged by the IAL/AAL split, since that simulation only ever projects AUTH
+     * candidates onto already-AUTH session evidence in practice.
      *
      * [MethodEvidence.enrolledUnderAcr] is entirely the assembling caller's own claim (docs/05-api.md
      * Abschnitt 3) - this method never reaches into an account's enrollment records
@@ -197,14 +249,25 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 
     /**
      * The MFA-combination rule itself (see class doc): >=2 distinct methods covering >=2 distinct
-     * factor types earn one tier above [base] - capped by [maxEnrolledUnderAcr], the highest loa
-     * any of the combining methods was itself enrolled under - otherwise [base] unchanged. Shared
-     * by [canAccountReach] and [applyMfaBump] (over different inputs: an account's full standing
-     * methods vs. one session's proven AUTH methods).
+     * factor types earn one tier above [base] - capped by [maxEnrolledUnderAcr] (the highest loa
+     * any of the combining methods was itself enrolled under) AND, independently, by
+     * [NIST_COMBINATION_CEILING] - otherwise [base] unchanged. Shared by [canAccountReach] and
+     * [applyMfaBump] (over different inputs: an account's full standing methods vs. one session's
+     * proven AUTH methods).
+     *
+     * The [NIST_COMBINATION_CEILING] cap exists because "combine two things, get one tier higher"
+     * is only actually NIST-800-63B-conformant for the loa1->loa2 (AAL1->AAL2) step: AAL2 is
+     * explicitly defined as reachable via "a combination of two single-factor authenticators".
+     * AAL3 has no such combination rule in NIST's model - it requires a SPECIFIC authenticator
+     * technology (hardware-based, verifier-impersonation-resistant, e.g. WebAuthn/FIDO2), not "two
+     * already-strong things combined". Without this cap, two hypothetical loa2-rated methods of
+     * different factor types would bump to loa3 here - a result this project cannot claim is
+     * standards-conformant (docs/04-orchestrierung.md #8).
      */
     private fun combinedAcr(base: String, distinctMethods: Int, factorTypesUnion: Set<FactorType>, maxEnrolledUnderAcr: String): String {
         if (distinctMethods < 2 || factorTypesUnion.size < 2) return base
-        return AcrLevels.max(base, AcrLevels.min(AcrLevels.bump(base), maxEnrolledUnderAcr))
+        val bumped = AcrLevels.min(AcrLevels.bump(base), maxEnrolledUnderAcr)
+        return AcrLevels.max(base, AcrLevels.min(bumped, NIST_COMBINATION_CEILING))
     }
 
     private fun descriptorFor(method: String): ToolDescriptor? = toolRegistry.descriptors().firstOrNull { it.method == method }
@@ -213,5 +276,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 
     companion object {
         private const val MFA_FROM_ACR = "loa3"
+
+        /** See [combinedAcr]'s doc: the highest level the generic two-factor-combination bump may ever produce. */
+        private const val NIST_COMBINATION_CEILING = "loa2"
     }
 }

@@ -902,6 +902,42 @@ Wichtige Einschränkung: Ein Tool darf nur Faktoren melden, die es dem Server ge
 **nachweisen** kann. Eine nur lokal geprüfte App-PIN schützt das Gerät, nicht die Anfrage — dafür
 gehört nur `{possession}` in den Descriptor.
 
+### IAL und AAL: zwei Fragen, eine `acr`-Zahl
+
+`resolveAcr` beantwortet intern zwei fachlich unabhängige Fragen (NIST 800-63: IAL vs. AAL) und
+kombiniert sie erst am Ende zu der einen nach außen sichtbaren `acr`-Zahl:
+
+- **IAL** (`identityAssuranceLevel`, "wer ist das?") — das höchste `loa`, das eine
+  IDENTIFICATION-Rolle (`ident-fsc`, `ident-eid`) **in dieser Session** erbracht hat. Bewusst
+  NICHT zusätzlich aus `account.identifications[]` einer früheren Session nachgeladen: `AuthEvidence`
+  ist eigens "one per channel, cleared at logout" (`orchestrator.session.AuthEvidence`), damit eine
+  Identität pro Session neu bewiesen werden muss — ein Gerät, das in dieser Session nicht erneut
+  identifiziert wurde, darf keine loa2/loa3-Identität einer früheren, fremden Session erben.
+- **AAL** (`authenticatorAssuranceLevel`, "wie stark ist der Nachweis bei DIESEM Login?") — die
+  MFA-Kombinationsregel aus Punkt 2, aber ausschließlich über ENROLLMENT/AUTH-Nachweise gerechnet.
+
+`resolveAcr = max(IAL, AAL)`. Jede `MethodEvidence`/`AmrRecord`-Zeile trägt dafür eine `axis`
+(`EvidenceAxis.IDENTITY`/`AUTHENTICATOR`, `DefaultAuthPolicy`/`ToolDescriptor.evidenceAxis()`,
+abgeleitet aus `role.category`). Der Grund für die Trennung: Eine Identifizierung ist ein einmaliges
+historisches Ereignis, kein bei jedem Login erneut vorgelegter Faktor — sie darf ihr eigenes `loa`
+direkt beisteuern (ein alleiniges `ident-fsc` erreicht weiterhin `loa2`, genau wie ein Passkey mit
+zwei eigenen Faktorarten `loa3` alleine erreicht), aber sie darf sich **nicht** mit einem einzelnen,
+artfremden Auth-Faktor zu einem MFA-Bump verbinden — sonst würde ein gestohlenes Passwort so
+behandelt, als wäre es durch einen zweiten, beim Login tatsächlich erneut geprüften Faktor
+abgesichert.
+
+**`loa2` ist damit das Projekt-eigene Label für NIST-800-63B-AAL2** ("ein Multi-Faktor-Tool ODER
+zwei unabhängige Einzelfaktor-Mittel unterschiedlicher Art") — nicht zufällig, sondern über genau
+drei gleichwertige Wege erreichbar, alle bereits oben beschrieben: (1) ein einzelnes Tool mit zwei
+eigenen Faktorarten (`device`: Besitz+Wissen/Inhärenz), (2) zwei kombinierte Einzelfaktor-AUTH-Tools
+unterschiedlicher Art (sms+password, über den MFA-Bump), oder (3) eine Identifizierung
+(`ident-fsc`/`ident-eid`) allein über ihr eigenes IAL — Identifizierung ist dabei ein
+gleichwertiger, kein untergeordneter Weg zur loa2-Schwelle, weshalb `CandidateTools.forReIdentification`
+in Auth-Kontexten standardmäßig als Fallback angeboten wird (`StepUpState.forSubJourney`,
+Default `allowReIdentification=true`), sobald die vorhandenen Auth-Mittel allein nicht reichen.
+`loa3`/AAL3 (Hardware-Authenticator mit Verifier-Impersonation-Resistance) ist davon unberührt und
+bewusst nicht weiter ausgearbeitet, solange kein Bedarf dafür besteht.
+
 ### Session-Nachweis ist nicht gleich Account-Fähigkeit
 
 In einem Auth-Zustand lautet die Frage „reicht das *jetzt*?" (`isSatisfied`). Auf einer
