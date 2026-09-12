@@ -54,24 +54,28 @@ jede Bedingung ist darin sichtbar, nicht in verstreuter Logik verborgen. Ausschn
 stateDiagram-v2
   state "«Fallback» PreferredAuth" as PreferredAuth
   state "«Fallback» AuthChoice" as AuthChoice
-  state "«Fallback» Identifying" as Identifying
   state "«Pflicht» Enrolling" as Enrolling
 
   [*] --> Start
   Start --> PreferredAuth: verknüpftes Gerät mit Device-Methode
   Start --> AuthChoice: Account bekannt, andere Methoden vorhanden
-  Start --> Identifying: nichts Vorhandenes greift
+  Start --> REGISTER: nichts Vorhandenes greift
 
   PreferredAuth --> AuthChoice: abgelehnt
-  AuthChoice --> Identifying: alle abgelehnt
+  AuthChoice --> REGISTER: alle abgelehnt
 
   PreferredAuth --> Finished: Nachweis reicht für das geforderte Niveau
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
-  Identifying --> Enrolling: Identität festgestellt
 
   Enrolling --> Enrolling: abgelehnt, Anforderung bleibt bestehen
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
   Finished --> [*]
+
+  note right of REGISTER
+    Eigenes Ziel (Tabelle oben),
+    hier nur als Voraussetzung
+    mitgenutzt - siehe unten.
+  end note
 ```
 
 Wichtig für die fachliche Prüfung: Das System unterscheidet zwei Sorten von Zustand, und
@@ -91,11 +95,13 @@ lässt sich damit an *diesem* Bild klären, ohne Entwickler zu Rate zu ziehen.
 ## Wiederverwendete Teilabläufe bleiben eine fachliche Einheit
 
 Manche Anforderungen tauchen in mehreren Zielen auf — „erneut identifizieren, wenn nichts
-anderes mehr greift" gehört sowohl zu `FAST_ACCESS` als auch zu anderen Abläufen. Das System
-modelliert das als eigenständige **Sub-Journey** (`RE_IDENTIFY`), die von mehreren Zielen aus
-angestoßen wird, aber nur einmal definiert ist. Ändert sich die fachliche Regel für
-Re-Identifizierung, ändert sie sich an *einer* Stelle für alle Abläufe, die sie nutzen — es
-gibt keine zweite, leicht abweichende Kopie, die man vergessen könnte zu pflegen.
+anderes mehr greift" gehört sowohl zu `FAST_ACCESS` als auch zu anderen Abläufen, und im Diagramm
+oben ist sogar ein komplettes eigenes Ziel (`REGISTER`) nur die Voraussetzung für ein anderes. Das
+System modelliert beides als eigenständige **Sub-Journey** (`RE_IDENTIFY`, `REGISTER`), die von
+mehreren Zielen aus angestoßen wird, aber nur einmal definiert ist. Ändert sich die fachliche
+Regel für Re-Identifizierung oder Registrierung, ändert sie sich an *einer* Stelle für alle
+Abläufe, die sie nutzen — es gibt keine zweite, leicht abweichende Kopie, die man vergessen
+könnte zu pflegen.
 
 ## Vertrauensniveau ist eine fachliche Stellschraube, kein technisches Detail
 

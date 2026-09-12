@@ -263,13 +263,11 @@ zurück, das gerade verworfene Tool eingeschlossen.
 
 ### `REGISTER`
 
-`REGISTER` ist eine eigene, vollständige Journey (`RegisterState`) — nicht mehr eine Teilmenge von
-`FAST_ACCESS`s Zuständen, die per Vererbung übernommen wird, sondern eine eigenständige Strategie,
-die `AuthChoice`/`Enrolling` als geteilte Werttypen mit `FAST_ACCESS` benutzt (s. o.) und die
-zusätzlich `Identifying`, `ConfirmingEmail` und `PasswordObligation` exklusiv besitzt.
-`FAST_ACCESS` selbst läuft `REGISTER` als Voraussetzung, sobald es identifizieren müsste — siehe
-oben. `REGISTER` unterdrückt dabei den `DeviceAccountLink`-Lookup, den `FAST_ACCESS`s eigener
-`Start` sonst zuerst versucht.
+`REGISTER`s eigene Journey (`RegisterState`) nutzt `AuthChoice`/`Enrolling` als geteilte Werttypen
+mit `FAST_ACCESS` (s. o.) und besitzt zusätzlich `Identifying`, `ConfirmingEmail` und
+`PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung, sobald es identifizieren
+müsste (s. o.); `REGISTER` unterdrückt dabei den `DeviceAccountLink`-Lookup, den `FAST_ACCESS`s
+eigener `Start` sonst zuerst versucht.
 
 ```mermaid
 stateDiagram-v2
@@ -949,9 +947,9 @@ die Entscheidung neu geprüft.
 `PasswordObligation` (`RegisterStrategy`, DPoP-demo-urt) ist die oben angekündigte dritte Pflicht —
 tatsächlich eingetreten, aber anders geschnitten als der "Preis"-Absatz befürchtet: Sie betrifft
 **keinen zweiten Intent** (nur `REGISTER`, nie `FAST_ACCESS`), sondern ist auf einen Kanal begrenzt
-(nur `KEYCLOAK`, nie `APP`). `RegisterStrategy` wrapt dafür das Ergebnis der geteilten
-`afterEnrollment`-Funktion (`FastAccessCore`, von beiden Strategien aufgerufen, keine Basisklasse):
-Nur wenn diese `Transition.Authenticated` zurückgeben würde *und* der Kanal `KEYCLOAK` ist *und*
+(nur `KEYCLOAK`, nie `APP`). `RegisterStrategy` wrapt dafür das Ergebnis von `FastAccessCore.
+afterEnrollment` (der von beiden Strategien genutzten, zustandslosen Übergangslogik): Nur wenn
+diese `Transition.Authenticated` zurückgeben würde *und* der Kanal `KEYCLOAK` ist *und*
 noch keine aktive `password`-Methode existiert, wird stattdessen `PasswordObligation` eingeschoben.
 `FAST_ACCESS` erzeugt den Zustand deshalb nie — `PasswordObligation` gehört, anders als `AuthChoice`/
 `Enrolling`, exklusiv zu `RegisterState`.

@@ -111,8 +111,9 @@ Kein Neuentwurf, sondern die Übertragung eines bekannten Musters:
 
 - **Das ist keine eID-Erweiterung mehr, sondern eine Neufassung des Account-Modells.**
   `account.person_id` wird heute vermutlich an vielen Stellen als gegeben vorausgesetzt:
-  `AccountService`/`AccountDirectory` ([tool_api](../03-tool-architektur.md)), `findOrCreateAccount`
-  (`FastAccessStrategy`), `DeviceAccountLink.findLinkedAccountId`,
+  `AccountService`/`AccountDirectory` ([tool_api](../03-tool-architektur.md)), `AccountService.
+  findOrCreateAccount` (aufgerufen aus `JourneyService` beim Ausführen von `Action.AdoptIdentity`),
+  `DeviceAccountLink.findLinkedAccountId`,
   `ToolOutcome.Completed.Identified(personId: Long, ...)` selbst. Jede dieser Stellen müsste auf
   "ein oder kein `person_id`-Attribut mit Trust-Anchor X" umgestellt werden - auch wenn keine davon
   ihren Lesepfad ändern muss (siehe oben), weil sie weiter aus der Projektion lesen.
