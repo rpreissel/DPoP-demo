@@ -123,6 +123,47 @@ class RegisterStrategyTest : BehaviorSpec({
         }
     }
 
+    given("Identifying, a fresh identity was just established on a device already linked to a DIFFERENT account") {
+        val acc = account(method("sms", "loa1"))
+        // linkedAccountId (999L) differs from the newly identified account's own id - the
+        // "Zweitaccount" conflict (docs/04-orchestrierung.md #2).
+        val theCtx = ctx(account = acc, acrFloor = "loa1", linkedAccountId = 999L)
+        val state = RegisterState.Identifying(listOf("ident-fsc"))
+
+        then("asks for confirmation first, before offering any method - never silently rebinds") {
+            val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+            val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.To(RegisterState.ConfirmDeviceRebind(acc.accountId))
+        }
+    }
+
+    given("ConfirmDeviceRebind") {
+        val acc = account(method("sms", "loa1"))
+        val state = RegisterState.ConfirmDeviceRebind(acc.accountId)
+
+        `when`("accepted") {
+            then("links the device, then re-runs afterIdentification - now without a conflict") {
+                val conflicting = ctx(account = acc, acrFloor = "loa1", linkedAccountId = 999L)
+                strategy.transition(state, JourneyEvent.Answered("accept"), conflicting) shouldBe
+                    Transition.Perform(Action.LinkDevice(acc.accountId), resumeState = state)
+
+                val resolved = ctx(account = acc, acrFloor = "loa1", linkedAccountId = acc.accountId)
+                strategy.transition(state, JourneyEvent.ActionCompleted, resolved) shouldBe
+                    Transition.To(AuthChoice(listOf("auth-sms")))
+            }
+        }
+
+        `when`("declined") {
+            then("cancels the journey outright - no silent continuation, the old binding is left untouched") {
+                val conflicting = ctx(account = acc, acrFloor = "loa1", linkedAccountId = 999L)
+                strategy.transition(state, JourneyEvent.Answered("decline"), conflicting) shouldBe Transition.Cancel
+            }
+        }
+    }
+
     given("AuthChoice, reached after identification rediscovers an already-equipped account, last candidate abandoned") {
         val acc = account(method("sms", "loa2"))
         then("falls back to identification again, not to enrollment - never wrapped with the password obligation") {

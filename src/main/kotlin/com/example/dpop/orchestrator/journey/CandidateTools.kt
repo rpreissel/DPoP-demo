@@ -50,14 +50,14 @@ internal object CandidateTools {
             .filter { it.role == MethodRole.IDENTIFIED_AUTH && it.allowsMultipleInstances }
         val preferred = deviceAuthTools.firstOrNull { descriptor ->
             account.activeAuthenticationMethods.any {
-                it.method == descriptor.method && descriptor.matchesCaller(it.details, ctx.bindingKeyRef)
+                it.method == descriptor.method && descriptor.matchesCurrentOwner(it.details, ctx.bindingKeyRef, ctx.linkedAccountId, account.accountId)
             }
         }?.toolId
         return preferred?.takeIf { it in ctx.availableTools }
     }
 
     fun forAuth(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
-        ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef))
+        ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef, ctx.linkedAccountId))
 
     /**
      * Every active IDENTIFIED_AUTH method the account has, for a fresh "prove you're still you"
@@ -79,7 +79,9 @@ internal object CandidateTools {
                     // enrolled on (docs/03-tool-architektur.md). Delegated to the descriptor
                     // itself (ToolDescriptor.matchesCaller) - this generic layer never reads a
                     // concrete tool's own detail-map key.
-                    if (descriptor.allowsMultipleInstances && !descriptor.matchesCaller(method.details, ctx.bindingKeyRef)) {
+                    if (descriptor.allowsMultipleInstances &&
+                        !descriptor.matchesCurrentOwner(method.details, ctx.bindingKeyRef, ctx.linkedAccountId, account.accountId)
+                    ) {
                         return@mapNotNull null
                     }
                     descriptor.toolId

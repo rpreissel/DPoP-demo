@@ -17,8 +17,14 @@ interface AuthPolicy {
      * methods (device) down to the one instance that actually lives on THIS physical device -
      * offering one that doesn't would guarantee failure (docs/04-orchestrierung.md). Null on a
      * KEYCLOAK channel, which has no device - multi-instance methods never match there.
+     *
+     * [linkedAccountId] (the account `DeviceAccountLink` CURRENTLY names for [bindingKeyRef], if
+     * any) additionally gates a multi-instance method: a device can only ever be actively bound to
+     * one account, so a credential is only offered while the device is still linked to the SAME
+     * account it belongs to - once rebound elsewhere, the old account's credential stops matching
+     * here even though the raw key still equals [bindingKeyRef] (docs/09-dpop.md).
      */
-    fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?): List<String>
+    fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?, linkedAccountId: Long?): List<String>
 
     /**
      * Which IDENT tools (re-identification, e.g. ident-fsc) could ALSO close the remaining gap

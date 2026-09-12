@@ -2,6 +2,8 @@ package com.example.dpop.orchestrator.api.v1.channel
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
+import com.example.dpop.auth_device.DEVICE_BINDING_KEY_REF
+import com.example.dpop.auth_device.DEVICE_METHOD
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.Action
@@ -119,7 +121,12 @@ class ChannelService(
         val accountId = sessionManagementService.findLinkedAccountId(bindingKeyRef) ?: return DeviceLinkResponse(linked = false)
         val personId = accountService.findAccount(accountId)?.personId
         val personName = personId?.let { personDirectory.displayName(it) }
-        return DeviceLinkResponse(linked = true, accountId = accountId, personName = personName)
+        return DeviceLinkResponse(
+            linked = true,
+            accountId = accountId,
+            personName = personName,
+            deviceAuthKeyRef = deviceAuthKeyRef(accountId, bindingKeyRef)
+        )
     }
 
     /**
@@ -408,6 +415,20 @@ class ChannelService(
         val personId = accountId?.let { accountService.findAccount(it)?.personId }
         return DemoInfo(accountId = accountId, personId = personId, journeys = journeys)
     }
+
+    /**
+     * Demo-only: the raw physical key of [accountId]'s own active `device`-bound credential for
+     * THIS device, next to the DPoP channel key the client already shows on its own - lets the
+     * entry screen (`DeviceLinkResponse`, read before any channel/journey exists) show both keys
+     * side by side (docs/09-dpop.md). Deliberately reaches into `auth_device`'s own detail-key
+     * constant rather than a generic `ToolDescriptor` accessor: this is throwaway debug output,
+     * not part of the real API contract, so it doesn't warrant widening the SPI the way
+     * [com.example.dpop.tool_spi.ToolDescriptor.matchesCaller] genuinely needed to.
+     */
+    private fun deviceAuthKeyRef(accountId: Long, bindingKeyRef: String): String? =
+        accountService.findAccount(accountId)?.activeAuthenticationMethods
+            ?.firstOrNull { it.method == DEVICE_METHOD && it.details?.get(DEVICE_BINDING_KEY_REF) == bindingKeyRef }
+            ?.details?.get(DEVICE_BINDING_KEY_REF) as? String
 
     /**
      * The channel-level block shared by every response, channel- and tool-level alike

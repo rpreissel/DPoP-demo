@@ -101,7 +101,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .map { it.toolId }
     }
 
-    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?): List<String> {
+    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?, linkedAccountId: Long?): List<String> {
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         val active = account.authenticationMethods.filter { it.active }
         val remaining = active.filter { it.method !in usedMethods }
@@ -126,14 +126,14 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
                 ?: return@mapNotNull null
 
             // A multi-instance method's AUTH tool must only ever be offered on the exact physical
-            // device that holds the matching credential - a non-extractable device key
-            // structurally cannot exist anywhere else, so offering it elsewhere would guarantee
-            // failure (docs/04-orchestrierung.md). Read straight off THIS already-resolved,
+            // device that holds the matching credential AND while that device is still linked to
+            // THIS account (ToolDescriptor.matchesCurrentOwner) - a non-extractable device key
+            // structurally cannot exist anywhere else, and a device is only ever actively bound to
+            // one account at a time, so either mismatch would guarantee failure (docs/04-
+            // orchestrierung.md, docs/09-dpop.md). Read straight off THIS already-resolved,
             // unambiguous AUTH descriptor - never re-looked-up by method name alone, which could
             // land on a different tool sharing the same method (docs/03-tool-architektur.md).
-            // Delegated to the descriptor itself (ToolDescriptor.matchesCaller) - this generic
-            // policy layer never reads a concrete tool's own detail-map key.
-            if (descriptor.allowsMultipleInstances && !descriptor.matchesCaller(m.details, bindingKeyRef)) {
+            if (descriptor.allowsMultipleInstances && !descriptor.matchesCurrentOwner(m.details, bindingKeyRef, linkedAccountId, account.accountId)) {
                 return@mapNotNull null
             }
 

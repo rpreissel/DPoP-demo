@@ -82,13 +82,21 @@ class AccountService(
         // methods are exempt on purpose - that coexistence is the whole point there.
         if (!allowsMultipleInstances) {
             account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }
+        } else if (account.authenticationMethods.any { it.method == method && it.active && extractEnrollmentRef(it.details) == enrollmentRef }) {
+            // The SAME physical credential (identical enrollmentRef) re-reported for the SAME
+            // account - a device is only ever bound to one account at a time (docs/09-dpop.md), so
+            // this can only be a re-run of an already-completed enrollment (the underlying tool
+            // handler treats re-enrolling the same key as idempotent, see EnrollDeviceToolHandler),
+            // never a genuinely new instance. Adding a second row here would leave two active
+            // entries for the identical credential, both matching every future lookup alike.
+            return toProfile(account)
         }
         val mergedDetails = details + mapOf("enrollmentRef" to mapOf("type" to enrollmentRef.type, "id" to enrollmentRef.id))
         account.addAuthenticationMethod(
-            AuthenticationMethod(method, true, Instant.now(), enrolledUnderAcr, mergedDetails).apply {
-                id = UUID.randomUUID().toString()
-                this.label = label
-            }
+            AuthenticationMethod(
+                method, true, Instant.now(), enrolledUnderAcr, mergedDetails,
+                id = UUID.randomUUID().toString(), label = label
+            )
         )
         val profile = toProfile(accountRepository.save(account))
         eventPublisher.publishEvent(AccountChanged(accountId))
@@ -138,7 +146,16 @@ class AccountService(
      */
     @Transactional(readOnly = true)
     fun allEnrollmentRefs(accountId: Long): List<EnrollmentRef> =
-        findAccount(accountId)?.authenticationMethods?.mapNotNull { extractEnrollmentRef(it) } ?: emptyList()
+        findAccount(accountId)?.authenticationMethods?.mapNotNull { extractEnrollmentRef(it.details) } ?: emptyList()
+
+    /**
+     * The [EnrollmentRef] for ONE method instance, not the whole account (unlike
+     * [allEnrollmentRefs]) - for a caller revoking a single credential (e.g. a device rebind,
+     * `AccountDeletionService.revokeMethod`) rather than deleting the account outright.
+     */
+    @Transactional(readOnly = true)
+    fun enrollmentRefFor(accountId: Long, methodInstanceId: String): EnrollmentRef? =
+        findAccount(accountId)?.authenticationMethods?.firstOrNull { it.id == methodInstanceId }?.let { extractEnrollmentRef(it.details) }
 
     @Transactional(readOnly = true)
     fun findAccountByEmail(email: String): AccountProfile? =
@@ -177,16 +194,16 @@ class AccountService(
     override fun resolveAccountByEmail(email: String): Long? = findAccountByEmail(email)?.accountId
 
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
-        findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it) }
+        findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it.details) }
 
     override fun activeInstanceEnrollment(accountId: Long, method: String, matchesCaller: (Map<String, Any?>?) -> Boolean): EnrollmentRef? =
         findActiveMethods(accountId, method)
             .firstOrNull { matchesCaller(it.details) }
-            ?.let { extractEnrollmentRef(it) }
+            ?.let { extractEnrollmentRef(it.details) }
 
     /** The inverse of [addAuthenticationMethod]'s `mergedDetails` write - reads the same shape back out. */
-    private fun extractEnrollmentRef(method: AuthMethodView): EnrollmentRef? {
-        val raw = method.details?.get("enrollmentRef") as? Map<*, *> ?: return null 
+    private fun extractEnrollmentRef(details: Map<String, Any?>?): EnrollmentRef? {
+        val raw = details?.get("enrollmentRef") as? Map<*, *> ?: return null
         val type = raw["type"] as? String ?: return null
         val id = raw["id"] as? String ?: return null
         return EnrollmentRef(type, id)

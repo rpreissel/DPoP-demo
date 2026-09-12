@@ -28,6 +28,7 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.beans.factory.ObjectProvider
@@ -719,10 +720,22 @@ class JourneyService(
             // suppressed rather than left to a null bindingKeyRef, so a KEYCLOAK channel never
             // accumulates dead DeviceAccountLink rows even if a strategy ever offered this.
             is Action.LinkDevice -> if (channel.channel == ChannelSession.Channel.APP) {
-                sessionManagementService.linkDeviceToAccount(
-                    checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
-                    action.accountId
-                )
+                val bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" }
+                val previousAccountId = sessionManagementService.findLinkedAccountId(bindingKeyRef)
+                sessionManagementService.linkDeviceToAccount(bindingKeyRef, action.accountId)
+                // A device is only ever actively bound to one account at a time - once rebound
+                // (docs/04-orchestrierung.md #2, RegisterState.ConfirmDeviceRebind), the previous
+                // account's own device-bound credential(s) for this exact physical key must not
+                // keep working (docs/09-dpop.md); Phase 1's matching guard already hides them, this
+                // additionally removes them outright.
+                if (previousAccountId != null && previousAccountId != action.accountId) {
+                    accountService.findAccount(previousAccountId)?.activeAuthenticationMethods
+                        ?.filter { m ->
+                            val descriptor = toolRegistry.descriptors().firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
+                            descriptor != null && descriptor.allowsMultipleInstances && descriptor.matchesCaller(m.details, bindingKeyRef)
+                        }
+                        ?.forEach { accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" }) }
+                }
             }
 
             is Action.DeleteAccount -> {

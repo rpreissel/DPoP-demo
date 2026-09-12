@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 @JsonSubTypes(
     JsonSubTypes.Type(value = RegisterState.Start::class, name = "Start"),
     JsonSubTypes.Type(value = RegisterState.Identifying::class, name = "Identifying"),
+    JsonSubTypes.Type(value = RegisterState.ConfirmDeviceRebind::class, name = "ConfirmDeviceRebind"),
     JsonSubTypes.Type(value = RegisterState.ConfirmingEmail::class, name = "ConfirmingEmail"),
     JsonSubTypes.Type(value = RegisterState.PasswordObligation::class, name = "PasswordObligation"),
     JsonSubTypes.Type(value = AuthChoice::class, name = "AuthChoice"),
@@ -63,6 +64,28 @@ sealed interface RegisterState : JourneyState {
         override val selectionStep: String get() = "selectIdentificationMethod"
         override val selectionTitle: String get() = "Identifikation erforderlich"
         override val selectionDescription: String get() = "Bitte identifizieren Sie sich, um Ihr Konto zu finden oder ein neues anzulegen."
+    }
+
+    /**
+     * The just-(re)identified account is different from the one `DeviceAccountLink` currently
+     * names for this device (docs/04-orchestrierung.md #2, "Zweitaccount"). Reached only once, as
+     * early as possible - immediately after identification, before any method is offered - never
+     * silently overwritten. [accountId] is the newly identified account, not the one about to be
+     * displaced.
+     */
+    data class ConfirmDeviceRebind(val accountId: Long) : RegisterState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override val active: ToolRef? get() = null
+        override val prompt: Prompt get() = Prompt.Confirm(
+            title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
+            description = "Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto " +
+                "zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem " +
+                "Gerät erneut identifizieren.",
+            confirmLabel = "Gerät neu zuordnen",
+            cancelLabel = "Abbrechen",
+            destructive = true
+        )
     }
 
     data class ConfirmingEmail(

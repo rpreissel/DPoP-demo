@@ -82,6 +82,30 @@ class AccountDeletionServiceTest : BehaviorSpec({
         }
     }
 
+    given("revokeMethod - a single credential, not the whole account") {
+        then("deletes only that instance's own enrollment and deactivates it, leaving the account row untouched") {
+            val accountService = mockk<AccountService>(relaxed = true)
+            every { accountService.enrollmentRefFor(1L, "method-instance-1") } returns EnrollmentRef("device", "device-ref")
+            val deviceCleanup = mockk<EnrollmentCleanup>(relaxed = true)
+            every { deviceCleanup.enrollmentType } returns "device"
+
+            service(accountService, cleanups = listOf(deviceCleanup)).revokeMethod(1L, "method-instance-1")
+
+            verify { deviceCleanup.delete(EnrollmentRef("device", "device-ref")) }
+            verify { accountService.deactivateAuthenticationMethod(1L, "method-instance-1") }
+            verify(exactly = 0) { accountService.deleteAccount(any()) }
+        }
+
+        then("a method with no resolvable enrollmentRef is still deactivated, just without a cleanup call") {
+            val accountService = mockk<AccountService>(relaxed = true)
+            every { accountService.enrollmentRefFor(1L, "method-instance-1") } returns null
+
+            service(accountService).revokeMethod(1L, "method-instance-1")
+
+            verify { accountService.deactivateAuthenticationMethod(1L, "method-instance-1") }
+        }
+    }
+
     given("the full deletion") {
         then("removes cross-module credentials and the device link before the account row itself, never after") {
             val accountService = mockk<AccountService>(relaxed = true)

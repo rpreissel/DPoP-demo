@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -60,6 +61,16 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                 else -> FastAccessCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
             }
 
+            is RegisterState.ConfirmDeviceRebind -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    ACCEPT -> Transition.Perform(Action.LinkDevice(state.accountId), resumeState = state)
+                    DECLINE -> Transition.Cancel
+                    else -> error("ConfirmDeviceRebind does not understand answer '${event.answer}'")
+                }
+                is JourneyEvent.ActionCompleted -> afterIdentification(ctx)
+                else -> error("ConfirmDeviceRebind only accepts JourneyEvent.Answered")
+            }
+
             is RegisterState.ConfirmingEmail -> when (event) {
                 is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
                 is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
@@ -108,6 +119,13 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
 
     private fun afterIdentification(ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
+        // This device is already durably linked to a DIFFERENT account (the "Zweitaccount" case,
+        // docs/04-orchestrierung.md #2) - ask before silently taking it over, as early as possible
+        // and before any method is offered. Checked first, unconditionally: every later step in
+        // this journey runs only after this has already been resolved once.
+        if (ctx.linkedAccountId != null && ctx.linkedAccountId != account.accountId) {
+            return Transition.To(RegisterState.ConfirmDeviceRebind(account.accountId))
+        }
         // An account found again by KVNR may already have everything it needs - offering an
         // existing method to prove beats an enrollment list that would come back empty.
         if (ctx.policy.canAccountReach(account, ctx.acrFloor)) {
@@ -168,5 +186,9 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
 
     private companion object {
         const val PASSWORD_METHOD = "password"
+
+        /** The two answers [RegisterState.ConfirmDeviceRebind] understands (see JourneyEvent.Answered). */
+        const val ACCEPT = "accept"
+        const val DECLINE = "decline"
     }
 }

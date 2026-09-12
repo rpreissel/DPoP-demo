@@ -64,6 +64,19 @@ interface ToolDescriptor {
      * ([allowsMultipleInstances] `false`), where callers never call this at all.
      */
     fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean = true
+
+    /**
+     * The full "is this multi-instance credential still usable right now" check every caller
+     * needs: [matchesCaller] (does the physical key match - descriptor-specific, e.g. `auth_device`'s
+     * own detail key) AND the account-ownership invariant every multi-instance method shares alike -
+     * a device can only ever be actively bound to ONE account at a time
+     * ([com.example.dpop.orchestrator.session.DeviceAccountLink]), so a credential only counts as
+     * usable while that link still names the SAME account it belongs to (docs/09-dpop.md). The
+     * second half is never descriptor-specific, so it lives here once, not re-implemented by every
+     * multi-instance [ToolDescriptor] - only [matchesCaller] is meant to be overridden.
+     */
+    fun matchesCurrentOwner(details: Map<String, Any?>?, callerBindingKeyRef: String?, linkedAccountId: Long?, accountId: Long): Boolean =
+        matchesCaller(details, callerBindingKeyRef) && linkedAccountId == accountId
 }
 
 /** Coarse grouping of a tool. See [MethodRole.category]. */

@@ -68,6 +68,8 @@ export interface DeviceLinkResponse {
   linked: boolean
   accountId?: number
   personName?: string
+  /** Demo-only: the linked account's own active device-bound credential key for this device, if any - distinct from the DPoP channel key shown separately. */
+  deviceAuthKeyRef?: string
 }
 
 /** One journey in the running chain for a channel - see backend `JourneyDebugStep`. */

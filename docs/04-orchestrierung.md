@@ -264,15 +264,30 @@ zurück, das gerade verworfene Tool eingeschlossen.
 ### `REGISTER`
 
 `REGISTER`s eigene Journey (`RegisterState`) nutzt `AuthChoice`/`Enrolling` als geteilte Werttypen
-mit `FAST_ACCESS` (s. o.) und besitzt zusätzlich `Identifying`, `ConfirmingEmail` und
-`PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung, sobald es identifizieren
-müsste (s. o.); `REGISTER` unterdrückt dabei den `DeviceAccountLink`-Lookup, den `FAST_ACCESS`s
-eigener `Start` sonst zuerst versucht.
+mit `FAST_ACCESS` (s. o.) und besitzt zusätzlich `Identifying`, `ConfirmDeviceRebind`,
+`ConfirmingEmail` und `PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung,
+sobald es identifizieren müsste (s. o.); `REGISTER` unterdrückt dabei den
+`DeviceAccountLink`-Lookup, den `FAST_ACCESS`s eigener `Start` sonst zuerst versucht.
+
+Löst die frische Identifikation ein **anderes** Konto auf, als für dieses Gerät bereits
+`DeviceAccountLink` hinterlegt ist ("Zweitaccount"), wird das nicht mehr still überschrieben:
+`afterIdentification` erkennt den Konflikt als Allererstes, noch bevor irgendein
+Anmeldeverfahren angeboten wird, und wechselt nach `ConfirmDeviceRebind` — der frühestmögliche
+Punkt, an dem sowohl das neu identifizierte Konto als auch die bestehende Geräte-Bindung bekannt
+sind. Zustimmung (`accept`) bindet das Gerät sofort um (`Action.LinkDevice`), löscht/deaktiviert
+dabei das bisherige Kontos eigenes Geräte-Credential (`enroll-device`) für genau diesen
+`bindingKeyRef` (`AccountDeletionService.revokeMethod`) und kehrt danach zu `afterIdentification`
+zurück, das jetzt ohne Konflikt normal fortfährt. Ablehnung (`decline`) bricht die Journey über
+`Transition.Cancel` regulär ab — kein Fehler, dieselbe Semantik wie ein explizites
+`DELETE .../journey` — und lässt die bestehende Bindung unangetastet.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Identifying
   Identifying --> Identifying: ein Tool abgelehnt, weitere übrig
+  Identifying --> ConfirmDeviceRebind: Identität festgestellt, Gerät bereits an anderes Konto gebunden
+  ConfirmDeviceRebind --> Identifying: Zustimmung - Gerät umgebunden, alte Bindung revoziert
+  ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
   Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig

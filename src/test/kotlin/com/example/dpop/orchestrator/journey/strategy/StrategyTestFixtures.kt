@@ -101,7 +101,10 @@ object StrategyTestFixtures {
         evidence: AuthEvidence = AuthEvidence(emptyList()),
         acrFloor: String = "loa1",
         bindingKeyRef: String = BINDING_KEY,
-        linkedAccountId: Long? = null,
+        // Defaults to "this device is already linked to the context's own account" - the ordinary
+        // single-device scenario nearly every test wants; a test exercising a genuine device-rebind
+        // conflict (docs/09-dpop.md) passes an explicit, different accountId here instead.
+        linkedAccountId: Long? = account?.accountId,
         isSubJourney: Boolean = false,
         availableTools: Set<String> = allToolIds,
         channel: ChannelSession.Channel = ChannelSession.Channel.APP

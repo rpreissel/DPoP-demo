@@ -121,15 +121,44 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
             then("methods already used this session are excluded") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, "loa2", acc, "test-binding-key") shouldContainExactly listOf("auth-sms")
+                policy.candidateTools(fresh, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId) shouldContainExactly listOf("auth-sms")
 
                 val alreadyUsedSms = AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2"))
-                policy.candidateTools(alreadyUsedSms, "loa2", acc, "test-binding-key").shouldBeEmpty()
+                policy.candidateTools(alreadyUsedSms, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId).shouldBeEmpty()
             }
 
             then("a null bindingKeyRef (WEB channel, no device) is accepted without crashing") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, "loa2", acc, null) shouldContainExactly listOf("auth-sms")
+                policy.candidateTools(fresh, "loa2", acc, null, linkedAccountId = null) shouldContainExactly listOf("auth-sms")
+            }
+        }
+
+        `when`("resolving candidate AUTH tools for a multi-instance (device-bound) method") {
+            val deviceAuth = object : ToolDescriptor {
+                override val toolId = "auth-device"
+                override val role = MethodRole.IDENTIFIED_AUTH
+                override val method = "device"
+                override val factorTypes = setOf(FactorType.POSSESSION)
+                override val maxAcr = "loa2"
+                override val allowsMultipleInstances = true
+                override fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean =
+                    details?.get("deviceBindingKeyRef") == callerBindingKeyRef
+            }
+            val deviceRegistry = ToolHandlerRegistry(listOf(deviceAuth))
+            val devicePolicy = DefaultAuthPolicy(deviceRegistry)
+            val deviceMethod = AuthMethodView(
+                id = "device-instance", method = "device", active = true, createdAt = null,
+                enrolledUnderAcr = "loa2", details = mapOf("deviceBindingKeyRef" to "key-1")
+            )
+            val acc = account(deviceMethod)
+            val fresh = AuthEvidence(emptyList())
+
+            then("it is offered while the device is still linked to this same account") {
+                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = acc.accountId) shouldContainExactly listOf("auth-device")
+            }
+
+            then("it is NOT offered once the device has been rebound to a different account") {
+                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = 999L).shouldBeEmpty()
             }
         }
 

@@ -79,5 +79,13 @@ data class DeviceLinkResponse(
     @field:Schema(example = "42")
     val accountId: Long? = null,
     @field:Schema(example = "Max Muster", description = "Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.")
-    val personName: String? = null
+    val personName: String? = null,
+    @field:Schema(
+        description = "Demo-only: the physical key of the linked account's own active `device`-bound " +
+            "credential for THIS device, if any - distinct from the DPoP channel key the client " +
+            "already shows on its own (docs/09-dpop.md). Read before any channel/journey exists, so " +
+            "the entry screen can show both keys side by side from the start.",
+        example = "aGVsbG8td29ybGQ"
+    )
+    val deviceAuthKeyRef: String? = null
 )

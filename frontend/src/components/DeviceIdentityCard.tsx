@@ -14,13 +14,22 @@ interface DeviceIdentityCardProps {
  * account this device is durably linked to (DeviceAccountLink, docs/02-domaenenmodell.md #1) via
  * the read-only `GET .../device-link` - so the entry screen answers "whose device is this" before
  * the user even picks how to start, not just after.
+ *
+ * A second, demo-only key (`deviceLink.deviceAuthKeyRef`) is shown alongside the DPoP key when
+ * present: the two are deliberately distinct concepts (channel binding vs. a `device`-method
+ * credential) - see docs/09-dpop.md. Read from the SAME `device-link` response as `deviceLink`
+ * itself rather than from `demo` (which only ever exists once a channel/journey is running) -
+ * this card renders precisely BEFORE any channel exists, so it needs data available at that
+ * point too. Kept current automatically since `device-link` is re-fetched after every rebind/
+ * enrollment/revocation that could change it (see the entry-screen refetch effect).
  */
 export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }: DeviceIdentityCardProps) {
+  const deviceAuthKeyRef = deviceLink?.deviceAuthKeyRef
   return (
     <div className="card device-identity-card">
       <ul className="status-list">
         <li>
-          <span className="label">Geräte-Kennung</span>
+          <span className="label">Geräte-Kennung (DPoP)</span>
           <span className="value-with-action">
             <span className="value" title={jwkThumbprint}>
               {shorten(jwkThumbprint)}
@@ -34,6 +43,14 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
             </button>
           </span>
         </li>
+        {deviceAuthKeyRef && (
+          <li>
+            <span className="label">Geräte-Anmeldeverfahren (Schlüssel)</span>
+            <span className="value" title={deviceAuthKeyRef}>
+              {shorten(deviceAuthKeyRef)}
+            </span>
+          </li>
+        )}
         <li>
           <span className="label">Gebunden an</span>
           <span className="value">

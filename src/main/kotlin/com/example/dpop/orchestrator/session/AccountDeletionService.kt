@@ -56,4 +56,17 @@ class AccountDeletionService(
 
         accountService.deleteAccount(accountId)
     }
+
+    /**
+     * Revokes ONE authentication method instance, not the whole account - reuses the same
+     * [cleanupsByType] dispatch as [deleteAccount], scoped to a single [methodInstanceId]. Used
+     * outside account deletion too: when a device is rebound to a different account
+     * (`JourneyService.performAction`, `Action.LinkDevice`), the previous account's device-bound
+     * credential for that exact physical key is revoked the same way - it must not keep matching
+     * once that key is no longer theirs (docs/09-dpop.md).
+     */
+    fun revokeMethod(accountId: Long, methodInstanceId: String) {
+        accountService.enrollmentRefFor(accountId, methodInstanceId)?.let { ref -> cleanupsByType[ref.type]?.delete(ref) }
+        accountService.deactivateAuthenticationMethod(accountId, methodInstanceId)
+    }
 }
