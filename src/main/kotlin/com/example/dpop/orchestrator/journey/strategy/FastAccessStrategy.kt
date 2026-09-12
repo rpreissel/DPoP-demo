@@ -31,15 +31,15 @@ class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 // Re-check whether the fresh proof already closes the gap before offering again -
                 // fires equally whether it was RE_IDENTIFY or the REGISTER sub-journey that just
                 // finished (see firstOffer/afterAuthDeclined below), the re-check is the same either way.
-                is JourneyEvent.SubJourneyFinished -> FastAccessCore.afterProof(ctx, resumeAtStart = FastAccessState.Start)
+                is JourneyEvent.SubJourneyFinished -> AuthEnrollCore.afterProof(ctx, resumeAtStart = FastAccessState.Start)
                 // No new evidence - re-deriving would just re-request the same sub-journey again.
                 is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
                 else -> firstOffer(ctx)
             }
             is FastAccessState.PreferredAuth -> when (event) {
                 is JourneyEvent.Abandoned -> afterAuthDeclined(ctx, alreadyDeclined = setOf(state.toolId))
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
-                else -> FastAccessCore.afterProof(ctx, resumeAtStart = FastAccessState.Start)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
+                else -> AuthEnrollCore.afterProof(ctx, resumeAtStart = FastAccessState.Start)
             }
 
             is AuthChoice -> when (event) {
@@ -48,16 +48,16 @@ class FastAccessStrategy : IntentStrategy<FastAccessState> {
                     val remaining = state.copy(declined = declined, active = null)
                     if (remaining.exhausted(ctx.availableTools)) afterAuthDeclined(ctx, declined) else Transition.To(remaining)
                 }
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
-                else -> FastAccessCore.afterProof(ctx, resumeAtStart = FastAccessState.Start)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
+                else -> AuthEnrollCore.afterProof(ctx, resumeAtStart = FastAccessState.Start)
             }
 
             is Enrolling -> when (event) {
-                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                is JourneyEvent.Abandoned -> AuthEnrollCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 // FAST_ACCESS never sets emailObligation, so this can only ever finish or re-offer
-                // enrollment - never RegisterState.ConfirmingEmail (see FastAccessCore.afterEnrollment).
-                else -> FastAccessCore.afterEnrollment(ctx, state.emailObligation, resumeAtStart = FastAccessState.Start)
+                // enrollment - never RegisterState.ConfirmingEmail (see AuthEnrollCore.afterEnrollment).
+                else -> AuthEnrollCore.afterEnrollment(ctx, state.emailObligation, resumeAtStart = FastAccessState.Start)
             }
         }
 
@@ -90,7 +90,7 @@ class FastAccessStrategy : IntentStrategy<FastAccessState> {
     /**
      * FAST_ACCESS itself never identifies anyone - that's REGISTER's job alone (docs/04-
      * orchestrierung.md #2/#3), run here as a precondition, same idiom as the RE_IDENTIFY
-     * sub-journey. Resuming at [FastAccessState.Start] re-checks satisfaction via [FastAccessCore.
+     * sub-journey. Resuming at [FastAccessState.Start] re-checks satisfaction via [AuthEnrollCore.
      * afterProof] rather than blindly re-running [firstOffer] - a rediscovered, already-equipped
      * account is then simply already satisfied by the time control comes back.
      */

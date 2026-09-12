@@ -27,7 +27,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * Pure unit coverage of [RegisterStrategy]'s own journey - deliberately fresh identification, even
  * on an already linked device (docs/04-orchestrierung.md, "REGISTER"), through to the mandatory
  * states that keep the next login working. [AuthChoice]/[Enrolling] are shared value types with
- * [FastAccessStrategy] (see [FastAccessCore]), but the transitions around them are still exercised
+ * [FastAccessStrategy] (see [AuthEnrollCore]), but the transitions around them are still exercised
  * here in full, because this strategy's own `transition` function owns them just as much as
  * FastAccessStrategy's does - see [FastAccessStrategyTest] for FAST_ACCESS's own, narrower slice.
  */

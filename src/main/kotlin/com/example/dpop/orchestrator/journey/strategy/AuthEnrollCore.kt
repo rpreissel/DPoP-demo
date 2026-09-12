@@ -24,7 +24,7 @@ import com.example.dpop.tool_spi.ToolOutcome
  * sub-journey (docs/04-orchestrierung.md, "RE_IDENTIFY") - the caller's own `Start`-like state to
  * resume at once that finishes, so a caller never has to know the OTHER caller's resume state.
  */
-internal object FastAccessCore {
+internal object AuthEnrollCore {
 
     /** State-independent: the same outcome always means the same thing here (unlike e.g. RE_IDENTIFY's ConfirmIdentity). */
     fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {

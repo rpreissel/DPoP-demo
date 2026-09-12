@@ -33,14 +33,14 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             is RegisterState.Start -> when (event) {
                 // A RE_IDENTIFY sub-journey started from this run's own offerEnrollment finished -
                 // re-check satisfaction the same way FastAccessStrategy's own Start does.
-                is JourneyEvent.SubJourneyFinished -> FastAccessCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
+                is JourneyEvent.SubJourneyFinished -> AuthEnrollCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
                 is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
                 else -> offerIdentification(ctx)
             }
 
             is RegisterState.Identifying -> when (event) {
                 is JourneyEvent.Abandoned -> giveUpOrReoffer(state, event)
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 // Deliberately never checks isSatisfied: identification evidence alone (amr=fsc)
                 // trivially clears most floors, which would let a run finish without a single
                 // durable credential ever being proven or created.
@@ -53,12 +53,12 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                     val remaining = state.copy(declined = declined, active = null)
                     if (remaining.exhausted(ctx.availableTools)) afterAuthDeclined(ctx, declined) else Transition.To(remaining)
                 }
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 // Deliberately never wrapped with the password obligation below: a rediscovered,
                 // already-set-up account finishing here is treated as an ordinary login, not a
                 // fresh registration (confirmed 2026-09-09) - same as the email obligation, which
                 // explicitly never applies on this path either.
-                else -> FastAccessCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
+                else -> AuthEnrollCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
             }
 
             is RegisterState.ConfirmDeviceRebind -> when (event) {
@@ -72,20 +72,20 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             }
 
             is RegisterState.ConfirmingEmail -> when (event) {
-                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                is JourneyEvent.Abandoned -> AuthEnrollCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 else -> afterEnrollment(ctx, emailObligation = false)
             }
 
             is Enrolling -> when (event) {
-                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                is JourneyEvent.Abandoned -> AuthEnrollCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 else -> afterEnrollment(ctx, state.emailObligation)
             }
 
             is RegisterState.PasswordObligation -> when (event) {
-                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
-                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                is JourneyEvent.Abandoned -> AuthEnrollCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 // Reached only after the email obligation (if any) already discharged - see this
                 // state's own KDoc - so the re-check below never has one still open.
                 else -> afterEnrollment(ctx, emailObligation = false)
@@ -132,11 +132,11 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
             if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
         }
-        return FastAccessCore.offerEnrollment(account, ctx, emailObligation = true, resumeAtStart = RegisterState.Start)
+        return AuthEnrollCore.offerEnrollment(account, ctx, emailObligation = true, resumeAtStart = RegisterState.Start)
     }
 
     /**
-     * Wraps [FastAccessCore.afterEnrollment] rather than re-deriving reachability/sufficiency
+     * Wraps [AuthEnrollCore.afterEnrollment] rather than re-deriving reachability/sufficiency
      * itself: only ever intercepts the one outcome that means "this run would finish right now"
      * ([Transition.Authenticated]) and redirects it - every other outcome (still short of the
      * floor, the email obligation still open) is none of this method's business and passes through
@@ -150,7 +150,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
      * unconditionally required, and only on the Web.
      */
     private fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
-        val base = FastAccessCore.afterEnrollment(ctx, emailObligation, resumeAtStart = RegisterState.Start)
+        val base = AuthEnrollCore.afterEnrollment(ctx, emailObligation, resumeAtStart = RegisterState.Start)
         if (base != Transition.Authenticated || ctx.channel != ChannelSession.Channel.KEYCLOAK) return base
 
         val account = ctx.requireAccount()
