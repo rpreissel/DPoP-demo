@@ -4,23 +4,29 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
- * The fallback chain from the most convenient to the most laborious way in, followed by the mandatory
- * states that make sure the next login works again (docs/04-orchestrierung.md #3).
+ * Into a login on this device as fast as possible, and in a way that works again next time
+ * (docs/04-orchestrierung.md #3): a bevorzugtes Gerät, sonst eine Auswahl unter den vorhandenen
+ * Verfahren, sonst eine frische Identifizierung.
  *
- * Two deliberately DIFFERENT transition rules live in one hierarchy, and that difference is named
- * here rather than left to a comment:
- * - [PreferredAuth], [AuthChoice], [Identifying] are FALLBACK states: declining moves on.
- * - [ConfirmingEmail], [Enrolling] are MANDATORY: only fulfilling moves on.
+ * States 1-2 ([PreferredAuth], [AuthChoice]) form a FALLBACK chain of this journey's own: declining
+ * moves to the next, more laborious way in. Once nothing here is left, this journey hands off to
+ * REGISTER's own journey as a [com.example.dpop.orchestrator.journey.Transition.RequireSubJourney]
+ * precondition (same idiom as the RE_IDENTIFY sub-journey) - identification, and everything a fresh
+ * identification can trigger (email confirmation, the Web-only password obligation), is REGISTER's
+ * job alone, never reproduced here.
+ *
+ * [AuthChoice] and [Enrolling] are shared value types with [RegisterState], not owned exclusively
+ * by either: both journeys reach the exact same two questions once an account is in hand ("does it
+ * already have something that closes the gap now?", "does it need a new method enrolled?") - see
+ * their own doc for why sharing the VALUE, not the STRATEGY, is what actually removes the
+ * arbitrary-looking coupling a subclass relationship used to create here.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(
     JsonSubTypes.Type(value = FastAccessState.Start::class, name = "Start"),
     JsonSubTypes.Type(value = FastAccessState.PreferredAuth::class, name = "PreferredAuth"),
-    JsonSubTypes.Type(value = FastAccessState.AuthChoice::class, name = "AuthChoice"),
-    JsonSubTypes.Type(value = FastAccessState.Identifying::class, name = "Identifying"),
-    JsonSubTypes.Type(value = FastAccessState.ConfirmingEmail::class, name = "ConfirmingEmail"),
-    JsonSubTypes.Type(value = FastAccessState.Enrolling::class, name = "Enrolling"),
-    JsonSubTypes.Type(value = FastAccessState.PasswordObligation::class, name = "PasswordObligation")
+    JsonSubTypes.Type(value = AuthChoice::class, name = "AuthChoice"),
+    JsonSubTypes.Type(value = Enrolling::class, name = "Enrolling")
 )
 sealed interface FastAccessState : JourneyState {
 
@@ -36,93 +42,5 @@ sealed interface FastAccessState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override fun activatable(availableTools: Set<String>): Set<String> = setOf(toolId) intersect availableTools
         override val selectionContext: String get() = "auth"
-    }
-
-    /** Other authentication methods the account already has. */
-    data class AuthChoice(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null
-    ) : FastAccessState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Anmeldung – Verfahren wählen"
-        override val selectionDescription: String get() = "Für Ihr Konto sind mehrere Anmeldeverfahren hinterlegt. Wählen Sie aus, wie Sie sich anmelden möchten."
-    }
-
-    /**
-     * Last fallback state: identification - here for login AND registration alike. Which one it
-     * was is decided afterwards by `findOrCreateAccount`, which is exactly why a single state
-     * covers both.
-     */
-    data class Identifying(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null
-    ) : FastAccessState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override val selectionContext: String get() = "registration"
-        override val selectionStep: String get() = "selectIdentificationMethod"
-        override val selectionTitle: String get() = "Identifikation erforderlich"
-        override val selectionDescription: String get() = "Bitte identifizieren Sie sich, um Ihr Konto zu finden oder ein neues anzulegen."
-    }
-
-    data class ConfirmingEmail(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null
-    ) : FastAccessState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
-        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden, damit sie als Anmeldeverfahren genutzt werden kann."
-    }
-
-    /**
-     * [emailObligation] records that this run passed through [Identifying], i.e. it created or
-     * adopted an account. Only then does the confirmed-email state apply afterwards: a chosen
-     * password needs an identifier to hang off of, so such a run must not finish leaving
-     * `enroll-password` permanently unreachable. A plain login is never blocked on it.
-     *
-     * It is an attribute of THIS state rather than a second one in front of it, because the
-     * obligation is checked when enrolment is done - putting it first would take away
-     * the choice of which method to set up.
-     */
-    data class Enrolling(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null,
-        val emailObligation: Boolean = false
-    ) : FastAccessState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
-        override val selectionDescription: String get() = "Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein."
-    }
-
-    /**
-     * Web-channel-only third obligation (docs/04-orchestrierung.md #8, RegisterStrategy): a
-     * REGISTER run on the KEYCLOAK channel must always end up with a password credential, not just
-     * any sufficient one - unlike [emailObligation], this does not cross intents (FAST_ACCESS never
-     * produces this state) and does not cross channels (an APP REGISTER run never does either), so
-     * it is a channel-scoped exception rather than the intent-crossing "third obligation" the
-     * emailObligation KDoc leaves open.
-     *
-     * Ordered AFTER [ConfirmingEmail], not before: `enroll-password` itself requires a confirmed
-     * account email (`ToolDescriptor.requiresConfirmedEmail`, docs/03-tool-architektur.md #1) - it
-     * cannot be a candidate at all before that obligation is discharged, so the only order that is
-     * actually reachable is "sufficient method, then email, then password". Choosing
-     * `enroll-password` directly in [Enrolling] is only possible once the email is already
-     * confirmed for the same reason, and discharges this obligation before it is ever reached.
-     */
-    data class PasswordObligation(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null
-    ) : FastAccessState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Passwort einrichten"
-        override val selectionDescription: String get() = "Für die Registrierung über das Web-Portal ist ein Passwort als Anmeldeverfahren erforderlich."
     }
 }

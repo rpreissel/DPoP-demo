@@ -7,8 +7,11 @@ import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.AuthChoice
+import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.deviceDetails
@@ -19,14 +22,17 @@ import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
- * Pure unit coverage of [FastAccessStrategy] - the fallback chain into a login, plus the mandatory
- * states that keep the next login working (docs/04-orchestrierung.md, "FAST_ACCESS"). No Spring
- * context, no HTTP.
+ * Pure unit coverage of [FastAccessStrategy] - the fallback chain into a login, plus [Enrolling]
+ * for the one case it reaches inline without ever identifying anyone (docs/04-orchestrierung.md,
+ * "FAST_ACCESS"). No Spring context, no HTTP.
+ *
+ * Everything identification-related ([RegisterState.Identifying], [RegisterState.ConfirmingEmail],
+ * [RegisterState.PasswordObligation]) is [RegisterStrategy]'s own journey now, reached only via
+ * [Transition.RequireSubJourney] - see [RegisterStrategyTest] for that coverage.
  *
  * A completed tool always turns into a [Transition.Perform] first, resumed with
  * [JourneyEvent.ActionCompleted] against the SAME state once that action has run
@@ -45,7 +51,7 @@ class FastAccessStrategyTest : BehaviorSpec({
     }
 
     given("a completed tool, interpreted the same regardless of which offering state routed it here") {
-        val state = FastAccessState.AuthChoice(listOf("auth-sms"))
+        val state = AuthChoice(listOf("auth-sms"))
 
         then("Identified always finds-or-creates the account - brand new or found again by KVNR alike") {
             val outcome = ToolOutcome.Completed.Identified(personId = 1L)
@@ -70,10 +76,9 @@ class FastAccessStrategyTest : BehaviorSpec({
     }
 
     given("Start, no account known yet (unrecognized device)") {
-        then("falls straight to identification") {
-            val transition = strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = null))
-            transition.shouldBeInstanceOf<Transition.To>()
-            (transition as Transition.To).state.shouldBeInstanceOf<FastAccessState.Identifying>()
+        then("hands off to REGISTER's own journey to identify") {
+            strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = null)) shouldBe
+                Transition.RequireSubJourney(AuthIntent.REGISTER, seedWith = RegisterState.Start, resumeWith = FastAccessState.Start)
         }
     }
 
@@ -89,20 +94,19 @@ class FastAccessStrategyTest : BehaviorSpec({
         val acc = account(method("sms", "loa2"))
         then("offers them via AuthChoice") {
             strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc)) shouldBe
-                Transition.To(FastAccessState.AuthChoice(listOf("auth-sms")))
+                Transition.To(AuthChoice(listOf("auth-sms")))
         }
     }
 
     given("Start, account known but has no active methods at all") {
         val acc = account()
-        then("falls back to identification rather than a dead end") {
-            val transition = strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc))
-            transition.shouldBeInstanceOf<Transition.To>()
-            (transition as Transition.To).state.shouldBeInstanceOf<FastAccessState.Identifying>()
+        then("hands off to REGISTER's own journey rather than a dead end") {
+            strategy.transition(FastAccessState.Start, JourneyEvent.Started, ctx(account = acc)) shouldBe
+                Transition.RequireSubJourney(AuthIntent.REGISTER, seedWith = RegisterState.Start, resumeWith = FastAccessState.Start)
         }
     }
 
-    given("Start, resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
+    given("Start, resumed after a sub-journey finished (RE_IDENTIFY or REGISTER alike)") {
         val acc = account(method("sms", "loa1"))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
         then("re-checks satisfaction via afterProof instead of re-running firstOffer") {
@@ -112,7 +116,7 @@ class FastAccessStrategyTest : BehaviorSpec({
     }
 
     given("Start, declined instead (SubJourneyCancelled)") {
-        then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
+        then("gives up on its own rather than re-requesting the identical sub-journey again") {
             val event = JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY)
             strategy.transition(FastAccessState.Start, event, ctx()) shouldBe Transition.Cancel
         }
@@ -122,7 +126,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         val acc = account(method("device", "loa2", details = deviceDetails()), method("sms", "loa2"))
         then("falls back to the account's other methods") {
             strategy.transition(FastAccessState.PreferredAuth("auth-device"), JourneyEvent.Abandoned(AuthDeviceDescriptor), ctx(account = acc)) shouldBe
-                Transition.To(FastAccessState.AuthChoice(listOf("auth-sms"), declined = emptySet()))
+                Transition.To(AuthChoice(listOf("auth-sms"), declined = emptySet()))
         }
     }
 
@@ -140,7 +144,7 @@ class FastAccessStrategyTest : BehaviorSpec({
     }
 
     given("AuthChoice, more than one offered candidate") {
-        val state = FastAccessState.AuthChoice(listOf("auth-sms", "auth-password"))
+        val state = AuthChoice(listOf("auth-sms", "auth-password"))
         val acc = account(method("sms", "loa2"), method("password", "loa2"))
         then("abandoning one keeps the run in AuthChoice with the rest still offered") {
             strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx(account = acc)) shouldBe
@@ -150,99 +154,25 @@ class FastAccessStrategyTest : BehaviorSpec({
 
     given("AuthChoice, the last offered candidate is abandoned") {
         val acc = account(method("sms", "loa2"))
-        then("falls through to identification, same as an account with nothing usable at all") {
-            val transition = strategy.transition(FastAccessState.AuthChoice(listOf("auth-sms")), JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx(account = acc))
-            transition.shouldBeInstanceOf<Transition.To>()
-            (transition as Transition.To).state.shouldBeInstanceOf<FastAccessState.Identifying>()
+        then("hands off to REGISTER's own journey, same as an account with nothing usable at all") {
+            strategy.transition(AuthChoice(listOf("auth-sms")), JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx(account = acc)) shouldBe
+                Transition.RequireSubJourney(AuthIntent.REGISTER, seedWith = RegisterState.Start, resumeWith = FastAccessState.Start)
         }
     }
 
-    given("Identifying, more than one offered candidate") {
-        val state = FastAccessState.Identifying(listOf("ident-fsc", "ident-eid"))
-        then("abandoning one keeps the choice among the rest") {
-            strategy.transition(state, JourneyEvent.Abandoned(IdentFscDescriptor), ctx()) shouldBe
-                Transition.To(state.copy(declined = setOf("ident-fsc")))
-        }
-    }
-
-    given("Identifying, the last offered candidate is abandoned") {
-        then("gives up - the whole journey cancels, this is not an error") {
-            strategy.transition(FastAccessState.Identifying(listOf("ident-fsc")), JourneyEvent.Abandoned(IdentFscDescriptor), ctx()) shouldBe Transition.Cancel
-        }
-    }
-
-    given("Identifying, a fresh identity was just established") {
-        `when`("the newly (re-)found account can already reach the floor with an existing method") {
-            val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, acrFloor = "loa1")
-            val state = FastAccessState.Identifying(listOf("ident-fsc"))
-            then("adopts the identity, then offers it, rather than enrollment") {
-                val outcome = ToolOutcome.Completed.Identified(personId = 1L)
-                val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
-                strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
-                strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.To(FastAccessState.AuthChoice(listOf("auth-sms")))
-            }
-        }
-
-        `when`("the account (brand new, or found without a sufficient method) needs to enroll something") {
-            val acc = account(emailConfirmed = false)
-            val theCtx = ctx(account = acc, acrFloor = "loa1")
-            val state = FastAccessState.Identifying(listOf("ident-fsc"))
-            then("adopts the identity, then offers enrollment, carrying the email obligation this run incurred") {
-                val outcome = ToolOutcome.Completed.Identified(personId = 1L)
-                val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
-                strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
-
-                val transition = strategy.transition(state, JourneyEvent.ActionCompleted, theCtx)
-                transition.shouldBeInstanceOf<Transition.To>()
-                val to = (transition as Transition.To).state
-                to.shouldBeInstanceOf<FastAccessState.Enrolling>()
-                to as FastAccessState.Enrolling
-                to.emailObligation shouldBe true
-                to.offered shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
-            }
-        }
-    }
-
-    given("ConfirmingEmail") {
-        val state = FastAccessState.ConfirmingEmail(listOf("enroll-email"))
-
+    given("Enrolling, reached inline after a proof left the floor unsatisfied with nothing else to try") {
         `when`("abandoned") {
-            then("re-offers the same full choice - the obligation itself is never waived by backing out") {
-                strategy.transition(state, JourneyEvent.Abandoned(com.example.dpop.auth_email.EnrollEmailDescriptor), ctx()) shouldBe
-                    Transition.To(state.withActive(null))
-            }
-        }
-
-        `when`("the email is confirmed, and the account now reaches the floor") {
-            val acc = account(method("sms", "loa1"), emailConfirmed = true)
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
-            then("adopts the credential, then finishes - the obligation is discharged, nothing else to enroll") {
-                val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
-                val event = JourneyEvent.Completed(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome)
-                strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptCredential(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome, bindDevice = true), resumeState = state)
-                strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
-            }
-        }
-    }
-
-    given("Enrolling") {
-        `when`("abandoned") {
-            val state = FastAccessState.Enrolling(listOf("enroll-sms", "enroll-password"), emailObligation = true)
+            val state = Enrolling(listOf("enroll-sms"), emailObligation = false)
             then("re-offers the same full choice, the tool just backed out of included") {
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Transition.To(state.withActive(null))
             }
         }
 
-        `when`("a method was just enrolled and the floor is now reached, with no email obligation") {
+        `when`("a method was just enrolled and the floor is now reached") {
             val acc = account(method("sms", "loa1"))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
-            val state = FastAccessState.Enrolling(listOf("enroll-sms"), emailObligation = false)
-            then("adopts the credential, then finishes directly") {
+            val state = Enrolling(listOf("enroll-sms"), emailObligation = false)
+            then("adopts the credential, then finishes directly - FAST_ACCESS never carries an email obligation") {
                 val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
@@ -250,26 +180,12 @@ class FastAccessStrategyTest : BehaviorSpec({
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
             }
         }
-
-        `when`("a method was just enrolled, floor reached, but the email obligation from Identifying is still open") {
-            val acc = account(method("sms", "loa1"), emailConfirmed = false)
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
-            val state = FastAccessState.Enrolling(listOf("enroll-sms"), emailObligation = true)
-            then("adopts the credential, then moves on to ConfirmingEmail instead of finishing") {
-                val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-                val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
-                strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
-                strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.To(FastAccessState.ConfirmingEmail(listOf("enroll-email")))
-            }
-        }
     }
 
-    given("offerEnrollment's own dead end: no enrollment tool left at all (all backend-disabled)") {
+    given("afterProof's own dead end: no enrollment tool left at all (all backend-disabled)") {
         val acc = account(method("sms", "loa2"))
         val onlyAuthTools = setOf("auth-sms")
-        val state = FastAccessState.AuthChoice(listOf("auth-sms"))
+        val state = AuthChoice(listOf("auth-sms"))
 
         `when`("re-identification could still close the gap") {
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2", availableTools = onlyAuthTools + setOf("ident-fsc", "ident-eid"))
@@ -298,7 +214,7 @@ class FastAccessStrategyTest : BehaviorSpec({
     given("onCancel") {
         then("always falls back to ANONYMOUS") {
             strategy.cancelledTo(FastAccessState.Start) shouldBe ChannelState.ANONYMOUS
-            strategy.cancelledTo(FastAccessState.Identifying(listOf("ident-fsc"))) shouldBe ChannelState.ANONYMOUS
+            strategy.cancelledTo(FastAccessState.PreferredAuth("auth-device")) shouldBe ChannelState.ANONYMOUS
         }
     }
 })

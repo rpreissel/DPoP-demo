@@ -157,13 +157,12 @@ eine Identität zu verschaffen. Ist ein Konto bekannt, gilt derselbe `STEP_UP`-G
 `CONFIRM_PEER_LOGIN` zusätzlich einen frischen Re-Proof wie `DELETE_ACCOUNT`, siehe eigener
 Abschnitt unten.
 
-Registrierung ist **kein eigener Intent**, sondern ein Weg innerhalb von `FAST_ACCESS`: das Ende der
-Fallback-Kette, wenn keine vorhandene Methode mehr greift. Ob dabei ein Account entsteht oder
-ein bestehender wiedergefunden wird, entscheidet `findOrCreateAccount` im Nachhinein.
-
-`REGISTER` ist trotzdem ein eigener Intent, weil „ich will hier bewusst neu identifizieren" ein
-anderes Nutzerziel ist als „bring mich rein": es unterdrückt den `DeviceAccountLink`-Lookup und
-bietet nie eine bestehende Kontobindung an. Es erzwingt aber **keinen** zweiten Account —
+`REGISTER` ist ein eigener Intent mit einer eigenen, vollständigen Journey (`RegisterState`) —
+nicht nur, weil „ich will hier bewusst neu identifizieren" ein anderes Nutzerziel ist als „bring
+mich rein" (es unterdrückt den `DeviceAccountLink`-Lookup und bietet nie eine bestehende
+Kontobindung an), sondern auch strukturell: `FAST_ACCESS` läuft `REGISTER` als
+`Transition.RequireSubJourney`-Voraussetzung, sobald es selbst identifizieren müsste — genau
+dasselbe Muster wie bei `RE_IDENTIFY`. `REGISTER` erzwingt dabei **keinen** zweiten Account —
 dieselbe KVNR findet weiterhin denselben Account wieder.
 
 Der gewählte Intent wird auf der `ChannelSession` gemerkt. Das ist kein Detail: Resume und Abbruch
@@ -192,62 +191,70 @@ stateDiagram-v2
   [*] --> Start
   Start --> PreferredAuth: verknüpftes Gerät mit Device-Methode
   Start --> AuthChoice: Account bekannt, andere Methoden vorhanden
-  Start --> Identifying: nichts Vorhandenes greift
+  Start --> REGISTER: nichts Vorhandenes greift
 
   PreferredAuth --> AuthChoice: abgelehnt
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
-  AuthChoice --> Identifying: alle abgelehnt
+  AuthChoice --> REGISTER: alle abgelehnt
 
   PreferredAuth --> Finished: Nachweis reicht für das geforderte Niveau
   AuthChoice --> Finished: Nachweis reicht für das geforderte Niveau
   PreferredAuth --> Enrolling: Konto erreicht das Niveau nicht
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
-  Identifying --> Enrolling: Identität festgestellt
 
   Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
-  Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
-  Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
-  ConfirmingEmail --> Finished: E-Mail bestätigt
+  Enrolling --> Finished: Niveau erreicht
 
   Enrolling --> RE_IDENTIFY: keine Einrichtung schließt die Lücke, Re-Identifizierung möglich
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
   RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
 
+  REGISTER --> Start: REGISTER-Journey fertig (SubJourneyFinished)
+  REGISTER --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
+
   Finished --> [*]
 
-  note right of Identifying
-    Zustände 1-3: Fallback.
+  note right of AuthChoice
+    Zustände 1-2: Fallback.
     Ablehnen führt weiter.
   end note
   note right of Enrolling
-    Zustände 4-5: Pflicht.
-    Nur Erfüllen führt weiter.
+    Pflichtzustand: nur Erfüllen
+    führt weiter. Geteilter
+    Werttyp mit REGISTER
+    (siehe Abschnitt "REGISTER").
   end note
   note right of RE_IDENTIFY
     Eigene geteilte SubJourney,
     kein Zustand dieses Intents -
     siehe Abschnitt "RE_IDENTIFY".
   end note
+  note right of REGISTER
+    REGISTERs eigene Journey als
+    Voraussetzung, gleiches Muster
+    wie RE_IDENTIFY - siehe unten.
+  end note
 ```
 
-`PreferredAuth` trägt genau die eine vorgeschlagene `toolId`; `AuthChoice`/`Identifying`/
-`ConfirmingEmail`/`Enrolling` tragen jeweils, was angeboten wurde und was bereits abgelehnt ist
-(Fallback- bzw. Pflichtsemantik, s. o.). `Enrolling` trägt zusätzlich `emailObligation`: ein Merker,
-dass dieser Lauf über `Identifying` kam (Account neu angelegt oder übernommen) — nur dann gilt die
-E-Mail-Pflicht danach (Abschnitt 8).
+`PreferredAuth` trägt genau die eine vorgeschlagene `toolId`; `AuthChoice`/`Enrolling` tragen
+jeweils, was angeboten wurde und was bereits abgelehnt ist (Fallback- bzw. Pflichtsemantik, s. o.).
+Beide sind geteilte Werttypen mit `RegisterState` (Abschnitt „REGISTER" unten): `FAST_ACCESS`
+erreicht sie inline, ohne je zu identifizieren, weil beide Journeys, sobald ein Account feststeht,
+dieselben zwei Fragen stellen — „reicht schon etwas Vorhandenes?" und „muss etwas neu eingerichtet
+werden?". `Enrolling` trägt zusätzlich `emailObligation`, das `FAST_ACCESS` selbst nie setzt (immer
+`false`) — nur ein Lauf, der über `RegisterState.Identifying` kam, kennt die E-Mail-Pflicht danach
+(Abschnitt 8).
 
-Schließt selbst keine Einrichtung die Lücke (z. B. kein `enroll-*`-Tool mehr verfügbar), fragt die
-geteilte `RE_IDENTIFY`-SubJourney (Abschnitt „RE_IDENTIFY") nach einer Re-Identifizierung. Nach
-ihrem Abschluss (`SubJourneyFinished`) prüft `Start` erneut, ob der Nachweis jetzt reicht —
-`Identified` interpretiert `FAST_ACCESS` an jeder anderen Stelle ohnehin immer als „finde oder
-übernimm den Account" (`AdoptIdentity`); `RE_IDENTIFY` selbst nutzt stattdessen `ConfirmIdentity`,
-weil an dieser Stelle der Account bereits bekannt ist.
+Fehlt ein Account ganz, oder ist jede seiner Methoden gerade abgelehnt worden, hat `FAST_ACCESS`
+selbst nichts mehr anzubieten: Es identifiziert nicht selbst, sondern läuft `REGISTER`s eigene
+Journey als `Transition.RequireSubJourney`-Voraussetzung, genau wie es das für `RE_IDENTIFY` tut
+(Abschnitt „RE_IDENTIFY" unten). Nach deren Abschluss (`SubJourneyFinished`) prüft `Start` erneut
+per `afterProof`, ob der Nachweis jetzt reicht — ein von `REGISTER` wiedererkannter, bereits
+vollständig eingerichteter Account ist dann schlicht schon ausreichend.
 
-`Identifying` ist gleichzeitig Login-Notausgang und Registrierungseinstieg. Eine
-`REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im Zustandsmodell keinen eigenen Zustand
-hätte: Welches von beidem es war, entscheidet erst `findOrCreateAccount` danach. Genau deshalb
-darf eine leere Kandidatenliste hier auch nicht abbrechen — „keine Methode vorhanden" ist
-der Grund, aus dem `Identifying` als Login-Weg überhaupt erlaubt wird.
+Schließt selbst keine Einrichtung in `Enrolling` die Lücke (z. B. kein `enroll-*`-Tool mehr
+verfügbar), fragt die geteilte `RE_IDENTIFY`-SubJourney (Abschnitt „RE_IDENTIFY") nach einer
+Re-Identifizierung. Nach ihrem Abschluss prüft `Start` auf dieselbe Weise erneut.
 
 In einem Fallback-Zustand sammelt `declined` die verworfenen Tools, bis nichts mehr übrig ist
 und der nächste dran ist. In einem Pflichtzustand passiert das **nicht**: Wer dort
@@ -256,14 +263,24 @@ zurück, das gerade verworfene Tool eingeschlossen.
 
 ### `REGISTER`
 
-Dieselben Zustände wie `FAST_ACCESS` ab `Identifying`, nur mit direktem Einstieg dort und unterdrücktem
-`DeviceAccountLink`-Lookup. Weil es wörtlich dieselben sind, teilt sich `REGISTER` auch
-die Zustandsmenge von `FAST_ACCESS`; die Strategie überschreibt nur, wo die Fallback-Kette einsetzt.
+`REGISTER` ist eine eigene, vollständige Journey (`RegisterState`) — nicht mehr eine Teilmenge von
+`FAST_ACCESS`s Zuständen, die per Vererbung übernommen wird, sondern eine eigenständige Strategie,
+die `AuthChoice`/`Enrolling` als geteilte Werttypen mit `FAST_ACCESS` benutzt (s. o.) und die
+zusätzlich `Identifying`, `ConfirmingEmail` und `PasswordObligation` exklusiv besitzt.
+`FAST_ACCESS` selbst läuft `REGISTER` als Voraussetzung, sobald es identifizieren müsste — siehe
+oben. `REGISTER` unterdrückt dabei den `DeviceAccountLink`-Lookup, den `FAST_ACCESS`s eigener
+`Start` sonst zuerst versucht.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Identifying
-  Identifying --> Enrolling: Identität festgestellt
+  Identifying --> Identifying: ein Tool abgelehnt, weitere übrig
+  Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
+  Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten
+  AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
+  AuthChoice --> Identifying: alle abgelehnt
+  AuthChoice --> Finished: Nachweis reicht
+  AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
   Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
   Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
   Enrolling --> PasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
@@ -273,6 +290,15 @@ stateDiagram-v2
   PasswordObligation --> Finished: Passwort eingerichtet
   Finished --> [*]
 
+  note right of AuthChoice
+    Geteilter Werttyp mit
+    FAST_ACCESS (s. o.). Nie
+    mit der Passwort-/E-Mail-
+    Pflicht verknüpft - ein
+    wiedererkannter, bereits
+    eingerichteter Account gilt
+    als gewöhnlicher Login.
+  end note
   note right of PasswordObligation
     Nur REGISTER auf dem KEYCLOAK-Kanal
     (Abschnitt 8). App-REGISTER und
@@ -280,6 +306,15 @@ stateDiagram-v2
     Zustand nie.
   end note
 ```
+
+`Identifying` ist gleichzeitig Login-Notausgang (für `FAST_ACCESS`, per Sub-Journey) und
+Registrierungseinstieg. Eine `REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im
+Zustandsmodell keinen eigenen Zustand hätte: Welches von beidem es war, entscheidet erst
+`findOrCreateAccount` danach. Genau deshalb darf eine leere Kandidatenliste hier auch nicht
+abbrechen — „keine Methode vorhanden" ist der Grund, aus dem `Identifying` als Login-Weg überhaupt
+erlaubt wird. `Identified` wird deshalb überall dort, wo `REGISTER` es verarbeitet, immer als
+„finde oder übernimm den Account" interpretiert (`AdoptIdentity`) — `RE_IDENTIFY` selbst nutzt
+stattdessen `ConfirmIdentity`, weil dort der Account bereits bekannt ist.
 
 **Web-Kanal (seit DPoP-demo-urt):** `REGISTER` ist neben `KC_SELECT_METHOD` ein zweiter,
 Web-nutzbarer Entry-Intent — `PATCH /kc/channels/{channelSessionId}` mit `intent=register`
@@ -914,11 +949,12 @@ die Entscheidung neu geprüft.
 `PasswordObligation` (`RegisterStrategy`, DPoP-demo-urt) ist die oben angekündigte dritte Pflicht —
 tatsächlich eingetreten, aber anders geschnitten als der "Preis"-Absatz befürchtet: Sie betrifft
 **keinen zweiten Intent** (nur `REGISTER`, nie `FAST_ACCESS`), sondern ist auf einen Kanal begrenzt
-(nur `KEYCLOAK`, nie `APP`). `RegisterStrategy` überschreibt dafür `afterEnrollment` allein und
-wrapt dessen Basisentscheidung: Nur wenn diese `Transition.Authenticated` zurückgeben würde *und*
-der Kanal `KEYCLOAK` ist *und* noch keine aktive `password`-Methode existiert, wird stattdessen
-`PasswordObligation` eingeschoben. `FAST_ACCESS` erzeugt den Zustand deshalb nie, obwohl er Teil
-derselben geteilten `FastAccessState`-Zustandsmenge ist.
+(nur `KEYCLOAK`, nie `APP`). `RegisterStrategy` wrapt dafür das Ergebnis der geteilten
+`afterEnrollment`-Funktion (`FastAccessCore`, von beiden Strategien aufgerufen, keine Basisklasse):
+Nur wenn diese `Transition.Authenticated` zurückgeben würde *und* der Kanal `KEYCLOAK` ist *und*
+noch keine aktive `password`-Methode existiert, wird stattdessen `PasswordObligation` eingeschoben.
+`FAST_ACCESS` erzeugt den Zustand deshalb nie — `PasswordObligation` gehört, anders als `AuthChoice`/
+`Enrolling`, exklusiv zu `RegisterState`.
 
 **Reihenfolge, technisch erzwungen, nicht gewählt**: `PasswordObligation` steht *nach*
 `ConfirmingEmail`, nicht davor — `enroll-password` selbst setzt eine bestätigte E-Mail voraus

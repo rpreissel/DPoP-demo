@@ -9,6 +9,7 @@ import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.journey.state.LogoutState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import org.springframework.stereotype.Component
 import tools.jackson.module.kotlin.jacksonObjectMapper
@@ -41,9 +42,8 @@ class JourneyStateCodec {
     }
 
     private fun rootOf(intent: AuthIntent): Class<out JourneyState> = when (intent) {
-        // REGISTER shares FAST's states on purpose: its states ARE FAST's from the identification
-        // one on, and only the entry point differs (see RegisterStrategy).
-        AuthIntent.FAST_ACCESS, AuthIntent.REGISTER -> FastAccessState::class.java
+        AuthIntent.FAST_ACCESS -> FastAccessState::class.java
+        AuthIntent.REGISTER -> RegisterState::class.java
         AuthIntent.LOOKUP_LOGIN -> LookupLoginState::class.java
         AuthIntent.KC_SELECT_METHOD -> KcSelectMethodState::class.java
         AuthIntent.STEP_UP -> StepUpState::class.java

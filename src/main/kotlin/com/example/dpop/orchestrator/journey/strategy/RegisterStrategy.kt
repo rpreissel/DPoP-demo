@@ -1,65 +1,144 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.journey.CandidateTools
+import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
+import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.state.FastAccessState
+import com.example.dpop.orchestrator.journey.state.AuthChoice
+import com.example.dpop.orchestrator.journey.state.Enrolling
+import com.example.dpop.orchestrator.journey.state.OfferingState
+import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
 import org.springframework.stereotype.Component
 
 /**
- * Deliberately fresh identification, even on an already linked device (docs/04-orchestrierung.md
- * #2): the device link lookup is suppressed and no existing account binding is ever offered.
- *
- * It does NOT force a second account - the same KVNR still finds the same account again. "I want
- * to identify myself anew here" is a different goal from "get me in", which is why it is its own
- * intent rather than a boolean on FAST.
- *
- * Its states ARE FAST's states from the identification one on, so it shares [FastAccessState] instead of
- * duplicating it. The only thing it changes is where the fallback chain starts: [firstOffer] skips the first two states
- * and 2, which is precisely what this intent means. Everything after identification - the email
- * obligation, the enrolment state, the finish condition - is FAST's behaviour unchanged, except for
- * the additional, Web-channel-only password obligation below.
+ * REGISTER's own journey. See [RegisterState]'s own doc for the shape of it and why [AuthChoice]/
+ * [Enrolling] are shared with [FastAccessState][com.example.dpop.orchestrator.journey.state.
+ * FastAccessState] rather than owned exclusively here.
  */
 @Component
-class RegisterStrategy : FastAccessStrategy() {
+class RegisterStrategy : IntentStrategy<RegisterState> {
 
     override val intent: AuthIntent = AuthIntent.REGISTER
 
-    override fun firstOffer(ctx: JourneyContext): Transition = offerIdentification(ctx)
+    override fun initialState(ctx: JourneyContext): RegisterState = RegisterState.Start
+
+    override fun transition(state: RegisterState, event: JourneyEvent, ctx: JourneyContext): Transition =
+        when (state) {
+            is RegisterState.Start -> when (event) {
+                // A RE_IDENTIFY sub-journey started from this run's own offerEnrollment finished -
+                // re-check satisfaction the same way FastAccessStrategy's own Start does.
+                is JourneyEvent.SubJourneyFinished -> FastAccessCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
+                is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
+                else -> offerIdentification(ctx)
+            }
+
+            is RegisterState.Identifying -> when (event) {
+                is JourneyEvent.Abandoned -> giveUpOrReoffer(state, event)
+                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                // Deliberately never checks isSatisfied: identification evidence alone (amr=fsc)
+                // trivially clears most floors, which would let a run finish without a single
+                // durable credential ever being proven or created.
+                else -> afterIdentification(ctx)
+            }
+
+            is AuthChoice -> when (event) {
+                is JourneyEvent.Abandoned -> {
+                    val declined = state.declined + event.tool.toolId
+                    val remaining = state.copy(declined = declined, active = null)
+                    if (remaining.exhausted(ctx.availableTools)) afterAuthDeclined(ctx, declined) else Transition.To(remaining)
+                }
+                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                // Deliberately never wrapped with the password obligation below: a rediscovered,
+                // already-set-up account finishing here is treated as an ordinary login, not a
+                // fresh registration (confirmed 2026-09-09) - same as the email obligation, which
+                // explicitly never applies on this path either.
+                else -> FastAccessCore.afterProof(ctx, resumeAtStart = RegisterState.Start)
+            }
+
+            is RegisterState.ConfirmingEmail -> when (event) {
+                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                else -> afterEnrollment(ctx, emailObligation = false)
+            }
+
+            is Enrolling -> when (event) {
+                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                else -> afterEnrollment(ctx, state.emailObligation)
+            }
+
+            is RegisterState.PasswordObligation -> when (event) {
+                is JourneyEvent.Abandoned -> FastAccessCore.reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(FastAccessCore.proofAction(event), resumeState = state)
+                // Reached only after the email obligation (if any) already discharged - see this
+                // state's own KDoc - so the re-check below never has one still open.
+                else -> afterEnrollment(ctx, emailObligation = false)
+            }
+        }
+
+    override fun cancelledTo(state: RegisterState): ChannelState = ChannelState.ANONYMOUS
+
+    // Offers -------------------------------------------------------------------
+
+    private fun offerIdentification(ctx: JourneyContext): Transition {
+        val idents = CandidateTools.forIdentification(ctx)
+        return if (idents.isEmpty()) {
+            Transition.Abort("Kein Identifizierungsverfahren verfuegbar")
+        } else {
+            Transition.To(RegisterState.Identifying(idents))
+        }
+    }
+
+    /** Nothing (or nothing else) provable is left: re-identifying is the only way forward from here. */
+    private fun afterAuthDeclined(ctx: JourneyContext, alreadyDeclined: Set<String>): Transition {
+        val account = ctx.account
+        if (account != null) {
+            val remaining = CandidateTools.forAuth(account, ctx.acrFloor, ctx) - alreadyDeclined
+            if (remaining.isNotEmpty()) {
+                return Transition.To(AuthChoice(remaining, declined = emptySet()))
+            }
+        }
+        return offerIdentification(ctx)
+    }
+
+    private fun afterIdentification(ctx: JourneyContext): Transition {
+        val account = ctx.requireAccount()
+        // An account found again by KVNR may already have everything it needs - offering an
+        // existing method to prove beats an enrollment list that would come back empty.
+        if (ctx.policy.canAccountReach(account, ctx.acrFloor)) {
+            val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
+            if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
+        }
+        return FastAccessCore.offerEnrollment(account, ctx, emailObligation = true, resumeAtStart = RegisterState.Start)
+    }
 
     /**
-     * Web-only third obligation (docs/04-orchestrierung.md #8, [FastAccessState.PasswordObligation]'s
-     * own KDoc): registering via the KEYCLOAK channel must always end up with a password
-     * credential, in addition to the shared email obligation - `enroll-sms` stays a free choice,
-     * only the `password` method is unconditionally required.
+     * Wraps [FastAccessCore.afterEnrollment] rather than re-deriving reachability/sufficiency
+     * itself: only ever intercepts the one outcome that means "this run would finish right now"
+     * ([Transition.Authenticated]) and redirects it - every other outcome (still short of the
+     * floor, the email obligation still open) is none of this method's business and passes through
+     * unchanged. This is also why the order falls out correctly without this needing to know about
+     * it: the shared code already only returns [Transition.Authenticated] once any email obligation
+     * is discharged, so password is necessarily checked last.
      *
-     * Wraps the base decision rather than re-deriving reachability/sufficiency itself: only ever
-     * intercepts the one outcome that means "this run would finish right now" ([Transition.
-     * Authenticated]) and redirects it - every other outcome (still short of the floor, the email
-     * obligation still open) is none of this override's business and passes through unchanged.
-     * This is also why the order falls out correctly without this override needing to know about
-     * it: the base already only returns [Transition.Authenticated] once any email obligation is
-     * discharged, so password is necessarily checked last.
-     *
-     * Deliberately only overrides `afterEnrollment`, never `afterProof`: when [Identifying] rediscovers
-     * an EXISTING account that already has a sufficient active method (`afterIdentification` ->
-     * `AuthChoice` -> `afterProof`), that path finishes without ever calling this override - same as
-     * the pre-existing email obligation, which explicitly never applies there either (`afterProof`'s
-     * own KDoc: "an existing account that merely logs in is never retroactively blocked"). A
-     * rediscovered, already-set-up account is treated as an ordinary login, not a fresh registration -
-     * consistent, not a gap (confirmed 2026-09-09).
+     * Web-only (docs/04-orchestrierung.md #8, [RegisterState.PasswordObligation]'s own KDoc): only
+     * the KEYCLOAK channel must always end up with a password credential in addition to the shared
+     * email obligation - `enroll-sms` stays a free choice on both channels, only `password` is
+     * unconditionally required, and only on the Web.
      */
-    override fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
-        val base = super.afterEnrollment(ctx, emailObligation)
+    private fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
+        val base = FastAccessCore.afterEnrollment(ctx, emailObligation, resumeAtStart = RegisterState.Start)
         if (base != Transition.Authenticated || ctx.channel != ChannelSession.Channel.KEYCLOAK) return base
 
         val account = ctx.requireAccount()
         if (account.activeAuthenticationMethods.any { it.method == PASSWORD_METHOD }) return base
         val candidates = passwordEnrollmentCandidates(ctx)
-        return if (candidates.isNotEmpty()) Transition.To(FastAccessState.PasswordObligation(candidates)) else base
+        return if (candidates.isNotEmpty()) Transition.To(RegisterState.PasswordObligation(candidates)) else base
     }
 
     /**
@@ -75,6 +154,17 @@ class RegisterStrategy : FastAccessStrategy() {
             .filter { it.role == MethodRole.ENROLLMENT && it.method == PASSWORD_METHOD }
             .map { it.toolId }
             .filter { it in ctx.availableTools }
+
+    /** Abandoning the last fallback state is giving up on the journey, not an error. */
+    private fun giveUpOrReoffer(state: OfferingState, event: JourneyEvent.Abandoned): Transition {
+        val declined = state.declined + event.tool.toolId
+        val remaining = state.offered.toSet() - declined
+        return if (remaining.isEmpty()) {
+            Transition.Cancel
+        } else {
+            Transition.To(RegisterState.Identifying(state.offered, declined))
+        }
+    }
 
     private companion object {
         const val PASSWORD_METHOD = "password"
