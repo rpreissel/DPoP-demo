@@ -26,9 +26,9 @@ Standard-OIDC-Tokenfluss gegen Keycloak, den der Orchestrator serverseitig abwic
 
 ## Die Einordnung im Gesamtbild
 
-Dasselbe Bild wie im Frontend-Pendant, nur jetzt aus Backend-Sicht relevant: der Orchestrator
-ist ein Modulith mit eigenen Tool-Modulen, spricht für den Tokenfluss und die Account-Pflege
-mit Keycloak, und einzelne Tool-Module delegieren ihrerseits an externe Dienste.
+Aus Backend-Sicht relevant: der Orchestrator ist ein Modulith mit eigenen Tool-Modulen,
+spricht für den Tokenfluss und die Account-Pflege mit Keycloak, und einzelne Tool-Module
+delegieren ihrerseits an externe Dienste.
 
 ```mermaid
 flowchart LR
@@ -148,6 +148,21 @@ sequenceDiagram
 Was `ToolHandler` intern tut, um zu diesem `ToolOutcome` zu kommen, ist bewusst nicht Teil
 dieses Bildes: eigene, tool-spezifische Fachlogik gegen ein eigenes Schema (`ToolDB`), auf das
 nichts außerhalb des Moduls zugreift.
+
+## Nutzen für dich als Backend-Entwickler
+
+- **Dein Modul bleibt dein Modul** — ein Tool-Modul wie `auth_sms` hat sein eigenes Schema
+  (`ToolDB`), auf das nichts außerhalb zugreift. Du kannst darin fachliche Logik ändern, ohne
+  Journey oder andere Module überhaupt lesen zu müssen.
+- **Der Vertrag ist klein und stabil** — dein `ToolHandler` liefert nur einen `ToolOutcome`;
+  was das für Journey/Zustand/nächsten Schritt bedeutet, entscheidet ausschließlich die
+  `IntentStrategy`. Du musst beim Schreiben eines Tools nie die volle Zustandsmaschine im Kopf
+  haben.
+- **App- und Web-Kanal sind für dich identisch** — Journey, Tool und `next` laufen für beide
+  Fassaden gleich; du schreibst keine kanalspezifischen Sonderfälle in dein Modul.
+- **Der Tokenfluss ist kein Baustellen-Code** — Standard-OIDC gegen Keycloak, serverseitig
+  einmal implementiert; dein Modul liefert nur das Ergebnis eines Verfahrens, nie ein Token
+  selbst.
 
 ---
 

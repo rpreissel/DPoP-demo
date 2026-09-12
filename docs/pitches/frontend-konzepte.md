@@ -117,6 +117,8 @@ Zwei Ergänzungen aus der Praxis:
 (Dass die eigentliche Fachlichkeit direkt mit dem `AccessToken` angesprochen wird, ohne
 Umweg über den Orchestrator, steht bereits oben.)
 
+## Nutzen für dich als Frontend-Entwickler
+
 Daraus folgt für den Auth-Teil:
 
 - **Abläufe ändern sich, ohne dass die App angepasst werden muss** — welche Schritte eine
