@@ -42,6 +42,42 @@ class AccountService(
         return profile
     }
 
+    /**
+     * A fresh account with no person behind it yet (REGISTER "Enrollment zuerst",
+     * docs/04-orchestrierung.md) - created lazily on the first completed enrollment, never
+     * upfront, so a channel that never gets that far never leaves an orphan row behind.
+     * Identification remains entirely optional and can bind [bindPersonId] at any later point, not
+     * just right after registration.
+     */
+    @Transactional
+    fun createUnidentifiedAccount(): AccountProfile {
+        val profile = toProfile(accountRepository.save(Account(personId = null, createdAt = Instant.now())))
+        eventPublisher.publishEvent(AccountChanged(profile.accountId))
+        return profile
+    }
+
+    /** Same lookup [findOrCreateAccount] already does internally, exposed for the merge-conflict check before [bindPersonId]. */
+    @Transactional(readOnly = true)
+    fun findAccountByPersonId(personId: Long): AccountProfile? =
+        accountRepository.findByPersonId(personId)?.let { toProfile(it) }
+
+    /**
+     * Identifies a previously unidentified account (docs/04-orchestrierung.md, REGISTER
+     * "Enrollment zuerst") - the caller must already have checked [findAccountByPersonId] itself
+     * for a merge conflict (a DIFFERENT account already owning this person); this method only
+     * guards the account-local invariant that an already-identified account's `personId` is never
+     * silently overwritten.
+     */
+    @Transactional
+    fun bindPersonId(accountId: Long, personId: Long): AccountProfile {
+        val account = getOrThrow(accountId)
+        check(account.personId == null) { "Account $accountId is already identified as person ${account.personId}" }
+        account.personId = personId
+        val profile = toProfile(accountRepository.save(account))
+        eventPublisher.publishEvent(AccountChanged(accountId))
+        return profile
+    }
+
     @Transactional
     fun addIdentification(
         accountId: Long,
@@ -165,10 +201,15 @@ class AccountService(
     fun existsByEmail(email: String): Boolean = accountRepository.existsByEmail(email)
 
     /**
-     * Called by `EnrollEmailToolHandler` on the one procedure that can establish a confirmed
-     * address. `auth_email` is the single method module allowed to reach into this module for
-     * exactly this reason - the confirmed email is the account's identifier, not a swappable
-     * credential (see that module's `ModuleMetadata`, enforced by Spring Modulith).
+     * Called by `JourneyService`'s own `Action.AdoptCredential` handling, generically, for any
+     * tool descriptor declaring `ToolDescriptor.confirmsAccountEmail` - not by `auth_email` itself
+     * anymore: `EnrollEmailToolHandler` only hands the confirmed address through in `Completed.
+     * Enrolled.auditDetails` (`CONFIRMED_EMAIL_AUDIT_KEY`), it never writes `Account` directly (see
+     * that flag's own doc for why - this is what lets the account behind an enrollment be resolved
+     * lazily, since no enroll tool handler needs one to already exist mid-PATCH). The confirmed
+     * email is still the account's identifier, not a swappable credential - `auth_email` keeps its
+     * `account`-module dependency regardless (its other handlers still read full `AccountProfile`
+     * data `AccountDirectory` deliberately doesn't expose), just not for this write anymore.
      */
     @Transactional
     fun confirmEmail(accountId: Long, email: String): AccountProfile {
@@ -215,7 +256,7 @@ class AccountService(
 
     private fun toProfile(account: Account): AccountProfile = AccountProfile(
         accountId = requireNotNull(account.id) { "Account has no id" },
-        personId = requireNotNull(account.personId) { "Account has no personId" },
+        personId = account.personId,
         identifications = account.identifications.map {
             IdentificationView(it.method.orEmpty(), it.loa, it.identifiedAt, it.details)
         },

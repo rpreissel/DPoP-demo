@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../../App.css'
+import { AdminRegistrationOrderView } from '../../components/AdminRegistrationOrderView'
 import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
 import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
 import { WebChannelLayout } from '../../components/WebChannelLayout'
@@ -73,6 +74,7 @@ export function WebChannelApp() {
           {sub === 'settings' && (
             <>
               <AdminToolAvailabilityView />
+              <AdminRegistrationOrderView />
               <div className="card">
                 <h2>Web-Kanal-Info</h2>
                 <ul className="status-list">

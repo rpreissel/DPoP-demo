@@ -116,6 +116,13 @@ public class OrchestratorAuthenticator implements Authenticator {
                     }
                     response = client.activateTool(channelSessionId, selectedToolId);
                 }
+            } else if ("confirm".equals(pendingKind)) {
+                String answer = form.getFirst("orchestrator_answer");
+                if (!"accept".equals(answer) && !"decline".equals(answer)) {
+                    context.challenge(errorForm(context, "Bitte eine Antwort auswählen."));
+                    return;
+                }
+                response = client.answer(channelSessionId, answer);
             } else {
                 String toolId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_ID);
                 String toolSessionId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID);
@@ -210,6 +217,12 @@ public class OrchestratorAuthenticator implements Authenticator {
             authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, tool.next().toolId());
             authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, tool.next().toolSessionId());
             context.challenge(toolForm(context, tool.next(), response, null));
+            return;
+        }
+
+        if (outcome instanceof OrchestratorNextDispatch.Confirm confirm) {
+            authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "confirm");
+            context.challenge(WebFormRenderer.confirmForm(context.form(), authSession, confirm.prompt(), null));
             return;
         }
 

@@ -28,24 +28,36 @@ class KeycloakAccountSyncService(
 
     fun syncAll(): KeycloakSyncResult {
         val existingAccountIds = accountService.allAccountIds().toSet()
+        var upserted = 0
 
         existingAccountIds.forEach { accountId ->
             val profile = accountService.findAccount(accountId) ?: return@forEach
-            val person = extStammdatenService.findPersonById(profile.personId)
-            keycloakAdminClient.upsertUser(accountId, profile.email, profile.emailConfirmed, person?.vorname, person?.name)
+            // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
+            // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; a later full
+            // sync (or the event-driven path once one is confirmed) creates it for real.
+            if (profile.email == null) return@forEach
+            // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
+            val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
+            keycloakAdminClient.upsertUser(
+                accountId, profile.email, profile.emailConfirmed,
+                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME
+            )
             val keypair = accountKeypairService.keypairFor(accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
             keycloakAdminClient.setPublicKeyCredential(accountId, keypair.publicKeyJwk, activeMethods)
+            upserted++
         }
 
+        // Skipped (still emailless) accounts are deliberately absent from Keycloak - never treated
+        // as orphans just because they haven't been upserted yet.
         val syncedAccountIds = keycloakAdminClient.findAllSyncedAccountIds()
         val orphans = syncedAccountIds - existingAccountIds
         orphans.forEach { keycloakAdminClient.deleteUser(it) }
 
         log.info(
             "Keycloak full sync: upserted {} account(s), deleted {} orphaned Keycloak user(s)",
-            existingAccountIds.size, orphans.size
+            upserted, orphans.size
         )
-        return KeycloakSyncResult(upserted = existingAccountIds.size, deletedOrphans = orphans.size)
+        return KeycloakSyncResult(upserted = upserted, deletedOrphans = orphans.size)
     }
 }

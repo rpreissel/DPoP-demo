@@ -29,9 +29,14 @@ import org.springframework.modulith.ApplicationModule
  * back on `account`. Its controllers (`auth_email.api.v1`) live here too, reaching the
  * orchestrator through `tool_api.ToolEndpoint`/`AccountDirectory` alone
  * (docs/04-orchestrierung.md #5, DPoP-demo-2tm) - the orchestrator no longer needs to know
- * `auth_email` exists. The `account` exemption above is unaffected: it belongs to
- * `EnrollEmailToolHandler` specifically, not to the controllers, and stays exactly as narrow as
- * it was.
+ * `auth_email` exists. The `account` exemption above is unaffected: `EnrollEmailToolHandler`
+ * itself no longer writes the confirmed email (it hands it through in `Completed.Enrolled.
+ * auditDetails`, `CONFIRMED_EMAIL_AUDIT_KEY` - `JourneyService`'s generic `Action.AdoptCredential`
+ * handling calls `AccountService.confirmEmail`, gated by the equally generic `ToolDescriptor.
+ * confirmsAccountEmail`, never a hardcoded `if (method == "email")` - REGISTER "Enrollment zuerst",
+ * docs/04-orchestrierung.md, needed no enroll tool to require an account mid-PATCH). The exemption
+ * stays, narrower now: `AuthEmailLookupToolHandler`/`AuthEmailUseToolHandler`/`KcDemoAccountSeeder`
+ * still read full `AccountProfile` data `AccountDirectory` deliberately doesn't expose.
  */
 @ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "account"])
 internal class ModuleMetadata

@@ -274,10 +274,18 @@ class ToolControllerSupport(
         } else {
             journeyService.nextOf(journey, channel)
         }
+        // Same DEMO_DATA_KEY split as applyOutcome (docs/05-api.md #2: production contract never
+        // sees it in stepData) - without this, a resumed tool (e.g. after a reload) lost every demo
+        // hint (prefilled password, the persona picker) that its ORIGINAL activation attached,
+        // because this GET is the only response a resume ever gets to see for an active tool.
+        @Suppress("UNCHECKED_CAST")
+        val demoValues = freshOutcome?.data?.get(DEMO_DATA_KEY) as? Map<String, Any?>
+        val cleanedStepData = freshOutcome?.data?.minus(DEMO_DATA_KEY)?.ifEmpty { null }
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = next,
-            stepData = freshOutcome?.data,
+            stepData = cleanedStepData,
+            demo = demoInfo(journey, channel, demoValues),
             authData = channelService.authDataFor(channel)
         )
     }

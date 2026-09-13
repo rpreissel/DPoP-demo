@@ -21,7 +21,8 @@ data class IdentificationView(
 
 data class AccountProfile(
     val accountId: Long,
-    val personId: Long,
+    /** Null for an account that was never identified - a deliberate, potentially permanent state (docs/04-orchestrierung.md, REGISTER "Enrollment zuerst"), not a short-lived gap. */
+    val personId: Long?,
     val identifications: List<IdentificationView>,
     val authenticationMethods: List<AuthMethodView>,
     val email: String? = null,

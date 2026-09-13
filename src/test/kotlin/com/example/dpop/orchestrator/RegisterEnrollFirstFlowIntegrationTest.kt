@@ -1,0 +1,141 @@
+package com.example.dpop.orchestrator
+
+import com.example.dpop.account.AccountProfile
+import com.example.dpop.account.AccountService
+import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.assertThrows
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpStatus
+import org.springframework.web.client.HttpClientErrorException
+
+/**
+ * The REGISTER "Enrollment zuerst" experiment (docs/04-orchestrierung.md, `RegisterEnrollFirstStrategy`):
+ * enrollment happens against an account with no person behind it yet, identification is offered
+ * only at the very end, optionally. Toggled on for the whole suite via the admin endpoint
+ * (`RegistrationOrderController`) - `IntegrationTestSupport`'s shared `beforeEach` resets
+ * `registration_order_setting` too, so this never leaks into an ident-first test.
+ */
+class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
+
+    @MockkBean
+    private lateinit var jwkThumbprintService: JwkThumbprintService
+
+    @Autowired
+    private lateinit var accountService: AccountService
+
+    init {
+        beforeEach {
+            stubDpopWithFakeJwk(jwkThumbprintService)
+            put("/orchestrator/api/v1/admin/registration-order", """{"enrollFirst":true}""") shouldBe HttpStatus.OK
+        }
+    }
+
+    /**
+     * The account modules's own public API (`AccountService`), not raw SQL - type-safe, and never
+     * reaches into `account.internal` from outside the module. Each of the tests below creates
+     * exactly one account, so "the only one that exists right now" is unambiguous.
+     */
+    private fun theAccount(): AccountProfile =
+        accountService.findAccount(accountService.allAccountIds().single())!!
+
+    init {
+        given("registration order set to enroll-first, a fresh channel, APP") {
+            `when`("enrolling email, declining the closing identification offer") {
+                then("finishes AUTHENTICATED with no person behind the account, enrolledUnderAcr stays loa1") {
+
+                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")
+                val channelSessionId = channelResponse.channel()["channelSessionId"] as String
+                // No identification step at all - straight to enrollment candidates.
+                channelResponse.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
+                @Suppress("UNCHECKED_CAST")
+                (channelResponse.stepData()["options"] as List<String>) shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+
+                enrollEmail(channelSessionId)
+
+                // Every enrollment obligation discharged (email confirmed is the only one on APP) -
+                // the account is still unidentified, so the optional RE_IDENTIFY offer follows
+                // (its own OfferReIdent prompt, "prompt"/"confirm" - the generic AnswerableState screen).
+                val afterEmail = get("/orchestrator/api/v1/channels/$channelSessionId")
+                afterEmail.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+
+                val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+                declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
+                declined.channel()["state"] shouldBe "AUTHENTICATED"
+
+                val account = theAccount()
+                account.personId.shouldBeNull()
+                account.authenticationMethods.single { it.method == "email" }.enrolledUnderAcr shouldBe "loa1"
+
+                }
+            }
+        }
+
+        given("registration order set to enroll-first, a fresh channel, APP") {
+            `when`("enrolling email, then accepting the closing identification offer via ident-fsc") {
+                then("the account becomes identified, but the already-enrolled email keeps its original enrolledUnderAcr") {
+
+                val channelSessionId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
+                enrollEmail(channelSessionId)
+                get("/orchestrator/api/v1/channels/$channelSessionId").next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+
+                // Two ident methods are registered (ident-fsc, ident-eid), so a selection page is
+                // offered instead of a single-candidate skip (same as a fresh REGISTER's own start).
+                val accepted = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                accepted.next()["type"] shouldBe "orchestrator"
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val identified = patch(
+                    "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                )
+                identified.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
+
+                val account = theAccount()
+                account.personId.shouldNotBeNull()
+                // Not retroactively upgraded - frozen at enrollment time, before any identification existed
+                // (docs/04-orchestrierung.md, "IAL und AAL": the experiment makes this deliberately visible).
+                account.authenticationMethods.single { it.method == "email" }.enrolledUnderAcr shouldBe "loa1"
+
+                }
+            }
+        }
+
+        given("an account already registered enroll-first with a real person, and a second, different account") {
+            `when`("the second account's closing identification offer resolves to the SAME already-registered person") {
+                then("it is rejected as a conflict, the second account stays unidentified") {
+
+                // First account: enrolls, then actually identifies via ident-fsc.
+                val firstChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
+                enrollEmail(firstChannelId)
+                post("/orchestrator/api/v1/channels/$firstChannelId/answer", """{"answer":"accept"}""")
+                val firstIdentToolSessionId = post("/orchestrator/api/v1/channels/$firstChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                patch(
+                    "/orchestrator/api/v1/tools/$firstIdentToolSessionId/ident-fsc",
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                )
+
+                // Second account: a fresh device/channel, enrolls independently, then tries to identify
+                // as the SAME person (same KVNR/fsc) - a merge conflict, not supported.
+                currentBindingKeyRef = "a-completely-different-binding-key"
+                val secondChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
+                enrollEmail(secondChannelId)
+                post("/orchestrator/api/v1/channels/$secondChannelId/answer", """{"answer":"accept"}""")
+                val secondIdentToolSessionId = post("/orchestrator/api/v1/channels/$secondChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+
+                val exception = assertThrows<HttpClientErrorException> {
+                    patch(
+                        "/orchestrator/api/v1/tools/$secondIdentToolSessionId/ident-fsc",
+                        """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    )
+                }
+                exception.statusCode shouldBe HttpStatus.CONFLICT
+
+                }
+            }
+        }
+    }
+}

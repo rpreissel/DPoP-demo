@@ -98,13 +98,13 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                 }
                 if ("add".equals(form.getFirst("action"))) {
                     authSession.setAuthNote(PENDING_ACTION, "add");
-                    handleResponse(context, client.startEnrollments(channelSessionId), true);
+                    handleResponse(context, client.startEnrollments(channelSessionId), true, false);
                     return;
                 }
                 String methodInstanceId = form.getFirst("removeMethodInstanceId");
                 if (methodInstanceId != null && !methodInstanceId.isBlank()) {
                     authSession.setAuthNote(PENDING_ACTION, "remove");
-                    handleResponse(context, client.deactivateMethod(channelSessionId, methodInstanceId), true);
+                    handleResponse(context, client.deactivateMethod(channelSessionId, methodInstanceId), true, false);
                     return;
                 }
                 renderList(context, channelSessionId, null);
@@ -130,6 +130,17 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                     return;
                 }
                 response = client.activateTool(channelSessionId, selectedToolId);
+                handleResponse(context, response, false, false);
+                return;
+            } else if ("confirm".equals(pendingKind)) {
+                String answer = form.getFirst("orchestrator_answer");
+                if (!"accept".equals(answer) && !"decline".equals(answer)) {
+                    context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Bitte eine Antwort auswählen."));
+                    return;
+                }
+                response = client.answer(channelSessionId, answer);
+                handleResponse(context, response, false, "decline".equals(answer));
+                return;
             } else {
                 String toolId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_ID);
                 String toolSessionId = authSession.getAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID);
@@ -137,9 +148,10 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                     context.failure();
                     return;
                 }
+                boolean toolAbandoned = "true".equals(form.getFirst("orchestrator_abandon"));
                 response = OrchestratorNextDispatch.dispatchToolAction(client, channelSessionId, toolId, toolSessionId, form);
+                handleResponse(context, response, false, toolAbandoned);
             }
-            handleResponse(context, response, false);
         } catch (OrchestratorClient.OrchestratorApiException e) {
             LOG.infof("Orchestrator tool call failed: %s", e.getMessage());
             context.challenge(WebFormRenderer.errorForm(context.form(), context.getAuthenticationSession(),
@@ -163,8 +175,14 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
      *                  - distinguishes "nothing was available/needed" from "a sub-journey just
      *                  finished" for the status line below, since both end in the exact same
      *                  {@code channelState=AUTHENTICATED, next=null} response shape.
+     * @param aborted   true when THIS call is the user explicitly backing out (a tool's own
+     *                  "Zurück"/{@code orchestrator_abandon}, or declining a confirm prompt like
+     *                  {@code ReIdentifyState.OfferReIdent}) rather than completing a step - an
+     *                  abort can still end in {@code channelState=AUTHENTICATED, next=null} (e.g.
+     *                  the only step-up candidate was abandoned), which must not be mislabeled as
+     *                  "hinzugefügt"/"entfernt" the way {@link #firstCall} alone would.
      */
-    private void handleResponse(RequiredActionContext context, OrchestratorClient.ChannelResponse response, boolean firstCall) throws Exception {
+    private void handleResponse(RequiredActionContext context, OrchestratorClient.ChannelResponse response, boolean firstCall, boolean aborted) throws Exception {
         AuthenticationSessionModel authSession = context.getAuthenticationSession();
         String channelSessionId = OrchestratorNotes.channelSessionId(authSession);
 
@@ -180,9 +198,11 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
         OrchestratorClient.Next next = response.next();
         if (next == null || next.isAuthenticated()) {
             String action = authSession.getAuthNote(PENDING_ACTION);
-            String notice = "add".equals(action)
-                    ? (firstCall ? "Keine weiteren Anmeldeverfahren verfügbar." : "Anmeldeverfahren hinzugefügt.")
-                    : "remove".equals(action) ? "Anmeldeverfahren entfernt." : null;
+            String notice = aborted
+                    ? "Abgebrochen."
+                    : "add".equals(action)
+                        ? (firstCall ? "Keine weiteren Anmeldeverfahren verfügbar." : "Anmeldeverfahren hinzugefügt.")
+                        : "remove".equals(action) ? "Anmeldeverfahren entfernt." : null;
             renderList(context, channelSessionId, notice);
             return;
         }
@@ -204,7 +224,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                 // Single-candidate auto-activation, same as OrchestratorAuthenticator's own case.
                 try {
                     OrchestratorClient.ChannelResponse activated = client.activateTool(channelSessionId, tool.next().toolId());
-                    handleResponse(context, activated, false);
+                    handleResponse(context, activated, false, false);
                 } catch (OrchestratorClient.OrchestratorApiException e) {
                     LOG.warnf("Auto-activation of '%s' failed: %s", tool.next().toolId(), e.getMessage());
                     context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Anmeldung derzeit nicht möglich."));
@@ -215,6 +235,12 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
             authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, tool.next().toolId());
             authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, tool.next().toolSessionId());
             context.challenge(WebFormRenderer.toolForm(context.getSession(), context.form(), authSession, tool.next(), response, null));
+            return;
+        }
+
+        if (outcome instanceof OrchestratorNextDispatch.Confirm confirm) {
+            authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "confirm");
+            context.challenge(WebFormRenderer.confirmForm(context.form(), authSession, confirm.prompt(), null));
             return;
         }
 

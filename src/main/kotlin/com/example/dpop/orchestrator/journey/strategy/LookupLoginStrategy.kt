@@ -86,6 +86,16 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 is JourneyEvent.ActionCompleted -> Transition.Authenticated
                 else -> error("OfferBinding only accepts JourneyEvent.Answered")
             }
+
+            is LookupLoginState.ConfirmDeviceRebind -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    ACCEPT -> Transition.Perform(Action.LinkDevice(state.accountId), resumeState = state)
+                    DECLINE -> Transition.Authenticated
+                    else -> error("ConfirmDeviceRebind does not understand answer '${event.answer}'")
+                }
+                is JourneyEvent.ActionCompleted -> Transition.Authenticated
+                else -> error("ConfirmDeviceRebind only accepts JourneyEvent.Answered")
+            }
         }
 
     override fun cancelledTo(state: LookupLoginState): ChannelState = ChannelState.ANONYMOUS
@@ -116,7 +126,11 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
     private fun settleOrRaise(ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
-            return Transition.To(LookupLoginState.OfferBinding(account.accountId))
+            return if (ctx.linkedAccountId != null && ctx.linkedAccountId != account.accountId) {
+                Transition.To(LookupLoginState.ConfirmDeviceRebind(account.accountId))
+            } else {
+                Transition.To(LookupLoginState.OfferBinding(account.accountId))
+            }
         }
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
         if (candidates.isNotEmpty()) {

@@ -24,7 +24,7 @@ export const JOURNEY_DIAGRAMS: Record<
   JourneyDiagramSpec
 > = {
   channel: {
-    title: 'Channel-Lebenszyklus (ChannelState)',
+    title: 'Channel-Lebenszyklus',
     // The exact enum values shown in the Channel box's own state field (ChannelState.kt). ANONYMOUS
     // vs. REGISTERING is a real fork, not the same phase - which one a fresh channel starts in
     // depends on whether it already has an account (JourneyService.startEntryJourney): none yet ->
@@ -82,7 +82,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   reIdentify: {
-    title: 'Erneut identifizieren (ReIdentifyState, geteilte SubJourney)',
+    title: 'Erneut identifizieren',
     // The exact ReIdentifyState names (docs/orchestrator/journey/state/ReIdentifyState.kt) -
     // shared by FAST_ACCESS/LOOKUP_LOGIN/STEP_UP alike, always this same confirmation first,
     // never a silent fallback; the identification only ever CONFIRMS the already-known account.
@@ -95,7 +95,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   confirmPeerLogin: {
-    title: 'Web-Login per QR bestätigen (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN)',
+    title: 'Web-Login per QR bestätigen',
     // Same anti-self-escalation gate as manageMethods (ConfirmPeerLoginStrategy.gate()): loa2
     // first. The "Nein" branch covers BOTH real starting points alike, because the strategy itself
     // does: a cold entry (no channel yet, ConfirmPeerLoginState.Requested as initialState()) and an

@@ -354,14 +354,18 @@ stateDiagram-v2
   [*] --> Credential
   Credential --> Credential: ein Tool abgelehnt, weitere übrig
   Credential --> AdditionalFactor: Nachweis erbracht, acrFloor noch nicht erreicht
-  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht
+  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, kein Rebind-Konflikt
+  Credential --> ConfirmDeviceRebind: Nachweis erbracht, anderes Konto war auf dem Gerät gebunden
   AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
-  AdditionalFactor --> OfferBinding: acrFloor erreicht
+  AdditionalFactor --> OfferBinding: acrFloor erreicht, kein Rebind-Konflikt
+  AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, anderes Konto war auf dem Gerät gebunden
   AdditionalFactor --> RE_IDENTIFY: keine kombinierbare Methode übrig, Re-Identifizierung möglich
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
   RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
   OfferBinding --> Finished: Nutzer stimmt zu -> Gerät wird wiedererkannt
   OfferBinding --> Finished: Nutzer lehnt ab -> keine Bindung
+  ConfirmDeviceRebind --> Finished: Nutzer stimmt zu -> Gerät wird umgebunden
+  ConfirmDeviceRebind --> Finished: Nutzer lehnt ab -> Login bleibt bestehen, alte Bindung bleibt
   Finished --> [*]
 
   note right of Credential
@@ -377,7 +381,10 @@ stateDiagram-v2
 `OfferBinding` fragt ausdrücklich und optional: „Dieses Gerät für künftige Logins wiedererkennen?" —
 und erfüllt zusätzlich das generische `AnswerableState`-Markerinterface (Abschnitt 5), damit die
 Maschinerie diesen Zustand erkennt, ohne den konkreten Typ `LookupLoginState.OfferBinding` selbst
-zu kennen.
+zu kennen. Löst der Login dagegen ein anderes Konto auf als das aktuell für dieses Gerät hinterlegte,
+wechselt die Journey stattdessen in `ConfirmDeviceRebind`: dieselbe Ja/Nein-Mechanik, aber mit
+explizitem destruktivem Hinweis darauf, dass die bestehende Bindung ersetzt würde. Ablehnung dieses
+Prompts verwirft nur die Umbindung, nicht den bereits erfolgreichen Login.
 
 Die Gerätewiedererkennung (`DeviceAccountLink`) entsteht hier **nur** nach Zustimmung. Sie ist
 eine dauerhafte Zuordnung Gerät → Account und darf nicht als Nebenwirkung eines Logins entstehen,

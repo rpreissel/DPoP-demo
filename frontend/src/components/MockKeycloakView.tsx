@@ -258,7 +258,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
       <div className="card">
         <h2>Mock-Keycloak</h2>
         <p>
-          Simuliert Keycloaks <code>OrchestratorAuthenticator</code> (docs/05-api.md Abschnitt 3) - ruft dieselben
+          Simuliert Keycloaks <code>OrchestratorAuthenticator</code> - ruft dieselben
           fassadenneutralen Endpunkte wie der App-Kanal auf, mit einer signierten Peer-Auth-Assertion statt DPoP. Nur für
           Demo/Test: kein echtes <code>context.setUser()</code>, <code>authData</code> wird hier nur angezeigt.
         </p>
@@ -285,7 +285,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
                   <p className="hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
                     accountId/amr vorbelegt aus der zuletzt bekannten authData - simuliert, was der reale
                     Authenticator hier aus seiner eigenen Keycloak-UserSession-Note zurückgelesen hätte, um den neu
-                    angelegten Kanal damit zu befüllen (docs/05-api.md Abschnitt 3).
+                    angelegten Kanal damit zu befüllen.
                   </p>
                 )}
                 <div className="form-group">
@@ -327,7 +327,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
             <button className="secondary small" onClick={fetchRestoreData}>
               RestoreData holen
             </button>{' '}
-            simuliert den Lifecycle-Hook des Authenticators am Flow-Ende (docs/05-api.md Abschnitt 3):
+            simuliert den Lifecycle-Hook des Authenticators am Flow-Ende:
             {restoreDataToken ? ' Token vorhanden - wird beim nächsten "Sub vorhanden"-Start automatisch mitgeschickt.' : ' noch kein Token geholt.'}
           </p>
         )}
@@ -343,8 +343,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
             Steht für einen nativ konfigurierten Keycloak-Schritt (kein Orchestrator-Tool) - z. B. den eingebauten
             Cookie-/OTP-Authenticator. Wird sofort in die Evidenz dieses Kanals gemischt und direkt danach mit einem
             separaten, reinen Resume-Aufruf (kein Tool, kein amr) bestätigt - so bleibt sichtbar, dass authData.amr
-            (Methode → Quelle) auch unabhängig vom simulierenden Aufruf bestehen bleibt (docs/05-api.md
-            Abschnitt 3).
+            (Methode → Quelle) auch unabhängig vom simulierenden Aufruf bestehen bleibt.
           </p>
           <div className="form-grid">
             <div className="form-group">

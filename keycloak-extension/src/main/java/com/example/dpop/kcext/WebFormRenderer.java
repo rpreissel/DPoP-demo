@@ -93,6 +93,25 @@ final class WebFormRenderer {
         return built.createForm("orchestrator-tool.ftl");
     }
 
+    /**
+     * The generic yes/no prompt every {@code AnswerableState} sends (next.context=prompt,
+     * next.step=confirm, stepData.prompt - docs/05-api.md's account-deletion example). {@code prompt}
+     * is null only on a retry path with no fresh {@code ChannelResponse}, same fallback idiom as
+     * {@link #toolForm}.
+     */
+    static Response confirmForm(LoginFormsProvider form, AuthenticationSessionModel authSession, JsonNode prompt, String error) {
+        String title = prompt != null && prompt.has("title") ? prompt.get("title").asText() : "Bestätigung erforderlich";
+        String confirmLabel = prompt != null && prompt.has("confirmLabel") ? prompt.get("confirmLabel").asText() : "Ja";
+        String cancelLabel = prompt != null && prompt.has("cancelLabel") ? prompt.get("cancelLabel").asText() : "Nein";
+        var built = form
+                .setAuthenticationSession(authSession)
+                .setAttribute("title", title)
+                .setAttribute("confirmLabel", confirmLabel)
+                .setAttribute("cancelLabel", cancelLabel);
+        if (error != null) built.setError(error);
+        return built.createForm("orchestrator-confirm.ftl");
+    }
+
     static Response errorForm(LoginFormsProvider form, AuthenticationSessionModel authSession, String message) {
         return form.setAuthenticationSession(authSession).setError(message).createForm("orchestrator-error.ftl");
     }

@@ -180,6 +180,19 @@ final class OrchestratorClient {
     }
 
     /**
+     * POST .../channels/{channelSessionId}/answer - the generic yes/no reply every
+     * {@code AnswerableState} (next.context=prompt, next.step=confirm) understands, same address
+     * the App channel already posts to. {@code answer} is exactly {@code "accept"} or
+     * {@code "decline"}.
+     */
+    ChannelResponse answer(String channelSessionId, String answer) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/channels/" + channelSessionId + "/answer";
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("answer", answer);
+        return ChannelResponse.from(send("POST", path, channelSessionId, body));
+    }
+
+    /**
      * Stateless password verify/set for Keycloak's native password credential
      * ({@code OrchestratorPasswordStorageProvider}) - unlike every other call above, there is no
      * Channel/ToolSession here: the account id is already known (Keycloak's own
@@ -351,6 +364,10 @@ final class OrchestratorClient {
 
         boolean isAuthenticated() {
             return "orchestrator".equals(type) && "authenticated".equals(step);
+        }
+
+        boolean isConfirm() {
+            return "orchestrator".equals(type) && "confirm".equals(step);
         }
     }
 }

@@ -52,10 +52,20 @@ afterEach(() => {
 describe('resume mid-tool (docs/05-api.md #2: next.toolSessionId)', () => {
   it('reuses the running ToolSession instead of reactivating the tool', async () => {
     window.localStorage.setItem('dpop-demo-channel-session-id', 'chan-1')
+    const resumedNext = { type: 'tool', toolId: 'enroll-sms', step: 'tanInput', toolSessionId: 'ts-resumed' } as const
     api.getChannel.mockResolvedValue(
       channelResponse({
         channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
-        next: { type: 'tool', toolId: 'enroll-sms', step: 'tanInput', toolSessionId: 'ts-resumed' },
+        next: resumedNext,
+      })
+    )
+    // The channel-level GET alone reports only a bare pointer (ToolControllerSupport.buildReadResponse
+    // is what actually reconstructs stepData for an active tool) - the client fetches it separately.
+    api.getTool.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
+        next: resumedNext,
+        stepData: { demo: { tan: '123456' } },
       })
     )
 
@@ -68,15 +78,26 @@ describe('resume mid-tool (docs/05-api.md #2: next.toolSessionId)', () => {
     // The resumed step (tanInput) renders directly - no second activation round-trip, no second TAN.
     await screen.findByRole('heading', { name: 'TAN eingeben' })
     expect(api.activateTool).not.toHaveBeenCalled()
+    // ...but its stepData (here: the demo TAN hint) IS re-fetched, via the dedicated per-tool GET.
+    expect(api.getTool).toHaveBeenCalledWith(expect.anything(), 'ts-resumed', 'enroll-sms')
   })
 })
 
 describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of tool responses)', () => {
   it('fetches currentAcr/currentAmr/activeMethods once, only after settling into authenticated', async () => {
+    const enrollNext = { type: 'tool', toolId: 'enroll-sms', step: 'enroll', toolSessionId: 'ts-1' } as const
     api.createChannel.mockResolvedValue(
       channelResponse({
         channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
-        next: { type: 'tool', toolId: 'enroll-sms', step: 'enroll', toolSessionId: 'ts-1' },
+        next: enrollNext,
+      })
+    )
+    // The auto-activate effect treats any next.toolSessionId as "already active" and re-fetches
+    // its stepData via the per-tool GET (docs/05-api.md #2) rather than reusing createChannel's own.
+    api.getTool.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
+        next: enrollNext,
       })
     )
     // Matches the real backend contract: a tool response settling into authenticated still
@@ -149,10 +170,17 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
 describe('URL-Einstieg per intent (docs/10-frontend.md #1)', () => {
   it('startet confirm_peer_login automatisch und bereinigt die URL', async () => {
     window.history.replaceState(null, '', '/?intent=confirm_peer_login&pairingCode=AB3D-7KQ2')
+    const authNext = { type: 'tool', toolId: 'auth-device', step: 'auth', toolSessionId: 'ts-1' } as const
     api.createChannel.mockResolvedValue(
       channelResponse({
         channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'STEP_UP_IN_PROGRESS' },
-        next: { type: 'tool', toolId: 'auth-device', step: 'auth', toolSessionId: 'ts-1' },
+        next: authNext,
+      })
+    )
+    api.getTool.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'STEP_UP_IN_PROGRESS' },
+        next: authNext,
       })
     )
 
@@ -171,10 +199,17 @@ describe('URL-Einstieg per intent (docs/10-frontend.md #1)', () => {
         next: { type: 'orchestrator', context: 'authentication', step: 'authenticated' },
       })
     )
+    const confirmQrNext = { type: 'tool', toolId: 'confirm-qr-login', step: 'input', toolSessionId: 'ts-2' } as const
     api.startPeerLogin.mockResolvedValue(
       channelResponse({
         channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'STEP_UP_IN_PROGRESS' },
-        next: { type: 'tool', toolId: 'confirm-qr-login', step: 'input', toolSessionId: 'ts-2' },
+        next: confirmQrNext,
+      })
+    )
+    api.getTool.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'STEP_UP_IN_PROGRESS' },
+        next: confirmQrNext,
       })
     )
 
@@ -187,10 +222,17 @@ describe('URL-Einstieg per intent (docs/10-frontend.md #1)', () => {
 
 describe('Back-Button bis zur Startauswahl (docs/10-frontend.md #1)', () => {
   it('verlässt einen laufenden Vorgang lokal, ohne Backend-Aufruf', async () => {
+    const identFscNext = { type: 'tool', toolId: 'ident-fsc', step: 'input', toolSessionId: 'ts-1' } as const
     api.createChannel.mockResolvedValue(
       channelResponse({
         channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
-        next: { type: 'tool', toolId: 'ident-fsc', step: 'input', toolSessionId: 'ts-1' },
+        next: identFscNext,
+      })
+    )
+    api.getTool.mockResolvedValue(
+      channelResponse({
+        channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
+        next: identFscNext,
       })
     )
 

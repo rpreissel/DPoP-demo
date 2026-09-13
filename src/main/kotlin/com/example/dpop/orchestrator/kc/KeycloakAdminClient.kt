@@ -54,8 +54,9 @@ class KeycloakAdminClient(
     private var cachedPasswordStorageComponentId: String? = null
 
     /**
-     * Creates the Keycloak user for [accountId] if none exists yet (username derived from
-     * [firstName]/[lastName]), else updates its email. The username is chosen ONCE, at creation,
+     * Creates the Keycloak user for [accountId] if none exists yet (username preferring [email],
+     * falling back to a [firstName]/[lastName] slug, see [uniqueUsername]), else updates its
+     * email. The username is chosen ONCE, at creation,
      * and never touched again on any later sync: recomputing it on every call would let it drift
      * (or even collide) as OTHER accounts are created/deleted around it - e.g. "max-muster-2" must
      * stay "max-muster-2" forever once assigned, even after the account originally holding
@@ -69,7 +70,7 @@ class KeycloakAdminClient(
     fun upsertUser(accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?) {
         val existingUserId = findUserId(accountId)
         if (existingUserId == null) {
-            val username = uniqueUsername(firstName, lastName, accountId)
+            val username = uniqueUsername(email, firstName, lastName, accountId)
             val userId = createUser(accountId, username, email, emailConfirmed, firstName, lastName)
             log.info("Keycloak account sync: created user {} ({}) for accountId={}", userId, username, accountId)
         } else {
@@ -83,14 +84,19 @@ class KeycloakAdminClient(
      * (not an incrementing counter) against whatever Keycloak already holds - accountId is unique
      * and permanent by construction, so this is a one-shot check with no retry loop, and the
      * result can never later collide with a DIFFERENT account's own disambiguated name either.
-     * Falls back to the old accountId-based scheme entirely when no name is known (e.g.
-     * `ext_stammdaten` has nothing for this person) - still unique, just less readable.
+     * Falls back to the old accountId-based scheme entirely when neither is known (e.g. an
+     * unidentified account, REGISTER "Enrollment zuerst", docs/04-orchestrierung.md, whose first
+     * enrolled method isn't email either) - still unique, just less readable. Prefers [email] over
+     * a name-slug when both happen to already be known at creation time - a real login identifier
+     * beats a name-derived guess - but this is still a ONE-SHOT choice made only here (see this
+     * method's caller's own doc): an account created before its email was confirmed keeps its
+     * name-/accountId-based username forever, never migrated to the email later.
      */
-    private fun uniqueUsername(firstName: String?, lastName: String?, accountId: Long): String {
-        val base = listOfNotNull(firstName, lastName)
+    private fun uniqueUsername(email: String?, firstName: String?, lastName: String?, accountId: Long): String {
+        val nameSlug = listOfNotNull(firstName, lastName)
             .joinToString("-") { it.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-') }
             .trim('-')
-            .ifBlank { "orchestrator-account-$accountId" }
+        val base = (email?.trim() ?: nameSlug).ifBlank { "orchestrator-account-$accountId" }
         return if (usernameTaken(base)) "$base-$accountId" else base
     }
 

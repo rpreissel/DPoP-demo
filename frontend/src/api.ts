@@ -236,8 +236,12 @@ async function callPlain<T>(method: string, path: string, body?: unknown): Promi
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!response.ok) throw new ApiError(response.status, undefined, `${method} ${path} failed: ${response.status}`)
-  if (response.status === 204) return undefined as T
-  return (await response.json()) as T
+  // A Kotlin `Unit`-returning controller method (e.g. every admin PUT here) comes back as
+  // 200 with an empty body, not 204 - relying on the status code alone made `.json()` throw
+  // "Unexpected end of JSON input" on every such call. Reading as text first and only parsing
+  // when there's actually something to parse covers both cases.
+  const text = await response.text()
+  return (text === '' ? undefined : JSON.parse(text)) as T
 }
 
 export function fetchToolCatalog(): Promise<{ toolId: string; method: string; role: string }[]> {
@@ -250,6 +254,19 @@ export function fetchToolAvailability(): Promise<ToolAvailabilityEntry[]> {
 
 export function setToolAvailability(toolId: string, enabled: boolean, reason?: string): Promise<void> {
   return callPlain('PUT', `/orchestrator/api/v1/admin/tools/${toolId}/availability`, { enabled, reason })
+}
+
+export interface RegistrationOrderState {
+  enrollFirst: boolean
+}
+
+/** REGISTER's "Enrollment zuerst" experiment (docs/04-orchestrierung.md) - global, takes effect for the next brand-new REGISTER journey. */
+export function fetchRegistrationOrder(): Promise<RegistrationOrderState> {
+  return callPlain('GET', '/orchestrator/api/v1/admin/registration-order')
+}
+
+export function setRegistrationOrder(enrollFirst: boolean): Promise<void> {
+  return callPlain('PUT', '/orchestrator/api/v1/admin/registration-order', { enrollFirst })
 }
 
 export interface KeycloakSyncResult {

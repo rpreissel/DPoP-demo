@@ -17,6 +17,7 @@ import {
   getChannel,
   getDeviceLink,
   getJourneyLog,
+  getTool,
   startLogout,
   onApiCall,
   raiseRequiredAcr,
@@ -43,6 +44,7 @@ import { JourneyStructureView } from '../../components/JourneyStructureView'
 import { JourneyLogView } from '../../components/JourneyLogView'
 import { PromptView } from '../../components/PromptView'
 import { ToolAvailabilitySelector } from '../../components/ToolAvailabilitySelector'
+import { AdminRegistrationOrderView } from '../../components/AdminRegistrationOrderView'
 import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
 import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
 import { KeycloakSyncView } from '../../components/KeycloakSyncView'
@@ -103,12 +105,13 @@ export function AppChannelApp() {
   // for now (shown as a banner near the entry choice) besides driving the auto-start effect below;
   // actually submitting it as confirm-qr-login's own `pairingCode` field is bmh.4/bmh.6.
   const [pendingPairingCode, setPendingPairingCode] = useState<string | undefined>()
-  // How many OTHER candidates existed when the current activeTool was reached - "Anderes
-  // Verfahren" only makes sense to offer when this is > 0, otherwise abandoning would just
-  // re-offer the very same tool (a mandatory single-candidate step is its own only fallback).
-  // Set at the two places a tool actually becomes active: handleSelectMethod (the user just saw
-  // the full candidate list) and the auto-activate effect (0 for a direct single-candidate skip,
-  // since the backend only ever collapses straight to a tool when nothing else was on offer).
+  // Gates "Anderes Verfahren" - NOT "did another candidate really exist" (abandoning is always a
+  // safe, backend-handled fallback regardless), only "would showing the button be worth it right
+  // now". >0 whenever activeTool is set: handleSelectMethod after an explicit multi-candidate
+  // choice (the real remaining count), the auto-activate effect for a direct single-candidate skip
+  // and for a resumed tool session alike (both set 1) - a resumed step with nothing to switch to
+  // would otherwise leave an already-AUTHENTICATED channel's step-up with zero way out at all
+  // ("Zur Startseite"/"Abmelden" don't render while inToolMode).
   const [alternativesCount, setAlternativesCount] = useState(0)
   const [error, setError] = useState('')
   // Only takes effect on the next channel-creating action (Verbinden/Login ohne DPoP/Registrieren
@@ -373,10 +376,29 @@ export function AppChannelApp() {
     // next.toolSessionId) - activating again would start a NEW attempt from scratch (e.g. a
     // second TAN for enroll-sms), discarding whatever was already entered.
     if (next.toolSessionId) {
-      // Resuming (e.g. after a reload) - whether alternatives existed originally is lost, so
-      // conservatively assume none rather than offer a switch that might be a no-op.
-      setAlternativesCount(0)
+      // Resuming (e.g. after a reload) - whether alternatives existed originally is lost, but
+      // that's not what this count actually gates: abandoning is always a safe, backend-handled
+      // fallback (see the auto-activate branch below), so hiding "Anderes Verfahren" here isn't a
+      // conservative default, it's a dead end - on an already-AUTHENTICATED channel (e.g.
+      // CONFIRM_PEER_LOGIN's step-up) neither "Zur Startseite" nor "Abmelden" render while
+      // inToolMode, leaving zero way out. Same 1-not-0 treatment as a fresh single-candidate
+      // auto-activation.
+      setAlternativesCount(1)
       setActiveTool({ toolSessionId: next.toolSessionId, toolId: next.toolId })
+      // The channel-level GET that got us here only reports a bare pointer (JourneyService.stepFor
+      // returns no stepData once a tool is active) - missingFields, demo hints (e.g. the
+      // "Demo-Passwort" prefill) all came from the tool's OWN activation/patch response and are
+      // otherwise lost on resume. Every tool controller exposes exactly this read-back
+      // (ToolControllerSupport.buildReadResponse, GET .../tools/{id}/{toolId}) - fetch it now.
+      const toolId = next.toolId
+      const toolSessionId = next.toolSessionId
+      activatingToolIdRef.current = toolId
+      getTool(dpop, toolSessionId, toolId)
+        .then((response) => applyResponse(response, toolId))
+        .catch((err) => setError(describeError('Tool state fetch failed', err)))
+        .finally(() => {
+          if (activatingToolIdRef.current === toolId) activatingToolIdRef.current = null
+        })
       return
     }
 
@@ -697,6 +719,7 @@ export function AppChannelApp() {
           {sub === 'settings' && (
             <>
               <AdminToolAvailabilityView />
+              <AdminRegistrationOrderView />
               <div className="card">
                 <h2>Demo-Konfiguration (App-Kanal)</h2>
                 <p>Wirkt erst auf den nächsten im Demo-Reiter neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>
@@ -733,7 +756,7 @@ export function AppChannelApp() {
                     {journeyContextKey && (
                       <>
                         Aktueller Vorgang: <strong>{journeyContextLabel(journeyContextKey)}</strong>
-                        <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline>
+                        <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline openDown>
                           <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf dieses Vorgangs als Diagramm anzeigen">
                             ℹ️
                           </span>
@@ -810,7 +833,7 @@ export function AppChannelApp() {
                       <span className="method-choice-text">
                         <span className="method-choice-label">
                           Automatisch anmelden
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.auto} inline>
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.auto} inline openDown>
                             <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Automatisch anmelden als Diagramm anzeigen">
                               ℹ️
                             </span>
@@ -831,7 +854,7 @@ export function AppChannelApp() {
                       <span className="method-choice-text">
                         <span className="method-choice-label">
                           Neues Konto registrieren
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.register} inline>
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.register} inline openDown>
                             <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Neues Konto registrieren als Diagramm anzeigen">
                               ℹ️
                             </span>
@@ -852,7 +875,7 @@ export function AppChannelApp() {
                       <span className="method-choice-text">
                         <span className="method-choice-label">
                           Neu anmelden
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.login} inline>
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.login} inline openDown>
                             <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Neu anmelden als Diagramm anzeigen">
                               ℹ️
                             </span>
@@ -874,15 +897,14 @@ export function AppChannelApp() {
                       <span className="method-choice-text">
                         <span className="method-choice-label">
                           Web-Login per QR bestätigen
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin} inline>
+                          <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin} inline openDown>
                             <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Web-Login per QR bestätigen als Diagramm anzeigen">
                               ℹ️
                             </span>
                           </DiagramHint>
                         </span>
                         <span className="method-choice-hint">
-                          Ein Browser wartet auf eine Bestätigung von diesem Gerät (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN).
-                          Setzt ein hier schon bekanntes Konto voraus.
+                          Ein Browser wartet auf eine Bestätigung von diesem Gerät. Setzt ein hier schon bekanntes Konto voraus.
                         </span>
                       </span>
                     </button>

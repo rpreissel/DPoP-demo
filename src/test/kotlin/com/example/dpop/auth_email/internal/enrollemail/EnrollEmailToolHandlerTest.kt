@@ -1,8 +1,8 @@
 package com.example.dpop.auth_email.internal.enrollemail
 
-import com.example.dpop.account.AccountProfile
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
+import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -11,7 +11,6 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
 import java.util.Optional
 import java.util.UUID
 
@@ -27,7 +26,6 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
     val emailCodeGenerator = EmailCodeGenerator("test-pepper")
     val handler = EnrollEmailToolHandler(EnrollEmailDescriptor, toolDataRepository, accountService, emailCodeGenerator)
     val toolSessionId = UUID.randomUUID()
-    val accountId = 42L
 
     given("an active enroll-email tool session with no email yet") {
         val data = EnrollEmailToolData(toolSessionId = toolSessionId)
@@ -39,7 +37,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it persists the address and a fresh code, asking for codeInput") {
-                val outcome = handler.patch(toolSessionId, email = "max@example.com", code = null, accountId = accountId)
+                val outcome = handler.patch(toolSessionId, email = "max@example.com", code = null)
 
                 outcome.shouldBeInstanceOf<ToolOutcome.InProgress>()
                 (outcome as ToolOutcome.InProgress).nextStep shouldBe "codeInput"
@@ -52,10 +50,9 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
             every { accountService.existsByEmail("taken@example.com") } returns true
 
             then("it fails without ever touching account state") {
-                val outcome = handler.patch(toolSessionId, email = "taken@example.com", code = null, accountId = accountId)
+                val outcome = handler.patch(toolSessionId, email = "taken@example.com", code = null)
 
                 outcome shouldBe ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
-                verify(exactly = 0) { accountService.confirmEmail(any(), any()) }
             }
         }
     }
@@ -66,13 +63,11 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("confirming with the correct code") {
-            every { accountService.confirmEmail(accountId, "max@example.com") } returns mockk<AccountProfile>()
-
-            then("it confirms the account's email and enrolls") {
-                val outcome = handler.patch(toolSessionId, email = null, code = issued.plainCode, accountId = accountId)
+            then("it enrolls, handing the confirmed address through in auditDetails - JourneyService confirms it onto Account, not this handler") {
+                val outcome = handler.patch(toolSessionId, email = null, code = issued.plainCode)
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Enrolled>()
-                verify { accountService.confirmEmail(accountId, "max@example.com") }
+                (outcome as ToolOutcome.Completed.Enrolled).auditDetails?.get(CONFIRMED_EMAIL_AUDIT_KEY) shouldBe "max@example.com"
             }
         }
     }

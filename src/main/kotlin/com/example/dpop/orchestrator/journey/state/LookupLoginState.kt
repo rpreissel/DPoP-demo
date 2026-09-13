@@ -16,7 +16,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = LookupLoginState.Start::class, name = "Start"),
     JsonSubTypes.Type(value = LookupLoginState.Credential::class, name = "Credential"),
     JsonSubTypes.Type(value = LookupLoginState.AdditionalFactor::class, name = "AdditionalFactor"),
-    JsonSubTypes.Type(value = LookupLoginState.OfferBinding::class, name = "OfferBinding")
+    JsonSubTypes.Type(value = LookupLoginState.OfferBinding::class, name = "OfferBinding"),
+    JsonSubTypes.Type(value = LookupLoginState.ConfirmDeviceRebind::class, name = "ConfirmDeviceRebind")
 )
 sealed interface LookupLoginState : JourneyState {
 
@@ -76,6 +77,26 @@ sealed interface LookupLoginState : JourneyState {
                 "Passwort an.",
             confirmLabel = "Gerät merken",
             cancelLabel = "Ohne Bindung fortfahren"
+        )
+    }
+
+    /**
+     * A lookup login resolved a different account than the one this device is already bound to.
+     * Accepting here actively overwrites that durable link, so the prompt must make the impact
+     * explicit while still allowing a successful login without rebinding.
+     */
+    data class ConfirmDeviceRebind(val accountId: Long) : LookupLoginState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override val active: ToolRef? get() = null
+        override val prompt: Prompt get() = Prompt.Confirm(
+            title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
+            description = "Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto " +
+                "zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem " +
+                "Gerät erneut identifizieren.",
+            confirmLabel = "Gerät neu zuordnen",
+            cancelLabel = "Ohne Bindung fortfahren",
+            destructive = true
         )
     }
 }

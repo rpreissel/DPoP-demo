@@ -132,7 +132,7 @@ export function AuthenticationCompletedView({
       )}
 
       <SectionHeading text="Web-Login per QR bestätigen" diagram="confirmPeerLogin" />
-      <p>Ein Browser wartet auf eine Bestätigung von diesem Konto (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN).</p>
+      <p>Ein Browser wartet auf eine Bestätigung von diesem Konto.</p>
       <div className="form-actions">
         <button className="secondary" onClick={onPeerLogin}>
           Web-Login bestätigen

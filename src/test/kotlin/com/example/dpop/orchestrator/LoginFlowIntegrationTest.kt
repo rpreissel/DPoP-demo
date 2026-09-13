@@ -299,6 +299,56 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        given("a device already linked to account A") {
+            `when`("a lookup login resolves a different account B on the same device") {
+                then("it asks for rebind confirmation instead of overwriting the device link silently") {
+
+                registerAndAuthenticate()
+                val bindingKeyA = currentBindingKeyRef
+
+                currentBindingKeyRef = "binding-" + UUID.randomUUID()
+                val channelB = post("/orchestrator/api/v1/app/channels", """{"intent":"register","requiredAcr":"loa2"}""").channel()["channelSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelB/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                patch(
+                    "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
+                    """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
+                )
+                val emailB = enrollEmail(channelB)
+                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelB/tools/enroll-password").nextRaw()["toolSessionId"] as String
+                patch(
+                    "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
+                    """{"password":"second-account-password"}"""
+                )
+
+                currentBindingKeyRef = bindingKeyA
+
+                val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
+                val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
+                val lookupToolSessionId = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/tools/auth-password-lookup").nextRaw()["toolSessionId"] as String
+                val prompted = patch(
+                    "/orchestrator/api/v1/tools/$lookupToolSessionId/auth-password-lookup",
+                    """{"email":"$emailB","password":"second-account-password"}"""
+                )
+
+                prompted.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+                @Suppress("UNCHECKED_CAST")
+                val prompt = prompted.stepData()["prompt"] as Map<String, Any?>
+                prompt["title"] shouldBe "Dieses Gerät ist bereits einem anderen Konto zugeordnet"
+                prompt["confirmLabel"] shouldBe "Gerät neu zuordnen"
+                prompt["cancelLabel"] shouldBe "Ohne Bindung fortfahren"
+                prompt["destructive"] shouldBe true
+
+                val declined = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"decline"}""")
+                declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
+
+                val nextAuto = post("/orchestrator/api/v1/app/channels")
+                nextAuto.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+
+
+                }
+            }
+        }
+
         given("a fresh channel") {
             `when`("reading the channel after logging in via only one of several active methods") {
                 then("activeMethods still lists the methods this session never proved") {

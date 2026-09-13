@@ -29,6 +29,7 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
@@ -62,6 +63,7 @@ class JourneyService(
     private val toolRegistry: ToolHandlerRegistry,
     private val authPolicy: AuthPolicy,
     private val toolAvailabilityService: ToolAvailabilityService,
+    private val featureFlagProviders: List<FeatureFlagProvider>,
     private val accountDeletionService: AccountDeletionService,
     private val journeyLogService: JourneyLogService,
     // Optional: only present under the `keycloak` profile (KeycloakAdminClient's own doc) -
@@ -641,8 +643,21 @@ class JourneyService(
                     "Identified without a known account under ${journey.intent}"
                 }
                 val account = checkNotNull(accountService.findAccount(accountId)) { "Account not found: $accountId" }
-                if (account.personId != action.outcome.personId) {
-                    throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
+                when (account.personId) {
+                    // Ordinary re-identification: the account already knows who it is, this run
+                    // must confirm the SAME person, never silently adopt a different one.
+                    action.outcome.personId -> {}
+                    null -> {
+                        // First-ever identification of a previously unidentified account (REGISTER
+                        // "Enrollment zuerst", docs/04-orchestrierung.md) - bind it, unless this
+                        // person already has a DIFFERENT account (merge not supported, bewusst).
+                        val existing = accountService.findAccountByPersonId(action.outcome.personId)
+                        if (existing != null && existing.accountId != accountId) {
+                            throw OrchestratorException.invalidState("Diese Person ist bereits über ein anderes Konto registriert")
+                        }
+                        accountService.bindPersonId(accountId, action.outcome.personId)
+                    }
+                    else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
                 }
                 bindAccount(journey, channel, accountId)
                 recordIdentification(journey, channel, action.tool, action.outcome)
@@ -651,7 +666,15 @@ class JourneyService(
 
             is Action.AdoptCredential -> {
                 val enrolled = action.outcome
-                val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Enrolled without an account" }
+                // Enrollment with no account yet (REGISTER "Enrollment zuerst",
+                // docs/04-orchestrierung.md) - one is created lazily, right here, on the FIRST
+                // completed enrollment: no enroll tool's own PATCH handler needs an account to
+                // already exist mid-flow (enroll-email's former exception was removed - see
+                // ToolDescriptor.confirmsAccountEmail's own doc), so this is always safe to defer
+                // to here. A channel that never gets this far leaves no orphan account behind
+                // (`deleteIfAbandonedUnidentified`, `fallBack`).
+                val accountId = journey.accountId ?: channel.accountId
+                    ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
                 val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Enrolled without an AuthEvidence" }
                 val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
                     "AuthEvidence not found: $authEvidenceId"
@@ -660,12 +683,39 @@ class JourneyService(
                 // `label` is lifted into its own field rather than staying in the generic details
                 // blob, so the API can surface it without clients reaching into details.
                 val label = enrolled.auditDetails?.get("label") as? String
+                // Same reasoning as `label`: a tool this generic about ENROLLMENT can't write
+                // Account itself (module boundary, ToolDescriptor.confirmsAccountEmail's own doc) -
+                // done here, before this method returns, so the very next context rebuild
+                // (JourneyEvent.ActionCompleted) already sees the confirmed email.
+                if (action.tool.confirmsAccountEmail) {
+                    val email = checkNotNull(enrolled.auditDetails?.get(CONFIRMED_EMAIL_AUDIT_KEY) as? String) {
+                        "${action.tool.toolId} confirms the account email but reported none in auditDetails"
+                    }
+                    accountService.confirmEmail(accountId, email)
+                }
+                // What the environment already established BEFORE this completion (recordToolCompletion
+                // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
+                // session yet (REGISTER "Enrollment zuerst" with no identification at all,
+                // docs/04-orchestrierung.md) - falls back to the flat baseline floor, never to this
+                // tool's OWN declared strength: a self-registered credential with nothing else
+                // corroborating it (no identification, no other factor) is exactly the "self-
+                // asserted, unproofed" case, regardless of how strong the tool's own maxAcr
+                // theoretically is (e.g. enroll-device declares loa2 on its own - letting that
+                // stand unchallenged here would grant loa2 to a device nobody ever verified).
+                // Never allowed to override an already-positive base either way: doing that
+                // unconditionally (e.g. via a "projected" self-entry merged into the evidence
+                // before resolving) would let a tool with a higher maxAcr than the CURRENT session
+                // actually proved (that same enroll-device, enrolled from a loa1-only session)
+                // silently escalate past what was ever really established - exactly the
+                // self-escalation ADR-5 exists to prevent.
+                val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
+                val enrolledUnderAcr = if (environmentAcr == "none") AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
                 accountService.addAuthenticationMethod(
                     accountId,
                     action.tool.method,
                     enrolled.enrollmentRef,
-                    enrolledUnderAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId)),
-                    details = enrolled.auditDetails.orEmpty().minus("label") + mapOf(
+                    enrolledUnderAcr = enrolledUnderAcr,
+                    details = enrolled.auditDetails.orEmpty().minus(listOf("label", CONFIRMED_EMAIL_AUDIT_KEY)) + mapOf(
                         "enrolledUnderAmr" to evidence.currentAmr,
                         "channel" to channel.channel?.name
                     ),
@@ -907,13 +957,30 @@ class JourneyService(
         if (target != ChannelState.AUTHENTICATED) {
             channel.authContextId = null
             channel.authEvidenceId = null
+            val abandonedAccountId = channel.accountId
             channel.accountId = if (channel.entryIntent == AuthIntent.FAST_ACCESS) {
                 sessionManagementService.findLinkedAccountId(channel.bindingKeyRef!!)
             } else {
                 null
             }
+            deleteIfAbandonedUnidentified(abandonedAccountId)
         }
         sessionManagementService.updateChannelSession(channel)
+    }
+
+    /**
+     * A REGISTER "Enrollment zuerst" account (docs/04-orchestrierung.md, `Action.
+     * CreateUnidentifiedAccount`) is created eagerly, before the first enrollment tool even runs -
+     * if the journey is then abandoned before anything durable ever attached to it, nothing should
+     * be left behind. Safe as a generic check for every intent alike, not just REGISTER: no other
+     * flow ever leaves an account with neither a person nor a single authentication method.
+     */
+    private fun deleteIfAbandonedUnidentified(accountId: Long?) {
+        if (accountId == null) return
+        val account = accountService.findAccount(accountId) ?: return
+        if (account.personId == null && account.authenticationMethods.isEmpty()) {
+            accountService.deleteAccount(accountId)
+        }
     }
 
     // Context ---------------------------------------------------------------------
@@ -931,7 +998,8 @@ class JourneyService(
             isSubJourney = journey.parentJourneyId != null,
             policy = authPolicy,
             catalog = toolRegistry,
-            availableTools = availableToolsOf(channel)
+            availableTools = availableToolsOf(channel),
+            featureFlags = featureFlagProviders.flatMapTo(mutableSetOf()) { it.activeFlags() }
         )
     }
 

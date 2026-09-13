@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -97,11 +96,6 @@ class EnrollEmailToolController(
             )
         ]
     )
-    // The only tool PATCH that spans a transaction: the handler writes the confirmed address onto
-    // Account, and applyOutcome then records the authentication method. Without this bracket the
-    // two commit separately, and a failure in between would leave a confirmed email on an account
-    // that has no email method to show for it.
-    @Transactional
     fun patch(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String,
@@ -111,8 +105,7 @@ class EnrollEmailToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: EnrollEmailPatchRequest()
-        val accountId = checkNotNull(context.journeyAccountId) { "enroll-email without an account bound to the journey" }
-        val outcome = handler.patch(toolSessionId, body.email, body.code, accountId)
+        val outcome = handler.patch(toolSessionId, body.email, body.code)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

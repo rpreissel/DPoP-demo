@@ -1,0 +1,155 @@
+package com.example.dpop.orchestrator.journey.strategy
+
+import com.example.dpop.auth_email.EnrollEmailDescriptor
+import com.example.dpop.auth_password.EnrollPasswordDescriptor
+import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.EnrollSmsDescriptor
+import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.journey.JourneyEvent
+import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
+import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
+import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.EnrollmentRef
+import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.ToolOutcome
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+
+/**
+ * Pure unit coverage of [RegisterEnrollFirstStrategy] - the "Enrollment zuerst" experiment
+ * (docs/04-orchestrierung.md, REGISTER). Fully autark from [RegisterStrategy]/`AuthEnrollCore` -
+ * see [RegisterEnrollFirstState]'s own doc - so this exercises its own transition function in
+ * full, the same way [RegisterStrategyTest] does for the ident-first journey.
+ */
+class RegisterEnrollFirstStrategyTest : BehaviorSpec({
+
+    val strategy = RegisterEnrollFirstStrategy()
+
+    given("the intent") {
+        then("is REGISTER, same as the ident-first variant - only the dispatcher tells them apart") {
+            strategy.intent shouldBe AuthIntent.REGISTER
+        }
+    }
+
+    given("Start, no account known yet") {
+        then("offers enrollment directly - no identification step at all, no account needed yet") {
+            val transition = strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.Started, ctx(account = null))
+            transition.shouldBeEnrollingWith("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+        }
+    }
+
+    given("Start, resumed after the closing, optional RE_IDENTIFY sub-journey") {
+        then("finishes regardless of whether it was accepted-and-succeeded, declined, or abandoned") {
+            strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2"), ctx()) shouldBe
+                Transition.Authenticated
+            strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY), ctx()) shouldBe
+                Transition.Authenticated
+        }
+    }
+
+    given("Enrolling, more than one offered candidate") {
+        val state = RegisterEnrollFirstState.EnrollFirstEnrolling(listOf("enroll-sms", "enroll-email"))
+        then("abandoning re-offers the FULL choice - this is a mandatory state, not a fallback") {
+            strategy.transition(state, JourneyEvent.Abandoned(EnrollSmsDescriptor), ctx()) shouldBe
+                Transition.To(state.withActive(null))
+        }
+    }
+
+    given("Enrolling, a method was just enrolled, floor reached, but email is still unconfirmed") {
+        val acc = account(method("sms", "loa1"), emailConfirmed = false)
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
+        val state = RegisterEnrollFirstState.EnrollFirstEnrolling(listOf("enroll-sms"))
+
+        then("adopts the credential, then moves on to ConfirmingEmail - email is always obligatory here") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
+            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(listOf("enroll-email")))
+        }
+    }
+
+    given("ConfirmingEmail, confirmed, on the APP channel (no password obligation there)") {
+        val acc = account(method("sms", "loa1"), emailConfirmed = true)
+        val theCtx = ctx(
+            account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
+            acrFloor = "loa1", channel = ChannelSession.Channel.APP
+        )
+        val state = RegisterEnrollFirstState.EnrollFirstConfirmingEmail(listOf("enroll-email"))
+
+        then("every obligation is discharged - offers the optional identification step, not Authenticated directly") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
+            val event = JourneyEvent.Completed(EnrollEmailDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(EnrollEmailDescriptor, outcome, bindDevice = true), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.RequireSubJourney(
+                    AuthIntent.RE_IDENTIFY,
+                    seedWith = ReIdentifyState.forSubJourney(targetAcr = "loa1", startingAcr = "loa1"),
+                    resumeWith = RegisterEnrollFirstState.EnrollFirstStart
+                )
+        }
+    }
+
+    given("ConfirmingEmail, confirmed, on the KEYCLOAK channel with no active password yet") {
+        val acc = account(method("sms", "loa1"), emailConfirmed = true)
+        val theCtx = ctx(
+            account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
+            acrFloor = "loa1", channel = ChannelSession.Channel.KEYCLOAK
+        )
+        val state = RegisterEnrollFirstState.EnrollFirstConfirmingEmail(listOf("enroll-email"))
+
+        then("falls through to the still-open password obligation, not to the identification offer yet") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
+            val event = JourneyEvent.Completed(EnrollEmailDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(EnrollEmailDescriptor, outcome, bindDevice = true), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.To(RegisterEnrollFirstState.EnrollFirstPasswordObligation(listOf("enroll-password")))
+        }
+    }
+
+    given("PasswordObligation, fulfilled - every obligation now discharged") {
+        val acc = account(method("sms", "loa1"), method("password", "loa1"), emailConfirmed = true)
+        val theCtx = ctx(
+            account = acc,
+            evidence = evidence(listOf("sms", "password"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc),
+            acrFloor = "loa1", channel = ChannelSession.Channel.KEYCLOAK
+        )
+        val state = RegisterEnrollFirstState.EnrollFirstPasswordObligation(listOf("enroll-password"))
+
+        then("offers the optional identification step - the real catalog's ident tools can still close it") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("password", "ref"))
+            val event = JourneyEvent.Completed(EnrollPasswordDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(EnrollPasswordDescriptor, outcome, bindDevice = true), resumeState = state)
+            val transition = strategy.transition(state, JourneyEvent.ActionCompleted, theCtx)
+            transition.shouldBeInstanceOf<Transition.RequireSubJourney>()
+            (transition as Transition.RequireSubJourney).intent shouldBe AuthIntent.RE_IDENTIFY
+        }
+    }
+
+    given("onCancel") {
+        then("always falls back to ANONYMOUS, same as the ident-first variant") {
+            strategy.cancelledTo(RegisterEnrollFirstState.EnrollFirstStart) shouldBe ChannelState.ANONYMOUS
+            strategy.cancelledTo(RegisterEnrollFirstState.EnrollFirstEnrolling(listOf("enroll-sms"))) shouldBe ChannelState.ANONYMOUS
+        }
+    }
+})
+
+private fun Transition.shouldBeEnrollingWith(vararg toolIds: String) {
+    require(this is Transition.To) { "expected Transition.To, was $this" }
+    val to = state
+    require(to is RegisterEnrollFirstState.EnrollFirstEnrolling) { "expected RegisterEnrollFirstState.EnrollFirstEnrolling, was $to" }
+    to.offered shouldContainExactlyInAnyOrder toolIds.toList()
+}

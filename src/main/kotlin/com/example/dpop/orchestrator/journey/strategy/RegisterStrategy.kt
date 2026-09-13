@@ -14,14 +14,17 @@ import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
-import org.springframework.stereotype.Component
 
 /**
- * REGISTER's own journey. See [RegisterState]'s own doc for the shape of it and why [AuthChoice]/
- * [Enrolling] are shared with [FastAccessState][com.example.dpop.orchestrator.journey.state.
- * FastAccessState] rather than owned exclusively here.
+ * REGISTER's own, ident-first journey (the status quo, as opposed to the "Enrollment zuerst"
+ * experiment, [RegisterEnrollFirstStrategy]). See [RegisterState]'s own doc for the shape of it and
+ * why [AuthChoice]/[Enrolling] are shared with [FastAccessState][com.example.dpop.orchestrator.
+ * journey.state.FastAccessState] rather than owned exclusively here.
+ *
+ * Deliberately NOT a `@Component`: it is never registered under [AuthIntent.REGISTER] directly,
+ * only ever reached through `RegisterDispatchStrategy`, the single bean actually registered for
+ * that intent (Spring only allows one `IntentStrategy` per [AuthIntent]).
  */
-@Component
 class RegisterStrategy : IntentStrategy<RegisterState> {
 
     override val intent: AuthIntent = AuthIntent.REGISTER

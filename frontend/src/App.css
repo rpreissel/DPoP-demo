@@ -266,7 +266,9 @@
   bottom: calc(100% + 0.5rem);
   min-width: max-content;
   max-width: min(95vw, 860px);
+  max-height: min(70vh, 640px);
   overflow-x: auto;
+  overflow-y: auto;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -277,6 +279,13 @@
   transform: translateY(4px);
   transition: opacity 0.12s, transform 0.12s;
   pointer-events: none;
+}
+
+/* See DiagramHint's openDown prop - a trigger with no room above needs the popover below instead. */
+.diagram-hint-popover--down {
+  bottom: auto;
+  top: calc(100% + 0.5rem);
+  transform: translateY(-4px);
 }
 
 .diagram-hint:hover .diagram-hint-popover,

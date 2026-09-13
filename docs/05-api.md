@@ -239,7 +239,7 @@ Erreichbar nur über `POST /channels` mit `intent: "lookup_login"` — nie über
 - `auth-sms-lookup`/`auth-email-lookup` folgen dem Zwei-`PATCH`-Muster: erst `{"email": "..."}` (löst den Account auf, verschickt bei Erfolg TAN/Code), dann `{"tan"/"code": "..."}`.
 - `auth-password-lookup` erwartet `{"email": "...", "password": "..."}` in einem einzigen `PATCH`.
 - Enumeration-Schutz: Eine unbekannte oder unbestätigte E-Mail verhält sich in Form und Timing identisch zu einem korrekt aufgelösten Account mit falschem Credential — nie eine eigene Fehlerform. Das gilt auch für die demo-Werte: `demo.email`/`demo.password` sind feste Konstanten, unabhängig vom tatsächlich aufgelösten Account, verraten also nichts.
-- Bei Erfolg schreibt der Orchestrator `DeviceAccountLink` für dieses Gerät neu — ein danach ohne `intent` (Default `fast_access`) angelegter Kanal erkennt das Gerät und bietet direkt den gewöhnlichen geräte-gebundenen LOGIN an.
+- Bei Erfolg endet der Flow nicht immer sofort: Ist dieses Gerät noch gar nicht oder bereits demselben Konto zugeordnet, bietet der Orchestrator die Gerätebindung optional an. Ist das Gerät dagegen bereits an ein anderes Konto gebunden, fragt er vor dem Überschreiben dieser bestehenden `DeviceAccountLink`-Bindung ausdrücklich nach. Ablehnung lässt den Login trotzdem erfolgreich ohne neue Bindung enden; Zustimmung bindet das Gerät um und ein danach ohne `intent` (Default `fast_access`) angelegter Kanal erkennt das Gerät direkt wieder.
 
 ### Peer-Login bestätigen (AuthIntent.CONFIRM_PEER_LOGIN)
 

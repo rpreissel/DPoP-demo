@@ -3,6 +3,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.EnrollEmailDescriptor
+import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -22,12 +23,19 @@ import java.util.UUID
  * swappable per-enrollment credential). [enrollmentRef] returned here is therefore a fixed,
  * inert placeholder.
  *
- * This module writes that value onto Account **itself**, via the declared `auth_email -> account`
- * dependency (see ModuleMetadata for why this one module is exempt).
+ * This handler no longer writes that value onto `Account` itself - it hands the confirmed address
+ * through in `Completed.Enrolled.auditDetails` (same idiom `enroll-device`'s `deviceBindingKeyRef`/
+ * `enroll-sms`'s `providerMsgId` already use), and `JourneyService`'s generic `Action.
+ * AdoptCredential` handling calls `AccountService.confirmEmail` from there, gated by
+ * `ToolDescriptor.confirmsAccountEmail`. This is what lets REGISTER "Enrollment zuerst"
+ * (docs/04-orchestrierung.md) create the account lazily, on first `AdoptCredential`, instead of
+ * needing one to already exist before this tool's own PATCH can even run - this was the ONE enroll
+ * handler in the whole catalog that needed an account mid-PATCH; every other one already operates
+ * purely on its own tool-session data.
  *
  * Pure business logic; self-description lives in [EnrollEmailDescriptor] (DPoP-demo-vun).
  * Delegates the actual step logic to [EnrollEmailFlow]; this class only translates its
- * [EnrollEmailDecision] into persistence/`account` writes and the outward [ToolOutcome].
+ * [EnrollEmailDecision] into persistence writes and the outward [ToolOutcome].
  */
 @Component
 class EnrollEmailToolHandler(
@@ -44,13 +52,9 @@ class EnrollEmailToolHandler(
         return outcomeFor(EnrollEmailState.AwaitingEmail)
     }
 
-    /**
-     * Called directly by EnrollEmailToolController, not generically dispatched
-     * (docs/08-projektrahmen.md A11). [accountId] is the account the enrolling process is bound
-     * to - needed because the confirmed address is written onto it right here.
-     */
+    /** Called directly by EnrollEmailToolController, not generically dispatched (docs/08-projektrahmen.md A11). */
     @Transactional
-    fun patch(toolSessionId: UUID, email: String?, code: String?, accountId: Long): ToolOutcome {
+    fun patch(toolSessionId: UUID, email: String?, code: String?): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-email tool session: $toolSessionId" }
 
         return when (val decision = EnrollEmailFlow.decide(data.toState(), EnrollEmailInput(email, code), emailCodeGenerator)) {
@@ -83,19 +87,16 @@ class EnrollEmailToolHandler(
                 }
             }
 
-            is EnrollEmailDecision.Complete -> {
-                // Must happen before the Enrolled outcome is processed, not after: the
-                // orchestrator's resolveNext re-reads the account to evaluate
-                // ConfirmedEmailRequiredAction, so a later write would leave REGISTRATION looping
-                // on enroll-email forever.
-                accountService.confirmEmail(accountId, decision.email)
-                ToolOutcome.Completed.Enrolled(
-                    enrollmentRef = EnrollmentRef(type = "account_email", id = "self"),
-                    amr = listOf(descriptor.method),
-                    achievedAcr = descriptor.maxAcr,
-                    factorTypes = descriptor.factorTypes
-                )
-            }
+            is EnrollEmailDecision.Complete -> ToolOutcome.Completed.Enrolled(
+                enrollmentRef = EnrollmentRef(type = "account_email", id = "self"),
+                amr = listOf(descriptor.method),
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
+                // JourneyService's Action.AdoptCredential handling confirms this onto Account
+                // itself (ToolDescriptor.confirmsAccountEmail) - see class doc for why this
+                // handler no longer writes it directly.
+                auditDetails = mapOf(CONFIRMED_EMAIL_AUDIT_KEY to decision.email)
+            )
         }
     }
 

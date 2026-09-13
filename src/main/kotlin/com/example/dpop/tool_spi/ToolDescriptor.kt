@@ -1,5 +1,8 @@
 package com.example.dpop.tool_spi
 
+/** See [ToolDescriptor.confirmsAccountEmail]. */
+const val CONFIRMED_EMAIL_AUDIT_KEY = "confirmedEmail"
+
 /**
  * A tool's self-description. Implement this once per tool; the aggregation of every
  * implementation in the application context is the tool catalog - there is no separate, centrally
@@ -37,7 +40,15 @@ interface ToolDescriptor {
     val requiresConfirmedEmail: Boolean
         get() = false
 
-    /** True if a successful run of this tool leaves the account with a confirmed email. */
+    /**
+     * True if a successful run of this tool leaves the account with a confirmed email. Such a
+     * tool's `Completed.Enrolled.auditDetails` must carry the confirmed address under
+     * [CONFIRMED_EMAIL_AUDIT_KEY] - `JourneyService`'s `Action.AdoptCredential` handling reads it
+     * from there and calls `AccountService.confirmEmail` itself; the tool never writes `Account`
+     * directly (docs/04-orchestrierung.md, REGISTER "Enrollment zuerst" - this is what lets the
+     * account behind an enrollment be resolved/created lazily, since no handler needs one to
+     * already exist mid-PATCH).
+     */
     val confirmsAccountEmail: Boolean
         get() = false
 

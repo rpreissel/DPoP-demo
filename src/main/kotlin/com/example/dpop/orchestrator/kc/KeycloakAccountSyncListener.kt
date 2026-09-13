@@ -40,9 +40,17 @@ class KeycloakAccountSyncListener(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onAccountChanged(event: AccountChanged) {
         val profile = accountService.findAccount(event.accountId) ?: return
-        val person = extStammdatenService.findPersonById(profile.personId)
+        // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
+        // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; the next
+        // AccountChanged once one is confirmed (or the account is identified) syncs it for real.
+        if (profile.email == null) return
+        // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
+        val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
         try {
-            keycloakAdminClient.upsertUser(profile.accountId, profile.email, profile.emailConfirmed, person?.vorname, person?.name)
+            keycloakAdminClient.upsertUser(
+                profile.accountId, profile.email, profile.emailConfirmed,
+                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME
+            )
             val keypair = accountKeypairService.keypairFor(profile.accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
             keycloakAdminClient.setPublicKeyCredential(profile.accountId, keypair.publicKeyJwk, activeMethods)
@@ -67,3 +75,13 @@ class KeycloakAccountSyncListener(
         }
     }
 }
+
+/**
+ * Keycloak's own realm requires a non-blank first/last name on every user - an unidentified
+ * account (REGISTER "Enrollment zuerst") has no [com.example.dpop.ext_stammdaten.Person] to take
+ * them from yet, so this stands in until one exists. Self-healing: `AccountService.bindPersonId`
+ * fires its own `AccountChanged`, which re-syncs and overwrites this with the real name the moment
+ * the account is identified - never a value anyone needs to clean up by hand.
+ */
+internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
+internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"

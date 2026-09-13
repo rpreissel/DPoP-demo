@@ -78,7 +78,16 @@ data class JourneyContext(
      * [CandidateTools] filters every candidate list through this - never derive an offer from
      * [catalog] alone.
      */
-    val availableTools: Set<String>
+    val availableTools: Set<String>,
+    /**
+     * Runtime feature flags currently enabled (see [FeatureFlags] for the known names), resolved
+     * once here rather than injected into a strategy directly - a strategy DECIDES, it never
+     * depends on a `@Service` itself (`IntentStrategy`'s own class doc, enforced by
+     * `OrchestratorArchitectureTest`). One shared, generic set rather than a new named
+     * `JourneyContext` property per flag, so adding a future experiment never touches this
+     * widely-used data class again.
+     */
+    val featureFlags: Set<String> = emptySet()
 ) {
     fun requireAccount(): AccountProfile =
         checkNotNull(account) { "Strategy asked for an account before one was resolved" }

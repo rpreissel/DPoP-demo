@@ -144,7 +144,7 @@ export function WebChannelView({ onTokens }: Props) {
               <span className="method-choice-text">
                 <span className="method-choice-label">
                   Login (loa1)
-                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa1} inline>
+                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa1} inline openDown>
                     <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa1) als Diagramm anzeigen">
                       ℹ️
                     </span>
@@ -162,7 +162,7 @@ export function WebChannelView({ onTokens }: Props) {
               <span className="method-choice-text">
                 <span className="method-choice-label">
                   Login (loa2)
-                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa2} inline>
+                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa2} inline openDown>
                     <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa2) als Diagramm anzeigen">
                       ℹ️
                     </span>
@@ -180,7 +180,7 @@ export function WebChannelView({ onTokens }: Props) {
               <span className="method-choice-text">
                 <span className="method-choice-label">
                   Login (loa1, QR-Test-Client)
-                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginQrTest} inline>
+                  <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginQrTest} inline openDown>
                     <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa1, QR-Test-Client) als Diagramm anzeigen">
                       ℹ️
                     </span>

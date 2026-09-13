@@ -12,13 +12,16 @@ final class OrchestratorNextDispatch {
     private OrchestratorNextDispatch() {
     }
 
-    sealed interface Outcome permits Select, Tool, Unhandled {
+    sealed interface Outcome permits Select, Tool, Confirm, Unhandled {
     }
 
     record Select(List<String> options) implements Outcome {
     }
 
     record Tool(OrchestratorClient.Next next, boolean autoActivate) implements Outcome {
+    }
+
+    record Confirm(com.fasterxml.jackson.databind.JsonNode prompt) implements Outcome {
     }
 
     record Unhandled(OrchestratorClient.Next next) implements Outcome {
@@ -33,6 +36,9 @@ final class OrchestratorNextDispatch {
         }
         if (next.isTool()) {
             return new Tool(next, next.toolSessionId() == null);
+        }
+        if (next.isConfirm()) {
+            return new Confirm(response.stepData().get("prompt"));
         }
         return new Unhandled(next);
     }
