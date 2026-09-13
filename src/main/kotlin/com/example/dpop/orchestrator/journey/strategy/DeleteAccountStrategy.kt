@@ -17,16 +17,19 @@ import org.springframework.stereotype.Component
 /**
  * Delete the account of an already authenticated channel (docs/05-api.md, Account löschen).
  *
- * The yes/no confirmation always comes FIRST, unconditionally, before any loa2 check - asking
+ * The yes/no confirmation always comes FIRST, unconditionally, before any ACR check - asking
  * "do you really want to delete your account?" costs nothing and should never be gated behind a
  * step-up the caller may not even want to go through. Only once they actually accept does the
- * same loa2 GATE `ManageAuthMethodsStrategy` uses apply: a hijacked loa1 session must not be able
- * to delete the account any more than it may add/remove a credential. If that gate needs a
- * step-up, the step-up itself already IS the fresh proof that would otherwise be asked for again
- * right afterwards, so deletion follows immediately; only when the channel already satisfied loa2
- * on its own (evidence of unknown age) does an explicit re-proof of any one active factor run
- * first - unlike an ordinary step-up, this re-proof is never skipped just because loa2 was already
- * reached, and accepts any active factor regardless of its own level (see [DeleteAccountState]).
+ * same GATE `ManageAuthMethodsStrategy` uses apply, at whatever level [Action.DeleteAccount.requiredAcr]
+ * names for THIS account - loa2 for an identified one, only loa1 for one that never was (the
+ * "Enrollment zuerst" case, see that fn's own doc): a hijacked session must not be able to delete
+ * the account any more easily than it may add/remove a credential. If that gate needs a step-up,
+ * the step-up itself already IS the fresh proof that would otherwise be asked for again right
+ * afterwards, so deletion follows immediately; only when the channel already satisfies the
+ * required level on its own (evidence of unknown age) does an explicit re-proof of any one active
+ * factor run first - unlike an ordinary step-up, this re-proof is never skipped just because the
+ * level was already reached, and accepts any active factor regardless of its own level (see
+ * [DeleteAccountState]).
  *
  * That re-proof's own outcome is deliberately never recorded as `MethodEvidence` (a known
  * behaviour change from the pre-`transition()` design, docs/ideen/journey-strategie-
@@ -64,12 +67,14 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // only ever prove loa1 factors - exactly why the step-up needed RE_IDENTIFY in the
                 // first place - delete the account anyway by just re-proving that same loa1 factor,
                 // defeating the loa2 gate this class's own doc says must hold.
-                is JourneyEvent.SubJourneyFinished ->
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Action.DeleteAccount.REQUIRED_ACR)) {
-                        Transition.Perform(Action.DeleteAccount(ctx.requireAccount().accountId), resumeState = state)
+                is JourneyEvent.SubJourneyFinished -> {
+                    val account = ctx.requireAccount()
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Action.DeleteAccount.requiredAcr(account))) {
+                        Transition.Perform(Action.DeleteAccount(account.accountId), resumeState = state)
                     } else {
                         Transition.Cancel
                     }
+                }
                 // The gate's own STEP_UP was declined instead - same reasoning as above, not a
                 // lesser fallback.
                 is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
@@ -105,10 +110,11 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
     /** Null once the session already carries loa2 and the caller may proceed. */
     private fun gate(ctx: JourneyContext): Transition? {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, Action.DeleteAccount.REQUIRED_ACR, account)) return null
+        val requiredAcr = Action.DeleteAccount.requiredAcr(account)
+        if (ctx.policy.isSatisfied(ctx.evidence, requiredAcr, account)) return null
         return Transition.RequireSubJourney(
             AuthIntent.STEP_UP,
-            seedWith = StepUpState.forSubJourney(Action.DeleteAccount.REQUIRED_ACR, ctx.currentAcr),
+            seedWith = StepUpState.forSubJourney(requiredAcr, ctx.currentAcr),
             resumeWith = DeleteAccountState.ConfirmPending
         )
     }

@@ -55,10 +55,11 @@ object StrategyTestFixtures {
     fun account(
         vararg methods: AuthMethodView,
         accountId: Long = 1L,
+        personId: Long? = 1L,
         emailConfirmed: Boolean = true
     ) = AccountProfile(
         accountId = accountId,
-        personId = 1L,
+        personId = personId,
         identifications = emptyList(),
         authenticationMethods = methods.toList(),
         emailConfirmedAt = if (emailConfirmed) Instant.now() else null

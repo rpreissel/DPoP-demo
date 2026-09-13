@@ -55,14 +55,6 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
         }
     }
 
-    private fun enrollSms(channelSessionId: String) {
-        val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
-        val (tan, _) = captureMockTan {
-            patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-        }
-        patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"tan":"$tan"}""")
-    }
-
     /** Self-signed device-proof JWT (typ=device-proof+jwt), same shape DeviceProofValidator expects. */
     private fun signDeviceProof(deviceKey: ECKey, htu: String, userVerification: String, issuedAt: Date = Date()): String {
         val header = JWSHeader.Builder(JWSAlgorithm.ES256)

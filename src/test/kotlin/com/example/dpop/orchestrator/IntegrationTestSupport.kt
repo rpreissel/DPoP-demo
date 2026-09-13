@@ -251,6 +251,15 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
         return email
     }
 
+    /** Runs enroll-sms through to Completed on the given channel. */
+    protected fun enrollSms(channelSessionId: String) {
+        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+        val (tan, _) = captureMockTan {
+            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+        }
+        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
+    }
+
     /**
      * Runs ident-fsc + enroll-sms + enroll-email through to AUTHENTICATED, returns the
      * channelSessionId. enroll-email is required even though sms alone already reaches the
@@ -259,11 +268,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
      */
     protected fun registerAndAuthenticate(): String {
         val channelSessionId = identify()
-        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
-        val (tan, _) = captureMockTan {
-            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-        }
-        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
+        enrollSms(channelSessionId)
         enrollEmail(channelSessionId)
         return channelSessionId
     }

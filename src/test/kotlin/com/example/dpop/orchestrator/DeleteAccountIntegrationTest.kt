@@ -2,12 +2,15 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 
 /**
- * Account deletion's loa2 gate (docs/04-orchestrierung.md, DeleteAccountStrategy): the yes/no
- * confirmation always comes first, then - if the session doesn't already carry loa2 - a step-up,
- * which itself may need to fall back to RE_IDENTIFY when no active method alone reaches loa2.
+ * Account deletion's ACR gate (docs/04-orchestrierung.md, DeleteAccountStrategy): the yes/no
+ * confirmation always comes first, then - if the session doesn't already carry the required level
+ * - a step-up, which itself may need to fall back to RE_IDENTIFY when no active method alone
+ * reaches it. loa2 for an identified account, only loa1 for one that was never identified at all
+ * (`Action.DeleteAccount.requiredAcr`, the "Enrollment zuerst" case).
  */
 class DeleteAccountIntegrationTest : IntegrationTestSupport() {
 
@@ -16,6 +19,53 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
 
     init {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
+    }
+
+    init {
+        given("an account registered via 'Enrollment zuerst', never identified (personId == null)") {
+            then("loa1 already satisfies the gate - no STEP_UP to loa2, straight to the re-confirmation step") {
+                put("/orchestrator/api/v1/admin/registration-order", """{"enrollFirst":true}""") shouldBe org.springframework.http.HttpStatus.OK
+
+                val channelSessionId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
+                enrollEmail(channelSessionId)
+                enrollSms(channelSessionId)
+                // Every enrollment obligation discharged - declines the optional, closing
+                // identification offer, so the account stays personId == null.
+                val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+                declined.channel()["state"] shouldBe "AUTHENTICATED"
+
+                val accountId = jdbcTemplate.queryForObject(
+                    "SELECT account_id FROM channel_session WHERE channel_session_id = ?",
+                    Long::class.java,
+                    channelSessionId
+                )
+                jdbcTemplate.queryForObject(
+                    "SELECT person_id FROM account WHERE id = ?",
+                    Long::class.java,
+                    accountId
+                ).shouldBeNull()
+
+                val started = post("/orchestrator/api/v1/channels/$channelSessionId/account-deletions")
+                started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+                val accepted = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                // Straight to the re-confirmation offer (any active factor, any level) - no
+                // STEP_UP sub-journey, since loa1 (the session's own level) already suffices.
+                accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
+
+                val (code, activation) = captureMockTan {
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email")
+                }
+                val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+                val completed = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
+
+                completed.channel()["state"] shouldBe "LOGGED_OUT"
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account WHERE id = ?",
+                    Int::class.java,
+                    accountId
+                ) shouldBe 0
+            }
+        }
     }
 
     init {

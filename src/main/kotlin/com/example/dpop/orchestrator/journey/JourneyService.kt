@@ -822,8 +822,9 @@ class JourneyService(
                 // state - same reasoning as the self-lockout check before Action.Remove.
                 val freshCtx = contextFor(journey, channel)
                 val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
-                check(authPolicy.isSatisfied(freshCtx.evidence, Action.DeleteAccount.REQUIRED_ACR, account)) {
-                    "${journey.intent} decided Action.DeleteAccount without satisfying ${Action.DeleteAccount.REQUIRED_ACR}"
+                val requiredAcr = Action.DeleteAccount.requiredAcr(account)
+                check(authPolicy.isSatisfied(freshCtx.evidence, requiredAcr, account)) {
+                    "${journey.intent} decided Action.DeleteAccount without satisfying $requiredAcr"
                 }
                 accountDeletionService.deleteAccount(action.accountId)
             }

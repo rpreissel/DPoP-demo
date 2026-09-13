@@ -18,7 +18,11 @@ import com.example.dpop.tool_spi.ToolOutcome
 
 /**
  * The "Enrollment zuerst" REGISTER experiment - see [RegisterEnrollFirstState]'s own doc for why
- * this is fully autark from [RegisterStrategy]/`AuthEnrollCore`. Deliberately NOT a `@Component`:
+ * this is fully autark from [RegisterStrategy]/`AuthEnrollCore`. Mandatory order: email enrollment
+ * first ([offerEmailEnrollment]/[RegisterEnrollFirstState.EnrollFirstEnrollingEmail]), then SMS
+ * ([offerSmsEnrollment]/[RegisterEnrollFirstState.EnrollFirstEnrollingSms]) - declining either one
+ * only re-offers it, there is no skipping ahead - before the identification offer at the very end
+ * ([offerIdentificationOrFinish]). Deliberately NOT a `@Component`:
  * it is never registered under [AuthIntent.REGISTER] directly, only ever reached through
  * `RegisterDispatchStrategy`, the single bean actually registered for that intent (Spring only
  * allows one `IntentStrategy` per [AuthIntent]).
@@ -38,11 +42,23 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 // own RE_IDENTIFY, this is not the only chance.
                 is JourneyEvent.SubJourneyFinished, is JourneyEvent.SubJourneyCancelled -> Transition.Authenticated
                 // Fresh journey start: no account needed yet - it's created lazily on the first
-                // completed enrollment (JourneyService's own Action.AdoptCredential handling), so
-                // the offer here is computed against a transient, unpersisted placeholder.
-                // enrollmentCandidates only ever reads authenticationMethods/emailConfirmed, both
-                // trivially empty/false for a brand-new account.
-                else -> offerEnrollment(ctx)
+                // completed enrollment (JourneyService's own Action.AdoptCredential handling).
+                // Mandatory order: email, then SMS (see offerEmailEnrollment/offerSmsEnrollment) -
+                // only once neither is available at all does this fall back to offerEnrollment's
+                // old free-choice-among-everything behaviour.
+                else -> offerEmailEnrollment(ctx)
+            }
+
+            is RegisterEnrollFirstState.EnrollFirstEnrollingEmail -> when (event) {
+                is JourneyEvent.Abandoned -> reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(adoptCredential(event), resumeState = state)
+                else -> offerSmsEnrollment(ctx)
+            }
+
+            is RegisterEnrollFirstState.EnrollFirstEnrollingSms -> when (event) {
+                is JourneyEvent.Abandoned -> reoffer(state)
+                is JourneyEvent.Completed -> Transition.Perform(adoptCredential(event), resumeState = state)
+                else -> afterForcedEnrollment(ctx)
             }
 
             is RegisterEnrollFirstState.EnrollFirstEnrolling -> when (event) {
@@ -72,6 +88,27 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
         else -> error("${event.tool.toolId} is not offered by REGISTER (Enrollment zuerst) - only ENROLLMENT tools ever are")
     }
+
+    /** Mandatory step 1 - falls through to step 2 if no email-method ENROLLMENT tool is available at all right now. */
+    private fun offerEmailEnrollment(ctx: JourneyContext): Transition {
+        val candidates = enrollmentCandidatesFor(EMAIL_METHOD, ctx)
+        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingEmail(candidates)) else offerSmsEnrollment(ctx)
+    }
+
+    /** Mandatory step 2 - falls through to [afterForcedEnrollment] if no SMS-method ENROLLMENT tool is available at all right now. */
+    private fun offerSmsEnrollment(ctx: JourneyContext): Transition {
+        val candidates = enrollmentCandidatesFor(SMS_METHOD, ctx)
+        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingSms(candidates)) else afterForcedEnrollment(ctx)
+    }
+
+    /**
+     * Both mandatory steps are discharged or skipped (neither tool was available). If an account
+     * already exists (an enrollment actually happened), continue the normal obligation cascade. If
+     * neither email nor SMS was ever available, no account exists yet - fall back to the old
+     * free-choice-among-everything offer instead of crashing on `ctx.requireAccount()`.
+     */
+    private fun afterForcedEnrollment(ctx: JourneyContext): Transition =
+        if (ctx.account != null) afterEnrollment(ctx, emailObligation = true) else offerEnrollment(ctx)
 
     private fun offerEnrollment(ctx: JourneyContext): Transition {
         // No account exists yet at this point (see EnrollFirstStart's own doc) - enrollmentCandidates
@@ -123,24 +160,42 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
             Transition.RequireSubJourney(
                 AuthIntent.RE_IDENTIFY,
-                seedWith = ReIdentifyState.forSubJourney(targetAcr = ctx.acrFloor, startingAcr = ctx.currentAcr),
+                // Every obligation is already discharged at this point (see this fn's own doc) -
+                // RE_IDENTIFY's default wording assumes the opposite ("nicht erreichbar", "erneut"),
+                // which is factually wrong for a brand-new, never-identified account. Own wording,
+                // not the shared default.
+                seedWith = ReIdentifyState.forSubJourney(
+                    targetAcr = ctx.acrFloor,
+                    startingAcr = ctx.currentAcr,
+                    wording = ReIdentifyState.Wording(
+                        offerTitle = "Identifizieren?",
+                        offerDescription = "Sie sind bereits angemeldet. Optional können Sie sich jetzt zusätzlich identifizieren.",
+                        offerConfirmLabel = "Identifizieren",
+                        selectionTitle = "Identifikation (optional)",
+                        selectionDescription = "Wählen Sie ein Verfahren, um sich zu identifizieren."
+                    )
+                ),
                 resumeWith = RegisterEnrollFirstState.EnrollFirstStart
             )
         } else {
             Transition.Authenticated
         }
 
-    /** Same hardcoded METHOD-not-toolId reasoning as `RegisterStrategy.passwordEnrollmentCandidates`. */
-    private fun passwordEnrollmentCandidates(ctx: JourneyContext): List<String> =
+    /** ENROLLMENT-role tools for one hardcoded method name, e.g. "email"/"sms"/"password" - same reasoning as `RegisterStrategy.passwordEnrollmentCandidates`. */
+    private fun enrollmentCandidatesFor(method: String, ctx: JourneyContext): List<String> =
         ctx.catalog.descriptors()
-            .filter { it.role == MethodRole.ENROLLMENT && it.method == PASSWORD_METHOD }
+            .filter { it.role == MethodRole.ENROLLMENT && it.method == method }
             .map { it.toolId }
             .filter { it in ctx.availableTools }
+
+    private fun passwordEnrollmentCandidates(ctx: JourneyContext): List<String> = enrollmentCandidatesFor(PASSWORD_METHOD, ctx)
 
     /** Every state here is mandatory (no obligation is ever narrowed by decline) - backing out re-offers the full set, same reasoning as `AuthEnrollCore.reoffer`. */
     private fun reoffer(state: JourneyState): Transition = Transition.To(state.withActive(null))
 
     private companion object {
         const val PASSWORD_METHOD = "password"
+        const val EMAIL_METHOD = "email"
+        const val SMS_METHOD = "sms"
     }
 }

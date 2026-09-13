@@ -94,6 +94,18 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             }
         }
 
+        `when`("the account was never identified (personId == null) and the session only carries loa1") {
+            val acc = account(method("sms", "loa1"), personId = null)
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
+            then("loa1 already satisfies the gate - straight to the re-confirmation step, no STEP_UP to loa2 demanded") {
+                val transition = strategy.transition(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx)
+                transition.shouldBeInstanceOf<Transition.To>()
+                val to = (transition as Transition.To).state
+                to.shouldBeInstanceOf<DeleteAccountState.ConfirmationRequired>()
+                (to as DeleteAccountState.ConfirmationRequired).offered shouldContainExactlyInAnyOrder listOf("auth-sms")
+            }
+        }
+
         `when`("the session already carries loa2") {
             // device is the only tool whose own maxAcr reaches loa2 alone (sms/password/email cap
             // at loa1) - so this is the only single-method way to seed "already at loa2" evidence.

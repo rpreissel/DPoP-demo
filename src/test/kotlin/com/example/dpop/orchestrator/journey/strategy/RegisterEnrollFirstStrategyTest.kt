@@ -34,6 +34,17 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
 
     val strategy = RegisterEnrollFirstStrategy()
 
+    // Mirrors the literal RegisterEnrollFirstStrategy.offerIdentificationOrFinish builds - its
+    // closing offer needs its own wording (never identified before, nothing "nicht erreichbar"),
+    // not RE_IDENTIFY's shared default text.
+    val enrollFirstIdentificationWording = ReIdentifyState.Wording(
+        offerTitle = "Identifizieren?",
+        offerDescription = "Sie sind bereits angemeldet. Optional können Sie sich jetzt zusätzlich identifizieren.",
+        offerConfirmLabel = "Identifizieren",
+        selectionTitle = "Identifikation (optional)",
+        selectionDescription = "Wählen Sie ein Verfahren, um sich zu identifizieren."
+    )
+
     given("the intent") {
         then("is REGISTER, same as the ident-first variant - only the dispatcher tells them apart") {
             strategy.intent shouldBe AuthIntent.REGISTER
@@ -41,9 +52,71 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
     }
 
     given("Start, no account known yet") {
-        then("offers enrollment directly - no identification step at all, no account needed yet") {
-            val transition = strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.Started, ctx(account = null))
-            transition.shouldBeEnrollingWith("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+        then("offers EMAIL enrollment first, mandatory - not the whole menu, no identification step yet") {
+            strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.Started, ctx(account = null)) shouldBe
+                Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingEmail(listOf("enroll-email")))
+        }
+    }
+
+    given("Start, email enrollment tool unavailable right now (admin-disabled)") {
+        then("skips straight to the mandatory SMS step instead of blocking the journey") {
+            val theCtx = ctx(account = null, availableTools = StrategyTestFixtures.allToolIds - "enroll-email")
+            strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.Started, theCtx) shouldBe
+                Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingSms(listOf("enroll-sms")))
+        }
+    }
+
+    given("Start, neither email nor SMS enrollment tool available") {
+        then("falls back to the old free-choice-among-everything offer instead of crashing on a missing account") {
+            val theCtx = ctx(account = null, availableTools = StrategyTestFixtures.allToolIds - "enroll-email" - "enroll-sms")
+            strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.Started, theCtx)
+                .shouldBeEnrollingWith("enroll-device", "enroll-qr")
+        }
+    }
+
+    given("EnrollFirstEnrollingEmail, email just enrolled") {
+        val acc = account(method("email", "loa1"), emailConfirmed = true)
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("email"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
+        val state = RegisterEnrollFirstState.EnrollFirstEnrollingEmail(listOf("enroll-email"))
+
+        then("adopts the credential, then moves on to the mandatory SMS step - not to the free-choice menu") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
+            val event = JourneyEvent.Completed(EnrollEmailDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(EnrollEmailDescriptor, outcome, bindDevice = true), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingSms(listOf("enroll-sms")))
+        }
+    }
+
+    given("EnrollFirstEnrollingEmail, more than one offered candidate") {
+        val state = RegisterEnrollFirstState.EnrollFirstEnrollingEmail(listOf("enroll-email"))
+        then("abandoning re-offers the same mandatory step, no skipping ahead to SMS") {
+            strategy.transition(state, JourneyEvent.Abandoned(EnrollEmailDescriptor), ctx()) shouldBe
+                Transition.To(state.withActive(null))
+        }
+    }
+
+    given("EnrollFirstEnrollingSms, sms just enrolled, floor reached, but email is still unconfirmed") {
+        val acc = account(method("sms", "loa1"), emailConfirmed = false)
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
+        val state = RegisterEnrollFirstState.EnrollFirstEnrollingSms(listOf("enroll-sms"))
+
+        then("adopts the credential, then falls into the normal obligation cascade - email is always obligatory here") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
+            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(listOf("enroll-email")))
+        }
+    }
+
+    given("EnrollFirstEnrollingSms, more than one offered candidate") {
+        val state = RegisterEnrollFirstState.EnrollFirstEnrollingSms(listOf("enroll-sms"))
+        then("abandoning re-offers the same mandatory step") {
+            strategy.transition(state, JourneyEvent.Abandoned(EnrollSmsDescriptor), ctx()) shouldBe
+                Transition.To(state.withActive(null))
         }
     }
 
@@ -95,7 +168,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.RequireSubJourney(
                     AuthIntent.RE_IDENTIFY,
-                    seedWith = ReIdentifyState.forSubJourney(targetAcr = "loa1", startingAcr = "loa1"),
+                    seedWith = ReIdentifyState.forSubJourney(targetAcr = "loa1", startingAcr = "loa1", wording = enrollFirstIdentificationWording),
                     resumeWith = RegisterEnrollFirstState.EnrollFirstStart
                 )
         }

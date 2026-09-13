@@ -33,7 +33,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
         when (state) {
             is ReIdentifyState.OfferReIdent -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    "accept" -> offerIdentifying(state.targetAcr, state.startingAcr, ctx) ?: Transition.Cancel
+                    "accept" -> offerIdentifying(state.targetAcr, state.startingAcr, state.wording, ctx) ?: Transition.Cancel
                     "decline" -> Transition.Cancel
                     else -> error("OfferReIdent does not understand answer '${event.answer}'")
                 }
@@ -63,9 +63,9 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
     override fun cancelledTo(state: ReIdentifyState): ChannelState =
         if (state.startingAcr == "none") ChannelState.ANONYMOUS else ChannelState.AUTHENTICATED
 
-    private fun offerIdentifying(targetAcr: String, startingAcr: String, ctx: JourneyContext): Transition? {
+    private fun offerIdentifying(targetAcr: String, startingAcr: String, wording: ReIdentifyState.Wording?, ctx: JourneyContext): Transition? {
         val candidates = CandidateTools.forReIdentification(targetAcr, ctx)
         return candidates.takeIf { it.isNotEmpty() }
-            ?.let { Transition.To(ReIdentifyState.Identifying(targetAcr, startingAcr, it)) }
+            ?.let { Transition.To(ReIdentifyState.Identifying(targetAcr, startingAcr, it, wording = wording)) }
     }
 }

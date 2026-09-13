@@ -4,7 +4,6 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
-import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -45,23 +44,29 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
 
     init {
         given("registration order set to enroll-first, a fresh channel, APP") {
-            `when`("enrolling email, declining the closing identification offer") {
+            `when`("enrolling email, then sms, declining the closing identification offer") {
                 then("finishes AUTHENTICATED with no person behind the account, enrolledUnderAcr stays loa1") {
 
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                // No identification step at all - straight to enrollment candidates.
-                channelResponse.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
-                @Suppress("UNCHECKED_CAST")
-                (channelResponse.stepData()["options"] as List<String>) shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                // Mandatory order: email first, and the only candidate - single-candidate auto-skip
+                // goes straight into the tool instead of a selectMethod screen.
+                channelResponse.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
 
                 enrollEmail(channelSessionId)
+
+                // Email done - SMS is mandatory next, still no identification step yet, same
+                // single-candidate auto-skip.
+                val afterEmail = get("/orchestrator/api/v1/channels/$channelSessionId")
+                afterEmail.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-sms", "step" to "enroll")
+
+                enrollSms(channelSessionId)
 
                 // Every enrollment obligation discharged (email confirmed is the only one on APP) -
                 // the account is still unidentified, so the optional RE_IDENTIFY offer follows
                 // (its own OfferReIdent prompt, "prompt"/"confirm" - the generic AnswerableState screen).
-                val afterEmail = get("/orchestrator/api/v1/channels/$channelSessionId")
-                afterEmail.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+                val afterSms = get("/orchestrator/api/v1/channels/$channelSessionId")
+                afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
 
                 val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
                 declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
@@ -76,11 +81,12 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
         }
 
         given("registration order set to enroll-first, a fresh channel, APP") {
-            `when`("enrolling email, then accepting the closing identification offer via ident-fsc") {
+            `when`("enrolling email, then sms, then accepting the closing identification offer via ident-fsc") {
                 then("the account becomes identified, but the already-enrolled email keeps its original enrolledUnderAcr") {
 
                 val channelSessionId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
                 enrollEmail(channelSessionId)
+                enrollSms(channelSessionId)
                 get("/orchestrator/api/v1/channels/$channelSessionId").next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
 
                 // Two ident methods are registered (ident-fsc, ident-eid), so a selection page is
@@ -111,6 +117,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 // First account: enrolls, then actually identifies via ident-fsc.
                 val firstChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
                 enrollEmail(firstChannelId)
+                enrollSms(firstChannelId)
                 post("/orchestrator/api/v1/channels/$firstChannelId/answer", """{"answer":"accept"}""")
                 val firstIdentToolSessionId = post("/orchestrator/api/v1/channels/$firstChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
@@ -123,6 +130,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 currentBindingKeyRef = "a-completely-different-binding-key"
                 val secondChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
                 enrollEmail(secondChannelId)
+                enrollSms(secondChannelId)
                 post("/orchestrator/api/v1/channels/$secondChannelId/answer", """{"answer":"accept"}""")
                 val secondIdentToolSessionId = post("/orchestrator/api/v1/channels/$secondChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 

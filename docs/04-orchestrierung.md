@@ -365,18 +365,34 @@ Platzhalter-Account (`AccountProfile(accountId = -1, ...)`) — tragfähig, weil
 `CandidateTools.forEnrollment` nur `authenticationMethods`/`emailConfirmed` liest, die für ein
 brandneues Konto ohnehin leer/`false` sind.
 
-Dieselbe Pflichtkaskade wie `RegisterState`/`AuthEnrollCore` (Verfahren → E-Mail-Bestätigung →
-Web-Passwort, Abschnitt 8), aber ohne vorherige Identifikation. Erst wenn jede Pflicht erledigt
-ist, wird Identifikation **einmalig angeboten, nie erzwungen** — über die bereits bestehende
-`RE_IDENTIFY`-Sub-Journey (`Transition.RequireSubJourney`). Bei Ablehnung oder wenn nichts
-anzubieten ist, endet die Journey trotzdem erfolgreich (`Transition.Authenticated`); das Konto
-bleibt dauerhaft unidentifiziert, ist aber angemeldet. Identifiziert sich dabei eine Person, die
-bereits zu einem anderen Konto gehört, bricht `RE_IDENTIFY` selbst mit Fehlermeldung ab — es wird
-nichts zusammengeführt.
+**Verpflichtende Reihenfolge E-Mail → SMS**: Anders als `RegisterState`/`AuthEnrollCore` (freie
+Wahl unter allen Enrollment-Kandidaten) erzwingt diese Variante zuerst E-Mail-Enrollment
+(`EnrollFirstEnrollingEmail`), danach SMS-Enrollment (`EnrollFirstEnrollingSms`) — beides einzeln
+nicht überspringbar: Ablehnen (`Abandoned`) bietet denselben Schritt erneut an, es gibt keinen
+Sprung nach vorn. Ist eines der beiden Tools gerade admin-seitig gesperrt/nicht verfügbar, wird
+genau dieser Schritt übersprungen (nicht die Journey blockiert). Erst danach greift dieselbe
+Pflichtkaskade wie `RegisterState`/`AuthEnrollCore` (weiteres Verfahren falls das Niveau noch nicht
+reicht → E-Mail-Bestätigung → Web-Passwort, Abschnitt 8) — `EnrollFirstEnrolling` ist dabei nur
+noch der Auffangzustand für das, was E-Mail+SMS allein nicht abdecken (z. B. ein höheres
+Sicherheitsniveau) oder für den Fall, dass beim Start weder E-Mail noch SMS verfügbar waren (dann
+startet die Journey direkt hier, mangels Konto noch mit der freien Auswahl). Erst wenn jede Pflicht
+erledigt ist, wird Identifikation **einmalig angeboten, nie erzwungen** — über die bereits
+bestehende `RE_IDENTIFY`-Sub-Journey (`Transition.RequireSubJourney`). Bei Ablehnung oder wenn
+nichts anzubieten ist, endet die Journey trotzdem erfolgreich (`Transition.Authenticated`); das
+Konto bleibt dauerhaft unidentifiziert, ist aber angemeldet. Identifiziert sich dabei eine Person,
+die bereits zu einem anderen Konto gehört, bricht `RE_IDENTIFY` selbst mit Fehlermeldung ab — es
+wird nichts zusammengeführt.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> EnrollFirstEnrolling
+  [*] --> EnrollFirstEnrollingEmail
+  EnrollFirstEnrollingEmail --> EnrollFirstEnrollingEmail: abgelehnt - derselbe Schritt wird erneut angeboten
+  EnrollFirstEnrollingEmail --> EnrollFirstEnrollingSms: E-Mail eingerichtet, oder E-Mail-Tool nicht verfügbar
+  EnrollFirstEnrollingSms --> EnrollFirstEnrollingSms: abgelehnt - derselbe Schritt wird erneut angeboten
+  EnrollFirstEnrollingSms --> EnrollFirstEnrolling: SMS eingerichtet (oder Tool nicht verfügbar), aber Niveau reicht noch nicht
+  EnrollFirstEnrollingSms --> EnrollFirstConfirmingEmail: SMS eingerichtet, Niveau erreicht, E-Mail-Pflicht noch offen
+  EnrollFirstEnrollingSms --> EnrollFirstPasswordObligation: SMS eingerichtet, Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  EnrollFirstEnrollingSms --> IdentifizierungAnbieten: SMS eingerichtet, Niveau erreicht, keine Pflicht offen
   EnrollFirstEnrolling --> EnrollFirstEnrolling: Methode eingerichtet, Niveau reicht noch nicht
   EnrollFirstEnrolling --> EnrollFirstConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
   EnrollFirstEnrolling --> EnrollFirstPasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
@@ -393,7 +409,14 @@ stateDiagram-v2
     Sub-Journey RE_IDENTIFY,
     optional - Konto bleibt bei
     Ablehnung dauerhaft
-    unidentifiziert.
+    unidentifiziert. Eigener
+    Text ueber ReIdentifyState.
+    Wording (Abschnitt
+    "RE_IDENTIFY") - keine
+    "erneut"/"nicht erreichbar"
+    Formulierung, das Konto
+    wurde nie zuvor
+    identifiziert.
   end note
 ```
 
@@ -524,8 +547,9 @@ reicht.
 
 ### `RE_IDENTIFY`
 
-Geteilt von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP` (jeweils oben verlinkt) — eine einzige
-Implementierung statt drei fast identischer, damit auch nur an einer Stelle entschieden wird, was
+Geteilt von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP` (jeweils oben verlinkt) sowie vom
+„Enrollment zuerst"-Experiment (`RegisterEnrollFirstStrategy`, Abschnitt „REGISTER") — eine einzige
+Implementierung statt vier fast identischer, damit auch nur an einer Stelle entschieden wird, was
 eine frische Identifizierung hier bedeuten darf. Nie ein Entry-Intent, nur über
 `Transition.RequireSubJourney` erreichbar.
 
@@ -545,6 +569,17 @@ identifizieren?") — Re-Identifizierung ist eine schwerere Aktion als ein weite
 auszuwählen, also nie ein stiller Rückfall. `Identifying` trägt `targetAcr`/`startingAcr` sowie
 Angebot und Ablehnungen wie jeder andere Fallback-Zustand; `ident-fsc`/`ident-eid` erreichen
 `loa2`/`loa3` im Alleingang.
+
+Der Text „Erneut identifizieren? Mit den vorhandenen Anmeldeverfahren ist das geforderte
+Sicherheitsniveau nicht erreichbar…" passt nur für drei der vier Aufrufer (`FAST_ACCESS`/
+`LOOKUP_LOGIN`/`STEP_UP`: echter Rückfall, weil keine aktive Methode das Ziel-Niveau erreicht).
+Für `RegisterEnrollFirstStrategy`s abschließendes Angebot ist er sachlich falsch — der Account
+wurde nie zuvor identifiziert, und jede Pflicht ist zu diesem Zeitpunkt bereits erfüllt, nichts ist
+„nicht erreichbar". Deshalb trägt `ReIdentifyState` (und darüber `forSubJourney(targetAcr,
+startingAcr, wording)`) ein optionales `Wording` (Titel/Beschreibung/Button-Text für `OfferReIdent`
+und `Identifying`), das genau dieser Aufrufer mit eigenem Text belegt — `null` (jeder andere
+Aufrufer) behält den obigen Standardtext. Gleiches Muster wie `StepUpState.forSubJourney`s eigenes
+`reason`.
 
 `startingAcr` ist der einzige Hinweis, den `onCancel` hier hat, um bei Ablehnung korrekt
 zurückzufallen: `"none"` bedeutet, der aufrufende Kanal war noch gar nicht authentifiziert
@@ -689,8 +724,8 @@ hinter einem Step-up versteckt sein, den der Nutzer vielleicht gar nicht durchla
 stateDiagram-v2
   [*] --> ConfirmPending
   ConfirmPending --> [*]: abgelehnt -> Cancel
-  ConfirmPending --> ConfirmationRequired: loa2 bereits erreicht
-  ConfirmPending --> STEP_UP: loa2 noch nicht erreicht
+  ConfirmPending --> ConfirmationRequired: gefordertes Niveau bereits erreicht
+  ConfirmPending --> STEP_UP: gefordertes Niveau noch nicht erreicht
   STEP_UP --> ConfirmPending: SubJourneyFinished -> sofort Perform(DeleteAccount)
   STEP_UP --> [*]: SubJourneyCancelled -> Cancel
   ConfirmationRequired --> ConfirmationRequired: ein Tool abgelehnt, weitere übrig
@@ -700,13 +735,24 @@ stateDiagram-v2
 ```
 
 `ConfirmPending` ist ein `AnswerableState` mit `destructive: true`-Prompt. Nach Zustimmung greift
-dasselbe loa2-Gate wie bei `MANAGE_AUTH_METHODS`. Musste ein Step-up laufen, zählt der dabei
-erbrachte Nachweis bereits — kein redundanter zweiter Nachweis. Der Übergang am Ende ist
+dasselbe Gate wie bei `MANAGE_AUTH_METHODS`, aber auf ein Niveau, das `Action.DeleteAccount
+.requiredAcr(account)` je Account bestimmt: loa2 für einen identifizierten Account, nur loa1 für
+einen, der nie identifiziert wurde (`personId == null` — der "Enrollment zuerst"-Fall, Abschnitt
+„REGISTER"). Begründung: ohne gebundene Identität/Stammdaten gibt es nichts, was eine gekaperte
+loa1-Session durch die Löschung zusätzlich zur Registrierung selbst preisgeben könnte — die
+Löschung ist dann nicht sensibler als das Enrollment war. Da ein `AUTHENTICATED`-Kanal dieses
+Niveau i. d. R. schon durch die Registrierung selbst mitbringt, überspringt `ConfirmPending` den
+`STEP_UP`-Zweig hier meist ganz und geht direkt zu `ConfirmationRequired` — der abschließende
+Re-Proof (irgendein aktiver Faktor, beliebiges Niveau) bleibt trotzdem Pflicht, nie ein stiller
+Auto-Delete. Musste doch ein Step-up laufen, zählt der dabei erbrachte Nachweis bereits — kein
+redundanter zweiter Nachweis. Der Übergang am Ende ist
 `Transition.Perform(Action.DeleteAccount(accountId), resumeState = ConfirmPending)`, aufgelöst zu
 `Transition.Logout` sobald die Journey mit `ActionCompleted` fortgesetzt wird: Account löschen,
-Kanal beenden. Der Nachweis in `ConfirmationRequired` läuft aus demselben Grund direkt in
-`Action.DeleteAccount`, nie über `Action.AcceptProof` — er autorisiert genau diese eine Löschung,
-nie eine dauerhafte `MethodEvidence` (Abschnitt 5).
+Kanal beenden. `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung
+unabhängig erneut nach (dieselbe Absicherung wie beim Selbst-Aussperr-Check vor `Action.Remove`).
+Der Nachweis in `ConfirmationRequired` läuft aus demselben Grund direkt in `Action.DeleteAccount`,
+nie über `Action.AcceptProof` — er autorisiert genau diese eine Löschung, nie eine dauerhafte
+`MethodEvidence` (Abschnitt 5).
 
 ### `LOGOUT`
 

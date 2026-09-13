@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
@@ -283,7 +284,7 @@ sealed interface Action {
 
     /**
      * Delete the account and everything it owns. An irreversible action, so [JourneyService]
-     * independently re-checks [REQUIRED_ACR] against the CURRENT evidence right before executing
+     * independently re-checks [requiredAcr] against the CURRENT evidence right before executing
      * it, exactly like it independently re-checks self-lockout before [Remove].
      */
     data class DeleteAccount(val accountId: Long) : Action {
@@ -292,8 +293,16 @@ sealed interface Action {
              * The ACR JourneyService independently re-checks right before executing this action.
              * Lives here rather than in `DeleteAccountStrategy` so the generic machine can
              * reference it without importing a concrete [IntentStrategy] implementation.
+             *
+             * loa1 suffices for an account that was never identified ([AccountProfile.personId]
+             * `== null` - the "Enrollment zuerst" case, docs/04-orchestrierung.md REGISTER): there
+             * is no bound identity/Stammdaten a hijacked loa1 session could erase beyond what the
+             * enrollment itself already exposed, so deleting it is no more sensitive than the
+             * enrollment was. Every identified account still requires loa2, same gate as
+             * `ManageAuthMethodsStrategy`.
              */
-            const val REQUIRED_ACR = "loa2"
+            fun requiredAcr(account: AccountProfile?): String =
+                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else "loa2"
         }
     }
 }

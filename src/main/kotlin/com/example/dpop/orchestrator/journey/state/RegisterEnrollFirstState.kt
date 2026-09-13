@@ -32,6 +32,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstStart::class, name = "EnrollFirstStart"),
+    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrollingEmail::class, name = "EnrollFirstEnrollingEmail"),
+    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrollingSms::class, name = "EnrollFirstEnrollingSms"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrolling::class, name = "EnrollFirstEnrolling"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstConfirmingEmail::class, name = "EnrollFirstConfirmingEmail"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstPasswordObligation::class, name = "EnrollFirstPasswordObligation")
@@ -52,6 +54,42 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override val selectionContext: String get() = "enrollment"
     }
 
+    /**
+     * Forced, mandatory first step - only email-method ENROLLMENT tools are offered, and declining
+     * (`Abandoned`) simply re-offers the same set (see `reoffer`): there is no skipping ahead to
+     * [EnrollFirstEnrollingSms] short of actually completing an email enrollment. Only bypassed if
+     * no email-method tool is available at all right now (admin-disabled) - see
+     * `RegisterEnrollFirstStrategy.offerEmailEnrollment`.
+     */
+    data class EnrollFirstEnrollingEmail(
+        override val offered: List<String>,
+        override val declined: Set<String> = emptySet(),
+        override val active: ToolRef? = null
+    ) : RegisterEnrollFirstState, OfferingState {
+        override fun withActive(active: ToolRef?) = copy(active = active)
+        override val selectionContext: String get() = "enrollment"
+        override val selectionTitle: String get() = "E-Mail als Anmeldeverfahren einrichten"
+        override val selectionDescription: String get() = "Zuerst wird E-Mail als Anmeldeverfahren eingerichtet - SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss."
+    }
+
+    /** Forced, mandatory second step, reached only once [EnrollFirstEnrollingEmail] is discharged (or skipped, see there) - same non-skippable reasoning. */
+    data class EnrollFirstEnrollingSms(
+        override val offered: List<String>,
+        override val declined: Set<String> = emptySet(),
+        override val active: ToolRef? = null
+    ) : RegisterEnrollFirstState, OfferingState {
+        override fun withActive(active: ToolRef?) = copy(active = active)
+        override val selectionContext: String get() = "enrollment"
+        override val selectionTitle: String get() = "SMS als Anmeldeverfahren einrichten"
+        override val selectionDescription: String get() = "Danach wird SMS als zweites Anmeldeverfahren eingerichtet - die Identifikation ist optional und kommt erst zum Schluss."
+    }
+
+    /**
+     * Fallback for whatever the mandatory email/SMS steps above didn't already cover: reached only
+     * when the ACR floor still isn't reachable after both (e.g. it requires a method neither email
+     * nor SMS can provide), or when NEITHER was available at all when the journey started (in which
+     * case this is where it started from instead, see `RegisterEnrollFirstStrategy.offerEnrollment`).
+     */
     data class EnrollFirstEnrolling(
         override val offered: List<String>,
         override val declined: Set<String> = emptySet(),
@@ -60,7 +98,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
-        override val selectionDescription: String get() = "Richten Sie zuerst ein Anmeldeverfahren ein - die Identifikation ist optional und folgt erst danach."
+        override val selectionDescription: String get() = "Richten Sie ein Anmeldeverfahren ein - die Identifikation ist optional und folgt erst danach."
     }
 
     data class EnrollFirstConfirmingEmail(
