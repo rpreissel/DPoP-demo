@@ -105,7 +105,13 @@ class EnrollEmailToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: EnrollEmailPatchRequest()
-        val outcome = handler.patch(toolSessionId, body.email, body.code)
+        // Normalized the same way EnrollEmailFlow validates it (trim+lowercase), purely to key
+        // the send-throttle before the handler runs - see ToolEndpoint.isSendThrottledForContact.
+        val sendThrottled = body.email
+            ?.trim()?.lowercase()
+            ?.let { toolEndpoint.isSendThrottledForContact(it) }
+            ?: false
+        val outcome = handler.patch(toolSessionId, body.email, body.code, sendThrottled)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

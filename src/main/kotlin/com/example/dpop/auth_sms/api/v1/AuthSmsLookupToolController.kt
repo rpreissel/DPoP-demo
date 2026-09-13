@@ -117,9 +117,13 @@ class AuthSmsLookupToolController(
             // active sms method; the handler treats that identically to a wrong TAN.
             // A throttled account drops to null and is handled exactly like an unknown address -
             // never as its own error, which would leak account existence (ToolEndpoint.isLockedOut).
-            // It also means no TAN is sent, so this endpoint can't be used to flood a number.
+            // isSendThrottled bounds the resend itself (ToolEndpoint.isSendThrottled): resubmitting
+            // the same email restarts the flow with a fresh TAN every time, so without this an
+            // attacker who merely knows the address could flood the victim's phone with real SMS.
             val resolved = accountDirectory.resolveAccountByEmail(body.email)
-            val accountId = resolved.takeUnless { toolEndpoint.isLockedOut(it) }
+            val accountId = resolved
+                ?.takeUnless { toolEndpoint.isLockedOut(it) }
+                ?.takeUnless { toolEndpoint.isSendThrottled(it) }
             val enrollmentRef = accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             handler.submitEmail(toolSessionId, accountId, enrollmentRef)
         } else {

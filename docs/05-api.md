@@ -212,6 +212,13 @@ Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer ges
 Wer angemeldet ist, gehört dagegen zu den **ID-Token-Claims** (`GET .../idclaims`, s. u.), nicht in
 diesen Block — dafür ist diese Ressource da, kein zweiter Träger derselben Aussage.
 
+### Journey-Log (`GET /journey-log`, `GET /channels/{channelSessionId}/journey-log`)
+
+Debug/Demo-Ansicht, kein Audit-Trail (der liegt in `SessionEvent`, [Betrieb](07-betrieb.md) Abschnitt 2). Zwei Varianten, beide `dpop`-authentifiziert:
+
+- `GET /orchestrator/api/v1/journey-log`: jeder je aufgezeichnete Journey-Schritt unter dem eigenen `bindingKeyRef` des Aufrufers, neuestes zuerst, über alle `channelSessionId`s dieses Geräts hinweg (`JourneyLogController`). `bindingKeyRef` kommt aus dem validierten DPoP-Proof selbst — keine separate Autorisierungsprüfung nötig.
+- `GET /channels/{channelSessionId}/journey-log`: jeder Journey-Schritt unter dem **Account**, an den dieser Kanal gebunden ist, kanalübergreifend (APP wie KEYCLOAK), nicht nur unter diesem einen Kanal. Leer statt Fehler, solange der Kanal noch keinen Account gebunden hat.
+
 ### `GET /app/channels/device-link`
 
 Reiner Read: ob dieses Gerät (DPoP-Proof, keine `channelSessionId` nötig) bereits an einen Account
@@ -387,6 +394,19 @@ Klassifikation wortgleich dupliziert — genau dort hatte die ACR/AMR-Übernahme
 „Anmeldeverfahren verwalten" gefehlt (das Access-Token blieb fälschlich bei `loa1`).
 
 ---
+
+### Server-zu-Server: Keycloaks natives Passwort-Credential (`MgmtPasswordController`)
+
+Stateless, ohne Channel/ToolSession — anders als die App-Kanal-Tools `auth-password`/
+`enroll-password`, für die Keycloaks native `OrchestratorPasswordStorageProvider`-SPI Passwörter
+auf dem bereits über `orchestratorAccountId`-User-Attribut bekannten Account verifizieren/setzen
+muss, ohne selbst einen Kanal zu haben. Authentifiziert über dieselbe `kc-peer-auth`-Signatur wie
+andere Peer-Aufrufe ([DPoP-Bindung](09-dpop.md)/[12-entscheidungen.md](12-entscheidungen.md)
+ADR-7), aber mit `channel_anchor` zweckentfremdet: statt eines Kanal-Ankers trägt das Claim hier
+die `accountId`, gegen den Pfad-Parameter geprüft (`htu` bindet den Pfad ohnehin bereits ab).
+
+- `POST /orchestrator/api/v1/tools/auth-password/mgmt/{accountId}` — `{"password": "..."}` gegen das gespeicherte Credential prüfen, Antwort `{"valid": true|false}`.
+- `POST /orchestrator/api/v1/tools/enroll-password/mgmt/{accountId}` — `{"newPassword": "..."}` setzt ein neues Credential und deaktiviert das bisherige `password`-Mittel des Accounts, `204`.
 
 ## 4) Hybrid-Modell: Prozess-API + Tool-Ressourcen
 

@@ -25,9 +25,16 @@ class JwkThumbprintService {
         }
     }
 
+    /**
+     * RFC 7638 SS3.2/3.3 requires the JSON member names in LEXICOGRAPHIC order, not the order
+     * they happen to appear in the source JWK - hence the [sortedMapOf] rather than a
+     * [LinkedHashMap]. Getting this wrong doesn't break the demo internally (every comparison
+     * here is against a value this same method computed), but produces a thumbprint that would
+     * NOT match a standards-conformant peer's (e.g. a real Keycloak `cnf.jkt`).
+     */
     private fun extractRequiredMembers(jwk: JWK): Map<String, Any> {
         val members = jwk.toJSONObject()
-        val required = linkedMapOf<String, Any>()
+        val required = sortedMapOf<String, Any>()
         val kty = members["kty"] as String?
             ?: throw DpopValidationException("JWK is missing kty")
         required["kty"] = kty

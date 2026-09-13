@@ -5,11 +5,12 @@ beschriebenen Zielzustand zu erreichen) ist abgearbeitet — Status siehe
 [README.md](README.md#umsetzungsstatus). Dieses Dokument hält nur noch die beiden bewussten
 Scope-Entscheidungen fest, auf die der Code an mehreren Stellen verweist:
 
-- **Keycloak-Anbindung explizit ausgeklammert**: die kc-Fassade (`/orchestrator/api/v1/kc/...`)
-  und der echte `AuthContext`↔Keycloak-Tokenfluss sind nicht gebaut. `AuthContext` trägt die
-  entsprechenden Felder (`keycloakSessionId`/`keycloakSubject`/`tokenHandle`) für die Form des
-  Zielmodells, sie bleiben aber ungenutzt/`null` — der App-Kanal läuft ausschließlich über
-  `bindingKeyRef` (DPoP).
+- **Keycloak-Anbindung ist umgesetzt** (siehe [12-entscheidungen.md](12-entscheidungen.md) ADR-7/
+  ADR-8/ADR-9): die kc-Fassade (`KcChannelController`/`KcMeController`/`KeycloakSyncController`
+  unter `/orchestrator/api/v1/kc/...`) sowie der reale `AuthContext`↔Keycloak-Tokenfluss
+  (`keycloakSessionId`/`keycloakSubject`/`tokenHandle`, befüllt über `KcTokenProvider`/
+  `KeycloakAdminClient`) existieren. Der App-Kanal (DPoP, `bindingKeyRef`) und der Web-Kanal
+  (Keycloak-Session) laufen als zwei getrennte, jeweils vollständige Zugangswege nebeneinander.
 - **`AuthPolicy.resolveAcr` (amr→acr-Abbildung) ist bewusst vorläufig**: Welche Kombination von
   Nachweisen welches Sicherheitsniveau ergibt, ist fachlich/regulatorisch offen und wird hier
   nicht endgültig festgeschrieben — die aktuelle Implementierung ist ein klar als solcher

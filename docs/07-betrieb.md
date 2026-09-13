@@ -16,6 +16,7 @@ Standardfehler (Ist und Soll):
 - `410 Gone`: process expired/consumed/abgebrochen nach erschöpften Retries
 - `422 Unprocessable Entity`: fachlich unverarbeitbarer Request, der kein Nutzereingabefehler ist (z. B. unbekannte `enrollmentRef`, fehlendes Enrollment)
 - `423 Locked`: Account durch zu viele fehlgeschlagene AUTH-Versuche gesperrt (`ACCOUNT_LOCKED`, `OrchestratorException.accountLocked()`, siehe Abschnitt 4)
+- `429 Too Many Requests`: Rate-Limit erreicht, kein Sperr-/Fehlerzustand des Accounts (`OrchestratorException.tooManyRequests()`, siehe Abschnitt 4 — `ChannelCreationThrottleService`, gekeyt auf `bindingKeyRef`)
 
 Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Versuche mit verbleibenden Retries. Sie liefern `200` plus `next` (Retry-Regel in [Orchestrierung](04-orchestrierung.md)).
 
@@ -44,7 +45,7 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 | `SessionEvent` | `createdAt` | 90 Tage | eigene Audit-Frist, überlebt die Sessions bewusst |
 | `AuthSmsEnrollment` | — | kein Session-Cleanup | Bestandteil des Accounts, lebt bis zur Methodenlöschung |
 | `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst (Migration `V5__add_device_account_link.sql`, [DPoP-Bindung](09-dpop.md) Abschnitt 3) |
-| `LoginAttemptThrottle` | — | kein Session-Cleanup | account-gebundener Fehlversuchszähler (Abschnitt 4), überlebt jede einzelne Session; wird nur durch einen erfolgreichen Auth-Abschluss zurückgesetzt |
+| `AttemptThrottle` | — | kein Session-Cleanup | Fehlversuchs-/Versand-Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4), überlebt jede einzelne Session; die beiden Fehlversuchs-Scopes werden nur durch einen erfolgreichen Auth-/Ident-Abschluss zurückgesetzt, die drei Fenster-Scopes laufen einfach ab |
 | `account_keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
 
 Umgang mit den Referenzen:
@@ -55,16 +56,43 @@ Umgang mit den Referenzen:
 - **Account-Objekte sind für den Session-Cleanup tabu**: `AuthSmsEnrollment`, `account.authenticationMethods`, `account.identifications`, `DeviceAccountLink` und `LoginAttemptThrottle` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, die Geräte-Wiedererkennung kappen oder den Brute-Force-Schutz aushebeln. `account.identifications` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
 - **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3) - der Orchestrator erfährt nie aktiv davon. `RetentionJob` prüft deshalb für bereits abgelaufene `KEYCLOAK`-Kanäle zusätzlich per Keycloak-Admin-API, ob die zugehörige Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf statt erst nach der vollen Retention-Frist. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) führt nie zu einem verfrühten Löschen - sie fällt zurück auf die normale zeitbasierte Frist.
 
-## 4) Kontosperre bei wiederholten Fehlversuchen (Brute-Force-Schutz)
+## 4) Kontosperre, Rate-Limits und Versand-Drosselung (Brute-Force-/Bombing-Schutz)
 
-`LoginAttemptThrottle` (Entität) + `LoginThrottleService` (`src/main/kotlin/com/example/dpop/orchestrator/session/`) sperren einen Account **account-bezogen**, nicht sitzungsbezogen — bewusst unabhängig vom bereits bestehenden `ToolSession.retryCount` (Abschnitt 3, Retry-Regel in [Orchestrierung](04-orchestrierung.md) Abschnitt 1).
+Gemeinsame Basis: `AttemptThrottle` (Entität, PK `(scope, subject)`) + `AttemptCounter`
+(`src/main/kotlin/com/example/dpop/orchestrator/session/`). `scope` (`ThrottleScope`) trennt
+mehrere Zählräume, die sich denselben Mechanismus teilen, aber nie denselben Schlüsselraum — darauf
+aufbauend je ein benannter `@Service` mit eigenem Vokabular und eigenen Limits:
 
-- Warum zusätzlich zu `retryCount` nötig: `retryCount` liegt auf der `ToolSession` und zählt deshalb nur innerhalb *eines* Tool-Anlaufs. Ein Client kann per erneutem `POST .../tools/{toolId}` jederzeit einen neuen Anlauf starten und damit einen frischen Zähler bei `0` — das allein schließt keinen Angriff aus, der beliebig viele Anläufe gegen denselben Account startet, insbesondere sobald ein geräteunabhängiger, lookup-basierter Login existiert (noch offener Punkt).
-- Geprüft nur für Kategorie `AUTH` (`ToolControllerSupport.beginActivation`/`applyOutcome`): IDENT-/ENROLL-Fehlschläge sind kein Brute-Force-Ziel im selben Sinn, da dort kein Credential erraten, sondern eine Identität festgestellt oder ein neues Mittel eingerichtet wird.
-- Schwellwerte: `MAX_FAILURES = 5`, `LOCKOUT_DURATION = 15 Minuten`.
-- Gesperrter Account: `423 Locked` (`OrchestratorException.accountLocked()`, Fehlercode `ACCOUNT_LOCKED`, Abschnitt 1).
-- Ein erfolgreicher AUTH-Abschluss setzt den Zähler zurück (`recordSuccess`), auch wenn zuvor kein Fehlversuch vorlag (dann ein No-op).
-- Migration: `V8__add_login_attempt_throttle.sql`. Aufbewahrung: siehe Tabelle in Abschnitt 3 — kein Session-Cleanup, der Zähler ist Bestandteil des Accounts.
+| Service | Scope | Zählt | Antwort bei Überschreitung |
+|---|---|---|---|
+| `LoginThrottleService` | `ACCOUNT` | Fehlgeschlagene AUTH-Versuche gegen ein Konto | `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH; bei LOOKUP_AUTH in die gewöhnliche "E-Mail/Code ungültig"-Antwort gefaltet (kein eigener Fehler — sonst Enumeration-Oracle) |
+| `IdentThrottleService` | `PERSON` | Fehlgeschlagene IDENT-Versuche gegen eine Person (`ident-fsc`/`ident-eid` raten je ein Geheimnis; ein Treffer übernimmt das Konto) | immer in die gewöhnliche Fehlerantwort gefaltet, nie eigener Fehler |
+| `ChannelCreationThrottleService` | `BINDING_KEY` | Kanaleröffnungen pro DPoP-Binding-Key (rollierendes Fenster, jeder Versuch zählt) | `429 Too Many Requests` |
+| `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | TAN-/Code-**Versendungen**, unabhängig von richtig/falsch (rollierendes Fenster, 3/10 Min) | `ACCOUNT_SEND` (LOOKUP_AUTH, Ziel bereits als Konto aufgelöst) in die gewöhnliche Fehlerantwort gefaltet; `CONTACT_SEND` (Self-Service-ENROLL, Ziel = vom Anrufer selbst gewählte Adresse, Subject SHA-256-gehasht statt Klartext) darf offen als eigener Fehler zurückkommen |
+
+- Warum zusätzlich zu `ToolSession.retryCount` nötig (Abschnitt 3, Retry-Regel in
+  [Orchestrierung](04-orchestrierung.md) Abschnitt 1): `retryCount` liegt auf der `ToolSession` und
+  zählt deshalb nur innerhalb *eines* Tool-Anlaufs. Ein Client kann per erneutem
+  `POST .../tools/{toolId}` (bzw. bei LOOKUP-Tools: per erneutem `PATCH` mit derselben Adresse auf
+  derselben `toolSessionId`) jederzeit einen neuen Anlauf starten. `ACCOUNT`/`PERSON` schließen das
+  für falsche Rateversuche; `ACCOUNT_SEND`/`CONTACT_SEND` schließen zusätzlich das reine
+  *Neu-Versenden* selbst — ohne das wäre `auth-sms-lookup`/`auth-email-lookup`/`enroll-sms`/
+  `enroll-email` ein freies SMS-/Mail-Bombing gegen jede bekannte Kontaktadresse, denn ein
+  wiederholtes Absenden derselben Adresse ist nie selbst ein falscher Rateversuch und löst deshalb
+  `recordFailure` nie aus.
+- ENROLL-Fehlschläge selbst bleiben weiterhin außerhalb von `LoginThrottleService`/
+  `IdentThrottleService` (`ToolControllerSupport.chargeThrottles`, `ToolCategory.ENROLL -> Unit`):
+  beim Einrichten wird kein bestehendes Credential erraten, das Konto wählt sein eigenes Geheimnis
+  selbst. Der Versand *während* eines ENROLL-Vorgangs ist trotzdem ein Ziel und wird separat über
+  `CONTACT_SEND` begrenzt (Zeile oben).
+- Schwellwerte Fehlversuche: `MAX_FAILURES = 5`, `LOCKOUT_DURATION = 15 Minuten`. Schwellwerte
+  Kanaleröffnung: `20`/`5 Minuten`. Schwellwerte Versand: `3`/`10 Minuten`.
+- Ein erfolgreicher AUTH-/IDENT-Abschluss setzt den jeweiligen Zähler zurück (`recordSuccess`),
+  auch wenn zuvor kein Fehlversuch vorlag (dann ein No-op). Versand- und Kanal-Throttles kennen
+  keinen Reset — sie sind reine rollierende Fenster.
+- Migration: `V15__security_hardening.sql` (ersetzt die frühere kontobezogene
+  `login_attempt_throttle`, siehe deren eigener Kommentar). Aufbewahrung: siehe Tabelle in
+  Abschnitt 3 — kein Session-Cleanup, der Zähler ist Bestandteil des Accounts bzw. der Kontaktadresse.
 
 ## 5) QR-Login (`auth_qr`): Pairing-Code-Sicherheit
 

@@ -112,9 +112,15 @@ class AuthEmailLookupToolController(
         val outcome = if (body.email != null) {
             // Resolved here only to key the throttle - the handler still owns the e-mail
             // semantics (confirmed vs. merely known) via its declared `auth_email -> account`
-            // dependency. A locked account is passed as `throttled` rather than raised as an
-            // error, so the response stays indistinguishable from an unknown address.
-            val throttled = toolEndpoint.isLockedOut(accountDirectory.resolveAccountByEmail(body.email))
+            // dependency. A locked OR send-throttled account is passed as `throttled` rather than
+            // raised as an error, so the response stays indistinguishable from an unknown address.
+            // isSendThrottled bounds the resend itself (ToolEndpoint.isSendThrottled): resubmitting
+            // the same email restarts the flow with a fresh code every time, so without this an
+            // attacker who merely knows the address could flood the victim's inbox with real mail.
+            val resolvedAccountId = accountDirectory.resolveAccountByEmail(body.email)
+            val throttled = resolvedAccountId?.let {
+                toolEndpoint.isLockedOut(it) || toolEndpoint.isSendThrottled(it)
+            } ?: false
             handler.submitEmail(toolSessionId, body.email, throttled)
         } else {
             handler.patch(toolSessionId, body.code)

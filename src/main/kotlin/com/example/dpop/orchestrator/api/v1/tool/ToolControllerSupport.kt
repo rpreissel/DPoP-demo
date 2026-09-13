@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.IdentThrottleService
 import com.example.dpop.orchestrator.session.LoginThrottleService
+import com.example.dpop.orchestrator.session.SendThrottleService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
@@ -55,6 +56,7 @@ class ToolControllerSupport(
     private val accountService: AccountService,
     private val loginThrottleService: LoginThrottleService,
     private val identThrottleService: IdentThrottleService,
+    private val sendThrottleService: SendThrottleService,
     private val channelService: ChannelService,
     private val journeyService: JourneyService,
     private val toolAvailabilityService: ToolAvailabilityService
@@ -213,6 +215,12 @@ class ToolControllerSupport(
 
     override fun isIdentLockedOut(personId: Long?): Boolean =
         personId?.let { identThrottleService.isLocked(it) } ?: false
+
+    override fun isSendThrottled(accountId: Long?): Boolean =
+        accountId?.let { sendThrottleService.isThrottled(it) } ?: false
+
+    override fun isSendThrottledForContact(contact: String): Boolean =
+        sendThrottleService.isThrottledForContact(contact)
 
     /**
      * Charges the brute-force counter that matches what this tool actually attempted.

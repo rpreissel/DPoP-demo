@@ -52,9 +52,19 @@ class EnrollEmailToolHandler(
         return outcomeFor(EnrollEmailState.AwaitingEmail)
     }
 
-    /** Called directly by EnrollEmailToolController, not generically dispatched (docs/08-projektrahmen.md A11). */
+    /**
+     * Called directly by EnrollEmailToolController, not generically dispatched
+     * (docs/08-projektrahmen.md A11).
+     *
+     * [sendThrottled] is resolved by the controller BEFORE this runs (auth_email may not depend on
+     * `orchestrator`, so it cannot ask the throttle itself) - see `ToolEndpoint.isSendThrottledForContact`.
+     * It only matters when the decision turns out to be [EnrollEmailDecision.RequestCode]: without
+     * it, an attacker who merely knows an email address could resubmit it to this tool indefinitely
+     * and use it as a free mail bomb, since resubmitting an address is never itself a wrong guess
+     * and so never trips the ordinary throttle.
+     */
     @Transactional
-    fun patch(toolSessionId: UUID, email: String?, code: String?): ToolOutcome {
+    fun patch(toolSessionId: UUID, email: String?, code: String?, sendThrottled: Boolean = false): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-email tool session: $toolSessionId" }
 
         return when (val decision = EnrollEmailFlow.decide(data.toState(), EnrollEmailInput(email, code), emailCodeGenerator)) {
@@ -70,6 +80,8 @@ class EnrollEmailToolHandler(
                 // other method module's own account access) is enough; no `account` dependency needed.
                 if (accountDirectory.resolveAccountByEmail(decision.email) != null) {
                     ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
+                } else if (sendThrottled) {
+                    ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")
                 } else {
                     val issued = emailCodeGenerator.issue()
                     data.email = decision.email

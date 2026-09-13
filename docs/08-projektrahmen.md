@@ -64,11 +64,13 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M4 | `account` | Verwaltung von Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
 | M5 | `ext_stammdaten` | Zugriff auf externe Stammdaten; verwaltet `Person`-Entitäten mit Adressdaten; implementiert den `tool_api`-Port `PersonDirectory` |
 | M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`), voraussetzungsgebunden über `ToolDescriptor.requiresConfirmedEmail` ([Tool-Architektur](03-tool-architektur.md)) |
-| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`); bewusst eigenständiges Modul statt Teil von `auth_sms` (eigener `EmailCodeGenerator`, [Tool-Architektur](03-tool-architektur.md)) |
+| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`); bewusst eigenständiges Modul statt Teil von `auth_sms` (eigener `EmailCodeGenerator`, [Tool-Architektur](03-tool-architektur.md)); als eines der wenigen Methodenmodule zusätzlich mit `allowedDependencies` auf `account` (nur für `AuthEmailLookupToolHandler`/`AuthEmailUseToolHandler`, die volle `AccountProfile`-Daten brauchen — reale, deklarierte Ausnahme, siehe `auth_email/ModuleMetadata.kt`) |
 | M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …); außerdem der generische, tool-lose `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
 | M9 | `tool_spi` | Reine Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
 | M10 | `id_eid` | Zweite Identifizierungsfunktionalität (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bringt den eigenen `@RestController` mit |
 | M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff nötig; bringt die eigenen `@RestController` mit |
+| M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); bringt die eigenen `@RestController` mit, keine `account`-Abhängigkeit |
+| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein echtes Orchestrator-Konto samt Demo-Passwort an (`AccountService.confirmEmail`/`addAuthenticationMethod`/`findOrCreateAccount` über `account`, `PasswordCredentialPort`/`PersonDirectory` über `tool_api`); kein eigener `@RestController` |
 
 ### Modulabhängigkeiten (C4 Component View)
 

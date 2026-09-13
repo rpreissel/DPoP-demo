@@ -37,9 +37,19 @@ class EnrollSmsToolHandler(
         return outcomeFor(EnrollSmsState.AwaitingPhoneNumber)
     }
 
-    /** Called directly by EnrollSmsToolController, not generically dispatched (docs/08-projektrahmen.md A11). */
+    /**
+     * Called directly by EnrollSmsToolController, not generically dispatched
+     * (docs/08-projektrahmen.md A11).
+     *
+     * [sendThrottled] is resolved by the controller BEFORE this runs (auth_sms may not depend on
+     * `orchestrator`, so it cannot ask the throttle itself) - see `ToolEndpoint.isSendThrottledForContact`.
+     * It only matters when the decision turns out to be [EnrollSmsDecision.SendTan]: without it, an
+     * attacker who merely knows a phone number could resubmit it to this tool indefinitely and use
+     * it as a free SMS bomb, since resubmitting a number is never itself a wrong guess and so never
+     * trips the ordinary throttle.
+     */
     @Transactional
-    fun patch(toolSessionId: UUID, phoneNumber: String?, tan: String?): ToolOutcome {
+    fun patch(toolSessionId: UUID, phoneNumber: String?, tan: String?, sendThrottled: Boolean = false): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-sms tool session: $toolSessionId" }
 
         return when (val decision = EnrollSmsFlow.decide(data.toState(), EnrollSmsInput(phoneNumber, tan), tanGenerator)) {
@@ -49,7 +59,9 @@ class EnrollSmsToolHandler(
 
             is EnrollSmsDecision.Unchanged -> outcomeFor(decision.state)
 
-            is EnrollSmsDecision.SendTan -> {
+            is EnrollSmsDecision.SendTan -> if (sendThrottled) {
+                ToolOutcome.Failed("Zu viele TAN-Anfragen fuer diese Nummer - bitte kurz warten")
+            } else {
                 val issued = tanGenerator.issue()
                 data.phoneNumber = decision.phoneNumber
                 data.issuedTanHash = issued.hash

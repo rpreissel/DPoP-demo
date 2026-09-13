@@ -109,6 +109,33 @@ interface ToolEndpoint {
     fun isIdentLockedOut(personId: Long?): Boolean
 
     /**
+     * Whether a TAN/code SEND to [accountId] is currently over budget (see `SendThrottleService`).
+     *
+     * For LOOKUP_AUTH tools that (re-)send a TAN/code on every submission of a resolved address,
+     * independent of whether any code was ever guessed wrong. Calling this COUNTS the attempt
+     * against the window, so call it exactly once per resolved submission, right before deciding
+     * whether to actually send.
+     *
+     * Same fold-it-into-the-ordinary-failure contract as [isLockedOut]: a caller over budget must
+     * be handled exactly like an unresolved address, never surfaced as its own error, or this
+     * becomes an account-existence oracle. `null` (nothing resolved) answers `false`: there is no
+     * subject to charge, and nothing would be sent anyway.
+     */
+    fun isSendThrottled(accountId: Long?): Boolean
+
+    /**
+     * Whether a TAN/code SEND to the raw [contact] address (phone number or email, already
+     * normalized by the caller) is currently over budget. Calling this COUNTS the attempt.
+     *
+     * For self-service ENROLL tools, where the caller picks a brand-new contact address for
+     * themselves and no account may exist yet to key [isSendThrottled] on (see
+     * `SendThrottleService`/`ThrottleScope.CONTACT_SEND`). Unlike [isSendThrottled], a throttled
+     * result here may be surfaced as its own distinct failure - the caller already knows the
+     * address, so there is no existence oracle to protect.
+     */
+    fun isSendThrottledForContact(contact: String): Boolean
+
+    /**
      * Builds the response for a GET call.
      *
      * @param freshOutcome the tool's freshly rebuilt `InProgress` state, or `null` if [context]'s

@@ -21,7 +21,7 @@ nur noch im Handler-Code, nicht mehr in der Signatur. Ein `toolId`-basierter Run
 außerdem eine Fehlerquelle, die der Compiler nicht sieht: ein neues Tool ohne passenden
 `when`-Zweig fiele erst zur Laufzeit auf.
 
-**Preis**: Mehr Code — zwölf Controller statt einem, mit strukturell ähnlichem Aufbau
+**Preis**: Mehr Code — 17 Controller statt einem, mit strukturell ähnlichem Aufbau
 (Aktivierung/Fortschreiben/Lesen). Ein neues Tool bringt einen neuen Controller mit, keine
 Erweiterung eines bestehenden `when`.
 

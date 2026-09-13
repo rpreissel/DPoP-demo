@@ -31,7 +31,27 @@ enum class ThrottleScope {
      * Channel creations per DPoP binding key. The other two only bound attempts WITHIN a journey
      * chain; this one bounds how cheaply an attacker can mint fresh chains in the first place.
      */
-    BINDING_KEY
+    BINDING_KEY,
+
+    /**
+     * TAN/code SENDS to one account's contact address, regardless of pass/fail. Deliberately
+     * separate from [ACCOUNT]: that scope only counts wrong guesses, so resubmitting the same
+     * (correct) address on a LOOKUP_AUTH tool never fails and never gets charged there - without
+     * this scope, `auth-sms-lookup`/`auth-email-lookup` could be resubmitted indefinitely to spam
+     * a victim's phone/inbox with real messages (see `SendThrottleService`).
+     */
+    ACCOUNT_SEND,
+
+    /**
+     * TAN/code SENDS to one raw contact address (phone number or email), regardless of pass/fail
+     * or which account/journey is asking. Used where [ACCOUNT_SEND] cannot apply because there is
+     * no established account yet - self-service enrollment, where the caller picks an arbitrary
+     * new contact address for THEMSELVES. Keying by account there would either not exist yet
+     * (REGISTER "Enrollment zuerst") or - worse - collide across unrelated callers on the shared
+     * `-1` placeholder that flow uses before an account is adopted, letting one attacker exhaust
+     * every other concurrent enroller's budget. Keying by the destination itself avoids both.
+     */
+    CONTACT_SEND
 }
 
 @Embeddable

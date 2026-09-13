@@ -37,6 +37,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md) | Die Kernideen visuell, ohne API-Detail | Schneller Einstieg für App-Frontend-Entwickler |
 | [pitches/backend-konzepte.md](pitches/backend-konzepte.md) | Zusammenspiel von Tool und Orchestrator an einem Schritt | Schneller Einstieg für Backend-Entwickler |
 | [pitches/fachexperten-konzepte.md](pitches/fachexperten-konzepte.md) | Fachliche Regeln als Ziele, Zustandsdiagramme, Niveaustufen — ohne Code | Schneller Einstieg für Fachexperten |
+| [demo/](demo/) | Agenda, Zustandsdiagramme je Intent, Moderationsskript für eine Live-Demo | Vorbereitung/Durchführung einer Präsentation |
 
 ### Lesepfade je Zielgruppe
 
@@ -80,18 +81,19 @@ Drei Session-Ebenen mit fallender Lebensdauer:
 ## Bezug zum bestehenden Code
 
 Diese Dokumentation beschreibt das **Zielbild**; Backend und Frontend wurden gemäß
-[11-umsetzungsplan.md](11-umsetzungsplan.md) vollständig darauf umgebaut (Details und
-nachträgliche Korrekturen dort, Abschnitt 5). Die einzige bewusste Lücke ist die
-Keycloak-Anbindung — sie ist explizit außerhalb dieses Umbaus.
+[11-umsetzungsplan.md](11-umsetzungsplan.md) vollständig darauf umgebaut, einschließlich der
+Keycloak-Anbindung ([12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Die
+verbleibenden bewussten Scope-Entscheidungen stehen in
+[11-umsetzungsplan.md](11-umsetzungsplan.md).
 
 ---
 
 ## Umsetzungsstatus
 
-1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (+`JourneyState` je Intent), `AuthContext`, `SessionEvent`, `ToolSession`.
-2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool (`ident-fsc`, `enroll-sms`, `auth-sms`, `enroll-password`, `auth-password`, `enroll-email`, `auth-email`).
+1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (+`JourneyState` je Intent), `AuthContext`, `SessionEvent`, `ToolSession`, `DeviceAccountLink`.
+2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool — `ident-fsc`, `ident-eid`, `enroll-sms`/`auth-sms`/`auth-sms-lookup`, `enroll-password`/`auth-password`/`auth-password-lookup`, `enroll-email`/`auth-email`/`auth-email-lookup`, `enroll-device`/`auth-device`, `enroll-qr`/`auth-qr`/`auth-qr-lookup`, `confirm-qr-login` ([03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1).
 3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Cancel (`POST .../cancel`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
-4. **Keycloak-Fassade** 🔲: `/orchestrator/api/v1/kc/...` mit Step-up-Start/Confirm — bewusst nicht umgesetzt.
+4. **Keycloak-Fassade** ✅: `/orchestrator/api/v1/kc/...` (`KcChannelController`/`KcMeController`/`KeycloakSyncController`), inkl. Step-up und Server-zu-Server-Anbindung an Keycloaks native Credentials ([05-api.md](05-api.md) Abschnitt 3, [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9).
 5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus (siehe [11-umsetzungsplan.md](11-umsetzungsplan.md) Abschnitt 4).
 
 ---

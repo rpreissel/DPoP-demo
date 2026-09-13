@@ -105,7 +105,13 @@ class EnrollSmsToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: EnrollSmsPatchRequest()
-        val outcome = handler.patch(toolSessionId, body.phoneNumber, body.tan)
+        // Normalized the same way EnrollSmsFlow validates it (whitespace stripped), purely to key
+        // the send-throttle before the handler runs - see ToolEndpoint.isSendThrottledForContact.
+        val sendThrottled = body.phoneNumber
+            ?.replace("\\s+".toRegex(), "")?.trim()
+            ?.let { toolEndpoint.isSendThrottledForContact(it) }
+            ?: false
+        val outcome = handler.patch(toolSessionId, body.phoneNumber, body.tan, sendThrottled)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

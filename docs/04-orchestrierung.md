@@ -342,6 +342,61 @@ ausreichender aktiver Methode, läuft der Nachweis über `AuthChoice`/`afterProo
 bewusst **nicht**: ein wiedererkannter, bereits eingerichteter Account wird wie ein gewöhnlicher
 Login behandelt, keine rückwirkende Pflicht.
 
+#### Experiment „Enrollment zuerst" (`RegisterEnrollFirstStrategy`)
+
+Zweite, vollständig eigenständige `REGISTER`-Variante — eigene Zustände (`RegisterEnrollFirstState`,
+teilt nichts mit `RegisterState`/`AuthChoice`/`Enrolling`), eigene Strategie
+(`RegisterEnrollFirstStrategy`). `RegisterDispatchStrategy` ist der einzige unter
+`AuthIntent.REGISTER` tatsächlich registrierte Spring-Bean und wählt pro **neuer** Journey einmalig
+zwischen beiden Varianten — welche Variante eine bereits laufende Journey verwendet, entscheidet
+danach nur noch der Zustandstyp selbst (`is RegisterEnrollFirstState` vs. `is RegisterState`), nie
+erneut das Flag, damit ein Flip mitten im Lauf nichts zerstört.
+
+Aktiviert über das Runtime-Feature-Flag `FeatureFlags.REGISTER_ENROLL_FIRST`
+(`"register-enroll-first"`), das `RegistrationOrderService` (`@Service`, implementiert
+`FeatureFlagProvider`) beisteuert und dessen aktueller Zustand über
+`GET/PUT /orchestrator/api/v1/admin/registration-order` (`RegistrationOrderController`) abgefragt/
+gesetzt wird.
+
+**Kernidee**: Kein Konto nötig, um zu starten — es entsteht erst lazy, beim ersten abgeschlossenen
+Enrollment (`JourneyService`s generisches `Action.AdoptCredential`-Handling), nicht schon bei der
+Identifikation. Bis dahin rechnet die Strategie gegen einen transienten, nie persistierten
+Platzhalter-Account (`AccountProfile(accountId = -1, ...)`) — tragfähig, weil
+`CandidateTools.forEnrollment` nur `authenticationMethods`/`emailConfirmed` liest, die für ein
+brandneues Konto ohnehin leer/`false` sind.
+
+Dieselbe Pflichtkaskade wie `RegisterState`/`AuthEnrollCore` (Verfahren → E-Mail-Bestätigung →
+Web-Passwort, Abschnitt 8), aber ohne vorherige Identifikation. Erst wenn jede Pflicht erledigt
+ist, wird Identifikation **einmalig angeboten, nie erzwungen** — über die bereits bestehende
+`RE_IDENTIFY`-Sub-Journey (`Transition.RequireSubJourney`). Bei Ablehnung oder wenn nichts
+anzubieten ist, endet die Journey trotzdem erfolgreich (`Transition.Authenticated`); das Konto
+bleibt dauerhaft unidentifiziert, ist aber angemeldet. Identifiziert sich dabei eine Person, die
+bereits zu einem anderen Konto gehört, bricht `RE_IDENTIFY` selbst mit Fehlermeldung ab — es wird
+nichts zusammengeführt.
+
+```mermaid
+stateDiagram-v2
+  [*] --> EnrollFirstEnrolling
+  EnrollFirstEnrolling --> EnrollFirstEnrolling: Methode eingerichtet, Niveau reicht noch nicht
+  EnrollFirstEnrolling --> EnrollFirstConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
+  EnrollFirstEnrolling --> EnrollFirstPasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  EnrollFirstEnrolling --> IdentifizierungAnbieten: Niveau erreicht, keine Pflicht offen
+  EnrollFirstConfirmingEmail --> EnrollFirstPasswordObligation: E-Mail bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  EnrollFirstConfirmingEmail --> IdentifizierungAnbieten: E-Mail bestätigt, keine weitere Pflicht offen
+  EnrollFirstPasswordObligation --> IdentifizierungAnbieten: Passwort eingerichtet
+
+  IdentifizierungAnbieten --> Finished: Zustimmung + erfolgreich identifiziert, oder Ablehnung/nichts anzubieten
+  IdentifizierungAnbieten --> [*]: identifizierte Person gehört bereits zu anderem Konto - Abbruch
+  Finished --> [*]
+
+  note right of IdentifizierungAnbieten
+    Sub-Journey RE_IDENTIFY,
+    optional - Konto bleibt bei
+    Ablehnung dauerhaft
+    unidentifiziert.
+  end note
+```
+
 ### `LOOKUP_LOGIN`
 
 Anmelden ohne gepaartes Gerät: Der Nutzer nennt einen Identifikator (E-Mail) und weist ein
