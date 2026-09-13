@@ -201,15 +201,23 @@ class AccountService(
     fun existsByEmail(email: String): Boolean = accountRepository.existsByEmail(email)
 
     /**
-     * Called by `JourneyService`'s own `Action.AdoptCredential` handling, generically, for any
-     * tool descriptor declaring `ToolDescriptor.confirmsAccountEmail` - not by `auth_email` itself
-     * anymore: `EnrollEmailToolHandler` only hands the confirmed address through in `Completed.
-     * Enrolled.auditDetails` (`CONFIRMED_EMAIL_AUDIT_KEY`), it never writes `Account` directly (see
-     * that flag's own doc for why - this is what lets the account behind an enrollment be resolved
-     * lazily, since no enroll tool handler needs one to already exist mid-PATCH). The confirmed
-     * email is still the account's identifier, not a swappable credential - `auth_email` keeps its
-     * `account`-module dependency regardless (its other handlers still read full `AccountProfile`
-     * data `AccountDirectory` deliberately doesn't expose), just not for this write anymore.
+     * Two unrelated direct callers, both legitimate - Spring Modulith has no method-level access
+     * control, only the module-level `allowedDependencies` check
+     * (`DpopApplicationTests.modulithStructureIsValid`), so anything allowed to depend on `account`
+     * may call this:
+     * - `JourneyService`'s own `Action.AdoptCredential` handling, generically, for any tool
+     *   descriptor declaring `ToolDescriptor.confirmsAccountEmail`. `EnrollEmailToolHandler` itself
+     *   never writes `Account` directly - it only hands the confirmed address through in
+     *   `Completed.Enrolled.auditDetails` (`CONFIRMED_EMAIL_AUDIT_KEY`), which is what lets the
+     *   account behind an enrollment be resolved lazily (no enroll tool handler needs one to
+     *   already exist mid-PATCH).
+     * - `demo_seed`'s `KcDemoAccountSeeder`, once at startup, to bootstrap the `keycloak` profile's
+     *   seeded test persons with a confirmed email before any real enrollment ever runs.
+     *
+     * The confirmed email is still the account's identifier, not a swappable credential -
+     * `auth_email` keeps its `account`-module dependency regardless (its other handlers still read
+     * full `AccountProfile` data `AccountDirectory` deliberately doesn't expose), it just isn't the
+     * caller of this particular method.
      */
     @Transactional
     fun confirmEmail(accountId: Long, email: String): AccountProfile {

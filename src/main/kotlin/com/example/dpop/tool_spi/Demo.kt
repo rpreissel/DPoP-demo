@@ -42,7 +42,7 @@ data class DemoPerson(
 )
 
 /**
- * Same three persons/kvnrs as `V2__testdata.sql` and `KcDemoAccountSeeder.TEST_PERSONS` (auth_email) -
+ * Same three persons/kvnrs as `V2__testdata.sql` and `KcDemoAccountSeeder.TEST_PERSONS` (demo_seed) -
  * duplicated here (not imported) for the same module-boundary reason as [DEMO_EMAIL]/`DEMO_PASSWORD`.
  * The first entry matches [DEMO_EMAIL] so existing single-value prefill behavior is unchanged.
  */

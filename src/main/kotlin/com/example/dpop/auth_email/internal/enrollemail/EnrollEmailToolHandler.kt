@@ -1,8 +1,8 @@
 package com.example.dpop.auth_email.internal.enrollemail
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.EnrollEmailDescriptor
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
@@ -41,7 +41,7 @@ import java.util.UUID
 class EnrollEmailToolHandler(
     private val descriptor: EnrollEmailDescriptor,
     private val toolDataRepository: EnrollEmailToolDataRepository,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
@@ -65,10 +65,10 @@ class EnrollEmailToolHandler(
             is EnrollEmailDecision.Unchanged -> outcomeFor(decision.state)
 
             is EnrollEmailDecision.RequestCode -> {
-                // Queried directly rather than handed in pre-resolved by the controller - the
-                // declared `account` dependency makes the indirection pointless ceremony (see
-                // ModuleMetadata).
-                if (accountService.existsByEmail(decision.email)) {
+                // Queried directly rather than handed in pre-resolved by the controller - only a
+                // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port (every
+                // other method module's own account access) is enough; no `account` dependency needed.
+                if (accountDirectory.resolveAccountByEmail(decision.email) != null) {
                     ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
                 } else {
                     val issued = emailCodeGenerator.issue()

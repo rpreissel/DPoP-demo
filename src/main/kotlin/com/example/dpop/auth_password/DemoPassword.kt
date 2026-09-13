@@ -7,7 +7,7 @@ package com.example.dpop.auth_password
  * tester can click through enrollment and both login variants without ever having to remember
  * a password they typed once.
  *
- * Same literal as `KcDemoAccountSeeder.DEMO_PASSWORD` (auth_email, DPoP-demo-25q) - one demo
+ * Same literal as `KcDemoAccountSeeder.DEMO_PASSWORD` (demo_seed, DPoP-demo-25q) - one demo
  * password project-wide, not two competing conventions. Duplicated as a literal rather than
  * imported: `auth_email` may not depend on `auth_password` directly (module boundary).
  */

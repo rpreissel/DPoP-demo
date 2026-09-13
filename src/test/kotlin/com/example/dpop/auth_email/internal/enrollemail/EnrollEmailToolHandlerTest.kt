@@ -2,6 +2,7 @@ package com.example.dpop.auth_email.internal.enrollemail
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
+import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.core.spec.style.BehaviorSpec
@@ -22,9 +23,9 @@ import java.util.UUID
 class EnrollEmailToolHandlerTest : BehaviorSpec({
 
     val toolDataRepository = mockk<EnrollEmailToolDataRepository>()
-    val accountService = mockk<com.example.dpop.account.AccountService>()
+    val accountDirectory = mockk<AccountDirectory>()
     val emailCodeGenerator = EmailCodeGenerator("test-pepper")
-    val handler = EnrollEmailToolHandler(EnrollEmailDescriptor, toolDataRepository, accountService, emailCodeGenerator)
+    val handler = EnrollEmailToolHandler(EnrollEmailDescriptor, toolDataRepository, accountDirectory, emailCodeGenerator)
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-email tool session with no email yet") {
@@ -32,7 +33,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("submitting an email that is not yet taken") {
-            every { accountService.existsByEmail("max@example.com") } returns false
+            every { accountDirectory.resolveAccountByEmail("max@example.com") } returns null
             val saved = slot<EnrollEmailToolData>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
@@ -47,7 +48,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
         }
 
         `when`("submitting an email that is already taken") {
-            every { accountService.existsByEmail("taken@example.com") } returns true
+            every { accountDirectory.resolveAccountByEmail("taken@example.com") } returns 42L
 
             then("it fails without ever touching account state") {
                 val outcome = handler.patch(toolSessionId, email = "taken@example.com", code = null)

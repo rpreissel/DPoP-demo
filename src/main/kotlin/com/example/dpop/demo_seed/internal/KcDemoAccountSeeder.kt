@@ -1,4 +1,4 @@
-package com.example.dpop.auth_email.internal.kcdemo
+package com.example.dpop.demo_seed.internal
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PasswordCredentialPort
@@ -17,19 +17,15 @@ import org.springframework.stereotype.Component
  * to demonstrate on first boot - LoA1 is native Keycloak password now, so the orchestrator itself
  * never establishes these accounts' identity; something has to.
  *
- * Lives under `auth_email` (not a new top-level class) because [AccountService.confirmEmail] is
- * deliberately restricted to this module (see its own ModuleMetadata) - seeding through it keeps
- * that boundary intact instead of adding a second, undeclared caller.
+ * Calls [AccountService.confirmEmail] and `PasswordCredentialPort.setNew` directly - both are
+ * public API of a module this one is allowed to depend on (see this module's own
+ * `ModuleMetadata`); there is no method-level access control in Spring Modulith, only the
+ * package/module boundary `DpopApplicationTests.modulithStructureIsValid` checks.
  *
  * Idempotent by construction (`accountId`/`personId` come from PersonDirectory - see
  * infra/tofu/keycloak/main.tf's `orchestratorAccountId` comment for why person insertion order
  * matters here): re-running on an existing DB skips any person who already has an active "email"
  * (or "password") method instead of piling up deactivated duplicates on every restart.
- *
- * Also seeds a demo password (DPoP-demo-25q): via [PasswordCredentialPort] (`tool_api`, implemented
- * by `auth_password`) rather than `auth_password` directly - same module-boundary reasoning as the
- * email side above, `auth_email` (this module) may only reach `account` and `tool_api`, never
- * another method module directly.
  */
 @Component
 @Profile("keycloak")
@@ -83,7 +79,7 @@ internal class KcDemoAccountSeeder(
         // reset-password value, removed when native Keycloak login started delegating to this
         // same auth_password store - a real onboarding flow would never hand out a shared password).
         // Same literal as auth_password's own DEMO_PASSWORD (DemoPassword.kt) - one demo password
-        // project-wide; duplicated rather than imported since auth_email may not depend on
+        // project-wide; duplicated rather than imported since this module may not depend on
         // auth_password directly (module boundary).
         private const val DEMO_PASSWORD = "Demo1234!"
 
