@@ -31,7 +31,7 @@ dependencies {
     // on the orchestrator side speaking exactly the same JOSE dialect. Not provided by Keycloak's
     // runtime, so it has to be shaded into the provider jar.
     implementation("com.nimbusds:nimbus-jose-jwt:9.37.3")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
     // QR encoding for auth-qr/auth-qr-lookup's WebToolRenderer - core only, no `javase` artifact:
     // the BitMatrix -> PNG conversion is small enough to write directly (QrImageEncoder) without
     // pulling in its extra dependencies.

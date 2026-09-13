@@ -12,7 +12,7 @@
 # und zaehlt Versionen unabhaengig vom Community-Keycloak - kein freier Ersatz, den man default
 # setzen koennte. Am Arbeitsplatz zeigt dieselbe Compose-Env-Var stattdessen auf die dortige
 # gespiegelte Registry bzw. das RHBK-Image.
-ARG KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:26.5.5
+ARG KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:26.6.4
 
 FROM ${KEYCLOAK_BASE_IMAGE}
 

@@ -22,7 +22,7 @@ services:
         # KEYCLOAK_BASE_IMAGE beim oeffentlichen Image bleibt. Das Dockerfile baut nichts mehr mit
         # Gradle selbst (siehe `./gradlew stagePodmanArtifacts`), deshalb gibt es hier keine
         # Builder-/Gradle-Distribution-Args mehr.
-        KEYCLOAK_BASE_IMAGE: ${KEYCLOAK_BASE_IMAGE:-quay.io/keycloak/keycloak:26.5.5}
+        KEYCLOAK_BASE_IMAGE: ${KEYCLOAK_BASE_IMAGE:-quay.io/keycloak/keycloak:26.6.4}
     environment:
       # HTTP komplett aus - nur noch HTTPS, auch fuer Server-zu-Server-Aufrufe (Orchestrator ->
       # Keycloak Admin-API/JWKS). Cookie-basierte SSO-Wiedererkennung (auth-cookie,

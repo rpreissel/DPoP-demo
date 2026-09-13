@@ -13,7 +13,7 @@ import org.keycloak.admin.client.KeycloakBuilder
  * keycloak-admin-client 26.0.12 (letzte auf Maven Central verfügbare Version, siehe
  * build.gradle.kts) bündelt ein eigenes, unabhängig weiterentwickeltes Representation-Modell
  * (keycloak-client-common-synced) - das enthält u.a. schon "maxSecondaryAuthFailures", ein Feld,
- * das der 26.5.5-Server (noch) nicht kennt. Beim Zurückschreiben von realm.toRepresentation()
+ * das der 26.6.4-Server (noch) nicht kennt. Beim Zurückschreiben von realm.toRepresentation()
  * landet dieses Feld sonst als "maxSecondaryAuthFailures": null im PUT-Body, und der Server lehnt
  * es mit 400 "Unrecognized field" ab. NON_NULL unterdrückt genau solche nicht gesetzten,
  * client-seitig zusätzlichen Felder in der Ausgabe; FAIL_ON_UNKNOWN_PROPERTIES=false macht das

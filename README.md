@@ -74,7 +74,7 @@ Vorlage unter [`.env.work.example`](.env.work.example) bei, einfach kopieren:
 
 | Variable | Default | Wirkt auf |
 |---|---|---|
-| `KEYCLOAK_BASE_IMAGE` | `quay.io/keycloak/keycloak:26.5.5` | `keycloak-extension/Dockerfile` — Keycloak-Laufzeit-Image (öffentlich, siehe Hinweis unten) |
+| `KEYCLOAK_BASE_IMAGE` | `quay.io/keycloak/keycloak:26.6.4` | `keycloak-extension/Dockerfile` — Keycloak-Laufzeit-Image (öffentlich, siehe Hinweis unten) |
 | `ORCHESTRATOR_RUNTIME_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21-runtime:latest` | `Dockerfile` — Laufzeit-Image |
 
 Die Laufzeit-Images legen per `USER root` (kurzzeitig) einen eigenen Nutzer an — `dpop` im
@@ -108,7 +108,7 @@ anonymer Pull.
 Hinweis zu `KEYCLOAK_BASE_IMAGE`: `rhbk/keycloak-rhel9` ("Red Hat build of Keycloak") ist kein
 freies UBI-Image, sondern erfordert eine aktive Red-Hat-Subscription zum Pull — anonymer Zugriff
 schlägt mit 403 fehl. Die Versionszählung läuft außerdem unabhängig vom Community-Keycloak
-(aktuell z. B. 26.2/26.4 statt 26.5.5). Deshalb bleibt der Default beim öffentlichen
+(aktuell z. B. 26.2/26.4 statt 26.6.4). Deshalb bleibt der Default beim öffentlichen
 `quay.io/keycloak/keycloak` — auch zuhause.
 
 Ohne `.env`/`.env.local` bzw. ohne gesetzte Variablen greifen die (Red-Hat-)Defaults überall

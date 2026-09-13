@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.Delete
 
 plugins {
     kotlin("jvm") version "2.2.21"
@@ -43,6 +44,7 @@ java {
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_21)
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
 }
 
@@ -121,6 +123,10 @@ val npmBuild = tasks.register<Exec>("npmBuild") {
 
 tasks.named<ProcessResources>("processResources") {
     dependsOn(npmBuild)
+}
+
+tasks.named<Delete>("clean") {
+    delete(file("src/main/resources/static"))
 }
 
 // `./gradlew bootRunKc` - same as bootRun, just with the `keycloak` profile active (real Keycloak

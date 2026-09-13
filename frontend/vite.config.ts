@@ -3,19 +3,21 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
 // https://vite.dev/config/
+const frontendDir = import.meta.dirname
+
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: resolve(__dirname, '../src/main/resources/static'),
+    outDir: resolve(frontendDir, '../src/main/resources/static'),
     emptyOutDir: true,
     rollupOptions: {
       // Three separate apps (docs/10-frontend.md #1: Willkommen/App-Kanal/Web-Kanal), sharing
       // components/tools/api.ts as plain imports but each with its own HTML entry/React root - so
       // navigation between them is real browser navigation, not client-side routing.
       input: {
-        welcome: resolve(__dirname, 'index.html'),
-        app: resolve(__dirname, 'app/index.html'),
-        web: resolve(__dirname, 'web/index.html'),
+        welcome: resolve(frontendDir, 'index.html'),
+        app: resolve(frontendDir, 'app/index.html'),
+        web: resolve(frontendDir, 'web/index.html'),
       },
     },
   },

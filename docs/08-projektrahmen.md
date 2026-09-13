@@ -179,15 +179,15 @@ Aufbewahrung und Löschung in [07-betrieb.md](07-betrieb.md).
 | Komponente | Version |
 |------------|---------|
 | Spring Boot | `4.1.0` |
-| Spring Modulith | `2.1.0` |
+| Spring Modulith | `2.1.1` |
 | Dependency Management Plugin | `1.1.7` |
 | Gradle (Wrapper) | `9.7.0` |
 | Kotlin | `2.2.21` |
 | JVM Target | `21` |
-| React | `19.2.8` |
-| React DOM | `19.2.8` |
-| TypeScript | `6.0.2` |
-| Vite | `8.2.0` |
+| React | `19.3.0` |
+| React DOM | `19.3.0` |
+| TypeScript | `7.0.2` |
+| Vite | `8.3.0` |
 | H2 | (von Spring Boot verwaltet) |
 | Flyway | (von Spring Boot verwaltet) |
 

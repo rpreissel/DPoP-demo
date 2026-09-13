@@ -28,9 +28,9 @@ repositories {
 }
 
 // keycloak-admin-client wird unabhängig von den Server-SPI-Artefakten released (die laufen bei
-// 26.5.5, siehe keycloak-extension/build.gradle.kts) - 26.0.12 ist die letzte auf Maven Central
+// 26.6.4, siehe keycloak-extension/build.gradle.kts) - 26.0.12 ist die letzte auf Maven Central
 // verfügbare Version. Das REST-API ist innerhalb von Keycloak 26.x stabil, der Client spricht
-// also problemlos mit dem 26.5.5-Server.
+// also problemlos mit dem 26.6.4-Server.
 val keycloakAdminClientVersion = "26.0.12"
 val kotlinVersion = "2.2.21"
 
