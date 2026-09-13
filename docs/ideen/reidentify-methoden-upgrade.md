@@ -71,16 +71,18 @@ Bei Zustimmung bräuchte es:
   des Methodennamens — mehrere aktive Instanzen desselben Verfahrens, z. B. Geräte, dürfen nicht
   verwechselt werden).
 
-**Wichtiger technischer Stolperstein**, falls das umgesetzt wird: `ToolOutcome.Completed
-.Identified.achievedAcr` ist bei `ident-fsc`/`ident-eid` immer `null` — `JourneyService
-.recordToolCompletion` fällt in diesem Fall auf `tool.maxAcr` zurück. "Das gerade erreichte
-Niveau" für die neue Prüfung darf deshalb nicht aus `state.targetAcr` abgeleitet werden (das ist
-nur die *Mindestanforderung*, mit der die Sub-Journey gestartet wurde — beim neuen, gate-losen
-Manage-Trigger z. B. bewusst `loa1`, damit `ident-fsc` als Kandidat nicht herausgefiltert wird),
-sondern aus `ctx.currentAcr` (`JourneyContext.currentAcr = policy.resolveAcr(evidence, account)`)
-an der Stelle, an der `Identifying`s `ActionCompleted` nach dem `ConfirmIdentity`-Perform wieder
-eintrifft — zu diesem Zeitpunkt hat `recordToolCompletion` die neue `MethodEvidence` bereits
-angewendet, und der Kontext für den Folgeaufruf wird frisch aufgebaut.
+`ToolOutcome.Completed.Identified.achievedAcr` wird von beiden Handlern verlässlich gesetzt
+(`IdentFscToolHandler.kt:77`, `IdentEidToolHandler.kt:72`: `achievedAcr = descriptor.maxAcr`,
+also `loa2` bzw. `loa3`) — insofern kein Stolperstein. Für "das gerade erreichte Niveau" in der
+neuen Prüfung sollte trotzdem nicht `state.targetAcr` verwendet werden: das ist nur die
+*Mindestanforderung*, mit der die Sub-Journey gestartet wurde — beim neuen, gate-losen
+Manage-Trigger z. B. bewusst `loa1`, damit `ident-fsc` als Kandidat nicht herausgefiltert wird —
+und kann damit niedriger sein als das tatsächlich erreichte Niveau. Robuster ist `ctx.currentAcr`
+(`JourneyContext.currentAcr = policy.resolveAcr(evidence, account)`) an der Stelle, an der
+`Identifying`s `ActionCompleted` nach dem `ConfirmIdentity`-Perform wieder eintrifft — zu diesem
+Zeitpunkt hat `recordToolCompletion` die neue `MethodEvidence` (mit `loa = achievedAcr`) bereits
+angewendet, und der Kontext für den Folgeaufruf wird frisch aufgebaut, sodass `ctx.currentAcr`
+exakt das erreichte Niveau widerspiegelt.
 
 ## 4) Frontend
 
