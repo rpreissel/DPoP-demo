@@ -12,6 +12,7 @@ const DEFAULT_METHOD_LABELS: Record<string, string> = {
   email: 'E-Mail',
   password: 'Passwort',
   device: 'Gerät',
+  qr: 'QR-Login',
 }
 
 function labelFor(method: ActiveMethodView): string {
@@ -45,6 +46,7 @@ interface AuthenticationCompletedViewProps {
   onStepUp: (requiredAcr: string) => void
   onDeleteAccount: () => void
   onPeerLogin: () => void
+  onLogout: () => void
   manageError?: string
   infoMessage?: string
 }
@@ -62,6 +64,7 @@ export function AuthenticationCompletedView({
   onStepUp,
   onDeleteAccount,
   onPeerLogin,
+  onLogout,
   manageError,
   infoMessage,
 }: AuthenticationCompletedViewProps) {
@@ -91,7 +94,12 @@ export function AuthenticationCompletedView({
     <>
     <div className="card success-card">
       <h2>Authentifizierung erfolgreich!</h2>
-      <p>{personName ? <>Angemeldet als <strong>{personName}</strong>.</> : 'Sie sind angemeldet.'}</p>
+      <div className="identity-row">
+        <p>{personName ? <>Angemeldet als <strong>{personName}</strong>.</> : 'Sie sind angemeldet.'}</p>
+        <button className="secondary small" onClick={onLogout}>
+          Abmelden
+        </button>
+      </div>
       <ul className="status-list">
         {currentAcr && (
           <li>

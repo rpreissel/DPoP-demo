@@ -136,6 +136,22 @@
   line-height: 1.5;
 }
 
+/* Identity line + logout, side by side - same pairing in both the App- and Web-Kanal's own
+   authenticated view, so logging out sits right next to "who am I" instead of floating
+   disconnected from the card it acts on (previously the App-Kanal's own sticky-actions bar,
+   easy to miss/looked stray above the actual success card). */
+.identity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.identity-row p {
+  margin: 0;
+}
+
 .success-card {
   border-color: rgba(34, 197, 94, 0.4);
   background: rgba(34, 197, 94, 0.06);

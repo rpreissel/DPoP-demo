@@ -111,7 +111,8 @@ export function AppChannelApp() {
   // choice (the real remaining count), the auto-activate effect for a direct single-candidate skip
   // and for a resumed tool session alike (both set 1) - a resumed step with nothing to switch to
   // would otherwise leave an already-AUTHENTICATED channel's step-up with zero way out at all
-  // ("Zur Startseite"/"Abmelden" don't render while inToolMode).
+  // ("Zur Startseite" doesn't render while inToolMode, and AuthenticationCompletedView - the only
+  // place "Abmelden" lives - doesn't render then either).
   const [alternativesCount, setAlternativesCount] = useState(0)
   const [error, setError] = useState('')
   // Only takes effect on the next channel-creating action (Verbinden/Login ohne DPoP/Registrieren
@@ -380,9 +381,9 @@ export function AppChannelApp() {
       // that's not what this count actually gates: abandoning is always a safe, backend-handled
       // fallback (see the auto-activate branch below), so hiding "Anderes Verfahren" here isn't a
       // conservative default, it's a dead end - on an already-AUTHENTICATED channel (e.g.
-      // CONFIRM_PEER_LOGIN's step-up) neither "Zur Startseite" nor "Abmelden" render while
-      // inToolMode, leaving zero way out. Same 1-not-0 treatment as a fresh single-candidate
-      // auto-activation.
+      // CONFIRM_PEER_LOGIN's step-up) neither "Zur Startseite" nor AuthenticationCompletedView's
+      // "Abmelden" render while inToolMode, leaving zero way out. Same 1-not-0 treatment as a
+      // fresh single-candidate auto-activation.
       setAlternativesCount(1)
       setActiveTool({ toolSessionId: next.toolSessionId, toolId: next.toolId })
       // The channel-level GET that got us here only reports a bare pointer (JourneyService.stepFor
@@ -782,18 +783,13 @@ export function AppChannelApp() {
                   </div>
                 </div>
               )}
-              <div className="controls sticky-actions">
-                {inToolMode && activeTool && alternativesCount > 0 && (
+              {inToolMode && activeTool && alternativesCount > 0 && (
+                <div className="controls sticky-actions">
                   <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode).">
                     Anderes Verfahren
                   </button>
-                )}
-                {!inToolMode && channelState === 'AUTHENTICATED' && uiComponent !== 'prompt' && (
-                  <button className="secondary" onClick={handleLogout} title="Beendet den Channel serverseitig - eine neue Sitzung braucht danach einen frischen Login.">
-                    Abmelden
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -942,6 +938,7 @@ export function AppChannelApp() {
               onDeleteAccount={handleDeleteAccount}
               onStepUp={handleStepUp}
               onPeerLogin={handlePeerLogin}
+              onLogout={handleLogout}
               manageError={error || undefined}
               infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}
             />

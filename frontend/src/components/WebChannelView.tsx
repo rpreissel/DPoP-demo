@@ -15,6 +15,20 @@ import { DiagramHint } from './DiagramHint'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { Disclosure } from './Disclosure'
 
+/** A section heading with a hover/focus-revealed diagram of that section's journey shape - same pattern as AuthenticationCompletedView's own (App-Kanal), kept as its own small copy per module rather than shared. */
+function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof JOURNEY_DIAGRAMS }) {
+  return (
+    <h3 className="section-heading">
+      {text}
+      <DiagramHint spec={JOURNEY_DIAGRAMS[diagram]} inline>
+        <span className="diagram-hint-trigger" tabIndex={0} aria-label={`Ablauf "${text}" als Diagramm anzeigen`}>
+          ℹ️
+        </span>
+      </DiagramHint>
+    </h3>
+  )
+}
+
 const SESSION_KEY = 'web-kanal-tokens'
 
 function loadStoredTokens(): TokenSet | null {
@@ -113,11 +127,39 @@ export function WebChannelView({ onTokens }: Props) {
     redirectToManageMethods().catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
-  function logout() {
+  /** exp is in whole seconds since epoch; treat anything undecodable as already expired - the only consequence is skipping a refresh attempt that might have worked, never a wrong logout. */
+  function isExpired(token: string | undefined): boolean {
+    const exp = token ? parseJwtPayload(token)?.exp : undefined
+    return typeof exp !== 'number' || exp * 1000 <= Date.now()
+  }
+
+  /**
+   * A stored idToken from a long-idle session is very likely expired by the time the user
+   * actually clicks "Abmelden" - Keycloak's end_session_endpoint validates id_token_hint's
+   * signature/expiry and rejects an expired one outright ("Invalid parameter: id_token_hint", a
+   * dead-end error page instead of a logout). Checked locally first rather than always firing a
+   * refresh: a still-valid idToken needs no refresh at all, and an already-expired refresh token
+   * makes attempting one pointless - only the genuinely ambiguous case (idToken expired, refresh
+   * token looks alive) is worth the round-trip, with a catch as a safety net for it turning out
+   * revoked anyway. Either way, logging out without a hint (client_id + post_logout_redirect_uri
+   * alone) beats handing Keycloak a token it will only reject.
+   */
+  async function logout() {
     const clientId = tokens?.clientId
+    let idToken = tokens?.idToken
+    if (isExpired(idToken)) {
+      idToken = undefined
+      if (tokens?.refreshToken && !isExpired(tokens.refreshToken)) {
+        try {
+          idToken = (await refreshTokens(tokens.refreshToken, tokens.clientId)).idToken
+        } catch {
+          idToken = undefined
+        }
+      }
+    }
     setTokens(null)
     storeTokens(null)
-    redirectToLogout(tokens?.idToken, clientId)
+    redirectToLogout(idToken, clientId)
   }
 
   const accessClaims = tokens ? parseJwtPayload(tokens.accessToken) : null
@@ -125,6 +167,7 @@ export function WebChannelView({ onTokens }: Props) {
   const currentAcr = typeof accessClaims?.acr === 'string' ? accessClaims.acr : undefined
 
   return (
+    <>
     <div className="card">
       <h2>Web-Kanal: Login über echtes Keycloak</h2>
       <p>
@@ -196,83 +239,101 @@ export function WebChannelView({ onTokens }: Props) {
         </ul>
       )}
 
+    </div>
       {tokens && (
         <>
-          {/* "name" ist ein Standard-OIDC-Claim aus dem "profile"-Scope (Default-Scope beider
-              Browser-Clients, keycloak-migrations V4/V11) - Keycloaks eingebauter "full name"-
-              Protocol-Mapper aus firstName/lastName, die KeycloakAccountSyncListener beim
-              Account-Sync setzt. */}
-          {typeof idClaims?.name === 'string' && (
-            <p>
-              Angemeldet als <strong>{idClaims.name}</strong>.
-            </p>
-          )}
-          <ul className="status-list">
-            <li>
-              <span className="label">Gültig noch</span>
-              <span className="value value-plain">{formatRemaining(tokens.expiresAt)}</span>
-            </li>
-            <li>
-              <span className="label">Sicherheitsniveau (acr)</span>
-              <span className="value value-plain">{currentAcr ?? '–'}</span>
-            </li>
-          </ul>
-
-          <div className="form-actions">
-            <button className="secondary" onClick={refresh} disabled={!tokens.refreshToken}>
-              AccessToken aktualisieren
-            </button>
-            {currentAcr !== 'loa2' && (
-              <button className="secondary" onClick={stepUp}>
-                Sicherheitsniveau auf loa2 erhöhen
+          <div className="card success-card">
+            <div className="identity-row">
+              {/* "name" ist ein Standard-OIDC-Claim aus dem "profile"-Scope (Default-Scope beider
+                  Browser-Clients, keycloak-migrations V4/V11) - Keycloaks eingebauter "full name"-
+                  Protocol-Mapper aus firstName/lastName, die KeycloakAccountSyncListener beim
+                  Account-Sync setzt. */}
+              <p>{typeof idClaims?.name === 'string' ? <>Angemeldet als <strong>{idClaims.name}</strong>.</> : 'Sie sind angemeldet.'}</p>
+              <button className="secondary small" onClick={logout}>
+                Abmelden
               </button>
-            )}
-            <button className="secondary" onClick={manageMethods}>
-              Anmeldeverfahren verwalten
-            </button>
-            <button className="secondary" onClick={logout}>
-              Abmelden (Keycloak-Logout)
-            </button>
-          </div>
-
-          <Disclosure summary="Technische Details (Token, Claims)">
+            </div>
             <ul className="status-list">
               <li>
-                <span className="label">AccessToken</span>
-                <span className="value" title={tokens.accessToken}>{shorten(tokens.accessToken, 12, 8)}</span>
+                <span className="label">Sicherheitsniveau</span>
+                <span className="value value-plain">{currentAcr ?? '–'}</span>
               </li>
             </ul>
 
-            {accessClaims && (
+            {currentAcr !== 'loa2' && (
               <>
-                <h4>AccessToken-Claims</h4>
-                <ul className="status-list">
-                  {Object.entries(accessClaims).map(([key, value]) => (
-                    <li key={key}>
-                      <span className="label">{key}</span>
-                      <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <SectionHeading text="Sicherheitsniveau erhöhen" diagram="stepUp" />
+                <p>Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.</p>
+                <div className="form-actions">
+                  <button className="secondary" onClick={stepUp}>
+                    Sicherheitsniveau jetzt erhöhen
+                  </button>
+                </div>
               </>
             )}
 
-            {idClaims && (
-              <>
-                <h4>IdToken-Claims</h4>
-                <ul className="status-list">
-                  {Object.entries(idClaims).map(([key, value]) => (
-                    <li key={key}>
-                      <span className="label">{key}</span>
-                      <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </Disclosure>
+            <SectionHeading text="Anmeldeverfahren verwalten" diagram="manageMethods" />
+            <p>Öffnet Keycloaks eigene Verwaltung Ihrer Anmeldeverfahren (Required Action).</p>
+            <div className="form-actions">
+              <button className="secondary" onClick={manageMethods}>
+                Anmeldeverfahren verwalten
+              </button>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 className="section-heading">AccessToken</h3>
+            <ul className="status-list">
+              <li>
+                <span className="label">Gültig noch</span>
+                <span className="value value-plain">{formatRemaining(tokens.expiresAt)}</span>
+              </li>
+            </ul>
+            <div className="form-actions">
+              <button className="secondary" onClick={refresh} disabled={!tokens.refreshToken}>
+                AccessToken aktualisieren
+              </button>
+            </div>
+
+            <Disclosure summary="Technische Details (Token, Claims)">
+              <ul className="status-list">
+                <li>
+                  <span className="label">AccessToken</span>
+                  <span className="value" title={tokens.accessToken}>{shorten(tokens.accessToken, 12, 8)}</span>
+                </li>
+              </ul>
+
+              {accessClaims && (
+                <>
+                  <h4>AccessToken-Claims</h4>
+                  <ul className="status-list">
+                    {Object.entries(accessClaims).map(([key, value]) => (
+                      <li key={key}>
+                        <span className="label">{key}</span>
+                        <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {idClaims && (
+                <>
+                  <h4>IdToken-Claims</h4>
+                  <ul className="status-list">
+                    {Object.entries(idClaims).map(([key, value]) => (
+                      <li key={key}>
+                        <span className="label">{key}</span>
+                        <span className="value">{Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Disclosure>
+          </div>
         </>
       )}
-    </div>
+    </>
   )
 }
