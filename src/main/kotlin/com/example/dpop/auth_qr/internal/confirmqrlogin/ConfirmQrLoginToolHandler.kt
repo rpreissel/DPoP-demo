@@ -24,10 +24,21 @@ class ConfirmQrLoginToolHandler(
     private val qrLoginRequestRepository: QrLoginRequestRepository
 ) {
 
+    /**
+     * [pairingCode] lets activation itself skip straight past the `input` step (docs/05-api.md,
+     * Peer-Login bestätigen) when it is already known - e.g. the WEB channel's demo link
+     * (docs/07-betrieb.md #5) pre-filled it before the app even chose this tool. Resolved through
+     * the same [resolvePairingCode] the `input` step's own PATCH uses, so an unknown/expired code
+     * falls back to `input` exactly like a rejected manual entry would, rather than failing activation.
+     */
     @Transactional
-    fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(ConfirmQrLoginToolData(toolSessionId = toolSessionId))
-        return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
+    fun start(toolSessionId: UUID, pairingCode: String? = null): ToolOutcome {
+        val data = ConfirmQrLoginToolData(toolSessionId = toolSessionId)
+        toolDataRepository.save(data)
+        if (pairingCode.isNullOrBlank()) {
+            return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
+        }
+        return resolvePairingCode(data, pairingCode)
     }
 
     /**

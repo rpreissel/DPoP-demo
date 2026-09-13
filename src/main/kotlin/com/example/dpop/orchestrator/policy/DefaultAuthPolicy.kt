@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
@@ -160,42 +161,59 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .map { it.toolId }
     }
 
-    override fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?, linkedAccountId: Long?): List<String> {
+    override fun candidateTools(
+        evidence: AuthEvidence,
+        requiredAcr: String,
+        account: AccountProfile,
+        bindingKeyRef: String?,
+        linkedAccountId: Long?,
+        availableTools: Set<String>?
+    ): List<String> {
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         val active = account.authenticationMethods.filter { it.active }
-        val remaining = active.filter { it.method !in usedMethods }
 
-        // Below loa3, MFA isn't a fixed threshold: it's only needed when no single active
-        // method's own (capped) level reaches requiredAcr - which is now the normal case for
-        // sms/password alone once each is capped at loa1. Once that's true, any remaining
-        // active method contributing a factor type not yet proven this session is worth
-        // offering, not just when requiresMfa(requiredAcr) says so.
-        val singleMethodSuffices = active.any { m ->
-            val descriptor = descriptorFor(m.method)
-            descriptor != null && AcrLevels.rank(AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)) >= AcrLevels.rank(requiredAcr)
-        }
-
-        return remaining.mapNotNull { m ->
-            // A session with an already-known account must always be offered the IDENTIFIED_AUTH tool
-            // for a method, never a LOOKUP_AUTH sibling that expects to resolve the account itself
-            // from a submitted email (docs/03-tool-architektur.md). role (not category) is the
-            // key that actually distinguishes the two - category=AUTH alone matches both.
+        // A session with an already-known account must always be offered the IDENTIFIED_AUTH tool
+        // for a method, never a LOOKUP_AUTH sibling that expects to resolve the account itself
+        // from a submitted email (docs/03-tool-architektur.md). role (not category) is the
+        // key that actually distinguishes the two - category=AUTH alone matches both.
+        //
+        // Filtered down to what's actually OFFERABLE right here (availableTools this channel
+        // declared, plus the same device-ownership check `remaining` below applies) BEFORE
+        // computing singleMethodSuffices - a real bug this closes: a method whose own tool can
+        // never actually be offered on this channel (e.g. `auth-qr` has no App-frontend UI at
+        // all, docs/03-tool-architektur.md) must not still count toward "one method alone
+        // already reaches the target" - that silently disabled the two-factor combination
+        // fallback (helpsMfa below) for every genuinely offerable method too, stranding an
+        // account with only sms+email active (each capped at loa1) the moment it also happened
+        // to have an unrelated, unofferable loa2-capable method like `qr` sitting active on the
+        // very same account (see the CONFIRM_PEER_LOGIN bug report this fixes).
+        val eligible = active.mapNotNull { m ->
             val descriptor = toolRegistry.descriptors()
                 .firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
                 ?: return@mapNotNull null
-
+            if (availableTools != null && descriptor.toolId !in availableTools) return@mapNotNull null
             // A multi-instance method's AUTH tool must only ever be offered on the exact physical
             // device that holds the matching credential AND while that device is still linked to
             // THIS account (ToolDescriptor.matchesCurrentOwner) - a non-extractable device key
             // structurally cannot exist anywhere else, and a device is only ever actively bound to
             // one account at a time, so either mismatch would guarantee failure (docs/04-
-            // orchestrierung.md, docs/09-dpop.md). Read straight off THIS already-resolved,
-            // unambiguous AUTH descriptor - never re-looked-up by method name alone, which could
-            // land on a different tool sharing the same method (docs/03-tool-architektur.md).
+            // orchestrierung.md, docs/09-dpop.md).
             if (descriptor.allowsMultipleInstances && !descriptor.matchesCurrentOwner(m.details, bindingKeyRef, linkedAccountId, account.accountId)) {
                 return@mapNotNull null
             }
+            m to descriptor
+        }
 
+        // Below loa3, MFA isn't a fixed threshold: it's only needed when no single OFFERABLE
+        // method's own (capped) level reaches requiredAcr - which is now the normal case for
+        // sms/password alone once each is capped at loa1. Once that's true, any remaining
+        // active method contributing a factor type not yet proven this session is worth
+        // offering, not just when requiresMfa(requiredAcr) says so.
+        val singleMethodSuffices = eligible.any { (m, descriptor) ->
+            AcrLevels.rank(AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)) >= AcrLevels.rank(requiredAcr)
+        }
+
+        return eligible.filter { (m, _) -> m.method !in usedMethods }.mapNotNull { (m, descriptor) ->
             val cappedAcr = AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)
             // What evidence would look like if this candidate were ALSO proven - same shape
             // resolveAcr prices from, no separate catalog re-derivation.
@@ -210,7 +228,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             val helpsMfa = !singleMethodSuffices && (descriptor.factorTypes - evidence.factorTypes).isNotEmpty()
 
             descriptor.toolId.takeIf { helpsLevel || helpsMfa }
-        }.distinct() // a multi-instance method can contribute more than one `remaining` entry (several devices) but must only offer its AUTH tool once
+        }.distinct() // a multi-instance method can contribute more than one `eligible` entry (several devices) but must only offer its AUTH tool once
     }
 
     override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String> {

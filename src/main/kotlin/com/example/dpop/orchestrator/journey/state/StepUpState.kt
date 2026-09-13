@@ -18,9 +18,16 @@ sealed interface StepUpState : JourneyState {
          * when it needs STEP_UP to run as its own precondition (docs/04-orchestrierung.md #6) - the
          * one place that knows how a fresh STEP_UP run is represented, so callers never construct
          * [Start] themselves.
+         *
+         * [reason] lets the CALLER explain, in its own words, why THIS run exists - STEP_UP itself
+         * has no opinion (it is deliberately the one shared gate every caller reuses, docs/04-
+         * orchestrierung.md #6), but the generic default ("die angeforderte Aktion...") reads as
+         * coming from nowhere on a caller like `CONFIRM_PEER_LOGIN`'s COLD entry, where the user
+         * never took any "Aktion" themselves - they just scanned a QR code (real user feedback this
+         * closes). `null` keeps the generic wording for callers with nothing more specific to say.
          */
-        fun forSubJourney(targetAcr: String, startingAcr: String, allowReIdentification: Boolean = true): StepUpState =
-            Start(targetAcr, startingAcr, allowReIdentification)
+        fun forSubJourney(targetAcr: String, startingAcr: String, allowReIdentification: Boolean = true, reason: String? = null): StepUpState =
+            Start(targetAcr, startingAcr, allowReIdentification, reason)
     }
 
     data class Start(
@@ -41,7 +48,9 @@ sealed interface StepUpState : JourneyState {
          * off where offering it would be actively wrong (the peer-approval case above), never
          * because it's "worse" than an AUTH combination.
          */
-        val allowReIdentification: Boolean = true
+        val allowReIdentification: Boolean = true,
+        /** See [StepUpState.forSubJourney]'s own doc - carried through into [AuthChoice] once offered. */
+        val reason: String? = null
     ) : StepUpState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
@@ -55,11 +64,31 @@ sealed interface StepUpState : JourneyState {
         override val offered: List<String>,
         val allowReIdentification: Boolean = true,
         override val declined: Set<String> = emptySet(),
-        override val active: ToolRef? = null
+        override val active: ToolRef? = null,
+        /** See [StepUpState.forSubJourney]'s own doc. */
+        val reason: String? = null,
+        /**
+         * True once this session already proved one AUTHENTICATOR-axis factor THIS run (real user
+         * feedback: two back-to-back "Erhöhte Sicherheit erforderlich" screens with byte-identical
+         * text, offering fewer methods the second time, read as the same request repeating/stuck -
+         * not as "you gave one factor, now give a DIFFERENT one to complete the combination"). Set
+         * once, at the point [com.example.dpop.orchestrator.journey.strategy.StepUpStrategy.offerAuth]
+         * builds this state - never recomputed afterwards, so it stays accurate for exactly the
+         * offer it was computed for.
+         */
+        val additionalFactorRound: Boolean = false
     ) : StepUpState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Erhöhte Sicherheit erforderlich"
-        override val selectionDescription: String get() = "Die angeforderte Aktion erfordert ein höheres Sicherheitsniveau. Bitte bestätigen Sie Ihre Identität mit einem weiteren Verfahren."
+        override val selectionDescription: String get() {
+            val base = reason ?: "Die angeforderte Aktion erfordert ein höheres Sicherheitsniveau. Bitte bestätigen Sie Ihre Identität mit einem weiteren Verfahren."
+            return if (additionalFactorRound) {
+                "$base Das eben genutzte Verfahren zählt bereits - wählen Sie jetzt ein ANDERSARTIGES " +
+                    "Verfahren (z. B. Passwort statt SMS), um die Kombination abzuschließen."
+            } else {
+                base
+            }
+        }
     }
 }

@@ -558,6 +558,17 @@ a.method-choice:active {
 .status-list .label {
   font-size: 0.9rem;
   color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* ADR-5-Transparenz (effektives/max loa, enrolledUnderAcr, Faktor-Typen) unter dem Methodennamen -
+   selbe Optik wie .method-choice-hint, nur lokal in der Anmeldeverfahren-Liste. */
+.method-detail-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted, var(--text));
+  font-weight: 400;
 }
 
 .status-list .value {

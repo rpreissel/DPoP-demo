@@ -31,6 +31,14 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      * [ManageAuthMethodsState.AddRequested]). On a cold entry, `ctx.account == null` means no
      * `DeviceAccountLink` exists yet - the strategy aborts right here rather than ever falling into
      * identification/registration.
+     *
+     * Deliberately no separate "do you want to confirm this?" gate ahead of the security checks
+     * below (an earlier version of this class had one, `OfferApproval` - removed again: an extra
+     * tap before the checks even start was net friction for no real gain, since the STEP_UP screen
+     * a missing-loa2 case lands on already both explains WHY it's asking and offers "Abbrechen" as
+     * the way out). Instead, [StepUpStrategy]'s own [reason][com.example.dpop.orchestrator.journey.
+     * state.StepUpState.forSubJourney] text carries that context on the FIRST screen actually
+     * shown - see [ConfirmPeerLoginStrategy]'s `STEP_UP_REASON`.
      */
     data class Requested(val startedAuthenticated: Boolean) : ConfirmPeerLoginState {
         override fun withActive(active: ToolRef?): JourneyState = this

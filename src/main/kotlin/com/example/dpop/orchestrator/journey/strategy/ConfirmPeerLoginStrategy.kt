@@ -138,7 +138,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
             // peer-approval must never let someone acquire a fresh identity just to confirm
             // someone else's login; a device-bound account that can't reach loa2 on its own active
             // methods aborts instead (StepUpStrategy.offerAuth's own Abort branch).
-            seedWith = StepUpState.forSubJourney(REQUIRED_ACR, ctx.currentAcr, allowReIdentification = false),
+            seedWith = StepUpState.forSubJourney(REQUIRED_ACR, ctx.currentAcr, allowReIdentification = false, reason = STEP_UP_REASON),
             resumeWith = ConfirmPeerLoginState.Requested(startedAuthenticated)
         )
     }
@@ -159,5 +159,19 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
         /** The two answers [ConfirmPeerLoginState.OfferLogout] understands (see JourneyEvent.Answered). */
         const val ACCEPT = "accept"
         const val DECLINE = "decline"
+
+        /**
+         * [StepUpState.forSubJourney]'s `reason` for the gate's own STEP_UP - a named constant so
+         * tests assert against it instead of duplicating the literal. This is the FIRST screen a
+         * missing-loa2 case ever sees (no separate "do you want to confirm this?" gate ahead of it,
+         * see [ConfirmPeerLoginState.Requested]'s own doc for why that was tried and removed again)
+         * - so it has to carry the FULL context on its own: what's happening (a browser wants to
+         * log in), why this session is being asked for more (it must prove itself before it may
+         * vouch for someone else), and that declining ("Abbrechen") is the way out if this wasn't
+         * self-triggered, not just "an action requires more security" out of nowhere.
+         */
+        const val STEP_UP_REASON = "Ein Browser möchte sich mit Ihrem Konto anmelden. Um das zu bestätigen, muss " +
+            "diese Sitzung zunächst selbst ein höheres Sicherheitsniveau nachweisen. Brechen Sie ab, wenn Sie " +
+            "diesen Login nicht selbst ausgelöst haben."
     }
 }

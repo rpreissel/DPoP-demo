@@ -9,6 +9,7 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
+import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -37,10 +38,10 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             // Completed event - only the sub-journey/give-up-vs-offer events below.
             is StepUpState.Start -> when (event) {
                 // Re-check whether the fresh proof already closes the gap before offering again.
-                is JourneyEvent.SubJourneyFinished -> finishOrContinue(state.targetAcr, state.startingAcr, state.allowReIdentification, ctx)
+                is JourneyEvent.SubJourneyFinished -> finishOrContinue(state.targetAcr, state.startingAcr, state.allowReIdentification, state.reason, ctx)
                 // No new evidence - re-deriving would just re-request the same RE_IDENTIFY again.
                 is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
-                else -> offerAuth(state.targetAcr, state.startingAcr, state.allowReIdentification, ctx)
+                else -> offerAuth(state.targetAcr, state.startingAcr, state.allowReIdentification, state.reason, ctx)
             }
 
             is StepUpState.AuthChoice -> when (event) {
@@ -54,7 +55,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
                     }
                 }
                 // ActionCompleted: re-check with the fresh, post-proof context.
-                else -> finishOrContinue(state.targetAcr, state.startingAcr, state.allowReIdentification, ctx)
+                else -> finishOrContinue(state.targetAcr, state.startingAcr, state.allowReIdentification, state.reason, ctx)
             }
         }
 
@@ -66,21 +67,26 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             error("${event.tool.toolId} is not offered by STEP_UP")
     }
 
-    private fun finishOrContinue(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, ctx: JourneyContext): Transition {
+    private fun finishOrContinue(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Transition.Authenticated
-        return offerAuth(targetAcr, startingAcr, allowReIdentification, ctx)
+        return offerAuth(targetAcr, startingAcr, allowReIdentification, reason, ctx)
     }
 
-    private fun offerAuth(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, ctx: JourneyContext): Transition {
+    private fun offerAuth(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         val candidates = CandidateTools.forAuth(account, targetAcr, ctx)
         if (candidates.isNotEmpty()) {
-            return Transition.To(StepUpState.AuthChoice(targetAcr, startingAcr, candidates, allowReIdentification))
+            // Any AUTHENTICATOR-axis evidence already on the channel (from an earlier pick in THIS
+            // run, or from whatever originally got the channel this far) means this offer is asking
+            // for an ADDITIONAL factor, not the first one - see AuthChoice.additionalFactorRound's
+            // own doc for why that needs saying out loud.
+            val additionalFactorRound = ctx.evidence.factors.any { it.axis == EvidenceAxis.AUTHENTICATOR }
+            return Transition.To(StepUpState.AuthChoice(targetAcr, startingAcr, candidates, allowReIdentification, reason = reason, additionalFactorRound = additionalFactorRound))
         }
         return offerReIdentOrGiveUp(
             targetAcr, startingAcr, allowReIdentification, ctx,
-            whenNone = Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}")
+            whenNone = Transition.Abort(CandidateTools.exhaustedAuthAbortReason(ctx, account, targetAcr))
         )
     }
 

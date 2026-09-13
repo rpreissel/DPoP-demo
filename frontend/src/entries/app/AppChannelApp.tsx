@@ -30,6 +30,7 @@ import {
   forgetPendingPairingCode,
   loadAvailableTools,
   loadChannelSessionId,
+  loadPendingPairingCode,
   storeAvailableTools,
   storeChannelSessionId,
   storePendingPairingCode,
@@ -413,7 +414,7 @@ export function AppChannelApp() {
     setAlternativesCount(1)
     activatingToolIdRef.current = toolId
     const pendingMessage = stepData?.message
-    activateTool(dpop, channelSessionId, toolId)
+    activateTool(dpop, channelSessionId, toolId, activationBodyFor(toolId))
       .then((response) => {
         // Preserve the journey-level context message (e.g. "E-Mail-Bestätigung ausstehend")
         // across auto-activation: the tool endpoint's own response typically has no message,
@@ -665,12 +666,29 @@ export function AppChannelApp() {
     }
   }
 
+  /**
+   * confirm-qr-login is the only tool whose activation body carries anything (docs/03-tool-
+   * architektur.md, per-module own API - this stays a one-off special case here, not a generic
+   * dispatch): when a pairing code is already known (scanned/deep-linked before the tool was even
+   * chosen), send it straight in the activation POST so the backend can skip the `input` step
+   * entirely (ConfirmQrLoginToolController) instead of the app showing a screen with nothing left
+   * for the user to type. Consumed here, not just left for the input step's own pre-fill.
+   */
+  function activationBodyFor(toolId: string): Record<string, unknown> | undefined {
+    if (toolId !== 'confirm-qr-login') return undefined
+    const pairingCode = loadPendingPairingCode()
+    if (!pairingCode) return undefined
+    forgetPendingPairingCode()
+    setPendingPairingCode(undefined)
+    return { pairingCode }
+  }
+
   async function handleSelectMethod(toolId: string) {
     if (!dpop || !channelSessionId) return
     try {
       // The options just shown minus the one being picked = how many real alternatives remain.
       setAlternativesCount(Math.max(0, (stepData?.options?.length ?? 1) - 1))
-      const response = await activateTool(dpop, channelSessionId, toolId)
+      const response = await activateTool(dpop, channelSessionId, toolId, activationBodyFor(toolId))
       applyResponse(response, toolId)
     } catch (err) {
       setError(describeError('Tool activation failed', err))
@@ -783,11 +801,24 @@ export function AppChannelApp() {
                   </div>
                 </div>
               )}
-              {inToolMode && activeTool && alternativesCount > 0 && (
+              {inToolMode && ((activeTool && alternativesCount > 0) || canCancel) && (
                 <div className="controls sticky-actions">
-                  <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode).">
-                    Anderes Verfahren
-                  </button>
+                  {activeTool && alternativesCount > 0 && (
+                    <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode). Bei einem Vorgang mit nur einem Kandidaten (z. B. confirm-qr-login) bietet das denselben Schritt einfach erneut an - dafür ist Abbrechen daneben da.">
+                      Anderes Verfahren
+                    </button>
+                  )}
+                  {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem
+                      laufenden STEP_UP_IN_PROGRESS-Kanal - z.B. mitten in CONFIRM_PEER_LOGIN - nie zutrifft): canCancel allein
+                      ist schon der richtige Signalgeber (ChannelService/JourneyService kennen den echten cancelledTo()-Zielzustand,
+                      das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Anderes Verfahren" bei einem
+                      Ein-Kandidaten-Tool wie confirm-qr-login der einzige (aber wirkungslose, da es denselben Schritt nur
+                      erneut anbietet) Fluchtweg - "Zur Startseite"/"Abmelden" rendern beide bewusst nicht während inToolMode. */}
+                  {canCancel && (
+                    <button className="secondary" onClick={handleCancel} title="Bricht diesen Vorgang vollständig ab.">
+                      Abbrechen
+                    </button>
+                  )}
                 </div>
               )}
             </>

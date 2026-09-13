@@ -123,15 +123,38 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
             then("methods already used this session are excluded") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId) shouldContainExactly listOf("auth-sms")
+                policy.candidateTools(fresh, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf("auth-sms")
 
                 val alreadyUsedSms = AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2"))
-                policy.candidateTools(alreadyUsedSms, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId).shouldBeEmpty()
+                policy.candidateTools(alreadyUsedSms, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null).shouldBeEmpty()
             }
 
             then("a null bindingKeyRef (WEB channel, no device) is accepted without crashing") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, "loa2", acc, null, linkedAccountId = null) shouldContainExactly listOf("auth-sms")
+                policy.candidateTools(fresh, "loa2", acc, null, linkedAccountId = null, availableTools = null) shouldContainExactly listOf("auth-sms")
+            }
+        }
+
+        `when`("an active method alone reaches the target but this channel can never actually offer it (availableTools)") {
+            then("it must not suppress the two-factor combination fallback for the methods that ARE offerable here - regression for a real bug report (CONFIRM_PEER_LOGIN aborting for an account with both sms and email active)") {
+                // Mirrors the real catalog: auth-qr has maxAcr=loa2 on its own (no combination
+                // needed), but the App frontend never declares it in availableTools (no UI for it,
+                // docs/03-tool-architektur.md) - sms/email are each capped at loa1 individually.
+                val tokenSms = descriptor("auth-sms", MethodRole.IDENTIFIED_AUTH, "sms", setOf(FactorType.POSSESSION), "loa1")
+                val tokenEmail = descriptor("auth-email", MethodRole.IDENTIFIED_AUTH, "email", setOf(FactorType.KNOWLEDGE), "loa1")
+                val tokenQr = descriptor("auth-qr", MethodRole.IDENTIFIED_AUTH, "qr", setOf(FactorType.POSSESSION), "loa2")
+                val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenSms, tokenEmail, tokenQr)))
+                val acc = account(method("sms", "loa2"), method("email", "loa2"), method("qr", "loa2"))
+                val fresh = AuthEvidence(emptyList())
+
+                // Before the fix: qr's own maxAcr=loa2 sets singleMethodSuffices=true (computed
+                // over ALL active methods, unfiltered), which disables helpsMfa for sms/email too -
+                // and since qr itself is excluded by availableTools, candidateTools came back
+                // completely empty despite sms+email clearly combining to loa2.
+                localPolicy.candidateTools(
+                    fresh, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId,
+                    availableTools = setOf("auth-sms", "auth-email")
+                ) shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
             }
         }
 
@@ -156,11 +179,11 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val fresh = AuthEvidence(emptyList())
 
             then("it is offered while the device is still linked to this same account") {
-                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = acc.accountId) shouldContainExactly listOf("auth-device")
+                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf("auth-device")
             }
 
             then("it is NOT offered once the device has been rebound to a different account") {
-                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = 999L).shouldBeEmpty()
+                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = 999L, availableTools = null).shouldBeEmpty()
             }
         }
 

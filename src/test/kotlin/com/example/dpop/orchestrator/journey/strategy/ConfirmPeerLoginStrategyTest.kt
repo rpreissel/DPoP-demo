@@ -58,7 +58,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 strategy.transition(ConfirmPeerLoginState.Requested(false), JourneyEvent.Started, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney("loa2", "loa1", allowReIdentification = false),
+                        seedWith = StepUpState.forSubJourney("loa2", "loa1", allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -97,7 +97,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney("loa2", "loa1", allowReIdentification = false),
+                        seedWith = StepUpState.forSubJourney("loa2", "loa1", allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -111,7 +111,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney("loa2", "loa1", allowReIdentification = false),
+                        seedWith = StepUpState.forSubJourney("loa2", "loa1", allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }

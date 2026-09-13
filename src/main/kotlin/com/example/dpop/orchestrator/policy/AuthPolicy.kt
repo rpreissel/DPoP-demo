@@ -23,8 +23,23 @@ interface AuthPolicy {
      * one account, so a credential is only offered while the device is still linked to the SAME
      * account it belongs to - once rebound elsewhere, the old account's credential stops matching
      * here even though the raw key still equals [bindingKeyRef] (docs/09-dpop.md).
+     *
+     * [availableTools] narrows which AUTH tools this specific channel may even present (e.g. the
+     * App frontend never declares `auth-qr`, docs/03-tool-architektur.md - there is no UI for it).
+     * `null` means "don't filter" (every test/caller that genuinely doesn't care about this channel
+     * restriction). This must be applied BEFORE deciding whether one active method alone already
+     * suffices: an active-but-unofferable loa2-capable method must never silently suppress the
+     * two-factor combination fallback for the methods that ARE actually offerable here - see
+     * [DefaultAuthPolicy.candidateTools]'s own doc for the real bug this closes.
      */
-    fun candidateTools(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile, bindingKeyRef: String?, linkedAccountId: Long?): List<String>
+    fun candidateTools(
+        evidence: AuthEvidence,
+        requiredAcr: String,
+        account: AccountProfile,
+        bindingKeyRef: String?,
+        linkedAccountId: Long?,
+        availableTools: Set<String>? = null
+    ): List<String>
 
     /**
      * Which IDENT tools (re-identification, e.g. ident-fsc) could ALSO close the remaining gap

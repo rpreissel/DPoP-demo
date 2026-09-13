@@ -29,6 +29,10 @@ data class ConfirmQrLoginPatchRequest(
     @field:Schema(example = "accept") val decision: String? = null
 )
 
+data class ConfirmQrLoginActivateRequest(
+    @field:Schema(example = "ABCD-1234") val pairingCode: String? = null
+)
+
 /**
  * toolId=confirm-qr-login. One controller owns activation, PATCH and GET for this tool
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
@@ -44,14 +48,18 @@ class ConfirmQrLoginToolController(
 ) {
 
     @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-qr-login")
-    @Operation(summary = "Activate confirm-qr-login", description = "No request body: toolId already carries kind and method.")
+    @Operation(
+        summary = "Activate confirm-qr-login",
+        description = "Optional body: {pairingCode}, when already known (e.g. from a demo-link deep link) - skips the input step."
+    )
     fun activate(
         @PathVariable channelSessionId: UUID,
         @BindingKey bindingKeyRef: String,
+        @RequestBody(required = false) request: ConfirmQrLoginActivateRequest?,
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, CONFIRM_QR_LOGIN_TOOL_ID)
-        val outcome = handler.start(context.toolSessionId)
+        val outcome = handler.start(context.toolSessionId, request?.pairingCode)
         val response = toolEndpoint.applyOutcome(context, outcome)
         val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)

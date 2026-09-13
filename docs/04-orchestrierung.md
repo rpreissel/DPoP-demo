@@ -618,6 +618,12 @@ Journey-SPI nötig.
 `CONFIRM_PEER_LOGIN` ist **Entry-Intent und Aufsatz auf einer authentifizierten Session zugleich**
 (Abschnitt 2) — beide Wege landen auf demselben `Requested`:
 
+Bewusst **kein** separates "Möchten Sie bestätigen?"-Gate vor den folgenden Sicherheits-Checks
+(kurz erprobt, wieder verworfen): ein zusätzlicher Tap vor dem eigentlichen Ablauf brachte keinen
+echten Gewinn, weil der `STEP_UP`-Schritt, den ein fehlendes loa2 ohnehin auslöst, bereits selbst
+erklärt, warum gefragt wird, und "Abbrechen" als Ausweg anbietet — siehe `StepUpState.forSubJourney`s
+`reason`-Text (`ConfirmPeerLoginStrategy.STEP_UP_REASON`), der genau diesen Kontext trägt.
+
 ```mermaid
 stateDiagram-v2
   [*] --> Requested

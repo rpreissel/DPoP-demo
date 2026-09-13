@@ -119,8 +119,19 @@ internal object AuthEnrollCore {
                 seedWith = ReIdentifyState.forSubJourney(ctx.acrFloor, ctx.currentAcr),
                 resumeWith = resumeAtStart
             )
-        } else {
+        } else if (!ctx.policy.canAccountReach(account, ctx.acrFloor)) {
+            // canAccountReach false: nothing left to enroll AND what's already active genuinely
+            // can't reach the floor - unreachableReason's own explanation actually applies here.
             Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+        } else {
+            // canAccountReach true but forEnrollment came back empty anyway - a channel-local
+            // reason (e.g. availableTools disabled every remaining candidate), not an account-wide
+            // one. unreachableReason would describe the wrong thing here (see CandidateTools.
+            // exhaustedAuthAbortReason's own doc for the same bug in the AUTH-candidate case).
+            Transition.Abort(
+                "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
+                    "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."
+            )
         }
     }
 

@@ -50,6 +50,14 @@ export interface ActiveMethodView {
   id: string
   method: string
   label?: string
+  /** This method's own factor types (docs/03-tool-architektur.md), e.g. `["POSSESSION"]` - independent of the account/enrollment, from the tool catalog. */
+  factorTypes?: string[]
+  /** This tool's own declared ceiling - independent of when/how it was actually enrolled. */
+  maxAcr?: string
+  /** The level the session had already proven when this method was enrolled (ADR-5 cap, docs/12-entscheidungen.md) - can be lower than maxAcr. */
+  enrolledUnderAcr?: string
+  /** min(enrolledUnderAcr, maxAcr) - what this method actually contributes today, the number that matters for reachability. */
+  effectiveAcr?: string
 }
 
 export interface ChannelBlock {

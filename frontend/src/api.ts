@@ -203,9 +203,19 @@ export function abandonTool(dpop: DpopKeyPair, toolSessionId: string, toolId: st
   return call(dpop, 'DELETE', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`)
 }
 
-/** toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by the client. */
-export function activateTool(dpop: DpopKeyPair, channelSessionId: string, toolId: string): Promise<ChannelResponse> {
-  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/tools/${toolId}`)
+/**
+ * toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by
+ * the client. [body] is only ever used by confirm-qr-login, to pass an already-known pairing code
+ * (session.ts's pending-pairing-code) straight into activation so its own `input` step can be
+ * skipped server-side (ConfirmQrLoginToolController) - every other tool activates with none.
+ */
+export function activateTool(
+  dpop: DpopKeyPair,
+  channelSessionId: string,
+  toolId: string,
+  body?: Record<string, unknown>
+): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/tools/${toolId}`, body)
 }
 
 export function patchTool(

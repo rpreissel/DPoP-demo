@@ -16,6 +16,7 @@ import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.AuthEvidenceService
@@ -57,7 +58,8 @@ class ChannelService(
     private val tokenProvider: TokenProvider,
     private val channelCreationThrottleService: ChannelCreationThrottleService,
     private val journeyLogService: JourneyLogService,
-    private val personDirectory: PersonDirectory
+    private val personDirectory: PersonDirectory,
+    private val toolRegistry: ToolHandlerRegistry
 ) {
 
     /**
@@ -190,8 +192,26 @@ class ChannelService(
         checkNotNull(channel.authContextId) { "AUTHENTICATED channel without authContextId" }
     }
 
+    /**
+     * `maxAcr`/`factorTypes` come from the tool catalog (a method's own, account-independent
+     * ceiling); `enrolledUnderAcr`/`effectiveAcr` from the account's own enrollment record (the
+     * ADR-5 cap, [DefaultAuthPolicy.canAccountReach]'s same `AcrLevels.min` calculation) - surfaced
+     * here so the UI can show WHY a method might not reach as far as its own catalog entry
+     * promises, instead of that only being discoverable later as a confusing rejection.
+     */
     private fun toActiveMethodViews(methods: List<AuthMethodView>?): List<ActiveMethodView> =
-        methods.orEmpty().map { ActiveMethodView(requireNotNull(it.id) { "Active method without an id" }, it.method, it.label) }
+        methods.orEmpty().map { m ->
+            val descriptor = toolRegistry.descriptors().firstOrNull { it.method == m.method }
+            ActiveMethodView(
+                id = requireNotNull(m.id) { "Active method without an id" },
+                method = m.method,
+                label = m.label,
+                factorTypes = descriptor?.factorTypes,
+                maxAcr = descriptor?.maxAcr,
+                enrolledUnderAcr = m.enrolledUnderAcr,
+                effectiveAcr = descriptor?.let { AcrLevels.min(m.enrolledUnderAcr, it.maxAcr) }
+            )
+        }
 
     /**
      * `internal`, not `private`: [KcChannelService] reuses this same "resume and advance the

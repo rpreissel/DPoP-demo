@@ -143,7 +143,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 resumeWith = LookupLoginState.Start
             )
         } else {
-            Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+            Transition.Abort(CandidateTools.exhaustedAuthAbortReason(ctx, account, ctx.acrFloor))
         }
     }
 

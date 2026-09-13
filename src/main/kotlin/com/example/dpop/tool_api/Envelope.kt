@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.tool_spi.FactorType
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
@@ -10,7 +11,12 @@ import java.util.UUID
         "DELETE .../methods/{id} - method name alone isn't unique when a method allows multiple " +
         "instances (e.g. several active `device` entries, one per physical device). `label` is a " +
         "user-chosen display name, set only for multi-instance methods; `null` for singleton ones " +
-        "(email/sms/password), which the client labels from `method` itself."
+        "(email/sms/password), which the client labels from `method` itself. `enrolledUnderAcr`/" +
+        "`maxAcr`/`effectiveAcr`/`factorTypes` surface the ADR-5 three-way cap (docs/12-" +
+        "entscheidungen.md) that was previously invisible from outside: `effectiveAcr` is " +
+        "`min(enrolledUnderAcr, maxAcr)`, the level this method can actually contribute right now, " +
+        "which can be lower than the tool's own declared `maxAcr` if it was enrolled while the " +
+        "session had proven less."
 )
 data class ActiveMethodView(
     @field:Schema(example = "7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b")
@@ -18,7 +24,15 @@ data class ActiveMethodView(
     @field:Schema(example = "sms")
     val method: String,
     @field:Schema(example = "Laptop")
-    val label: String? = null
+    val label: String? = null,
+    @field:Schema(example = "[\"POSSESSION\"]")
+    val factorTypes: Set<FactorType>? = null,
+    @field:Schema(example = "loa2", description = "This tool's own declared ceiling - never account/session-specific.")
+    val maxAcr: String? = null,
+    @field:Schema(example = "loa1", description = "The level the session had already proven at the moment this method was enrolled (ADR-5) - caps effectiveAcr below maxAcr if lower.")
+    val enrolledUnderAcr: String? = null,
+    @field:Schema(example = "loa1", description = "min(enrolledUnderAcr, maxAcr) - what this method actually contributes today.")
+    val effectiveAcr: String? = null
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

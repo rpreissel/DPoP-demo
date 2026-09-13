@@ -57,7 +57,7 @@ internal object CandidateTools {
     }
 
     fun forAuth(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
-        ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef, ctx.linkedAccountId))
+        ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef, ctx.linkedAccountId, ctx.availableTools))
 
     /**
      * Every active IDENTIFIED_AUTH method the account has, for a fresh "prove you're still you"
@@ -93,4 +93,27 @@ internal object CandidateTools {
 
     fun forReIdentification(targetAcr: String, ctx: JourneyContext): List<String> =
         ctx.filterAvailable(ctx.policy.reIdentCandidates(ctx.evidence, targetAcr))
+
+    /**
+     * The abort message once [forAuth] came back empty and re-identification isn't offered/possible
+     * either - shared by every caller in that exact situation ([StepUpStrategy], [LookupLoginStrategy])
+     * so none of them repeats the same bug: [AuthPolicy.unreachableReason]'s own contract is "only
+     * ever called once the caller already knows there's no way through" ([AuthPolicy.unreachableReason]'s
+     * own doc) - i.e. once [AuthPolicy.canAccountReach] is false. [forAuth] coming back empty is a
+     * DIFFERENT question (can THIS channel/session offer something RIGHT NOW - already-used-this-
+     * session methods, a device-bound credential that doesn't match this physical device, tools
+     * disabled via the demo's availability toggle, ...); an account can easily still be reachable
+     * in principle while none of that applies here. Calling [AuthPolicy.unreachableReason]
+     * unconditionally on an empty [forAuth] result (the bug this closes) produces a real, coherent-
+     * looking, but factually WRONG explanation - e.g. "enrolled under a lower level" for an account
+     * whose methods are enrolled at exactly the required level, because a completely different,
+     * channel-local restriction was the actual blocker.
+     */
+    fun exhaustedAuthAbortReason(ctx: JourneyContext, account: AccountProfile, targetAcr: String): String =
+        if (!ctx.policy.canAccountReach(account, targetAcr)) {
+            "Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}"
+        } else {
+            "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal steht dafür gerade keine passende Methode zur Verfügung " +
+                "(z. B. bereits in dieser Sitzung genutzt, für dieses Gerät deaktiviert, oder an ein anderes Gerät gebunden)."
+        }
 }

@@ -11,6 +11,10 @@ interface PairingCodeInputFormProps {
  * either scanned/typed here manually, or pre-filled from the WEB channel's demo link
  * (App.tsx's URL-capture effect, persisted via session.ts). Consumed (forgotten) once submitted so
  * a later, unrelated confirm-qr-login run never silently reuses a stale code.
+ *
+ * When the code is already known at activation time, this step is skipped server-side entirely
+ * (activateTool sends it straight in the activation body, see AppChannelApp.tsx) - this form only
+ * ever renders when the user still has to type or scan one.
  */
 export function PairingCodeInputForm({ onSubmit, error }: PairingCodeInputFormProps) {
   const [pairingCode, setPairingCode] = useState(() => loadPendingPairingCode() ?? '')

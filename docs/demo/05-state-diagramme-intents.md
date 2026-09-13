@@ -46,16 +46,22 @@ nächstes Mal noch schneller geht.
 - Bevorzugt das eine Verfahren, das an dieses Gerät gebunden ist; erst wenn das abgelehnt wird,
   kommt die volle Methodenauswahl.
 - Ist gar kein Konto bekannt, übernimmt `REGISTER` als Vorbedingung - FAST_ACCESS identifiziert nie selbst.
-- Reicht der Nachweis nicht für das geforderte Niveau, wird ein weiteres Verfahren eingerichtet,
-  nicht neu identifiziert.
-- Erst wenn keine Einrichtung mehr möglich ist, kommt die Re-Identifizierung als letzte Option.
+- Reicht der Nachweis nicht für das geforderte Niveau, wird nur dann ein weiteres Verfahren
+  eingerichtet, wenn die Sitzung schon frisch loa2 nachgewiesen hat - ein Verfahren, das unter
+  einem niedrigeren Niveau eingerichtet würde, gälte dauerhaft nur mit diesem niedrigeren Niveau
+  (Grund: Registrierung, Abschnitt "Pflichten"/ADR-5). Ist die Sitzung noch nicht auf loa2 (der
+  gewöhnliche FAST_ACCESS-Fall: erkanntes Gerät plus ein einzelner schwächerer Faktor), kommt
+  direkt die Re-Identifizierung, nie eine stille Einrichtung unter Niveau.
+- Erst wenn danach keine Einrichtung mehr möglich ist, kommt die Re-Identifizierung als letzte Option.
 
 ```mermaid
 stateDiagram-v2
   [*] --> VerfahrenPruefen
   VerfahrenPruefen --> VerfahrenPruefen: abgelehnt, weitere Option
   VerfahrenPruefen --> Registrierung: kein Konto bekannt
-  VerfahrenPruefen --> Einrichtung: Nachweis reicht nicht
+  VerfahrenPruefen --> Einrichtung: Nachweis reicht nicht, Sitzung ist schon auf loa2
+  VerfahrenPruefen --> ReIdentifizierung: Nachweis reicht nicht, Sitzung noch unter loa2
+  VerfahrenPruefen --> [*]: Nachweis reicht nicht, Sitzung unter loa2, keine Re-Identifizierung moeglich
   VerfahrenPruefen --> Abschluss: Nachweis reicht
 
   Einrichtung --> Einrichtung: weiteres Verfahren nötig
@@ -73,6 +79,11 @@ stateDiagram-v2
   state "Registrierung (Sub-Journey REGISTER)" as Registrierung
   state "Re-Identifizierung (Sub-Journey RE_IDENTIFY)" as ReIdentifizierung
 ```
+
+<sub>Neue Regel (Bugfix): Ein neues Anmeldeverfahren wird nie mehr unterhalb von loa2 eingerichtet -
+zuvor konnte ein erkanntes Gerät mit nur einem schwachen Faktor (z. B. SMS allein) direkt in die
+Einrichtung eines weiteren Verfahrens laufen, das dann dauerhaft auf diesem niedrigeren Niveau
+hängen blieb.</sub>
 
 ---
 
@@ -286,7 +297,9 @@ Ein schon offenes, angemeldetes App-Gerät bestätigt einen Login-Versuch im Bro
 - Ist auf diesem Gerät gar kein Konto bekannt, bricht sofort ab - es gibt keinen Rückfall auf
   Registrierung oder Identifikation.
 - Auch hier muss die Sitzung zuerst frisch loa2 nachweisen, bevor sie für einen fremden Login
-  bürgen darf (gleicher Sicherheits-Check wie bei `MANAGE_AUTH_METHODS`).
+  bürgen darf (gleicher Sicherheits-Check wie bei `MANAGE_AUTH_METHODS`). Bewusst **kein**
+  separates "Möchten Sie bestätigen?"-Gate davor (kurz erprobt, wieder verworfen) - der
+  Step-up-Screen selbst erklärt bereits, worum es geht, und bietet "Abbrechen" an.
 - **Bewusste Ausnahme:** Dieser Sicherheits-Check darf **nie** in eine Re-Identifizierung münden -
   eine Peer-Bestätigung darf niemandem eine neue Identität verschaffen, nur um fremde Logins abzunicken.
 - War die Sitzung schon vorher unabhängig auf loa2, muss trotzdem noch einmal ein beliebiger
@@ -299,7 +312,8 @@ stateDiagram-v2
   [*] --> Angefragt
   Angefragt --> [*]: kein Konto auf diesem Gerät bekannt
   Angefragt --> StepUp: loa2 fehlt
-  StepUp --> Angefragt: Step-up beendet
+  StepUp --> Bestaetigen: Step-up liefert schon den nötigen frischen Nachweis
+  StepUp --> Angefragt: Step-up beendet, aber ohne frischen Nachweis
   StepUp --> [*]: abgebrochen
 
   Angefragt --> FrischerNachweis: loa2 vorhanden, aber frischer Faktor nötig

@@ -19,6 +19,32 @@ function labelFor(method: ActiveMethodView): string {
   return method.label ?? DEFAULT_METHOD_LABELS[method.method] ?? method.method
 }
 
+/** Same German factor-type names as the backend's DefaultAuthPolicy.germanFactorType. */
+const FACTOR_TYPE_LABELS: Record<string, string> = {
+  POSSESSION: 'Besitz',
+  KNOWLEDGE: 'Wissen',
+  INHERENCE: 'Inhärenz',
+}
+
+function factorTypesLabel(method: ActiveMethodView): string | undefined {
+  if (!method.factorTypes || method.factorTypes.length === 0) return undefined
+  return method.factorTypes.map((t) => FACTOR_TYPE_LABELS[t] ?? t).join(' + ')
+}
+
+/**
+ * The ADR-5 three-way cap (docs/12-entscheidungen.md), made visible instead of only discoverable
+ * later as a confusing "Sicherheitsniveau nicht erreichbar" (see AuthPolicy.unreachableReason):
+ * effectiveAcr is what this method actually contributes today, which can be lower than its own
+ * maxAcr if it was enrolled while the session had proven less (enrolledUnderAcr).
+ */
+function acrDetailLabel(method: ActiveMethodView): string | undefined {
+  if (!method.maxAcr) return undefined
+  const capped = method.effectiveAcr && method.effectiveAcr !== method.maxAcr
+  return capped
+    ? `${method.effectiveAcr} (gedeckelt - max. ${method.maxAcr}, eingerichtet unter ${method.enrolledUnderAcr})`
+    : `${method.effectiveAcr ?? method.maxAcr} (max. ${method.maxAcr})`
+}
+
 /** A section heading with a hover/focus-revealed diagram of that section's journey shape - same trigger as JourneyStructureView's in-progress hint. */
 function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof JOURNEY_DIAGRAMS }) {
   return (
@@ -158,7 +184,14 @@ export function AuthenticationCompletedView({
         <ul className="status-list">
           {activeMethods.map((method) => (
             <li key={method.id}>
-              <span className="label">{labelFor(method)}</span>
+              <span className="label">
+                {labelFor(method)}
+                {(acrDetailLabel(method) || factorTypesLabel(method)) && (
+                  <span className="method-detail-hint">
+                    {[acrDetailLabel(method), factorTypesLabel(method)].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </span>
               <button className="secondary" onClick={() => onDeactivateMethod(method.id)}>
                 Deaktivieren
               </button>
