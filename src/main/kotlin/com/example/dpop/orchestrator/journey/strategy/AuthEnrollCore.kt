@@ -12,6 +12,7 @@ import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterState
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.tool_spi.ToolOutcome
 
 /**
@@ -74,7 +75,40 @@ internal object AuthEnrollCore {
         return Transition.Authenticated
     }
 
+    /**
+     * Never offers a NEW auth method below [ENROLLMENT_FLOOR_ACR]: a credential's `enrolledUnderAcr`
+     * (ADR-5, [DefaultAuthPolicy]) permanently bakes in whatever this session had already proven at
+     * the moment it was enrolled - regardless of the tool's own declared `maxAcr`. A session that
+     * merely recognized the device and proved one loa1 factor (`FAST_ACCESS`'s own, identification-
+     * free path, [FastAccessStrategy.firstOffer]) could otherwise enroll e.g. `enroll-device`
+     * (`maxAcr=loa2`) capped at loa1 forever, with nothing surfaced until a LATER step-up
+     * (`STEP_UP`/`CONFIRM_PEER_LOGIN`) confusingly rejects it as "insufficient" - a real bug report.
+     * Fixed at loa2 rather than [JourneyContext.acrFloor]: this is about never handing out
+     * unverified trust, not about this particular channel's own target.
+     *
+     * Bypassing straight to a fresh identification (never straight to failure) mirrors
+     * [StepUpStrategy]'s own re-ident fallback - the one channel-independent way up from here, since
+     * there is no ENROLL path that itself proves identity. Not applied to [RegisterEnrollFirstStrategy]:
+     * that experiment's entire premise is enrolling BEFORE any identification exists yet (its own
+     * class doc) - its capped-at-loa1 result there is the intended trade-off, not this same bug.
+     */
     fun offerEnrollment(account: AccountProfile, ctx: JourneyContext, emailObligation: Boolean, resumeAtStart: JourneyState): Transition {
+        if (!ctx.policy.isSatisfied(ctx.evidence, ENROLLMENT_FLOOR_ACR, account)) {
+            val reidentTarget = AcrLevels.max(ENROLLMENT_FLOOR_ACR, ctx.acrFloor)
+            return if (CandidateTools.forReIdentification(reidentTarget, ctx).isNotEmpty()) {
+                Transition.RequireSubJourney(
+                    AuthIntent.RE_IDENTIFY,
+                    seedWith = ReIdentifyState.forSubJourney(reidentTarget, ctx.currentAcr),
+                    resumeWith = resumeAtStart
+                )
+            } else {
+                Transition.Abort(
+                    "Fuer die Einrichtung eines neuen Anmeldeverfahrens ist eine frische Identifizierung " +
+                        "(mindestens loa2) erforderlich, aktuell ist aber keine Identifizierungsmethode verfuegbar."
+                )
+            }
+        }
+
         val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
         if (candidates.isNotEmpty()) {
             return Transition.To(Enrolling(candidates, emailObligation = emailObligation))
@@ -89,6 +123,8 @@ internal object AuthEnrollCore {
             Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
         }
     }
+
+    private const val ENROLLMENT_FLOOR_ACR = "loa2"
 
     /**
      * On a mandatory state, backing out of a tool is not declining it - the obligation

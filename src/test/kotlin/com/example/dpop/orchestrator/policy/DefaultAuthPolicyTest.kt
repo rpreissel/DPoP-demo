@@ -11,6 +11,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 /**
  * Pure unit tests against a small synthetic catalog (ident-fsc/enroll-sms/auth-sms plus a
@@ -204,6 +206,19 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                     "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
                     "Sicherheitsniveau eingerichtet (loa1) - das begrenzt, wie hoch sie gemeinsam wirken können. " +
                     "Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+            }
+
+            then("a single method covering two factor types on its own names the enrolledUnderAcr cap, never 'needs another factor type'") {
+                // Regression for a real bug report: `passkey` alone already covers POSSESSION and
+                // INHERENCE, so `distinctMethods < 2` must never gate the "needs a different factor
+                // type" message here - that would list this very method's own multiple factor types
+                // right after claiming it covers only one (self-contradictory).
+                val onlyPasskeyWeak = account(method("passkey", enrolledUnderAcr = "loa1"))
+                val reason = policy.unreachableReason(onlyPasskeyWeak, "loa3")
+
+                reason shouldContain "loa1"
+                reason shouldContain "passkey"
+                reason shouldNotContain "nur einen Faktor-Typ"
             }
         }
 

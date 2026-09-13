@@ -30,6 +30,7 @@ import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
+import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
@@ -564,12 +565,13 @@ class JourneyService(
         is Transition.Authenticated -> finish(journey, channel)
 
         is Transition.Perform -> {
-            performAction(journey, channel, transition.action)
+            val demoNotice = performAction(journey, channel, transition.action)
             // The one recursive step of the machine: resume at resumeState against a FRESH
             // context (the action just changed evidence/account/whatever it touched) - not the
             // stale one the triggering event arrived with.
             codec.write(journey, transition.resumeState)
-            advance(journey, channel, JourneyEvent.ActionCompleted)
+            val step = advance(journey, channel, JourneyEvent.ActionCompleted)
+            if (demoNotice == null) step else step.copy(stepData = mergeDemoData(step.stepData, demoNotice))
         }
 
         Transition.Logout -> {
@@ -623,13 +625,25 @@ class JourneyService(
         }
     }
 
+    /** Folds a [performAction] demo notice into the already-computed next step's own `demo` block, if any. */
+    private fun mergeDemoData(stepData: Map<String, Any?>?, notice: Map<String, Any?>): Map<String, Any?> {
+        @Suppress("UNCHECKED_CAST")
+        val existingDemo = stepData?.get(DEMO_DATA_KEY) as? Map<String, Any?>
+        return stepData.orEmpty() + (DEMO_DATA_KEY to (existingDemo.orEmpty() + notice))
+    }
+
     /**
      * The [Action]s a [Transition.Perform] can carry, actually executed. The first four
      * (tool-outcome) variants carry their own [ToolDescriptor]/[ToolOutcome] (see [Action]'s own
      * doc), so [recordToolCompletion] - the MethodEvidence bookkeeping every one of them needs
      * alike - reads it straight off the action instead of needing it passed in separately.
+     *
+     * @return a demo-only notice to merge into the eventual response's `demo` block (see
+     * [DEMO_DATA_KEY]), or `null` when this action has none. Currently only [Action.AdoptCredential]
+     * ever returns one - see its own branch for why.
      */
-    private fun performAction(journey: AuthJourney, channel: ChannelSession, action: Action) {
+    private fun performAction(journey: AuthJourney, channel: ChannelSession, action: Action): Map<String, Any?>? {
+        var demoNotice: Map<String, Any?>? = null
         when (action) {
             is Action.AdoptIdentity -> {
                 val account = accountService.findOrCreateAccount(action.outcome.personId)
@@ -710,6 +724,20 @@ class JourneyService(
                 // self-escalation ADR-5 exists to prevent.
                 val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
                 val enrolledUnderAcr = if (environmentAcr == "none") AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+                // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
+                // more than the session had actually established, so the credential just created is
+                // quietly weaker than its catalog entry suggests - visible here once, at the moment
+                // it happens, rather than only discoverable later as a confusing STEP_UP/CONFIRM_
+                // PEER_LOGIN rejection with no obvious cause (docs/04-orchestrierung.md #8).
+                if (AcrLevels.rank(enrolledUnderAcr) < AcrLevels.rank(action.tool.maxAcr)) {
+                    demoNotice = mapOf(
+                        "enrolledUnderAcrCapped" to mapOf(
+                            "toolId" to action.tool.toolId,
+                            "enrolledUnderAcr" to enrolledUnderAcr,
+                            "toolMaxAcr" to action.tool.maxAcr
+                        )
+                    )
+                }
                 accountService.addAuthenticationMethod(
                     accountId,
                     action.tool.method,
@@ -800,6 +828,7 @@ class JourneyService(
                 accountDeletionService.deleteAccount(action.accountId)
             }
         }
+        return demoNotice
     }
 
     /**

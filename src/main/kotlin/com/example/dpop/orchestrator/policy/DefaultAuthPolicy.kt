@@ -113,7 +113,14 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val factorTypesUnion = descriptors.flatMap { it.second.factorTypes }.toSet()
         val distinctMethods = descriptors.map { it.second.method }.distinct().size
 
-        if (distinctMethods < 2 || factorTypesUnion.size < 2) {
+        // Gated on factor-type coverage ALONE, never also on distinctMethods (unlike combinedAcr's
+        // bump condition, which is deliberately about something else - see its own doc): a single
+        // method that already covers >=2 factor types on its own (e.g. `device`) is just as
+        // factor-diverse as two combined single-factor ones, so "you need a method of a different
+        // factor type" would be a wrong, self-contradicting explanation for it (it would list that
+        // very method's own multiple factor types right after claiming it covers only one). Such a
+        // method's real ceiling - if reached at all - is the enrolledUnderAcr cap below, never this.
+        if (factorTypesUnion.size < 2) {
             val methodNames = descriptors.map { it.second.method }.distinct().joinToString(", ")
             return "Die aktiven Verfahren ($methodNames) decken nur einen Faktor-Typ ab " +
                 "(${factorTypesUnion.joinToString(", ") { germanFactorType(it) }}). Für dieses Sicherheitsniveau " +
@@ -122,9 +129,17 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         }
 
         val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
-        return "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
-            "Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, wie hoch sie gemeinsam wirken " +
-            "können. Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+        return if (distinctMethods >= 2) {
+            "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
+                "Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, wie hoch sie gemeinsam wirken " +
+                "können. Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+        } else {
+            "Das aktive Verfahren (${descriptors.first().second.method}) würde für sich genommen reichen, wurde " +
+                "aber unter einem niedrigeren Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, " +
+                "wie hoch es wirken kann, unabhängig davon, welche Faktor-Typen es abdeckt. Es muss erst unter dem " +
+                "höheren Niveau erneut eingerichtet werden (z. B. direkt im Anschluss an eine Identifizierung oder " +
+                "eine bereits ausreichende Kombination anderer Verfahren)."
+        }
     }
 
     private fun germanFactorType(type: FactorType): String = when (type) {

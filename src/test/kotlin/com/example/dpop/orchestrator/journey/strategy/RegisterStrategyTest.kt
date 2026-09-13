@@ -14,6 +14,8 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
+import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -112,7 +114,19 @@ class RegisterStrategyTest : BehaviorSpec({
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
 
-                val transition = strategy.transition(state, JourneyEvent.ActionCompleted, theCtx)
+                // Mirrors what JourneyService really rebuilds after Action.AdoptIdentity:
+                // recordToolCompletion writes fresh IDENTITY-axis evidence at ident-fsc's own loa2 -
+                // AuthEnrollCore.offerEnrollment's own loa2 floor (its own doc) needs that already
+                // satisfied before it will offer Enrolling at all, exactly like production.
+                val postIdentityCtx = ctx(
+                    account = acc,
+                    evidence = AuthEvidence.from(
+                        listOf("fsc"), setOf(FactorType.POSSESSION), mapOf("fsc" to "loa2"),
+                        axis = mapOf("fsc" to EvidenceAxis.IDENTITY)
+                    ),
+                    acrFloor = "loa1"
+                )
+                val transition = strategy.transition(state, JourneyEvent.ActionCompleted, postIdentityCtx)
                 transition.shouldBeInstanceOf<Transition.To>()
                 val to = (transition as Transition.To).state
                 to.shouldBeInstanceOf<Enrolling>()
