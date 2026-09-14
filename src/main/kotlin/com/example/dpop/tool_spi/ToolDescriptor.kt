@@ -4,13 +4,25 @@ package com.example.dpop.tool_spi
 const val CONFIRMED_EMAIL_AUDIT_KEY = "confirmedEmail"
 
 /**
+ * Nominal wrapper for a tool's public identifier ("auth-sms", "enroll-password", ...) - see
+ * [ToolDescriptor.toolId]. Deliberately NOT the same type as a method name (e.g. "sms"): a toolId
+ * names one concrete procedure ((method, role) pair, this interface's own doc), a method name
+ * names the credential family several tools can share - a `value class` is what stops the two
+ * from being silently interchangeable the way two `String` fields would be, at zero runtime cost.
+ */
+@JvmInline
+value class ToolId(val value: String) {
+    override fun toString(): String = value
+}
+
+/**
  * A tool's self-description. Implement this once per tool; the aggregation of every
  * implementation in the application context is the tool catalog - there is no separate, centrally
  * maintained list to keep in sync.
  */
 interface ToolDescriptor {
     /** The tool's public, stable identifier, e.g. `"auth-sms"`. Never derived from other fields. */
-    val toolId: String
+    val toolId: ToolId
 
     /**
      * The credential family this tool belongs to, e.g. `"sms"`. Shared by several

@@ -3,6 +3,7 @@ package com.example.dpop.id_fsc
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /** No sibling today (ident-fsc is the only tool for "fsc") - kept as its own value for the same uniform shape every other module follows. */
@@ -16,7 +17,7 @@ internal const val FSC_METHOD = "fsc"
  */
 @Component
 object IdentFscDescriptor : ToolDescriptor {
-    override val toolId = "ident-fsc"
+    override val toolId = ToolId("ident-fsc")
     override val role = MethodRole.IDENTIFICATION
     override val method = FSC_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)

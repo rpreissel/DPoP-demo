@@ -3,6 +3,7 @@ package com.example.dpop.auth_email
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-email/auth-email/auth-email-lookup - the one place "email" is spelled out. */
@@ -17,7 +18,7 @@ internal const val EMAIL_METHOD = "email"
  */
 @Component
 object EnrollEmailDescriptor : ToolDescriptor {
-    override val toolId = "enroll-email"
+    override val toolId = ToolId("enroll-email")
     override val role = MethodRole.ENROLLMENT
     override val method = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
@@ -27,7 +28,7 @@ object EnrollEmailDescriptor : ToolDescriptor {
 
 @Component
 object AuthEmailUseDescriptor : ToolDescriptor {
-    override val toolId = "auth-email"
+    override val toolId = ToolId("auth-email")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
@@ -36,7 +37,7 @@ object AuthEmailUseDescriptor : ToolDescriptor {
 
 @Component
 object AuthEmailLookupDescriptor : ToolDescriptor {
-    override val toolId = "auth-email-lookup"
+    override val toolId = ToolId("auth-email-lookup")
     override val role = MethodRole.LOOKUP_AUTH
     override val method = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)

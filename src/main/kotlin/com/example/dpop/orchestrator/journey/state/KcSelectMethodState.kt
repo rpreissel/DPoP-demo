@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -26,9 +27,9 @@ sealed interface KcSelectMethodState : JourneyState {
     val accountAlreadyKnown: Boolean
 
     data class SelectMethod(
-        override val offered: List<String>,
+        override val offered: List<ToolId>,
         override val accountAlreadyKnown: Boolean,
-        override val declined: Set<String> = emptySet(),
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : KcSelectMethodState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)

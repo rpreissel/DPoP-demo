@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
+
 /**
  * Reached identically by [FastAccessState] and [RegisterState] - not because one borrows the
  * other's states, but because both journeys genuinely ask the same two questions at these points:
@@ -10,8 +12,8 @@ package com.example.dpop.orchestrator.journey.state
  * and transition function, they merely land on the same value here.
  */
 data class AuthChoice(
-    override val offered: List<String>,
-    override val declined: Set<String> = emptySet(),
+    override val offered: List<ToolId>,
+    override val declined: Set<ToolId> = emptySet(),
     override val active: ToolRef? = null
 ) : FastAccessState, RegisterState, OfferingState {
     override fun withActive(active: ToolRef?) = copy(active = active)
@@ -33,8 +35,8 @@ data class AuthChoice(
  * which method to set up.
  */
 data class Enrolling(
-    override val offered: List<String>,
-    override val declined: Set<String> = emptySet(),
+    override val offered: List<ToolId>,
+    override val declined: Set<ToolId> = emptySet(),
     override val active: ToolRef? = null,
     val emailObligation: Boolean = false
 ) : FastAccessState, RegisterState, OfferingState {

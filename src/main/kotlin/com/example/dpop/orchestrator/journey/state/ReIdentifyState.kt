@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -18,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 )
 sealed interface ReIdentifyState : JourneyState {
     /** The goal this sub-journey was started for - not the channel's durable floor. */
-    val targetAcr: String
+    val targetAcr: AcrLevel
 
     /** See [ReIdentifyState.forSubJourney]'s own doc - carried through from [OfferReIdent] into [Identifying] once offered. */
     val wording: Wording?
@@ -49,7 +51,7 @@ sealed interface ReIdentifyState : JourneyState {
          * [wording] is `null` for every "no active method reaches the target" caller (keeps today's
          * default text) - see [Wording]'s own doc for the one caller that needs different framing.
          */
-        fun forSubJourney(targetAcr: String, startingAcr: String, wording: Wording? = null): ReIdentifyState =
+        fun forSubJourney(targetAcr: AcrLevel, startingAcr: AcrLevel, wording: Wording? = null): ReIdentifyState =
             OfferReIdent(targetAcr, startingAcr, wording)
     }
 
@@ -60,15 +62,15 @@ sealed interface ReIdentifyState : JourneyState {
      * since RE_IDENTIFY itself has no fixed answer to "what state after giving up" the way an
      * always-post-auth intent like STEP_UP does.
      */
-    val startingAcr: String
+    val startingAcr: AcrLevel
 
     data class OfferReIdent(
-        override val targetAcr: String,
-        override val startingAcr: String,
+        override val targetAcr: AcrLevel,
+        override val startingAcr: AcrLevel,
         override val wording: Wording? = null
     ) : ReIdentifyState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt
             get() = Prompt.Confirm(
@@ -83,10 +85,10 @@ sealed interface ReIdentifyState : JourneyState {
     }
 
     data class Identifying(
-        override val targetAcr: String,
-        override val startingAcr: String,
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val targetAcr: AcrLevel,
+        override val startingAcr: AcrLevel,
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null,
         override val wording: Wording? = null
     ) : ReIdentifyState, OfferingState {

@@ -3,6 +3,7 @@ package com.example.dpop.auth_device
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-device/auth-device - the one place "device" is spelled out. */
@@ -27,7 +28,7 @@ internal const val DEVICE_ENROLLMENT_TYPE = "device_enrollment"
  */
 @Component
 object AuthDeviceDescriptor : ToolDescriptor {
-    override val toolId = "auth-device"
+    override val toolId = ToolId("auth-device")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
@@ -60,7 +61,7 @@ object AuthDeviceDescriptor : ToolDescriptor {
  */
 @Component
 object EnrollDeviceDescriptor : ToolDescriptor {
-    override val toolId = "enroll-device"
+    override val toolId = ToolId("enroll-device")
     override val role = MethodRole.ENROLLMENT
     override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)

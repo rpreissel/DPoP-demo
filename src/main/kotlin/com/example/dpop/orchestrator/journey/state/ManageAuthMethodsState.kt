@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -25,21 +26,21 @@ sealed interface ManageAuthMethodsState : JourneyState {
      */
     data object AddRequested : ManageAuthMethodsState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
     }
 
     data class RemoveRequested(val methodInstanceId: String) : ManageAuthMethodsState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
     }
 
     data class Enrolling(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : ManageAuthMethodsState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)

@@ -15,6 +15,7 @@ import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.orchestrator.session.AmrSource
@@ -249,7 +250,7 @@ class ChannelService(
         sessionManagementService.raiseChannelAcrFloor(channelSessionId, requiredAcr)
         val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
 
-        val floor = refreshed.acrFloor ?: AcrLevels.DEFAULT_REQUIRED_ACR
+        val floor = refreshed.acrFloor?.let(::AcrLevel) ?: AcrLevels.DEFAULT_REQUIRED_ACR
         val account = refreshed.accountId?.let { accountService.findAccount(it) }
         if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) return respond(refreshed)
 
@@ -424,7 +425,7 @@ class ChannelService(
             val account = channel.accountId?.let { id -> accountService.findAccount(id) }
             authPolicy.resolveAcr(it.toCoreEvidence(), account)
         }
-        return AuthData(accountId = channel.accountId, acr = acr, amr = amr)
+        return AuthData(accountId = channel.accountId, acr = acr?.value, amr = amr)
     }
 
     /** Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses (docs/tool_api/Envelope.kt, JourneyDebugStep). */
@@ -474,7 +475,7 @@ class ChannelService(
             channelSessionId = channel.channelSessionId!!,
             channelType = channelType,
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
-            currentAcr = currentAcr,
+            currentAcr = currentAcr?.value,
             currentAmr = evidence?.currentAmr,
             activeMethods = toActiveMethodViews(account?.activeAuthenticationMethods)
         )

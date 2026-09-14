@@ -9,6 +9,7 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.KcSelectMethodState
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -89,7 +90,7 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
      * App-Kanal-only concept (`ident-fsc`/`ident-eid`); Keycloak's own login screen has no
      * equivalent step for it.
      */
-    private fun candidatesFor(ctx: JourneyContext): List<String> {
+    private fun candidatesFor(ctx: JourneyContext): List<ToolId> {
         val account = ctx.account
         return if (account == null) {
             CandidateTools.forLookupLogin(ctx)

@@ -2,10 +2,12 @@ package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -24,7 +26,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
     fun descriptor(id: String, role: MethodRole, method: String, factorTypes: Set<FactorType>, maxAcr: String): ToolDescriptor =
         object : ToolDescriptor {
-            override val toolId = id
+            override val toolId = ToolId(id)
             override val role = role
             override val method = method
             override val factorTypes = factorTypes
@@ -53,20 +55,20 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val evidence = AuthEvidence.from(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION), methodLoa = mapOf("sms" to "loa2"))
 
             then("isSatisfied only requires the level, not MFA") {
-                policy.isSatisfied(evidence, "loa2", account = null) shouldBe true
-                policy.isSatisfied(evidence, "loa1", account = null) shouldBe true
+                policy.isSatisfied(evidence, AcrLevel("loa2"), account = null) shouldBe true
+                policy.isSatisfied(evidence, AcrLevel("loa1"), account = null) shouldBe true
             }
         }
 
         `when`("checking isSatisfied at loa3") {
             then("a single factor type is not enough") {
                 val singleFactor = AuthEvidence.from(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION), methodLoa = mapOf("sms" to "loa2"))
-                policy.isSatisfied(singleFactor, "loa3", account = null) shouldBe false
+                policy.isSatisfied(singleFactor, AcrLevel("loa3"), account = null) shouldBe false
             }
 
             then("two distinct factor types proven by one tool are enough") {
                 val twoFactors = AuthEvidence.from(amr = listOf("passkey"), factorTypes = setOf(FactorType.POSSESSION, FactorType.INHERENCE), methodLoa = mapOf("passkey" to "loa3"))
-                policy.isSatisfied(twoFactors, "loa3", account = null) shouldBe true
+                policy.isSatisfied(twoFactors, AcrLevel("loa3"), account = null) shouldBe true
             }
         }
 
@@ -77,7 +79,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                     factorTypes = setOf(FactorType.POSSESSION),
                     methodLoa = mapOf("sms" to "loa2", "someOtherPossessionMethod" to "loa2")
                 )
-                policy.isSatisfied(evidence, "loa3", account = null) shouldBe false
+                policy.isSatisfied(evidence, AcrLevel("loa3"), account = null) shouldBe false
             }
         }
 
@@ -85,36 +87,36 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val acc = account(method("sms", enrolledUnderAcr = "loa1"))
 
             then("canAccountReach respects enrolledUnderAcr, not just the tool's maxAcr") {
-                policy.canAccountReach(acc, "loa2") shouldBe false
-                policy.canAccountReach(acc, "loa1") shouldBe true
+                policy.canAccountReach(acc, AcrLevel("loa2")) shouldBe false
+                policy.canAccountReach(acc, AcrLevel("loa1")) shouldBe true
             }
         }
 
         `when`("an account has no active method") {
             then("canAccountReach is false") {
-                policy.canAccountReach(account(), "loa1") shouldBe false
+                policy.canAccountReach(account(), AcrLevel("loa1")) shouldBe false
             }
         }
 
         `when`("checking canAccountReach at MFA level (loa3)") {
             then("a single possession-only method is not enough") {
                 val onlyPossession = account(method("sms", "loa2"))
-                policy.canAccountReach(onlyPossession, "loa3") shouldBe false
+                policy.canAccountReach(onlyPossession, AcrLevel("loa3")) shouldBe false
             }
 
             then("a passkey covering two factor types on its own is enough") {
                 val withPasskey = account(method("passkey", "loa3"))
-                policy.canAccountReach(withPasskey, "loa3") shouldBe true
+                policy.canAccountReach(withPasskey, AcrLevel("loa3")) shouldBe true
             }
         }
 
         `when`("resolving enrollment candidates") {
             then("already active methods are excluded") {
                 val noMethods = account()
-                policy.enrollmentCandidates(noMethods, "loa2") shouldContainExactlyInAnyOrder listOf("enroll-sms", "enroll-passkey")
+                policy.enrollmentCandidates(noMethods, AcrLevel("loa2")) shouldContainExactlyInAnyOrder listOf(ToolId("enroll-sms"), ToolId("enroll-passkey"))
 
                 val withSms = account(method("sms", "loa2"))
-                policy.enrollmentCandidates(withSms, "loa2") shouldContainExactly listOf("enroll-passkey")
+                policy.enrollmentCandidates(withSms, AcrLevel("loa2")) shouldContainExactly listOf(ToolId("enroll-passkey"))
             }
         }
 
@@ -123,15 +125,15 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
             then("methods already used this session are excluded") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf("auth-sms")
+                policy.candidateTools(fresh, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf(ToolId("auth-sms"))
 
                 val alreadyUsedSms = AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2"))
-                policy.candidateTools(alreadyUsedSms, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null).shouldBeEmpty()
+                policy.candidateTools(alreadyUsedSms, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null).shouldBeEmpty()
             }
 
             then("a null bindingKeyRef (WEB channel, no device) is accepted without crashing") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, "loa2", acc, null, linkedAccountId = null, availableTools = null) shouldContainExactly listOf("auth-sms")
+                policy.candidateTools(fresh, AcrLevel("loa2"), acc, null, linkedAccountId = null, availableTools = null) shouldContainExactly listOf(ToolId("auth-sms"))
             }
         }
 
@@ -152,15 +154,15 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 // and since qr itself is excluded by availableTools, candidateTools came back
                 // completely empty despite sms+email clearly combining to loa2.
                 localPolicy.candidateTools(
-                    fresh, "loa2", acc, "test-binding-key", linkedAccountId = acc.accountId,
-                    availableTools = setOf("auth-sms", "auth-email")
-                ) shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                    fresh, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId,
+                    availableTools = setOf(ToolId("auth-sms"), ToolId("auth-email"))
+                ) shouldContainExactlyInAnyOrder listOf(ToolId("auth-sms"), ToolId("auth-email"))
             }
         }
 
         `when`("resolving candidate AUTH tools for a multi-instance (device-bound) method") {
             val deviceAuth = object : ToolDescriptor {
-                override val toolId = "auth-device"
+                override val toolId = ToolId("auth-device")
                 override val role = MethodRole.IDENTIFIED_AUTH
                 override val method = "device"
                 override val factorTypes = setOf(FactorType.POSSESSION)
@@ -179,44 +181,44 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val fresh = AuthEvidence(emptyList())
 
             then("it is offered while the device is still linked to this same account") {
-                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf("auth-device")
+                devicePolicy.candidateTools(fresh, AcrLevel("loa2"), acc, "key-1", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf(ToolId("auth-device"))
             }
 
             then("it is NOT offered once the device has been rebound to a different account") {
-                devicePolicy.candidateTools(fresh, "loa2", acc, "key-1", linkedAccountId = 999L, availableTools = null).shouldBeEmpty()
+                devicePolicy.candidateTools(fresh, AcrLevel("loa2"), acc, "key-1", linkedAccountId = 999L, availableTools = null).shouldBeEmpty()
             }
         }
 
         `when`("resolving re-identification candidates (reIdentCandidates)") {
             then("an IDENT tool already used this session is excluded, regardless of level") {
                 val fresh = AuthEvidence(emptyList())
-                policy.reIdentCandidates(fresh, "loa2") shouldContainExactly listOf("ident-fsc")
+                policy.reIdentCandidates(fresh, AcrLevel("loa2")) shouldContainExactly listOf(ToolId("ident-fsc"))
 
                 val alreadyIdentified = AuthEvidence.from(listOf("fsc"), setOf(FactorType.POSSESSION))
-                policy.reIdentCandidates(alreadyIdentified, "loa2").shouldBeEmpty()
+                policy.reIdentCandidates(alreadyIdentified, AcrLevel("loa2")).shouldBeEmpty()
             }
 
             then("an IDENT tool whose own maxAcr falls short of requiredAcr is excluded") {
                 val fresh = AuthEvidence(emptyList())
                 // ident-fsc tops out at loa2 (see catalog above) - can't close a loa3 gap on its own.
-                policy.reIdentCandidates(fresh, "loa3").shouldBeEmpty()
+                policy.reIdentCandidates(fresh, AcrLevel("loa3")).shouldBeEmpty()
             }
 
             then("AUTH/ENROLL tools never appear, only IDENTIFICATION-role ones") {
-                policy.reIdentCandidates(AuthEvidence(emptyList()), "loa2") shouldContainExactly listOf("ident-fsc")
+                policy.reIdentCandidates(AuthEvidence(emptyList()), AcrLevel("loa2")) shouldContainExactly listOf(ToolId("ident-fsc"))
             }
         }
 
         `when`("explaining why an account can't reach a level (unreachableReason)") {
             then("no active method at all gives that as the reason") {
-                policy.unreachableReason(account(), "loa2") shouldBe "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
+                policy.unreachableReason(account(), AcrLevel("loa2")) shouldBe "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
             }
 
             then("active methods sharing one factor type name that as the blocker") {
                 // sms is the only active method here, so this is the "offered.size <= 1" branch,
                 // not the "combinable but capped" one - see the loa1-cap case below for that.
                 val onlySms = account(method("sms", "loa2"))
-                policy.unreachableReason(onlySms, "loa3") shouldBe "Die aktiven Verfahren (sms) decken nur einen Faktor-Typ ab (Besitz). Für dieses Sicherheitsniveau ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
+                policy.unreachableReason(onlySms, AcrLevel("loa3")) shouldBe "Die aktiven Verfahren (sms) decken nur einen Faktor-Typ ab (Besitz). Für dieses Sicherheitsniveau ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
             }
 
             then("two combinable methods enrolled only under a lower level name the enrolledUnderAcr cap as the blocker") {
@@ -225,7 +227,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
                 val bothWeak = account(method("a", enrolledUnderAcr = "loa1"), method("b", enrolledUnderAcr = "loa1"))
 
-                localPolicy.unreachableReason(bothWeak, "loa2") shouldBe
+                localPolicy.unreachableReason(bothWeak, AcrLevel("loa2")) shouldBe
                     "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
                     "Sicherheitsniveau eingerichtet (loa1) - das begrenzt, wie hoch sie gemeinsam wirken können. " +
                     "Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
@@ -237,7 +239,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 // type" message here - that would list this very method's own multiple factor types
                 // right after claiming it covers only one (self-contradictory).
                 val onlyPasskeyWeak = account(method("passkey", enrolledUnderAcr = "loa1"))
-                val reason = policy.unreachableReason(onlyPasskeyWeak, "loa3")
+                val reason = policy.unreachableReason(onlyPasskeyWeak, AcrLevel("loa3"))
 
                 reason shouldContain "loa1"
                 reason shouldContain "passkey"
@@ -247,9 +249,9 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
         `when`("resolving the achieved ACR from proven amr methods") {
             then("it reflects the highest maxAcr among them") {
-                policy.resolveAcr(AuthEvidence(emptyList()), account = null) shouldBe "none"
-                policy.resolveAcr(AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2")), account = null) shouldBe "loa2"
-                policy.resolveAcr(AuthEvidence.from(listOf("passkey"), setOf(FactorType.POSSESSION, FactorType.INHERENCE), mapOf("passkey" to "loa3")), account = null) shouldBe "loa3"
+                policy.resolveAcr(AuthEvidence(emptyList()), account = null) shouldBe AcrLevel("none")
+                policy.resolveAcr(AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2")), account = null) shouldBe AcrLevel("loa2")
+                policy.resolveAcr(AuthEvidence.from(listOf("passkey"), setOf(FactorType.POSSESSION, FactorType.INHERENCE), mapOf("passkey" to "loa3")), account = null) shouldBe AcrLevel("loa3")
             }
 
             then("a single IDENTITY tool covering two factor types on its own (e.g. ident-eid: card+PIN) satisfies MFA on the IDENTITY axis alone") {
@@ -259,8 +261,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                     listOf("eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), mapOf("eid" to "loa3"),
                     axis = mapOf("eid" to EvidenceAxis.IDENTITY)
                 )
-                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa3"
-                localPolicy.isSatisfied(evidence, "loa3", account = null) shouldBe true
+                localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa3")
+                localPolicy.isSatisfied(evidence, AcrLevel("loa3"), account = null) shouldBe true
             }
 
             then("a single ident-fsc reaches loa2 on its own IAL, not via an MFA bump") {
@@ -268,7 +270,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                     listOf("fsc"), setOf(FactorType.POSSESSION), mapOf("fsc" to "loa2"),
                     axis = mapOf("fsc" to EvidenceAxis.IDENTITY)
                 )
-                policy.resolveAcr(identOnly, account = null) shouldBe "loa2"
+                policy.resolveAcr(identOnly, account = null) shouldBe AcrLevel("loa2")
             }
 
             then("an identification must NOT combine with one unrelated AUTH factor into a false MFA bump") {
@@ -289,8 +291,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                     enrolledUnderAcr = mapOf("password" to "loa3"),
                     axis = mapOf("fsc" to EvidenceAxis.IDENTITY, "password" to EvidenceAxis.AUTHENTICATOR)
                 )
-                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
-                localPolicy.isSatisfied(evidence, "loa3", account = null) shouldBe false
+                localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa2")
+                localPolicy.isSatisfied(evidence, AcrLevel("loa3"), account = null) shouldBe false
             }
         }
     }
@@ -314,9 +316,9 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             // escalation concern, extended to combinations: a compromised weak session must not
             // be able to self-escalate by adding a 2nd weak factor).
             then("the MFA bump is capped at loa1") {
-                localPolicy.resolveAcr(weakEvidence, bothWeak) shouldBe "loa1"
-                localPolicy.isSatisfied(weakEvidence, "loa2", bothWeak) shouldBe false
-                localPolicy.canAccountReach(bothWeak, "loa2") shouldBe false
+                localPolicy.resolveAcr(weakEvidence, bothWeak) shouldBe AcrLevel("loa1")
+                localPolicy.isSatisfied(weakEvidence, AcrLevel("loa2"), bothWeak) shouldBe false
+                localPolicy.canAccountReach(bothWeak, AcrLevel("loa2")) shouldBe false
             }
         }
 
@@ -325,9 +327,9 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val vouchedEvidence = evidence(mapOf("a" to "loa2", "b" to "loa1"))
 
             then("the pair reaches loa2 together") {
-                localPolicy.resolveAcr(vouchedEvidence, oneVouched) shouldBe "loa2"
-                localPolicy.isSatisfied(vouchedEvidence, "loa2", oneVouched) shouldBe true
-                localPolicy.canAccountReach(oneVouched, "loa2") shouldBe true
+                localPolicy.resolveAcr(vouchedEvidence, oneVouched) shouldBe AcrLevel("loa2")
+                localPolicy.isSatisfied(vouchedEvidence, AcrLevel("loa2"), oneVouched) shouldBe true
+                localPolicy.canAccountReach(oneVouched, AcrLevel("loa2")) shouldBe true
             }
         }
 
@@ -335,7 +337,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val evidence = evidence(emptyMap())
 
             then("the bump is conservatively withheld") {
-                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa1"
+                localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa1")
             }
         }
     }
@@ -357,8 +359,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             )
 
             then("NIST's 'two single-factor authenticators' path reaches loa2 (AAL2) on its own") {
-                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
-                localPolicy.isSatisfied(evidence, "loa2", account = null) shouldBe true
+                localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa2")
+                localPolicy.isSatisfied(evidence, AcrLevel("loa2"), account = null) shouldBe true
             }
         }
 
@@ -368,8 +370,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val evidence = AuthEvidence.from(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), mapOf("device" to "loa2"))
 
             then("NIST's 'multi-factor authenticator' path reaches loa2 (AAL2) alone, no combination needed") {
-                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
-                localPolicy.isSatisfied(evidence, "loa2", account = null) shouldBe true
+                localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa2")
+                localPolicy.isSatisfied(evidence, AcrLevel("loa2"), account = null) shouldBe true
             }
         }
 
@@ -380,8 +382,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             )
 
             then("identification is an equally valid, not a lesser, path to the loa2/AAL2 threshold") {
-                policy.resolveAcr(evidence, account = null) shouldBe "loa2"
-                policy.isSatisfied(evidence, "loa2", account = null) shouldBe true
+                policy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa2")
+                policy.isSatisfied(evidence, AcrLevel("loa2"), account = null) shouldBe true
             }
         }
 
@@ -404,7 +406,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             )
 
             then("the result stays at loa2, never bumps on to loa3") {
-                localPolicy.resolveAcr(evidence, account = null) shouldBe "loa2"
+                localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel("loa2")
             }
         }
     }

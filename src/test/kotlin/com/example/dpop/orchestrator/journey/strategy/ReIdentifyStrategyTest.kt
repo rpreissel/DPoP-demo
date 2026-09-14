@@ -10,9 +10,11 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -38,12 +40,12 @@ class ReIdentifyStrategyTest : BehaviorSpec({
 
     given("ReIdentifyState.forSubJourney") {
         then("seeds OfferReIdent with exactly the given target/starting acr") {
-            ReIdentifyState.forSubJourney("loa2", "loa1") shouldBe ReIdentifyState.OfferReIdent("loa2", "loa1")
+            ReIdentifyState.forSubJourney(AcrLevel("loa2"), AcrLevel("loa1")) shouldBe ReIdentifyState.OfferReIdent(AcrLevel("loa2"), AcrLevel("loa1"))
         }
     }
 
     given("Identifying, a completed tool") {
-        val state = ReIdentifyState.Identifying("loa2", "loa1", listOf("ident-fsc"))
+        val state = ReIdentifyState.Identifying(AcrLevel("loa2"), AcrLevel("loa1"), listOf(ToolId("ident-fsc")))
 
         then("Identified always confirms the caller's already-known account, never adopts a different one") {
             val outcome = ToolOutcome.Completed.Identified(personId = 1L)
@@ -69,8 +71,8 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         // sms already used, fsc/eid not - only fsc is isolated here by marking eid used too, so
         // the offered set is unambiguous.
         val acc = account(method("sms", "loa2"))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence.from(listOf("sms", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)), acrFloor = "loa2")
-        val state = ReIdentifyState.OfferReIdent("loa2", "loa1")
+        val theCtx = ctx(account = acc, evidence = AuthEvidence.from(listOf("sms", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)), acrFloor = AcrLevel("loa2"))
+        val state = ReIdentifyState.OfferReIdent(AcrLevel("loa2"), AcrLevel("loa1"))
 
         `when`("accepted") {
             then("advances to Identifying, offering exactly the reachable IDENT tool(s)") {
@@ -79,9 +81,9 @@ class ReIdentifyStrategyTest : BehaviorSpec({
                 val to = (transition as Transition.To).state
                 to.shouldBeInstanceOf<ReIdentifyState.Identifying>()
                 to as ReIdentifyState.Identifying
-                to.targetAcr shouldBe "loa2"
-                to.startingAcr shouldBe "loa1"
-                to.offered shouldContainExactly listOf("ident-fsc")
+                to.targetAcr shouldBe AcrLevel("loa2")
+                to.startingAcr shouldBe AcrLevel("loa1")
+                to.offered shouldContainExactly listOf(ToolId("ident-fsc"))
             }
         }
 
@@ -109,9 +111,9 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         val theCtx = ctx(
             account = acc,
             evidence = AuthEvidence.from(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)),
-            acrFloor = "loa2"
+            acrFloor = AcrLevel("loa2")
         )
-        val state = ReIdentifyState.OfferReIdent("loa2", "loa1")
+        val state = ReIdentifyState.OfferReIdent(AcrLevel("loa2"), AcrLevel("loa1"))
 
         then("accepting still cancels rather than erroring") {
             strategy.transition(state, JourneyEvent.Answered("accept"), theCtx) shouldBe Transition.Cancel
@@ -121,17 +123,17 @@ class ReIdentifyStrategyTest : BehaviorSpec({
     given("Identifying, more than one candidate offered") {
         val acc = account(method("sms", "loa2"))
         val theCtx = ctx(account = acc)
-        val state = ReIdentifyState.Identifying("loa2", "loa1", listOf("ident-fsc", "ident-eid"))
+        val state = ReIdentifyState.Identifying(AcrLevel("loa2"), AcrLevel("loa1"), listOf(ToolId("ident-fsc"), ToolId("ident-eid")))
 
         `when`("one is abandoned but another remains") {
             then("advances, marking only that one declined") {
                 strategy.transition(state, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe
-                    Transition.To(state.copy(declined = setOf("ident-fsc"), active = null))
+                    Transition.To(state.copy(declined = setOf(ToolId("ident-fsc")), active = null))
             }
         }
 
         `when`("the last remaining candidate is abandoned too") {
-            val exhausted = state.copy(declined = setOf("ident-eid"))
+            val exhausted = state.copy(declined = setOf(ToolId("ident-eid")))
             then("cancels - giving up here is not an error") {
                 strategy.transition(exhausted, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe Transition.Cancel
             }
@@ -150,11 +152,11 @@ class ReIdentifyStrategyTest : BehaviorSpec({
 
     given("onCancel") {
         then("falls back to ANONYMOUS when the caller had no session yet (FAST_ACCESS/LOOKUP_LOGIN)") {
-            strategy.cancelledTo(ReIdentifyState.OfferReIdent("loa2", startingAcr = "none")) shouldBe ChannelState.ANONYMOUS
+            strategy.cancelledTo(ReIdentifyState.OfferReIdent(AcrLevel("loa2"), startingAcr = AcrLevel("none"))) shouldBe ChannelState.ANONYMOUS
         }
 
         then("falls back to AUTHENTICATED when the caller was already authenticated (STEP_UP) - must not de-authenticate that session") {
-            strategy.cancelledTo(ReIdentifyState.OfferReIdent("loa3", startingAcr = "loa2")) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(ReIdentifyState.OfferReIdent(AcrLevel("loa3"), startingAcr = AcrLevel("loa2"))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

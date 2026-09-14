@@ -11,9 +11,11 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -44,7 +46,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
     given("a completed tool") {
         then("on Credential (the first, account-resolving proof) trusts the tool's own account") {
-            val state = LookupLoginState.Credential(listOf("auth-sms-lookup"))
+            val state = LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup")))
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"), accountId = 42L)
             val event = JourneyEvent.Completed(AuthSmsLookupDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
@@ -52,7 +54,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
         }
 
         then("on AdditionalFactor (any further proof) never trusts a submitted account") {
-            val state = LookupLoginState.AdditionalFactor(listOf("auth-sms"))
+            val state = LookupLoginState.AdditionalFactor(listOf(ToolId("auth-sms")))
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
             val event = JourneyEvent.Completed(AuthSmsLookupDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
@@ -61,14 +63,14 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         then("Identified is not offered by any state of this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.transition(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Identified(personId = 1L)), ctx())
+                strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Identified(personId = 1L)), ctx())
             }
         }
 
         then("Enrolled is not offered by any state of this intent") {
             shouldThrow<IllegalStateException> {
                 strategy.transition(
-                    LookupLoginState.Credential(listOf("auth-sms-lookup")),
+                    LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))),
                     JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))),
                     ctx()
                 )
@@ -83,7 +85,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
                 transition.shouldBeInstanceOf<Transition.To>()
                 val to = (transition as Transition.To).state
                 to.shouldBeInstanceOf<LookupLoginState.Credential>()
-                (to as LookupLoginState.Credential).offered shouldContainExactly listOf("auth-sms-lookup", "auth-email-lookup", "auth-password-lookup", "auth-qr-lookup")
+                (to as LookupLoginState.Credential).offered shouldContainExactly listOf(ToolId("auth-sms-lookup"), ToolId("auth-email-lookup"), ToolId("auth-password-lookup"), ToolId("auth-qr-lookup"))
             }
         }
 
@@ -98,7 +100,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val acc = account(method("sms", "loa1"))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("delegates to the same settle-or-raise check as any other proof") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = "loa2")
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel("loa2"))
                 strategy.transition(LookupLoginState.Start, event, theCtx) shouldBe Transition.To(LookupLoginState.OfferBinding(acc.accountId))
             }
         }
@@ -112,18 +114,18 @@ class LookupLoginStrategyTest : BehaviorSpec({
     }
 
     given("Credential, more than one offered candidate") {
-        val state = LookupLoginState.Credential(listOf("auth-sms-lookup", "auth-email-lookup"))
+        val state = LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"), ToolId("auth-email-lookup")))
 
         `when`("one is abandoned, another remains") {
             then("advances, marking only that one declined") {
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsLookupDescriptor), ctx()) shouldBe
-                    Transition.To(state.copy(declined = setOf("auth-sms-lookup"), active = null))
+                    Transition.To(state.copy(declined = setOf(ToolId("auth-sms-lookup")), active = null))
             }
         }
     }
 
     given("Credential, the last offered candidate is abandoned") {
-        val state = LookupLoginState.Credential(listOf("auth-sms-lookup"))
+        val state = LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup")))
         then("cancels - giving up on the very first proof is not an error") {
             strategy.transition(state, JourneyEvent.Abandoned(AuthSmsLookupDescriptor), ctx()) shouldBe Transition.Cancel
         }
@@ -132,30 +134,30 @@ class LookupLoginStrategyTest : BehaviorSpec({
     given("Credential/AdditionalFactor, a proof just completed (settleOrRaise, after ActionCompleted)") {
         `when`("the floor is already satisfied") {
             val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa1")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel("loa1"))
             then("offers the optional device-binding prompt") {
-                strategy.transition(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.ActionCompleted, theCtx) shouldBe
+                strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.To(LookupLoginState.OfferBinding(acc.accountId))
             }
         }
 
         `when`("the floor is not yet satisfied, but another active method can help") {
             val acc = account(method("sms", "loa2"), method("password", "loa2"))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel("loa2"))
             then("offers it via AdditionalFactor") {
-                strategy.transition(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.To(LookupLoginState.AdditionalFactor(listOf("auth-password")))
+                strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
+                    Transition.To(LookupLoginState.AdditionalFactor(listOf(ToolId("auth-password"))))
             }
         }
 
         `when`("nothing active can help, but re-identification could") {
             val acc = account(method("sms", "loa2"))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = "loa2")
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel("loa2"))
             then("requires the shared RE_IDENTIFY sub-journey - it only re-confirms this account, never adopts a different one") {
-                strategy.transition(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.ActionCompleted, theCtx) shouldBe
+                strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.RE_IDENTIFY,
-                        seedWith = ReIdentifyState.forSubJourney("loa2", "loa1"),
+                        seedWith = ReIdentifyState.forSubJourney(AcrLevel("loa2"), AcrLevel("loa1")),
                         resumeWith = LookupLoginState.Start
                     )
             }
@@ -166,11 +168,11 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val theCtx = ctx(
                 account = acc,
                 evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-                acrFloor = "loa2",
-                availableTools = StrategyTestFixtures.allToolIds - setOf("ident-fsc", "ident-eid")
+                acrFloor = AcrLevel("loa2"),
+                availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"))
             )
             then("aborts with a reason - never a silent enrollment fallback (this intent has none)") {
-                val transition = strategy.transition(LookupLoginState.Credential(listOf("auth-sms-lookup")), JourneyEvent.ActionCompleted, theCtx)
+                val transition = strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx)
                 transition.shouldBeInstanceOf<Transition.Abort>()
                 (transition as Transition.Abort).reason shouldContain "nicht erreichbar"
             }
@@ -202,7 +204,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
     given("onCancel") {
         then("always falls back to ANONYMOUS - this intent never carries a durable account binding of its own") {
             strategy.cancelledTo(LookupLoginState.Start) shouldBe ChannelState.ANONYMOUS
-            strategy.cancelledTo(LookupLoginState.Credential(listOf("auth-sms-lookup"))) shouldBe ChannelState.ANONYMOUS
+            strategy.cancelledTo(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup")))) shouldBe ChannelState.ANONYMOUS
         }
     }
 })

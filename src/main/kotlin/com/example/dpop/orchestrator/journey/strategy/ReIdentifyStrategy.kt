@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -27,7 +28,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
     override val intent = AuthIntent.RE_IDENTIFY
 
     /** Never entered without a target; only reachable as a sub-journey, which seeds the real one. */
-    override fun initialState(ctx: JourneyContext): ReIdentifyState = ReIdentifyState.OfferReIdent(ctx.acrFloor, startingAcr = "none")
+    override fun initialState(ctx: JourneyContext): ReIdentifyState = ReIdentifyState.OfferReIdent(ctx.acrFloor, startingAcr = AcrLevel("none"))
 
     override fun transition(state: ReIdentifyState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
@@ -61,9 +62,9 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
 
     /** [ReIdentifyState.startingAcr] is the only signal available here (docs/04-orchestrierung.md): "none" means the caller (FAST_ACCESS/LOOKUP_LOGIN) had no session yet, a real level means the caller (STEP_UP) was already AUTHENTICATED - declining must not de-authenticate that session. */
     override fun cancelledTo(state: ReIdentifyState): ChannelState =
-        if (state.startingAcr == "none") ChannelState.ANONYMOUS else ChannelState.AUTHENTICATED
+        if (state.startingAcr == AcrLevel("none")) ChannelState.ANONYMOUS else ChannelState.AUTHENTICATED
 
-    private fun offerIdentifying(targetAcr: String, startingAcr: String, wording: ReIdentifyState.Wording?, ctx: JourneyContext): Transition? {
+    private fun offerIdentifying(targetAcr: AcrLevel, startingAcr: AcrLevel, wording: ReIdentifyState.Wording?, ctx: JourneyContext): Transition? {
         val candidates = CandidateTools.forReIdentification(targetAcr, ctx)
         return candidates.takeIf { it.isNotEmpty() }
             ?.let { Transition.To(ReIdentifyState.Identifying(targetAcr, startingAcr, it, wording = wording)) }

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -23,7 +24,7 @@ sealed interface DeleteAccountState : JourneyState {
     /** "Do you really want to delete your account?" - a plain yes/no, before anything else is checked. */
     data object ConfirmPending : DeleteAccountState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
             title = "Konto wirklich löschen?",
@@ -40,8 +41,8 @@ sealed interface DeleteAccountState : JourneyState {
      * for why this is not the ordinary step-up candidate set.
      */
     data class ConfirmationRequired(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : DeleteAccountState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)

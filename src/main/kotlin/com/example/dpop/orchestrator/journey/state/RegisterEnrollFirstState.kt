@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -49,7 +50,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
      */
     data object EnrollFirstStart : RegisterEnrollFirstState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
     }
@@ -62,8 +63,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
      * `RegisterEnrollFirstStrategy.offerEmailEnrollment`.
      */
     data class EnrollFirstEnrollingEmail(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -74,8 +75,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
 
     /** Forced, mandatory second step, reached only once [EnrollFirstEnrollingEmail] is discharged (or skipped, see there) - same non-skippable reasoning. */
     data class EnrollFirstEnrollingSms(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -91,8 +92,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
      * case this is where it started from instead, see `RegisterEnrollFirstStrategy.offerEnrollment`).
      */
     data class EnrollFirstEnrolling(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -102,8 +103,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     }
 
     data class EnrollFirstConfirmingEmail(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -114,8 +115,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
 
     /** Web-channel-only, same reasoning as [RegisterState.PasswordObligation] - just reached before, not after, any identification. */
     data class EnrollFirstPasswordObligation(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)

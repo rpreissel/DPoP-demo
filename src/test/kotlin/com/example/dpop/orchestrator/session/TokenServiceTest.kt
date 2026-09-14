@@ -57,7 +57,7 @@ class TokenServiceTest : BehaviorSpec({
         return service
     }
 
-    fun policy(acr: String = "loa2"): AuthPolicy {
+    fun policy(acr: AcrLevel = AcrLevel("loa2")): AuthPolicy {
         val policy = mockk<AuthPolicy>()
         every { policy.resolveAcr(any(), any()) } returns acr
         return policy

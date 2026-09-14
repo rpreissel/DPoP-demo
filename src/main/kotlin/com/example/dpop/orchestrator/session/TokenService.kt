@@ -82,7 +82,7 @@ class TokenService(
         val evidence = evidenceFor(authContext)
         return mapOf(
             "sub" to authContext.accountId?.toString(),
-            "acr" to evidence?.let { authPolicy.resolveAcr(it, account) },
+            "acr" to evidence?.let { authPolicy.resolveAcr(it, account) }?.value,
             "amr" to (evidence?.amr?.map { m -> m.value } ?: emptyList()),
             "auth_time" to authContext.authTime?.epochSecond,
             "accountId" to authContext.accountId,
@@ -104,7 +104,7 @@ class TokenService(
             .subject(authContext.accountId?.toString())
             .issuer(MOCK_ISSUER)
             .audience(MOCK_AUDIENCE)
-            .claim("acr", evidence?.let { authPolicy.resolveAcr(it, account) })
+            .claim("acr", evidence?.let { authPolicy.resolveAcr(it, account) }?.value)
             .claim("amr", evidence?.amr?.map { it.value } ?: emptyList<String>())
             .issueTime(Date.from(iat))
             .expirationTime(Date.from(exp))

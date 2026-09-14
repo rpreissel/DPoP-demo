@@ -9,6 +9,7 @@ import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /**
@@ -44,7 +45,7 @@ import org.springframework.stereotype.Component
 @Component
 class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPolicy {
 
-    override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): String =
+    override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): AcrLevel =
         AcrLevels.max(identityAssuranceLevel(evidence), authenticatorAssuranceLevel(evidence))
 
     /**
@@ -60,10 +61,10 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * upstream of this - baked into `enrolledUnderAcr` at the moment a method was enrolled - not
      * re-applied here a second time.
      */
-    private fun identityAssuranceLevel(evidence: AuthEvidence): String {
+    private fun identityAssuranceLevel(evidence: AuthEvidence): AcrLevel {
         val reachable = evidence.factors.filter { it.axis == EvidenceAxis.IDENTITY }
-            .maxOfOrNull { AcrLevels.rank(it.loa.value) } ?: return "none"
-        return AcrLevels.levelAt(reachable)
+            .maxOfOrNull { AcrLevels.rank(it.loa) } ?: return AcrLevel("none")
+        return AcrLevel(AcrLevels.levelAt(reachable))
     }
 
     /**
@@ -71,12 +72,12 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * [EvidenceAxis.AUTHENTICATOR] entries - an IDENTIFICATION's loa/factor type must never leak
      * into "how strong is the authenticator proof for THIS login", see class doc.
      */
-    private fun authenticatorAssuranceLevel(evidence: AuthEvidence): String {
+    private fun authenticatorAssuranceLevel(evidence: AuthEvidence): AcrLevel {
         val authenticatorFactors = evidence.factors.filter { it.axis == EvidenceAxis.AUTHENTICATOR }
-        return applyMfaBump(baseAcr(authenticatorFactors), AuthEvidence(authenticatorFactors)).value
+        return applyMfaBump(baseAcr(authenticatorFactors), AuthEvidence(authenticatorFactors))
     }
 
-    override fun isSatisfied(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile?): Boolean {
+    override fun isSatisfied(evidence: AuthEvidence, requiredAcr: AcrLevel, account: AccountProfile?): Boolean {
         val levelOk = AcrLevels.rank(resolveAcr(evidence, account)) >= AcrLevels.rank(requiredAcr)
         // Checked PER AXIS, never as one union across both: a single tool covering >=2 factor
         // types on its own axis is self-contained MFA (e.g. ident-eid: card + PIN in one run,
@@ -88,7 +89,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         return levelOk && mfaOk
     }
 
-    override fun canAccountReach(account: AccountProfile, requiredAcr: String): Boolean {
+    override fun canAccountReach(account: AccountProfile, requiredAcr: AcrLevel): Boolean {
         val active = account.authenticationMethods.filter { it.active }
         if (active.isEmpty()) return false
 
@@ -106,7 +107,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         return levelOk && mfaOk
     }
 
-    override fun unreachableReason(account: AccountProfile, requiredAcr: String): String {
+    override fun unreachableReason(account: AccountProfile, requiredAcr: AcrLevel): String {
         val active = account.authenticationMethods.filter { it.active }
         if (active.isEmpty()) return "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
 
@@ -149,7 +150,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         FactorType.INHERENCE -> "Inhärenz"
     }
 
-    override fun enrollmentCandidates(account: AccountProfile, requiredAcr: String): List<String> {
+    override fun enrollmentCandidates(account: AccountProfile, requiredAcr: AcrLevel): List<ToolId> {
         val activeMethods = account.authenticationMethods.filter { it.active }.map { it.method }.toSet()
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.ENROLL }
@@ -163,12 +164,12 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 
     override fun candidateTools(
         evidence: AuthEvidence,
-        requiredAcr: String,
+        requiredAcr: AcrLevel,
         account: AccountProfile,
         bindingKeyRef: String?,
         linkedAccountId: Long?,
-        availableTools: Set<String>?
-    ): List<String> {
+        availableTools: Set<ToolId>?
+    ): List<ToolId> {
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         val active = account.authenticationMethods.filter { it.active }
 
@@ -231,7 +232,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         }.distinct() // a multi-instance method can contribute more than one `eligible` entry (several devices) but must only offer its AUTH tool once
     }
 
-    override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String> {
+    override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: AcrLevel): List<ToolId> {
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.IDENT }
@@ -305,7 +306,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 
     private fun descriptorFor(method: String): ToolDescriptor? = toolRegistry.descriptors().firstOrNull { it.method == method }
 
-    private fun requiresMfa(requiredAcr: String) = AcrLevels.rank(requiredAcr) >= AcrLevels.rank(MFA_FROM_ACR)
+    private fun requiresMfa(requiredAcr: AcrLevel) = AcrLevels.rank(requiredAcr) >= AcrLevels.rank(MFA_FROM_ACR)
 
     companion object {
         private const val MFA_FROM_ACR = "loa3"

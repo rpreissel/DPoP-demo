@@ -96,7 +96,7 @@ class SessionManagementService(
      */
     fun raiseChannelAcrFloor(channelSessionId: UUID, requiredAcr: String) {
         channelSessionRepository.findByIdOrNull(channelSessionId)?.let { session ->
-            val effectiveFloor = session.acrFloor ?: AcrLevels.DEFAULT_REQUIRED_ACR
+            val effectiveFloor = session.acrFloor ?: AcrLevels.DEFAULT_REQUIRED_ACR.value
             session.acrFloor = AcrLevels.max(effectiveFloor, requiredAcr)
             session.touch()
             channelSessionRepository.save(session)

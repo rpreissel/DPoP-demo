@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -10,7 +12,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 )
 sealed interface StepUpState : JourneyState {
     /** The goal of THIS run - distinct from the channel's durable `acrFloor`. */
-    val targetAcr: String
+    val targetAcr: AcrLevel
 
     companion object {
         /**
@@ -26,13 +28,13 @@ sealed interface StepUpState : JourneyState {
          * never took any "Aktion" themselves - they just scanned a QR code (real user feedback this
          * closes). `null` keeps the generic wording for callers with nothing more specific to say.
          */
-        fun forSubJourney(targetAcr: String, startingAcr: String, allowReIdentification: Boolean = true, reason: String? = null): StepUpState =
+        fun forSubJourney(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean = true, reason: String? = null): StepUpState =
             Start(targetAcr, startingAcr, allowReIdentification, reason)
     }
 
     data class Start(
-        override val targetAcr: String,
-        val startingAcr: String,
+        override val targetAcr: AcrLevel,
+        val startingAcr: AcrLevel,
         /**
          * Whether a dead end here (no active method reaches [targetAcr]) may fall back to offering
          * `RE_IDENTIFY` - false for [com.example.dpop.orchestrator.journey.AuthIntent.CONFIRM_PEER_LOGIN]'s
@@ -53,17 +55,17 @@ sealed interface StepUpState : JourneyState {
         val reason: String? = null
     ) : StepUpState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "auth"
     }
 
     data class AuthChoice(
-        override val targetAcr: String,
-        val startingAcr: String,
-        override val offered: List<String>,
+        override val targetAcr: AcrLevel,
+        val startingAcr: AcrLevel,
+        override val offered: List<ToolId>,
         val allowReIdentification: Boolean = true,
-        override val declined: Set<String> = emptySet(),
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null,
         /** See [StepUpState.forSubJourney]'s own doc. */
         val reason: String? = null,

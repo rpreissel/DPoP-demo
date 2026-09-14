@@ -3,6 +3,7 @@ package com.example.dpop.auth_password
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-password/auth-password/auth-password-lookup - the one place "password" is spelled out. */
@@ -20,7 +21,7 @@ internal const val PASSWORD_ENROLLMENT_TYPE = "auth_password_enrollment"
  */
 @Component
 object EnrollPasswordDescriptor : ToolDescriptor {
-    override val toolId = "enroll-password"
+    override val toolId = ToolId("enroll-password")
     override val role = MethodRole.ENROLLMENT
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
@@ -32,7 +33,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
 
 @Component
 object AuthPasswordUseDescriptor : ToolDescriptor {
-    override val toolId = "auth-password"
+    override val toolId = ToolId("auth-password")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
@@ -41,7 +42,7 @@ object AuthPasswordUseDescriptor : ToolDescriptor {
 
 @Component
 object AuthPasswordLookupDescriptor : ToolDescriptor {
-    override val toolId = "auth-password-lookup"
+    override val toolId = ToolId("auth-password-lookup")
     override val role = MethodRole.LOOKUP_AUTH
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)

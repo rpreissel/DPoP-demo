@@ -44,7 +44,7 @@ class ToolCatalogStartStepTest(toolRegistry: ToolHandlerRegistry) : BehaviorSpec
 
     given("the real Spring-collected tool catalog") {
         then("every registered tool starts on its documented step") {
-            val actual = toolRegistry.descriptors().associate { it.toolId to it.startStep }
+            val actual = toolRegistry.descriptors().associate { it.toolId.value to it.startStep }
             actual shouldContainExactly expectedStartSteps
         }
     }

@@ -3,6 +3,7 @@ package com.example.dpop.id_eid
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /** No sibling today (ident-eid is the only tool for "eid") - kept as its own value for the same uniform shape every other module follows. */
@@ -19,7 +20,7 @@ internal const val EID_METHOD = "eid"
  */
 @Component
 object IdentEidDescriptor : ToolDescriptor {
-    override val toolId = "ident-eid"
+    override val toolId = ToolId("ident-eid")
     override val role = MethodRole.IDENTIFICATION
     override val method = EID_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)

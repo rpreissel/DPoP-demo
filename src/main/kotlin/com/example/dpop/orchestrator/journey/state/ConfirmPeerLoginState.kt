@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -42,7 +43,7 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      */
     data class Requested(val startedAuthenticated: Boolean) : ConfirmPeerLoginState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
     }
@@ -57,8 +58,8 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      */
     data class ConfirmationRequired(
         val startedAuthenticated: Boolean,
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : ConfirmPeerLoginState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -77,9 +78,9 @@ sealed interface ConfirmPeerLoginState : JourneyState {
     data class Confirming(
         val startedAuthenticated: Boolean,
         override val active: ToolRef? = null,
-        override val declined: Set<String> = emptySet()
+        override val declined: Set<ToolId> = emptySet()
     ) : ConfirmPeerLoginState, OfferingState {
-        override val offered: List<String> get() = listOf("confirm-qr-login")
+        override val offered: List<ToolId> get() = listOf(ToolId("confirm-qr-login"))
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Web-Login bestätigen"
@@ -96,7 +97,7 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      */
     data object OfferLogout : ConfirmPeerLoginState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt
             get() = Prompt.Confirm(

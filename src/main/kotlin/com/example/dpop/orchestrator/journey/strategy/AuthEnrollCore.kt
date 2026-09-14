@@ -12,6 +12,7 @@ import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterState
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.tool_spi.ToolOutcome
 
@@ -135,7 +136,7 @@ internal object AuthEnrollCore {
         }
     }
 
-    private const val ENROLLMENT_FLOOR_ACR = "loa2"
+    private val ENROLLMENT_FLOOR_ACR = AcrLevel("loa2")
 
     /**
      * On a mandatory state, backing out of a tool is not declining it - the obligation

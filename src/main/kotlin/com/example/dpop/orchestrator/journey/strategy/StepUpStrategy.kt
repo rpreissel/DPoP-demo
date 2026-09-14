@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.policy.EvidenceAxis
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -30,7 +31,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     override val intent = AuthIntent.STEP_UP
 
     /** Never entered without a target; only reachable as a sub-journey, which seeds the real one. */
-    override fun initialState(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = "none")
+    override fun initialState(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = AcrLevel("none"))
 
     override fun transition(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
@@ -67,13 +68,13 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             error("${event.tool.toolId} is not offered by STEP_UP")
     }
 
-    private fun finishOrContinue(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
+    private fun finishOrContinue(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Transition.Authenticated
         return offerAuth(targetAcr, startingAcr, allowReIdentification, reason, ctx)
     }
 
-    private fun offerAuth(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
+    private fun offerAuth(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         val candidates = CandidateTools.forAuth(account, targetAcr, ctx)
         if (candidates.isNotEmpty()) {
@@ -95,7 +96,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
      * Never even looks at [CandidateTools.forReIdentification] when [allowReIdentification] is
      * false (see [StepUpState.Start.allowReIdentification]'s own doc) - straight to [whenNone].
      */
-    private fun offerReIdentOrGiveUp(targetAcr: String, startingAcr: String, allowReIdentification: Boolean, ctx: JourneyContext, whenNone: Transition): Transition =
+    private fun offerReIdentOrGiveUp(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, ctx: JourneyContext, whenNone: Transition): Transition =
         if (allowReIdentification && CandidateTools.forReIdentification(targetAcr, ctx).isNotEmpty()) {
             Transition.RequireSubJourney(
                 AuthIntent.RE_IDENTIFY,

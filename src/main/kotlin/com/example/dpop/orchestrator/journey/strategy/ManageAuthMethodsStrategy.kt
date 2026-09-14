@@ -9,6 +9,7 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.state.StepUpState
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -98,6 +99,6 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
     }
 
     companion object {
-        const val REQUIRED_ACR = "loa2"
+        val REQUIRED_ACR = AcrLevel("loa2")
     }
 }

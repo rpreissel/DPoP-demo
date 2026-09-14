@@ -121,7 +121,7 @@ class KcTokenProvider(
             .issueTime(Date.from(now))
             .expirationTime(Date.from(now.plusSeconds(ASSERTION_TTL_SECONDS)))
             .jwtID(UUID.randomUUID().toString())
-            .claim("acr", evidence?.let { authPolicy.resolveAcr(it, account) })
+            .claim("acr", evidence?.let { authPolicy.resolveAcr(it, account) }?.value)
             .claim("amr", evidence?.amr?.map { it.value } ?: emptyList<String>())
             .build()
         val jwt = SignedJWT(JWSHeader.Builder(JWSAlgorithm.ES256).keyID(privateKey.keyID).build(), claims)

@@ -60,8 +60,8 @@ class ToolAvailabilityController(
     fun list(): List<ToolAvailabilityEntry> {
         val disabled = toolAvailabilityService.disabledEntries()
         return toolRegistry.descriptors()
-            .sortedWith(compareBy({ it.method }, { it.toolId }))
-            .map { ToolAvailabilityEntry(it.toolId, it.method, it.toolId !in disabled, disabled[it.toolId]) }
+            .sortedWith(compareBy({ it.method }, { it.toolId.value }))
+            .map { ToolAvailabilityEntry(it.toolId.value, it.method, it.toolId.value !in disabled, disabled[it.toolId.value]) }
     }
 
     @PutMapping("/{toolId}/availability")

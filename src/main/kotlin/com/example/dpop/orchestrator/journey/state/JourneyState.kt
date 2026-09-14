@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import java.util.UUID
 
 /**
@@ -25,7 +26,7 @@ sealed interface JourneyState {
      * sat unread) disappears from every caller (next-resolution, stepData.options, activation
      * membership check) without the state itself ever being recomputed.
      */
-    fun activatable(availableTools: Set<String>): Set<String>
+    fun activatable(availableTools: Set<ToolId>): Set<ToolId>
 
     /** The tool that is actually running, once one has been activated. */
     val active: ToolRef?
@@ -60,12 +61,12 @@ sealed interface JourneyState {
  * tool-module data was never populated, surfacing as a confusing "Unknown tool session" error
  * deep inside the module instead of a clean 409 at the boundary.
  */
-data class ToolRef(val toolId: String, val toolSessionId: UUID, val step: String)
+data class ToolRef(val toolId: ToolId, val toolSessionId: UUID, val step: String)
 
 /** Shared shape of every state that offers a set of tools and remembers what was declined. */
 sealed interface OfferingState : JourneyState {
-    val offered: List<String>
-    val declined: Set<String>
+    val offered: List<ToolId>
+    val declined: Set<ToolId>
 
     /**
      * Backend-authored heading for the selection screen shown when more than one candidate is
@@ -79,7 +80,7 @@ sealed interface OfferingState : JourneyState {
     val selectionTitle: String
     val selectionDescription: String? get() = null
 
-    override fun activatable(availableTools: Set<String>): Set<String> = (offered.toSet() - declined) intersect availableTools
+    override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = (offered.toSet() - declined) intersect availableTools
 
     /**
      * True once every offer here has been declined OR none of what's left is available. Only
@@ -88,7 +89,7 @@ sealed interface OfferingState : JourneyState {
      * availability half can also make a MANDATORY state's single remaining offer vanish, which is
      * exactly why every caller of [exhausted] falls back through the same chain as a decline would.
      */
-    fun exhausted(availableTools: Set<String>): Boolean = activatable(availableTools).isEmpty()
+    fun exhausted(availableTools: Set<ToolId>): Boolean = activatable(availableTools).isEmpty()
 }
 
 /**

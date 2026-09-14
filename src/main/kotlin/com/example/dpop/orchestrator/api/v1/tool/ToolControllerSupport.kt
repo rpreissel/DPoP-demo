@@ -22,6 +22,7 @@ import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.DEMO_PERSONS
 import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -86,7 +87,7 @@ class ToolControllerSupport(
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val journey = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState("No active journey for this channel")
-        val descriptor = toolRegistry.descriptorOf(toolId)
+        val descriptor = toolRegistry.descriptorOf(ToolId(toolId))
 
         validatePreconditions(toolId, channel)
         // Only reachable for a tool whose account the CHANNEL already knows - i.e. a IDENTIFIED_AUTH
@@ -126,7 +127,7 @@ class ToolControllerSupport(
             throw OrchestratorException.invalidState("$toolId is not available on this channel")
         }
 
-        val descriptor = toolRegistry.descriptorOf(toolId)
+        val descriptor = toolRegistry.descriptorOf(ToolId(toolId))
         if (!descriptor.requiresConfirmedEmail) return
         val confirmed = channel.accountId?.let { accountService.findAccount(it)?.emailConfirmed } ?: false
         if (!confirmed) {
@@ -160,7 +161,7 @@ class ToolControllerSupport(
     override fun isCurrentTool(context: ToolContext): Boolean {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
-        return journeyService.isCurrent(journey, ctx.toolId, ctx.toolSessionId)
+        return journeyService.isCurrent(journey, ToolId(ctx.toolId), ctx.toolSessionId)
     }
 
     /**
@@ -173,7 +174,7 @@ class ToolControllerSupport(
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)
         sessionManagementService.expireToolSession(ctx.toolSessionId)
-        val step = journeyService.abandon(journey, channel, toolRegistry.descriptorOf(ctx.toolId))
+        val step = journeyService.abandon(journey, channel, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,
@@ -191,7 +192,7 @@ class ToolControllerSupport(
         val ctx = context as Context
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)
-        val descriptor = toolRegistry.descriptorOf(ctx.toolId)
+        val descriptor = toolRegistry.descriptorOf(ToolId(ctx.toolId))
         chargeThrottles(channel.accountId, descriptor.role.category, outcome)
 
         val step = journeyService.applyOutcome(journey, channel, descriptor, outcome)

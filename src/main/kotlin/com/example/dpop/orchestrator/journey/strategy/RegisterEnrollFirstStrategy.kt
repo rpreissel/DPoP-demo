@@ -14,6 +14,7 @@ import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 
 /**
@@ -182,13 +183,13 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         }
 
     /** ENROLLMENT-role tools for one hardcoded method name, e.g. "email"/"sms"/"password" - same reasoning as `RegisterStrategy.passwordEnrollmentCandidates`. */
-    private fun enrollmentCandidatesFor(method: String, ctx: JourneyContext): List<String> =
+    private fun enrollmentCandidatesFor(method: String, ctx: JourneyContext): List<ToolId> =
         ctx.catalog.descriptors()
             .filter { it.role == MethodRole.ENROLLMENT && it.method == method }
             .map { it.toolId }
             .filter { it in ctx.availableTools }
 
-    private fun passwordEnrollmentCandidates(ctx: JourneyContext): List<String> = enrollmentCandidatesFor(PASSWORD_METHOD, ctx)
+    private fun passwordEnrollmentCandidates(ctx: JourneyContext): List<ToolId> = enrollmentCandidatesFor(PASSWORD_METHOD, ctx)
 
     /** Every state here is mandatory (no obligation is ever narrowed by decline) - backing out re-offers the full set, same reasoning as `AuthEnrollCore.reoffer`. */
     private fun reoffer(state: JourneyState): Transition = Transition.To(state.withActive(null))

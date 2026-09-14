@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -32,15 +33,15 @@ sealed interface FastAccessState : JourneyState {
 
     data object Start : FastAccessState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "auth"
     }
 
     /** Linked device with a matching device method: exactly one default suggestion. */
-    data class PreferredAuth(val toolId: String, override val active: ToolRef? = null) : FastAccessState {
+    data class PreferredAuth(val toolId: ToolId, override val active: ToolRef? = null) : FastAccessState {
         override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun activatable(availableTools: Set<String>): Set<String> = setOf(toolId) intersect availableTools
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = setOf(toolId) intersect availableTools
         override val selectionContext: String get() = "auth"
     }
 }

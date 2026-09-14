@@ -22,10 +22,12 @@ import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.ToolId
 import java.time.Instant
 
 /**
@@ -48,7 +50,7 @@ object StrategyTestFixtures {
         )
     )
     val policy = DefaultAuthPolicy(catalog)
-    val allToolIds: Set<String> = catalog.descriptors().map { it.toolId }.toSet()
+    val allToolIds: Set<ToolId> = catalog.descriptors().map { it.toolId }.toSet()
 
     const val BINDING_KEY = "test-binding-key"
 
@@ -100,14 +102,14 @@ object StrategyTestFixtures {
     fun ctx(
         account: AccountProfile? = null,
         evidence: AuthEvidence = AuthEvidence(emptyList()),
-        acrFloor: String = "loa1",
+        acrFloor: AcrLevel = AcrLevel("loa1"),
         bindingKeyRef: String = BINDING_KEY,
         // Defaults to "this device is already linked to the context's own account" - the ordinary
         // single-device scenario nearly every test wants; a test exercising a genuine device-rebind
         // conflict (docs/09-dpop.md) passes an explicit, different accountId here instead.
         linkedAccountId: Long? = account?.accountId,
         isSubJourney: Boolean = false,
-        availableTools: Set<String> = allToolIds,
+        availableTools: Set<ToolId> = allToolIds,
         channel: ChannelSession.Channel = ChannelSession.Channel.APP
     ) = JourneyContext(channel, account, evidence, acrFloor, bindingKeyRef, linkedAccountId, isSubJourney, policy, catalog, availableTools)
 }

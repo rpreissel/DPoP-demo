@@ -3,6 +3,7 @@ package com.example.dpop.auth_sms
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-sms/auth-sms/auth-sms-lookup - the one place "sms" is spelled out. */
@@ -21,7 +22,7 @@ internal const val SMS_ENROLLMENT_TYPE = "auth_sms_enrollment"
  */
 @Component
 object EnrollSmsDescriptor : ToolDescriptor {
-    override val toolId = "enroll-sms"
+    override val toolId = ToolId("enroll-sms")
     override val role = MethodRole.ENROLLMENT
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
@@ -30,7 +31,7 @@ object EnrollSmsDescriptor : ToolDescriptor {
 
 @Component
 object AuthSmsUseDescriptor : ToolDescriptor {
-    override val toolId = "auth-sms"
+    override val toolId = ToolId("auth-sms")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
@@ -39,7 +40,7 @@ object AuthSmsUseDescriptor : ToolDescriptor {
 
 @Component
 object AuthSmsLookupDescriptor : ToolDescriptor {
-    override val toolId = "auth-sms-lookup"
+    override val toolId = ToolId("auth-sms-lookup")
     override val role = MethodRole.LOOKUP_AUTH
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)

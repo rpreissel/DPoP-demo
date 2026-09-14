@@ -22,7 +22,7 @@ class AcrLevelsTest : BehaviorSpec({
         }
 
         then("null ranks as 'none'") {
-            AcrLevels.rank(null) shouldBe 0
+            AcrLevels.rank(null as String?) shouldBe 0
         }
     }
 
@@ -48,7 +48,7 @@ class AcrLevelsTest : BehaviorSpec({
         then("max treats a null side as absent, not as the winner") {
             AcrLevels.max(null, "loa2") shouldBe "loa2"
             AcrLevels.max("loa2", null) shouldBe "loa2"
-            AcrLevels.max(null, null) shouldBe "none"
+            AcrLevels.max(null as String?, null as String?) shouldBe "none"
         }
 
         then("min picks the lower-ranked level") {

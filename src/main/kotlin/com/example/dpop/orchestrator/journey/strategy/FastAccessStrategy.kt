@@ -11,6 +11,7 @@ import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /**
@@ -76,7 +77,7 @@ class FastAccessStrategy : IntentStrategy<FastAccessState> {
     }
 
     /** Nothing (or nothing else) provable is left on this device: hand off to a fresh identification. */
-    private fun afterAuthDeclined(ctx: JourneyContext, alreadyDeclined: Set<String>): Transition {
+    private fun afterAuthDeclined(ctx: JourneyContext, alreadyDeclined: Set<ToolId>): Transition {
         val account = ctx.account
         if (account != null) {
             val remaining = CandidateTools.forAuth(account, ctx.acrFloor, ctx) - alreadyDeclined

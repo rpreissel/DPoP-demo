@@ -6,8 +6,13 @@ package com.example.dpop.orchestrator.session
  * fixes the ordering of the known level names, not what earns them.
  */
 object AcrLevels {
-    /** Baseline floor when neither the channel nor a step-up process names one explicitly. */
-    const val DEFAULT_REQUIRED_ACR = "loa1"
+    /**
+     * Baseline floor when neither the channel nor a step-up process names one explicitly. Not
+     * `const` any more: an [AcrLevel] value class can't be a compile-time constant the way the
+     * plain `String` it replaced could - every former call site already only ever read this at
+     * runtime, so nothing here actually depended on that.
+     */
+    val DEFAULT_REQUIRED_ACR = AcrLevel("loa1")
 
     private val order = listOf("none", "loa1", "loa2", "loa3")
 
@@ -15,6 +20,9 @@ object AcrLevels {
     val HIGHEST: String get() = order.last()
 
     fun rank(acr: String?): Int = acr?.let { order.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+
+    /** [rank], typed - see [AcrLevel]. */
+    fun rank(acr: AcrLevel?): Int = rank(acr?.value)
 
     /** Inverse of [rank] - the level name at a given rank, "none" if out of range. */
     fun levelAt(rank: Int): String = order.getOrElse(rank) { "none" }
@@ -25,14 +33,23 @@ object AcrLevels {
         return if (rank(a) >= rank(b)) a else b
     }
 
+    /** [max], typed - see [AcrLevel]. */
+    fun max(a: AcrLevel?, b: AcrLevel?): AcrLevel = AcrLevel(max(a?.value, b?.value))
+
     fun min(a: String?, b: String?): String {
         if (a == null || b == null) return "none"
         return if (rank(a) <= rank(b)) a else b
     }
 
+    /** [min], typed - see [AcrLevel]. */
+    fun min(a: AcrLevel?, b: AcrLevel?): AcrLevel = AcrLevel(min(a?.value, b?.value))
+
     /** Moves [acr] up by [steps] tiers, capped at the highest known level - used for the MFA bump (docs/04-orchestrierung.md #2). */
     fun bump(acr: String, steps: Int = 1): String =
         order.getOrElse((rank(acr) + steps).coerceAtMost(order.size - 1)) { order.last() }
+
+    /** [bump], typed - see [AcrLevel]. */
+    fun bump(acr: AcrLevel, steps: Int = 1): AcrLevel = AcrLevel(bump(acr.value, steps))
 }
 
 /**

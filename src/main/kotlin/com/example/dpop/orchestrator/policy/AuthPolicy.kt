@@ -1,6 +1,8 @@
 package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.ToolId
 
 /** The only place that knows what a *combination* of evidence means (docs/04-orchestrierung.md #2). */
 interface AuthPolicy {
@@ -9,7 +11,7 @@ interface AuthPolicy {
      * any MFA combination bump by the enrolledUnderAcr of the methods involved - pass null only
      * when no account is resolvable yet (the bump is then conservatively withheld).
      */
-    fun isSatisfied(evidence: AuthEvidence, requiredAcr: String, account: AccountProfile?): Boolean
+    fun isSatisfied(evidence: AuthEvidence, requiredAcr: AcrLevel, account: AccountProfile?): Boolean
 
     /**
      * Which of the account's AUTH tools could close the remaining gap right now? [bindingKeyRef]
@@ -34,12 +36,12 @@ interface AuthPolicy {
      */
     fun candidateTools(
         evidence: AuthEvidence,
-        requiredAcr: String,
+        requiredAcr: AcrLevel,
         account: AccountProfile,
         bindingKeyRef: String?,
         linkedAccountId: Long?,
-        availableTools: Set<String>? = null
-    ): List<String>
+        availableTools: Set<ToolId>? = null
+    ): List<ToolId>
 
     /**
      * Which IDENT tools (re-identification, e.g. ident-fsc) could ALSO close the remaining gap
@@ -50,10 +52,10 @@ interface AuthPolicy {
      * re-identification as a step-up path (docs/04-orchestrierung.md, the MANAGE gate) opt in by
      * calling this at all; ordinary LOGIN/STEP_UP candidate resolution never does.
      */
-    fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: String): List<String>
+    fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: AcrLevel): List<ToolId>
 
     /** Could this account reach requiredAcr in a FUTURE login, given its current enrollments? */
-    fun canAccountReach(account: AccountProfile, requiredAcr: String): Boolean
+    fun canAccountReach(account: AccountProfile, requiredAcr: AcrLevel): Boolean
 
     /**
      * Why [canAccountReach] is false for this account/requiredAcr pair - shown to the user
@@ -61,15 +63,15 @@ interface AuthPolicy {
      * method of a different factor type) instead of just that something is missing. Only ever
      * called once the caller already knows there's no way through.
      */
-    fun unreachableReason(account: AccountProfile, requiredAcr: String): String
+    fun unreachableReason(account: AccountProfile, requiredAcr: AcrLevel): String
 
     /** Which ENROLL tools would close the gap toward requiredAcr? */
-    fun enrollmentCandidates(account: AccountProfile, requiredAcr: String): List<String>
+    fun enrollmentCandidates(account: AccountProfile, requiredAcr: AcrLevel): List<ToolId>
 
     /**
      * Level implied by the given evidence. [account] is needed to cap any MFA combination bump
      * by the enrolledUnderAcr of the methods involved - pass null only when no account is
      * resolvable yet (the bump is then conservatively withheld).
      */
-    fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): String
+    fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): AcrLevel
 }

@@ -33,6 +33,7 @@ import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.repository.findByIdOrNull
@@ -148,7 +149,7 @@ class JourneyService(
      * STEP_UP specifically, so it seeds via [StepUpState.forSubJourney] itself rather than through
      * some generic per-intent seeding mechanism.
      */
-    fun startTowardAcr(channel: ChannelSession, targetAcr: String, startingAcr: String): Step =
+    fun startTowardAcr(channel: ChannelSession, targetAcr: AcrLevel, startingAcr: AcrLevel): Step =
         start(channel, AuthIntent.STEP_UP, seed = StepUpState.forSubJourney(targetAcr, startingAcr))
 
     /**
@@ -235,12 +236,12 @@ class JourneyService(
     fun stepOf(journey: AuthJourney, channel: ChannelSession): Step =
         stepFor(codec.read(journey), availableToolsOf(channel))
 
-    private fun nextFor(state: JourneyState, availableTools: Set<String>): Next {
-        state.active?.let { return Next.tool(it.toolId, it.step, it.toolSessionId) }
+    private fun nextFor(state: JourneyState, availableTools: Set<ToolId>): Next {
+        state.active?.let { return Next.tool(it.toolId.value, it.step, it.toolSessionId) }
         val activatable = state.activatable(availableTools)
         return if (activatable.size == 1) {
             val toolId = activatable.single()
-            Next.tool(toolId, toolRegistry.descriptorOf(toolId).startStep)
+            Next.tool(toolId.value, toolRegistry.descriptorOf(toolId).startStep)
         } else {
             // Several candidates open a selection page; zero means an orchestrator-owned page
             // that isn't a choice at all (a confirmation, the finished screen), or a state whose
@@ -250,11 +251,11 @@ class JourneyService(
         }
     }
 
-    private fun stepFor(state: JourneyState, availableTools: Set<String>): Step {
+    private fun stepFor(state: JourneyState, availableTools: Set<ToolId>): Step {
         val options = state.activatable(availableTools)
         val stepData = buildMap<String, Any?> {
             if (state is OfferingState && options.size > 1) {
-                put("options", options.toList())
+                put("options", options.map { it.value })
                 put("title", state.selectionTitle)
                 state.selectionDescription?.let { put("description", it) }
             }
@@ -270,8 +271,8 @@ class JourneyService(
     }
 
     /** Live, never cached: a backend disable must take effect on the very next step of an already-running journey. */
-    private fun availableToolsOf(channel: ChannelSession): Set<String> =
-        channel.availableClientTools - toolAvailabilityService.disabledToolIds()
+    private fun availableToolsOf(channel: ChannelSession): Set<ToolId> =
+        (channel.availableClientTools - toolAvailabilityService.disabledToolIds()).mapTo(mutableSetOf()) { ToolId(it) }
 
     // Tool interaction ---------------------------------------------------------
 
@@ -292,7 +293,7 @@ class JourneyService(
         journeyLogService.record(channel, journey, "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
     }
 
-    fun isCurrent(journey: AuthJourney, toolId: String, toolSessionId: UUID): Boolean =
+    fun isCurrent(journey: AuthJourney, toolId: ToolId, toolSessionId: UUID): Boolean =
         codec.read(journey).active?.let { it.toolId == toolId && it.toolSessionId == toolSessionId } ?: false
 
     fun applyOutcome(
@@ -306,7 +307,7 @@ class JourneyService(
             val active = checkNotNull(state.active) { "InProgress without an active tool" }
             codec.write(journey, state.withActive(active.copy(step = outcome.nextStep)))
             journeyRepository.save(journey)
-            Step(Next.tool(tool.toolId, outcome.nextStep, active.toolSessionId), outcome.data)
+            Step(Next.tool(tool.toolId.value, outcome.nextStep, active.toolSessionId), outcome.data)
         }
 
         is ToolOutcome.Failed -> chargeAttempt(journey, channel, tool, outcome)
@@ -723,7 +724,7 @@ class JourneyService(
                 // silently escalate past what was ever really established - exactly the
                 // self-escalation ADR-5 exists to prevent.
                 val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
-                val enrolledUnderAcr = if (environmentAcr == "none") AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+                val enrolledUnderAcr = if (environmentAcr == AcrLevel("none")) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
                 // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
                 // more than the session had actually established, so the credential just created is
                 // quietly weaker than its catalog entry suggests - visible here once, at the moment
@@ -742,7 +743,7 @@ class JourneyService(
                     accountId,
                     action.tool.method,
                     enrolled.enrollmentRef,
-                    enrolledUnderAcr = enrolledUnderAcr,
+                    enrolledUnderAcr = enrolledUnderAcr.value,
                     details = enrolled.auditDetails.orEmpty().minus(listOf("label", CONFIRMED_EMAIL_AUDIT_KEY)) + mapOf(
                         "enrolledUnderAmr" to evidence.currentAmr,
                         "channel" to channel.channel?.name
@@ -857,7 +858,7 @@ class JourneyService(
                 enrolledUnderAcr = accountId?.let { accountService.findActiveMethod(it, method)?.enrolledUnderAcr }?.let(::AcrLevel),
                 factorTypes = outcome.factorTypes,
                 source = AmrSource.ORCHESTRATOR,
-                amrSourceId = tool.toolId,
+                amrSourceId = tool.toolId.value,
                 axis = tool.evidenceAxis(),
             )
         }
@@ -1033,11 +1034,11 @@ class JourneyService(
         )
     }
 
-    private fun acrFloorOf(channel: ChannelSession): String = channel.acrFloor ?: AcrLevels.DEFAULT_REQUIRED_ACR
+    private fun acrFloorOf(channel: ChannelSession): AcrLevel = channel.acrFloor?.let(::AcrLevel) ?: AcrLevels.DEFAULT_REQUIRED_ACR
 
     /** Live, not cached (docs/orchestrator/policy/AuthEvidence.kt): `currentAcr` is never stored, only ever recomputed from the evidence that's actually there. */
-    private fun currentAcrOf(channel: ChannelSession): String {
-        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return "none"
+    private fun currentAcrOf(channel: ChannelSession): AcrLevel {
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return AcrLevel("none")
         val account = channel.accountId?.let { accountService.findAccount(it) }
         return authPolicy.resolveAcr(evidence.toCoreEvidence(), account)
     }

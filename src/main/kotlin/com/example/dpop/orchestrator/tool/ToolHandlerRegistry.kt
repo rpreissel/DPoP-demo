@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.tool
 
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /**
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
-    private val descriptorsByToolId: Map<String, ToolDescriptor> = descriptors.associateBy { it.toolId }
+    private val descriptorsByToolId: Map<ToolId, ToolDescriptor> = descriptors.associateBy { it.toolId }
 
     init {
         // (method, role) is meant to uniquely identify "the concrete procedure of this kind for
@@ -35,7 +36,7 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
         }
     }
 
-    fun descriptorOf(toolId: String): ToolDescriptor =
+    fun descriptorOf(toolId: ToolId): ToolDescriptor =
         descriptorsByToolId[toolId] ?: throw NoSuchElementException("Unknown toolId: $toolId")
 
     fun descriptors(): List<ToolDescriptor> = descriptorsByToolId.values.toList()

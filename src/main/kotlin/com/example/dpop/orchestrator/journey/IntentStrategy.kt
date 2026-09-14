@@ -5,11 +5,13 @@ import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 
 /**
@@ -62,7 +64,7 @@ data class JourneyContext(
     /** What this channel's session has already proven. */
     val evidence: AuthEvidence,
     /** The channel's durable lower bound - never a single run's target (that lives in the state). */
-    val acrFloor: String,
+    val acrFloor: AcrLevel,
     /** The calling device's DPoP-proven key thumbprint - null on a KEYCLOAK channel, which has none. */
     val bindingKeyRef: String?,
     /** The account this device is durably linked to, if any - independent of this channel. */
@@ -79,7 +81,7 @@ data class JourneyContext(
      * [CandidateTools] filters every candidate list through this - never derive an offer from
      * [catalog] alone.
      */
-    val availableTools: Set<String>,
+    val availableTools: Set<ToolId>,
     /**
      * Runtime feature flags currently enabled (see [FeatureFlags] for the known names), resolved
      * once here rather than injected into a strategy directly - a strategy DECIDES, it never
@@ -98,7 +100,7 @@ data class JourneyContext(
      * a [Transition.RequireSubJourney]'s own `seedWith` (the sub-journey's `startingAcr`), so every
      * such call site doesn't have to repeat `policy.resolveAcr(evidence, account)` itself.
      */
-    val currentAcr: String get() = policy.resolveAcr(evidence, account)
+    val currentAcr: AcrLevel get() = policy.resolveAcr(evidence, account)
 }
 
 /** What just happened to the journey. */
@@ -145,7 +147,7 @@ sealed interface JourneyEvent {
      * sub-journey it was just declined - the identical confirm prompt forever. Two `when` arms the
      * compiler can force every consumer to cover beats a flag a consumer can simply forget to read.
      */
-    data class SubJourneyFinished(val intent: AuthIntent, val achievedAcr: String?) : JourneyEvent
+    data class SubJourneyFinished(val intent: AuthIntent, val achievedAcr: AcrLevel?) : JourneyEvent
 
     /**
      * The sub-journey was abandoned - RE_IDENTIFY's offer declined, or every tool it offered
@@ -301,8 +303,8 @@ sealed interface Action {
              * enrollment was. Every identified account still requires loa2, same gate as
              * `ManageAuthMethodsStrategy`.
              */
-            fun requiredAcr(account: AccountProfile?): String =
-                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else "loa2"
+            fun requiredAcr(account: AccountProfile?): AcrLevel =
+                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevel("loa2")
         }
     }
 }

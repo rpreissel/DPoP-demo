@@ -3,6 +3,7 @@ package com.example.dpop.auth_qr
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 import java.time.Duration
 
@@ -22,7 +23,7 @@ internal val QR_LOGIN_TTL: Duration = Duration.ofMinutes(5)
  */
 @Component
 object EnrollQrDescriptor : ToolDescriptor {
-    override val toolId = "enroll-qr"
+    override val toolId = ToolId("enroll-qr")
     override val role = MethodRole.ENROLLMENT
     override val method = QR_METHOD
     override val factorTypes = emptySet<FactorType>()
@@ -43,7 +44,7 @@ object EnrollQrDescriptor : ToolDescriptor {
  */
 @Component
 object AuthQrDescriptor : ToolDescriptor {
-    override val toolId = "auth-qr"
+    override val toolId = ToolId("auth-qr")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = QR_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
@@ -55,7 +56,7 @@ object AuthQrDescriptor : ToolDescriptor {
 /** WEB-side, account unknown until the APP side's approval reveals it - a passwordless login. Same factorTypes reasoning as [AuthQrDescriptor]. */
 @Component
 object AuthQrLookupDescriptor : ToolDescriptor {
-    override val toolId = "auth-qr-lookup"
+    override val toolId = ToolId("auth-qr-lookup")
     override val role = MethodRole.LOOKUP_AUTH
     override val method = QR_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
@@ -66,7 +67,7 @@ object AuthQrLookupDescriptor : ToolDescriptor {
 /** APP-side: approves or declines a pending `auth-qr`/`auth-qr-lookup` pairing. */
 @Component
 object ConfirmQrLoginDescriptor : ToolDescriptor {
-    override val toolId = "confirm-qr-login"
+    override val toolId = ToolId("confirm-qr-login")
     override val role = MethodRole.PEER_APPROVAL
     override val method = QR_METHOD
     override val factorTypes = emptySet<FactorType>()

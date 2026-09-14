@@ -14,6 +14,7 @@ import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
+import com.example.dpop.tool_spi.ToolId
 
 /**
  * REGISTER's own, ident-first journey (the status quo, as opposed to the "Enrollment zuerst"
@@ -109,7 +110,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
     }
 
     /** Nothing (or nothing else) provable is left: re-identifying is the only way forward from here. */
-    private fun afterAuthDeclined(ctx: JourneyContext, alreadyDeclined: Set<String>): Transition {
+    private fun afterAuthDeclined(ctx: JourneyContext, alreadyDeclined: Set<ToolId>): Transition {
         val account = ctx.account
         if (account != null) {
             val remaining = CandidateTools.forAuth(account, ctx.acrFloor, ctx) - alreadyDeclined
@@ -170,7 +171,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
      * no such tool is currently offerable (unavailable, kill-switched) - the caller falls through
      * to the shared behaviour rather than dead-ending on an obligation nothing can fulfil.
      */
-    private fun passwordEnrollmentCandidates(ctx: JourneyContext): List<String> =
+    private fun passwordEnrollmentCandidates(ctx: JourneyContext): List<ToolId> =
         ctx.catalog.descriptors()
             .filter { it.role == MethodRole.ENROLLMENT && it.method == PASSWORD_METHOD }
             .map { it.toolId }

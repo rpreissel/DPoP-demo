@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.journey
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
+import com.example.dpop.tool_spi.ToolId
 
 /**
  * Demo-only reasoning for why the innermost journey's current step looks the way it does - either
@@ -22,7 +23,7 @@ import com.example.dpop.orchestrator.journey.state.OfferingState
  * describe something already in the past.
  */
 internal object DemoStepReason {
-    fun explain(state: JourneyState, availableTools: Set<String>): String? {
+    fun explain(state: JourneyState, availableTools: Set<ToolId>): String? {
         val activatable = state.activatable(availableTools)
         return when {
             activatable.isEmpty() -> null

@@ -116,7 +116,7 @@ class KcTokenProviderTest : BehaviorSpec({
             every { keycloakAdminClient.setPublicKeyCredential(accountId, kp.publicKeyJwk, any()) } returns Unit
             every { keycloakAdminClient.requestAccountToken(accountId, capture(assertionSlot)) } returns
                 AccountTokenResponse("real-access-token", 300, "fresh-refresh", 600)
-            val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns "loa2" }
+            val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns AcrLevel("loa2") }
             val authEvidenceService = mockk<AuthEvidenceService> {
                 every { getAuthEvidence(authEvidenceId) } returns AuthEvidence(accountId = accountId)
             }

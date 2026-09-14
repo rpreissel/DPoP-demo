@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -34,7 +35,7 @@ sealed interface RegisterState : JourneyState {
 
     data object Start : RegisterState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "auth"
     }
@@ -55,8 +56,8 @@ sealed interface RegisterState : JourneyState {
      * `findOrCreateAccount`, which is exactly why a single state covers both.
      */
     data class Identifying(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -75,7 +76,7 @@ sealed interface RegisterState : JourneyState {
      */
     data class ConfirmDeviceRebind(val accountId: Long) : RegisterState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
-        override fun activatable(availableTools: Set<String>): Set<String> = emptySet()
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
             title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
@@ -89,8 +90,8 @@ sealed interface RegisterState : JourneyState {
     }
 
     data class ConfirmingEmail(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
@@ -115,8 +116,8 @@ sealed interface RegisterState : JourneyState {
      * confirmed for the same reason, and discharges this obligation before it is ever reached.
      */
     data class PasswordObligation(
-        override val offered: List<String>,
-        override val declined: Set<String> = emptySet(),
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)

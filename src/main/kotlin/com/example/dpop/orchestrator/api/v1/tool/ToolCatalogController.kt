@@ -46,5 +46,5 @@ class ToolCatalogController(private val toolRegistry: ToolHandlerRegistry) {
         ]
     )
     fun catalog(): List<ToolCatalogEntry> =
-        toolRegistry.descriptors().map { ToolCatalogEntry(it.toolId, it.method, it.role.name) }
+        toolRegistry.descriptors().map { ToolCatalogEntry(it.toolId.value, it.method, it.role.name) }
 }

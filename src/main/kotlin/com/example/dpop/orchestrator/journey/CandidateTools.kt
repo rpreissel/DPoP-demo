@@ -1,8 +1,10 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.ToolId
 
 /**
  * Which tools from the catalog qualify for a given kind of offer. Everything is DERIVED from the
@@ -22,13 +24,13 @@ internal object CandidateTools {
      * left" vs. "offer these two") - activatable() alone can only re-narrow an already-chosen
      * state's offer, it cannot retroactively pick a different state shape.
      */
-    private fun JourneyContext.filterAvailable(ids: List<String>): List<String> = ids.filter { it in availableTools }
+    private fun JourneyContext.filterAvailable(ids: List<ToolId>): List<ToolId> = ids.filter { it in availableTools }
 
-    fun forIdentification(ctx: JourneyContext): List<String> =
+    fun forIdentification(ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role.category == ToolCategory.IDENT }.map { it.toolId })
 
     /** Every tool that resolves the account itself from a submitted identifier. */
-    fun forLookupLogin(ctx: JourneyContext): List<String> =
+    fun forLookupLogin(ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role == MethodRole.LOOKUP_AUTH }.map { it.toolId })
 
     /**
@@ -36,7 +38,7 @@ internal object CandidateTools {
      * by the module via [com.example.dpop.tool_spi.ToolDescriptor.confirmsAccountEmail], never
      * matched by toolId here.
      */
-    fun forEmailConfirmation(ctx: JourneyContext): List<String> =
+    fun forEmailConfirmation(ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.catalog.descriptors().filter { it.confirmsAccountEmail }.map { it.toolId })
 
     /**
@@ -45,7 +47,7 @@ internal object CandidateTools {
      * cannot exist anywhere else, so this is both the fastest and the only offer that can succeed
      * without further input.
      */
-    fun preferredDeviceAuth(account: AccountProfile, ctx: JourneyContext): String? {
+    fun preferredDeviceAuth(account: AccountProfile, ctx: JourneyContext): ToolId? {
         val deviceAuthTools = ctx.catalog.descriptors()
             .filter { it.role == MethodRole.IDENTIFIED_AUTH && it.allowsMultipleInstances }
         val preferred = deviceAuthTools.firstOrNull { descriptor ->
@@ -56,7 +58,7 @@ internal object CandidateTools {
         return preferred?.takeIf { it in ctx.availableTools }
     }
 
-    fun forAuth(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
+    fun forAuth(account: AccountProfile, targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef, ctx.linkedAccountId, ctx.availableTools))
 
     /**
@@ -67,7 +69,7 @@ internal object CandidateTools {
      * already-used factor is a perfectly valid answer to "are you still there right now?". No acr
      * target either: any active factor counts, regardless of the level it reaches.
      */
-    fun forReconfirmation(account: AccountProfile, ctx: JourneyContext): List<String> =
+    fun forReconfirmation(account: AccountProfile, ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(
             ctx.catalog.descriptors()
                 .filter { it.role == MethodRole.IDENTIFIED_AUTH }
@@ -88,10 +90,10 @@ internal object CandidateTools {
                 }
         )
 
-    fun forEnrollment(account: AccountProfile, targetAcr: String, ctx: JourneyContext): List<String> =
+    fun forEnrollment(account: AccountProfile, targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.policy.enrollmentCandidates(account, targetAcr))
 
-    fun forReIdentification(targetAcr: String, ctx: JourneyContext): List<String> =
+    fun forReIdentification(targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.policy.reIdentCandidates(ctx.evidence, targetAcr))
 
     /**
@@ -109,7 +111,7 @@ internal object CandidateTools {
      * whose methods are enrolled at exactly the required level, because a completely different,
      * channel-local restriction was the actual blocker.
      */
-    fun exhaustedAuthAbortReason(ctx: JourneyContext, account: AccountProfile, targetAcr: String): String =
+    fun exhaustedAuthAbortReason(ctx: JourneyContext, account: AccountProfile, targetAcr: AcrLevel): String =
         if (!ctx.policy.canAccountReach(account, targetAcr)) {
             "Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}"
         } else {
