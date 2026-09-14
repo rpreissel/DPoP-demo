@@ -8,7 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.toAbortMessage
+import com.example.dpop.orchestrator.journey.toAuthAbortMessage
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.session.AcrLevel
@@ -88,7 +88,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
         }
         return offerReIdentOrGiveUp(
             targetAcr, startingAcr, allowReIdentification, ctx,
-            whenNone = Transition.Abort(CandidateTools.exhaustedAuthReason(ctx, account, targetAcr).toAbortMessage())
+            whenNone = Transition.Abort(ctx.policy.reachability(account, targetAcr).toAuthAbortMessage())
         )
     }
 

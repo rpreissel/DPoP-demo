@@ -1,8 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
-import com.example.dpop.orchestrator.policy.Reachability
-import com.example.dpop.orchestrator.policy.UnreachableReason
 import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
@@ -97,37 +95,4 @@ internal object CandidateTools {
 
     fun forReIdentification(targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.policy.reIdentCandidates(ctx.evidence, targetAcr))
-
-    /**
-     * WHY [forAuth] came back empty and re-identification isn't offered/possible either - shared
-     * by every caller in that exact situation ([StepUpStrategy], [LookupLoginStrategy]) so none of
-     * them repeats the same bug: a plain [AuthPolicy.reachability] reading is only meaningful
-     * "once the caller already knows there's no way through" - i.e. once [forAuth]/reIdent both
-     * came back empty. [forAuth] coming back empty is a DIFFERENT question from account-wide
-     * reachability (can THIS channel/session offer something RIGHT NOW - already-used-this-session
-     * methods, a device-bound credential that doesn't match this physical device, tools disabled
-     * via the demo's availability toggle, ...); an account can easily still be reachable in
-     * principle while none of that applies here. Returning [Reachability.NotReachable]'s reason
-     * unconditionally on an empty [forAuth] result (the bug this closes) would claim a real,
-     * coherent-looking, but factually WRONG explanation - e.g. "enrolled under a lower level" for
-     * an account whose methods are enrolled at exactly the required level, because a completely
-     * different, channel-local restriction was the actual blocker. Deliberately a structured
-     * [AuthExhaustionReason], never a rendered `String`: this object only ever derives WHICH tools
-     * qualify (see its own class doc) - turning a reason into user-facing (German) text is the
-     * CALLER's job, not this one's (`AbortMessages.toAbortMessage`).
-     */
-    fun exhaustedAuthReason(ctx: JourneyContext, account: AccountProfile, targetAcr: AcrLevel): AuthExhaustionReason =
-        when (val reachability = ctx.policy.reachability(account, targetAcr)) {
-            is Reachability.NotReachable -> AuthExhaustionReason.AccountUnreachable(reachability.reason)
-            Reachability.Reachable -> AuthExhaustionReason.ChannelLocal
-        }
-}
-
-/** See [CandidateTools.exhaustedAuthReason]'s own doc. */
-sealed interface AuthExhaustionReason {
-    /** The account itself can't reach the target - [reason] says why. */
-    data class AccountUnreachable(val reason: UnreachableReason) : AuthExhaustionReason
-
-    /** The account COULD reach the target, but nothing on THIS channel/session can right now. */
-    data object ChannelLocal : AuthExhaustionReason
 }
