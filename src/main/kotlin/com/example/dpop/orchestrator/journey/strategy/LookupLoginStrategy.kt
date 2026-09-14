@@ -9,6 +9,7 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.journey.toAbortMessage
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -143,7 +144,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 resumeWith = LookupLoginState.Start
             )
         } else {
-            Transition.Abort(CandidateTools.exhaustedAuthAbortReason(ctx, account, ctx.acrFloor))
+            Transition.Abort(CandidateTools.exhaustedAuthReason(ctx, account, ctx.acrFloor).toAbortMessage())
         }
     }
 
