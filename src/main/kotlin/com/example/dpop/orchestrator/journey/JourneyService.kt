@@ -486,7 +486,7 @@ class JourneyService(
             mapOf(
                 "decision" to "To",
                 "toState" to transition.state::class.simpleName,
-                "candidateTools" to candidates.map { toolId -> toolId to toolRegistry.descriptorOf(toolId).method }.toMap(),
+                "authCandidates" to candidates.map { toolId -> toolId to toolRegistry.descriptorOf(toolId).method }.toMap(),
                 "next" to mapOf("type" to next.type, "toolId" to next.toolId, "context" to next.context, "step" to next.step)
             )
         }
@@ -504,12 +504,12 @@ class JourneyService(
         // [state] is whatever was active right BEFORE this transition - e.g. the RestoreData
         // Anfangs-Übergang can leave a fresh channel Authenticated on its very first Started, with
         // no intervening `To` entry to show what could still have been offered. Without
-        // candidateTools here, that case's log would go from "here's the seeded evidence" straight
+        // authCandidates here, that case's log would go from "here's the seeded evidence" straight
         // to "Authenticated" with no trace of what else was available - misleadingly emptier than
         // the App channel's own Authenticated log entries ever were.
         Transition.Authenticated -> mapOf(
             "decision" to "Authenticated",
-            "candidateTools" to state.activatable(availableToolsOf(channel))
+            "authCandidates" to state.activatable(availableToolsOf(channel))
                 .map { toolId -> toolId to toolRegistry.descriptorOf(toolId).method }.toMap()
         )
         is Transition.Perform -> mapOf("decision" to "Perform", "action" to transition.action::class.simpleName) +

@@ -70,7 +70,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
     given("Start, freshly entered, an active method that can still help reach the target") {
         // sms alone caps at loa1, but it's unused this run - offering it "helps MFA" even before
-        // it alone reaches loa2 (DefaultAuthPolicy.candidateTools' helpsMfa branch).
+        // it alone reaches loa2 (DefaultAuthPolicy.authCandidates' helpsMfa branch).
         val acc = account(method("sms", "loa2"))
         val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
         val state = StepUpState.Start(AcrLevel("loa2"), AcrLevel("loa1"))

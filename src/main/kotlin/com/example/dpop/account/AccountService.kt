@@ -114,7 +114,7 @@ class AccountService(
         // Re-enrolling a SINGLETON method (e.g. a new phone number/email) REPLACES the old
         // credential rather than shadowing it - without this, two "active" entries for the same
         // method could coexist (nothing elsewhere ever deactivates a superseded one), and
-        // canAccountReach/candidateTools/resolveAcr would inconsistently see both. Multi-instance
+        // canAccountReach/authCandidates/resolveAcr would inconsistently see both. Multi-instance
         // methods are exempt on purpose - that coexistence is the whole point there.
         if (!allowsMultipleInstances) {
             account.authenticationMethods.filter { it.method == method && it.active }.forEach { it.active = false }

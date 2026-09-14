@@ -42,7 +42,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
                 else -> {
                     // The offered set IS "every tool that can resolve the account itself" - derived
-                    // from the catalog, never listed. AuthPolicy.candidateTools cannot be used: it
+                    // from the catalog, never listed. AuthPolicy.authCandidates cannot be used: it
                     // needs a resolved account, which by definition does not exist yet.
                     val tools = CandidateTools.forLookupLogin(ctx)
                     if (tools.isEmpty()) Transition.Abort("Kein Login-Verfahren ohne Geraetebindung verfuegbar")

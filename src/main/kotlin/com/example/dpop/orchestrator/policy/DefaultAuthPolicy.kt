@@ -126,7 +126,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         )
     }
 
-    override fun enrollmentCandidates(account: AccountProfile, requiredAcr: AcrLevel): List<ToolId> {
+    override fun enrollmentCandidates(ctx: CandidateContext): List<ToolId> {
+        val account = requireNotNull(ctx.account) { "enrollmentCandidates requires an account in CandidateContext" }
         val activeMethods = account.authenticationMethods.filter { it.active }.map { it.method }.toSet()
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.ENROLL }
@@ -138,14 +139,13 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             .map { it.toolId }
     }
 
-    override fun candidateTools(
-        evidence: AuthEvidence,
-        requiredAcr: AcrLevel,
-        account: AccountProfile,
-        bindingKeyRef: String?,
-        linkedAccountId: Long?,
-        availableTools: Set<ToolId>?
-    ): List<ToolId> {
+    override fun authCandidates(ctx: CandidateContext): List<ToolId> {
+        val evidence = ctx.evidence
+        val requiredAcr = ctx.requiredAcr
+        val account = requireNotNull(ctx.account) { "authCandidates requires an account in CandidateContext" }
+        val bindingKeyRef = ctx.bindingKeyRef
+        val linkedAccountId = ctx.linkedAccountId
+        val availableTools = ctx.availableTools
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         val active = account.authenticationMethods.filter { it.active }
 
@@ -208,7 +208,9 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         }.distinct() // a multi-instance method can contribute more than one `eligible` entry (several devices) but must only offer its AUTH tool once
     }
 
-    override fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: AcrLevel): List<ToolId> {
+    override fun reIdentCandidates(ctx: CandidateContext): List<ToolId> {
+        val evidence = ctx.evidence
+        val requiredAcr = ctx.requiredAcr
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.IDENT }
@@ -237,7 +239,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * doc: an identification already prices its own trust into its own loa and is never
      * re-presented at the moment of authentication, so it must not also buy MFA credit).
      *
-     * [candidateTools] calls this directly, unfiltered, on its own projected session evidence -
+     * [authCandidates] calls this directly, unfiltered, on its own projected session evidence -
      * deliberately unchanged by the IAL/AAL split, since that simulation only ever projects AUTH
      * candidates onto already-AUTH session evidence in practice.
      *

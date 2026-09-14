@@ -159,7 +159,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // for an already-known account go through CandidateTools.forAuth alone, never
                     // forIdentification - an already-authenticated account is never re-offered fsc.
                     options shouldNotContain "ident-fsc"
-                    // AuthPolicy.candidateTools (shared with the App channel's own STEP_UP) already
+                    // AuthPolicy.authCandidates (shared with the App channel's own STEP_UP) already
                     // filters to exactly this account's own active methods - registerAndAuthenticate
                     // only ever enrolled sms+email, so password/device must never appear here even
                     // though they're both in the catalog.

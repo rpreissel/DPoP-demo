@@ -15,45 +15,42 @@ interface AuthPolicy {
     fun isSatisfied(evidence: AuthEvidence, requiredAcr: AcrLevel, account: AccountProfile?): Boolean
 
     /**
-     * Which of the account's AUTH tools could close the remaining gap right now? [bindingKeyRef]
+     * Which of the account's AUTH tools could close the remaining gap right now?
+     * [CandidateContext.bindingKeyRef]
      * (the calling channel's DPoP-proven device fingerprint) is needed to filter multi-instance
      * methods (device) down to the one instance that actually lives on THIS physical device -
      * offering one that doesn't would guarantee failure (docs/04-orchestrierung.md). Null on a
      * KEYCLOAK channel, which has no device - multi-instance methods never match there.
      *
-     * [linkedAccountId] (the account `DeviceAccountLink` CURRENTLY names for [bindingKeyRef], if
-     * any) additionally gates a multi-instance method: a device can only ever be actively bound to
+     * [CandidateContext.linkedAccountId] (the account `DeviceAccountLink` CURRENTLY names for
+     * [CandidateContext.bindingKeyRef], if any) additionally gates a multi-instance method:
+     * a device can only ever be actively bound to
      * one account, so a credential is only offered while the device is still linked to the SAME
-     * account it belongs to - once rebound elsewhere, the old account's credential stops matching
-     * here even though the raw key still equals [bindingKeyRef] (docs/09-dpop.md).
+     * account it belongs to - once rebound elsewhere, the old account's credential stops
+     * matching here even though the raw key still equals [CandidateContext.bindingKeyRef]
+     * (docs/09-dpop.md).
      *
-     * [availableTools] narrows which AUTH tools this specific channel may even present (e.g. the
-     * App frontend never declares `auth-qr`, docs/03-tool-architektur.md - there is no UI for it).
+     * [CandidateContext.availableTools] narrows which AUTH tools this specific channel may even
+     * present (e.g. the App frontend never declares `auth-qr`,
+     * docs/03-tool-architektur.md - there is no UI for it).
      * `null` means "don't filter" (every test/caller that genuinely doesn't care about this channel
      * restriction). This must be applied BEFORE deciding whether one active method alone already
      * suffices: an active-but-unofferable loa2-capable method must never silently suppress the
      * two-factor combination fallback for the methods that ARE actually offerable here - see
-     * [DefaultAuthPolicy.candidateTools]'s own doc for the real bug this closes.
+     * [DefaultAuthPolicy.authCandidates]'s own doc for the real bug this closes.
      */
-    fun candidateTools(
-        evidence: AuthEvidence,
-        requiredAcr: AcrLevel,
-        account: AccountProfile,
-        bindingKeyRef: String?,
-        linkedAccountId: Long?,
-        availableTools: Set<ToolId>? = null
-    ): List<ToolId>
+    fun authCandidates(ctx: CandidateContext): List<ToolId>
 
     /**
      * Which IDENT tools (re-identification, e.g. ident-fsc) could ALSO close the remaining gap
-     * right now? Deliberately separate from [candidateTools] rather than folded into it: an
+     * right now? Deliberately separate from [authCandidates] rather than folded into it: an
      * identification's own maxAcr already prices in its full trust level (ident-fsc alone is
      * loa2) regardless of what the account has enrolled, so unlike AUTH candidates it isn't
      * gated by any per-account enrollment state - only callers that explicitly want to offer
      * re-identification as a step-up path (docs/04-orchestrierung.md, the MANAGE gate) opt in by
      * calling this at all; ordinary LOGIN/STEP_UP candidate resolution never does.
      */
-    fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: AcrLevel): List<ToolId>
+    fun reIdentCandidates(ctx: CandidateContext): List<ToolId>
 
     /**
      * Could this account reach requiredAcr in a FUTURE login, given its current enrollments - and
@@ -73,7 +70,7 @@ interface AuthPolicy {
     fun reachability(account: AccountProfile, requiredAcr: AcrLevel): Reachability
 
     /** Which ENROLL tools would close the gap toward requiredAcr? */
-    fun enrollmentCandidates(account: AccountProfile, requiredAcr: AcrLevel): List<ToolId>
+    fun enrollmentCandidates(ctx: CandidateContext): List<ToolId>
 
     /**
      * Level implied by the given evidence. [account] is needed to cap any MFA combination bump
@@ -82,6 +79,16 @@ interface AuthPolicy {
      */
     fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): AcrLevel
 }
+
+/** Shared context for candidate resolution methods. */
+data class CandidateContext(
+    val evidence: AuthEvidence,
+    val requiredAcr: AcrLevel,
+    val account: AccountProfile? = null,
+    val bindingKeyRef: String? = null,
+    val linkedAccountId: Long? = null,
+    val availableTools: Set<ToolId>? = null
+)
 
 /** Result of [AuthPolicy.reachability] - never a bare `Boolean`, so a caller can't check reachability without the compiler forcing it to also handle the (structured) reason once it's false. */
 sealed interface Reachability {

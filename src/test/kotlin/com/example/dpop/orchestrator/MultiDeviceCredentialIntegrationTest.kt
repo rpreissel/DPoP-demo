@@ -112,7 +112,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
 
             // Device B (different key, never enrolled its own credential) re-identifies into the same
             // account - canAccountReach is true (device-agnostic: the account HAS a loa2 method), but
-            // candidateTools must filter device A's instance out (wrong bindingKeyRef) and fall back
+            // authCandidates must filter device A's instance out (wrong bindingKeyRef) and fall back
             // to enrollment instead of dead-ending - enroll-device is offered so device B can register
             // its own key, never auth-device for a key it doesn't hold.
             val deviceBKey = ECKeyGenerator(Curve.P_256).generate()

@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.policy.CandidateContext
 import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
@@ -25,6 +26,16 @@ internal object CandidateTools {
      * state's offer, it cannot retroactively pick a different state shape.
      */
     private fun JourneyContext.filterAvailable(ids: List<ToolId>): List<ToolId> = ids.filter { it in availableTools }
+
+    private fun JourneyContext.candidateContext(targetAcr: AcrLevel, account: AccountProfile? = null): CandidateContext =
+        CandidateContext(
+            evidence = evidence,
+            requiredAcr = targetAcr,
+            account = account,
+            bindingKeyRef = bindingKeyRef,
+            linkedAccountId = linkedAccountId,
+            availableTools = availableTools
+        )
 
     fun forIdentification(ctx: JourneyContext): List<ToolId> =
         ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role.category == ToolCategory.IDENT }.map { it.toolId })
@@ -59,7 +70,7 @@ internal object CandidateTools {
     }
 
     fun forAuth(account: AccountProfile, targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
-        ctx.filterAvailable(ctx.policy.candidateTools(ctx.evidence, targetAcr, account, ctx.bindingKeyRef, ctx.linkedAccountId, ctx.availableTools))
+        ctx.filterAvailable(ctx.policy.authCandidates(ctx.candidateContext(targetAcr, account)))
 
     /**
      * Every active IDENTIFIED_AUTH method the account has, for a fresh "prove you're still you"
@@ -91,8 +102,8 @@ internal object CandidateTools {
         )
 
     fun forEnrollment(account: AccountProfile, targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
-        ctx.filterAvailable(ctx.policy.enrollmentCandidates(account, targetAcr))
+        ctx.filterAvailable(ctx.policy.enrollmentCandidates(ctx.candidateContext(targetAcr, account)))
 
     fun forReIdentification(targetAcr: AcrLevel, ctx: JourneyContext): List<ToolId> =
-        ctx.filterAvailable(ctx.policy.reIdentCandidates(ctx.evidence, targetAcr))
+        ctx.filterAvailable(ctx.policy.reIdentCandidates(ctx.candidateContext(targetAcr)))
 }

@@ -43,7 +43,7 @@ sealed interface LookupLoginState : JourneyState {
     /**
      * One credential is proven but the channel's own acrFloor is not reached yet. Distinct from
      * [Credential] because the offer is a different one: the account is now KNOWN, so the
-     * candidates come from `AuthPolicy.candidateTools` (the ordinary device-auth tools) rather
+     * candidates come from `AuthPolicy.authCandidates` (the ordinary device-auth tools) rather
      * than from the lookup-only set that had to resolve an account first.
      *
      * This state exists because the intent used to have no way to represent "proven, but not

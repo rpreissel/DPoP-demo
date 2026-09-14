@@ -38,7 +38,7 @@ object AuthDeviceDescriptor : ToolDescriptor {
     // instance, could legitimately answer differently). Callers that need this for a SPECIFIC
     // tool resolve its own descriptor unambiguously by (method, role) - MethodRole, unlike
     // category, fully distinguishes IDENTIFIED_AUTH from LOOKUP_AUTH - never an arbitrary descriptor
-    // picked by method name alone (DefaultAuthPolicy.candidateTools).
+    // picked by method name alone (DefaultAuthPolicy.authCandidates).
     override val allowsMultipleInstances = true
 
     /**

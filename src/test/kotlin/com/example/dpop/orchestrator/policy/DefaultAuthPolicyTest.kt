@@ -40,6 +40,16 @@ class DefaultAuthPolicyTest : BehaviorSpec({
     val registry = ToolHandlerRegistry(listOf(identFsc, enrollSms, authSms, authPasskey, enrollPasskey))
     val policy = DefaultAuthPolicy(registry)
 
+    fun candidates(
+        evidence: AuthEvidence,
+        requiredAcr: AcrLevel,
+        account: AccountProfile? = null,
+        bindingKeyRef: String? = null,
+        linkedAccountId: Long? = null,
+        availableTools: Set<ToolId>? = null
+    ) = CandidateContext(evidence, requiredAcr, account, bindingKeyRef, linkedAccountId, availableTools)
+
+
     fun account(vararg methods: AuthMethodView) = AccountProfile(
         accountId = 1L, personId = 1L, identifications = emptyList(), authenticationMethods = methods.toList()
     )
@@ -116,10 +126,10 @@ class DefaultAuthPolicyTest : BehaviorSpec({
         `when`("resolving enrollment candidates") {
             then("already active methods are excluded") {
                 val noMethods = account()
-                policy.enrollmentCandidates(noMethods, AcrLevel("loa2")) shouldContainExactlyInAnyOrder listOf(ToolId("enroll-sms"), ToolId("enroll-passkey"))
+                policy.enrollmentCandidates(candidates(AuthEvidence(emptyList()), AcrLevel("loa2"), noMethods)) shouldContainExactlyInAnyOrder listOf(ToolId("enroll-sms"), ToolId("enroll-passkey"))
 
                 val withSms = account(method("sms", "loa2"))
-                policy.enrollmentCandidates(withSms, AcrLevel("loa2")) shouldContainExactly listOf(ToolId("enroll-passkey"))
+                policy.enrollmentCandidates(candidates(AuthEvidence(emptyList()), AcrLevel("loa2"), withSms)) shouldContainExactly listOf(ToolId("enroll-passkey"))
             }
         }
 
@@ -128,15 +138,15 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
             then("methods already used this session are excluded") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf(ToolId("auth-sms"))
+                policy.authCandidates(candidates(fresh, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null)) shouldContainExactly listOf(ToolId("auth-sms"))
 
                 val alreadyUsedSms = AuthEvidence.from(listOf("sms"), setOf(FactorType.POSSESSION), mapOf("sms" to "loa2"))
-                policy.candidateTools(alreadyUsedSms, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null).shouldBeEmpty()
+                policy.authCandidates(candidates(alreadyUsedSms, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId, availableTools = null)).shouldBeEmpty()
             }
 
             then("a null bindingKeyRef (WEB channel, no device) is accepted without crashing") {
                 val fresh = AuthEvidence(emptyList())
-                policy.candidateTools(fresh, AcrLevel("loa2"), acc, null, linkedAccountId = null, availableTools = null) shouldContainExactly listOf(ToolId("auth-sms"))
+                policy.authCandidates(candidates(fresh, AcrLevel("loa2"), acc, null, linkedAccountId = null, availableTools = null)) shouldContainExactly listOf(ToolId("auth-sms"))
             }
         }
 
@@ -154,11 +164,13 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
                 // Before the fix: qr's own maxAcr=loa2 sets singleMethodSuffices=true (computed
                 // over ALL active methods, unfiltered), which disables helpsMfa for sms/email too -
-                // and since qr itself is excluded by availableTools, candidateTools came back
+                // and since qr itself is excluded by availableTools, authCandidates came back
                 // completely empty despite sms+email clearly combining to loa2.
-                localPolicy.candidateTools(
-                    fresh, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId,
-                    availableTools = setOf(ToolId("auth-sms"), ToolId("auth-email"))
+                localPolicy.authCandidates(
+                    candidates(
+                        fresh, AcrLevel("loa2"), acc, "test-binding-key", linkedAccountId = acc.accountId,
+                        availableTools = setOf(ToolId("auth-sms"), ToolId("auth-email"))
+                    )
                 ) shouldContainExactlyInAnyOrder listOf(ToolId("auth-sms"), ToolId("auth-email"))
             }
         }
@@ -184,31 +196,31 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val fresh = AuthEvidence(emptyList())
 
             then("it is offered while the device is still linked to this same account") {
-                devicePolicy.candidateTools(fresh, AcrLevel("loa2"), acc, "key-1", linkedAccountId = acc.accountId, availableTools = null) shouldContainExactly listOf(ToolId("auth-device"))
+                devicePolicy.authCandidates(candidates(fresh, AcrLevel("loa2"), acc, "key-1", linkedAccountId = acc.accountId, availableTools = null)) shouldContainExactly listOf(ToolId("auth-device"))
             }
 
             then("it is NOT offered once the device has been rebound to a different account") {
-                devicePolicy.candidateTools(fresh, AcrLevel("loa2"), acc, "key-1", linkedAccountId = 999L, availableTools = null).shouldBeEmpty()
+                devicePolicy.authCandidates(candidates(fresh, AcrLevel("loa2"), acc, "key-1", linkedAccountId = 999L, availableTools = null)).shouldBeEmpty()
             }
         }
 
         `when`("resolving re-identification candidates (reIdentCandidates)") {
             then("an IDENT tool already used this session is excluded, regardless of level") {
                 val fresh = AuthEvidence(emptyList())
-                policy.reIdentCandidates(fresh, AcrLevel("loa2")) shouldContainExactly listOf(ToolId("ident-fsc"))
+                policy.reIdentCandidates(candidates(fresh, AcrLevel("loa2"))) shouldContainExactly listOf(ToolId("ident-fsc"))
 
                 val alreadyIdentified = AuthEvidence.from(listOf("fsc"), setOf(FactorType.POSSESSION))
-                policy.reIdentCandidates(alreadyIdentified, AcrLevel("loa2")).shouldBeEmpty()
+                policy.reIdentCandidates(candidates(alreadyIdentified, AcrLevel("loa2"))).shouldBeEmpty()
             }
 
             then("an IDENT tool whose own maxAcr falls short of requiredAcr is excluded") {
                 val fresh = AuthEvidence(emptyList())
                 // ident-fsc tops out at loa2 (see catalog above) - can't close a loa3 gap on its own.
-                policy.reIdentCandidates(fresh, AcrLevel("loa3")).shouldBeEmpty()
+                policy.reIdentCandidates(candidates(fresh, AcrLevel("loa3"))).shouldBeEmpty()
             }
 
             then("AUTH/ENROLL tools never appear, only IDENTIFICATION-role ones") {
-                policy.reIdentCandidates(AuthEvidence(emptyList()), AcrLevel("loa2")) shouldContainExactly listOf(ToolId("ident-fsc"))
+                policy.reIdentCandidates(candidates(AuthEvidence(emptyList()), AcrLevel("loa2"))) shouldContainExactly listOf(ToolId("ident-fsc"))
             }
         }
 

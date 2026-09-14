@@ -21,7 +21,7 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
     init {
         // (method, role) is meant to uniquely identify "the concrete procedure of this kind for
         // this credential" (docs/03-tool-architektur.md, MethodRole) - callers (e.g.
-        // DefaultAuthPolicy.candidateTools) resolve a single descriptor by exactly this key and
+        // DefaultAuthPolicy.authCandidates) resolve a single descriptor by exactly this key and
         // trust the result unambiguously. A duplicate would silently resolve to whichever
         // descriptor happens to iterate first, not a loud error - fail at startup instead, since
         // nothing else here would ever catch it.
