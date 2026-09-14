@@ -11,6 +11,7 @@ import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.journey.state.RegisterState
+import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
@@ -132,7 +133,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         }
         // An account found again by KVNR may already have everything it needs - offering an
         // existing method to prove beats an enrollment list that would come back empty.
-        if (ctx.policy.canAccountReach(account, ctx.acrFloor)) {
+        if (ctx.policy.reachability(account, ctx.acrFloor) is Reachability.Reachable) {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
             if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
         }

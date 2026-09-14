@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
 
 /** The only place that knows what a *combination* of evidence means (docs/04-orchestrierung.md #2). */
@@ -54,16 +55,21 @@ interface AuthPolicy {
      */
     fun reIdentCandidates(evidence: AuthEvidence, requiredAcr: AcrLevel): List<ToolId>
 
-    /** Could this account reach requiredAcr in a FUTURE login, given its current enrollments? */
-    fun canAccountReach(account: AccountProfile, requiredAcr: AcrLevel): Boolean
-
     /**
-     * Why [canAccountReach] is false for this account/requiredAcr pair - shown to the user
-     * alongside "kein Verfahren fuehrt zum Ziel" so they know WHAT to change (usually: add a
-     * method of a different factor type) instead of just that something is missing. Only ever
-     * called once the caller already knows there's no way through.
+     * Could this account reach requiredAcr in a FUTURE login, given its current enrollments - and
+     * if not, why (so the caller can tell the user what's missing, usually: add a method of a
+     * different factor type)? One method, not two separate `canAccountReach`/`unreachableReason`
+     * calls: every caller that needs the reason only ever needs it once the boolean is already
+     * false, and a second call would just recompute the exact same account-standing calculation -
+     * see [CandidateTools.exhaustedAuthAbortReason] and the `*Strategy` abort branches, which used
+     * to call both against the same (account, requiredAcr) pair. A caller that only wants the
+     * boolean checks `is Reachability.Reachable`; [Reachability.NotReachable.reason] is a
+     * structured [UnreachableReason], never pre-rendered text - turning it into a (German)
+     * user-facing message is the CALLER's job (`CandidateTools`), not the policy's, exactly like
+     * [AcrLevel]/[com.example.dpop.tool_spi.ToolId] keep their own String value from leaking
+     * meaning the type itself should carry.
      */
-    fun unreachableReason(account: AccountProfile, requiredAcr: AcrLevel): String
+    fun reachability(account: AccountProfile, requiredAcr: AcrLevel): Reachability
 
     /** Which ENROLL tools would close the gap toward requiredAcr? */
     fun enrollmentCandidates(account: AccountProfile, requiredAcr: AcrLevel): List<ToolId>
@@ -74,4 +80,39 @@ interface AuthPolicy {
      * resolvable yet (the bump is then conservatively withheld).
      */
     fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): AcrLevel
+}
+
+/** Result of [AuthPolicy.reachability] - never a bare `Boolean`, so a caller can't check reachability without the compiler forcing it to also handle the (structured) reason once it's false. */
+sealed interface Reachability {
+    /** requiredAcr is reachable with the account's current standing methods. */
+    data object Reachable : Reachability
+
+    /** requiredAcr is NOT reachable - [reason] is WHY, for [CandidateTools.exhaustedAuthAbortReason] (or any other caller) to render. */
+    data class NotReachable(val reason: UnreachableReason) : Reachability
+}
+
+/**
+ * WHY [Reachability.NotReachable] - a plain domain fact, deliberately not a pre-formatted
+ * (German) message: exactly the same reasoning that keeps [AcrLevel]/[com.example.dpop.tool_spi.ToolId]
+ * from being bare `String`s applies here to a whole explanation, not just an identifier - the
+ * policy layer names WHAT is missing, the caller decides HOW to say it (and in which language).
+ */
+sealed interface UnreachableReason {
+    /** No active authentication method at all. */
+    data object NoActiveMethod : UnreachableReason
+
+    /**
+     * The active methods together cover fewer than 2 distinct factor types. [methods]/[factorTypes]
+     * are what IS active, so a caller can name what's missing without recomputing anything.
+     */
+    data class SingleFactorType(val methods: List<String>, val factorTypes: Set<FactorType>) : UnreachableReason
+
+    /**
+     * Coverage (level + factor types) would suffice, but every combining method was enrolled under
+     * a lower ACR than required - [maxEnrolledUnderAcr] is the highest any of them actually reached.
+     */
+    data class CombinationCapped(val maxEnrolledUnderAcr: AcrLevel) : UnreachableReason
+
+    /** Same as [CombinationCapped], but for the single-method case (no combination involved at all). */
+    data class SingleMethodCapped(val method: String, val maxEnrolledUnderAcr: AcrLevel) : UnreachableReason
 }

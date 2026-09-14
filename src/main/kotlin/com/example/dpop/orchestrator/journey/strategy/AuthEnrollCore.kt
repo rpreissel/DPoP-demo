@@ -7,11 +7,13 @@ import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.toAbortMessage
 import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterState
+import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.tool_spi.ToolOutcome
@@ -65,7 +67,7 @@ internal object AuthEnrollCore {
      */
     fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean, resumeAtStart: JourneyState): Transition {
         val account = ctx.requireAccount()
-        val reachable = ctx.policy.canAccountReach(account, ctx.acrFloor)
+        val reachable = ctx.policy.reachability(account, ctx.acrFloor) is Reachability.Reachable
         if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
             return offerEnrollment(account, ctx, emailObligation, resumeAtStart)
         }
@@ -114,20 +116,21 @@ internal object AuthEnrollCore {
         if (candidates.isNotEmpty()) {
             return Transition.To(Enrolling(candidates, emailObligation = emailObligation))
         }
+        val reachability = ctx.policy.reachability(account, ctx.acrFloor)
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
             Transition.RequireSubJourney(
                 AuthIntent.RE_IDENTIFY,
                 seedWith = ReIdentifyState.forSubJourney(ctx.acrFloor, ctx.currentAcr),
                 resumeWith = resumeAtStart
             )
-        } else if (!ctx.policy.canAccountReach(account, ctx.acrFloor)) {
-            // canAccountReach false: nothing left to enroll AND what's already active genuinely
-            // can't reach the floor - unreachableReason's own explanation actually applies here.
-            Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+        } else if (reachability is Reachability.NotReachable) {
+            // NotReachable: nothing left to enroll AND what's already active genuinely can't reach
+            // the floor - the reason's own explanation actually applies here.
+            Transition.Abort(reachability.toAbortMessage())
         } else {
-            // canAccountReach true but forEnrollment came back empty anyway - a channel-local
-            // reason (e.g. availableTools disabled every remaining candidate), not an account-wide
-            // one. unreachableReason would describe the wrong thing here (see CandidateTools.
+            // Reachable, but forEnrollment came back empty anyway - a channel-local reason (e.g.
+            // availableTools disabled every remaining candidate), not an account-wide one. The
+            // NotReachable reason would describe the wrong thing here (see CandidateTools.
             // exhaustedAuthAbortReason's own doc for the same bug in the AUTH-candidate case).
             Transition.Abort(
                 "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +

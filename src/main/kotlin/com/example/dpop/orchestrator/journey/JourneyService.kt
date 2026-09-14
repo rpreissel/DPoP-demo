@@ -14,6 +14,7 @@ import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
+import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.policy.evidenceAxis
 import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.AcrLevel
@@ -901,7 +902,7 @@ class JourneyService(
                 if (it.id == methodInstanceId) it.copy(active = false) else it
             }
         )
-        if (!authPolicy.canAccountReach(afterRemoval, acrFloorOf(channel))) {
+        if (authPolicy.reachability(afterRemoval, acrFloorOf(channel)) !is Reachability.Reachable) {
             throw OrchestratorException.invalidState(
                 "Deaktivieren von '${target.method}' wuerde das Mindestniveau dieses Kanals unterschreiten"
             )

@@ -13,8 +13,6 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotContain
 
 /**
  * Pure unit tests against a small synthetic catalog (ident-fsc/enroll-sms/auth-sms plus a
@@ -86,27 +84,32 @@ class DefaultAuthPolicyTest : BehaviorSpec({
         `when`("an account has sms enrolled under loa1") {
             val acc = account(method("sms", enrolledUnderAcr = "loa1"))
 
-            then("canAccountReach respects enrolledUnderAcr, not just the tool's maxAcr") {
-                policy.canAccountReach(acc, AcrLevel("loa2")) shouldBe false
-                policy.canAccountReach(acc, AcrLevel("loa1")) shouldBe true
+            then("reachability respects enrolledUnderAcr, not just the tool's maxAcr") {
+                // Single method, single factor type: the "needs another factor type" branch is
+                // checked first regardless of whether level or MFA was the actual blocker (see
+                // DefaultAuthPolicy.reachability's own doc) - not the enrolledUnderAcr cap message.
+                policy.reachability(acc, AcrLevel("loa2")) shouldBe
+                    Reachability.NotReachable(UnreachableReason.SingleFactorType(listOf("sms"), setOf(FactorType.POSSESSION)))
+                policy.reachability(acc, AcrLevel("loa1")) shouldBe Reachability.Reachable
             }
         }
 
         `when`("an account has no active method") {
-            then("canAccountReach is false") {
-                policy.canAccountReach(account(), AcrLevel("loa1")) shouldBe false
+            then("reachability is NotReachable(NoActiveMethod)") {
+                policy.reachability(account(), AcrLevel("loa1")) shouldBe Reachability.NotReachable(UnreachableReason.NoActiveMethod)
             }
         }
 
-        `when`("checking canAccountReach at MFA level (loa3)") {
+        `when`("checking reachability at MFA level (loa3)") {
             then("a single possession-only method is not enough") {
                 val onlyPossession = account(method("sms", "loa2"))
-                policy.canAccountReach(onlyPossession, AcrLevel("loa3")) shouldBe false
+                policy.reachability(onlyPossession, AcrLevel("loa3")) shouldBe
+                    Reachability.NotReachable(UnreachableReason.SingleFactorType(listOf("sms"), setOf(FactorType.POSSESSION)))
             }
 
             then("a passkey covering two factor types on its own is enough") {
                 val withPasskey = account(method("passkey", "loa3"))
-                policy.canAccountReach(withPasskey, AcrLevel("loa3")) shouldBe true
+                policy.reachability(withPasskey, AcrLevel("loa3")) shouldBe Reachability.Reachable
             }
         }
 
@@ -209,16 +212,17 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             }
         }
 
-        `when`("explaining why an account can't reach a level (unreachableReason)") {
+        `when`("explaining why an account can't reach a level (reachability's NotReachable reason)") {
             then("no active method at all gives that as the reason") {
-                policy.unreachableReason(account(), AcrLevel("loa2")) shouldBe "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
+                policy.reachability(account(), AcrLevel("loa2")) shouldBe Reachability.NotReachable(UnreachableReason.NoActiveMethod)
             }
 
             then("active methods sharing one factor type name that as the blocker") {
                 // sms is the only active method here, so this is the "offered.size <= 1" branch,
                 // not the "combinable but capped" one - see the loa1-cap case below for that.
                 val onlySms = account(method("sms", "loa2"))
-                policy.unreachableReason(onlySms, AcrLevel("loa3")) shouldBe "Die aktiven Verfahren (sms) decken nur einen Faktor-Typ ab (Besitz). Für dieses Sicherheitsniveau ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
+                policy.reachability(onlySms, AcrLevel("loa3")) shouldBe
+                    Reachability.NotReachable(UnreachableReason.SingleFactorType(listOf("sms"), setOf(FactorType.POSSESSION)))
             }
 
             then("two combinable methods enrolled only under a lower level name the enrolledUnderAcr cap as the blocker") {
@@ -227,10 +231,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 val localPolicy = DefaultAuthPolicy(ToolHandlerRegistry(listOf(tokenA, tokenB)))
                 val bothWeak = account(method("a", enrolledUnderAcr = "loa1"), method("b", enrolledUnderAcr = "loa1"))
 
-                localPolicy.unreachableReason(bothWeak, AcrLevel("loa2")) shouldBe
-                    "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
-                    "Sicherheitsniveau eingerichtet (loa1) - das begrenzt, wie hoch sie gemeinsam wirken können. " +
-                    "Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+                localPolicy.reachability(bothWeak, AcrLevel("loa2")) shouldBe
+                    Reachability.NotReachable(UnreachableReason.CombinationCapped(AcrLevel("loa1")))
             }
 
             then("a single method covering two factor types on its own names the enrolledUnderAcr cap, never 'needs another factor type'") {
@@ -239,11 +241,9 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 // type" message here - that would list this very method's own multiple factor types
                 // right after claiming it covers only one (self-contradictory).
                 val onlyPasskeyWeak = account(method("passkey", enrolledUnderAcr = "loa1"))
-                val reason = policy.unreachableReason(onlyPasskeyWeak, AcrLevel("loa3"))
+                val reachability = policy.reachability(onlyPasskeyWeak, AcrLevel("loa3"))
 
-                reason shouldContain "loa1"
-                reason shouldContain "passkey"
-                reason shouldNotContain "nur einen Faktor-Typ"
+                reachability shouldBe Reachability.NotReachable(UnreachableReason.SingleMethodCapped("passkey", AcrLevel("loa1")))
             }
         }
 
@@ -318,7 +318,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             then("the MFA bump is capped at loa1") {
                 localPolicy.resolveAcr(weakEvidence, bothWeak) shouldBe AcrLevel("loa1")
                 localPolicy.isSatisfied(weakEvidence, AcrLevel("loa2"), bothWeak) shouldBe false
-                localPolicy.canAccountReach(bothWeak, AcrLevel("loa2")) shouldBe false
+                localPolicy.reachability(bothWeak, AcrLevel("loa2")) shouldBe Reachability.NotReachable(UnreachableReason.CombinationCapped(AcrLevel("loa1")))
             }
         }
 
@@ -329,7 +329,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             then("the pair reaches loa2 together") {
                 localPolicy.resolveAcr(vouchedEvidence, oneVouched) shouldBe AcrLevel("loa2")
                 localPolicy.isSatisfied(vouchedEvidence, AcrLevel("loa2"), oneVouched) shouldBe true
-                localPolicy.canAccountReach(oneVouched, AcrLevel("loa2")) shouldBe true
+                localPolicy.reachability(oneVouched, AcrLevel("loa2")) shouldBe Reachability.Reachable
             }
         }
 

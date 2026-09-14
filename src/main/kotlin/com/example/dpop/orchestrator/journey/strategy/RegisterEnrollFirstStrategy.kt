@@ -11,6 +11,8 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
+import com.example.dpop.orchestrator.journey.toAbortMessage
+import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
@@ -131,13 +133,21 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
      */
     private fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
         val account = ctx.requireAccount()
-        val reachable = ctx.policy.canAccountReach(account, ctx.acrFloor)
-        if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
+        val reachability = ctx.policy.reachability(account, ctx.acrFloor)
+        if (reachability !is Reachability.Reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
             val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
             return if (candidates.isNotEmpty()) {
                 Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(candidates))
+            } else if (reachability is Reachability.NotReachable) {
+                Transition.Abort(reachability.toAbortMessage())
             } else {
-                Transition.Abort("Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, ctx.acrFloor)}")
+                // Reachable, but forEnrollment came back empty anyway - a channel-local reason
+                // (e.g. availableTools disabled every remaining candidate), not an account-wide
+                // one (see CandidateTools.exhaustedAuthAbortReason's own doc for the same bug).
+                Transition.Abort(
+                    "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
+                        "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."
+                )
             }
         }
         if (emailObligation && !account.emailConfirmed) {

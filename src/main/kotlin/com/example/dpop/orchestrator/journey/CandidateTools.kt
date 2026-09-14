@@ -1,7 +1,10 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.policy.Reachability
+import com.example.dpop.orchestrator.policy.UnreachableReason
 import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolId
@@ -99,23 +102,60 @@ internal object CandidateTools {
     /**
      * The abort message once [forAuth] came back empty and re-identification isn't offered/possible
      * either - shared by every caller in that exact situation ([StepUpStrategy], [LookupLoginStrategy])
-     * so none of them repeats the same bug: [AuthPolicy.unreachableReason]'s own contract is "only
-     * ever called once the caller already knows there's no way through" ([AuthPolicy.unreachableReason]'s
-     * own doc) - i.e. once [AuthPolicy.canAccountReach] is false. [forAuth] coming back empty is a
+     * so none of them repeats the same bug: [AuthPolicy.reachability]'s `NotReachable` reason is
+     * only meaningful "once the caller already knows there's no way through" - i.e. once
+     * [AuthPolicy.reachability] itself came back `NotReachable`. [forAuth] coming back empty is a
      * DIFFERENT question (can THIS channel/session offer something RIGHT NOW - already-used-this-
      * session methods, a device-bound credential that doesn't match this physical device, tools
      * disabled via the demo's availability toggle, ...); an account can easily still be reachable
-     * in principle while none of that applies here. Calling [AuthPolicy.unreachableReason]
-     * unconditionally on an empty [forAuth] result (the bug this closes) produces a real, coherent-
-     * looking, but factually WRONG explanation - e.g. "enrolled under a lower level" for an account
-     * whose methods are enrolled at exactly the required level, because a completely different,
-     * channel-local restriction was the actual blocker.
+     * in principle while none of that applies here. Rendering the `NotReachable` reason
+     * unconditionally on an empty [forAuth] result (the bug this closes) would produce a real,
+     * coherent-looking, but factually WRONG explanation - e.g. "enrolled under a lower level" for
+     * an account whose methods are enrolled at exactly the required level, because a completely
+     * different, channel-local restriction was the actual blocker.
      */
     fun exhaustedAuthAbortReason(ctx: JourneyContext, account: AccountProfile, targetAcr: AcrLevel): String =
-        if (!ctx.policy.canAccountReach(account, targetAcr)) {
-            "Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${ctx.policy.unreachableReason(account, targetAcr)}"
-        } else {
-            "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal steht dafür gerade keine passende Methode zur Verfügung " +
-                "(z. B. bereits in dieser Sitzung genutzt, für dieses Gerät deaktiviert, oder an ein anderes Gerät gebunden)."
+        when (val reachability = ctx.policy.reachability(account, targetAcr)) {
+            is Reachability.NotReachable -> reachability.toAbortMessage()
+            Reachability.Reachable ->
+                "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal steht dafür gerade keine passende Methode zur Verfügung " +
+                    "(z. B. bereits in dieser Sitzung genutzt, für dieses Gerät deaktiviert, oder an ein anderes Gerät gebunden)."
         }
+}
+
+/**
+ * Renders a policy-level [UnreachableReason] into the user-facing (German) abort message - the
+ * policy layer only ever names WHAT is missing (see that type's own doc); every caller that needs
+ * to SHOW the reason (as opposed to just branching on [Reachability]) goes through this one place,
+ * so the wording lives once, not once per call site.
+ */
+internal fun Reachability.NotReachable.toAbortMessage(): String =
+    "Gefordertes Sicherheitsniveau ist mit den vorhandenen Methoden nicht erreichbar. ${reason.toGermanText()}"
+
+private fun UnreachableReason.toGermanText(): String = when (this) {
+    UnreachableReason.NoActiveMethod -> "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
+
+    is UnreachableReason.SingleFactorType ->
+        "Die aktiven Verfahren (${methods.joinToString(", ")}) decken nur einen Faktor-Typ ab " +
+            "(${factorTypes.joinToString(", ") { it.toGermanText() }}). Für dieses Sicherheitsniveau " +
+            "ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), " +
+            "wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
+
+    is UnreachableReason.CombinationCapped ->
+        "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
+            "Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, wie hoch sie gemeinsam wirken " +
+            "können. Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
+
+    is UnreachableReason.SingleMethodCapped ->
+        "Das aktive Verfahren ($method) würde für sich genommen reichen, wurde " +
+            "aber unter einem niedrigeren Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, " +
+            "wie hoch es wirken kann, unabhängig davon, welche Faktor-Typen es abdeckt. Es muss erst unter dem " +
+            "höheren Niveau erneut eingerichtet werden (z. B. direkt im Anschluss an eine Identifizierung oder " +
+            "eine bereits ausreichende Kombination anderer Verfahren)."
+}
+
+private fun FactorType.toGermanText(): String = when (this) {
+    FactorType.KNOWLEDGE -> "Wissen"
+    FactorType.POSSESSION -> "Besitz"
+    FactorType.INHERENCE -> "Inhärenz"
 }

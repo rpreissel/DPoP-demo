@@ -89,31 +89,23 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         return levelOk && mfaOk
     }
 
-    override fun canAccountReach(account: AccountProfile, requiredAcr: AcrLevel): Boolean {
+    override fun reachability(account: AccountProfile, requiredAcr: AcrLevel): Reachability {
         val active = account.authenticationMethods.filter { it.active }
-        if (active.isEmpty()) return false
+        if (active.isEmpty()) return Reachability.NotReachable(UnreachableReason.NoActiveMethod)
 
-        val factorTypesUnion = active.flatMap { m -> descriptorFor(m.method)?.factorTypes.orEmpty() }.toSet()
-        val bestAcr = active
-            .mapNotNull { m -> descriptorFor(m.method)?.let { AcrLevels.min(m.enrolledUnderAcr, it.maxAcr) } }
+        val descriptors = active.mapNotNull { m -> descriptorFor(m.method)?.let { m to it } }
+        val factorTypesUnion = descriptors.flatMap { it.second.factorTypes }.toSet()
+        val distinctMethods = descriptors.map { it.second.method }.distinct().size
+        val bestAcr = descriptors
+            .map { (m, d) -> AcrLevels.min(m.enrolledUnderAcr, d.maxAcr) }
             .maxByOrNull { AcrLevels.rank(it) }
             ?: "none"
-        val distinctMethods = active.map { it.method }.distinct().size
         val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
         val effectiveAcr = combinedAcr(bestAcr, distinctMethods, factorTypesUnion, maxEnrolledUnderAcr)
 
         val levelOk = AcrLevels.rank(effectiveAcr) >= AcrLevels.rank(requiredAcr)
         val mfaOk = !requiresMfa(requiredAcr) || factorTypesUnion.size >= 2
-        return levelOk && mfaOk
-    }
-
-    override fun unreachableReason(account: AccountProfile, requiredAcr: AcrLevel): String {
-        val active = account.authenticationMethods.filter { it.active }
-        if (active.isEmpty()) return "Für dieses Konto ist derzeit kein aktives Anmeldeverfahren eingerichtet."
-
-        val descriptors = active.mapNotNull { m -> descriptorFor(m.method)?.let { m to it } }
-        val factorTypesUnion = descriptors.flatMap { it.second.factorTypes }.toSet()
-        val distinctMethods = descriptors.map { it.second.method }.distinct().size
+        if (levelOk && mfaOk) return Reachability.Reachable
 
         // Gated on factor-type coverage ALONE, never also on distinctMethods (unlike combinedAcr's
         // bump condition, which is deliberately about something else - see its own doc): a single
@@ -123,31 +115,15 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         // very method's own multiple factor types right after claiming it covers only one). Such a
         // method's real ceiling - if reached at all - is the enrolledUnderAcr cap below, never this.
         if (factorTypesUnion.size < 2) {
-            val methodNames = descriptors.map { it.second.method }.distinct().joinToString(", ")
-            return "Die aktiven Verfahren ($methodNames) decken nur einen Faktor-Typ ab " +
-                "(${factorTypesUnion.joinToString(", ") { germanFactorType(it) }}). Für dieses Sicherheitsniveau " +
-                "ist zusätzlich ein Verfahren mit einem ANDEREN Faktor-Typ nötig, z. B. ein Passwort (Wissen), " +
-                "wenn bisher nur Besitz-Verfahren wie SMS oder E-Mail aktiv sind."
+            val methodNames = descriptors.map { it.second.method }.distinct()
+            return Reachability.NotReachable(UnreachableReason.SingleFactorType(methodNames, factorTypesUnion))
         }
 
-        val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
-        return if (distinctMethods >= 2) {
-            "Die aktiven Verfahren würden in Kombination reichen, wurden aber unter einem niedrigeren " +
-                "Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, wie hoch sie gemeinsam wirken " +
-                "können. Ein neues Verfahren muss erst unter dem höheren Niveau eingerichtet werden."
-        } else {
-            "Das aktive Verfahren (${descriptors.first().second.method}) würde für sich genommen reichen, wurde " +
-                "aber unter einem niedrigeren Sicherheitsniveau eingerichtet ($maxEnrolledUnderAcr) - das begrenzt, " +
-                "wie hoch es wirken kann, unabhängig davon, welche Faktor-Typen es abdeckt. Es muss erst unter dem " +
-                "höheren Niveau erneut eingerichtet werden (z. B. direkt im Anschluss an eine Identifizierung oder " +
-                "eine bereits ausreichende Kombination anderer Verfahren)."
-        }
-    }
-
-    private fun germanFactorType(type: FactorType): String = when (type) {
-        FactorType.KNOWLEDGE -> "Wissen"
-        FactorType.POSSESSION -> "Besitz"
-        FactorType.INHERENCE -> "Inhärenz"
+        val cap = AcrLevel(maxEnrolledUnderAcr)
+        return Reachability.NotReachable(
+            if (distinctMethods >= 2) UnreachableReason.CombinationCapped(cap)
+            else UnreachableReason.SingleMethodCapped(descriptors.first().second.method, cap)
+        )
     }
 
     override fun enrollmentCandidates(account: AccountProfile, requiredAcr: AcrLevel): List<ToolId> {
