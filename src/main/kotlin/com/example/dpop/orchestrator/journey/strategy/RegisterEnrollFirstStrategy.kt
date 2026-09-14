@@ -143,7 +143,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
             } else {
                 // Reachable, but forEnrollment came back empty anyway - a channel-local reason
                 // (e.g. availableTools disabled every remaining candidate), not an account-wide
-                // one (see CandidateTools.exhaustedAuthAbortReason's own doc for the same bug).
+                // one (see Reachability.toAuthAbortMessage's own doc for the same bug).
                 Transition.Abort(
                     "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
                         "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."

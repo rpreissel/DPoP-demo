@@ -130,8 +130,8 @@ internal object AuthEnrollCore {
         } else {
             // Reachable, but forEnrollment came back empty anyway - a channel-local reason (e.g.
             // availableTools disabled every remaining candidate), not an account-wide one. The
-            // NotReachable reason would describe the wrong thing here (see CandidateTools.
-            // exhaustedAuthAbortReason's own doc for the same bug in the AUTH-candidate case).
+            // NotReachable reason would describe the wrong thing here (see
+            // Reachability.toAuthAbortMessage's own doc for the same bug in the AUTH-candidate case).
             Transition.Abort(
                 "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
                     "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."

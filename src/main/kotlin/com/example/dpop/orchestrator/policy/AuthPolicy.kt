@@ -61,13 +61,14 @@ interface AuthPolicy {
      * different factor type)? One method, not two separate `canAccountReach`/`unreachableReason`
      * calls: every caller that needs the reason only ever needs it once the boolean is already
      * false, and a second call would just recompute the exact same account-standing calculation -
-     * see [CandidateTools.exhaustedAuthAbortReason] and the `*Strategy` abort branches, which used
-     * to call both against the same (account, requiredAcr) pair. A caller that only wants the
-     * boolean checks `is Reachability.Reachable`; [Reachability.NotReachable.reason] is a
-     * structured [UnreachableReason], never pre-rendered text - turning it into a (German)
-     * user-facing message is the CALLER's job (`CandidateTools`), not the policy's, exactly like
-     * [AcrLevel]/[com.example.dpop.tool_spi.ToolId] keep their own String value from leaking
-     * meaning the type itself should carry.
+     * see the `*Strategy` abort branches (`AuthEnrollCore`, `RegisterEnrollFirstStrategy`,
+     * `StepUpStrategy`, `LookupLoginStrategy`), which used to call both against the same
+     * (account, requiredAcr) pair. A caller that only wants the boolean checks
+     * `is Reachability.Reachable`; [Reachability.NotReachable.reason] is a structured
+     * [UnreachableReason], never pre-rendered text - turning it into a (German) user-facing
+     * message is the CALLER's job (`orchestrator.journey.AbortMessages`), not the policy's,
+     * exactly like [AcrLevel]/[com.example.dpop.tool_spi.ToolId] keep their own String value from
+     * leaking meaning the type itself should carry.
      */
     fun reachability(account: AccountProfile, requiredAcr: AcrLevel): Reachability
 
@@ -87,7 +88,7 @@ sealed interface Reachability {
     /** requiredAcr is reachable with the account's current standing methods. */
     data object Reachable : Reachability
 
-    /** requiredAcr is NOT reachable - [reason] is WHY, for [CandidateTools.exhaustedAuthAbortReason] (or any other caller) to render. */
+    /** requiredAcr is NOT reachable - [reason] is WHY, for a caller (e.g. `orchestrator.journey.AbortMessages`) to render. */
     data class NotReachable(val reason: UnreachableReason) : Reachability
 }
 
