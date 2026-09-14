@@ -23,8 +23,7 @@ fun Reachability.NotReachable.toAbortMessage(): String =
  * unambiguously mean "the account could do this, just not on THIS channel/session right now"
  * (already-used-this-session methods, a device-bound credential that doesn't match this physical
  * device, tools disabled via the demo's availability toggle, ...) rather than the (differently
- * worded) same case for an ENROLLMENT candidate list (`AuthEnrollCore`/`RegisterEnrollFirstStrategy`
- * render that one inline, since their `Reachable` case says something else).
+ * worded) same case for an ENROLLMENT candidate list - see [toEnrollAbortMessage] for that one.
  */
 fun Reachability.toAuthAbortMessage(): String = when (this) {
     is Reachability.NotReachable -> toAbortMessage()
@@ -32,6 +31,22 @@ fun Reachability.toAuthAbortMessage(): String = when (this) {
     Reachability.Reachable ->
         "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal steht dafür gerade keine passende Methode zur Verfügung " +
             "(z. B. bereits in dieser Sitzung genutzt, für dieses Gerät deaktiviert, oder an ein anderes Gerät gebunden)."
+}
+
+/**
+ * The ENROLLMENT-candidate-exhaustion rendering of a [Reachability] reading - shared by every
+ * caller in that exact situation (`AuthEnrollCore`, `RegisterEnrollFirstStrategy`) once
+ * [CandidateTools.forEnrollment] came back empty: [Reachability.Reachable] here means "the account
+ * could still enroll something in principle, just not on THIS channel right now" - worded
+ * differently from [toAuthAbortMessage]'s own `Reachable` case (AUTH vs ENROLLMENT candidates), so
+ * a separate function rather than one shared string.
+ */
+fun Reachability.toEnrollAbortMessage(): String = when (this) {
+    is Reachability.NotReachable -> toAbortMessage()
+
+    Reachability.Reachable ->
+        "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
+            "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."
 }
 
 private fun UnreachableReason.toGermanText(): String = when (this) {

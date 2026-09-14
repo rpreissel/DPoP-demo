@@ -7,7 +7,7 @@ import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.toAbortMessage
+import com.example.dpop.orchestrator.journey.toEnrollAbortMessage
 import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.JourneyState
@@ -116,26 +116,19 @@ internal object AuthEnrollCore {
         if (candidates.isNotEmpty()) {
             return Transition.To(Enrolling(candidates, emailObligation = emailObligation))
         }
-        val reachability = ctx.policy.reachability(account, ctx.acrFloor)
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
             Transition.RequireSubJourney(
                 AuthIntent.RE_IDENTIFY,
                 seedWith = ReIdentifyState.forSubJourney(ctx.acrFloor, ctx.currentAcr),
                 resumeWith = resumeAtStart
             )
-        } else if (reachability is Reachability.NotReachable) {
-            // NotReachable: nothing left to enroll AND what's already active genuinely can't reach
-            // the floor - the reason's own explanation actually applies here.
-            Transition.Abort(reachability.toAbortMessage())
         } else {
-            // Reachable, but forEnrollment came back empty anyway - a channel-local reason (e.g.
-            // availableTools disabled every remaining candidate), not an account-wide one. The
-            // NotReachable reason would describe the wrong thing here (see
-            // Reachability.toAuthAbortMessage's own doc for the same bug in the AUTH-candidate case).
-            Transition.Abort(
-                "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
-                    "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."
-            )
+            // Reachability.NotReachable: nothing left to enroll AND what's already active
+            // genuinely can't reach the floor - that reason's own explanation applies. Reachable:
+            // forEnrollment came back empty anyway for a channel-local reason (e.g. availableTools
+            // disabled every remaining candidate), not an account-wide one - see
+            // Reachability.toEnrollAbortMessage's own doc for the same bug in the AUTH-candidate case.
+            Transition.Abort(ctx.policy.reachability(account, ctx.acrFloor).toEnrollAbortMessage())
         }
     }
 

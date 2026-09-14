@@ -11,7 +11,7 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
-import com.example.dpop.orchestrator.journey.toAbortMessage
+import com.example.dpop.orchestrator.journey.toEnrollAbortMessage
 import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
@@ -138,16 +138,12 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
             val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
             return if (candidates.isNotEmpty()) {
                 Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(candidates))
-            } else if (reachability is Reachability.NotReachable) {
-                Transition.Abort(reachability.toAbortMessage())
             } else {
-                // Reachable, but forEnrollment came back empty anyway - a channel-local reason
-                // (e.g. availableTools disabled every remaining candidate), not an account-wide
-                // one (see Reachability.toAuthAbortMessage's own doc for the same bug).
-                Transition.Abort(
-                    "Das Konto könnte das geforderte Sicherheitsniveau grundsätzlich erreichen, aber auf diesem Kanal " +
-                        "steht dafür gerade kein weiteres Verfahren zur Einrichtung zur Verfügung."
-                )
+                // Reachability.NotReachable: that reason's own explanation applies. Reachable:
+                // forEnrollment came back empty anyway for a channel-local reason (e.g.
+                // availableTools disabled every remaining candidate), not an account-wide one -
+                // see Reachability.toEnrollAbortMessage's own doc for the same bug.
+                Transition.Abort(reachability.toEnrollAbortMessage())
             }
         }
         if (emailObligation && !account.emailConfirmed) {
