@@ -14,7 +14,7 @@ import java.time.Instant
  *
  * No identifier field (no more username): the account's confirmed email (docs/02-domaenenmodell.md
  * #5) is the identifier now, and enroll-password requires it confirmed first
- * (ToolDescriptor.requiresConfirmedEmail) - this module stays as decoupled from `account` as
+ * (`ToolDescriptor.requires`, EMAIL at PROVEN) - this module stays as decoupled from `account` as
  * auth_sms already is, referenced only via the generic EnrollmentRef on account.authenticationMethods.
  */
 @Entity

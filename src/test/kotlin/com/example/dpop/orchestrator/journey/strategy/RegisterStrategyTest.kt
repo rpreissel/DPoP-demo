@@ -241,7 +241,7 @@ class RegisterStrategyTest : BehaviorSpec({
     // The Web-only third obligation (docs/04-orchestrierung.md #8): registering via KEYCLOAK must
     // always end up with a password credential, in addition to the shared email obligation.
     // Ordered AFTER the email obligation, never before: enroll-password itself requires a
-    // confirmed email (ToolDescriptor.requiresConfirmedEmail) - see PasswordObligation's own KDoc.
+    // confirmed email (ToolDescriptor.requires, EMAIL at PROVEN) - see PasswordObligation's own KDoc.
     given("Enrolling on the KEYCLOAK channel, sufficient, email already confirmed, no active password") {
         val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(

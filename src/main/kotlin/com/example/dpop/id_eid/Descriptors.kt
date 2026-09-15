@@ -1,6 +1,7 @@
 package com.example.dpop.id_eid
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -26,4 +27,14 @@ object IdentEidDescriptor : ToolDescriptor {
     override val method = EID_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
     override val maxAcr = AcrLevel.LOA3
+    // The attributes a successful run asserts - carried as claims on Completed.Identified.
+    // Address fields (strasse/hausnummer/plz/ort) are deliberately not claims: no anchor or
+    // projection consumer exists for them, so they stay in the auditDetails blob.
+    override val claims = setOf(
+        AttributeType.PERSON_ID,
+        AttributeType.KVNR,
+        AttributeType.NAME,
+        AttributeType.VORNAME,
+        AttributeType.GEBURTSDATUM
+    )
 }

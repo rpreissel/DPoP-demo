@@ -109,7 +109,8 @@ sealed interface RegisterState : JourneyState {
      * finish the run.
      *
      * Ordered AFTER [ConfirmingEmail], not before: `enroll-password` itself requires a confirmed
-     * account email (`ToolDescriptor.requiresConfirmedEmail`, docs/03-tool-architektur.md #1) - it
+     * account email (`ToolDescriptor.requires`, a `ClaimRequirement(EMAIL, PROVEN)`,
+     * docs/03-tool-architektur.md #1) - it
      * cannot be a candidate at all before that obligation is discharged, so the only order that is
      * actually reachable is "sufficient method, then email, then password". Choosing
      * `enroll-password` directly in [Enrolling] is only possible once the email is already

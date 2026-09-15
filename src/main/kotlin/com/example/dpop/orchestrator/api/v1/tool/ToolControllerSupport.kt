@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
+import com.example.dpop.orchestrator.policy.requiresSatisfied
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.IdentThrottleService
@@ -119,7 +120,7 @@ class ToolControllerSupport(
      * directly, bypassing the fact that the candidate list silently excluded it.
      */
     private fun validatePreconditions(toolId: String, channel: ChannelSession) {
-        // Same reasoning as requiresConfirmedEmail below: JourneyService.activate only checks
+        // Same reasoning as the requires gate below: JourneyService.activate only checks
         // membership in the current state's offer, which already excludes unavailable tools - but a
         // direct activation call must be re-checked here, defensively, against both availability
         // axes (docs/03-tool-architektur.md, availability).
@@ -128,10 +129,14 @@ class ToolControllerSupport(
         }
 
         val descriptor = toolRegistry.descriptorOf(ToolId(toolId))
-        if (!descriptor.requiresConfirmedEmail) return
-        val confirmed = channel.accountId?.let { accountService.findAccount(it)?.emailConfirmed } ?: false
-        if (!confirmed) {
-            throw OrchestratorException.invalidState("$toolId requires a confirmed account email first")
+        val account = channel.accountId?.let { accountService.findAccount(it) }
+        descriptor.requires.forEach { requirement ->
+            if (!requiresSatisfied(requirement, account)) {
+                throw OrchestratorException.invalidState(
+                    "$toolId requires ${requirement.attributeType.wireName} " +
+                        "at anchor class ${requirement.minAnchorClass} first"
+                )
+            }
         }
     }
 

@@ -3,8 +3,11 @@ package com.example.dpop.auth_email.internal.enrollemail
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_spi.TrustAnchor
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -69,6 +72,9 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Enrolled>()
                 (outcome as ToolOutcome.Completed.Enrolled).auditDetails?.get(CONFIRMED_EMAIL_AUDIT_KEY) shouldBe "max@example.com"
+                outcome.claims shouldBe listOf(
+                    Claim(AttributeType.EMAIL, "max@example.com", TrustAnchor.of(EnrollEmailDescriptor.toolId), EnrollEmailDescriptor.maxAcr)
+                )
             }
         }
     }

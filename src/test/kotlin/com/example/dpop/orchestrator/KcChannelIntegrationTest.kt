@@ -306,7 +306,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                         """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                     )
                     // enroll-password isn't even a candidate yet - it requires a confirmed email
-                    // (ToolDescriptor.requiresConfirmedEmail), which this fresh account doesn't
+                    // (ToolDescriptor.requires, EMAIL at PROVEN), which this fresh account doesn't
                     // have (docs/03-tool-architektur.md #1). shouldContainAll (not exact) for the
                     // rest: new enrollment methods elsewhere in the catalog don't change this.
                     @Suppress("UNCHECKED_CAST")

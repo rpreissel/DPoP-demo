@@ -1,6 +1,7 @@
 package com.example.dpop.id_fsc
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -23,4 +24,13 @@ object IdentFscDescriptor : ToolDescriptor {
     override val method = FSC_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = AcrLevel.LOA2
+    // The attributes a successful run asserts - carried as claims on Completed.Identified.
+    // All of them come from the master-data backend via the FSC channel, hence
+    // TrustAnchor.EXT_STAMMDATEN in the handler.
+    override val claims = setOf(
+        AttributeType.PERSON_ID,
+        AttributeType.KVNR,
+        AttributeType.NAME,
+        AttributeType.VORNAME
+    )
 }

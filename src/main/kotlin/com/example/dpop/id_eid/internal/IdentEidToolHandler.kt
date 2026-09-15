@@ -2,7 +2,10 @@ package com.example.dpop.id_eid.internal
 
 import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_spi.TrustAnchor
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -71,6 +74,20 @@ class IdentEidToolHandler(
                     amr = listOf(descriptor.method),
                     achievedAcr = descriptor.maxAcr,
                     factorTypes = descriptor.factorTypes,
+                    claims = listOf(
+                        // An eID run is the proving tool itself: the card data was MATCHED
+                        // against the master data, but what this run asserts is what the card
+                        // showed - hence this tool's own id as the trust anchor. Address fields
+                        // (strasse/hausnummer/plz/ort) stay in the auditDetails blob: no
+                        // anchor or projection consumer exists for them, so they are not
+                        // claims (see IdentEidDescriptor.claims). geburtsdatum is an ISO date
+                        // string via LocalDate.toString().
+                        Claim(AttributeType.PERSON_ID, decision.personId.toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.NAME, decision.claimed.name, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.VORNAME, decision.claimed.vorname, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.GEBURTSDATUM, decision.claimed.geburtsdatum.toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
+                    ),
                     auditDetails = mapOf(
                         "provider" to "eid-mock-service",
                         "providerTxId" to "EID-$toolSessionId",

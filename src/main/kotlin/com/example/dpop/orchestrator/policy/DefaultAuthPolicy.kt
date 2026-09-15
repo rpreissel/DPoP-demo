@@ -5,6 +5,9 @@ import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AnchorClass
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.ClaimRequirement
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
@@ -135,7 +138,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             // (device) keep being offered - a NEW physical device can always add its own instance
             // even though other devices already have theirs (docs/03-tool-architektur.md).
             .filter { it.method !in activeMethods || it.allowsMultipleInstances }
-            .filter { !it.requiresConfirmedEmail || account.emailConfirmed }
+            .filter { it.requires.all { requirement -> requiresSatisfied(requirement, account) } }
             .map { it.toolId }
     }
 
@@ -293,3 +296,17 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         private val NIST_COMBINATION_CEILING = AcrLevel.LOA2
     }
 }
+
+/**
+ * Transition proxy until the claim store exists (4vd.4/7mw): the only requirement any tool
+ * declares today is EMAIL at PROVEN, whose consolidated value is still the account's
+ * `emailConfirmed` boolean. Any other requirement (another attribute type, or an anchor class
+ * above PROVEN) cannot be satisfied yet and counts as unmet. Shared by
+ * [DefaultAuthPolicy.enrollmentCandidates] (offering) and
+ * `ToolControllerSupport.validatePreconditions` (direct-activation defense) so the two gates
+ * cannot drift apart.
+ */
+internal fun requiresSatisfied(requirement: ClaimRequirement, account: AccountProfile?): Boolean =
+    requirement.attributeType == AttributeType.EMAIL &&
+        requirement.minAnchorClass.rank <= AnchorClass.PROVEN.rank &&
+        (account?.emailConfirmed == true)

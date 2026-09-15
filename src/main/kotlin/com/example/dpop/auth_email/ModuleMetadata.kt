@@ -10,8 +10,8 @@ import org.springframework.modulith.ApplicationModule
  * `tool_spi` alone. The confirmed email is not that: it is the account's **identifier**. It lives
  * directly on `Account` (V6, `CREATE UNIQUE INDEX idx_account_email`) because `auth-sms-lookup`
  * and `auth-password-lookup` resolve an account from a submitted email without `auth_email` being
- * involved at all, and because `ToolDescriptor.requiresConfirmedEmail` gates `enroll-password` on
- * it.
+ * involved at all, and because `enroll-password`'s `ToolDescriptor.requires` (EMAIL at PROVEN)
+ * gates on it.
  *
  * That asymmetry is real, so the dependency it implies is modelled instead of hidden. It used to
  * be laundered through the orchestrator - the generic outcome handler carried an

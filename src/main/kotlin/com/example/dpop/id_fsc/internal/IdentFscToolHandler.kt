@@ -2,7 +2,10 @@ package com.example.dpop.id_fsc.internal
 
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_spi.TrustAnchor
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -76,6 +79,15 @@ class IdentFscToolHandler(
                         amr = listOf(descriptor.method),
                         achievedAcr = descriptor.maxAcr,
                         factorTypes = descriptor.factorTypes,
+                        claims = listOf(
+                            // FSC is a master-data channel: every attribute this run asserts
+                            // was checked against ext_stammdaten, hence EXT_STAMMDATEN as the
+                            // trust anchor, not this tool's own id.
+                            Claim(AttributeType.PERSON_ID, decision.personId.toString(), TrustAnchor.EXT_STAMMDATEN, descriptor.maxAcr),
+                            Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), TrustAnchor.EXT_STAMMDATEN, descriptor.maxAcr),
+                            Claim(AttributeType.NAME, decision.name, TrustAnchor.EXT_STAMMDATEN, descriptor.maxAcr),
+                            Claim(AttributeType.VORNAME, decision.vorname, TrustAnchor.EXT_STAMMDATEN, descriptor.maxAcr)
+                        ),
                         auditDetails = mapOf(
                             "provider" to "fsc-service",
                             "providerTxId" to "FSC-$toolSessionId",

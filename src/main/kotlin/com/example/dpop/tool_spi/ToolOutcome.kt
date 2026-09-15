@@ -51,6 +51,13 @@ sealed interface ToolOutcome {
             override val amr: List<String> = emptyList(),
             override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
+            /**
+             * The identifying attributes this run asserted, with their provenance - the typed
+             * counterpart to [auditDetails]. Subset of the descriptor's [ToolDescriptor.claims].
+             * [personId] keeps its own field for now; its Interessenten form (a run that
+             * identifies nobody in the master data yet) is deliberately not taken here (4vd.11).
+             */
+            val claims: List<Claim> = emptyList(),
             /** Method-specific verification evidence, passed through unchanged for auditing. */
             val auditDetails: Map<String, Any?>? = null
         ) : Completed
@@ -61,6 +68,12 @@ sealed interface ToolOutcome {
             override val amr: List<String> = emptyList(),
             override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
+            /**
+             * The identifying attributes this enrollment asserted about its subject, with their
+             * provenance - the typed counterpart to [auditDetails]. Subset of the descriptor's
+             * [ToolDescriptor.claims].
+             */
+            val claims: List<Claim> = emptyList(),
             /** Method-specific delivery evidence, passed through unchanged for auditing. */
             val auditDetails: Map<String, Any?>? = null
         ) : Completed

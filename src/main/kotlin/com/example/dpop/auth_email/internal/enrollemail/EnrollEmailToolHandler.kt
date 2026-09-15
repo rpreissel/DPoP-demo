@@ -3,9 +3,12 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_spi.TrustAnchor
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -104,6 +107,12 @@ class EnrollEmailToolHandler(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
+                claims = listOf(
+                    // The typed counterpart to the CONFIRMED_EMAIL_AUDIT_KEY blob below: this
+                    // enrollment asserts a proven email. The code exchange itself IS the
+                    // proof, hence this tool's own id as the trust anchor.
+                    Claim(AttributeType.EMAIL, decision.email, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
+                ),
                 // JourneyService's Action.AdoptCredential handling confirms this onto Account
                 // itself (ToolDescriptor.confirmsAccountEmail) - see class doc for why this
                 // handler no longer writes it directly.

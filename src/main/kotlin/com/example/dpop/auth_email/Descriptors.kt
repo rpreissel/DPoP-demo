@@ -1,6 +1,7 @@
 package com.example.dpop.auth_email
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -24,6 +25,10 @@ object EnrollEmailDescriptor : ToolDescriptor {
     override val method = EMAIL_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = AcrLevel.LOA1
+    // The confirmed address this enrollment asserts about its subject, carried as a claim on
+    // Completed.Enrolled (typed counterpart to the CONFIRMED_EMAIL_AUDIT_KEY blob, which stays
+    // until the anchor write path replaces confirmEmail - 4vd.8).
+    override val claims = setOf(AttributeType.EMAIL)
     override val confirmsAccountEmail = true
 }
 

@@ -48,9 +48,26 @@ interface ToolDescriptor {
     /** The highest level this tool can achieve, e.g. [AcrLevel.LOA2]. */
     val maxAcr: AcrLevel
 
-    /** True if this tool requires the account to already have a confirmed email to be offered. */
-    val requiresConfirmedEmail: Boolean
-        get() = false
+    /**
+     * The identifying attribute types a successful run of this tool asserts about its subject,
+     * carried as [Claim]s on [ToolOutcome.Completed.Identified]/[ToolOutcome.Completed.Enrolled].
+     * The declared direction of the claims vocabulary, mirroring [factorTypes]: this set names
+     * what the tool MAY assert, one concrete run's claims name what it actually asserted.
+     */
+    val claims: Set<AttributeType>
+        get() = emptySet()
+
+    /**
+     * What the account must already have for this tool to be offered at all: each
+     * [ClaimRequirement] is an [AttributeType] established at no less than its
+     * [AnchorClass], checked against the account's consolidated value including
+     * retractions (ADR-12). The mirror direction of [claims]; replaces the single boolean
+     * `requiresConfirmedEmail`. OFFERING gate only - it does not say the tool consumes the
+     * value at run time (that is an anchor read), nor that a channel/journey policy wants it
+     * (that is REGISTER's `emailObligation`, which keeps its own declarant).
+     */
+    val requires: Set<ClaimRequirement>
+        get() = emptySet()
 
     /**
      * True if a successful run of this tool leaves the account with a confirmed email. Such a

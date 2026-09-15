@@ -307,7 +307,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 // Bypass attempt: activate enroll-password directly while still in an "enrollment"
                 // selection context, without ever having confirmed an email - validateActivation alone
                 // only checks the CATEGORY (ENROLL) matches, not that this specific toolId was actually
-                // offered, so ToolControllerSupport must enforce the requiresConfirmedEmail precondition
+                // offered, so ToolControllerSupport must enforce the requires precondition
                 // itself, not just rely on it being excluded from stepData.options.
                 val channelSessionId = identify()
 
