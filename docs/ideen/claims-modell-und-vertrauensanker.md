@@ -144,6 +144,48 @@ Auto-Resolve** (entschieden als ADR-11: Abweisung der zweiten Bindung, Merge nie
 Die Projektionstabelle trägt `UNIQUE (person_id)`; der
 Konsolidierungsschritt für den zweiten Account schlägt dann fehl bzw. wird per Check erkannt.
 
+### Effektive Werte: Delegation vor Konsolidierung
+
+Die Rangfolge oben regelt Konflikte zwischen GESPEICHERTEN Zeilen. Bevor überhaupt aus Zeilen
+konsolidiert wird, ist eine Vorfrage zu klären: hat das Attribut eine lebende externe Autorität?
+Nicht jeder effektive Wert ist eine Kopie im Account - drei Auflösungsformen:
+
+1. **Delegation statt Kopie**: ist `person_id` gebunden UND das Attribut ein Feld der
+   Stammdaten-Person (`name`, `vorname`, `geburtsdatum`, `adresse`, ...), wird der effektive
+   Wert per `person_id` live aus `ext_stammdaten` gelesen und **nicht** in den Account
+   projiziert. Eine spätere Korrektur in den Stammdaten wirkt beim nächsten Lesen - es entsteht
+   keine veraltete Kopie. Die `account_attribute`-Zeile mit `trust_anchor = ext_stammdaten`
+   dokumentiert, was bei der Identifizierung galt; sie ist Provenanz, nicht Wahrheit.
+2. **Claim-Konsolidierung**: hat das Attribut keine externe Autorität (`email`,
+   `phone_number`), oder ist die Person nicht gebunden (Interessent), ist der effektive Wert
+   die beste Zeile nach der Rangfolge oben. Für Interessenten sind die eID-Claims die einzige
+   Quelle - genau der Fall, den es heute nicht abbilden kann.
+3. **Anker materialisiert**: `kvnr` und `email` liegen in `account_anchor` - per Definition
+   eine Kopie, weil der Auflösungs-Index physisch existieren muss. Sonderfall `kvnr` (Anker
+   UND Stammdaten-Feld): materialisiert für die Reverse-Auflösung, aber bei gebundener Person
+   wird der materialisierte Wert von den Stammdaten geführt, nicht aus Claims konsolidiert.
+
+Welche Form gilt, ist pro `attribute_type` festgelegt, nicht pro Zeile. Konsequenz für die
+Zwei-Schichten-Idee: die Projektion (`account`) trägt Spalten nur für Attribute mit Anker- oder
+Lesepfad-Rolle - `account.email` (Anker mit bestehenden Lesepfaden) und `person_id` als
+Delegations-Schlüssel. Stammdaten-Felder wie `geburtsdatum` werden **auch für Interessenten
+nicht gespiegelt**: sie sind kein Anker (es wird nicht nach ihnen gesucht, kein
+`account_anchor`-Eintrag), ihr einziger Verbraucher ist Push - etwa der Keycloak-Sync, der den
+effektiven Wert zum Synchronisationszeitpunkt liest. Damit kippt der effektive Wert beim
+Übergang Interessent → gebundene Person automatisch auf Delegation um, ohne dass eine Kopie
+invalidiert werden müsste. Verbraucher lesen einen effektiven Wert, der delegiert oder
+konsolidiert wird - kein neues Muster:
+[KeycloakAccountSyncService.kt](../../src/main/kotlin/com/example/dpop/orchestrator/kc/KeycloakAccountSyncService.kt)
+holt `name`/`vorname` gebundener Konten bereits live per `findPersonById` und fällt für
+unidentifizierte Konte auf Platzhalter zurück. Geburtsdatum nach Keycloak läuft künftig über
+denselben effektiven Wert (heute wird es gar nicht gesendet): gebundene Person →
+Stammdaten-Lookup, Interessent → konsolidierter eID-Claim.
+
+Die eID-Claims werden trotzdem geloggt - Provenanz und Matching-Audit. Auch bei Konflikt
+(tolerantes Matching, spätere Stammdaten-Korrektur) gilt der delegierte Wert als effektiv; die
+Zeile dokumentiert die Abweichung. Preis: Lesepfade effektiver Werte brauchen einen Live-Zugriff
+auf das `PersonDirectory` (PK-Lookup, billig) plus Interessenten-Fallback.
+
 ### Abgrenzung
 
 `account_attribute` gilt **nur identifizierenden Attributen** (ein-Wert-mit-Herkunft:
@@ -204,6 +246,20 @@ Orchestrator macht ein generisches `recordClaim(accountId, claim)`; `confirmEmai
 Spezialfall und entfällt. Der inerte EnrollmentRef-Platzhalter entfällt - der Anker **ist** die
 dauerhafte Referenz.
 
+**Anforderungen (`requires`)** - die Spiegelrichtung zu `claims`: der Descriptor deklariert
+auch, welche Claims ein Konto konsolidiert haben muss, bevor das Tool angeboten wird -
+`ToolDescriptor.requires: Set<ClaimRequirement(attributeType, minAnchorClass)>`. "Bestätigt"
+wird präzise als Ankerklasse (mindestens beweisendes Tool, nicht `self-reported`), geprüft
+gegen den konsolidierten Wert inklusive Retraktionen (ADR-12). Heute sind es zwei Einzelstücke:
+`requiresConfirmedEmail = true` auf `enroll-password` (der einzige Fall), ausgewertet als
+Candidate-Filter in `DefaultAuthPolicy` - und die Konto-Politik `emailObligation` der
+REGISTER-Strategien. Beide behalten ihre Declaranten (Descriptor bzw. Kanal-/Journey-Politik),
+teilen aber dieselbe Anforderungsform; `requiresConfirmedEmail` und `confirmsAccountEmail`
+sterben zugunsten der einen Taxonomie. Drei Bedeutungen von "braucht" bleiben getrennt: das
+Gate beim Offering (`requires`), der Wert-Konsum zur Laufzeit (`anchorValue` - `auth-email`
+liest die Adresse über den Port, statt sie zu deklarieren; das Gate ersetzt die heutige
+`UnresolvableReferenceException` aus `start`) und die Konto-/Kanal-Politik (`emailObligation`).
+
 **Lesepfad** - `AccountDirectory` (tool_api) bekommt die zwei generischen Anker-Operationen, die
 heute fehlen:
 
@@ -221,8 +277,8 @@ Anker-Auflösung statt EnrollmentRef-Auflösung, dieselbe Form wie alle Methoden
 **Asymmetrie zu `auth_sms`** - zwei Rollen, zwei Ablagen: Credential-Instanz (Rufnummer,
 mehrwertig, `allowsMultipleInstances`, modul-eigen) versus Anker (E-Mail, kanonisch,
 account-eigen mit Herkunftszeile). Eine Telefonnummer mit Lookup-Login wäre eine neue
-Anker-Zeile plus ein Claim - keine neue Modul-Ausnahme. `requiresConfirmedEmail` wird zum
-generischen "benötigt Anker (email, belegt)"-Gate.
+Anker-Zeile plus ein Claim - keine neue Modul-Ausnahme. `requiresConfirmedEmail` wird vom
+einzelnen Boolean zum generischen `requires`-Gate (siehe oben).
 
 **Frontend** - die Email-Formen (enroll/auth/lookup) sind bereits werkzeug-neutral und
 step-getrieben; mit dem Claims-Vertrag (`{anchorValue}` statt `{email}`) genügt eine generische
@@ -426,7 +482,9 @@ eines Schritts 0, der auch ohne die Idee lohnt:
    E-Mail (siehe eigener Abschnitt oben).
 2. **Konsolidierung bauen, synchron und pro (account, attribute)**: in derselben Transaktion wie
    das Schreiben nach `account_attribute` wird die Projektionsspalte neu berechnet. Ab hier ist
-   `person_id` auf `account` keine direkt beschriebene Spalte mehr, sondern Ergebnis.
+   `person_id` auf `account` keine direkt beschriebene Spalte mehr, sondern Ergebnis. Dabei gilt
+   Delegation vor Konsolidierung (siehe Zielbild): Stammdaten-Felder gebundener Konten werden
+   nicht gespiegelt, sondern live gelesen.
 3. **Lesepfade bleiben unverändert** - das ist der eigentliche Gewinn der Projektion.
 4. **Interessenten normalisieren**: ein Konto ohne `ext_stammdaten`-Behauptung konsolidiert zu
    `person_id = NULL`. Seit V28 ohnehin möglich - jetzt mit struktureller Abstützung statt
@@ -515,4 +573,6 @@ Anwendungsfall: E-Mail als Anker" (die Anker-Rolle am konkreten Sonderfall, inkl
 Port-Operationen) und "Identitätsauflösung & Matching" (wer die Konto-Zuordnung entscheidet,
 wenn Tools nur bezeugen - EUDI-Wallet als Treiber). Die daraus reifenden drei Grundfragen
 (Interessenten-Verzweigung, Merge-Abweisung, Retraktionsform) sind anschließend als ADR-10 bis
-ADR-12 entschieden worden.
+ADR-12 entschieden worden. Erneut ergänzt: "Effektive Werte: Delegation vor Konsolidierung"
+(nicht jeder effektive Wert ist eine Kopie im Account - Stammdaten-Felder gebundener Konten
+werden live gelesen statt gespiegelt; Geburtsdatum nach Keycloak als Anforderungsfall).
