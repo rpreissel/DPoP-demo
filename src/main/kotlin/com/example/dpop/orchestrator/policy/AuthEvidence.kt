@@ -1,8 +1,7 @@
 package com.example.dpop.orchestrator.policy
 
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AmrSource
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -136,8 +135,8 @@ data class AuthEvidence(
             amr.distinct().map { m ->
                 MethodEvidence(
                     MethodName(m),
-                    methodLoa[m]?.let(::AcrLevel) ?: AcrLevels.NONE,
-                    enrolledUnderAcr[m]?.let(::AcrLevel),
+                    methodLoa[m]?.let(AcrLevel::of) ?: AcrLevel.NONE,
+                    enrolledUnderAcr[m]?.let(AcrLevel::of),
                     factorTypes,
                     // Defaults to the stronger claim when a caller (mostly test fixtures) has no
                     // opinion - never read by AuthPolicy itself either way.

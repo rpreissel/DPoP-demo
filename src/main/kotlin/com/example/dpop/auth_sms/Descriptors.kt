@@ -1,5 +1,6 @@
 package com.example.dpop.auth_sms
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -26,7 +27,7 @@ object EnrollSmsDescriptor : ToolDescriptor {
     override val role = MethodRole.ENROLLMENT
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
 }
 
 @Component
@@ -35,7 +36,7 @@ object AuthSmsUseDescriptor : ToolDescriptor {
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
 }
 
 @Component
@@ -44,5 +45,5 @@ object AuthSmsLookupDescriptor : ToolDescriptor {
     override val role = MethodRole.LOOKUP_AUTH
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
 }

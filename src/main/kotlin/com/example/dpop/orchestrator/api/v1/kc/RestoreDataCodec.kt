@@ -3,8 +3,8 @@ package com.example.dpop.orchestrator.api.v1.kc
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
-import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AmrSource
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
@@ -92,8 +92,8 @@ class RestoreDataCodec {
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any?>.toMethodEvidence(): MethodEvidence = MethodEvidence(
         method = MethodName(this["method"] as String),
-        loa = AcrLevel(this["loa"] as String),
-        enrolledUnderAcr = (this["enrolledUnderAcr"] as? String)?.let(::AcrLevel),
+            loa = AcrLevel.of(this["loa"] as String),
+            enrolledUnderAcr = (this["enrolledUnderAcr"] as? String)?.let(AcrLevel::of),
         factorTypes = (this["factorTypes"] as? List<String>)?.mapNotNull { name ->
             runCatching { FactorType.valueOf(name) }.getOrNull()
         }?.toSet() ?: emptySet(),

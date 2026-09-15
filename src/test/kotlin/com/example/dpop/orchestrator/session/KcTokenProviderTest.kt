@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.account.AccountService
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.orchestrator.kc.AccountKeycloakKeypair
 import com.example.dpop.orchestrator.kc.AccountKeypairService
 import com.example.dpop.orchestrator.kc.AccountTokenResponse
@@ -117,7 +117,7 @@ class KcTokenProviderTest : BehaviorSpec({
             every { keycloakAdminClient.setPublicKeyCredential(accountId, kp.publicKeyJwk, any()) } returns Unit
             every { keycloakAdminClient.requestAccountToken(accountId, capture(assertionSlot)) } returns
                 AccountTokenResponse("real-access-token", 300, "fresh-refresh", 600)
-            val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns AcrLevels.LOA2 }
+            val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns AcrLevel.LOA2 }
             val authEvidenceService = mockk<AuthEvidenceService> {
                 every { getAuthEvidence(authEvidenceId) } returns AuthEvidence(accountId = accountId)
             }

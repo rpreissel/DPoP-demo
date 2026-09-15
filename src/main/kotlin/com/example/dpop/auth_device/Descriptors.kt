@@ -1,5 +1,6 @@
 package com.example.dpop.auth_device
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -32,7 +33,7 @@ object AuthDeviceDescriptor : ToolDescriptor {
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
-    override val maxAcr = "loa2"
+    override val maxAcr = AcrLevel.LOA2
     // Declared independently per tool variant, same as maxAcr/factorTypes - not a fact that must
     // be identical across every tool sharing this method (a future LOOKUP_AUTH sibling, for
     // instance, could legitimately answer differently). Callers that need this for a SPECIFIC
@@ -65,6 +66,6 @@ object EnrollDeviceDescriptor : ToolDescriptor {
     override val role = MethodRole.ENROLLMENT
     override val method = DEVICE_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
-    override val maxAcr = "loa2"
+    override val maxAcr = AcrLevel.LOA2
     override val allowsMultipleInstances = true
 }

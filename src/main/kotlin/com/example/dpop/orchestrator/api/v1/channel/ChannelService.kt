@@ -15,7 +15,6 @@ import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
-import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.orchestrator.session.AmrSource
@@ -35,6 +34,7 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_spi.AcrLevel
 import java.time.Duration
 import java.util.UUID
 import org.springframework.stereotype.Service
@@ -196,7 +196,7 @@ class ChannelService(
     /**
      * `maxAcr`/`factorTypes` come from the tool catalog (a method's own, account-independent
      * ceiling); `enrolledUnderAcr`/`effectiveAcr` from the account's own enrollment record (the
-     * ADR-5 cap, [DefaultAuthPolicy.canAccountReach]'s same `AcrLevels.min` calculation) - surfaced
+     * ADR-5 cap, [DefaultAuthPolicy.canAccountReach]'s same `AcrLevel.min` calculation) - surfaced
      * here so the UI can show WHY a method might not reach as far as its own catalog entry
      * promises, instead of that only being discoverable later as a confusing rejection.
      */
@@ -208,9 +208,9 @@ class ChannelService(
                 method = m.method,
                 label = m.label,
                 factorTypes = descriptor?.factorTypes,
-                maxAcr = descriptor?.maxAcr,
+                        maxAcr = descriptor?.maxAcr?.value,
                 enrolledUnderAcr = m.enrolledUnderAcr,
-                effectiveAcr = descriptor?.let { AcrLevels.min(m.enrolledUnderAcr, it.maxAcr) }
+                effectiveAcr = descriptor?.let { AcrLevel.min(AcrLevel.of(m.enrolledUnderAcr), it.maxAcr) }?.value
             )
         }
 
@@ -250,7 +250,7 @@ class ChannelService(
         sessionManagementService.raiseChannelAcrFloor(channelSessionId, requiredAcr)
         val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
 
-        val floor = refreshed.acrFloor?.let(::AcrLevel) ?: AcrLevels.DEFAULT_REQUIRED_ACR
+        val floor = refreshed.acrFloor?.let(AcrLevel::of) ?: AcrLevels.DEFAULT_REQUIRED_ACR
         val account = refreshed.accountId?.let { accountService.findAccount(it) }
         if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) return respond(refreshed)
 

@@ -1,5 +1,6 @@
 package com.example.dpop.id_eid
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -24,5 +25,5 @@ object IdentEidDescriptor : ToolDescriptor {
     override val role = MethodRole.IDENTIFICATION
     override val method = EID_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
-    override val maxAcr = "loa3"
+    override val maxAcr = AcrLevel.LOA3
 }

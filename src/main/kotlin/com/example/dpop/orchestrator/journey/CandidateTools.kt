@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.policy.CandidateContext
-import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolId

@@ -14,8 +14,7 @@ import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.policy.Reachability
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 
 /**
@@ -97,7 +96,7 @@ internal object AuthEnrollCore {
      */
     fun offerEnrollment(account: AccountProfile, ctx: JourneyContext, emailObligation: Boolean, resumeAtStart: JourneyState): Transition {
         if (!ctx.policy.isSatisfied(ctx.evidence, ENROLLMENT_FLOOR_ACR, account)) {
-            val reidentTarget = AcrLevels.max(ENROLLMENT_FLOOR_ACR, ctx.acrFloor)
+            val reidentTarget = AcrLevel.max(ENROLLMENT_FLOOR_ACR, ctx.acrFloor)
             return if (CandidateTools.forReIdentification(reidentTarget, ctx).isNotEmpty()) {
                 Transition.RequireSubJourney(
                     AuthIntent.RE_IDENTIFY,
@@ -132,7 +131,7 @@ internal object AuthEnrollCore {
         }
     }
 
-    private val ENROLLMENT_FLOOR_ACR = AcrLevels.LOA2
+    private val ENROLLMENT_FLOOR_ACR = AcrLevel.LOA2
 
     /**
      * On a mandatory state, backing out of a tool is not declining it - the obligation

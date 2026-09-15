@@ -11,9 +11,8 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
@@ -55,13 +54,13 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
 
     given("Requested, just started") {
         `when`("the session does not yet carry loa2") {
-            val acc = account(method("sms", AcrLevels.LOA1))
+            val acc = account(method("sms", AcrLevel.LOA1))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("the loa2 gate parks the wish and demands a step-up first") {
                 strategy.transition(ConfirmPeerLoginState.Requested(false), JourneyEvent.Started, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -70,8 +69,8 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
         `when`("the session already carries loa2") {
             // device is the only tool whose own maxAcr reaches loa2 alone (sms/password/email cap
             // at loa1) - so this is the only single-method way to seed "already at loa2" evidence.
-            val acc = account(method("device", AcrLevels.LOA2, details = StrategyTestFixtures.deviceDetails()))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE), account = acc), acrFloor = AcrLevels.LOA1)
+            val acc = account(method("device", AcrLevel.LOA2, details = StrategyTestFixtures.deviceDetails()))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE), account = acc), acrFloor = AcrLevel.LOA1)
             then("still demands one fresh re-proof of any active factor - evidence of unknown age is never enough on its own to vouch for a foreign login") {
                 val transition = strategy.transition(ConfirmPeerLoginState.Requested(true), JourneyEvent.Started, theCtx)
                 transition.shouldBeInstanceOf<Transition.To>()
@@ -86,21 +85,21 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
     given("Requested, resumed after a sub-journey (SubJourneyFinished)") {
         `when`("it was the gate's own STEP_UP, and it reached loa2") {
             then("goes straight to Confirming - that fresh proof already IS the re-confirmation, no second one demanded") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevels.LOA2)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevel.LOA2)
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, ctx()) shouldBe
                     Transition.To(ConfirmPeerLoginState.Confirming(false))
             }
         }
 
         `when`("it was a STEP_UP that fell short of loa2") {
-            val acc = account(method("sms", AcrLevels.LOA1))
+            val acc = account(method("sms", AcrLevel.LOA1))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("re-evaluates from scratch instead of silently accepting it as sufficient") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevels.LOA1)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevel.LOA1)
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -108,13 +107,13 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
 
         `when`("it was a different sub-journey entirely - never assumed to be the gate's own") {
             then("re-evaluates from scratch") {
-                val acc = account(method("sms", AcrLevels.LOA1))
+                val acc = account(method("sms", AcrLevel.LOA1))
                 val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevels.LOA3)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel.LOA3)
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -166,7 +165,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
 
     given("Confirming, the approval just ran (Completed)") {
         then("performs RecordApproval") {
-            val acc = account(method("sms", AcrLevels.LOA1))
+            val acc = account(method("sms", AcrLevel.LOA1))
             val theCtx = ctx(account = acc)
             val state = ConfirmPeerLoginState.Confirming(false)
             val outcome = ToolOutcome.Completed.Approved()

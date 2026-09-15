@@ -16,9 +16,8 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evide
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.EvidenceAxis
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
@@ -47,7 +46,7 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Start, even with a linked device credential and other active methods") {
-        val acc = account(method("sms", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2))
 
         then("always goes straight to identification - no PreferredAuth/AuthChoice shortcut exists here") {
             strategy.transition(RegisterState.Start, JourneyEvent.Started, ctx(account = acc)) shouldBe
@@ -63,10 +62,10 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Start, resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
-        val acc = account(method("sms", AcrLevels.LOA1))
-        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1)
+        val acc = account(method("sms", AcrLevel.LOA1))
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
         then("re-checks satisfaction via afterProof instead of re-running identification") {
-            val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevels.LOA2)
+            val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel.LOA2)
             strategy.transition(RegisterState.Start, event, theCtx) shouldBe Transition.Authenticated
         }
     }
@@ -94,8 +93,8 @@ class RegisterStrategyTest : BehaviorSpec({
 
     given("Identifying, a fresh identity was just established") {
         `when`("the newly (re-)found account can already reach the floor with an existing method") {
-            val acc = account(method("sms", AcrLevels.LOA1))
-            val theCtx = ctx(account = acc, acrFloor = AcrLevels.LOA1)
+            val acc = account(method("sms", AcrLevel.LOA1))
+            val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
             then("adopts the identity, then offers it via the shared AuthChoice, rather than enrollment") {
                 val outcome = ToolOutcome.Completed.Identified(personId = 1L)
@@ -109,7 +108,7 @@ class RegisterStrategyTest : BehaviorSpec({
 
         `when`("the account (brand new, or found without a sufficient method) needs to enroll something") {
             val acc = account(emailConfirmed = false)
-            val theCtx = ctx(account = acc, acrFloor = AcrLevels.LOA1)
+            val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
             then("adopts the identity, then offers enrollment, carrying the email obligation this run incurred") {
                 val outcome = ToolOutcome.Completed.Identified(personId = 1L)
@@ -127,7 +126,7 @@ class RegisterStrategyTest : BehaviorSpec({
                         listOf("fsc"), setOf(FactorType.POSSESSION), mapOf("fsc" to "loa2"),
                         axis = mapOf("fsc" to EvidenceAxis.IDENTITY)
                     ),
-                    acrFloor = AcrLevels.LOA1
+                    acrFloor = AcrLevel.LOA1
                 )
                 val transition = strategy.transition(state, JourneyEvent.ActionCompleted, postIdentityCtx)
                 transition.shouldBeInstanceOf<Transition.To>()
@@ -141,10 +140,10 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Identifying, a fresh identity was just established on a device already linked to a DIFFERENT account") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         // linkedAccountId (999L) differs from the newly identified account's own id - the
         // "Zweitaccount" conflict (docs/04-orchestrierung.md #2).
-        val theCtx = ctx(account = acc, acrFloor = AcrLevels.LOA1, linkedAccountId = 999L)
+        val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1, linkedAccountId = 999L)
         val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
 
         then("asks for confirmation first, before offering any method - never silently rebinds") {
@@ -158,16 +157,16 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmDeviceRebind") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         val state = RegisterState.ConfirmDeviceRebind(acc.accountId)
 
         `when`("accepted") {
             then("links the device, then re-runs afterIdentification - now without a conflict") {
-                val conflicting = ctx(account = acc, acrFloor = AcrLevels.LOA1, linkedAccountId = 999L)
+                val conflicting = ctx(account = acc, acrFloor = AcrLevel.LOA1, linkedAccountId = 999L)
                 strategy.transition(state, JourneyEvent.Answered("accept"), conflicting) shouldBe
                     Transition.Perform(Action.LinkDevice(acc.accountId), resumeState = state)
 
-                val resolved = ctx(account = acc, acrFloor = AcrLevels.LOA1, linkedAccountId = acc.accountId)
+                val resolved = ctx(account = acc, acrFloor = AcrLevel.LOA1, linkedAccountId = acc.accountId)
                 strategy.transition(state, JourneyEvent.ActionCompleted, resolved) shouldBe
                     Transition.To(AuthChoice(listOf(ToolId("auth-sms"))))
             }
@@ -175,14 +174,14 @@ class RegisterStrategyTest : BehaviorSpec({
 
         `when`("declined") {
             then("cancels the journey outright - no silent continuation, the old binding is left untouched") {
-                val conflicting = ctx(account = acc, acrFloor = AcrLevels.LOA1, linkedAccountId = 999L)
+                val conflicting = ctx(account = acc, acrFloor = AcrLevel.LOA1, linkedAccountId = 999L)
                 strategy.transition(state, JourneyEvent.Answered("decline"), conflicting) shouldBe Transition.Cancel
             }
         }
     }
 
     given("AuthChoice, reached after identification rediscovers an already-equipped account, last candidate abandoned") {
-        val acc = account(method("sms", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2))
         then("falls back to identification again, not to enrollment - never wrapped with the password obligation") {
             val transition = strategy.transition(
                 AuthChoice(listOf(ToolId("auth-sms"))),
@@ -204,8 +203,8 @@ class RegisterStrategyTest : BehaviorSpec({
         }
 
         `when`("the email is confirmed, and the account now reaches the floor, on the APP channel") {
-            val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = true)
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1, channel = ChannelSession.Channel.APP)
+            val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1, channel = ChannelSession.Channel.APP)
             then("adopts the credential, then finishes - the obligation is discharged, no password obligation on APP") {
                 val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
                 val event = JourneyEvent.Completed(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome)
@@ -225,8 +224,8 @@ class RegisterStrategyTest : BehaviorSpec({
         }
 
         `when`("a method was just enrolled, floor reached, but the email obligation from Identifying is still open") {
-            val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = false)
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1)
+            val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = false)
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
             val state = Enrolling(listOf(ToolId("enroll-sms")), emailObligation = true)
             then("adopts the credential, then moves on to ConfirmingEmail instead of finishing") {
                 val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
@@ -244,11 +243,11 @@ class RegisterStrategyTest : BehaviorSpec({
     // Ordered AFTER the email obligation, never before: enroll-password itself requires a
     // confirmed email (ToolDescriptor.requiresConfirmedEmail) - see PasswordObligation's own KDoc.
     given("Enrolling on the KEYCLOAK channel, sufficient, email already confirmed, no active password") {
-        val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = true)
+        val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevels.LOA1,
+            acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.KEYCLOAK
         )
         val state = Enrolling(listOf(ToolId("enroll-sms"), ToolId("enroll-password")), emailObligation = false)
@@ -264,11 +263,11 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Enrolling on the KEYCLOAK channel, sufficient, but the email obligation is still open") {
-        val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = false)
+        val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = false)
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevels.LOA1,
+            acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.KEYCLOAK
         )
         // enroll-password isn't even a candidate yet without a confirmed email
@@ -287,11 +286,11 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Enrolling on the KEYCLOAK channel, but the user chose enroll-password directly (email already confirmed)") {
-        val acc = account(method("password", AcrLevels.LOA1), emailConfirmed = true)
+        val acc = account(method("password", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("password"), setOf(FactorType.KNOWLEDGE), account = acc),
-            acrFloor = AcrLevels.LOA1,
+            acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.KEYCLOAK
         )
         val state = Enrolling(listOf(ToolId("enroll-sms"), ToolId("enroll-password")), emailObligation = false)
@@ -306,11 +305,11 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Enrolling on the APP channel - the same scenario that would trigger PasswordObligation on the Web") {
-        val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = true)
+        val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevels.LOA1,
+            acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.APP
         )
         val state = Enrolling(listOf(ToolId("enroll-sms"), ToolId("enroll-password")), emailObligation = false)
@@ -325,11 +324,11 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("Enrolling on KEYCLOAK, but the Web theme never declared enroll-password renderable") {
-        val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = true)
+        val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevels.LOA1,
+            acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.KEYCLOAK,
             availableTools = StrategyTestFixtures.allToolIds - ToolId("enroll-password")
         )
@@ -345,11 +344,11 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmingEmail on the KEYCLOAK channel, confirmed, no active password yet") {
-        val acc = account(method("sms", AcrLevels.LOA1), emailConfirmed = true)
+        val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevels.LOA1,
+            acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.KEYCLOAK
         )
         val state = RegisterState.ConfirmingEmail(listOf(ToolId("enroll-email")))
@@ -374,11 +373,11 @@ class RegisterStrategyTest : BehaviorSpec({
         }
 
         `when`("fulfilled") {
-            val acc = account(method("sms", AcrLevels.LOA1), method("password", AcrLevels.LOA1), emailConfirmed = true)
+            val acc = account(method("sms", AcrLevel.LOA1), method("password", AcrLevel.LOA1), emailConfirmed = true)
             val theCtx = ctx(
                 account = acc,
                 evidence = evidence(listOf("sms", "password"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc),
-                acrFloor = AcrLevels.LOA1,
+                acrFloor = AcrLevel.LOA1,
                 channel = ChannelSession.Channel.KEYCLOAK
             )
             val state = RegisterState.PasswordObligation(listOf(ToolId("enroll-password")))

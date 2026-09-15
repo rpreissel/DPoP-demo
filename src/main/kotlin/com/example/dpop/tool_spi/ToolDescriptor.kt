@@ -45,8 +45,8 @@ interface ToolDescriptor {
     /** The factor kinds this tool can provide at most. */
     val factorTypes: Set<FactorType>
 
-    /** The highest level this tool can achieve, e.g. `"loa2"`. */
-    val maxAcr: String
+    /** The highest level this tool can achieve, e.g. [AcrLevel.LOA2]. */
+    val maxAcr: AcrLevel
 
     /** True if this tool requires the account to already have a confirmed email to be offered. */
     val requiresConfirmedEmail: Boolean

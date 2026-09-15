@@ -12,9 +12,8 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
@@ -69,21 +68,21 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     }
 
     given("AddRequested, the session does not yet carry loa2") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
         then("parks the wish and demands a step-up first, without losing it") {
             strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx) shouldBe
                 Transition.RequireSubJourney(
                     AuthIntent.STEP_UP,
-                    seedWith = StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1),
+                    seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1),
                     resumeWith = ManageAuthMethodsState.AddRequested
                 )
         }
     }
 
     given("AddRequested, the session already carries loa2") {
-        val acc = account(method("sms", AcrLevels.LOA1))
-        val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1)
+        val acc = account(method("sms", AcrLevel.LOA1))
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
 
         then("offers enrollment candidates directly") {
             val transition = strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx)
@@ -93,9 +92,9 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
     given("AddRequested, loa2 satisfied but nothing left to enroll") {
         val acc = account(
-            method("sms", AcrLevels.LOA2), method("password", AcrLevels.LOA2), method("email", AcrLevels.LOA2), method("device", AcrLevels.LOA2), method("qr", AcrLevels.LOA2)
+            method("sms", AcrLevel.LOA2), method("password", AcrLevel.LOA2), method("email", AcrLevel.LOA2), method("device", AcrLevel.LOA2), method("qr", AcrLevel.LOA2)
         )
-        val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1)
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
 
         then("finishes - not an error, just nothing more to add (device stays offered since it allows multiple instances, so this really only fires once every singleton method is active)") {
             // device (allowsMultipleInstances) is deliberately still offered even with one active
@@ -106,7 +105,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     }
 
     given("AddRequested, resumed after the gate's own STEP_UP was declined (SubJourneyCancelled)") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
         then("gives up on the wish rather than re-requesting the identical STEP_UP again") {
             strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP), theCtx) shouldBe
@@ -115,7 +114,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     }
 
     given("RemoveRequested, the session does not yet carry loa2") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
         val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
 
@@ -123,15 +122,15 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
             strategy.transition(state, JourneyEvent.Started, theCtx) shouldBe
                 Transition.RequireSubJourney(
                     AuthIntent.STEP_UP,
-                    seedWith = StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1),
+                    seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1),
                     resumeWith = state
                 )
         }
     }
 
     given("RemoveRequested, the session already carries loa2") {
-        val acc = account(method("sms", AcrLevels.LOA2))
-        val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1)
+        val acc = account(method("sms", AcrLevel.LOA2))
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
         val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
 
         then("removes the method directly, then finishes once resumed - the machine, not this strategy, rejects self-lockout") {
@@ -142,7 +141,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     }
 
     given("RemoveRequested, resumed after the gate's own STEP_UP was declined (SubJourneyCancelled)") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
         val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
         then("gives up on the wish rather than re-requesting the identical STEP_UP again") {

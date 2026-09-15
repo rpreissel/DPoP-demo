@@ -11,13 +11,13 @@ import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
-import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toMethodEvidence
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_spi.AcrLevel
 import java.time.Duration
 import java.util.UUID
 import org.springframework.stereotype.Service
@@ -78,7 +78,7 @@ class KcChannelService(
                 ?: throw OrchestratorException.notFound("Unknown nativeToolId: ${entry.nativeToolId}")
             MethodEvidence(
                 MethodName(descriptor.method),
-                AcrLevel(descriptor.maxAcr),
+                AcrLevel.of(descriptor.maxAcr),
                 // Deliberately UNCAPPED (docs/05-api.md Abschnitt 3), not the method's
                 // own loa: the enrolledUnderAcr cap exists to stop an orchestrator combination
                 // from self-escalating past what an account's real enrollment history actually
@@ -87,7 +87,7 @@ class KcChannelService(
                 // trusts wholesale (docs #3); capping the COMBINATION on top of that defends
                 // against nothing extra, it only breaks the documented "two distinct factor
                 // types earn one tier above either alone" rule for the exact case it exists for.
-                AcrLevel(AcrLevels.HIGHEST),
+                AcrLevels.HIGHEST,
                 descriptor.factorTypes,
                 source = AmrSource.KEYCLOAK,
                 // nativeToolId prefixed on, colon-separated: amrSourceId alone (Keycloak's execution

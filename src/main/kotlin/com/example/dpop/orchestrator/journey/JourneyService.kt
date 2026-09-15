@@ -17,7 +17,6 @@ import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.policy.evidenceAxis
 import com.example.dpop.orchestrator.session.AccountDeletionService
-import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.orchestrator.session.AuthContextService
@@ -30,6 +29,7 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.MethodRole
@@ -725,13 +725,13 @@ class JourneyService(
                 // silently escalate past what was ever really established - exactly the
                 // self-escalation ADR-5 exists to prevent.
                 val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
-                val enrolledUnderAcr = if (environmentAcr == AcrLevels.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+                val enrolledUnderAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
                 // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
                 // more than the session had actually established, so the credential just created is
                 // quietly weaker than its catalog entry suggests - visible here once, at the moment
                 // it happens, rather than only discoverable later as a confusing STEP_UP/CONFIRM_
                 // PEER_LOGIN rejection with no obvious cause (docs/04-orchestrierung.md #8).
-                if (AcrLevels.rank(enrolledUnderAcr) < AcrLevels.rank(action.tool.maxAcr)) {
+                if (AcrLevel.rank(enrolledUnderAcr) < AcrLevel.rank(action.tool.maxAcr)) {
                     demoNotice = mapOf(
                         "enrolledUnderAcrCapped" to mapOf(
                             "toolId" to action.tool.toolId,
@@ -781,7 +781,7 @@ class JourneyService(
                 val used = checkNotNull(accountService.findActiveMethod(accountId, action.tool.method)) {
                     "No active method '${action.tool.method}' for account $accountId"
                 }
-                val effectiveAcr = AcrLevels.min(authenticated.achievedAcr, used.enrolledUnderAcr)
+                val effectiveAcr = AcrLevel.min(authenticated.achievedAcr, used.enrolledUnderAcr?.let(AcrLevel::of))
                 recordToolCompletion(journey, channel, action.tool, authenticated, effectiveAcr)
             }
 
@@ -845,7 +845,7 @@ class JourneyService(
         channel: ChannelSession,
         tool: ToolDescriptor,
         outcome: ToolOutcome.Completed,
-        effectiveAcr: String?
+        effectiveAcr: AcrLevel?
     ) {
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "AuthEvidence missing after ${tool.toolId}" }
         val accountId = channel.accountId
@@ -853,10 +853,10 @@ class JourneyService(
             MethodEvidence(
                 method = MethodName(method),
                 // This run's own achieved/capped level if it has one, else the tool's own declared ceiling.
-                loa = AcrLevel(effectiveAcr ?: tool.maxAcr),
+                loa = effectiveAcr ?: tool.maxAcr,
                 // The account's own enrollment record for this method (docs/06-ablaeufe.md #1)
                 // - the same idiom Action.AcceptProof already reads.
-                enrolledUnderAcr = accountId?.let { accountService.findActiveMethod(it, method)?.enrolledUnderAcr }?.let(::AcrLevel),
+                enrolledUnderAcr = accountId?.let { accountService.findActiveMethod(it, method)?.enrolledUnderAcr }?.let(AcrLevel::of),
                 factorTypes = outcome.factorTypes,
                 source = AmrSource.ORCHESTRATOR,
                 amrSourceId = tool.toolId.value,
@@ -967,7 +967,7 @@ class JourneyService(
         accountService.addIdentification(
             checkNotNull(journey.accountId),
             tool.method,
-            outcome.achievedAcr,
+            outcome.achievedAcr?.value,
             outcome.auditDetails.orEmpty() + mapOf(
                 "channel" to channel.channel?.name,
                 "journeyId" to journey.journeyId.toString()
@@ -1035,11 +1035,11 @@ class JourneyService(
         )
     }
 
-    private fun acrFloorOf(channel: ChannelSession): AcrLevel = channel.acrFloor?.let(::AcrLevel) ?: AcrLevels.DEFAULT_REQUIRED_ACR
+    private fun acrFloorOf(channel: ChannelSession): AcrLevel = channel.acrFloor?.let(AcrLevel::of) ?: AcrLevels.DEFAULT_REQUIRED_ACR
 
     /** Live, not cached (docs/orchestrator/policy/AuthEvidence.kt): `currentAcr` is never stored, only ever recomputed from the evidence that's actually there. */
     private fun currentAcrOf(channel: ChannelSession): AcrLevel {
-        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return AcrLevels.NONE
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return AcrLevel.NONE
         val account = channel.accountId?.let { accountService.findAccount(it) }
         return authPolicy.resolveAcr(evidence.toCoreEvidence(), account)
     }

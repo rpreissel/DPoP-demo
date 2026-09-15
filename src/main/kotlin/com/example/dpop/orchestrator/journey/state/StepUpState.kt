@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
-import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo

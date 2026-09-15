@@ -1,5 +1,6 @@
 package com.example.dpop.auth_qr
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -27,7 +28,7 @@ object EnrollQrDescriptor : ToolDescriptor {
     override val role = MethodRole.ENROLLMENT
     override val method = QR_METHOD
     override val factorTypes = emptySet<FactorType>()
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
 }
 
 /**
@@ -48,7 +49,7 @@ object AuthQrDescriptor : ToolDescriptor {
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = QR_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
-    override val maxAcr = "loa2"
+    override val maxAcr = AcrLevel.LOA2
     // Waits on the APP side, not a form input - never the role's own "auth" default.
     override val startStep = "waitForApp"
 }
@@ -60,7 +61,7 @@ object AuthQrLookupDescriptor : ToolDescriptor {
     override val role = MethodRole.LOOKUP_AUTH
     override val method = QR_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
-    override val maxAcr = "loa2"
+    override val maxAcr = AcrLevel.LOA2
     override val startStep = "waitForApp"
 }
 
@@ -71,5 +72,5 @@ object ConfirmQrLoginDescriptor : ToolDescriptor {
     override val role = MethodRole.PEER_APPROVAL
     override val method = QR_METHOD
     override val factorTypes = emptySet<FactorType>()
-    override val maxAcr = "loa2"
+    override val maxAcr = AcrLevel.LOA2
 }

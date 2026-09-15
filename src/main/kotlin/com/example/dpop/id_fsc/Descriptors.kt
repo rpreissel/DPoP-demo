@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -21,5 +22,5 @@ object IdentFscDescriptor : ToolDescriptor {
     override val role = MethodRole.IDENTIFICATION
     override val method = FSC_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = "loa2"
+    override val maxAcr = AcrLevel.LOA2
 }

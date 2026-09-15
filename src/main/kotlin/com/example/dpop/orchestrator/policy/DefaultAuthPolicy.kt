@@ -2,9 +2,9 @@ package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
-import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
@@ -46,7 +46,7 @@ import org.springframework.stereotype.Component
 class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPolicy {
 
     override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): AcrLevel =
-        AcrLevels.max(identityAssuranceLevel(evidence), authenticatorAssuranceLevel(evidence))
+        AcrLevel.max(identityAssuranceLevel(evidence), authenticatorAssuranceLevel(evidence))
 
     /**
      * IAL: the highest loa any IDENTIFICATION has established THIS session ([evidence]'s own
@@ -63,8 +63,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      */
     private fun identityAssuranceLevel(evidence: AuthEvidence): AcrLevel {
         val reachable = evidence.factors.filter { it.axis == EvidenceAxis.IDENTITY }
-            .maxOfOrNull { AcrLevels.rank(it.loa) } ?: return AcrLevels.NONE
-        return AcrLevel(AcrLevels.levelAt(reachable))
+            .maxOfOrNull { AcrLevel.rank(it.loa) } ?: return AcrLevel.NONE
+        return AcrLevel.levelAt(reachable)
     }
 
     /**
@@ -78,7 +78,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     }
 
     override fun isSatisfied(evidence: AuthEvidence, requiredAcr: AcrLevel, account: AccountProfile?): Boolean {
-        val levelOk = AcrLevels.rank(resolveAcr(evidence, account)) >= AcrLevels.rank(requiredAcr)
+        val levelOk = AcrLevel.rank(resolveAcr(evidence, account)) >= AcrLevel.rank(requiredAcr)
         // Checked PER AXIS, never as one union across both: a single tool covering >=2 factor
         // types on its own axis is self-contained MFA (e.g. ident-eid: card + PIN in one run,
         // id_eid/Descriptors.kt) - but an IDENTITY factor type must still never combine with a
@@ -97,13 +97,13 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val factorTypesUnion = descriptors.flatMap { it.second.factorTypes }.toSet()
         val distinctMethods = descriptors.map { it.second.method }.distinct().size
         val bestAcr = descriptors
-            .map { (m, d) -> AcrLevels.min(m.enrolledUnderAcr, d.maxAcr) }
-            .maxByOrNull { AcrLevels.rank(it) }
-            ?: "none"
-        val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevels.rank(it.enrolledUnderAcr) }?.let { AcrLevels.levelAt(it) } ?: "none"
+            .map { (m, d) -> AcrLevel.min(AcrLevel.of(m.enrolledUnderAcr), d.maxAcr) }
+            .maxByOrNull { AcrLevel.rank(it) }
+            ?: AcrLevel.NONE
+        val maxEnrolledUnderAcr = active.maxOfOrNull { AcrLevel.rank(AcrLevel.of(it.enrolledUnderAcr)) }?.let { AcrLevel.levelAt(it) } ?: AcrLevel.NONE
         val effectiveAcr = combinedAcr(bestAcr, distinctMethods, factorTypesUnion, maxEnrolledUnderAcr)
 
-        val levelOk = AcrLevels.rank(effectiveAcr) >= AcrLevels.rank(requiredAcr)
+        val levelOk = AcrLevel.rank(effectiveAcr) >= AcrLevel.rank(requiredAcr)
         val mfaOk = !requiresMfa(requiredAcr) || factorTypesUnion.size >= 2
         if (levelOk && mfaOk) return Reachability.Reachable
 
@@ -119,7 +119,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
             return Reachability.NotReachable(UnreachableReason.SingleFactorType(methodNames, factorTypesUnion))
         }
 
-        val cap = AcrLevel(maxEnrolledUnderAcr)
+        val cap = maxEnrolledUnderAcr
         return Reachability.NotReachable(
             if (distinctMethods >= 2) UnreachableReason.CombinationCapped(cap)
             else UnreachableReason.SingleMethodCapped(descriptors.first().second.method, cap)
@@ -187,21 +187,21 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         // active method contributing a factor type not yet proven this session is worth
         // offering, not just when requiresMfa(requiredAcr) says so.
         val singleMethodSuffices = eligible.any { (m, descriptor) ->
-            AcrLevels.rank(AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)) >= AcrLevels.rank(requiredAcr)
+            AcrLevel.rank(AcrLevel.min(AcrLevel.of(m.enrolledUnderAcr), descriptor.maxAcr)) >= AcrLevel.rank(requiredAcr)
         }
 
         return eligible.filter { (m, _) -> m.method !in usedMethods }.mapNotNull { (m, descriptor) ->
-            val cappedAcr = AcrLevels.min(m.enrolledUnderAcr, descriptor.maxAcr)
+            val cappedAcr = AcrLevel.min(AcrLevel.of(m.enrolledUnderAcr), descriptor.maxAcr)
             // What evidence would look like if this candidate were ALSO proven - same shape
             // resolveAcr prices from, no separate catalog re-derivation.
             val projected = AuthEvidence(
                 evidence.factors + MethodEvidence(
-                    MethodName(m.method), AcrLevel(cappedAcr), m.enrolledUnderAcr?.let(::AcrLevel), descriptor.factorTypes,
+                    MethodName(m.method), cappedAcr, m.enrolledUnderAcr?.let(AcrLevel::of), descriptor.factorTypes,
                     source = "simulation", amrSourceId = "simulation"
                 ),
             )
             val projectedAcr = applyMfaBump(baseAcr(projected.factors), projected)
-            val helpsLevel = AcrLevels.rank(projectedAcr.value) >= AcrLevels.rank(requiredAcr)
+            val helpsLevel = AcrLevel.rank(projectedAcr) >= AcrLevel.rank(requiredAcr)
             val helpsMfa = !singleMethodSuffices && (descriptor.factorTypes - evidence.factorTypes).isNotEmpty()
 
             descriptor.toolId.takeIf { helpsLevel || helpsMfa }
@@ -215,14 +215,14 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.IDENT }
             .filter { it.method !in usedMethods }
-            .filter { AcrLevels.rank(it.maxAcr) >= AcrLevels.rank(requiredAcr) }
+            .filter { AcrLevel.rank(it.maxAcr) >= AcrLevel.rank(requiredAcr) }
             .map { it.toolId }
     }
 
     /** Highest loa among [factors]' own per-method claims - see [MethodEvidence.loa]. */
     private fun baseAcr(factors: List<MethodEvidence>): AcrLevel {
-        val reachable = factors.maxOfOrNull { AcrLevels.rank(it.loa.value) } ?: return AcrLevels.NONE
-        return AcrLevel(AcrLevels.levelAt(reachable))
+        val reachable = factors.maxOfOrNull { AcrLevel.rank(it.loa) } ?: return AcrLevel.NONE
+        return AcrLevel.levelAt(reachable)
     }
 
     /**
@@ -252,11 +252,11 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      */
     private fun applyMfaBump(base: AcrLevel, evidence: AuthEvidence): AcrLevel {
         val distinctMethods = evidence.factors.map { it.method }.distinct().size
-        val maxEnrolledUnderAcr = evidence.factors.mapNotNull { it.enrolledUnderAcr?.value }
-            .maxOfOrNull { AcrLevels.rank(it) }
-            ?.let { AcrLevels.levelAt(it) }
-            ?: "none"
-        return AcrLevel(combinedAcr(base.value, distinctMethods, evidence.factorTypes, maxEnrolledUnderAcr))
+        val maxEnrolledUnderAcr = evidence.factors.mapNotNull { it.enrolledUnderAcr }
+            .maxOfOrNull { AcrLevel.rank(it) }
+            ?.let { AcrLevel.levelAt(it) }
+            ?: AcrLevel.NONE
+        return combinedAcr(base, distinctMethods, evidence.factorTypes, maxEnrolledUnderAcr)
     }
 
     /**
@@ -276,20 +276,20 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * different factor types would bump to loa3 here - a result this project cannot claim is
      * standards-conformant (docs/04-orchestrierung.md #8).
      */
-    private fun combinedAcr(base: String, distinctMethods: Int, factorTypesUnion: Set<FactorType>, maxEnrolledUnderAcr: String): String {
+    private fun combinedAcr(base: AcrLevel, distinctMethods: Int, factorTypesUnion: Set<FactorType>, maxEnrolledUnderAcr: AcrLevel): AcrLevel {
         if (distinctMethods < 2 || factorTypesUnion.size < 2) return base
-        val bumped = AcrLevels.min(AcrLevels.bump(base), maxEnrolledUnderAcr)
-        return AcrLevels.max(base, AcrLevels.min(bumped, NIST_COMBINATION_CEILING.value))
+        val bumped = AcrLevel.min(AcrLevels.bump(base), maxEnrolledUnderAcr)
+        return AcrLevel.max(base, AcrLevel.min(bumped, NIST_COMBINATION_CEILING))
     }
 
     private fun descriptorFor(method: String): ToolDescriptor? = toolRegistry.descriptors().firstOrNull { it.method == method }
 
-    private fun requiresMfa(requiredAcr: AcrLevel) = AcrLevels.rank(requiredAcr) >= AcrLevels.rank(MFA_FROM_ACR)
+    private fun requiresMfa(requiredAcr: AcrLevel) = AcrLevel.rank(requiredAcr) >= AcrLevel.rank(MFA_FROM_ACR)
 
     companion object {
-        private val MFA_FROM_ACR = AcrLevels.LOA3
+        private val MFA_FROM_ACR = AcrLevel.LOA3
 
         /** See [combinedAcr]'s doc: the highest level the generic two-factor-combination bump may ever produce. */
-        private val NIST_COMBINATION_CEILING = AcrLevels.LOA2
+        private val NIST_COMBINATION_CEILING = AcrLevel.LOA2
     }
 }

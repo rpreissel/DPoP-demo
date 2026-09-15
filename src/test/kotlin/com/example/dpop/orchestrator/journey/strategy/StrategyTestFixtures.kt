@@ -22,10 +22,9 @@ import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
 import java.time.Instant
@@ -89,7 +88,7 @@ object StrategyTestFixtures {
      */
     fun evidence(amr: List<String>, factorTypes: Set<FactorType>, account: AccountProfile? = null): AuthEvidence {
         val methodLoa = amr.associateWith { m ->
-            catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevels.rank(it.maxAcr) }?.maxAcr ?: AcrLevels.NONE.value
+            catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevel.rank(it.maxAcr) }?.maxAcr?.value ?: AcrLevel.NONE.value
         }
         val enrolledUnderAcr = account?.authenticationMethods
             ?.filter { it.method in amr }
@@ -102,7 +101,7 @@ object StrategyTestFixtures {
     fun ctx(
         account: AccountProfile? = null,
         evidence: AuthEvidence = AuthEvidence(emptyList()),
-        acrFloor: AcrLevel = AcrLevels.LOA1,
+        acrFloor: AcrLevel = AcrLevel.LOA1,
         bindingKeyRef: String = BINDING_KEY,
         // Defaults to "this device is already linked to the context's own account" - the ordinary
         // single-device scenario nearly every test wants; a test exercising a genuine device-rebind

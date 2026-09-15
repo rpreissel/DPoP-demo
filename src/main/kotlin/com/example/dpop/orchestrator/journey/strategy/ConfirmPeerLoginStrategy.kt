@@ -9,9 +9,8 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -62,7 +61,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
                 // silently mistaken for sufficient proof - falling back to the ordinary
                 // gate()/offerReconfirmation() path re-evaluates from scratch instead.
                 is JourneyEvent.SubJourneyFinished ->
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(REQUIRED_ACR)) {
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevel.rank(event.achievedAcr) >= AcrLevel.rank(REQUIRED_ACR)) {
                         Transition.To(ConfirmPeerLoginState.Confirming(state.startedAuthenticated))
                     } else {
                         gate(ctx, state.startedAuthenticated) ?: offerReconfirmation(ctx, state.startedAuthenticated)
@@ -155,7 +154,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
     }
 
     companion object {
-        val REQUIRED_ACR = AcrLevels.LOA2
+        val REQUIRED_ACR = AcrLevel.LOA2
 
         /** The two answers [ConfirmPeerLoginState.OfferLogout] understands (see JourneyEvent.Answered). */
         const val ACCEPT = "accept"

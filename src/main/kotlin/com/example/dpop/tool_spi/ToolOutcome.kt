@@ -41,7 +41,7 @@ sealed interface ToolOutcome {
         /** The amr value(s) this run proved. */
         val amr: List<String>
         /** The level this run itself achieved, if the tool can determine it. */
-        val achievedAcr: String?
+        val achievedAcr: AcrLevel?
         /** The factor kinds actually proven this run; a subset of [ToolDescriptor.factorTypes]. */
         val factorTypes: Set<FactorType>
 
@@ -49,7 +49,7 @@ sealed interface ToolOutcome {
         data class Identified(
             val personId: Long,
             override val amr: List<String> = emptyList(),
-            override val achievedAcr: String? = null,
+            override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
             /** Method-specific verification evidence, passed through unchanged for auditing. */
             val auditDetails: Map<String, Any?>? = null
@@ -59,7 +59,7 @@ sealed interface ToolOutcome {
         data class Enrolled(
             val enrollmentRef: EnrollmentRef,
             override val amr: List<String> = emptyList(),
-            override val achievedAcr: String? = null,
+            override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
             /** Method-specific delivery evidence, passed through unchanged for auditing. */
             val auditDetails: Map<String, Any?>? = null
@@ -68,7 +68,7 @@ sealed interface ToolOutcome {
         /** A [IDENTIFIED_AUTH][MethodRole.IDENTIFIED_AUTH] or [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool succeeded. */
         data class Authenticated(
             override val amr: List<String>,
-            override val achievedAcr: String? = null,
+            override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
             /**
              * Set only by a [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool, which resolves the
@@ -85,7 +85,7 @@ sealed interface ToolOutcome {
          */
         data class Approved(
             override val amr: List<String> = emptyList(),
-            override val achievedAcr: String? = null,
+            override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
         ) : Completed
     }

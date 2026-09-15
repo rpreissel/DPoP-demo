@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
-import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
 

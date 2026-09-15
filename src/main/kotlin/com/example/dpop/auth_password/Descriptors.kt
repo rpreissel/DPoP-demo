@@ -1,5 +1,6 @@
 package com.example.dpop.auth_password
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -25,7 +26,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
     override val role = MethodRole.ENROLLMENT
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
     // No identifier field: the account's confirmed email is the identifier, so this tool only
     // ever asks for the password itself.
     override val requiresConfirmedEmail = true
@@ -37,7 +38,7 @@ object AuthPasswordUseDescriptor : ToolDescriptor {
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
 }
 
 @Component
@@ -46,5 +47,5 @@ object AuthPasswordLookupDescriptor : ToolDescriptor {
     override val role = MethodRole.LOOKUP_AUTH
     override val method = PASSWORD_METHOD
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
-    override val maxAcr = "loa1"
+    override val maxAcr = AcrLevel.LOA1
 }

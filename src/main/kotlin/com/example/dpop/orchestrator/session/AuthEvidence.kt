@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
 import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -188,7 +189,7 @@ data class AmrRecord(
  * The one seam every reader of a stored [AuthEvidence] should go through.
  */
 fun AmrRecord.toMethodEvidence(): MethodEvidence =
-    MethodEvidence(MethodName(method), AcrLevel(loa), enrolledUnderAcr?.let(::AcrLevel), factorTypes, source, amrSourceId, axis)
+    MethodEvidence(MethodName(method), AcrLevel.of(loa), enrolledUnderAcr?.let(AcrLevel::of), factorTypes, source, amrSourceId, axis)
 
 /** The real, core [CoreAuthEvidence] this channel's evidence currently is - see [AmrRecord.toMethodEvidence]. */
 fun AuthEvidence.toCoreEvidence(): CoreAuthEvidence = CoreAuthEvidence(amrEvidence.map { it.toMethodEvidence() })

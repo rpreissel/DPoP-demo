@@ -5,11 +5,11 @@ import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
-import com.example.dpop.orchestrator.session.AcrLevel
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
@@ -304,7 +304,7 @@ sealed interface Action {
              * `ManageAuthMethodsStrategy`.
              */
             fun requiredAcr(account: AccountProfile?): AcrLevel =
-                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevels.LOA2
+                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevel.LOA2
         }
     }
 }

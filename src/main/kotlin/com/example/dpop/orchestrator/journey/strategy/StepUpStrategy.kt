@@ -11,9 +11,8 @@ import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.toAuthAbortMessage
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.policy.EvidenceAxis
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -33,7 +32,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     override val intent = AuthIntent.STEP_UP
 
     /** Never entered without a target; only reachable as a sub-journey, which seeds the real one. */
-    override fun initialState(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = AcrLevels.NONE)
+    override fun initialState(ctx: JourneyContext): StepUpState = StepUpState.Start(ctx.acrFloor, startingAcr = AcrLevel.NONE)
 
     override fun transition(state: StepUpState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {

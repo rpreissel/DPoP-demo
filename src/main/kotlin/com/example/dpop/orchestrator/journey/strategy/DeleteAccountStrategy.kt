@@ -9,8 +9,8 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -69,7 +69,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // defeating the loa2 gate this class's own doc says must hold.
                 is JourneyEvent.SubJourneyFinished -> {
                     val account = ctx.requireAccount()
-                    if (event.intent == AuthIntent.STEP_UP && AcrLevels.rank(event.achievedAcr) >= AcrLevels.rank(Action.DeleteAccount.requiredAcr(account))) {
+                    if (event.intent == AuthIntent.STEP_UP && AcrLevel.rank(event.achievedAcr) >= AcrLevel.rank(Action.DeleteAccount.requiredAcr(account))) {
                         Transition.Perform(Action.DeleteAccount(account.accountId), resumeState = state)
                     } else {
                         Transition.Cancel

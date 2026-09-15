@@ -13,9 +13,8 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
@@ -42,12 +41,12 @@ class StepUpStrategyTest : BehaviorSpec({
 
     given("StepUpState.forSubJourney") {
         then("seeds Start with exactly the given target/starting acr") {
-            StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1) shouldBe StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+            StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1) shouldBe StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
         }
     }
 
     given("AuthChoice, a completed tool") {
-        val state = StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms")))
+        val state = StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms")))
 
         then("Authenticated is accepted as proof, never adopting a different account, always binding the device") {
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
@@ -72,27 +71,27 @@ class StepUpStrategyTest : BehaviorSpec({
     given("Start, freshly entered, an active method that can still help reach the target") {
         // sms alone caps at loa1, but it's unused this run - offering it "helps MFA" even before
         // it alone reaches loa2 (DefaultAuthPolicy.authCandidates' helpsMfa branch).
-        val acc = account(method("sms", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2))
         val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
-        val state = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+        val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
 
         then("offers it via AuthChoice") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
-            transition shouldBe Transition.To(StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms"))))
+            transition shouldBe Transition.To(StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms"))))
         }
     }
 
     given("Start, the only active method already used this run, but re-identification could still help") {
-        val acc = account(method("sms", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
-        val state = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+        val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
 
         then("requires the shared RE_IDENTIFY sub-journey instead of aborting") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
             transition shouldBe Transition.RequireSubJourney(
                 AuthIntent.RE_IDENTIFY,
-                seedWith = ReIdentifyState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1),
-                resumeWith = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+                seedWith = ReIdentifyState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1),
+                resumeWith = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
             )
         }
     }
@@ -101,9 +100,9 @@ class StepUpStrategyTest : BehaviorSpec({
         // Same fixture as the "re-identification could still help" case above - RE_IDENTIFY WOULD
         // be offered if allowed, proving this is the flag suppressing it, not just an absence of
         // candidates (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1: never identification).
-        val acc = account(method("sms", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
-        val state = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1, allowReIdentification = false)
+        val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false)
 
         then("aborts instead of offering RE_IDENTIFY") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
@@ -113,13 +112,13 @@ class StepUpStrategyTest : BehaviorSpec({
     }
 
     given("Start, nothing at all can close the gap (active method used, IDENT tools backend-disabled)") {
-        val acc = account(method("sms", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2))
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
             availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"))
         )
-        val state = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+        val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
 
         then("aborts with a reason, never a silent auto-pick") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
@@ -130,31 +129,31 @@ class StepUpStrategyTest : BehaviorSpec({
 
     given("Start, resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
         `when`("the fresh evidence already satisfies the target") {
-            val acc = account(method("sms", AcrLevels.LOA1))
+            val acc = account(method("sms", AcrLevel.LOA1))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
-            val state = StepUpState.Start(AcrLevels.LOA1, AcrLevels.NONE)
+            val state = StepUpState.Start(AcrLevel.LOA1, AcrLevel.NONE)
 
             then("finishes directly instead of offering auth again") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevels.LOA2)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel.LOA2)
                 strategy.transition(state, event, theCtx) shouldBe Transition.Authenticated
             }
         }
 
         `when`("it does not yet satisfy the target") {
-            val acc = account(method("sms", AcrLevels.LOA2))
+            val acc = account(method("sms", AcrLevel.LOA2))
             val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
-            val state = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+            val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
 
             then("falls through to offering auth candidates, same as a fresh Start") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = null)
-                strategy.transition(state, event, theCtx) shouldBe Transition.To(StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms"))))
+                strategy.transition(state, event, theCtx) shouldBe Transition.To(StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms"))))
             }
         }
 
         `when`("it was declined instead (SubJourneyCancelled)") {
-            val acc = account(method("sms", AcrLevels.LOA2))
+            val acc = account(method("sms", AcrLevel.LOA2))
             val theCtx = ctx(account = acc, evidence = AuthEvidence(emptyList()))
-            val state = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+            val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
 
             then("gives up on its own rather than re-requesting the identical RE_IDENTIFY again") {
                 val event = JourneyEvent.SubJourneyCancelled(AuthIntent.RE_IDENTIFY)
@@ -164,9 +163,9 @@ class StepUpStrategyTest : BehaviorSpec({
     }
 
     given("AuthChoice with more than one offered candidate") {
-        val acc = account(method("sms", AcrLevels.LOA2), method("password", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2), method("password", AcrLevel.LOA2))
         val theCtx = ctx(account = acc)
-        val state = StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms"), ToolId("auth-password")))
+        val state = StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms"), ToolId("auth-password")))
 
         `when`("one is abandoned, another remains") {
             then("advances, marking only that one declined") {
@@ -177,8 +176,8 @@ class StepUpStrategyTest : BehaviorSpec({
     }
 
     given("AuthChoice, the last offered candidate is abandoned") {
-        val acc = account(method("sms", AcrLevels.LOA2))
-        val state = StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms")))
+        val acc = account(method("sms", AcrLevel.LOA2))
+        val state = StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms")))
 
         `when`("re-identification could still help") {
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
@@ -186,8 +185,8 @@ class StepUpStrategyTest : BehaviorSpec({
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.RE_IDENTIFY,
-                        seedWith = ReIdentifyState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1),
-                        resumeWith = StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)
+                        seedWith = ReIdentifyState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1),
+                        resumeWith = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
                     )
             }
         }
@@ -211,9 +210,9 @@ class StepUpStrategyTest : BehaviorSpec({
     given("AuthChoice, a proof just completed, then resumed (ActionCompleted)") {
         // sms+password, both loa1 alone, both enrolled under loa2 - MFA-combine to loa2 (see
         // DefaultAuthPolicyTest for the underlying combination rule).
-        val acc = account(method("sms", AcrLevels.LOA2), method("password", AcrLevels.LOA2))
+        val acc = account(method("sms", AcrLevel.LOA2), method("password", AcrLevel.LOA2))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "password"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc))
-        val state = StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms"), ToolId("auth-password")))
+        val state = StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms"), ToolId("auth-password")))
 
         then("performs AcceptProof, then finishes once the combination satisfies the target") {
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("password"))
@@ -226,8 +225,8 @@ class StepUpStrategyTest : BehaviorSpec({
 
     given("onCancel") {
         then("always falls back to AUTHENTICATED - STEP_UP only ever runs on an already-authenticated channel") {
-            strategy.cancelledTo(StepUpState.Start(AcrLevels.LOA2, AcrLevels.LOA1)) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(StepUpState.AuthChoice(AcrLevels.LOA2, AcrLevels.LOA1, listOf(ToolId("auth-sms")))) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("auth-sms")))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

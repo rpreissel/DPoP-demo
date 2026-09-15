@@ -11,9 +11,8 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.AcrLevel
-import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
@@ -85,20 +84,20 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
     given("ConfirmPending, accepted") {
         `when`("the session does not yet carry loa2") {
-            val acc = account(method("sms", AcrLevels.LOA1))
+            val acc = account(method("sms", AcrLevel.LOA1))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("the loa2 gate parks the wish and demands a step-up first - only NOW, never before accepting") {
                 strategy.transition(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1),
                         resumeWith = DeleteAccountState.ConfirmPending
                     )
             }
         }
 
         `when`("the account was never identified (personId == null) and the session only carries loa1") {
-            val acc = account(method("sms", AcrLevels.LOA1), personId = null)
+            val acc = account(method("sms", AcrLevel.LOA1), personId = null)
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("loa1 already satisfies the gate - straight to the re-confirmation step, no STEP_UP to loa2 demanded") {
                 val transition = strategy.transition(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx)
@@ -112,8 +111,8 @@ class DeleteAccountStrategyTest : BehaviorSpec({
         `when`("the session already carries loa2") {
             // device is the only tool whose own maxAcr reaches loa2 alone (sms/password/email cap
             // at loa1) - so this is the only single-method way to seed "already at loa2" evidence.
-            val acc = account(method("device", AcrLevels.LOA2, details = StrategyTestFixtures.deviceDetails()))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE), account = acc), acrFloor = AcrLevels.LOA1)
+            val acc = account(method("device", AcrLevel.LOA2, details = StrategyTestFixtures.deviceDetails()))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE), account = acc), acrFloor = AcrLevel.LOA1)
             then("still demands a fresh re-confirmation of any active factor - unlike STEP_UP, evidence of unknown age is never enough on its own") {
                 val transition = strategy.transition(DeleteAccountState.ConfirmPending, JourneyEvent.Answered("accept"), theCtx)
                 transition.shouldBeInstanceOf<Transition.To>()
@@ -126,35 +125,35 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
     given("ConfirmPending, resumed after a sub-journey (SubJourneyFinished)") {
         `when`("it was the gate's own STEP_UP, and it reached loa2") {
-            val acc = account(method("sms", AcrLevels.LOA2))
+            val acc = account(method("sms", AcrLevel.LOA2))
             val theCtx = ctx(account = acc)
             then("deletes right away - that fresh proof already IS the re-confirmation, no second one demanded") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevels.LOA2)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevel.LOA2)
                 strategy.transition(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe
                     Transition.Perform(Action.DeleteAccount(acc.accountId), resumeState = DeleteAccountState.ConfirmPending)
             }
         }
 
         `when`("it was a STEP_UP that fell short of loa2") {
-            val acc = account(method("sms", AcrLevels.LOA2))
+            val acc = account(method("sms", AcrLevel.LOA2))
             val theCtx = ctx(account = acc)
             then("does not delete and does not fall back to a lesser reconfirmation either - that would let a session stuck below loa2 delete via the very factor that couldn't reach it") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevels.LOA1)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevel.LOA1)
                 strategy.transition(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Transition.Cancel
             }
         }
 
         `when`("it was a different sub-journey entirely - never assumed to be the gate's own") {
-            val acc = account(method("sms", AcrLevels.LOA2))
+            val acc = account(method("sms", AcrLevel.LOA2))
             val theCtx = ctx(account = acc)
             then("does not delete") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevels.LOA3)
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel.LOA3)
                 strategy.transition(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe Transition.Cancel
             }
         }
 
         `when`("the gate's own STEP_UP was declined instead (SubJourneyCancelled)") {
-            val acc = account(method("sms", AcrLevels.LOA2))
+            val acc = account(method("sms", AcrLevel.LOA2))
             val theCtx = ctx(account = acc)
             then("does not delete - same as falling short, not a lesser fallback") {
                 val event = JourneyEvent.SubJourneyCancelled(AuthIntent.STEP_UP)
@@ -185,7 +184,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmationRequired, any active factor is re-proven") {
-        val acc = account(method("sms", AcrLevels.LOA1))
+        val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc)
         val state = DeleteAccountState.ConfirmationRequired(listOf(ToolId("auth-sms")))
 
