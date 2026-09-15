@@ -63,6 +63,14 @@ Thumbs.db
 .beads/proxieddb/
 *.gate.lock*
 
+# bd interaction log: per-machine runtime data, rewritten on every bd call -
+# .beads/.gitignore (bd-managed) deliberately tracks it, so ignore it here instead
+.beads/interactions.jsonl
+
+# Recovery backup from the beads 1.2.1 schema-skew fix (local only, deletable
+# once bd has run reliably for a few days)
+.beads.backup-pre-recovery/
+
 # Playwright e2e artifacts
 test-results/
 playwright-report/
