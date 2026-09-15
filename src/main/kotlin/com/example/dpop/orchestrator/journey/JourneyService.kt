@@ -5,7 +5,6 @@ import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
-import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.state.ToolRef
 import com.example.dpop.tool_api.JourneyDebugStep
@@ -13,9 +12,7 @@ import com.example.dpop.tool_api.Next
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
-import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.policy.Reachability
-import com.example.dpop.orchestrator.policy.evidenceAxis
 import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AmrSource
@@ -73,6 +70,8 @@ class JourneyService(
     private val featureFlagProviders: List<FeatureFlagProvider>,
     private val accountDeletionService: AccountDeletionService,
     private val journeyLogService: JourneyLogService,
+    private val journeyLogDetails: JourneyLogDetails,
+    private val journeyRecorder: JourneyRecorder,
     // Optional: only present under the `keycloak` profile (KeycloakAdminClient's own doc) -
     // JourneyService itself runs in every profile, so it must tolerate the bean being absent.
     private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
@@ -134,7 +133,7 @@ class JourneyService(
             // Anfangs-Übergang der Maschine (Statecharts: Pseudostate -> q0, mit Aktion) -
             // mechanisch, von keiner Strategie entschieden, aber ganz normal über dieselbe
             // Pipeline geloggt wie jeder andere Übergang.
-            journeyLogService.record(channel, journey, "Entry", detail = actionDetail(action, journey, channel))
+            journeyLogService.record(channel, journey, "Entry", detail = journeyLogDetails.actionDetail(action, journey, channel))
             performAction(journey, channel, action)
             // Re-derive now that the seed's own effect (e.g. restored evidence) is reflected in ctx
             // - initialState() must never see the placeholder's stale, pre-seed picture.
@@ -369,51 +368,9 @@ class JourneyService(
      * actually disappear from the evidence.
      */
     fun applyEvidenceUpdate(journey: AuthJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
-        mergeEvidence(journey, channel, source, updates)
+        journeyRecorder.mergeEvidence(journey, channel, source, updates)
         advance(journey, channel, JourneyEvent.EvidenceReported)
     }
-
-    /**
-     * Takes the REAL `MethodEvidence` list, not several per-field maps keyed by method - the
-     * caller already has a complete record per method by the time it calls this.
-     */
-    private fun mergeEvidence(journey: AuthJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
-        // [source]'s set BEFORE the update - compared against [updates] below to decide whether
-        // this call actually changed anything worth logging. Needed because every caller resends
-        // its COMPLETE current set on every call, no delta (docs/05-api.md Abschnitt 3,
-        // "kein Delta") - e.g. every LoA-2 selectMethod poll re-reports the very same native
-        // password proof, and logging that identically on each poll would drown the one real entry
-        // (the first time it was proven) in noise.
-        val before = channel.authEvidenceId
-            ?.let { authEvidenceService.getAuthEvidence(it) }?.amrEvidence.orEmpty()
-            .filter { it.source == source }
-            .map { Triple(it.method, it.loa, it.amrSourceId) }
-            .toSet()
-        val after = updates.map { Triple(it.method.value, it.loa.value, it.amrSourceId) }.toSet()
-
-        authEvidenceService.attachToChannel(channel, source, updates)
-        sessionManagementService.recordEvent(channel.channelSessionId, journey.journeyId, "EVIDENCE_UPDATE_APPLIED", source)
-        if (before != after) {
-            // The generic advance() call right after this logs the EvidenceReported transition
-            // itself (with acrFloor/resolvedAcr), but not WHAT changed - this records that
-            // (docs/05-api.md Abschnitt 3: native/external evidence, source=kc) - without
-            // it, the journey log would show every tool outcome in full but go silent on every
-            // Keycloak-native factor, even though it's just as real a step in the journey's path.
-            // snake_case, not PascalCase: JourneyService buckets this at the machine's discretion,
-            // not as a real `event::class.simpleName` transition (naming convention, docs/ideen/
-            // journey-strategie-vereinheitlichung.md #4) - and deliberately not named similarly to
-            // "EvidenceReported" (the real transition's own log entry), which used to invite
-            // confusing the two.
-            journeyLogService.record(
-                channel, journey, "native_evidence_synced",
-                journeyState = codec.read(journey)::class.simpleName,
-                detail = mapOf("source" to source, "methods" to methodEvidenceDetail(updates))
-            )
-        }
-    }
-
-    private fun methodEvidenceDetail(methods: List<MethodEvidence>): List<Map<String, Any?>> =
-        methods.map { mapOf("method" to it.method.value, "loa" to it.loa.value, "factorTypes" to it.factorTypes.map { t -> t.name }, "amrSourceId" to it.amrSourceId) }
 
     // Transitions ----------------------------------------------------------------
 
@@ -431,6 +388,10 @@ class JourneyService(
         // Authenticated), so this never suppresses a real transition.
         val isNoOpEvidenceUpdate = event is JourneyEvent.EvidenceReported && transition is Transition.To && transition.state == state
         if (!isNoOpEvidenceUpdate) {
+            // Computed once here and handed to the detail renderer: nextFor stays THE one
+            // routing authority ("one function, so the two can never disagree", see nextOf's
+            // own doc) - the log only ever shows what routing itself derived.
+            val availableTools = availableToolsOf(channel)
             journeyLogService.record(
                 channel, journey, event::class.simpleName!!,
                 journeyState = state::class.simpleName,
@@ -440,111 +401,15 @@ class JourneyService(
                 // ever reflects that ONE tool's individual ceiling (e.g. "loa1" for email alone),
                 // so without this the log looks like the login never reached loa2 even when the
                 // combination of two loa1 factors just did.
-                detail = eventDetail(event) + transitionDetail(transition, journey, channel, state) + state.logDetail +
+                detail = journeyLogDetails.eventDetail(event) +
+                    journeyLogDetails.transitionDetail(transition, journey, channel, state, availableTools) { target ->
+                        nextFor(target, availableTools)
+                    } +
+                    state.logDetail +
                     mapOf("acrFloor" to ctx.acrFloor, "resolvedAcr" to ctx.policy.resolveAcr(ctx.evidence, ctx.account))
             )
         }
         return applyTransition(journey, channel, transition)
-    }
-
-    /** The extra, event-specific detail worth keeping in the JourneyLog - which tool was involved, and how the outcome/answer read. */
-    private fun eventDetail(event: JourneyEvent): Map<String, Any?> = when (event) {
-        is JourneyEvent.Completed -> mapOf("toolId" to event.tool.toolId, "method" to event.tool.method) + outcomeDetail(event.outcome)
-        is JourneyEvent.Abandoned -> mapOf("toolId" to event.tool.toolId)
-        is JourneyEvent.Answered -> mapOf("answer" to event.answer)
-        is JourneyEvent.SubJourneyFinished -> mapOf("subIntent" to event.intent.name, "achievedAcr" to event.achievedAcr)
-        is JourneyEvent.SubJourneyCancelled -> mapOf("subIntent" to event.intent.name)
-        JourneyEvent.Started -> emptyMap()
-        JourneyEvent.EvidenceReported -> emptyMap()
-        JourneyEvent.ActionCompleted -> emptyMap()
-    }
-
-    /** Everything a completed tool run determined - the variant-specific fields, not just the common amr/achievedAcr/factorTypes. */
-    private fun outcomeDetail(outcome: ToolOutcome.Completed): Map<String, Any?> {
-        val common = mapOf(
-            "outcome" to outcome::class.simpleName,
-            "amr" to outcome.amr,
-            "achievedAcr" to outcome.achievedAcr,
-            "factorTypes" to outcome.factorTypes.map { it.name }
-        )
-        val specific = when (outcome) {
-            is ToolOutcome.Completed.Identified -> mapOf("personId" to outcome.personId)
-            is ToolOutcome.Completed.Enrolled -> mapOf("enrollmentRef" to outcome.enrollmentRef.toString())
-            is ToolOutcome.Completed.Authenticated -> mapOf("accountId" to outcome.accountId)
-            is ToolOutcome.Completed.Approved -> emptyMap()
-        }
-        return common + specific
-    }
-
-    /**
-     * Where the transition leads - the concrete follow-up (target state/sub-intent/action), not
-     * just which [Transition] variant fired. For [Transition.To], resolves the actual next
-     * tool(s) via [toolRegistry] the same way [nextFor] does, so the log shows what the client
-     * will see, not just the internal state-class name.
-     */
-    private fun transitionDetail(transition: Transition, journey: AuthJourney, channel: ChannelSession, state: JourneyState): Map<String, Any?> = when (transition) {
-        is Transition.To -> {
-            val availableTools = availableToolsOf(channel)
-            val candidates = transition.state.activatable(availableTools)
-            val next = nextFor(transition.state, availableTools)
-            mapOf(
-                "decision" to "To",
-                "toState" to transition.state::class.simpleName,
-                "authCandidates" to candidates.map { toolId -> toolId to toolRegistry.descriptorOf(toolId).method }.toMap(),
-                "next" to mapOf("type" to next.type, "toolId" to next.toolId, "context" to next.context, "step" to next.step)
-            )
-        }
-        is Transition.RequireSubJourney -> mapOf(
-            "decision" to "RequireSubJourney", "subIntent" to transition.intent.name,
-            // Demo/log-only: both concrete seed types happen to carry a targetAcr, but under two
-            // unrelated sealed interfaces - a plain `when` here is fine, this is observability, not
-            // the seeding contract itself (see Transition.RequireSubJourney's own doc).
-            "targetAcr" to when (val seed = transition.seedWith) {
-                is StepUpState -> seed.targetAcr
-                is ReIdentifyState -> seed.targetAcr
-                else -> null
-            }
-        )
-        // [state] is whatever was active right BEFORE this transition - e.g. the RestoreData
-        // Anfangs-Übergang can leave a fresh channel Authenticated on its very first Started, with
-        // no intervening `To` entry to show what could still have been offered. Without
-        // authCandidates here, that case's log would go from "here's the seeded evidence" straight
-        // to "Authenticated" with no trace of what else was available - misleadingly emptier than
-        // the App channel's own Authenticated log entries ever were.
-        Transition.Authenticated -> mapOf(
-            "decision" to "Authenticated",
-            "authCandidates" to state.activatable(availableToolsOf(channel))
-                .map { toolId -> toolId to toolRegistry.descriptorOf(toolId).method }.toMap()
-        )
-        is Transition.Perform -> mapOf("decision" to "Perform", "action" to transition.action::class.simpleName) +
-            actionDetail(transition.action, journey, channel)
-        Transition.Logout -> mapOf("decision" to "Logout")
-        Transition.Cancel -> mapOf("decision" to "Cancel")
-        is Transition.Abort -> mapOf("decision" to "Abort", "reason" to transition.reason)
-    }
-
-    /**
-     * What an [Action] carries worth keeping in the log - the four tool-outcome actions'
-     * `useOutcomeAccount`/`bindDevice` (fachlich verschiedene Fälle wie "Account neu aufgelöst"
-     * vs. "nur bestätigt" sind sonst trotz identischem `toolId`/`outcome` ununterscheidbar), and
-     * for [Action.Remove] which method/account it actually names - the class name alone
-     * ("Remove") doesn't say which one. Shared between the "Entry" seedAction log line and every
-     * [Transition.Perform] logged in [advance].
-     */
-    private fun actionDetail(action: Action, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (action) {
-        is Action.AdoptIdentity, is Action.ConfirmIdentity -> emptyMap()
-        is Action.AdoptCredential -> mapOf("bindDevice" to action.bindDevice)
-        is Action.AcceptProof -> mapOf("useOutcomeAccount" to action.useOutcomeAccount, "bindDevice" to action.bindDevice)
-        is Action.RecordApproval -> emptyMap()
-        is Action.ApplyRestoredEvidence -> mapOf("source" to action.source, "methods" to methodEvidenceDetail(action.methods))
-        is Action.Remove -> {
-            val accountId = journey.accountId ?: channel.accountId
-            val target = accountId?.let { accountService.findAccount(it) }
-                ?.authenticationMethods?.firstOrNull { it.id == action.methodInstanceId }
-            mapOf("methodInstanceId" to action.methodInstanceId, "method" to target?.method, "label" to target?.label)
-        }
-        is Action.LinkDevice -> mapOf("accountId" to action.accountId)
-        is Action.DeleteAccount -> mapOf("accountId" to action.accountId)
     }
 
     private fun applyTransition(journey: AuthJourney, channel: ChannelSession, transition: Transition): Step = when (transition) {
@@ -646,261 +511,236 @@ class JourneyService(
      *
      * @return a demo-only notice to merge into the eventual response's `demo` block (see
      * [DEMO_DATA_KEY]), or `null` when this action has none. Currently only [Action.AdoptCredential]
-     * ever returns one - see its own branch for why.
+     * ever returns one - see [performAdoptCredential] for why.
      */
     private fun performAction(journey: AuthJourney, channel: ChannelSession, action: Action): Map<String, Any?>? {
         var demoNotice: Map<String, Any?>? = null
         when (action) {
-            is Action.AdoptIdentity -> {
-                // Central identity resolution (docs/ideen/claims-modell-und-vertrauensanker.md,
-                // "Identitaetsauflösung & Matching"): the account module owns the matching policy,
-                // this service only governs the consequences.
-                val resolution = try {
-                    identityResolver.resolve(action.outcome.claims.toSet())
-                } catch (e: IdentityConflictException) {
-                    throw OrchestratorException.invalidState(e.message ?: "Identitaetsbezeugung kollidiert mit dem Bestand")
-                }
-                val accountId = when (resolution) {
-                    is Resolution.ExistingAccount -> resolution.accountId
-                    // Until the Interessenten form lands, "new" can only ever mean "no account
-                    // for this identified person yet" - so create it the old way. Claims-only
-                    // subjects without a person reference arrive with that form.
-                    Resolution.NewInteressent -> accountService.findOrCreateAccount(action.outcome.personId).accountId
-                    is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
-                        "Identifizierung mehrdeutig: ${resolution.candidates.size} Kandidaten - keine automatische Zuordnung"
-                    )
-                    // Deliberately no persistent candidate log here: this aborts the journey
-                    // transaction anyway, and the real policy for ambiguous matches (offer a
-                    // stronger procedure, human review) arrives with the first EUDI case.
-                }
-                bindAccount(journey, channel, accountId)
-                // Fail-fast: what the run reported must be a subset of the descriptor's
-                // declaration, with the same trust anchors.
-                assertClaimsCovered(action.tool, action.outcome.claims)
-                // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
-                // identifying tool actually established, each with its own trust anchor - the
-                // account columns remain the projection, this is the append-only provenance record.
-                action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
-                recordIdentification(journey, channel, action.tool, action.outcome)
-                recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
-            }
-
-            is Action.ConfirmIdentity -> {
-                val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
-                    "Identified without a known account under ${journey.intent}"
-                }
-                val account = checkNotNull(accountService.findAccount(accountId)) { "Account not found: $accountId" }
-                when (account.personId) {
-                    // Ordinary re-identification: the account already knows who it is, this run
-                    // must confirm the SAME person, never silently adopt a different one.
-                    action.outcome.personId -> {}
-                    null -> {
-                        // First-ever identification of a previously unidentified account (REGISTER
-                        // "Enrollment zuerst", docs/04-orchestrierung.md) - bind it, unless this
-                        // person already has a DIFFERENT account (merge not supported, bewusst).
-                        val existing = accountService.findAccountByPersonId(action.outcome.personId)
-                        if (existing != null && existing.accountId != accountId) {
-                            throw OrchestratorException.invalidState("Diese Person ist bereits über ein anderes Konto registriert")
-                        }
-                        accountService.bindPersonId(accountId, action.outcome.personId)
-                    }
-                    else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
-                }
-                bindAccount(journey, channel, accountId)
-                assertClaimsCovered(action.tool, action.outcome.claims)
-                // Same claims-log append as AdoptIdentity above - also covers the first-ever
-                // identification of a previously unidentified account (bindPersonId branch).
-                action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
-                recordIdentification(journey, channel, action.tool, action.outcome)
-                recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
-            }
-
-            is Action.AdoptCredential -> {
-                val enrolled = action.outcome
-                // Same declaration check as the identity branches - the descriptor↔handler
-                // contract holds for every adopting tool, and the claims are recorded right
-                // below.
-                assertClaimsCovered(action.tool, enrolled.claims)
-                // Enrollment with no account yet (REGISTER "Enrollment zuerst",
-                // docs/04-orchestrierung.md) - one is created lazily, right here, on the FIRST
-                // completed enrollment: no enroll tool's own PATCH handler needs an account to
-                // already exist mid-flow, so this is always safe to defer to here. A channel
-                // that never gets this far leaves no orphan account behind
-                // (`deleteIfAbandonedUnidentified`, `fallBack`).
-                val accountId = journey.accountId ?: channel.accountId
-                    ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
-                val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Enrolled without an AuthEvidence" }
-                val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
-                    "AuthEvidence not found: $authEvidenceId"
-                }
-                val coreEvidence = evidence.toCoreEvidence()
-                // `label` is lifted into its own field rather than staying in the generic details
-                // blob, so the API can surface it without clients reaching into details.
-                val label = enrolled.auditDetails?.get("label") as? String
-                // Every claim this enrollment asserted lands in the account's identity log
-                // (AccountService.recordClaim); an EMAIL claim additionally consolidates the
-                // canonical projection column, its anchor and the AccountChanged event. Done
-                // here, before this method returns, so the very next context rebuild
-                // (JourneyEvent.ActionCompleted) already sees it.
-                enrolled.claims.forEach { accountService.recordClaim(accountId, it) }
-                // What the environment already established BEFORE this completion (recordToolCompletion
-                // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
-                // session yet (REGISTER "Enrollment zuerst" with no identification at all,
-                // docs/04-orchestrierung.md) - falls back to the flat baseline floor, never to this
-                // tool's OWN declared strength: a self-registered credential with nothing else
-                // corroborating it (no identification, no other factor) is exactly the "self-
-                // asserted, unproofed" case, regardless of how strong the tool's own maxAcr
-                // theoretically is (e.g. enroll-device declares loa2 on its own - letting that
-                // stand unchallenged here would grant loa2 to a device nobody ever verified).
-                // Never allowed to override an already-positive base either way: doing that
-                // unconditionally (e.g. via a "projected" self-entry merged into the evidence
-                // before resolving) would let a tool with a higher maxAcr than the CURRENT session
-                // actually proved (that same enroll-device, enrolled from a loa1-only session)
-                // silently escalate past what was ever really established - exactly the
-                // self-escalation ADR-5 exists to prevent.
-                val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
-                val enrolledUnderAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
-                // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
-                // more than the session had actually established, so the credential just created is
-                // quietly weaker than its catalog entry suggests - visible here once, at the moment
-                // it happens, rather than only discoverable later as a confusing STEP_UP/CONFIRM_
-                // PEER_LOGIN rejection with no obvious cause (docs/04-orchestrierung.md #8).
-                if (AcrLevel.rank(enrolledUnderAcr) < AcrLevel.rank(action.tool.maxAcr)) {
-                    demoNotice = mapOf(
-                        "enrolledUnderAcrCapped" to mapOf(
-                            "toolId" to action.tool.toolId,
-                            "enrolledUnderAcr" to enrolledUnderAcr,
-                            "toolMaxAcr" to action.tool.maxAcr
-                        )
-                    )
-                }
-                accountService.addAuthenticationMethod(
-                    accountId,
-                    action.tool.method,
-                    enrolled.enrollmentRef,
-                    enrolledUnderAcr = enrolledUnderAcr.value,
-                    details = enrolled.auditDetails.orEmpty().minus("label") + mapOf(
-                        "enrolledUnderAmr" to evidence.currentAmr,
-                        "channel" to channel.channel?.name
-                    ),
-                    allowsMultipleInstances = action.tool.allowsMultipleInstances,
-                    label = label
-                )
-                // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
-                // suppressed, not just incidentally skipped by a null bindingKeyRef.
-                if (action.bindDevice && channel.channel == ChannelSession.Channel.APP) {
-                    sessionManagementService.linkDeviceToAccount(
-                        checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
-                        accountId
-                    )
-                }
-                recordToolCompletion(journey, channel, action.tool, enrolled, enrolled.achievedAcr)
-            }
-
-            is Action.AcceptProof -> {
-                val authenticated = action.outcome
-                val resolved = authenticated.accountId.takeIf { action.useOutcomeAccount }
-                val accountId = checkNotNull(resolved ?: journey.accountId ?: channel.accountId) {
-                    "Authenticated without a known account"
-                }
-                bindAccount(journey, channel, accountId)
-                // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
-                // suppressed, not just incidentally skipped by a null bindingKeyRef.
-                if (action.bindDevice && channel.channel == ChannelSession.Channel.APP) {
-                    sessionManagementService.linkDeviceToAccount(
-                        checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
-                        accountId
-                    )
-                }
-                val used = checkNotNull(accountService.findActiveMethod(accountId, action.tool.method)) {
-                    "No active method '${action.tool.method}' for account $accountId"
-                }
-                val effectiveAcr = AcrLevel.min(authenticated.achievedAcr, used.enrolledUnderAcr?.let(AcrLevel::of))
-                recordToolCompletion(journey, channel, action.tool, authenticated, effectiveAcr)
-            }
-
+            is Action.AdoptIdentity -> performAdoptIdentity(journey, channel, action)
+            is Action.ConfirmIdentity -> performConfirmIdentity(journey, channel, action)
+            is Action.AdoptCredential -> demoNotice = performAdoptCredential(journey, channel, action)
+            is Action.AcceptProof -> performAcceptProof(journey, channel, action)
             is Action.ApplyRestoredEvidence ->
-                mergeEvidence(journey, channel, action.source, action.methods)
-
+                journeyRecorder.mergeEvidence(journey, channel, action.source, action.methods)
             // The tool already performed its own domain effect (writing QrLoginRequest) before
             // reporting Approved - nothing left to do here beyond the same bookkeeping every
             // tool-outcome action gets. achievedAcr/amr are empty by construction (see
             // ToolOutcome.Completed.Approved's own doc), so this never changes what the channel's
             // own evidence says it has proven.
-            is Action.RecordApproval -> recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
-
+            is Action.RecordApproval -> journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
             is Action.Remove -> removeMethod(journey, channel, action.methodInstanceId)
-
-            // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
-            // suppressed rather than left to a null bindingKeyRef, so a KEYCLOAK channel never
-            // accumulates dead DeviceAccountLink rows even if a strategy ever offered this.
-            is Action.LinkDevice -> if (channel.channel == ChannelSession.Channel.APP) {
-                val bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" }
-                val previousAccountId = sessionManagementService.findLinkedAccountId(bindingKeyRef)
-                sessionManagementService.linkDeviceToAccount(bindingKeyRef, action.accountId)
-                // A device is only ever actively bound to one account at a time - once rebound
-                // (docs/04-orchestrierung.md #2, RegisterState.ConfirmDeviceRebind), the previous
-                // account's own device-bound credential(s) for this exact physical key must not
-                // keep working (docs/09-dpop.md); Phase 1's matching guard already hides them, this
-                // additionally removes them outright.
-                if (previousAccountId != null && previousAccountId != action.accountId) {
-                    accountService.findAccount(previousAccountId)?.activeAuthenticationMethods
-                        ?.filter { m ->
-                            val descriptor = toolRegistry.descriptors().firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
-                            descriptor != null && descriptor.allowsMultipleInstances && descriptor.matchesCaller(m.details, bindingKeyRef)
-                        }
-                        ?.forEach { accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" }) }
-                }
-            }
-
-            is Action.DeleteAccount -> {
-                // Independent re-check against freshly derived context, not the strategy's own
-                // state - same reasoning as the self-lockout check before Action.Remove.
-                val freshCtx = contextFor(journey, channel)
-                val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
-                val requiredAcr = Action.DeleteAccount.requiredAcr(account)
-                check(authPolicy.isSatisfied(freshCtx.evidence, requiredAcr, account)) {
-                    "${journey.intent} decided Action.DeleteAccount without satisfying $requiredAcr"
-                }
-                accountDeletionService.deleteAccount(action.accountId)
-            }
+            is Action.LinkDevice -> performLinkDevice(channel, action)
+            is Action.DeleteAccount -> performDeleteAccount(journey, channel, action)
         }
         return demoNotice
     }
 
     /**
-     * The MethodEvidence bookkeeping every tool-outcome [Action] needs alike, once: the cap
-     * `min(achievedAcr, enrolledUnderAcr)` a caller already folded into [effectiveAcr] where it
-     * applies ([Action.AcceptProof]) lives ONLY there - here just records what the outcome proved,
-     * at whatever level the caller decided actually counts.
+     * Central identity resolution (docs/ideen/claims-modell-und-vertrauensanker.md,
+     * "Identitaetsauflösung & Matching"): the account module owns the matching policy, this
+     * service only governs the consequences.
      */
-    private fun recordToolCompletion(
-        journey: AuthJourney,
-        channel: ChannelSession,
-        tool: ToolDescriptor,
-        outcome: ToolOutcome.Completed,
-        effectiveAcr: AcrLevel?
-    ) {
-        val authEvidenceId = checkNotNull(channel.authEvidenceId) { "AuthEvidence missing after ${tool.toolId}" }
-        val accountId = channel.accountId
-        val updates = outcome.amr.map { method ->
-            MethodEvidence(
-                method = MethodName(method),
-                // This run's own achieved/capped level if it has one, else the tool's own declared ceiling.
-                loa = effectiveAcr ?: tool.maxAcr,
-                // The account's own enrollment record for this method (docs/06-ablaeufe.md #1)
-                // - the same idiom Action.AcceptProof already reads.
-                enrolledUnderAcr = accountId?.let { accountService.findActiveMethod(it, method)?.enrolledUnderAcr }?.let(AcrLevel::of),
-                factorTypes = outcome.factorTypes,
-                source = AmrSource.ORCHESTRATOR,
-                amrSourceId = tool.toolId.value,
-                axis = tool.evidenceAxis(),
+    private fun performAdoptIdentity(journey: AuthJourney, channel: ChannelSession, action: Action.AdoptIdentity) {
+        val resolution = try {
+            identityResolver.resolve(action.outcome.claims.toSet())
+        } catch (e: IdentityConflictException) {
+            throw OrchestratorException.invalidState(e.message ?: "Identitaetsbezeugung kollidiert mit dem Bestand")
+        }
+        val accountId = when (resolution) {
+            is Resolution.ExistingAccount -> resolution.accountId
+            // Until the Interessenten form lands, "new" can only ever mean "no account
+            // for this identified person yet" - so create it the old way. Claims-only
+            // subjects without a person reference arrive with that form.
+            Resolution.NewInteressent -> accountService.findOrCreateAccount(action.outcome.personId).accountId
+            is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
+                "Identifizierung mehrdeutig: ${resolution.candidates.size} Kandidaten - keine automatische Zuordnung"
+            )
+            // Deliberately no persistent candidate log here: this aborts the journey
+            // transaction anyway, and the real policy for ambiguous matches (offer a
+            // stronger procedure, human review) arrives with the first EUDI case.
+        }
+        bindAccount(journey, channel, accountId)
+        // Fail-fast: what the run reported must be a subset of the descriptor's
+        // declaration, with the same trust anchors.
+        assertClaimsCovered(action.tool, action.outcome.claims)
+        // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
+        // identifying tool actually established, each with its own trust anchor - the
+        // account columns remain the projection, this is the append-only provenance record.
+        action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
+        journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
+        journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
+    }
+
+    private fun performConfirmIdentity(journey: AuthJourney, channel: ChannelSession, action: Action.ConfirmIdentity) {
+        val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
+            "Identified without a known account under ${journey.intent}"
+        }
+        val account = checkNotNull(accountService.findAccount(accountId)) { "Account not found: $accountId" }
+        when (account.personId) {
+            // Ordinary re-identification: the account already knows who it is, this run
+            // must confirm the SAME person, never silently adopt a different one.
+            action.outcome.personId -> {}
+            null -> {
+                // First-ever identification of a previously unidentified account (REGISTER
+                // "Enrollment zuerst", docs/04-orchestrierung.md) - bind it, unless this
+                // person already has a DIFFERENT account (merge not supported, bewusst).
+                val existing = accountService.findAccountByPersonId(action.outcome.personId)
+                if (existing != null && existing.accountId != accountId) {
+                    throw OrchestratorException.invalidState("Diese Person ist bereits über ein anderes Konto registriert")
+                }
+                accountService.bindPersonId(accountId, action.outcome.personId)
+            }
+            else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
+        }
+        bindAccount(journey, channel, accountId)
+        assertClaimsCovered(action.tool, action.outcome.claims)
+        // Same claims-log append as AdoptIdentity above - also covers the first-ever
+        // identification of a previously unidentified account (bindPersonId branch).
+        action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
+        journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
+        journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
+    }
+
+    private fun performAdoptCredential(journey: AuthJourney, channel: ChannelSession, action: Action.AdoptCredential): Map<String, Any?>? {
+        val enrolled = action.outcome
+        // Same declaration check as the identity branches - the descriptor↔handler
+        // contract holds for every adopting tool, and the claims are recorded right
+        // below.
+        assertClaimsCovered(action.tool, enrolled.claims)
+        // Enrollment with no account yet (REGISTER "Enrollment zuerst",
+        // docs/04-orchestrierung.md) - one is created lazily, right here, on the FIRST
+        // completed enrollment: no enroll tool's own PATCH handler needs an account to
+        // already exist mid-flow, so this is always safe to defer to here. A channel
+        // that never gets this far leaves no orphan account behind
+        // (`deleteIfAbandonedUnidentified`, `fallBack`).
+        val accountId = journey.accountId ?: channel.accountId
+            ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
+        val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Enrolled without an AuthEvidence" }
+        val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
+            "AuthEvidence not found: $authEvidenceId"
+        }
+        val coreEvidence = evidence.toCoreEvidence()
+        // `label` is lifted into its own field rather than staying in the generic details
+        // blob, so the API can surface it without clients reaching into details.
+        val label = enrolled.auditDetails?.get("label") as? String
+        // Every claim this enrollment asserted lands in the account's identity log
+        // (AccountService.recordClaim); an EMAIL claim additionally consolidates the
+        // canonical projection column, its anchor and the AccountChanged event. Done
+        // here, before this method returns, so the very next context rebuild
+        // (JourneyEvent.ActionCompleted) already sees it.
+        enrolled.claims.forEach { accountService.recordClaim(accountId, it) }
+        // What the environment already established BEFORE this completion (recordToolCompletion
+        // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
+        // session yet (REGISTER "Enrollment zuerst" with no identification at all,
+        // docs/04-orchestrierung.md) - falls back to the flat baseline floor, never to this
+        // tool's OWN declared strength: a self-registered credential with nothing else
+        // corroborating it (no identification, no other factor) is exactly the "self-
+        // asserted, unproofed" case, regardless of how strong the tool's own maxAcr
+        // theoretically is (e.g. enroll-device declares loa2 on its own - letting that
+        // stand unchallenged here would grant loa2 to a device nobody ever verified).
+        // Never allowed to override an already-positive base either way: doing that
+        // unconditionally (e.g. via a "projected" self-entry merged into the evidence
+        // before resolving) would let a tool with a higher maxAcr than the CURRENT session
+        // actually proved (that same enroll-device, enrolled from a loa1-only session)
+        // silently escalate past what was ever really established - exactly the
+        // self-escalation ADR-5 exists to prevent.
+        val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
+        val enrolledUnderAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+        // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
+        // more than the session had actually established, so the credential just created is
+        // quietly weaker than its catalog entry suggests - visible here once, at the moment
+        // it happens, rather than only discoverable later as a confusing STEP_UP/CONFIRM_
+        // PEER_LOGIN rejection with no obvious cause (docs/04-orchestrierung.md #8).
+        val demoNotice =
+            if (AcrLevel.rank(enrolledUnderAcr) < AcrLevel.rank(action.tool.maxAcr)) {
+                mapOf(
+                    "enrolledUnderAcrCapped" to mapOf(
+                        "toolId" to action.tool.toolId,
+                        "enrolledUnderAcr" to enrolledUnderAcr,
+                        "toolMaxAcr" to action.tool.maxAcr
+                    )
+                )
+            } else null
+        accountService.addAuthenticationMethod(
+            accountId,
+            action.tool.method,
+            enrolled.enrollmentRef,
+            enrolledUnderAcr = enrolledUnderAcr.value,
+            details = enrolled.auditDetails.orEmpty().minus("label") + mapOf(
+                "enrolledUnderAmr" to evidence.currentAmr,
+                "channel" to channel.channel?.name
+            ),
+            allowsMultipleInstances = action.tool.allowsMultipleInstances,
+            label = label
+        )
+        // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
+        // suppressed, not just incidentally skipped by a null bindingKeyRef.
+        if (action.bindDevice && channel.channel == ChannelSession.Channel.APP) {
+            sessionManagementService.linkDeviceToAccount(
+                checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
+                accountId
             )
         }
-        authEvidenceService.applyEvidence(authEvidenceId, updates)
-        sessionManagementService.recordEvent(
-            channel.channelSessionId, journey.journeyId, "TOOL_COMPLETED:${tool.toolId}", "orchestrator"
-        )
+        journeyRecorder.recordToolCompletion(journey, channel, action.tool, enrolled, enrolled.achievedAcr)
+        return demoNotice
+    }
+
+    private fun performAcceptProof(journey: AuthJourney, channel: ChannelSession, action: Action.AcceptProof) {
+        val authenticated = action.outcome
+        val resolved = authenticated.accountId.takeIf { action.useOutcomeAccount }
+        val accountId = checkNotNull(resolved ?: journey.accountId ?: channel.accountId) {
+            "Authenticated without a known account"
+        }
+        bindAccount(journey, channel, accountId)
+        // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
+        // suppressed, not just incidentally skipped by a null bindingKeyRef.
+        if (action.bindDevice && channel.channel == ChannelSession.Channel.APP) {
+            sessionManagementService.linkDeviceToAccount(
+                checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" },
+                accountId
+            )
+        }
+        val used = checkNotNull(accountService.findActiveMethod(accountId, action.tool.method)) {
+            "No active method '${action.tool.method}' for account $accountId"
+        }
+        val effectiveAcr = AcrLevel.min(authenticated.achievedAcr, used.enrolledUnderAcr?.let(AcrLevel::of))
+        journeyRecorder.recordToolCompletion(journey, channel, action.tool, authenticated, effectiveAcr)
+    }
+
+    private fun performLinkDevice(channel: ChannelSession, action: Action.LinkDevice) {
+        // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
+        // suppressed rather than left to a null bindingKeyRef, so a KEYCLOAK channel never
+        // accumulates dead DeviceAccountLink rows even if a strategy ever offered this.
+        if (channel.channel == ChannelSession.Channel.APP) {
+            val bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" }
+            val previousAccountId = sessionManagementService.findLinkedAccountId(bindingKeyRef)
+            sessionManagementService.linkDeviceToAccount(bindingKeyRef, action.accountId)
+            // A device is only ever actively bound to one account at a time - once rebound
+            // (docs/04-orchestrierung.md #2, RegisterState.ConfirmDeviceRebind), the previous
+            // account's own device-bound credential(s) for this exact physical key must not
+            // keep working (docs/09-dpop.md); Phase 1's matching guard already hides them, this
+            // additionally removes them outright.
+            if (previousAccountId != null && previousAccountId != action.accountId) {
+                accountService.findAccount(previousAccountId)?.activeAuthenticationMethods
+                    ?.filter { m ->
+                        val descriptor = toolRegistry.descriptors().firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
+                        descriptor != null && descriptor.allowsMultipleInstances && descriptor.matchesCaller(m.details, bindingKeyRef)
+                    }
+                    ?.forEach { accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" }) }
+            }
+        }
+    }
+
+    private fun performDeleteAccount(journey: AuthJourney, channel: ChannelSession, action: Action.DeleteAccount) {
+        // Independent re-check against freshly derived context, not the strategy's own
+        // state - same reasoning as the self-lockout check before Action.Remove.
+        val freshCtx = contextFor(journey, channel)
+        val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
+        val requiredAcr = Action.DeleteAccount.requiredAcr(account)
+        check(authPolicy.isSatisfied(freshCtx.evidence, requiredAcr, account)) {
+            "${journey.intent} decided Action.DeleteAccount without satisfying $requiredAcr"
+        }
+        accountDeletionService.deleteAccount(action.accountId)
     }
 
     private fun finish(journey: AuthJourney, channel: ChannelSession): Step {
@@ -990,23 +830,6 @@ class JourneyService(
         }
         sessionManagementService.updateChannelSession(channel)
         journeyRepository.save(journey)
-    }
-
-    private fun recordIdentification(
-        journey: AuthJourney,
-        channel: ChannelSession,
-        tool: ToolDescriptor,
-        outcome: ToolOutcome.Completed.Identified
-    ) {
-        accountService.addIdentification(
-            checkNotNull(journey.accountId),
-            tool.method,
-            outcome.achievedAcr?.value,
-            outcome.auditDetails.orEmpty() + mapOf(
-                "channel" to channel.channel?.name,
-                "journeyId" to journey.journeyId.toString()
-            )
-        )
     }
 
     // Cancellation fallout -------------------------------------------------------
