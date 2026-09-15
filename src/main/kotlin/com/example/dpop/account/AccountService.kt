@@ -41,7 +41,11 @@ class AccountService(
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
 
-    /** Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md). */
+    /**
+     * Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md).
+     * The find-then-create race between parallel step-up channels is closed DB-side by
+     * ux_account_person_id (V32): a lost race surfaces as a constraint violation, not a duplicate.
+     */
     @Transactional
     fun findOrCreateAccount(personId: Long): AccountProfile {
         val existing = accountRepository.findByPersonId(personId)
