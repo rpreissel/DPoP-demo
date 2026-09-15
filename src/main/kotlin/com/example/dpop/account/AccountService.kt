@@ -1,12 +1,15 @@
 package com.example.dpop.account
 
 import com.example.dpop.account.internal.Account
+import com.example.dpop.account.internal.AccountAnchor
+import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountAttribute
 import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountIdentification
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
 import java.time.Instant
@@ -33,6 +36,7 @@ data class AccountDeleted(val accountId: Long)
 class AccountService(
     private val accountRepository: AccountRepository,
     private val accountAttributeRepository: AccountAttributeRepository,
+    private val accountAnchorRepository: AccountAnchorRepository,
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
 
@@ -54,10 +58,12 @@ class AccountService(
      * through by the existing paths (`findOrCreateAccount`, `bindPersonId`, `confirmEmail`);
      * nothing reads the log back yet. When something eventually does, consolidation prefers
      * anchor class over recency - recency is only the tiebreaker within one anchor class
-     * (ADR-11, docs/12-entscheidungen.md).
+     * (ADR-11, docs/12-entscheidungen.md). Anchor-role claims additionally materialize their
+     * `account_anchor` row ([recordAnchor]) - the resolve-identity projection, not provenance.
      */
     @Transactional
     fun recordClaim(accountId: Long, claim: Claim) {
+        val establishedAt = Instant.now()
         accountAttributeRepository.save(
             AccountAttribute(
                 accountId = accountId,
@@ -65,7 +71,32 @@ class AccountService(
                 value = claim.value,
                 trustAnchor = claim.trustAnchor.value,
                 establishedLoa = claim.establishedLoa?.value,
-                establishedAt = Instant.now()
+                establishedAt = establishedAt
+            )
+        )
+        AnchorType.of(claim.attributeType)?.let { recordAnchor(accountId, it, claim.value, establishedAt) }
+    }
+
+    /**
+     * Materializes an anchor row - the resolve-identity projection, not provenance (that
+     * stays in `account_attribute`). Idempotent when this account already holds the value; a
+     * value held by ANOTHER account is never re-assigned (ADR-11: cross-account conflicts
+     * stay upstream rejections, never silent merges) - the claim itself is still logged, this
+     * account's anchor just stays whatever it was. A new value for THIS account's own anchor
+     * re-binds it: the old row goes, the anchor follows the account's latest established
+     * claim.
+     */
+    private fun recordAnchor(accountId: Long, type: AnchorType, value: String, establishedAt: Instant) {
+        val normalized = type.normalize(value)
+        if (accountAnchorRepository.existsByAnchorTypeAndValue(type.wireName, normalized)) return
+        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type.wireName)
+            ?.let { accountAnchorRepository.delete(it) }
+        accountAnchorRepository.save(
+            AccountAnchor(
+                accountId = accountId,
+                anchorType = type.wireName,
+                value = normalized,
+                establishedAt = establishedAt
             )
         )
     }
@@ -250,9 +281,13 @@ class AccountService(
     @Transactional
     fun confirmEmail(accountId: Long, email: String): AccountProfile {
         val account = getOrThrow(accountId)
+        val confirmedAt = Instant.now()
         account.email = email
-        account.emailConfirmedAt = Instant.now()
+        account.emailConfirmedAt = confirmedAt
         val profile = toProfile(accountRepository.save(account))
+        // The email anchor follows the canonical projection column - same ownership, one
+        // write: stored in the anchor's normalized form while the raw column stays raw.
+        recordAnchor(accountId, AnchorType.Email, email, confirmedAt)
         eventPublisher.publishEvent(AccountChanged(accountId))
         return profile
     }
@@ -269,6 +304,12 @@ class AccountService(
     // AccountDirectory (tool_api) -------------------------------------------------------------
 
     override fun resolveAccountByEmail(email: String): Long? = findAccountByEmail(email)?.accountId
+
+    override fun resolveByAnchor(type: AnchorType, value: String): Long? =
+        accountAnchorRepository.findByAnchorTypeAndValue(type.wireName, type.normalize(value))?.accountId
+
+    override fun anchorValue(accountId: Long, type: AnchorType): String? =
+        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type.wireName)?.value
 
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it.details) }

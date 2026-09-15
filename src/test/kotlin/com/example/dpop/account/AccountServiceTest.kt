@@ -1,9 +1,12 @@
 package com.example.dpop.account
 
 import com.example.dpop.account.internal.Account
+import com.example.dpop.account.internal.AccountAnchor
+import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountAttribute
 import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountRepository
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -18,6 +21,7 @@ import io.mockk.slot
 import io.mockk.verify
 import java.time.Instant
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.data.repository.findByIdOrNull
 
 /**
  * Pure unit test: no Spring context, repositories mocked with MockK. Covers the claims-log write
@@ -32,8 +36,9 @@ class AccountServiceTest : BehaviorSpec({
     given("an account with an identified person") {
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
         `when`("recording a claim from an identifying tool") {
             val savedAttributes = mutableListOf<AccountAttribute>()
@@ -59,8 +64,9 @@ class AccountServiceTest : BehaviorSpec({
     given("no account exists yet for a person") {
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
         val personId = 42L
         every { accountRepository.findByPersonId(personId) } returns null
@@ -80,8 +86,9 @@ class AccountServiceTest : BehaviorSpec({
     given("an account already exists for a person") {
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
         val personId = 42L
         val existing = Account(personId, Instant.now()).apply { id = 7L }
@@ -96,6 +103,124 @@ class AccountServiceTest : BehaviorSpec({
                 profile.personId shouldBe personId
                 verify(exactly = 0) { accountRepository.save(match { it !== existing }) }
                 verify(exactly = 0) { eventPublisher.publishEvent(any()) }
+            }
+        }
+    }
+
+    given("an account with an anchor-role claim") {
+        val accountRepository = mockk<AccountRepository>()
+        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
+        val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
+
+        val savedAttributes = mutableListOf<AccountAttribute>()
+        every { accountAttributeRepository.save(capture(savedAttributes)) } answers { savedAttributes.last() }
+        val savedAnchors = mutableListOf<AccountAnchor>()
+        every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
+        every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns null
+
+        `when`("recording an email claim") {
+            service.recordClaim(
+                accountId = 7L,
+                claim = Claim(AttributeType.EMAIL, "  Max@Example.COM ", TrustAnchor.SELF_REPORTED, AcrLevel.LOA1)
+            )
+
+            then("the claim is logged raw, its anchor materialized normalized") {
+                savedAttributes.single().value shouldBe "  Max@Example.COM "
+                savedAnchors shouldHaveSize 1
+                savedAnchors.single().accountId shouldBe 7L
+                savedAnchors.single().anchorType shouldBe "email"
+                savedAnchors.single().value shouldBe "max@example.com"
+                savedAnchors.single().establishedAt.shouldNotBeNull()
+            }
+        }
+
+        `when`("recording an anchor another account already holds") {
+            every { accountAnchorRepository.existsByAnchorTypeAndValue("email", "max@example.com") } returns true
+
+            service.recordClaim(
+                accountId = 7L,
+                claim = Claim(AttributeType.EMAIL, "max@example.com", TrustAnchor.SELF_REPORTED, AcrLevel.LOA1)
+            )
+
+            then("the claim is still logged but no anchor is re-assigned") {
+                savedAttributes shouldHaveSize 2
+                savedAnchors shouldHaveSize 1
+            }
+        }
+
+        `when`("re-binding this account's own anchor to a new value") {
+            val oldAnchor = AccountAnchor(anchorType = "email", value = "old@example.com", accountId = 7L, establishedAt = Instant.now())
+            every { accountAnchorRepository.existsByAnchorTypeAndValue("email", "new@example.com") } returns false
+            every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns oldAnchor
+
+            service.recordClaim(
+                accountId = 7L,
+                claim = Claim(AttributeType.EMAIL, "new@example.com", TrustAnchor.SELF_REPORTED, AcrLevel.LOA1)
+            )
+
+            then("the old row goes, the anchor follows the account") {
+                verify(exactly = 1) { accountAnchorRepository.delete(oldAnchor) }
+                savedAnchors shouldHaveSize 2
+                savedAnchors.last().value shouldBe "new@example.com"
+            }
+        }
+    }
+
+    given("the anchor read ports") {
+        val accountRepository = mockk<AccountRepository>()
+        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
+        val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
+
+        `when`("resolving an account by anchor") {
+            every { accountAnchorRepository.findByAnchorTypeAndValue("email", "max@example.com") } returns
+                AccountAnchor(anchorType = "email", value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
+
+            then("the lookup runs normalized") {
+                service.resolveByAnchor(AnchorType.Email, "  Max@Example.COM ") shouldBe 7L
+                every { accountAnchorRepository.findByAnchorTypeAndValue("email", "other@example.com") } returns null
+                service.resolveByAnchor(AnchorType.Email, "other@example.com") shouldBe null
+            }
+        }
+
+        `when`("reading an account's anchor value") {
+            every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns
+                AccountAnchor(anchorType = "email", value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
+
+            then("it returns the stored normalized value") {
+                service.anchorValue(7L, AnchorType.Email) shouldBe "max@example.com"
+                every { accountAnchorRepository.findByAccountIdAndAnchorType(8L, "email") } returns null
+                service.anchorValue(8L, AnchorType.Email) shouldBe null
+            }
+        }
+    }
+
+    given("an account whose email gets confirmed") {
+        val accountRepository = mockk<AccountRepository>()
+        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
+        val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
+
+        val account = Account(personId = null, createdAt = Instant.now()).apply { id = 7L }
+        every { accountRepository.findByIdOrNull(7L) } returns account
+        every { accountRepository.save(account) } returns account
+        every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns null
+        val savedAnchors = mutableListOf<AccountAnchor>()
+        every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
+
+        `when`("confirming an email address") {
+            service.confirmEmail(7L, "Max@Example.COM")
+
+            then("the email anchor materializes normalized alongside the projection column") {
+                savedAnchors shouldHaveSize 1
+                savedAnchors.single().anchorType shouldBe "email"
+                savedAnchors.single().value shouldBe "max@example.com"
+                savedAnchors.single().accountId shouldBe 7L
+                verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
             }
         }
     }
