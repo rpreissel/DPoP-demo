@@ -2,10 +2,12 @@ package com.example.dpop.id_fsc
 
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.ClaimDeclaration
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
+import com.example.dpop.tool_spi.TrustAnchor
 import org.springframework.stereotype.Component
 
 /** No sibling today (ident-fsc is the only tool for "fsc") - kept as its own value for the same uniform shape every other module follows. */
@@ -24,13 +26,15 @@ object IdentFscDescriptor : ToolDescriptor {
     override val method = FSC_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = AcrLevel.LOA2
-    // The attributes a successful run asserts - carried as claims on Completed.Identified.
-    // All of them come from the master-data backend via the FSC channel, hence
-    // TrustAnchor.EXT_STAMMDATEN in the handler.
+    // The attributes a successful run asserts, each declared with the anchor it is asserted
+    // with - all of them are checked against the master-data backend via the FSC channel,
+    // hence TrustAnchor.EXT_STAMMDATEN: the FSC is the master-data backend's own delivery
+    // channel, this tool is only the kanal, never the value's source. The handler's reported
+    // claims must match this declaration (assertClaimsCovered enforces it on adoption).
     override val claims = setOf(
-        AttributeType.PERSON_ID,
-        AttributeType.KVNR,
-        AttributeType.NAME,
-        AttributeType.VORNAME
+        ClaimDeclaration(AttributeType.PERSON_ID, TrustAnchor.EXT_STAMMDATEN),
+        ClaimDeclaration(AttributeType.KVNR, TrustAnchor.EXT_STAMMDATEN),
+        ClaimDeclaration(AttributeType.NAME, TrustAnchor.EXT_STAMMDATEN),
+        ClaimDeclaration(AttributeType.VORNAME, TrustAnchor.EXT_STAMMDATEN)
     )
 }

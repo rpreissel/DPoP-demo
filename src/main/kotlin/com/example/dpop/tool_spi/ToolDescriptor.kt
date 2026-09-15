@@ -49,12 +49,15 @@ interface ToolDescriptor {
     val maxAcr: AcrLevel
 
     /**
-     * The identifying attribute types a successful run of this tool asserts about its subject,
-     * carried as [Claim]s on [ToolOutcome.Completed.Identified]/[ToolOutcome.Completed.Enrolled].
-     * The declared direction of the claims vocabulary, mirroring [factorTypes]: this set names
-     * what the tool MAY assert, one concrete run's claims name what it actually asserted.
+     * The identifying attributes a successful run of this tool asserts about its subject, each
+     * with the [TrustAnchor] it is asserted with - carried as [Claim]s on
+     * [ToolOutcome.Completed.Identified]/[ToolOutcome.Completed.Enrolled]. The declared
+     * direction of the claims vocabulary, mirroring [factorTypes]: this set names what the
+     * tool MAY assert on whose authority - the offer, answerable without any run having
+     * happened (requires gates, catalog/matching planning); one concrete run's claims name
+     * what it actually asserted, checked against this declaration by [assertClaimsCovered].
      */
-    val claims: Set<AttributeType>
+    val claims: Set<ClaimDeclaration>
         get() = emptySet()
 
     /**

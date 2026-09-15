@@ -2,10 +2,12 @@ package com.example.dpop.auth_email
 
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.ClaimDeclaration
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
+import com.example.dpop.tool_spi.TrustAnchor
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-email/auth-email/auth-email-lookup - the one place "email" is spelled out. */
@@ -27,8 +29,9 @@ object EnrollEmailDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA1
     // The confirmed address this enrollment asserts about its subject, carried as a claim on
     // Completed.Enrolled (typed counterpart to the CONFIRMED_EMAIL_AUDIT_KEY blob, which stays
-    // until the anchor write path replaces confirmEmail - 4vd.8).
-    override val claims = setOf(AttributeType.EMAIL)
+    // until the anchor write path replaces confirmEmail - 4vd.8). The proof is this tool's own
+    // code exchange, hence the tool itself as trust anchor.
+    override val claims = setOf(ClaimDeclaration(AttributeType.EMAIL, TrustAnchor.of(toolId)))
     override val confirmsAccountEmail = true
 }
 

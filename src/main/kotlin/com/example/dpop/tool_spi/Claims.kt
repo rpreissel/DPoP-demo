@@ -90,3 +90,36 @@ data class ClaimRequirement(
     val attributeType: AttributeType,
     val minAnchorClass: AnchorClass
 )
+
+/**
+ * What [ToolDescriptor.claims] declares: one [AttributeType] together with the [TrustAnchor]
+ * a successful run asserts it with. The OFFER side of the claims vocabulary (mirroring
+ * [FactorType]'s two-sided contract): consumers can ask "what can this tool assert, on whose
+ * authority?" without any run having happened. What is constant per tool lives here; what
+ * varies per run - the value and its [Claim.establishedLoa] - stays on the [Claim]. The
+ * [AnchorClass] is deliberately NOT declared: it is derived via [anchorClassOf], and the
+ * anchor-to-class precedence is global policy (ADR-11), not per-tool knowledge.
+ */
+data class ClaimDeclaration(
+    val attributeType: AttributeType,
+    val trustAnchor: TrustAnchor
+)
+
+/**
+ * Fail-fast contract check between a descriptor's declared [ToolDescriptor.claims] and the
+ * [Claim]s one completed run actually reported: every reported claim must be declared for the
+ * same [AttributeType] with the SAME [TrustAnchor]. Descriptor/handler drift is a programming
+ * error, not a runtime condition - it crashes the adopting transaction instead of silently
+ * logging an assertion the catalog never promised.
+ */
+fun assertClaimsCovered(descriptor: ToolDescriptor, claims: List<Claim>) {
+    val declared = descriptor.claims.associateBy { it.attributeType }
+    claims.forEach { claim ->
+        val declaration = checkNotNull(declared[claim.attributeType]) {
+            "${descriptor.toolId} reported a ${claim.attributeType.wireName} claim but declares none"
+        }
+        check(declaration.trustAnchor == claim.trustAnchor) {
+            "${descriptor.toolId} reported ${claim.attributeType.wireName} with anchor ${claim.trustAnchor}, but declares ${declaration.trustAnchor}"
+        }
+    }
+}

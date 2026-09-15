@@ -36,6 +36,7 @@ import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_spi.assertClaimsCovered
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -650,6 +651,9 @@ class JourneyService(
             is Action.AdoptIdentity -> {
                 val account = accountService.findOrCreateAccount(action.outcome.personId)
                 bindAccount(journey, channel, account.accountId)
+                // Fail-fast: what the run reported must be a subset of the descriptor's
+                // declaration, with the same trust anchors.
+                assertClaimsCovered(action.tool, action.outcome.claims)
                 // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
                 // identifying tool actually established, each with its own trust anchor - the
                 // account columns remain the projection, this is the append-only provenance record.
@@ -680,6 +684,7 @@ class JourneyService(
                     else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
                 }
                 bindAccount(journey, channel, accountId)
+                assertClaimsCovered(action.tool, action.outcome.claims)
                 // Same claims-log append as AdoptIdentity above - also covers the first-ever
                 // identification of a previously unidentified account (bindPersonId branch).
                 action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
@@ -689,6 +694,10 @@ class JourneyService(
 
             is Action.AdoptCredential -> {
                 val enrolled = action.outcome
+                // Same declaration check as the identity branches: the enrolled claims aren't
+                // logged to account_attribute yet (that write path is 4vd.8), but the contract
+                // between descriptor and handler holds from day one.
+                assertClaimsCovered(action.tool, enrolled.claims)
                 // Enrollment with no account yet (REGISTER "Enrollment zuerst",
                 // docs/04-orchestrierung.md) - one is created lazily, right here, on the FIRST
                 // completed enrollment: no enroll tool's own PATCH handler needs an account to
