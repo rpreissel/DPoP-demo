@@ -114,6 +114,10 @@ class AccountServiceTest : BehaviorSpec({
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
+        val account = Account(personId = null, createdAt = Instant.now()).apply { id = 7L }
+        every { accountRepository.findByIdOrNull(7L) } returns account
+        every { accountRepository.save(account) } returns account
+
         val savedAttributes = mutableListOf<AccountAttribute>()
         every { accountAttributeRepository.save(capture(savedAttributes)) } answers { savedAttributes.last() }
         val savedAnchors = mutableListOf<AccountAnchor>()
@@ -126,8 +130,11 @@ class AccountServiceTest : BehaviorSpec({
                 claim = Claim(AttributeType.EMAIL, "  Max@Example.COM ", TrustAnchor.SELF_REPORTED, AcrLevel.LOA1)
             )
 
-            then("the claim is logged raw, its anchor materialized normalized") {
+            then("the claim is logged raw, the projection consolidates, its anchor materializes normalized") {
                 savedAttributes.single().value shouldBe "  Max@Example.COM "
+                account.email shouldBe "  Max@Example.COM "
+                account.emailConfirmedAt.shouldNotBeNull()
+                verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
                 savedAnchors shouldHaveSize 1
                 savedAnchors.single().accountId shouldBe 7L
                 savedAnchors.single().anchorType shouldBe "email"

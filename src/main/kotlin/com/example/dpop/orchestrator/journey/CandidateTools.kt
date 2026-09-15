@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.journey
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.policy.CandidateContext
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolId
@@ -45,12 +46,12 @@ internal object CandidateTools {
         ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role == MethodRole.LOOKUP_AUTH }.map { it.toolId })
 
     /**
-     * The enrollment tool that turns an unconfirmed account email into a confirmed one - declared
-     * by the module via [com.example.dpop.tool_spi.ToolDescriptor.confirmsAccountEmail], never
-     * matched by toolId here.
+     * The enrollment tool that asserts a confirmed email about its subject - declared by the
+     * module via [com.example.dpop.tool_spi.ToolDescriptor.claims] (an EMAIL
+     * [com.example.dpop.tool_spi.ClaimDeclaration]), never matched by toolId here.
      */
     fun forEmailConfirmation(ctx: JourneyContext): List<ToolId> =
-        ctx.filterAvailable(ctx.catalog.descriptors().filter { it.confirmsAccountEmail }.map { it.toolId })
+        ctx.filterAvailable(ctx.catalog.descriptors().filter { it.claims.any { c -> c.attributeType == AttributeType.EMAIL } }.map { it.toolId })
 
     /**
      * The device-bound AUTH tool for a credential that lives on THIS physical device, if the

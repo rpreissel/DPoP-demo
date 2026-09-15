@@ -1,8 +1,9 @@
 package com.example.dpop.auth_email.internal.authemaillookup
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.AuthEmailLookupDescriptor
+import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
@@ -13,10 +14,10 @@ import java.util.UUID
 /**
  * toolId=auth-email-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - proves possession of
  * the account's confirmed email address without the account already being known via the
- * channel. [submitEmail] resolves the account from the submitted address itself, via the declared
- * `auth_email -> account` dependency (see ModuleMetadata) - unlike AuthSmsLookupToolHandler,
- * which still receives a pre-resolved accountId because it only needs an opaque account handle,
- * not the email semantics this module owns.
+ * channel. [submitEmail] resolves the account from the submitted address itself, through the
+ * generic anchor ports (`resolveByAnchor`/`anchorValue`, same normalized lookup the write side
+ * uses) - unlike AuthSmsLookupToolHandler, which still receives a pre-resolved accountId because
+ * it only needs an opaque account handle, not the email semantics this module owns.
  *
  * Pure business logic; self-description lives in [AuthEmailLookupDescriptor] (DPoP-demo-vun).
  * Delegates the code-vs-state decision to [AuthEmailLookupFlow].
@@ -25,7 +26,7 @@ import java.util.UUID
 class AuthEmailLookupToolHandler(
     private val descriptor: AuthEmailLookupDescriptor,
     private val toolDataRepository: AuthEmailLookupToolDataRepository,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
@@ -36,8 +37,8 @@ class AuthEmailLookupToolHandler(
     }
 
     /**
-     * Resolves [email] against the account store itself (declared `auth_email -> account`
-     * dependency, see ModuleMetadata).
+     * Resolves [email] through the generic anchor ports (same normalized lookup the write side
+     * uses).
      *
      * **Enumeration protection** (docs/04-orchestrierung.md): an unknown or not-yet-confirmed
      * address must be indistinguishable from a known one. Both branches below therefore issue a
@@ -54,9 +55,8 @@ class AuthEmailLookupToolHandler(
     fun submitEmail(toolSessionId: UUID, email: String, throttled: Boolean): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-email-lookup tool session: $toolSessionId" }
 
-        val account = accountService.findAccountByEmail(email).takeUnless { throttled }
-        val confirmedEmail = account?.takeIf { it.emailConfirmed }?.email
-        val resolvedAccountId = account?.accountId.takeIf { confirmedEmail != null }
+        val resolvedAccountId = accountDirectory.resolveByAnchor(AnchorType.Email, email).takeUnless { throttled }
+        val confirmedEmail = resolvedAccountId?.let { accountDirectory.anchorValue(it, AnchorType.Email) }
 
         val issued = emailCodeGenerator.issue()
         data.accountId = resolvedAccountId

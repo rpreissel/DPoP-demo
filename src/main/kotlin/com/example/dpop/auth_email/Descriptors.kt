@@ -28,11 +28,11 @@ object EnrollEmailDescriptor : ToolDescriptor {
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = AcrLevel.LOA1
     // The confirmed address this enrollment asserts about its subject, carried as a claim on
-    // Completed.Enrolled (typed counterpart to the CONFIRMED_EMAIL_AUDIT_KEY blob, which stays
-    // until the anchor write path replaces confirmEmail - 4vd.8). The proof is this tool's own
-    // code exchange, hence the tool itself as trust anchor.
+    // Completed.Enrolled - the generic Action.AdoptCredential handling records it
+    // (AccountService.recordClaim), which consolidates the account.email projection, its anchor
+    // and the AccountChanged event in one write. The proof is this tool's own code exchange,
+    // hence the tool itself as trust anchor.
     override val claims = setOf(ClaimDeclaration(AttributeType.EMAIL, TrustAnchor.of(toolId)))
-    override val confirmsAccountEmail = true
 }
 
 @Component

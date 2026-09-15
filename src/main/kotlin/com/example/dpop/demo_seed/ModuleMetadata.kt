@@ -8,10 +8,10 @@ import org.springframework.modulith.ApplicationModule
  * demonstrate. Its own module (not tucked into `auth_email`) because there never was a real
  * boundary reason to hide it there - see `AccountService.confirmEmail`'s own doc: nothing in
  * Spring Modulith or `DpopApplicationTests.modulithStructureIsValid` restricts calling a public
- * method on a module one is allowed to depend on. `auth_email`'s claim of being "the one module
- * that may call confirmEmail" was never build-checked, and `JourneyService` already calls it too
- * (generic `Action.AdoptCredential` handling) - this module is simply a second, equally direct
- * caller for a different reason (bootstrap seeding instead of a live enrollment).
+ * method on a module one is allowed to depend on. The live enrollment path consolidates emails
+ * generically itself (`Action.AdoptCredential` -> `AccountService.recordClaim`); this module is
+ * simply a second, equally direct consolidation caller for a different reason (bootstrap
+ * seeding instead of a live enrollment).
  *
  * `account` for `confirmEmail`/`addAuthenticationMethod`/`findOrCreateAccount`; `tool_api` for
  * `PersonDirectory` (resolves the seeded persons) and `PasswordCredentialPort` (sets the demo

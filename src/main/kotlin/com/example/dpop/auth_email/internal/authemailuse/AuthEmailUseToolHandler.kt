@@ -1,8 +1,9 @@
 package com.example.dpop.auth_email.internal.authemailuse
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
-import com.example.dpop.account.AccountService
 import com.example.dpop.auth_email.AuthEmailUseDescriptor
+import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import com.example.dpop.tool_spi.demoData
@@ -14,11 +15,12 @@ import java.util.UUID
 /**
  * toolId=auth-email (device-linked case only for now - see docs/03-tool-architektur.md).
  *
- * No EnrollmentRef involved: the confirmed address lives directly on Account, so [start] reads it
- * from there itself via the declared `auth_email -> account` dependency (see ModuleMetadata).
- * Where AuthSmsUseToolHandler resolves an EnrollmentRef into its own enrollment row, this tool
- * resolves an accountId into the account's address - the same shape, against the store that
- * actually holds this credential.
+ * No EnrollmentRef involved: the confirmed address is the account's canonical email attribute,
+ * so [start] reads it through the generic `anchorValue` port. Where AuthSmsUseToolHandler
+ * resolves an EnrollmentRef into its own enrollment row, this tool resolves an accountId into
+ * the account's address - the same shape, against the anchor projection that actually holds
+ * this credential. No `account` dependency: auth_email hangs on tool_spi/tool_api alone like
+ * every other method module.
  *
  * Pure business logic; self-description lives in [AuthEmailUseDescriptor] (DPoP-demo-vun).
  * Delegates the code-vs-state decision to [AuthEmailUseFlow].
@@ -27,7 +29,7 @@ import java.util.UUID
 class AuthEmailUseToolHandler(
     private val descriptor: AuthEmailUseDescriptor,
     private val toolDataRepository: AuthEmailUseToolDataRepository,
-    private val accountService: AccountService,
+    private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
@@ -40,8 +42,9 @@ class AuthEmailUseToolHandler(
      */
     @Transactional
     fun start(toolSessionId: UUID, accountId: Long): ToolOutcome {
-        val account = accountService.findAccount(accountId)
-        val email = account?.takeIf { it.emailConfirmed }?.email
+        // Returns the normalized confirmed address from the anchor projection, or null when
+        // none was ever established for this account.
+        val email = accountDirectory.anchorValue(accountId, AnchorType.Email)
             ?: throw UnresolvableReferenceException("Keine bestaetigte E-Mail-Adresse fuer diesen Account")
 
         val issued = emailCodeGenerator.issue()

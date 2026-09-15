@@ -30,7 +30,6 @@ import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
-import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -694,16 +693,15 @@ class JourneyService(
 
             is Action.AdoptCredential -> {
                 val enrolled = action.outcome
-                // Same declaration check as the identity branches: the enrolled claims aren't
-                // logged to account_attribute yet (that write path is 4vd.8), but the contract
-                // between descriptor and handler holds from day one.
+                // Same declaration check as the identity branches - the descriptor↔handler
+                // contract holds for every adopting tool, and the claims are recorded right
+                // below.
                 assertClaimsCovered(action.tool, enrolled.claims)
                 // Enrollment with no account yet (REGISTER "Enrollment zuerst",
                 // docs/04-orchestrierung.md) - one is created lazily, right here, on the FIRST
                 // completed enrollment: no enroll tool's own PATCH handler needs an account to
-                // already exist mid-flow (enroll-email's former exception was removed - see
-                // ToolDescriptor.confirmsAccountEmail's own doc), so this is always safe to defer
-                // to here. A channel that never gets this far leaves no orphan account behind
+                // already exist mid-flow, so this is always safe to defer to here. A channel
+                // that never gets this far leaves no orphan account behind
                 // (`deleteIfAbandonedUnidentified`, `fallBack`).
                 val accountId = journey.accountId ?: channel.accountId
                     ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
@@ -715,16 +713,12 @@ class JourneyService(
                 // `label` is lifted into its own field rather than staying in the generic details
                 // blob, so the API can surface it without clients reaching into details.
                 val label = enrolled.auditDetails?.get("label") as? String
-                // Same reasoning as `label`: a tool this generic about ENROLLMENT can't write
-                // Account itself (module boundary, ToolDescriptor.confirmsAccountEmail's own doc) -
-                // done here, before this method returns, so the very next context rebuild
-                // (JourneyEvent.ActionCompleted) already sees the confirmed email.
-                if (action.tool.confirmsAccountEmail) {
-                    val email = checkNotNull(enrolled.auditDetails?.get(CONFIRMED_EMAIL_AUDIT_KEY) as? String) {
-                        "${action.tool.toolId} confirms the account email but reported none in auditDetails"
-                    }
-                    accountService.confirmEmail(accountId, email)
-                }
+                // Every claim this enrollment asserted lands in the account's identity log
+                // (AccountService.recordClaim); an EMAIL claim additionally consolidates the
+                // canonical projection column, its anchor and the AccountChanged event. Done
+                // here, before this method returns, so the very next context rebuild
+                // (JourneyEvent.ActionCompleted) already sees it.
+                enrolled.claims.forEach { accountService.recordClaim(accountId, it) }
                 // What the environment already established BEFORE this completion (recordToolCompletion
                 // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
                 // session yet (REGISTER "Enrollment zuerst" with no identification at all,
@@ -761,7 +755,7 @@ class JourneyService(
                     action.tool.method,
                     enrolled.enrollmentRef,
                     enrolledUnderAcr = enrolledUnderAcr.value,
-                    details = enrolled.auditDetails.orEmpty().minus(listOf("label", CONFIRMED_EMAIL_AUDIT_KEY)) + mapOf(
+                    details = enrolled.auditDetails.orEmpty().minus("label") + mapOf(
                         "enrolledUnderAmr" to evidence.currentAmr,
                         "channel" to channel.channel?.name
                     ),

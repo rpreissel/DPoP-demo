@@ -10,6 +10,7 @@ import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AnchorType
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
 import java.time.Instant
@@ -54,12 +55,15 @@ class AccountService(
      * Appends a claim to the account's identity log
      * (docs/ideen/claims-modell-und-vertrauensanker.md, Phase 1) - the typed counterpart of what
      * `Completed.Identified`/`Completed.Enrolled` now carry as [Claim]. Never overwrites a prior
-     * claim: `account`'s own columns stay the actively consolidated projection, written straight
-     * through by the existing paths (`findOrCreateAccount`, `bindPersonId`, `confirmEmail`);
-     * nothing reads the log back yet. When something eventually does, consolidation prefers
-     * anchor class over recency - recency is only the tiebreaker within one anchor class
-     * (ADR-11, docs/12-entscheidungen.md). Anchor-role claims additionally materialize their
-     * `account_anchor` row ([recordAnchor]) - the resolve-identity projection, not provenance.
+     * claim; the log is provenance. EMAIL is the first claim type consolidated synchronously:
+     * [consolidateEmail] writes the canonical projection column, the anchor and the
+     * [AccountChanged] event. Every other attribute keeps `account`'s own columns as the
+     * actively consolidated projection, written straight through by the existing paths
+     * (`findOrCreateAccount`, `bindPersonId`); nothing reads their log rows back yet. When
+     * something eventually does, consolidation prefers anchor class over recency - recency is
+     * only the tiebreaker within one anchor class (ADR-11, docs/12-entscheidungen.md).
+     * Anchor-role claims additionally materialize their `account_anchor` row ([recordAnchor]) -
+     * the resolve-identity projection, not provenance.
      */
     @Transactional
     fun recordClaim(accountId: Long, claim: Claim) {
@@ -74,7 +78,30 @@ class AccountService(
                 establishedAt = establishedAt
             )
         )
-        AnchorType.of(claim.attributeType)?.let { recordAnchor(accountId, it, claim.value, establishedAt) }
+        if (claim.attributeType == AttributeType.EMAIL) {
+            consolidateEmail(accountId, claim.value, establishedAt)
+        } else {
+            AnchorType.of(claim.attributeType)?.let { recordAnchor(accountId, it, claim.value, establishedAt) }
+        }
+    }
+
+    /**
+     * Synchronously consolidates the canonical email projection - column, anchor and event -
+     * from a proven EMAIL claim (enroll-email via [recordClaim]) or a bootstrap seed
+     * ([confirmEmail]). Fires [AccountChanged] because Keycloak mirrors this attribute (the
+     * sync listener re-reads the account). Behavior is identical to what `confirmEmail` did
+     * before the claims write path went generic.
+     */
+    private fun consolidateEmail(accountId: Long, email: String, confirmedAt: Instant): AccountProfile {
+        val account = getOrThrow(accountId)
+        account.email = email
+        account.emailConfirmedAt = confirmedAt
+        val profile = toProfile(accountRepository.save(account))
+        // The email anchor follows the canonical projection column - same ownership, one
+        // write: stored in the anchor's normalized form while the raw column stays raw.
+        recordAnchor(accountId, AnchorType.Email, email, confirmedAt)
+        eventPublisher.publishEvent(AccountChanged(accountId))
+        return profile
     }
 
     /**
@@ -260,37 +287,19 @@ class AccountService(
     fun existsByEmail(email: String): Boolean = accountRepository.existsByEmail(email)
 
     /**
-     * Two unrelated direct callers, both legitimate - Spring Modulith has no method-level access
-     * control, only the module-level `allowedDependencies` check
-     * (`DpopApplicationTests.modulithStructureIsValid`), so anything allowed to depend on `account`
-     * may call this:
-     * - `JourneyService`'s own `Action.AdoptCredential` handling, generically, for any tool
-     *   descriptor declaring `ToolDescriptor.confirmsAccountEmail`. `EnrollEmailToolHandler` itself
-     *   never writes `Account` directly - it only hands the confirmed address through in
-     *   `Completed.Enrolled.auditDetails` (`CONFIRMED_EMAIL_AUDIT_KEY`), which is what lets the
-     *   account behind an enrollment be resolved lazily (no enroll tool handler needs one to
-     *   already exist mid-PATCH).
-     * - `demo_seed`'s `KcDemoAccountSeeder`, once at startup, to bootstrap the `keycloak` profile's
-     *   seeded test persons with a confirmed email before any real enrollment ever runs.
+     * Bootstrap special case of the claims write path - the live path is generic:
+     * `JourneyService`'s `Action.AdoptCredential` handling records every enrolled claim via
+     * [recordClaim], and an EMAIL claim lands in [consolidateEmail]. What remains here is
+     * `demo_seed`'s `KcDemoAccountSeeder`, once at startup, to give the `keycloak` profile's
+     * seeded test persons a confirmed email before any real enrollment ever runs.
      *
      * The confirmed email is still the account's identifier, not a swappable credential -
-     * `auth_email` keeps its `account`-module dependency regardless (its other handlers still read
-     * full `AccountProfile` data `AccountDirectory` deliberately doesn't expose), it just isn't the
-     * caller of this particular method.
+     * `auth_email` no longer depends on `account` at all since it reads and writes through the
+     * generic anchor ports and claims.
      */
     @Transactional
-    fun confirmEmail(accountId: Long, email: String): AccountProfile {
-        val account = getOrThrow(accountId)
-        val confirmedAt = Instant.now()
-        account.email = email
-        account.emailConfirmedAt = confirmedAt
-        val profile = toProfile(accountRepository.save(account))
-        // The email anchor follows the canonical projection column - same ownership, one
-        // write: stored in the anchor's normalized form while the raw column stays raw.
-        recordAnchor(accountId, AnchorType.Email, email, confirmedAt)
-        eventPublisher.publishEvent(AccountChanged(accountId))
-        return profile
-    }
+    fun confirmEmail(accountId: Long, email: String): AccountProfile =
+        consolidateEmail(accountId, email, Instant.now())
 
     @Transactional(readOnly = true)
     fun findActiveMethod(accountId: Long, method: String): AuthMethodView? =

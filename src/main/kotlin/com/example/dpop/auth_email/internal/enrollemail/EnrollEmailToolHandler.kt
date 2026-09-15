@@ -3,9 +3,9 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
-import com.example.dpop.tool_spi.CONFIRMED_EMAIL_AUDIT_KEY
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.TrustAnchor
@@ -21,16 +21,12 @@ import java.util.UUID
  * mail send, exactly like the mock SMS gateway.
  *
  * Unlike enroll-sms/enroll-password, the confirmed value is NOT stored in a module-owned
- * enrollment table referenced via EnrollmentRef - it lives directly on Account (deliberate
- * exception, same treatment as Account.personId: a single canonical account attribute, not a
- * swappable per-enrollment credential). [enrollmentRef] returned here is therefore a fixed,
- * inert placeholder.
- *
- * This handler no longer writes that value onto `Account` itself - it hands the confirmed address
- * through in `Completed.Enrolled.auditDetails` (same idiom `enroll-device`'s `deviceBindingKeyRef`/
- * `enroll-sms`'s `providerMsgId` already use), and `JourneyService`'s generic `Action.
- * AdoptCredential` handling calls `AccountService.confirmEmail` from there, gated by
- * `ToolDescriptor.confirmsAccountEmail`. This is what lets REGISTER "Enrollment zuerst"
+ * enrollment table referenced via EnrollmentRef - it is the account's canonical email attribute,
+ * the first anchor-role application of the claims model (docs/ideen/
+ * claims-modell-und-vertrauensanker.md). It is therefore asserted as a typed EMAIL claim on
+ * `Completed.Enrolled`, which `JourneyService`'s generic `Action.AdoptCredential` handling
+ * records via `AccountService.recordClaim` - consolidating the projection column, the anchor
+ * and the AccountChanged event. This is what lets REGISTER "Enrollment zuerst"
  * (docs/04-orchestrierung.md) create the account lazily, on first `AdoptCredential`, instead of
  * needing one to already exist before this tool's own PATCH can even run - this was the ONE enroll
  * handler in the whole catalog that needed an account mid-PATCH; every other one already operates
@@ -78,10 +74,11 @@ class EnrollEmailToolHandler(
             is EnrollEmailDecision.Unchanged -> outcomeFor(decision.state)
 
             is EnrollEmailDecision.RequestCode -> {
-                // Queried directly rather than handed in pre-resolved by the controller - only a
-                // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port (every
-                // other method module's own account access) is enough; no `account` dependency needed.
-                if (accountDirectory.resolveAccountByEmail(decision.email) != null) {
+                // Queried through the generic anchor port - the same normalized lookup the write
+                // side uses, so "already taken" can't be raced past via case tricks; only a
+                // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port
+                // (every other method module's own account access) is enough.
+                if (accountDirectory.resolveByAnchor(AnchorType.Email, decision.email) != null) {
                     ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
                 } else if (sendThrottled) {
                     ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")
@@ -103,20 +100,18 @@ class EnrollEmailToolHandler(
             }
 
             is EnrollEmailDecision.Complete -> ToolOutcome.Completed.Enrolled(
-                enrollmentRef = EnrollmentRef(type = "account_email", id = "self"),
+                // The anchor IS the durable reference here: it binds this method instance to the
+                // actual confirmed value instead of an inert placeholder, so the singleton
+                // idempotency check in `addAuthenticationMethod` matches on the real thing.
+                enrollmentRef = EnrollmentRef(type = "email", id = decision.email),
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,
                 claims = listOf(
-                    // The typed counterpart to the CONFIRMED_EMAIL_AUDIT_KEY blob below: this
-                    // enrollment asserts a proven email. The code exchange itself IS the
+                    // This enrollment asserts a proven email. The code exchange itself IS the
                     // proof, hence this tool's own id as the trust anchor.
                     Claim(AttributeType.EMAIL, decision.email, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
-                ),
-                // JourneyService's Action.AdoptCredential handling confirms this onto Account
-                // itself (ToolDescriptor.confirmsAccountEmail) - see class doc for why this
-                // handler no longer writes it directly.
-                auditDetails = mapOf(CONFIRMED_EMAIL_AUDIT_KEY to decision.email)
+                )
             )
         }
     }

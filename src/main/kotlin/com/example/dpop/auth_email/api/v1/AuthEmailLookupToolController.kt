@@ -2,6 +2,7 @@ package com.example.dpop.auth_email.api.v1
 
 import com.example.dpop.auth_email.internal.authemaillookup.AuthEmailLookupToolHandler
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
@@ -111,13 +112,13 @@ class AuthEmailLookupToolController(
         // flow at a fresh code, so an old one has nothing left to be checked against.
         val outcome = if (body.email != null) {
             // Resolved here only to key the throttle - the handler still owns the e-mail
-            // semantics (confirmed vs. merely known) via its declared `auth_email -> account`
-            // dependency. A locked OR send-throttled account is passed as `throttled` rather than
-            // raised as an error, so the response stays indistinguishable from an unknown address.
+            // semantics (confirmed vs. merely known) through the generic anchor ports. A
+            // locked OR send-throttled account is passed as `throttled` rather than raised
+            // as an error, so the response stays indistinguishable from an unknown address.
             // isSendThrottled bounds the resend itself (ToolEndpoint.isSendThrottled): resubmitting
             // the same email restarts the flow with a fresh code every time, so without this an
             // attacker who merely knows the address could flood the victim's inbox with real mail.
-            val resolvedAccountId = accountDirectory.resolveAccountByEmail(body.email)
+            val resolvedAccountId = accountDirectory.resolveByAnchor(AnchorType.Email, body.email)
             val throttled = resolvedAccountId?.let {
                 toolEndpoint.isLockedOut(it) || toolEndpoint.isSendThrottled(it)
             } ?: false
