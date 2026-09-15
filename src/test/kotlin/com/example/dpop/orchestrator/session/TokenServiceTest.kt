@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.tool_api.PersonDirectory
@@ -44,8 +45,8 @@ class TokenServiceTest : BehaviorSpec({
     fun evidence(accountId: Long? = 42L) = AuthEvidence(accountId = accountId).apply {
         addAmr(
             listOf(
-                MethodEvidence(MethodName("sms"), AcrLevel("loa1"), amrSourceId = "auth-sms", source = AmrSource.ORCHESTRATOR),
-                MethodEvidence(MethodName("password"), AcrLevel("loa1"), amrSourceId = "auth-password", source = AmrSource.ORCHESTRATOR),
+                MethodEvidence(MethodName("sms"), AcrLevels.LOA1, amrSourceId = "auth-sms", source = AmrSource.ORCHESTRATOR),
+                MethodEvidence(MethodName("password"), AcrLevels.LOA1, amrSourceId = "auth-password", source = AmrSource.ORCHESTRATOR),
             )
         )
     }
@@ -57,7 +58,7 @@ class TokenServiceTest : BehaviorSpec({
         return service
     }
 
-    fun policy(acr: AcrLevel = AcrLevel("loa2")): AuthPolicy {
+    fun policy(acr: AcrLevel = AcrLevels.LOA2): AuthPolicy {
         val policy = mockk<AuthPolicy>()
         every { policy.resolveAcr(any(), any()) } returns acr
         return policy

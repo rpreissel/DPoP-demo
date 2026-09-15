@@ -304,7 +304,7 @@ sealed interface Action {
              * `ManageAuthMethodsStrategy`.
              */
             fun requiredAcr(account: AccountProfile?): AcrLevel =
-                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevel("loa2")
+                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevels.LOA2
         }
     }
 }

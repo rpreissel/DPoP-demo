@@ -12,6 +12,7 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -97,10 +98,10 @@ class LookupLoginStrategyTest : BehaviorSpec({
         }
 
         `when`("resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
-            val acc = account(method("sms", "loa1"))
+            val acc = account(method("sms", AcrLevels.LOA1))
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("delegates to the same settle-or-raise check as any other proof") {
-                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel("loa2"))
+                val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevels.LOA2)
                 strategy.transition(LookupLoginState.Start, event, theCtx) shouldBe Transition.To(LookupLoginState.OfferBinding(acc.accountId))
             }
         }
@@ -133,8 +134,8 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
     given("Credential/AdditionalFactor, a proof just completed (settleOrRaise, after ActionCompleted)") {
         `when`("the floor is already satisfied") {
-            val acc = account(method("sms", "loa1"))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel("loa1"))
+            val acc = account(method("sms", AcrLevels.LOA1))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA1)
             then("offers the optional device-binding prompt") {
                 strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.To(LookupLoginState.OfferBinding(acc.accountId))
@@ -142,8 +143,8 @@ class LookupLoginStrategyTest : BehaviorSpec({
         }
 
         `when`("the floor is not yet satisfied, but another active method can help") {
-            val acc = account(method("sms", "loa2"), method("password", "loa2"))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel("loa2"))
+            val acc = account(method("sms", AcrLevels.LOA2), method("password", AcrLevels.LOA2))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA2)
             then("offers it via AdditionalFactor") {
                 strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.To(LookupLoginState.AdditionalFactor(listOf(ToolId("auth-password"))))
@@ -151,24 +152,24 @@ class LookupLoginStrategyTest : BehaviorSpec({
         }
 
         `when`("nothing active can help, but re-identification could") {
-            val acc = account(method("sms", "loa2"))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel("loa2"))
+            val acc = account(method("sms", AcrLevels.LOA2))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevels.LOA2)
             then("requires the shared RE_IDENTIFY sub-journey - it only re-confirms this account, never adopts a different one") {
                 strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.RE_IDENTIFY,
-                        seedWith = ReIdentifyState.forSubJourney(AcrLevel("loa2"), AcrLevel("loa1")),
+                        seedWith = ReIdentifyState.forSubJourney(AcrLevels.LOA2, AcrLevels.LOA1),
                         resumeWith = LookupLoginState.Start
                     )
             }
         }
 
         `when`("nothing can help at all, not even re-identification (backend-disabled)") {
-            val acc = account(method("sms", "loa2"))
+            val acc = account(method("sms", AcrLevels.LOA2))
             val theCtx = ctx(
                 account = acc,
                 evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-                acrFloor = AcrLevel("loa2"),
+                acrFloor = AcrLevels.LOA2,
                 availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"))
             )
             then("aborts with a reason - never a silent enrollment fallback (this intent has none)") {

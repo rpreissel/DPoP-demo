@@ -725,7 +725,7 @@ class JourneyService(
                 // silently escalate past what was ever really established - exactly the
                 // self-escalation ADR-5 exists to prevent.
                 val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
-                val enrolledUnderAcr = if (environmentAcr == AcrLevel("none")) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+                val enrolledUnderAcr = if (environmentAcr == AcrLevels.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
                 // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
                 // more than the session had actually established, so the credential just created is
                 // quietly weaker than its catalog entry suggests - visible here once, at the moment
@@ -1039,7 +1039,7 @@ class JourneyService(
 
     /** Live, not cached (docs/orchestrator/policy/AuthEvidence.kt): `currentAcr` is never stored, only ever recomputed from the evidence that's actually there. */
     private fun currentAcrOf(channel: ChannelSession): AcrLevel {
-        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return AcrLevel("none")
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return AcrLevels.NONE
         val account = channel.accountId?.let { accountService.findAccount(it) }
         return authPolicy.resolveAcr(evidence.toCoreEvidence(), account)
     }

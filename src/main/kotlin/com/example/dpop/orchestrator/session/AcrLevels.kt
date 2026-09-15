@@ -6,13 +6,18 @@ package com.example.dpop.orchestrator.session
  * fixes the ordering of the known level names, not what earns them.
  */
 object AcrLevels {
+    val NONE = AcrLevel("none")
+    val LOA1 = AcrLevel("loa1")
+    val LOA2 = AcrLevel("loa2")
+    val LOA3 = AcrLevel("loa3")
+
     /**
      * Baseline floor when neither the channel nor a step-up process names one explicitly. Not
      * `const` any more: an [AcrLevel] value class can't be a compile-time constant the way the
      * plain `String` it replaced could - every former call site already only ever read this at
      * runtime, so nothing here actually depended on that.
      */
-    val DEFAULT_REQUIRED_ACR = AcrLevel("loa1")
+    val DEFAULT_REQUIRED_ACR = LOA1
 
     private val order = listOf("none", "loa1", "loa2", "loa3")
 

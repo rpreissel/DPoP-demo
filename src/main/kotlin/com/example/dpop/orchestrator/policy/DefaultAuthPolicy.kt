@@ -63,7 +63,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      */
     private fun identityAssuranceLevel(evidence: AuthEvidence): AcrLevel {
         val reachable = evidence.factors.filter { it.axis == EvidenceAxis.IDENTITY }
-            .maxOfOrNull { AcrLevels.rank(it.loa) } ?: return AcrLevel("none")
+            .maxOfOrNull { AcrLevels.rank(it.loa) } ?: return AcrLevels.NONE
         return AcrLevel(AcrLevels.levelAt(reachable))
     }
 
@@ -221,7 +221,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 
     /** Highest loa among [factors]' own per-method claims - see [MethodEvidence.loa]. */
     private fun baseAcr(factors: List<MethodEvidence>): AcrLevel {
-        val reachable = factors.maxOfOrNull { AcrLevels.rank(it.loa.value) } ?: return AcrLevel("none")
+        val reachable = factors.maxOfOrNull { AcrLevels.rank(it.loa.value) } ?: return AcrLevels.NONE
         return AcrLevel(AcrLevels.levelAt(reachable))
     }
 
@@ -279,7 +279,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     private fun combinedAcr(base: String, distinctMethods: Int, factorTypesUnion: Set<FactorType>, maxEnrolledUnderAcr: String): String {
         if (distinctMethods < 2 || factorTypesUnion.size < 2) return base
         val bumped = AcrLevels.min(AcrLevels.bump(base), maxEnrolledUnderAcr)
-        return AcrLevels.max(base, AcrLevels.min(bumped, NIST_COMBINATION_CEILING))
+        return AcrLevels.max(base, AcrLevels.min(bumped, NIST_COMBINATION_CEILING.value))
     }
 
     private fun descriptorFor(method: String): ToolDescriptor? = toolRegistry.descriptors().firstOrNull { it.method == method }
@@ -287,9 +287,9 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     private fun requiresMfa(requiredAcr: AcrLevel) = AcrLevels.rank(requiredAcr) >= AcrLevels.rank(MFA_FROM_ACR)
 
     companion object {
-        private const val MFA_FROM_ACR = "loa3"
+        private val MFA_FROM_ACR = AcrLevels.LOA3
 
         /** See [combinedAcr]'s doc: the highest level the generic two-factor-combination bump may ever produce. */
-        private const val NIST_COMBINATION_CEILING = "loa2"
+        private val NIST_COMBINATION_CEILING = AcrLevels.LOA2
     }
 }

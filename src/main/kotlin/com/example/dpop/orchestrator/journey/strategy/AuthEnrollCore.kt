@@ -132,7 +132,7 @@ internal object AuthEnrollCore {
         }
     }
 
-    private val ENROLLMENT_FLOOR_ACR = AcrLevel("loa2")
+    private val ENROLLMENT_FLOOR_ACR = AcrLevels.LOA2
 
     /**
      * On a mandatory state, backing out of a tool is not declining it - the obligation

@@ -155,7 +155,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
     }
 
     companion object {
-        val REQUIRED_ACR = AcrLevel("loa2")
+        val REQUIRED_ACR = AcrLevels.LOA2
 
         /** The two answers [ConfirmPeerLoginState.OfferLogout] understands (see JourneyEvent.Answered). */
         const val ACCEPT = "accept"

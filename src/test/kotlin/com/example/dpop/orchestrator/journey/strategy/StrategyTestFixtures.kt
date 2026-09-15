@@ -69,12 +69,12 @@ object StrategyTestFixtures {
 
     fun method(
         method: String,
-        enrolledUnderAcr: String,
+        enrolledUnderAcr: AcrLevel,
         active: Boolean = true,
         details: Map<String, Any?>? = null
     ) = AuthMethodView(
         id = "$method-instance", method = method, active = active,
-        createdAt = null, enrolledUnderAcr = enrolledUnderAcr, details = details
+        createdAt = null, enrolledUnderAcr = enrolledUnderAcr.value, details = details
     )
 
     /** A device credential's `details` map, matching what `CandidateTools.preferredDeviceAuth` looks for. */
@@ -89,7 +89,7 @@ object StrategyTestFixtures {
      */
     fun evidence(amr: List<String>, factorTypes: Set<FactorType>, account: AccountProfile? = null): AuthEvidence {
         val methodLoa = amr.associateWith { m ->
-            catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevels.rank(it.maxAcr) }?.maxAcr ?: "none"
+            catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevels.rank(it.maxAcr) }?.maxAcr ?: AcrLevels.NONE.value
         }
         val enrolledUnderAcr = account?.authenticationMethods
             ?.filter { it.method in amr }
@@ -102,7 +102,7 @@ object StrategyTestFixtures {
     fun ctx(
         account: AccountProfile? = null,
         evidence: AuthEvidence = AuthEvidence(emptyList()),
-        acrFloor: AcrLevel = AcrLevel("loa1"),
+        acrFloor: AcrLevel = AcrLevels.LOA1,
         bindingKeyRef: String = BINDING_KEY,
         // Defaults to "this device is already linked to the context's own account" - the ordinary
         // single-device scenario nearly every test wants; a test exercising a genuine device-rebind

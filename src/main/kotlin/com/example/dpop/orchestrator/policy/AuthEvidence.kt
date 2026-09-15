@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.orchestrator.session.AcrLevel
+import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolCategory
@@ -135,7 +136,7 @@ data class AuthEvidence(
             amr.distinct().map { m ->
                 MethodEvidence(
                     MethodName(m),
-                    methodLoa[m]?.let(::AcrLevel) ?: AcrLevel("none"),
+                    methodLoa[m]?.let(::AcrLevel) ?: AcrLevels.NONE,
                     enrolledUnderAcr[m]?.let(::AcrLevel),
                     factorTypes,
                     // Defaults to the stronger claim when a caller (mostly test fixtures) has no
