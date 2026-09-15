@@ -1,8 +1,10 @@
 # Idee: Claims-Modell mit Vertrauensanker statt fester `person_id`
 
-Status: **nicht umgesetzt, nur festgehalten**. Kein ADR (noch keine Entscheidung, nur eine Spur,
-der man später folgen kann) - deshalb hier unter `ideen/`, nicht unter
-[12-entscheidungen.md](../12-entscheidungen.md). Diese Fassung ist eine **Neuschreibung** der
+Status: **nicht umgesetzt, nur festgehalten**. Keine Beschreibung fertiger Architektur, nur
+eine Spur, der man folgt - deshalb hier unter `ideen/`, nicht unter
+[12-entscheidungen.md](../12-entscheidungen.md). Die drei fachlichen Grundfragen (Interessenten-
+Verzweigung, Merge-Verhalten, Retraktionsform) sind inzwischen allerdings entschieden:
+ADR-10 bis ADR-12. Diese Fassung ist eine **Neuschreibung** der
 Ursprungsidee (Entstehungsgeschichte im Anhang): Der akute Anlass, der sie ausgelöst hat, ist
 inzwischen im Code gelöst. Was bleibt, ist eine Struktur- und eine Skalierungsfrage. Deshalb ist
 das Dokument jetzt von zwei Fragen her aufgebaut statt von der Historie:
@@ -78,7 +80,8 @@ Drei Restgewinne der Idee bleiben vom gelösten Trigger unabhängig, plus zwei k
    Duplikat still anlegen. Unabhängig von der ganzen Idee nachrüstbar.
 5. **Keine Retraktion**: nichts im Modell drückt aus, dass ein Wert *zurückgezogen* wurde
    (KVNR abgemeldet, E-Mail verworfen). Das heutige `identifications`-Log wie auch jede simple
-   "Zeile pro Behauptung"-Form teilen diese Lücke.
+   "Zeile pro Behauptung"-Form teilen diese Lücke. Für das Zielbild ist die Negativ-Form inzwischen
+   entworfen und entschieden (ADR-12: eigene Retraktions-Zeile mit eigenem Vertrauensanker).
 
 ## Zielbild: Claims-Log plus gepflegte Projektion
 
@@ -136,8 +139,9 @@ Attribut desselben Accounts") mit "neuester gewinnt". Das widerspricht dem eigen
 2. **Rezenz nur als Tiebreaker** innerhalb derselben Klasse (`established_at`).
 
 Die kontoübergreifende Variante - derselbe `person_id`-Wert an zwei Accounts - ist damit nicht
-erledigt: zwei Accounts, die denselben Wert beanspruchen, sind vermutlich ein **Merge-Fall, kein
-Auto-Resolve** (offene Frage unten). Die Projektionstabelle trägt `UNIQUE (person_id)`; der
+erledigt: zwei Accounts, die denselben Wert beanspruchen, sind ein **Merge-Fall, kein
+Auto-Resolve** (entschieden als ADR-11: Abweisung der zweiten Bindung, Merge nie automatisiert).
+Die Projektionstabelle trägt `UNIQUE (person_id)`; der
 Konsolidierungsschritt für den zweiten Account schlägt dann fehl bzw. wird per Check erkannt.
 
 ### Abgrenzung
@@ -436,19 +440,26 @@ eines Schritts 0, der auch ohne die Idee lohnt:
 
 ## Offene Fragen
 
-- Ist "Interessent" ein eigener `AuthIntent` (eigene Journey, eigene States), oder verzweigt die
-  bestehende `REGISTER`-Journey nur je nachdem, ob das Identifizierungsverfahren einen Anker
-  liefert?
+Drei der ursprünglich sechs Fragen sind inzwischen entschieden und als ADR-10 bis ADR-12 in
+[12-entscheidungen.md](../12-entscheidungen.md) festgehalten:
+
+- **Interessenten-Lebenszyklus - entschieden (ADR-10)**: kein eigener `AuthIntent`; die
+  `REGISTER`-Journey verzweigt auf das Auflösungs-Ergebnis (`Resolution`), "Interessent" ist
+  ein Konto-Zustand (`person_id = NULL`, Claims vorhanden), keine Journey-Form.
+- **Retraktion - entschieden (ADR-12)**: eigene Widerrufs-Zeile (`account_retraction`) mit
+  eigenem Vertrauensanker, Grund und Zeitpunkt; das Behauptungs-Log bleibt strikt append-only,
+  der Tool-Vertrag positiv-only - Retraktionen kommen nur aus Konto-Verwaltung/Backend-Sync.
+- **Kontoübergreifender `person_id`-Konflikt - entschieden (ADR-11)**: Abweisung der zweiten
+  Bindung (409, keine Adoption, Konflikt im Journey-Abort dokumentiert); Merge nie
+  automatisiert, bewusst out of scope.
+
+Weiter offen:
+
 - `attribute_type`: geschlossene Liste (Enum, analog `FactorType`/`MethodRole` in `tool_spi`)
   oder offener String? Enum verhindert Tippfehler, macht das Schema weniger generisch.
-- **Retraktion**: wie drückt das Modell aus, dass ein Wert *zurückgezogen* wurde (KVNR
-  abgemeldet, E-Mail verworfen)? Append-only kennt nur Behauptungen, keine Widerrufe - eine
-  Negativ-Form ist definierbar, aber noch nicht entworfen.
 - **Normalisierungsregeln pro Ankerart**: wer definiert die kanonische Form (E-Mail-Klein-
   schreibung, Telefon-Kanonisierung)? `account_anchor.value` ist nur so gut wie seine
   Normalisierung - das ist fachlich zu entscheiden, nicht DB-Detailarbeit.
-- Der **kontoübergreifende `person_id`-Konflikt** ist ein Merge-Fall und sollte nicht per
-  Rangfolge automatisch aufgelöst werden - was stattdessen passiert, ist offen.
 - **Vertragsebene**: `ToolOutcome.Completed.Identified(personId: Long, ...)` benennt eine
   konkrete Referenz. Im Zielbild hat ein Interessent kein `personId` zu melden - der Fall
   müsste über behauptete Attribute statt Referenz ausgedrückt werden. Vor einer Umstellung ist
@@ -502,4 +513,6 @@ Skalierungsfrage (10M Konten), die zur Dreiteilung `account` / `account_anchor` 
 (`identifications`-JSON-Churn, `allAccountIds`-Vollabgleich). Später ergänzt: "Erster
 Anwendungsfall: E-Mail als Anker" (die Anker-Rolle am konkreten Sonderfall, inkl.
 Port-Operationen) und "Identitätsauflösung & Matching" (wer die Konto-Zuordnung entscheidet,
-wenn Tools nur bezeugen - EUDI-Wallet als Treiber).
+wenn Tools nur bezeugen - EUDI-Wallet als Treiber). Die daraus reifenden drei Grundfragen
+(Interessenten-Verzweigung, Merge-Abweisung, Retraktionsform) sind anschließend als ADR-10 bis
+ADR-12 entschieden worden.

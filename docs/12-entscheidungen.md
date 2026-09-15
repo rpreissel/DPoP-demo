@@ -339,3 +339,69 @@ Keycloak-Versions-Upgrade gegen die `server-spi-private`-Schnittstelle (bewusst 
 markiert, keine stabile Public-API-Garantie) mitgeprüft werden muss. Demo-only: Der Private Key
 liegt aktuell unverschlüsselt in der Datenbank (bekannte, offene Lücke, kein produktionsreifer
 Zustand).
+
+---
+
+## ADR-10: Interessent ist Konto-Zustand, kein eigener AuthIntent
+
+**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Umsetzung folgt): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bezeugte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `NewInteressent` / `Ambiguous`): Anker-Treffer bindet wie heute, Claims-only legt bzw. führt das Konto ohne `person_id` fort (Konsolidierung auf `NULL`), mehrdeutig geht an die Journey-Politik.
+
+**Erwogene Alternative**: Ein eigener `AuthIntent` mit eigener Journey, eigenen States und eigener Strategie — begründbar, falls Interessenten eine abweichende Politik bräuchten (kein Stammdaten-Abgleich von Anfang an, andere Enrollment-Angebote).
+
+**Warum diese**: `AuthIntent` benennt nach eigener Definition
+([AuthIntent.kt](../src/main/kotlin/com/example/dpop/orchestrator/journey/AuthIntent.kt)) ein Ziel
+samt Strategie, nie eine Beschreibung dessen, was ein Lauf geworden ist — "Interessent werden"
+ist kein Ziel, sondern das Ergebnis eines ID-Verfahrens, das keinen Anker geliefert hat. Der
+Journey-Verlauf ist für beide Ausgänge strukturell identisch: Nach der Identifizierung stehen
+dieselben Schritte an (Konto-Auflösung, dann Auth-/Enrollment-Angebote), nur die Konto-Auflösung
+selbst unterscheidet sich. Das heutige `ConfirmIdentity` behandelt den Fall `personId == null`
+bereits als Verzweigung innerhalb der bestehenden Journey (REGISTER "Enrollment zuerst",
+[Orchestrierung](04-orchestrierung.md) Abschnitt 2) — die Verallgemeinerung ändert die Form
+nicht, nur die Bezugsquelle (Claims statt dediziertem Feld). Ein eigener Intent verdoppelte
+zudem jede künftige Politik-Gabel (`STEP_UP`, `RE_IDENTIFY` auf Interessenten-Konten).
+
+**Preis**: Interessenten-spezifische Politik lebt als Verzweigungen in den bestehenden
+Strategien (analog `ConfirmDeviceRebind`) statt in einem eigenen Strategy-Objekt — die
+Strategien werden dadurch konditioneller, nicht übersichtlicher.
+
+---
+
+## ADR-11: Kontoübergreifender person_id-Konflikt ist Abweisung, Merge nie automatisiert
+
+**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Verhalten entspricht dem heutigen Code): Beanspruchen zwei Konten denselben `person_id`-Wert, wird die zweite Bindung abgewiesen (409, heutige Meldung "Diese Person ist bereits über ein anderes Konto registriert") und nichts adoptiert: keine Claim-Zeile, keine Konsolidierung, keine Anker-Schreibung; der Konflikt ist im Journey-Abort dokumentiert. Ein Merge der Konten ist nie automatisiert — keine Rangfolge, kein "stärkerer Anker gewinnt" über Kontgrenzen hinweg — sondern eine explizite, operator-getriebene Fähigkeit, die bewusst außerhalb des Claims-Modell-Umfangs bleibt. DB-seitig sichert `UNIQUE(person_id)` (partial, `WHERE person_id IS NOT NULL`) dieselbe Semantik für alle Schreibpfade ab.
+
+**Erwogene Alternative**: Die bezeugte Aussage trotzdem loggen und nur die Konsolidierung
+verweigern (Konflikt als abfragbarer Zustand, das Konto läuft als Interessent weiter); oder eine
+Review-Queue, die aus dem Konflikt einen manuellen Klärungsfall macht.
+
+**Warum diese**: False merge ist die teuerste Fehlerform des Modells — zwei verschiedene
+Menschen dauerhaft verknüpft — und sie zu vermeiden wiegt schwerer als der Verlust der
+bezeugten Aussage, die ephemer im Journey-Log nachweisbar bleibt. Die Abweisung entspricht dem
+heutigen, bewusst so gebauten Verhalten
+([State-Diagramme](demo/05-state-diagramme-intents.md), REGISTER-Abbruch bei Person mit
+Bestandskonto); die Entscheidung macht daraus ein Modell-Statement statt einen
+Implementierungszufall. Die Konsolidierungs-Rangfolge (Anker-Klasse vor Rezenz) gilt sehr wohl —
+aber innerhalb EINES Kontos, zwischen Quellen für dasselbe Konto; sie endet an der Kontgrenze.
+
+**Preis**: Der betroffene Nutzer kommt nicht weiter und nicht auf einem automatischen Weg —
+bis zu einer (ungebauten) Merge-Fähigkeit bleibt der Fall ein Support-Vorgang. Und die
+bezeugte Identifikation bleibt nur im ephemeren Journey-Log, nicht im Account-Log.
+
+---
+
+## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
+
+**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Umsetzung folgt): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account_retraction(account_id, attribute_type, value, trust_anchor, reason, retracted_at)`. Die Retraktion ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück (Stammdaten-Backend, Konto-Verwaltung, Operator), plus Grund und Zeitpunkt. Das Log (`account_attribute`) bleibt reine, strikt append-only Behauptungstabelle; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account_anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only, Quellen sind Konto-Verwaltung und Backend-Sync.
+
+**Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
+Claim-Zeile — eine Tabelle, einfachste Abfrage "gültige Werte", aber die einzige
+Nicht-Append-Mutation im Log.
+
+**Warum diese**: Das Integritätsargument des Modells — das Log ist die Quelle der Wahrheit und
+wird nie überschrieben — darf keine Ausnahme erhalten; jede In-place-Mutation, auch nur ein
+Zeitstempel, schwächt die Rekonstruierbarkeit ("was galt wann"). Eine Retraktions-Zeile trägt
+dieselbe Provenanz-Disziplin wie eine Behauptung (Anker, Grund, Zeitpunkt) und hält den
+Tool-Vertrag frei von Negativ-Formen: Tools bezeugen nur, Widerrufe sind Konto-Lebenszyklus.
+
+**Preis**: Zwei Formen statt eine — "gültiger Wert" ist immer eine Subtraktion über zwei
+Tabellen, und jeder Konsolidierungs- und Abfragepfad muss den Widerruf mitdenken.
