@@ -1,10 +1,13 @@
 package com.example.dpop.account
 
 import com.example.dpop.account.internal.Account
+import com.example.dpop.account.internal.AccountAttribute
+import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountIdentification
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
 import java.time.Instant
 import java.util.UUID
@@ -29,6 +32,7 @@ data class AccountDeleted(val accountId: Long)
 @Service
 class AccountService(
     private val accountRepository: AccountRepository,
+    private val accountAttributeRepository: AccountAttributeRepository,
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
 
@@ -40,6 +44,30 @@ class AccountService(
         val profile = toProfile(accountRepository.save(account))
         if (existing == null) eventPublisher.publishEvent(AccountChanged(profile.accountId))
         return profile
+    }
+
+    /**
+     * Appends a claim to the account's identity log
+     * (docs/ideen/claims-modell-und-vertrauensanker.md, Phase 1) - the typed counterpart of what
+     * `Completed.Identified`/`Completed.Enrolled` now carry as [Claim]. Never overwrites a prior
+     * claim: `account`'s own columns stay the actively consolidated projection, written straight
+     * through by the existing paths (`findOrCreateAccount`, `bindPersonId`, `confirmEmail`);
+     * nothing reads the log back yet. When something eventually does, consolidation prefers
+     * anchor class over recency - recency is only the tiebreaker within one anchor class
+     * (ADR-11, docs/12-entscheidungen.md).
+     */
+    @Transactional
+    fun recordClaim(accountId: Long, claim: Claim) {
+        accountAttributeRepository.save(
+            AccountAttribute(
+                accountId = accountId,
+                attributeType = claim.attributeType.wireName,
+                value = claim.value,
+                trustAnchor = claim.trustAnchor.value,
+                establishedLoa = claim.establishedLoa?.value,
+                establishedAt = Instant.now()
+            )
+        )
     }
 
     /**

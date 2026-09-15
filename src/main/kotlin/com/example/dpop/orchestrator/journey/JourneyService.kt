@@ -650,6 +650,10 @@ class JourneyService(
             is Action.AdoptIdentity -> {
                 val account = accountService.findOrCreateAccount(action.outcome.personId)
                 bindAccount(journey, channel, account.accountId)
+                // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
+                // identifying tool actually established, each with its own trust anchor - the
+                // account columns remain the projection, this is the append-only provenance record.
+                action.outcome.claims.forEach { accountService.recordClaim(account.accountId, it) }
                 recordIdentification(journey, channel, action.tool, action.outcome)
                 recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
             }
@@ -676,6 +680,9 @@ class JourneyService(
                     else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
                 }
                 bindAccount(journey, channel, accountId)
+                // Same claims-log append as AdoptIdentity above - also covers the first-ever
+                // identification of a previously unidentified account (bindPersonId branch).
+                action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
                 recordIdentification(journey, channel, action.tool, action.outcome)
                 recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
             }
