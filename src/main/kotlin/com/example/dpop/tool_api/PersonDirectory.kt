@@ -37,13 +37,18 @@ interface PersonDirectory {
     fun displayName(personId: Long): String?
 }
 
-/** The attributes a claimed identity (e.g. an eID card read) can be verified against - never the KVNR, which resolves [PersonDirectory.findPersonIdByKvnr] itself. */
+/**
+ * The attributes a claimed identity (e.g. an eID card read) can be verified against - never the
+ * KVNR, which resolves [PersonDirectory.findPersonIdByKvnr] itself. `null` means the attestation
+ * did not include that attribute; it is simply not compared, so partial attestations (selective
+ * disclosure) verify against the subset they actually carry.
+ */
 data class ClaimedIdentity(
-    val name: String,
-    val vorname: String,
-    val geburtsdatum: LocalDate,
-    val strasse: String,
-    val hausnummer: String,
-    val plz: String,
-    val ort: String
+    val name: String? = null,
+    val vorname: String? = null,
+    val geburtsdatum: LocalDate? = null,
+    val strasse: String? = null,
+    val hausnummer: String? = null,
+    val plz: String? = null,
+    val ort: String? = null
 )

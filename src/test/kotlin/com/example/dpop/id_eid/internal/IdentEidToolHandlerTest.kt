@@ -1,7 +1,6 @@
 package com.example.dpop.id_eid.internal
 
 import com.example.dpop.id_eid.IdentEidDescriptor
-import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ToolOutcome
@@ -27,8 +26,7 @@ class IdentEidToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
     val repository = mockk<IdEidToolDataRepository>()
-    val personDirectory = mockk<PersonDirectory>()
-    val handler = IdentEidToolHandler(IdentEidDescriptor, repository, personDirectory)
+    val handler = IdentEidToolHandler(IdentEidDescriptor, repository)
 
     given("an ident-eid session with lookup and card data in, waiting for the PIN") {
         val data = IdEidToolData(
@@ -45,7 +43,6 @@ class IdentEidToolHandlerTest : BehaviorSpec({
         )
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
-        every { personDirectory.matchesStammdaten(7L, any()) } returns true
 
         `when`("the correct mock PIN arrives") {
             then("it identifies, asserting the card's attributes as claims under its own tool anchor") {

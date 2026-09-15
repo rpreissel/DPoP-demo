@@ -1,7 +1,6 @@
 package com.example.dpop.id_eid.internal
 
 import com.example.dpop.id_eid.IdentEidDescriptor
-import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ToolOutcome
@@ -19,9 +18,10 @@ import java.util.UUID
  * Ausweisdaten (possession), then a PIN (knowledge) - mirroring the two factors a real eID run
  * proves in one go.
  *
- * Once all three are in, the handler asks `PersonDirectory` whether the stammdaten on file match
- * every Ausweisdaten attribute - ext_stammdaten owns that comparison itself and never hands the
- * master data back across the port.
+ * Once all three are in, the handler attests what the card showed and stops there - the central
+ * identity resolution (`IdentityResolver`, account module) owns the stammdaten consistency check
+ * and the account question; this tool never sees accounts (docs/ideen/claims-modell-und-
+ * vertrauensanker.md, "Identitaetsauflösung & Matching").
  *
  * Pure business logic; self-description lives in [IdentEidDescriptor] (DPoP-demo-vun).
  * Delegates field-merging and the ready-to-verify decision to [IdentEidFlow].
@@ -29,8 +29,7 @@ import java.util.UUID
 @Component
 class IdentEidToolHandler(
     private val descriptor: IdentEidDescriptor,
-    private val repository: IdEidToolDataRepository,
-    private val personDirectory: PersonDirectory
+    private val repository: IdEidToolDataRepository
 ) {
 
     /** Called directly by IdentEidToolController; nothing needs resolving before this can start. */
@@ -61,12 +60,9 @@ class IdentEidToolHandler(
                 if (throttled || !IdentEidFlow.pinMatchesMock(decision.pinHash)) {
                     return ToolOutcome.Failed("eID-PIN ungueltig", attemptedPersonId = decision.personId)
                 }
-                if (!personDirectory.matchesStammdaten(decision.personId, decision.claimed)) {
-                    return ToolOutcome.Failed(
-                        "Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein",
-                        attemptedPersonId = decision.personId
-                    )
-                }
+                // The former stammdaten consistency check lives in the central identity
+                // resolution now (IdentityResolver): a contradiction surfaces as an
+                // IdentityConflictException in the journey, not as a tool-PATCH failure here.
 
                 val documentNumber = mockDocumentNumber(toolSessionId)
                 ToolOutcome.Completed.Identified(
@@ -84,9 +80,9 @@ class IdentEidToolHandler(
                         // string via LocalDate.toString().
                         Claim(AttributeType.PERSON_ID, decision.personId.toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.NAME, decision.claimed.name, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.VORNAME, decision.claimed.vorname, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.GEBURTSDATUM, decision.claimed.geburtsdatum.toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
+                        Claim(AttributeType.NAME, checkNotNull(decision.claimed.name), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.VORNAME, checkNotNull(decision.claimed.vorname), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
                     ),
                     auditDetails = mapOf(
                         "provider" to "eid-mock-service",

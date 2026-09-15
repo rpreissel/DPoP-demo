@@ -24,13 +24,15 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
 
     override fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
-        return person.name == claimed.name &&
-            person.vorname == claimed.vorname &&
-            person.geburtsdatum == claimed.geburtsdatum &&
-            person.strasse == claimed.strasse &&
-            person.hausnummer == claimed.hausnummer &&
-            person.plz == claimed.plz &&
-            person.ort == claimed.ort
+        // null = the attestation didn't include the attribute; it is not compared. Same exact
+        // comparison as before for the attributes that ARE present.
+        return (claimed.name == null || person.name == claimed.name) &&
+            (claimed.vorname == null || person.vorname == claimed.vorname) &&
+            (claimed.geburtsdatum == null || person.geburtsdatum == claimed.geburtsdatum) &&
+            (claimed.strasse == null || person.strasse == claimed.strasse) &&
+            (claimed.hausnummer == null || person.hausnummer == claimed.hausnummer) &&
+            (claimed.plz == null || person.plz == claimed.plz) &&
+            (claimed.ort == null || person.ort == claimed.ort)
     }
 
     override fun matchesName(personId: Long, name: String, vorname: String): Boolean {

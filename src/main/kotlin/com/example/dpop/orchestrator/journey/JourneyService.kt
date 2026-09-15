@@ -29,6 +29,9 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_api.IdentityConflictException
+import com.example.dpop.tool_api.IdentityResolver
+import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.MethodRole
@@ -60,6 +63,7 @@ class JourneyService(
     private val codec: JourneyStateCodec,
     strategies: List<IntentStrategy<*>>,
     private val accountService: AccountService,
+    private val identityResolver: IdentityResolver,
     private val authContextService: AuthContextService,
     private val authEvidenceService: AuthEvidenceService,
     private val sessionManagementService: SessionManagementService,
@@ -648,15 +652,35 @@ class JourneyService(
         var demoNotice: Map<String, Any?>? = null
         when (action) {
             is Action.AdoptIdentity -> {
-                val account = accountService.findOrCreateAccount(action.outcome.personId)
-                bindAccount(journey, channel, account.accountId)
+                // Central identity resolution (docs/ideen/claims-modell-und-vertrauensanker.md,
+                // "Identitaetsauflösung & Matching"): the account module owns the matching policy,
+                // this service only governs the consequences.
+                val resolution = try {
+                    identityResolver.resolve(action.outcome.claims.toSet())
+                } catch (e: IdentityConflictException) {
+                    throw OrchestratorException.invalidState(e.message ?: "Identitaetsbezeugung kollidiert mit dem Bestand")
+                }
+                val accountId = when (resolution) {
+                    is Resolution.ExistingAccount -> resolution.accountId
+                    // Until the Interessenten form lands, "new" can only ever mean "no account
+                    // for this identified person yet" - so create it the old way. Claims-only
+                    // subjects without a person reference arrive with that form.
+                    Resolution.NewInteressent -> accountService.findOrCreateAccount(action.outcome.personId).accountId
+                    is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
+                        "Identifizierung mehrdeutig: ${resolution.candidates.size} Kandidaten - keine automatische Zuordnung"
+                    )
+                    // Deliberately no persistent candidate log here: this aborts the journey
+                    // transaction anyway, and the real policy for ambiguous matches (offer a
+                    // stronger procedure, human review) arrives with the first EUDI case.
+                }
+                bindAccount(journey, channel, accountId)
                 // Fail-fast: what the run reported must be a subset of the descriptor's
                 // declaration, with the same trust anchors.
                 assertClaimsCovered(action.tool, action.outcome.claims)
                 // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
                 // identifying tool actually established, each with its own trust anchor - the
                 // account columns remain the projection, this is the append-only provenance record.
-                action.outcome.claims.forEach { accountService.recordClaim(account.accountId, it) }
+                action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
                 recordIdentification(journey, channel, action.tool, action.outcome)
                 recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
             }
