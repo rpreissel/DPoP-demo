@@ -82,9 +82,8 @@ data class Claim(
 /**
  * What an account must already have for a tool to be offered at all: [attributeType]
  * established at no less than [minAnchorClass], checked against the consolidated value
- * including retractions (ADR-12). The mirror direction of [ToolDescriptor.claims] - replaces
- * the single boolean `requiresConfirmedEmail` ("confirmed email" is now
- * `ClaimRequirement(EMAIL, PROVEN)`).
+ * including retractions (ADR-12). The mirror direction of [ToolDescriptor.claims] -
+ * colloquially, "confirmed email" is `ClaimRequirement(EMAIL, PROVEN)`.
  */
 data class ClaimRequirement(
     val attributeType: AttributeType,

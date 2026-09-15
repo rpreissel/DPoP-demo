@@ -19,8 +19,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * [AuthChoice] and [Enrolling] are shared value types with [RegisterState], not owned exclusively
  * by either: both journeys reach the exact same two questions once an account is in hand ("does it
  * already have something that closes the gap now?", "does it need a new method enrolled?") - see
- * their own doc for why sharing the VALUE, not the STRATEGY, is what actually removes the
- * arbitrary-looking coupling a subclass relationship used to create here.
+ * their own doc for why sharing the VALUE, not the STRATEGY, is what avoids the
+ * arbitrary-looking coupling a subclass relationship would create here.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(

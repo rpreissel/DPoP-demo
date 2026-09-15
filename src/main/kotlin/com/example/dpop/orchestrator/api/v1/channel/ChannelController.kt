@@ -24,11 +24,11 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 
 /**
- * The App-facade-specific endpoints (docs/05-api.md #2, bd DPoP-demo-bqi.5): everything a channel
- * offers once it exists lives on the facade-neutral [ChannelController] below, shared with the
- * future kc-facade's own `POST /kc/channels`. Creation, and the device-link read below, differ per
- * facade - it's where each facade's own proof-of-caller happens (DPoP proof here; a signed
- * Keycloak assertion for `/kc/channels`).
+ * The App-facade-specific endpoints (docs/05-api.md #2): everything a channel offers once it
+ * exists lives on the facade-neutral [ChannelController] below, shared with the kc-facade's
+ * own channel creation (`KcChannelController`'s upsert). Creation, and the device-link read
+ * below, differ per facade - it's where each facade's own proof-of-caller happens (DPoP proof
+ * here; a signed Keycloak assertion for the kc facade).
  */
 @RestController
 @RequestMapping("/orchestrator/api/v1/app/channels")
@@ -82,9 +82,9 @@ class ChannelCreationController(
 }
 
 /**
- * Facade-neutral channel resource (docs/05-api.md #2, bd DPoP-demo-bqi.5) - everything a channel
- * offers once it exists, addressed the same way regardless of which facade created it (today only
- * the App facade does; the planned kc-facade's `POST /kc/channels` will mint the same resource).
+ * Facade-neutral channel resource (docs/05-api.md #2) - everything a channel offers once it
+ * exists, addressed the same way regardless of which facade created it (the App facade's
+ * `POST /app/channels`, the kc-facade's upsert via `KcChannelController`).
  * No `/app/` or `/kc/` prefix here on purpose - see [ChannelCreationController] for the one
  * endpoint that IS facade-specific.
  */

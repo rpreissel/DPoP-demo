@@ -162,7 +162,7 @@ class ChannelService(
 
     /**
      * The AccessToken - Mock (default profile) or a real, Keycloak-signed one (`keycloak`
-     * profile, DPoP-demo-xso) depending on [tokenProvider]. `APP`-only: a `KEYCLOAK` channel never
+     * profile) depending on [tokenProvider]. `APP`-only: a `KEYCLOAK` channel never
      * has an [ChannelSession.authContextId] to mint one from - its client already holds real
      * Keycloak tokens from the standard browser login and refreshes directly against Keycloak,
      * never through the orchestrator. Covers both first issuance and refresh -

@@ -25,7 +25,7 @@ internal const val DEVICE_ENROLLMENT_TYPE = "device_enrollment"
  * toolId, kept in a single file since none of them carry state or dependencies - Kotlin
  * `object` + `@Component` is recognized by Spring as a singleton bean without reflection
  * (Spring Framework 5.3+). This lets the handlers stay pure business logic and move to
- * `internal` (DPoP-demo-vun).
+ * `internal`.
  */
 @Component
 object AuthDeviceDescriptor : ToolDescriptor {

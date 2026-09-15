@@ -450,8 +450,8 @@ class JourneyService(
             journeyRepository.save(journey)
             journeyLogService.record(channel, journey, "LOGGED_OUT", journeyState = "LoggedOut")
             // The App channel has no browser/cookie of its own to end - but it may hold a real
-            // Keycloak session from the custom account-token grant (DPoP-demo-xso,
-            // AccountTokenGrantType's reused session, AuthContext.keycloakSessionId). Ending only
+            // Keycloak session from the custom account-token grant
+            // (AccountTokenGrantType's reused session, AuthContext.keycloakSessionId). Ending only
             // THAT one session here keeps "logout means logout" true for this channel, without
             // touching any other session the same account happens to also be logged into
             // elsewhere (e.g. a separate Web-channel browser login). The Web channel's own logout
@@ -548,9 +548,9 @@ class JourneyService(
         }
         val accountId = when (resolution) {
             is Resolution.ExistingAccount -> resolution.accountId
-            // Until the Interessenten form lands, "new" can only ever mean "no account
-            // for this identified person yet" - so create it the old way. Claims-only
-            // subjects without a person reference arrive with that form.
+            // "New" here can only ever mean "no account for this identified person
+            // yet" - claims-only subjects without a person reference arrive with the
+            // planned Interessenten form.
             Resolution.NewInteressent -> accountService.findOrCreateAccount(action.outcome.personId).accountId
             is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
                 "Identifizierung mehrdeutig: ${resolution.candidates.size} Kandidaten - keine automatische Zuordnung"

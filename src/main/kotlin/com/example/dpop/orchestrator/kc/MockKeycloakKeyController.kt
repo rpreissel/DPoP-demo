@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * Backs the Mock-Keycloak frontend (bd DPoP-demo-f9o.9) - not a real Keycloak endpoint, and never
+ * Backs the Mock-Keycloak frontend - not a real Keycloak endpoint, and never
  * meant to model one; a real Keycloak realm publishes its own certs endpoint, this one only exists
  * because this demo needs SOME place both the frontend (signing) and [PeerAuthValidator]
  * (verifying, via `kc.peer-auth.jwks-uri`) can agree on the same key without hand-copying it.

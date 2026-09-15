@@ -23,7 +23,7 @@ import java.util.UUID
  * and the account question; this tool never sees accounts (docs/ideen/claims-modell-und-
  * vertrauensanker.md, "Identitaetsauflösung & Matching").
  *
- * Pure business logic; self-description lives in [IdentEidDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [IdentEidDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentEidFlow].
  */
 @Component

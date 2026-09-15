@@ -41,9 +41,9 @@ import org.springframework.stereotype.Component
  * login?" - the MFA-bump logic above, restricted to [EvidenceAxis.AUTHENTICATOR] evidence only).
  * The result is simply `max(IAL, AAL)` - a single tool reaching loa2/loa3 on either axis alone
  * (e.g. `ident-fsc`'s own maxAcr, `ident-eid`'s own two factor types, or a passkey's own two
- * factor types) still reaches that level overall, exactly as before this split existed; what the
- * split actually changes is that an IDENTIFICATION can no longer combine with an unrelated
- * AUTHENTICATOR factor to manufacture a false MFA bump (see [applyMfaBump]'s doc).
+ * factor types) still reaches that level overall; what the split actually prevents is an
+ * IDENTIFICATION combining with an unrelated AUTHENTICATOR factor to manufacture a false MFA
+ * bump (see [applyMfaBump]'s doc).
  */
 @Component
 class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPolicy {
@@ -298,10 +298,9 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 }
 
 /**
- * Transition proxy until the claim store exists (4vd.4/7mw): the only requirement any tool
- * declares today is EMAIL at PROVEN, whose consolidated value is still the account's
- * `emailConfirmed` boolean. Any other requirement (another attribute type, or an anchor class
- * above PROVEN) cannot be satisfied yet and counts as unmet. Shared by
+ * The only requirement any tool currently declares is EMAIL at PROVEN, whose consolidated
+ * value is the account's `emailConfirmed` boolean. Any other requirement (another attribute
+ * type, or an anchor class above PROVEN) cannot be satisfied and counts as unmet. Shared by
  * [DefaultAuthPolicy.enrollmentCandidates] (offering) and
  * `ToolControllerSupport.validatePreconditions` (direct-activation defense) so the two gates
  * cannot drift apart.

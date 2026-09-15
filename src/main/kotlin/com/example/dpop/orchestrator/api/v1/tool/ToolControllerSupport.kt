@@ -39,13 +39,13 @@ import java.util.UUID
  * silently diverge between tools.
  *
  * Implements [ToolEndpoint] - the SPI a tool controller is written against once it moves into its
- * own method module (DPoP-demo-2tm). [Context] implements [ToolContext] but is never exposed as
- * more than that interface to any caller (not even `ToolSwitchController`, which now lives in
+ * own method module. [Context] implements [ToolContext] but is never exposed as
+ * more than that interface to any caller (not even `ToolSwitchController`, which lives in
  * `tool_api` and only ever sees [ToolContext] too - see [abandon]); the methods whose interface
  * signature takes `context: ToolContext` cast it back to [Context] internally, safe because this
  * class is the only place a [Context] is ever constructed.
  *
- * What is deliberately NOT here any more: any knowledge of which tool may run when. That is a
+ * What is deliberately NOT here: any knowledge of which tool may run when. That is a
  * question about the journey's current state, and [JourneyService] is the only thing that answers
  * it.
  */

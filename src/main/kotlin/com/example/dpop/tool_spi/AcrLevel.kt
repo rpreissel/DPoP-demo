@@ -12,9 +12,9 @@ package com.example.dpop.tool_spi
  * unlike a typealias the compiler rejects a level string being passed where e.g. a method
  * name was expected. Deliberately NOT an enum either: raw level strings still arrive from
  * untyped borders (Keycloak tokens, JPA columns, wire DTOs), and an enum's `valueOf` would
- * turn one unknown value into a crash - [of] dampens it to [NONE] instead, matching the
- * defensive semantics the previous bare-String helpers already had (unknown or absent ->
- * rank 0), while the init check below still catches in-process typos at construction time.
+ * turn one unknown value into a crash - [of] dampens it to [NONE] instead (unknown or
+ * absent -> rank 0), while the init check below still catches in-process typos at
+ * construction time.
  */
 @JvmInline
 value class AcrLevel(val value: String) : Comparable<AcrLevel> {

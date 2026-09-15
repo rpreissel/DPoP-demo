@@ -32,7 +32,7 @@ import java.util.UUID
  * handler in the whole catalog that needed an account mid-PATCH; every other one already operates
  * purely on its own tool-session data.
  *
- * Pure business logic; self-description lives in [EnrollEmailDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [EnrollEmailDescriptor].
  * Delegates the actual step logic to [EnrollEmailFlow]; this class only translates its
  * [EnrollEmailDecision] into persistence writes and the outward [ToolOutcome].
  */

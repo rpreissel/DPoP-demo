@@ -20,8 +20,8 @@ import java.util.UUID
 
 /**
  * `keycloak`-profile [TokenProvider]: mints a real, Keycloak-signed access token via the custom
- * `urn:dpop-demo:account-token` grant (keycloak-extension's `AccountTokenGrantType`, DPoP-demo-
- * xso.3) instead of [TokenService]'s mock JWT - the App client never talks to Keycloak directly,
+ * `urn:dpop-demo:account-token` grant (keycloak-extension's `AccountTokenGrantType`)
+ * instead of [TokenService]'s mock JWT - the App client never talks to Keycloak directly,
  * so the orchestrator is the only party that can fetch it a real token. `APP`-channel-only by
  * construction: [com.example.dpop.orchestrator.api.v1.channel.ChannelService.getToken] never
  * calls this for a `KEYCLOAK` channel (see that method's own doc) - that client already holds

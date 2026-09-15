@@ -116,9 +116,8 @@ class KcChannelService(
                 // The Web channel's own declaration of what it can render (WebToolAvailability on the
                 // extension side, one toolId per registered WebToolRenderer factory) - taken verbatim,
                 // exactly like the App channel's own client-declared availableTools
-                // (ChannelService.initializeChannel), never widened back to the orchestrator's whole
-                // catalog: an unfiltered "everything" default is exactly the App-Kanal-parity gap
-                // DPoP-demo-3yd.6 closes.
+                // (ChannelService.initializeChannel), never widened to the orchestrator's whole
+                // catalog: an unfiltered "everything" default would break App-Kanal parity.
                 availableTools.orEmpty().toSet(),
                 entryIntentFor(intent)
             )
@@ -183,8 +182,7 @@ class KcChannelService(
         // This is the one call every completed kc flow run makes unconditionally
         // (OrchestratorResumeAuthenticator.onTopFlowSuccess, docs/05-api.md Abschnitt 3) -
         // piggybacking the durable session id's first-ever appearance onto it means RetentionJob
-        // (DPoP-demo-f9o.12) gets it for free, with no separate write path or Keycloak-extension
-        // change needed.
+        // gets it for free, with no separate write path or Keycloak-extension change needed.
         if (channel.durableKcSessionId != kcSessionId) {
             channel.durableKcSessionId = kcSessionId
             sessionManagementService.updateChannelSession(channel)

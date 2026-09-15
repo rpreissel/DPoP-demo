@@ -10,12 +10,11 @@ import java.time.Instant
 /**
  * Single-use enforcement for DPoP and device proofs.
  *
- * Backed by a table rather than the `ConcurrentHashMap` this used to be. That map had three
- * problems, all of which made the guarantee weaker than it looked: it was emptied by every
- * restart, it was per-instance (so behind more than one replica a proof could simply be replayed
- * against a different node), and it was swept in full on EVERY validation - an O(n) scan over a
- * map whose size the caller controls, since any well-formed proof with a fresh `jti` earns an
- * entry for the length of the acceptance window.
+ * Backed by a table, not an in-memory map: the single-use guarantee must survive restarts and
+ * hold across every replica (behind more than one node, an in-memory proof could simply be
+ * replayed against a different instance), and validation must stay O(1) rather than a sweep over
+ * a set whose size the caller controls - any well-formed proof with a fresh `jti` earns an entry
+ * for the length of the acceptance window.
  *
  * The insert itself is the check: `proof_key` is the primary key, so a duplicate raises rather
  * than needing a read-then-write that two concurrent replays could both pass.

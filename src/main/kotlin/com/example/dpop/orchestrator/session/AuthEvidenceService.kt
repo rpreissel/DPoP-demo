@@ -56,7 +56,7 @@ class AuthEvidenceService(
      * `.../token` call mints fresh evidence-included claims itself, same as first issuance.
      *
      * Also clears the RefreshToken, not just the AccessToken: [KcTokenProvider]'s cheap
-     * `refresh_token`-grant path (DPoP-demo-xso, ADR-9) never re-signs an assertion, so it would
+     * `refresh_token`-grant path (ADR-9) never re-signs an assertion, so it would
      * otherwise keep renewing a Keycloak session whose acr/amr session notes still reflect the
      * PRE-step-up evidence forever. A leftover RefreshToken surviving a step-up is exactly the
      * "same session, stale claims" bug this whole invalidation exists to prevent - forcing the

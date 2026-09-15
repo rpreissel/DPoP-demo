@@ -49,7 +49,7 @@ class SessionManagementService(
      * initializeChannel`), not every [AuthIntent.isEntryIntent] value: FAST_ACCESS/LOOKUP_LOGIN
      * assume an APP-shaped channel this facade never has.
      *
-     * [availableTools] IS an App-style client declaration (DPoP-demo-3yd.6) - the kc-facade's
+     * [availableTools] IS an App-style client declaration - the kc-facade's
      * extension sends exactly the toolIds it has its own rendering for (one
      * `com.example.dpop.kcext.webtool.WebToolRenderer` factory per toolId), the same idea as the
      * App channel's own client-declared `availableTools`; the backend-wide kill-switch narrows it

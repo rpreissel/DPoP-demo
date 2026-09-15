@@ -39,8 +39,7 @@ class ChannelSession(
      * not "for this specific one of Keycloak's many concurrent flows." Deliberately NOT Keycloak's
      * actual, durable `UserSessionModel` id: two CONCURRENT flow runs sharing the same underlying
      * SSO session (e.g. two browser tabs both stepping up at once) would then share the same
-     * anchor value too, giving up the per-flow-run isolation this column exists for. Stored under
-     * the column's old name (`kc_session_id`) - only the Kotlin property was renamed for clarity.
+     * anchor value too, giving up the per-flow-run isolation this column exists for.
      *
      * Evidence continuity across SEPARATE flow runs is unrelated to this column - a Keycloak-side
      * concern instead (docs/05-api.md Abschnitt 3): the `OrchestratorAuthenticator`'s
@@ -54,7 +53,7 @@ class ChannelSession(
     var channelAnchor: String? = null
 
     /**
-     * KEYCLOAK-only (DPoP-demo-f9o.12), distinct from [channelAnchor]: Keycloak's own durable
+     * KEYCLOAK-only, distinct from [channelAnchor]: Keycloak's own durable
      * `UserSessionModel` id, not this one flow run's anchor - only known once a flow completes
      * successfully (`OrchestratorResumeAuthenticator.onTopFlowSuccess`'s `restoreData` call,
      * docs/05-api.md Abschnitt 3, sets it via [com.example.dpop.orchestrator.api.v1.kc.
@@ -71,7 +70,7 @@ class ChannelSession(
      * Self-assigned rather than `@GeneratedValue`, so the kc-facade can override it with its own,
      * client-chosen id before the first save (docs/05-api.md Abschnitt 3 - upsert
      * semantics, idempotent retries) while APP callers, which never touch this field, keep
-     * getting a fresh random id exactly as before.
+     * getting a fresh random id.
      */
     @Id
     @Column(name = "channel_session_id", nullable = false)
@@ -114,8 +113,7 @@ class ChannelSession(
 
     /**
      * The channel's DURABLE lower bound; survives individual journeys. Distinct from a single
-     * step-up run's target, which lives in that run's own state (docs/04-orchestrierung.md #8) -
-     * the two used to share a name and were easy to confuse for one field.
+     * step-up run's target, which lives in that run's own state (docs/04-orchestrierung.md #8).
      */
     @Column(name = "acr_floor", length = 50)
     var acrFloor: String? = null

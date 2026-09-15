@@ -61,10 +61,10 @@ interface ToolDescriptor {
      * What the account must already have for this tool to be offered at all: each
      * [ClaimRequirement] is an [AttributeType] established at no less than its
      * [AnchorClass], checked against the account's consolidated value including
-     * retractions (ADR-12). The mirror direction of [claims]; replaces the single boolean
-     * `requiresConfirmedEmail`. OFFERING gate only - it does not say the tool consumes the
-     * value at run time (that is an anchor read), nor that a channel/journey policy wants it
-     * (that is REGISTER's `emailObligation`, which keeps its own declarant).
+     * retractions (ADR-12). The mirror direction of [claims] - colloquially, "confirmed
+     * email" is `ClaimRequirement(EMAIL, PROVEN)`. OFFERING gate only - it does not say the
+     * tool consumes the value at run time (that is an anchor read), nor that a channel/journey
+     * policy wants it (that is REGISTER's `emailObligation`, which keeps its own declarant).
      */
     val requires: Set<ClaimRequirement>
         get() = emptySet()

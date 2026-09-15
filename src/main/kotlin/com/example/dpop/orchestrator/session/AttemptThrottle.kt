@@ -65,10 +65,10 @@ data class AttemptThrottleId(
 ) : Serializable
 
 /**
- * Brute-force counter for one (scope, subject) pair. Replaces the account-only
- * `login_attempt_throttle`: a per-ToolSession or per-journey counter cannot bound anything a
- * client can simply restart, and before this the whole lookup-login path (where no accountId is
- * known until AFTER the credential check succeeds) was counted by nothing at all.
+ * Brute-force counter for one (scope, subject) pair, deliberately wider than account-only:
+ * a per-ToolSession or per-journey counter cannot bound anything a
+ * client can simply restart, and the whole lookup-login path (where no accountId is
+ * known until AFTER the credential check succeeds) would otherwise be counted by nothing at all.
  *
  * Pure data. The counting rules live in the three named services over it
  * ([LoginThrottleService], [IdentThrottleService], [ChannelCreationThrottleService]) - each keeps

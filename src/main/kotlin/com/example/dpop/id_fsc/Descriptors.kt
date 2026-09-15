@@ -15,7 +15,7 @@ internal const val FSC_METHOD = "fsc"
 
 /**
  * Self-description for toolId=ident-fsc (docs/03-tool-architektur.md #1) - its own small bean so
- * IdentFscToolHandler stays pure business logic and can move to `internal` (DPoP-demo-vun).
+ * IdentFscToolHandler stays pure business logic and can move to `internal`.
  * Kotlin `object` + `@Component` is recognized by Spring as a singleton bean without reflection
  * (Spring Framework 5.3+).
  */

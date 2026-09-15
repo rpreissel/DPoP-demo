@@ -54,8 +54,8 @@ sealed interface ToolOutcome {
             /**
              * The identifying attributes this run asserted, with their provenance - the typed
              * counterpart to [auditDetails]. Subset of the descriptor's [ToolDescriptor.claims].
-             * [personId] keeps its own field for now; its Interessenten form (a run that
-             * identifies nobody in the master data yet) is deliberately not taken here (4vd.11).
+             * [personId] keeps its own field because its Interessenten form (a run that
+             * identifies nobody in the master data yet) is deliberately not taken here.
              */
             val claims: List<Claim> = emptyList(),
             /** Method-specific verification evidence, passed through unchanged for auditing. */

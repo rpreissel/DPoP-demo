@@ -19,7 +19,7 @@ import java.util.UUID
  * toolId=enroll-device (docs/03-tool-architektur.md): registers a device-bound key pair as a new
  * credential.
  *
- * Pure business logic; self-description lives in [EnrollDeviceDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [EnrollDeviceDescriptor].
  * Delegates the input decision to [EnrollDeviceFlow].
  */
 @Component

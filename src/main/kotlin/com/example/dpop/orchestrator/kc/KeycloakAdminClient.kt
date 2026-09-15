@@ -13,7 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder
 /**
  * The Keycloak-side half of the account-sync mechanism:
  * mirrors an orchestrator account into a Keycloak user via the Admin REST API, so
- * `infra/tofu/keycloak/main.tf` no longer needs to hand-declare demo users - every account
+ * `infra/tofu/keycloak/main.tf` never needs to hand-declare demo users - every account
  * `AccountService` ever creates/changes/deletes gets its Keycloak user kept in sync automatically
  * (see [KeycloakAccountSyncListener]). Only wired up under the `keycloak` Spring profile - decided
  * once at startup via `@Profile`, not a runtime toggle.
@@ -62,8 +62,8 @@ class KeycloakAdminClient(
      * stay "max-muster-2" forever once assigned, even after the account originally holding
      * "max-muster" is deleted and that name becomes free again.
      *
-     * No password is set here (and none used to be meaningful beyond a demo placeholder): a newly
-     * created user is `federationLink`-ed to `OrchestratorPasswordStorageProvider` (DPoP-demo-25q),
+     * No password is set here: a newly
+     * created user is `federationLink`-ed to `OrchestratorPasswordStorageProvider`,
      * which delegates the "password" credential type to the orchestrator's own `auth_password`
      * store - there is nothing local for this method to seed.
      */
@@ -84,7 +84,7 @@ class KeycloakAdminClient(
      * (not an incrementing counter) against whatever Keycloak already holds - accountId is unique
      * and permanent by construction, so this is a one-shot check with no retry loop, and the
      * result can never later collide with a DIFFERENT account's own disambiguated name either.
-     * Falls back to the old accountId-based scheme entirely when neither is known (e.g. an
+     * Falls back to the accountId-based scheme entirely when neither is known (e.g. an
      * unidentified account, REGISTER "Enrollment zuerst", docs/04-orchestrierung.md, whose first
      * enrolled method isn't email either) - still unique, just less readable. Prefers [email] over
      * a name-slug when both happen to already be known at creation time - a real login identifier
@@ -113,7 +113,7 @@ class KeycloakAdminClient(
      * Whether [durableSessionId] (a `UserSessionModel` id, `ChannelSession.durableKcSessionId` -
      * never `ChannelSession.channelAnchor`, which names a single flow run, not the durable SSO
      * session) still shows up among [accountId]'s current Keycloak sessions - the check
-     * `RetentionJob` (DPoP-demo-f9o.12) needs before treating an expired `KEYCLOAK` channel as
+     * `RetentionJob` needs before treating an expired `KEYCLOAK` channel as
      * safe to delete early: since Keycloak owns logout entirely (docs/07-betrieb.md
      * Abschnitt 3) and never tells the orchestrator when it happens, a channel whose session already ended
      * would otherwise sit around for the full retention window for no reason.
@@ -137,7 +137,7 @@ class KeycloakAdminClient(
 
     /**
      * Mirrors [AccountKeypairService]'s per-account public key onto Keycloak as a genuine
-     * `orchestrator-public-key` Credential (DPoP-demo-xso) - not a plain user attribute, which
+     * `orchestrator-public-key` Credential - not a plain user attribute, which
      * would sit right next to every other exportable profile field instead of in the credential
      * store proof-of-possession material actually belongs in. Written via the custom
      * `AdminRealmResourceProvider` extension (`keycloak-extension`'s `AccountPublicKeyResource`,
@@ -168,7 +168,7 @@ class KeycloakAdminClient(
      * (docs/07-betrieb.md Abschnitt 3): an App-channel `LogoutIntent` completion
      * (`JourneyService`'s `Transition.Logout`) has no browser/cookie of its own to end, but the
      * same account may also hold a real Keycloak session from the custom account-token grant
-     * (DPoP-demo-xso, `AccountTokenGrantType`'s reused session, `AuthContext.keycloakSessionId`).
+     * (`AccountTokenGrantType`'s reused session, `AuthContext.keycloakSessionId`).
      * Deliberately the single-session endpoint, not `POST .../users/{id}/logout` (every session):
      * an App-channel logout ends only what THAT channel itself was using, never a Web-channel
      * browser session the same account happens to also be logged into elsewhere. Best-effort by
@@ -252,7 +252,7 @@ class KeycloakAdminClient(
     }
 
     /**
-     * The `OrchestratorPasswordStorageProvider` User Federation component's id (DPoP-demo-25q) -
+     * The `OrchestratorPasswordStorageProvider` User Federation component's id -
      * provisioned once per realm by `infra/tofu/keycloak/main.tf`'s `keycloak_custom_user_federation`
      * resource, whose id varies per environment, so it's looked up by `providerId` rather than
      * hardcoded. Cached: it never changes while this process runs. `null` (silently skipped by the
@@ -277,7 +277,7 @@ class KeycloakAdminClient(
     }
 
     /**
-     * Calls the keycloak-extension's custom `urn:dpop-demo:account-token` grant (DPoP-demo-xso.3)
+     * Calls the keycloak-extension's custom `urn:dpop-demo:account-token` grant
      * to mint a real, Keycloak-signed access token for [accountId] - [assertion] is the JWT
      * [com.example.dpop.orchestrator.session.KcTokenProvider] signed with that account's own
      * private key ([AccountKeypairService]), proving the caller holds it. Client-authenticates as

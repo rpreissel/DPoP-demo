@@ -294,7 +294,7 @@ class AccountService(
      * seeded test persons a confirmed email before any real enrollment ever runs.
      *
      * The confirmed email is still the account's identifier, not a swappable credential -
-     * `auth_email` no longer depends on `account` at all since it reads and writes through the
+     * `auth_email` never depends on `account` at all; it reads and writes through the
      * generic anchor ports and claims.
      */
     @Transactional

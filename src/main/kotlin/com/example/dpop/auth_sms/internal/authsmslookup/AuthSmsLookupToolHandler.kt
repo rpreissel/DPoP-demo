@@ -19,7 +19,7 @@ import java.util.UUID
  * depend on tool_spi, docs/08-projektrahmen.md A11) - the controller resolves [email] to an
  * accountId/EnrollmentRef via AccountService and passes the result into [submitEmail].
  *
- * Pure business logic; self-description lives in [AuthSmsLookupDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [AuthSmsLookupDescriptor].
  * Delegates the tan-vs-state decision to [AuthSmsLookupFlow].
  */
 @Component

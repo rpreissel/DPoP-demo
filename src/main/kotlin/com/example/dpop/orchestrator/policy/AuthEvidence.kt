@@ -23,8 +23,8 @@ value class MethodName(val value: String) {
  * Which trust question a [MethodEvidence] entry answers - the split NIST 800-63 draws between
  * IAL (Identity Assurance: "who is this?", established once by an IDENTIFICATION-role tool like
  * `ident-fsc`) and AAL (Authenticator Assurance: "is this the same person who registered this
- * credential, proven again right now?", established by ENROLLMENT/AUTH-role tools). Not tracked
- * before this: `resolveAcr` used to fold both into one undifferentiated max, which let a stale
+ * credential, proven again right now?", established by ENROLLMENT/AUTH-role tools). The split
+ * keeps `resolveAcr` from folding both into one undifferentiated max, which would let a stale
  * identification's loa or factor type silently participate in an MFA bump it was never meant to
  * (see [DefaultAuthPolicy] class doc) - an identification is a one-time historical event, never a
  * factor re-presented at the moment of authentication, so it must never count toward "how hard is

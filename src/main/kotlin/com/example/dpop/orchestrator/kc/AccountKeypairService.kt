@@ -13,7 +13,7 @@ import java.time.Instant
 
 /**
  * Generates (once, idempotently) and reads back the per-account keypair the `keycloak` profile's
- * real token grant needs (DPoP-demo-xso). Same shape (EC P-256, nimbus JWK) as the keycloak-
+ * real token grant needs. Same shape (EC P-256, nimbus JWK) as the keycloak-
  * extension's own [PeerAuthSigningKey]-style per-node key - here per-account instead, because the
  * whole point is that compromising one account's key never exposes another's.
  */

@@ -24,7 +24,7 @@ import java.util.UUID
  * (DeviceProofValidator) covers the rest - the same no-nonce model ordinary DPoP proofs already
  * use in this app.
  *
- * Pure business logic; self-description lives in [AuthDeviceDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [AuthDeviceDescriptor].
  * Delegates the match decision to [AuthDeviceFlow].
  */
 @Component

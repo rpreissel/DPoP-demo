@@ -9,10 +9,9 @@ import org.springframework.stereotype.Component
  * #1) into the tool catalog - Spring collects `List<ToolDescriptor>` on its own, nothing here is
  * a manually maintained list.
  *
- * This used to wrap handlers behind a `ToolHandler` interface and resolve toolId -> handler for
- * a generic activate/patch/read dispatch; that dispatch is gone (docs/08-projektrahmen.md A11 -
- * each tool's own controller calls its concrete handler directly), so the wrapper interface was
- * removed and this is purely a descriptor catalog now.
+ * Purely a descriptor catalog: each tool's own controller calls its concrete handler directly
+ * (docs/08-projektrahmen.md A11), so there is no toolId -> handler dispatch and no
+ * `ToolHandler` wrapper interface.
  */
 @Component
 class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {

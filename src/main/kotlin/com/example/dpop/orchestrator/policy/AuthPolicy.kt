@@ -59,7 +59,7 @@ interface AuthPolicy {
      * calls: every caller that needs the reason only ever needs it once the boolean is already
      * false, and a second call would just recompute the exact same account-standing calculation -
      * see the `*Strategy` abort branches (`AuthEnrollCore`, `RegisterEnrollFirstStrategy`,
-     * `StepUpStrategy`, `LookupLoginStrategy`), which used to call both against the same
+     * `StepUpStrategy`, `LookupLoginStrategy`), each needing both answers for the same
      * (account, requiredAcr) pair. A caller that only wants the boolean checks
      * `is Reachability.Reachable`; [Reachability.NotReachable.reason] is a structured
      * [UnreachableReason], never pre-rendered text - turning it into a (German) user-facing

@@ -19,7 +19,7 @@ import java.util.UUID
  * module never reads `account` itself. Only the password itself is asked for: the account is
  * already resolved (device-linked case), same shape as auth-sms only needing the TAN.
  *
- * Pure business logic; self-description lives in [AuthPasswordUseDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [AuthPasswordUseDescriptor].
  * Delegates the input decision to [AuthPasswordUseFlow].
  */
 @Component

@@ -21,7 +21,7 @@ import java.util.UUID
  * goes back out over the same [PersonDirectory] port, exactly as `ident-eid` verifies its
  * Ausweisdaten - the master data itself never crosses.
  *
- * Pure business logic; self-description lives in [IdentFscDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
  */
 @Component
@@ -65,8 +65,8 @@ class IdentFscToolHandler(
             IdentFscDecision.PersonNotFound -> ToolOutcome.Failed("Person zu dieser KVNR nicht gefunden")
 
             is IdentFscDecision.Verify -> {
-                // The name is CHECKED, not merely collected: it used to be neither, so the two
-                // fields the form insists on contributed nothing to the identification.
+                // The name is CHECKED, not merely collected - otherwise the two fields
+                // the form insists on would contribute nothing to the identification.
                 val nameMatches = personDirectory.matchesName(decision.personId, decision.name, decision.vorname)
                 val code = fscCodeRepository.findByPersonIdAndCodeHash(decision.personId, decision.fscHash)
 

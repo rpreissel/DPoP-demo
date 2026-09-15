@@ -59,8 +59,8 @@ class JourneyRecorder(
             // snake_case, not PascalCase: JourneyService buckets this at the machine's discretion,
             // not as a real `event::class.simpleName` transition (naming convention, docs/ideen/
             // journey-strategie-vereinheitlichung.md #4) - and deliberately not named similarly to
-            // "EvidenceReported" (the real transition's own log entry), which used to invite
-            // confusing the two.
+            // "EvidenceReported" (the real transition's own log entry), so the two cannot be
+            // confused for one another.
             journeyLogService.record(
                 channel, journey, "native_evidence_synced",
                 journeyState = codec.read(journey)::class.simpleName,

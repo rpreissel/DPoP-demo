@@ -17,7 +17,7 @@ import java.util.UUID
  * (docs/06-ablaeufe.md #4) but without an out-of-band confirmation step - a chosen password is
  * self-verifying, so Completed.Enrolled fires directly from one PATCH.
  *
- * Pure business logic; self-description lives in [EnrollPasswordDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [EnrollPasswordDescriptor].
  * Delegates the input decision to [EnrollPasswordFlow].
  */
 @Component

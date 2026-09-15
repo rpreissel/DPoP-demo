@@ -17,9 +17,8 @@ class OrchestratorExceptionHandler {
     /**
      * Missing/invalid DPoP - docs/07-betrieb.md #1: 401. Thrown by [DpopBindingKeyResolver] during
      * argument resolution, before any controller method body runs; a `@RestControllerAdvice`
-     * catches that same as an exception thrown from inside the method (used to be a per-controller
-     * `@ExceptionHandler` on the now-deleted `DpopBaseController` - one central place instead of
-     * one copy per controller).
+     * catches that same as an exception thrown from inside the method - one central place
+     * instead of one `@ExceptionHandler` copy per controller.
      */
     @ExceptionHandler(DpopValidationException::class)
     fun handleDpopValidation(e: DpopValidationException): ResponseEntity<Map<String, String>> =

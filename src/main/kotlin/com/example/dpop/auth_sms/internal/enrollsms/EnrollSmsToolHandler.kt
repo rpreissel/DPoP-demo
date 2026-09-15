@@ -15,7 +15,7 @@ import java.util.UUID
 
 /**
  * toolId=enroll-sms (docs/06-ablaeufe.md #4): registers a new phone number as a 2nd factor.
- * Pure business logic; self-description lives in [EnrollSmsDescriptor] (DPoP-demo-vun). Its only
+ * Pure business logic; self-description lives in [EnrollSmsDescriptor]. Its only
  * external caller is EnrollSmsToolController, which lives in the same module, so this class only
  * has to be visible within `auth_sms` - enforced by living under `internal` (docs/03-tool-architektur.md #2).
  *

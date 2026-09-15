@@ -8,7 +8,7 @@ import org.springframework.modulith.ApplicationModule
  * (`id_eid.api.v1.IdentEidToolController` - `api.v1` mirrors the orchestrator's own package shape,
  * since the URL is still `/orchestrator/api/v1/...` regardless of which module owns the class)
  * lives here too, reaching the orchestrator through `tool_api.ToolEndpoint`/`PersonDirectory`
- * alone - the orchestrator no longer needs to know `id_eid` exists.
+ * alone - the orchestrator never needs to know `id_eid` exists.
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`. Kotlin has no package
  * annotations, but `@ApplicationModule` is `@Target({PACKAGE, TYPE})` and meta-annotated

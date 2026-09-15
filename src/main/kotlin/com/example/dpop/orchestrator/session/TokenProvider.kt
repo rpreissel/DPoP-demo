@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 /**
- * The profile-switchable half of `GET /channels/{id}/token` (DPoP-demo-xso) - `APP`-channel-only
+ * The profile-switchable half of `GET /channels/{id}/token` - `APP`-channel-only
  * by construction (`ChannelService.getToken` rejects `KEYCLOAK` channels before ever calling this;
  * that client already holds real Keycloak tokens from the standard browser login and refreshes
  * directly against Keycloak, never through the orchestrator). [MockTokenProvider] (default

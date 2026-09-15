@@ -14,10 +14,10 @@ import org.springframework.web.method.support.ModelAndViewContainer
 
 /**
  * Resolves any `@BindingKey bindingKeyRef: String` controller parameter before the method body
- * runs (docs/04-orchestrierung.md #5) - replaces the old `DpopBaseController` pattern of every
- * controller calling `validateAndExtractBindingKeyRef` on its own `dpopProof`/`httpRequest`
- * parameters. A tool controller no longer needs [DpopValidator]/[JwkThumbprintService] at all, so
- * it no longer needs to depend on the orchestrator for them.
+ * runs (docs/04-orchestrierung.md #5) - proof validation lives in this one place, so a tool
+ * controller never calls `validateAndExtractBindingKeyRef` on its own `dpopProof`/`httpRequest`
+ * parameters and never needs [DpopValidator]/[JwkThumbprintService] - no dependency on the
+ * orchestrator for them.
  *
  * Facade-aware (docs/05-api.md Abschnitt 3): the generic tool endpoints
  * (`/channels/{id}/tools/{toolId}`, `/tools/{toolSessionId}/{toolId}`, ...) are facade-neutral by

@@ -46,8 +46,8 @@ sealed interface LookupLoginState : JourneyState {
      * candidates come from `AuthPolicy.authCandidates` (the ordinary device-auth tools) rather
      * than from the lookup-only set that had to resolve an account first.
      *
-     * This state exists because the intent used to have no way to represent "proven, but not
-     * enough": it went straight from [Credential] to [OfferBinding], and the channel reached
+     * This state is how the intent represents "proven, but not enough": without it the flow
+     * would go straight from [Credential] to [OfferBinding], and the channel would reach
      * AUTHENTICATED under its own required level.
      */
     data class AdditionalFactor(

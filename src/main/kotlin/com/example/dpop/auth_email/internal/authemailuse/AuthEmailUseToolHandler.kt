@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
- * toolId=auth-email (device-linked case only for now - see docs/03-tool-architektur.md).
+ * toolId=auth-email (device-linked case only - see docs/03-tool-architektur.md).
  *
  * No EnrollmentRef involved: the confirmed address is the account's canonical email attribute,
  * so [start] reads it through the generic `anchorValue` port. Where AuthSmsUseToolHandler
@@ -22,7 +22,7 @@ import java.util.UUID
  * this credential. No `account` dependency: auth_email hangs on tool_spi/tool_api alone like
  * every other method module.
  *
- * Pure business logic; self-description lives in [AuthEmailUseDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [AuthEmailUseDescriptor].
  * Delegates the code-vs-state decision to [AuthEmailUseFlow].
  */
 @Component

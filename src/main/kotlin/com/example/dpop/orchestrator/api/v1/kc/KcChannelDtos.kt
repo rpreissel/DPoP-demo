@@ -45,7 +45,7 @@ data class KcChannelUpsertRequest(
     val kcSessionId: String? = null,
     @field:Schema(
         description = "The Web channel's own declaration of which toolIds its Keycloak theme can " +
-            "render (DPoP-demo-3yd.6: one com.example.dpop.kcext.webtool.WebToolRenderer factory " +
+            "render (one com.example.dpop.kcext.webtool.WebToolRenderer factory " +
             "per toolId, registered via META-INF/services) - the kc-facade's counterpart to the App " +
             "channel's own availableTools (POST /channels). Only read on this channel's first call " +
             "(a later upsert resumes the already-persisted set); a channel-anonymous caller that " +

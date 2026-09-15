@@ -75,9 +75,8 @@ internal class KcDemoAccountSeeder(
     private data class TestPerson(val kvnr: String, val email: String)
 
     companion object {
-        // Demo-only shared default (was previously KeycloakAdminClient's hardcoded
-        // reset-password value, removed when native Keycloak login started delegating to this
-        // same auth_password store - a real onboarding flow would never hand out a shared password).
+        // Demo-only shared default - a real onboarding flow would never hand out a shared
+        // password.
         // Same literal as auth_password's own DEMO_PASSWORD (DemoPassword.kt) - one demo password
         // project-wide; duplicated rather than imported since this module may not depend on
         // auth_password directly (module boundary).

@@ -8,7 +8,7 @@ import org.springframework.modulith.ApplicationModule
  * (`id_fsc.api.v1.IdentFscToolController` - `api.v1` mirrors the orchestrator's own package shape,
  * since the URL is still `/orchestrator/api/v1/...` regardless of which module owns the class)
  * lives here too, reaching the orchestrator through `tool_api.ToolEndpoint`/`PersonDirectory`
- * alone (docs/04-orchestrierung.md #5, DPoP-demo-2tm) - the orchestrator no longer needs to know
+ * alone (docs/04-orchestrierung.md #5) - the orchestrator never needs to know
  * `id_fsc` exists.
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`. Kotlin has no package

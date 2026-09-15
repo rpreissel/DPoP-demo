@@ -7,9 +7,8 @@ import java.time.Duration
 /**
  * Person-level throttle for IDENT-category tool attempts.
  *
- * This closes an exception that used to be stated as a rule: "IDENT/ENROLL failures aren't a
- * brute-force target the same way (no credential guessed)". For ENROLL that holds. For IDENT it
- * does not - `ident-fsc` verifies exactly one secret (the Freischaltcode) against a KVNR, and a
+ * Unlike ENROLL ("no credential guessed"), IDENT failures ARE a brute-force target:
+ * `ident-fsc` verifies exactly one secret (the Freischaltcode) against a KVNR, and a
  * hit means `Action.AdoptIdentity`, i.e. creating OR taking over that person's account.
  * `ident-eid` guesses a PIN the same way.
  *

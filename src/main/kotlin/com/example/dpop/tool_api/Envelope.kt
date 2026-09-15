@@ -13,7 +13,7 @@ import java.util.UUID
         "user-chosen display name, set only for multi-instance methods; `null` for singleton ones " +
         "(email/sms/password), which the client labels from `method` itself. `enrolledUnderAcr`/" +
         "`maxAcr`/`effectiveAcr`/`factorTypes` surface the ADR-5 three-way cap (docs/12-" +
-        "entscheidungen.md) that was previously invisible from outside: `effectiveAcr` is " +
+        "entscheidungen.md): `effectiveAcr` is " +
         "`min(enrolledUnderAcr, maxAcr)`, the level this method can actually contribute right now, " +
         "which can be lower than the tool's own declared `maxAcr` if it was enrolled while the " +
         "session had proven less."

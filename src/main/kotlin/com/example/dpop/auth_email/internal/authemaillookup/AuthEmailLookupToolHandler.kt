@@ -19,7 +19,7 @@ import java.util.UUID
  * uses) - unlike AuthSmsLookupToolHandler, which still receives a pre-resolved accountId because
  * it only needs an opaque account handle, not the email semantics this module owns.
  *
- * Pure business logic; self-description lives in [AuthEmailLookupDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [AuthEmailLookupDescriptor].
  * Delegates the code-vs-state decision to [AuthEmailLookupFlow].
  */
 @Component

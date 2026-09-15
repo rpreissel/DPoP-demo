@@ -11,7 +11,7 @@ interface ChannelSessionRepository : JpaRepository<ChannelSession, UUID> {
 
     /**
      * Every already-expired channel of one [ChannelSession.Channel] - `RetentionJob`
-     * (DPoP-demo-f9o.12) uses this for `KEYCLOAK` channels only, to find candidates for an
+     * uses this for `KEYCLOAK` channels only, to find candidates for an
      * early, Keycloak-session-liveness-confirmed cleanup ahead of the normal retention window
      * [findByExpiresAtBefore] otherwise waits out for every channel alike.
      */

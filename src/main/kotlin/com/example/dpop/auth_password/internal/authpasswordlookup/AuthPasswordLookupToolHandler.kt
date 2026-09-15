@@ -18,7 +18,7 @@ import java.util.UUID
  * may only depend on tool_spi, docs/08-projektrahmen.md A11) - the controller resolves it to an
  * accountId/EnrollmentRef via AccountService and passes the result into [patch].
  *
- * Pure business logic; self-description lives in [AuthPasswordLookupDescriptor] (DPoP-demo-vun).
+ * Pure business logic; self-description lives in [AuthPasswordLookupDescriptor].
  * Delegates the completeness decision to [AuthPasswordLookupFlow].
  */
 @Component

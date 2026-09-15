@@ -18,7 +18,7 @@ import java.util.UUID
  * active SMS enrollment reference - resolved and null-checked by AuthSmsToolController before
  * calling this (never null here), since this module never reads `account` itself.
  *
- * Pure business logic; self-description lives in [AuthSmsUseDescriptor] (DPoP-demo-vun). Its
+ * Pure business logic; self-description lives in [AuthSmsUseDescriptor]. Its
  * only external caller is AuthSmsToolController, which lives in the same module.
  * Delegates the tan-vs-state decision to [AuthSmsUseFlow].
  */
