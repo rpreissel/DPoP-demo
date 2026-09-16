@@ -97,7 +97,7 @@ class RegisterStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
             then("adopts the identity, then offers it via the shared AuthChoice, rather than enrollment") {
-                val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
@@ -111,7 +111,7 @@ class RegisterStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
             then("adopts the identity, then offers enrollment, carrying the email obligation this run incurred") {
-                val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
@@ -147,7 +147,7 @@ class RegisterStrategyTest : BehaviorSpec({
         val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
 
         then("asks for confirmation first, before offering any method - never silently rebinds") {
-            val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+            val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
                 Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)

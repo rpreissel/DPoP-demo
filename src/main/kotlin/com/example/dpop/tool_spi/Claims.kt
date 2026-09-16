@@ -34,27 +34,36 @@ enum class AttributeType(val wireName: String) {
  * not be silently interchangeable the way raw Strings would be.
  */
 @JvmInline
-value class TrustAnchor(val value: String) {
+value class ClaimSource(val value: String) {
     override fun toString(): String = value
 
     companion object {
-        /** The master-data backend (ext_stammdaten) - strongest anchor class. */
-        val EXT_STAMMDATEN = TrustAnchor("ext_stammdaten")
+        /** The master-data backend (ext_stammdaten) - strongest trust level. */
+        val EXT_STAMMDATEN = ClaimSource("ext_stammdaten")
 
         /** A value the user entered with nothing backing it. */
-        val SELF_REPORTED = TrustAnchor("self-reported")
+        val SELF_REPORTED = ClaimSource("self-reported")
+
+        /**
+         * Demo-only startup seed data (`demo_seed.KcDemoAccountSeeder`), rank [TrustLevel.PROVEN]
+         * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, Paket 6) - explicitly
+         * named so it can never be mistaken for stammdaten authority or real session evidence.
+         * Not [of] a [ToolId]: no tool run ever produced this value, and no tool descriptor
+         * declares it, so it must not be usable outside the one seeder that legitimately writes it.
+         */
+        val DEMO_BOOTSTRAP = ClaimSource("demo-bootstrap")
 
         /** A claim established by a concrete tool run, e.g. an eID procedure. */
-        fun of(toolId: ToolId): TrustAnchor = TrustAnchor(toolId.value)
+        fun of(toolId: ToolId): ClaimSource = ClaimSource(toolId.value)
     }
 }
 
 /**
- * The three classes of trust a [TrustAnchor] can carry, ordered by precedence (docs/ideen/
- * claims-modell-und-vertrauensanker.md: anchor class first, recency only as a tie-breaker
- * WITHIN one class). Higher [rank] outranks lower.
+ * The three classes of trust a [ClaimSource] can carry, ordered by precedence (docs/ideen/
+ * claims-modell-und-vertrauensanker.md: trust level first, recency only as a tie-breaker
+ * WITHIN one level). Higher [rank] outranks lower.
  */
-enum class AnchorClass(val rank: Int) {
+enum class TrustLevel(val rank: Int) {
     /** Backed by the master-data backend, e.g. ext_stammdaten. */
     STAMMDATEN(3),
     /** Proven by a tool run, e.g. an eID procedure or a confirmed email-code exchange. */
@@ -63,16 +72,17 @@ enum class AnchorClass(val rank: Int) {
     SELF_REPORTED(1)
 }
 
-/** The [AnchorClass] a given [TrustAnchor] belongs to. */
-fun anchorClassOf(trustAnchor: TrustAnchor): AnchorClass = when (trustAnchor) {
-    TrustAnchor.EXT_STAMMDATEN -> AnchorClass.STAMMDATEN
-    TrustAnchor.SELF_REPORTED -> AnchorClass.SELF_REPORTED
-    else -> AnchorClass.PROVEN
-}
+/** The [TrustLevel] this [ClaimSource] belongs to. */
+val ClaimSource.trustLevel: TrustLevel
+    get() = when (this) {
+        ClaimSource.EXT_STAMMDATEN -> TrustLevel.STAMMDATEN
+        ClaimSource.SELF_REPORTED -> TrustLevel.SELF_REPORTED
+        else -> TrustLevel.PROVEN
+    }
 
 /**
  * One attribute value a completed tool run asserts about its subject, with its provenance: WHO
- * established it ([trustAnchor]) and at what assurance ([establishedLoa]). The typed claims-
+ * established it ([source]) and at what assurance ([establishedLoa]). The typed claims-
  * model counterpart to the untyped `auditDetails` blob - a subset of the declaring descriptor's
  * [ToolDescriptor.claims], at most one per [AttributeType] (docs/ideen/
  * claims-modell-und-vertrauensanker.md).
@@ -80,50 +90,57 @@ fun anchorClassOf(trustAnchor: TrustAnchor): AnchorClass = when (trustAnchor) {
 data class Claim(
     val attributeType: AttributeType,
     val value: String,
-    val trustAnchor: TrustAnchor,
+    val source: ClaimSource,
     val establishedLoa: AcrLevel? = null
 )
 
 /**
  * What an account must already have for a tool to be offered at all: [attributeType]
- * established at no less than [minAnchorClass], checked against the consolidated value
+ * established at no less than [minTrustLevel], checked against the consolidated value
  * including retractions (ADR-12). The mirror direction of [ToolDescriptor.claims] -
  * colloquially, "confirmed email" is `ClaimRequirement(EMAIL, PROVEN)`.
  */
 data class ClaimRequirement(
     val attributeType: AttributeType,
-    val minAnchorClass: AnchorClass
+    val minTrustLevel: TrustLevel
 )
 
 /**
- * What [ToolDescriptor.claims] declares: one [AttributeType] together with the [TrustAnchor]
+ * What [ToolDescriptor.claims] declares: one [AttributeType] together with the [ClaimSource]
  * a successful run asserts it with. The OFFER side of the claims vocabulary (mirroring
  * [FactorType]'s two-sided contract): consumers can ask "what can this tool assert, on whose
  * authority?" without any run having happened. What is constant per tool lives here; what
  * varies per run - the value and its [Claim.establishedLoa] - stays on the [Claim]. The
- * [AnchorClass] is deliberately NOT declared: it is derived via [anchorClassOf], and the
- * anchor-to-class precedence is global policy (ADR-11), not per-tool knowledge.
+ * [TrustLevel] is deliberately NOT declared: it is derived via [ClaimSource.trustLevel], and
+ * the source-to-level precedence is global policy (ADR-11), not per-tool knowledge.
  */
 data class ClaimDeclaration(
     val attributeType: AttributeType,
-    val trustAnchor: TrustAnchor
+    val source: ClaimSource
 )
 
 /**
  * Fail-fast contract check between a descriptor's declared [ToolDescriptor.claims] and the
  * [Claim]s one completed run actually reported: every reported claim must be declared for the
- * same [AttributeType] with the SAME [TrustAnchor]. Descriptor/handler drift is a programming
- * error, not a runtime condition - it crashes the adopting transaction instead of silently
- * logging an assertion the catalog never promised.
+ * same [AttributeType] with the SAME [ClaimSource], and at most one claim per [AttributeType]
+ * (docs/ideen/claims-modell-und-vertrauensanker.md: a `Claim` set is a snapshot, not a log -
+ * two values for the same attribute in one report is descriptor/handler drift, same as an
+ * undeclared attribute). Descriptor/handler drift is a programming error, not a runtime
+ * condition - it crashes the adopting transaction instead of silently logging an assertion the
+ * catalog never promised.
  */
 fun assertClaimsCovered(descriptor: ToolDescriptor, claims: List<Claim>) {
     val declared = descriptor.claims.associateBy { it.attributeType }
+    val seen = mutableSetOf<AttributeType>()
     claims.forEach { claim ->
         val declaration = checkNotNull(declared[claim.attributeType]) {
             "${descriptor.toolId} reported a ${claim.attributeType.wireName} claim but declares none"
         }
-        check(declaration.trustAnchor == claim.trustAnchor) {
-            "${descriptor.toolId} reported ${claim.attributeType.wireName} with anchor ${claim.trustAnchor}, but declares ${declaration.trustAnchor}"
+        check(declaration.source == claim.source) {
+            "${descriptor.toolId} reported ${claim.attributeType.wireName} with source ${claim.source}, but declares ${declaration.source}"
+        }
+        check(seen.add(claim.attributeType)) {
+            "${descriptor.toolId} reported more than one claim for ${claim.attributeType.wireName}"
         }
     }
 }

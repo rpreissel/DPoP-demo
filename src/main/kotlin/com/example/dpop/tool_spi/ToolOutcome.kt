@@ -45,22 +45,38 @@ sealed interface ToolOutcome {
         /** The factor kinds actually proven this run; a subset of [ToolDescriptor.factorTypes]. */
         val factorTypes: Set<FactorType>
 
-        /** An [IDENTIFICATION][MethodRole.IDENTIFICATION] tool resolved [personId]. */
+        /**
+         * An [IDENTIFICATION][MethodRole.IDENTIFICATION] tool resolved [personId] -
+         * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, Paket 5) carried only as
+         * a [claims] entry now, no separate field: today's IDENT procedures still require
+         * exactly one valid `PERSON_ID` claim, enforced right here at construction (the "IDENT-
+         * Erfolgsvertrag") rather than pauschal on every claim set this type shares with
+         * [Enrolled] - claims-only identification (an Interessenten form with no `PERSON_ID` at
+         * all) stays out of scope for this codebase.
+         */
         data class Identified(
-            val personId: Long,
             override val amr: List<String> = emptyList(),
             override val achievedAcr: AcrLevel? = null,
             override val factorTypes: Set<FactorType> = emptySet(),
             /**
              * The identifying attributes this run asserted, with their provenance - the typed
-             * counterpart to [auditDetails]. Subset of the descriptor's [ToolDescriptor.claims].
-             * [personId] keeps its own field because its Interessenten form (a run that
-             * identifies nobody in the master data yet) is deliberately not taken here.
+             * counterpart to [auditDetails]. Subset of the descriptor's [ToolDescriptor.claims];
+             * must contain exactly one `PERSON_ID` claim (see [personId]).
              */
             val claims: List<Claim> = emptyList(),
             /** Method-specific verification evidence, passed through unchanged for auditing. */
             val auditDetails: Map<String, Any?>? = null
-        ) : Completed
+        ) : Completed {
+            /** The single mandatory `PERSON_ID` claim's value, parsed - see the class doc. */
+            val personId: Long get() = claims.first { it.attributeType == AttributeType.PERSON_ID }.value.toLong()
+
+            init {
+                val personIdClaims = claims.count { it.attributeType == AttributeType.PERSON_ID }
+                check(personIdClaims == 1) {
+                    "Completed.Identified requires exactly one PERSON_ID claim, got $personIdClaims"
+                }
+            }
+        }
 
         /** An [ENROLLMENT][MethodRole.ENROLLMENT] tool created [enrollmentRef]. */
         data class Enrolled(

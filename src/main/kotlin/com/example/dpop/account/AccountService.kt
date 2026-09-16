@@ -10,10 +10,12 @@ import com.example.dpop.account.internal.AccountRaceSafeCreator
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
-import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_api.ConsolidationStrategy
 import com.example.dpop.tool_api.IdentityConflictException
+import com.example.dpop.tool_api.allowsAnchorReplacement
+import com.example.dpop.tool_api.anchorBindingStrength
 import com.example.dpop.tool_api.consolidationStrategy
+import com.example.dpop.tool_api.normalizeAnchorValue
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -70,42 +72,60 @@ class AccountService(
     }
 
     /**
-     * Appends a claim to the account's identity log
-     * (docs/ideen/claims-modell-und-vertrauensanker.md, Phase 1) - the typed counterpart of what
-     * `Completed.Identified`/`Completed.Enrolled` now carry as [Claim]. Never overwrites a prior
-     * claim; the log is provenance. [AttributeType.consolidationStrategy] decides what happens
-     * beyond logging: [ConsolidationStrategy.OwnedColumn] additionally writes the canonical
-     * projection column ([consolidateOwnedColumn]), its anchor and the [AccountChanged] event;
-     * [ConsolidationStrategy.ExternalLiveLookup] does nothing further here - authority for that
-     * value lives at ext_stammdaten, reachable via this account's own `personId`, so the log
-     * entry above is already the only local trace this claim needs (see that strategy's own doc
-     * for why nothing per-attribute is ever cached).
+     * Delegating convenience wrapper (docs/ideen/account-attribute-und-trust-vereinheitlichen.md,
+     * Paket 4) around [recordClaims] for the common single-claim case.
      */
     @Transactional
-    fun recordClaim(accountId: Long, claim: Claim) {
-        val establishedAt = Instant.now()
-        accountAttributeRepository.save(
-            AccountAttribute(
-                accountId = accountId,
-                attributeType = claim.attributeType,
-                value = claim.value,
-                trustAnchor = claim.trustAnchor.value,
-                establishedLoa = claim.establishedLoa?.value,
-                establishedAt = establishedAt
+    fun recordClaim(accountId: Long, claim: Claim) = recordClaims(accountId, listOf(claim))
+
+    /**
+     * The claims-log write path (docs/ideen/claims-modell-und-vertrauensanker.md, Phase 1) for
+     * every [claims] a single completed tool run asserted, applied together - the typed
+     * counterpart of what `Completed.Identified`/`Completed.Enrolled` carry as [Claim]s. Never
+     * overwrites a prior claim; the log is provenance. At most one claim per [AttributeType] -
+     * same contract `assertClaimsCovered` already checks upstream, re-checked here so this
+     * method is safe to call on its own. [AttributeType.consolidationStrategy] decides what
+     * happens beyond logging, per claim: [ConsolidationStrategy.OwnedColumn] additionally writes
+     * the canonical projection column ([consolidateOwnedColumn]), its anchor and the
+     * [AccountChanged] event; [ConsolidationStrategy.ExternalLiveLookup] does nothing further
+     * here - authority for that value lives at ext_stammdaten, reachable via this account's own
+     * `personId`, so the log entry above is already the only local trace this claim needs (see
+     * that strategy's own doc for why nothing per-attribute is ever cached).
+     */
+    @Transactional
+    fun recordClaims(accountId: Long, claims: List<Claim>) {
+        val seen = mutableSetOf<AttributeType>()
+        claims.forEach { claim ->
+            check(seen.add(claim.attributeType)) {
+                "recordClaims($accountId): more than one claim for ${claim.attributeType.wireName}"
+            }
+        }
+        claims.forEach { claim ->
+            val establishedAt = Instant.now()
+            accountAttributeRepository.save(
+                AccountAttribute(
+                    accountId = accountId,
+                    attributeType = claim.attributeType,
+                    value = claim.value,
+                    trustAnchor = claim.source.value,
+                    establishedLoa = claim.establishedLoa?.value,
+                    establishedAt = establishedAt
+                )
             )
-        )
-        when (claim.attributeType.consolidationStrategy()) {
-            ConsolidationStrategy.OwnedColumn -> consolidateOwnedColumn(accountId, claim.attributeType, claim.value, establishedAt)
-            ConsolidationStrategy.ExternalLiveLookup -> {}
+            when (claim.attributeType.consolidationStrategy()) {
+                ConsolidationStrategy.OwnedColumn -> consolidateOwnedColumn(accountId, claim.attributeType, claim.value, establishedAt)
+                ConsolidationStrategy.ExternalLiveLookup -> {}
+            }
         }
     }
 
     /**
      * Synchronously consolidates an [ConsolidationStrategy.OwnedColumn] attribute - the account's
-     * own column(s) ([Account.applyOwnedColumn]), its [AnchorType] if it has one, and the
-     * [AccountChanged] event (Keycloak mirrors these attributes, the sync listener re-reads the
-     * account). Generic over every `OwnedColumn` type - EMAIL is the only one today
-     * ([confirmEmail]'s bootstrap seed calls this directly, [recordClaim] for every other caller).
+     * own column(s) ([Account.applyOwnedColumn]), its anchor if [AttributeType.anchorBindingStrength]
+     * is non-null, and the [AccountChanged] event (Keycloak mirrors these attributes, the sync
+     * listener re-reads the account). Generic over every `OwnedColumn` type (`EMAIL`, `PERSON_ID`)
+     * and every caller, [recordClaim]/[recordClaims] included - `demo_seed`'s `KcDemoAccountSeeder`
+     * goes through the same path too, with `ClaimSource.DEMO_BOOTSTRAP` naming its provenance.
      */
     private fun consolidateOwnedColumn(accountId: Long, type: AttributeType, value: String, establishedAt: Instant): AccountProfile {
         val account = getOrThrow(accountId)
@@ -113,7 +133,7 @@ class AccountService(
         // cross-account conflict must abort before the projection column is written, not get
         // undone by a rollback afterwards. Stored in the anchor's normalized form while the
         // raw column stays raw - same ownership, one write.
-        AnchorType.of(type)?.let { recordAnchor(accountId, it, value, establishedAt) }
+        if (type.anchorBindingStrength != null) recordAnchor(accountId, type, value, establishedAt)
         account.applyOwnedColumn(type, value, establishedAt)
         val profile = toProfile(accountRepository.save(account))
         eventPublisher.publishEvent(AccountChanged(accountId))
@@ -130,12 +150,22 @@ class AccountService(
      * account claimed a value whose anchor pointed at a DIFFERENT account, and the two lookup
      * paths over it disagreed from then on. Throwing rolls the whole claim back instead, log
      * entry included, leaving one consistent answer to "who owns this value". A new value for
-     * THIS account's own anchor re-binds it: the old row goes, the anchor follows the account's
-     * latest established claim.
+     * THIS account's own anchor re-binds it ONLY if [AttributeType.allowsAnchorReplacement] says
+     * so (`EMAIL`: the old row goes, the anchor follows the account's latest established claim).
+     * For a type where it does not (`PERSON_ID`: immutable after first binding), re-asserting the
+     * SAME value is idempotent (handled above, before this ever runs), but a DIFFERENT value for
+     * an account that already holds one is rejected the same way a cross-account conflict is -
+     * both are the identity model refusing to silently overwrite an established binding.
+     *
+     * A rebind UPDATES the existing row in place rather than deleting and re-inserting: Hibernate
+     * flushes insertions before deletions by default, so a delete-then-insert pair on the SAME
+     * `(account_id, attribute_type)` briefly has both rows present at flush time and trips
+     * `ux_account_anchor_account_type` (V38) - a real unique-constraint violation a mocked test
+     * cannot catch, only a real DB one did (`AccountServiceDbTest`).
      */
-    private fun recordAnchor(accountId: Long, type: AnchorType, value: String, establishedAt: Instant) {
-        val normalized = type.normalize(value)
-        accountAnchorRepository.findByAnchorTypeAndValue(type, normalized)?.let { held ->
+    private fun recordAnchor(accountId: Long, type: AttributeType, value: String, establishedAt: Instant) {
+        val normalized = type.normalizeAnchorValue(value)
+        accountAnchorRepository.findByAttributeTypeAndValue(type, normalized)?.let { held ->
             if (held.accountId == accountId) return
             log.warn(
                 "Anchor conflict: {} anchor already held by account {}, rejected for account {}",
@@ -143,12 +173,24 @@ class AccountService(
             )
             throw IdentityConflictException("Dieser ${type.wireName}-Wert gehoert bereits zu einem anderen Konto")
         }
-        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type)
-            ?.let { accountAnchorRepository.delete(it) }
+        val existing = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)
+        if (existing != null) {
+            if (!type.allowsAnchorReplacement) {
+                log.warn(
+                    "Anchor conflict: {} for account {} is immutable, already bound to {}, rejected new value",
+                    type.wireName, accountId, existing.value
+                )
+                throw IdentityConflictException("Dieser ${type.wireName}-Wert kann fuer dieses Konto nicht mehr geaendert werden")
+            }
+            existing.value = normalized
+            existing.establishedAt = establishedAt
+            accountAnchorRepository.save(existing)
+            return
+        }
         accountAnchorRepository.save(
             AccountAnchor(
                 accountId = accountId,
-                anchorType = type,
+                attributeType = type,
                 value = normalized,
                 establishedAt = establishedAt
             )
@@ -159,7 +201,9 @@ class AccountService(
      * A fresh account with no person behind it yet (REGISTER "Enrollment zuerst",
      * docs/04-orchestrierung.md) - created lazily on the first completed enrollment, never
      * upfront, so a channel that never gets that far never leaves an orphan row behind.
-     * Identification remains entirely optional and can bind [bindPersonId] at any later point, not
+     * Identification remains entirely optional and can bind a `PERSON_ID` claim (via
+     * [recordClaim]/[recordClaims], `PERSON_ID` is `ConsolidationStrategy.OwnedColumn` since
+     * docs/ideen/account-attribute-und-trust-vereinheitlichen.md Paket 4) at any later point, not
      * just right after registration.
      */
     @Transactional
@@ -169,27 +213,16 @@ class AccountService(
         return profile
     }
 
-    /** Same lookup [findOrCreateAccount] already does internally, exposed for the merge-conflict check before [bindPersonId]. */
+    /**
+     * Same lookup [findOrCreateAccount] already does internally, exposed for the merge-conflict
+     * check a caller runs BEFORE recording a `PERSON_ID` claim on a previously unidentified
+     * account (a DIFFERENT account already owning this person) - the actual binding then goes
+     * through [recordClaim]/[recordClaims] like every other claim, not a separate direct write;
+     * [recordAnchor]'s own cross-account check is the same-shaped backstop at the anchor layer.
+     */
     @Transactional(readOnly = true)
     fun findAccountByPersonId(personId: Long): AccountProfile? =
         accountRepository.findByPersonId(personId)?.let { toProfile(it) }
-
-    /**
-     * Identifies a previously unidentified account (docs/04-orchestrierung.md, REGISTER
-     * "Enrollment zuerst") - the caller must already have checked [findAccountByPersonId] itself
-     * for a merge conflict (a DIFFERENT account already owning this person); this method only
-     * guards the account-local invariant that an already-identified account's `personId` is never
-     * silently overwritten.
-     */
-    @Transactional
-    fun bindPersonId(accountId: Long, personId: Long): AccountProfile {
-        val account = getOrThrow(accountId)
-        check(account.personId == null) { "Account $accountId is already identified as person ${account.personId}" }
-        account.personId = personId
-        val profile = toProfile(accountRepository.save(account))
-        eventPublisher.publishEvent(AccountChanged(accountId))
-        return profile
-    }
 
     @Transactional
     fun addIdentification(
@@ -315,26 +348,11 @@ class AccountService(
      */
     @Transactional(readOnly = true)
     fun findAccountByEmail(email: String): AccountProfile? =
-        resolveByAnchor(AnchorType.Email, email)?.let { findAccount(it) }
+        resolveByAnchor(AttributeType.EMAIL, email)?.let { findAccount(it) }
 
     @Transactional(readOnly = true)
     fun existsByEmail(email: String): Boolean =
-        accountAnchorRepository.existsByAnchorTypeAndValue(AnchorType.Email, AnchorType.Email.normalize(email))
-
-    /**
-     * Bootstrap special case of the claims write path - the live path is generic:
-     * `JourneyService`'s `Action.AdoptCredential` handling records every enrolled claim via
-     * [recordClaim], and an EMAIL claim lands in [consolidateOwnedColumn]. What remains here is
-     * `demo_seed`'s `KcDemoAccountSeeder`, once at startup, to give the `keycloak` profile's
-     * seeded test persons a confirmed email before any real enrollment ever runs.
-     *
-     * The confirmed email is still the account's identifier, not a swappable credential -
-     * `auth_email` never depends on `account` at all; it reads and writes through the
-     * generic anchor ports and claims.
-     */
-    @Transactional
-    fun confirmEmail(accountId: Long, email: String): AccountProfile =
-        consolidateOwnedColumn(accountId, AttributeType.EMAIL, email, Instant.now())
+        accountAnchorRepository.existsByAttributeTypeAndValue(AttributeType.EMAIL, AttributeType.EMAIL.normalizeAnchorValue(email))
 
     @Transactional(readOnly = true)
     fun findActiveMethod(accountId: Long, method: String): AuthMethodView? =
@@ -349,11 +367,11 @@ class AccountService(
 
     override fun resolveAccountByEmail(email: String): Long? = findAccountByEmail(email)?.accountId
 
-    override fun resolveByAnchor(type: AnchorType, value: String): Long? =
-        accountAnchorRepository.findByAnchorTypeAndValue(type, type.normalize(value))?.accountId
+    override fun resolveByAnchor(type: AttributeType, value: String): Long? =
+        accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value))?.accountId
 
-    override fun anchorValue(accountId: Long, type: AnchorType): String? =
-        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type)?.value
+    override fun anchorValue(accountId: Long, type: AttributeType): String? =
+        accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
 
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it.details) }

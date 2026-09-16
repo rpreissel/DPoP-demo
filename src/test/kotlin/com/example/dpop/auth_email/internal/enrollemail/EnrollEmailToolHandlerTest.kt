@@ -3,12 +3,11 @@ package com.example.dpop.auth_email.internal.enrollemail
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_api.AccountDirectory
-import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
-import com.example.dpop.tool_spi.TrustAnchor
+import com.example.dpop.tool_spi.ClaimSource
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -37,7 +36,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("submitting an email that is not yet taken") {
-            every { accountDirectory.resolveByAnchor(AnchorType.Email, "max@example.com") } returns null
+            every { accountDirectory.resolveByAnchor(AttributeType.EMAIL, "max@example.com") } returns null
             val saved = slot<EnrollEmailToolData>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
@@ -52,7 +51,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
         }
 
         `when`("submitting an email that is already taken") {
-            every { accountDirectory.resolveByAnchor(AnchorType.Email, "taken@example.com") } returns 42L
+            every { accountDirectory.resolveByAnchor(AttributeType.EMAIL, "taken@example.com") } returns 42L
 
             then("it fails without ever touching account state") {
                 val outcome = handler.patch(toolSessionId, email = "taken@example.com", code = null)
@@ -75,7 +74,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
                     (outcome as ToolOutcome.Completed.Enrolled).enrollmentRef shouldBe EnrollmentRef(type = "email", id = "max@example.com")
                     outcome.auditDetails shouldBe null
                     outcome.claims shouldBe listOf(
-                        Claim(AttributeType.EMAIL, "max@example.com", TrustAnchor.of(EnrollEmailDescriptor.toolId), EnrollEmailDescriptor.maxAcr)
+                        Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.of(EnrollEmailDescriptor.toolId), EnrollEmailDescriptor.maxAcr)
                     )
                 }
             }

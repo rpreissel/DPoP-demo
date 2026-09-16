@@ -3,12 +3,11 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.tool_api.AccountDirectory
-import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
-import com.example.dpop.tool_spi.TrustAnchor
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -78,7 +77,7 @@ class EnrollEmailToolHandler(
                 // side uses, so "already taken" can't be raced past via case tricks; only a
                 // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port
                 // (every other method module's own account access) is enough.
-                if (accountDirectory.resolveByAnchor(AnchorType.Email, decision.email) != null) {
+                if (accountDirectory.resolveByAnchor(AttributeType.EMAIL, decision.email) != null) {
                     ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
                 } else if (sendThrottled) {
                     ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")
@@ -110,7 +109,7 @@ class EnrollEmailToolHandler(
                 claims = listOf(
                     // This enrollment asserts a proven email. The code exchange itself IS the
                     // proof, hence this tool's own id as the trust anchor.
-                    Claim(AttributeType.EMAIL, decision.email, TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
+                    Claim(AttributeType.EMAIL, decision.email, ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
                 )
             )
         }

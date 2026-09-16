@@ -70,7 +70,7 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M10 | `id_eid` | Zweite Identifizierungsfunktionalität (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bringt den eigenen `@RestController` mit |
 | M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff nötig; bringt die eigenen `@RestController` mit |
 | M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); bringt die eigenen `@RestController` mit, keine `account`-Abhängigkeit |
-| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein echtes Orchestrator-Konto samt Demo-Passwort an (`AccountService.confirmEmail`/`addAuthenticationMethod`/`findOrCreateAccount` über `account`, `PasswordCredentialPort`/`PersonDirectory` über `tool_api`); kein eigener `@RestController` |
+| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein echtes Orchestrator-Konto samt Demo-Passwort an (`AccountService.recordClaim`/`addAuthenticationMethod`/`findOrCreateAccount`/`anchorValue` über `account`, `PasswordCredentialPort`/`PersonDirectory` über `tool_api`; die PERSON_ID/EMAIL-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`); kein eigener `@RestController` |
 
 ### Modulabhängigkeiten (C4 Component View)
 

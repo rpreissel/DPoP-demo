@@ -6,11 +6,12 @@ import com.example.dpop.tool_api.IdentityResolver
 import com.example.dpop.tool_api.MatchedVia
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.Resolution
-import com.example.dpop.tool_api.AnchorType
-import com.example.dpop.tool_spi.AnchorClass
+import com.example.dpop.tool_api.anchorBindingStrength
+import com.example.dpop.tool_api.normalizeAnchorValue
+import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
-import com.example.dpop.tool_spi.anchorClassOf
+import com.example.dpop.tool_spi.trustLevel
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -19,18 +20,19 @@ import java.time.LocalDate
  * The account module's answer to "does an existing account belong to these claims?" - one
  * matching policy (discriminants, normalization, thresholds) for every identification
  * procedure, because the account module owns the data the answer is computed from
- * (docs/ideen/claims-modell-und-vertrauensanker.md, "Identitaetsauflösung & Matching").
+ * (docs/ideen/claims-modell-und-vertrauensanker.md, "Identitaetsauflösung & Matching";
+ * docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").
  *
- * Layer precedence is fixed: the `person_id` projection first, then unique anchor values,
- * then attribute matching - binding strength person_id > anchor > attributes. Attribute
+ * Layer precedence is fixed: unique anchor values first (PERSON_ID ranks highest among them via
+ * [AttributeType.anchorBindingStrength] - the same technical `account_anchor` lookup as every
+ * other anchor, no separate person_id repository path), then attribute matching. Attribute
  * matching is the only layer that can be ambiguous, and the most expensive error it can
  * make is a false merge, so it never guesses. A future EUDI-Wallet case slots in without a
- * policy fork: an issuer-scoped PID identifier arrives as its own anchor type (layer 2), and
+ * policy fork: an issuer-scoped PID identifier arrives as its own anchor type, and
  * selective disclosure simply shrinks the claim set - a subset can only ever bind weakly.
  */
 @Service
 class IdentityMatchingService(
-    private val accountRepository: AccountRepository,
     private val accountAnchorRepository: AccountAnchorRepository,
     private val accountAttributeRepository: AccountAttributeRepository,
     private val personDirectory: PersonDirectory
@@ -47,7 +49,6 @@ class IdentityMatchingService(
 
     override fun resolve(claims: Set<Claim>): Resolution {
         verifyToolAttestedConsistency(claims)
-        resolveByPersonIdProjection(claims)?.let { return it }
         resolveByAnchor(claims)?.let { return it }
         return resolveByAttributeCombination(claims) ?: Resolution.NewInteressent
     }
@@ -61,7 +62,7 @@ class IdentityMatchingService(
      */
     private fun verifyToolAttestedConsistency(claims: Set<Claim>) {
         val kvnrClaim = claims.firstOrNull { it.attributeType == AttributeType.KVNR } ?: return
-        if (anchorClassOf(kvnrClaim.trustAnchor) == AnchorClass.STAMMDATEN) return
+        if (kvnrClaim.source.trustLevel == TrustLevel.STAMMDATEN) return
         val personId = personDirectory.findPersonIdByKvnr(kvnrClaim.value) ?: return
         val claimed = ClaimedIdentity(
             name = claims.claimValue(AttributeType.NAME),
@@ -73,27 +74,24 @@ class IdentityMatchingService(
         }
     }
 
-    /** Layer 1, strongest: the attested person reference against the account `person_id` projection. */
-    private fun resolveByPersonIdProjection(claims: Set<Claim>): Resolution.ExistingAccount? {
-        val personId = claims.claimValue(AttributeType.PERSON_ID)?.toLongOrNull() ?: return null
-        val account = accountRepository.findByPersonId(personId) ?: return null
-        val accountId = account.id ?: return null
-        return Resolution.ExistingAccount(accountId, MatchedVia.PersonId(personId))
-    }
-
     /**
-     * Layer 2: anchor values - unique, error-free lookups via `account_anchor`'s UNIQUE
-     * constraint. Ranks claims by [AnchorClass] before iterating, so the strongest anchor is
-     * always consulted first when several are present - a property of this code, not of
-     * whatever `Set` implementation a caller happens to pass in (a plain `HashSet` gives no
-     * iteration-order guarantee at all).
+     * Layer 1: anchor values - unique, error-free lookups via `account_anchor`'s UNIQUE
+     * constraint, PERSON_ID included (docs/ideen/account-attribute-und-trust-vereinheitlichen.md,
+     * Paket 4: PERSON_ID is `ConsolidationStrategy.OwnedColumn` now, so it is anchored exactly
+     * like EMAIL/KVNR). Ranks claims by [AttributeType.anchorBindingStrength] before iterating,
+     * so the strongest anchor (PERSON_ID) is always consulted first when several are present -
+     * deliberately NOT the claims' [TrustLevel] (docs/ideen/account-attribute-und-trust-
+     * vereinheitlichen.md: binding strength and trust level are different axes; a PERSON_ID match
+     * outranks an EMAIL match regardless of which tool supplied the claims) and not whatever
+     * `Set` implementation a caller happens to pass in (a plain `HashSet` gives no iteration-order
+     * guarantee at all).
      */
     private fun resolveByAnchor(claims: Set<Claim>): Resolution.ExistingAccount? {
-        for (claim in claims.sortedByDescending { anchorClassOf(it.trustAnchor).rank }) {
-            val anchorType = AnchorType.of(claim.attributeType) ?: continue
-            val anchor = accountAnchorRepository.findByAnchorTypeAndValue(
-                anchorType,
-                anchorType.normalize(claim.value)
+        for (claim in claims.sortedByDescending { it.attributeType.anchorBindingStrength ?: 0 }) {
+            val attributeType = claim.attributeType.takeIf { it.anchorBindingStrength != null } ?: continue
+            val anchor = accountAnchorRepository.findByAttributeTypeAndValue(
+                attributeType,
+                attributeType.normalizeAnchorValue(claim.value)
             ) ?: continue
             val accountId = anchor.accountId ?: continue
             return Resolution.ExistingAccount(accountId, MatchedVia.Anchor(claim.attributeType))
@@ -102,7 +100,7 @@ class IdentityMatchingService(
     }
 
     /**
-     * Layer 3, weakest: normalized attribute matching over the identity log. One real
+     * Layer 2, weakest: normalized attribute matching over the identity log. One real
      * combination today - name + vorname + geburtsdatum, matched in a single sargable query
      * (`idx_account_attribute_type_normalized`, migration V34) - deliberately the most
      * discriminant triple the log carries; further combinations (and their rank order) arrive

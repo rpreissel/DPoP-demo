@@ -3,7 +3,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.AuthEmailUseDescriptor
 import com.example.dpop.tool_api.AccountDirectory
-import com.example.dpop.tool_api.AnchorType
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import com.example.dpop.tool_spi.demoData
@@ -44,7 +44,7 @@ class AuthEmailUseToolHandler(
     fun start(toolSessionId: UUID, accountId: Long): ToolOutcome {
         // Returns the normalized confirmed address from the anchor projection, or null when
         // none was ever established for this account.
-        val email = accountDirectory.anchorValue(accountId, AnchorType.Email)
+        val email = accountDirectory.anchorValue(accountId, AttributeType.EMAIL)
             ?: throw UnresolvableReferenceException("Keine bestaetigte E-Mail-Adresse fuer diesen Account")
 
         val issued = emailCodeGenerator.issue()

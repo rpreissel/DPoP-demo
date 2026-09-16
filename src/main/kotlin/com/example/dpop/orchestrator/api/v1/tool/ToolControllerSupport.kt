@@ -134,7 +134,7 @@ class ToolControllerSupport(
             if (!requiresSatisfied(requirement, account)) {
                 throw OrchestratorException.invalidState(
                     "$toolId requires ${requirement.attributeType.wireName} " +
-                        "at anchor class ${requirement.minAnchorClass} first"
+                        "at trust level ${requirement.minTrustLevel} first"
                 )
             }
         }

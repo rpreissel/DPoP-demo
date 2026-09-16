@@ -7,7 +7,7 @@ import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
-import com.example.dpop.tool_spi.TrustAnchor
+import com.example.dpop.tool_spi.ClaimSource
 import org.springframework.stereotype.Component
 
 /** Shared by enroll-email/auth-email/auth-email-lookup - the one place "email" is spelled out. */
@@ -32,7 +32,7 @@ object EnrollEmailDescriptor : ToolDescriptor {
     // (AccountService.recordClaim), which consolidates the account.email projection, its anchor
     // and the AccountChanged event in one write. The proof is this tool's own code exchange,
     // hence the tool itself as trust anchor.
-    override val claims = setOf(ClaimDeclaration(AttributeType.EMAIL, TrustAnchor.of(toolId)))
+    override val claims = setOf(ClaimDeclaration(AttributeType.EMAIL, ClaimSource.of(toolId)))
 }
 
 @Component

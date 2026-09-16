@@ -2,7 +2,7 @@ package com.example.dpop.auth_email.api.v1
 
 import com.example.dpop.auth_email.internal.authemaillookup.AuthEmailLookupToolHandler
 import com.example.dpop.tool_api.AccountDirectory
-import com.example.dpop.tool_api.AnchorType
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
@@ -118,7 +118,7 @@ class AuthEmailLookupToolController(
             // isSendThrottled bounds the resend itself (ToolEndpoint.isSendThrottled): resubmitting
             // the same email restarts the flow with a fresh code every time, so without this an
             // attacker who merely knows the address could flood the victim's inbox with real mail.
-            val resolvedAccountId = accountDirectory.resolveByAnchor(AnchorType.Email, body.email)
+            val resolvedAccountId = accountDirectory.resolveByAnchor(AttributeType.EMAIL, body.email)
             val throttled = resolvedAccountId?.let {
                 toolEndpoint.isLockedOut(it) || toolEndpoint.isSendThrottled(it)
             } ?: false

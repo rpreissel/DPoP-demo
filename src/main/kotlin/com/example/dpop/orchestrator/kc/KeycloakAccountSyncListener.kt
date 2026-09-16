@@ -81,9 +81,10 @@ class KeycloakAccountSyncListener(
 /**
  * Keycloak's own realm requires a non-blank first/last name on every user - an unidentified
  * account (REGISTER "Enrollment zuerst") has no [com.example.dpop.ext_stammdaten.Person] to take
- * them from yet, so this stands in until one exists. Self-healing: `AccountService.bindPersonId`
- * fires its own `AccountChanged`, which re-syncs and overwrites this with the real name the moment
- * the account is identified - never a value anyone needs to clean up by hand.
+ * them from yet, so this stands in until one exists. Self-healing: recording the `PERSON_ID`
+ * claim (`AccountService.recordClaim`/`recordClaims`) fires its own `AccountChanged`, which
+ * re-syncs and overwrites this with the real name the moment the account is identified - never a
+ * value anyone needs to clean up by hand.
  */
 internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
 internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"

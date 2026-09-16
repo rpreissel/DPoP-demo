@@ -4,7 +4,7 @@ import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ToolOutcome
-import com.example.dpop.tool_spi.TrustAnchor
+import com.example.dpop.tool_spi.ClaimSource
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -50,11 +50,11 @@ class IdentEidToolHandlerTest : BehaviorSpec({
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
                 (outcome as ToolOutcome.Completed.Identified).claims shouldBe listOf(
-                    Claim(AttributeType.PERSON_ID, "7", TrustAnchor.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.KVNR, "A123456789", TrustAnchor.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.NAME, "Muster", TrustAnchor.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.VORNAME, "Max", TrustAnchor.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.GEBURTSDATUM, "1970-01-01", TrustAnchor.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr)
+                    Claim(AttributeType.PERSON_ID, "7", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.KVNR, "A123456789", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.NAME, "Muster", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.VORNAME, "Max", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.GEBURTSDATUM, "1970-01-01", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr)
                 )
             }
         }

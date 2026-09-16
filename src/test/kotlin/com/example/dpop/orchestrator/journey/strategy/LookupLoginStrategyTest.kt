@@ -63,7 +63,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         then("Identified is not offered by any state of this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Identified(personId = 1L)), ctx())
+                strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.Completed(AuthSmsLookupDescriptor, ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))), ctx())
             }
         }
 

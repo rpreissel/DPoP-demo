@@ -395,13 +395,27 @@ wurde. Der Anchor wird jetzt **vor** der Projektionsspalte geschrieben, ein Konf
 ab, bevor etwas geschrieben ist, statt nur per Rollback rückgängig gemacht zu werden. Zweitens
 verließ sich `IdentityMatchingService.resolveByAnchor` bei mehreren attestierten Ankern auf die
 zufällige Iterationsreihenfolge eines `Set`, statt auf die hier beschriebene Rangfolge — er
-iteriert jetzt explizit nach `AnchorClass.rank` absteigend sortiert, die Stärkeordnung ist damit
-eine Eigenschaft des Codes, nicht mehr der `Set`-Implementierung des Aufrufers. Drittens fing
-`findOrCreateAccount` die `UNIQUE(person_id)`-Kollision selbst nicht ab — der Verlierer eines
-Rennens zweier gleichzeitiger Step-up-Kanäle bekam einen Serverfehler statt des inzwischen
-existierenden Kontos; eine eigene, in `REQUIRES_NEW` laufende Bean
-(`AccountRaceSafeCreator.createIfAbsent`) versucht jetzt zu erstellen und behandelt die
-Konfliktantwort als „existiert bereits", bevor der Aufrufer erneut liest.
+iteriert jetzt explizit nach `AttributeType.anchorBindingStrength` (`tool_api/AttributeRules.kt`)
+absteigend sortiert, die Stärkeordnung ist damit eine Eigenschaft des Codes, nicht mehr der
+`Set`-Implementierung des Aufrufers. Drittens fing `findOrCreateAccount` die
+`UNIQUE(person_id)`-Kollision selbst nicht ab — der Verlierer eines Rennens zweier gleichzeitiger
+Step-up-Kanäle bekam einen Serverfehler statt des inzwischen existierenden Kontos; eine eigene,
+in `REQUIRES_NEW` laufende Bean (`AccountRaceSafeCreator.createIfAbsent`) versucht jetzt zu
+erstellen und behandelt die Konfliktantwort als „existiert bereits", bevor der Aufrufer erneut
+liest.
+
+**Nachtrag 2** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md), alle 7 Pakete): `person_id` ist seither
+kein Sonderfall mehr, sondern `ConsolidationStrategy.OwnedColumn` mit eigenem `account_anchor`-
+Eintrag, genau wie `email` — die kontoübergreifende Abweisung dieser Entscheidung läuft seither
+technisch über denselben `recordAnchor`-Pfad (Cross-Account-Konflikt: fremder Anchor-Wert bereits
+vergeben) statt über einen separaten `bindPersonId`/`findAccountByPersonId`-Vergleich in
+`JourneyService`. Neu dazugekommen, INNERHALB eines Kontos: `AttributeType.allowsAnchorReplacement`
+ist für `PERSON_ID` `false` (anders als `email`) — ein zweiter, abweichender `person_id`-Claim für
+ein Konto, das schon einen anderen Wert gebunden hat, wird ebenfalls per
+`IdentityConflictException` abgewiesen, nicht nur der kontoübergreifende Fall. `resolveByAnchor`
+kennt `person_id` seither als gewöhnlichen (höchstrangigen) Anker, kein separater
+`resolveByPersonIdProjection`-Zweig mehr; `MatchedVia.PersonId` ist entfallen zugunsten von
+`MatchedVia.Anchor(PERSON_ID)`.
 
 ---
 

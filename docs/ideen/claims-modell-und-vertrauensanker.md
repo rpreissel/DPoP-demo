@@ -1,13 +1,20 @@
 # Idee: Claims-Modell mit Vertrauensanker statt fester `person_id`
 
-Status: **nicht umgesetzt, nur festgehalten**. Keine Beschreibung fertiger Architektur, nur
-eine Spur, der man folgt - deshalb hier unter `ideen/`, nicht unter
-[12-entscheidungen.md](../12-entscheidungen.md). Die drei fachlichen Grundfragen (Interessenten-
-Verzweigung, Merge-Verhalten, Retraktionsform) sind inzwischen allerdings entschieden:
-ADR-10 bis ADR-12. Diese Fassung ist eine **Neuschreibung** der
-Ursprungsidee (Entstehungsgeschichte im Anhang): Der akute Anlass, der sie ausgelöst hat, ist
-inzwischen im Code gelöst. Was bleibt, ist eine Struktur- und eine Skalierungsfrage. Deshalb ist
-das Dokument jetzt von zwei Fragen her aufgebaut statt von der Historie:
+Status: **teilweise umgesetzt** (Stand nach [account-attribute-und-trust-vereinheitlichen.md](account-attribute-und-trust-vereinheitlichen.md), alle 7 Pakete abgeschlossen). Die drei fachlichen Grundfragen
+(Interessenten-Verzweigung, Merge-Verhalten, Retraktionsform) sind entschieden: ADR-10 bis
+ADR-12. Umgesetzt sind: das Claims-Vokabular in `tool_spi` (`AttributeType`, `ClaimSource`,
+`TrustLevel`, `Claim`/`ClaimRequirement`/`ClaimDeclaration`), `account_anchor` samt
+`tool_api/AttributeRules.kt` (Nachfolger der hier noch beschriebenen `AnchorType`-Sealed-
+Hierarchie - eine doppelte Attribut-Taxonomie wurde bewusst wieder entfernt, `AttributeType` ist
+der einzige Attribut-Schlüssel, auch für Ankeroperationen), `IdentityMatchingService.resolve`
+sowie PERSON_ID als `ConsolidationStrategy.OwnedColumn` mit eigenem Anker - `bindPersonId` und
+`confirmEmail` (unten noch als Zielbild beschrieben) existieren im Code nicht mehr, ihre
+Aufgabe übernimmt `AccountService.recordClaim`/`recordClaims` einheitlich für beide Attribute.
+Offen bleibt vor allem die Skalierungsfrage (Bestandsmigration `identifications`-JSON,
+`DPoP-demo-4vd.12`) sowie die in diesem Dokument unten noch offen benannten Terminologie- und
+Wert-Typ-Fragen (Email/Kvnr/PersonId als eigene value classes, `DPoP-demo-4vd.5`/`.6`). Diese
+Fassung ist eine **Neuschreibung** der Ursprungsidee (Entstehungsgeschichte im Anhang). Deshalb
+ist das Dokument von zwei Fragen her aufgebaut statt von der Historie:
 
 1. **Ist**: Was trägt das heutige Account-Modell schon - und was fehlt strukturell, auch ohne
    akuten Druck?

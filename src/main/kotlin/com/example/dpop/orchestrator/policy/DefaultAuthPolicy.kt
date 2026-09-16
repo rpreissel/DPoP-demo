@@ -5,7 +5,7 @@ import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.session.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
-import com.example.dpop.tool_spi.AnchorClass
+import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ClaimRequirement
 import com.example.dpop.tool_spi.FactorType
@@ -300,12 +300,12 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
 /**
  * The only requirement any tool currently declares is EMAIL at PROVEN, whose consolidated
  * value is the account's `emailConfirmed` boolean. Any other requirement (another attribute
- * type, or an anchor class above PROVEN) cannot be satisfied and counts as unmet. Shared by
+ * type, or a trust level above PROVEN) cannot be satisfied and counts as unmet. Shared by
  * [DefaultAuthPolicy.enrollmentCandidates] (offering) and
  * `ToolControllerSupport.validatePreconditions` (direct-activation defense) so the two gates
  * cannot drift apart.
  */
 internal fun requiresSatisfied(requirement: ClaimRequirement, account: AccountProfile?): Boolean =
     requirement.attributeType == AttributeType.EMAIL &&
-        requirement.minAnchorClass.rank <= AnchorClass.PROVEN.rank &&
+        requirement.minTrustLevel.rank <= TrustLevel.PROVEN.rank &&
         (account?.emailConfirmed == true)

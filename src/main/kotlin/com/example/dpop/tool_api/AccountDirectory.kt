@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.EnrollmentRef
 
 /**
@@ -18,21 +19,22 @@ interface AccountDirectory {
 
     /**
      * Resolves the account that has established [value] as its anchor of [type] - the generic
-     * resolve-identity read of the claims model. Lookup runs on the anchor type's normalized
+     * resolve-identity read of the claims model. Lookup runs on the attribute type's normalized
      * form, exactly like the write side does. Generalizes [resolveAccountByEmail], which stays
-     * as the typed convenience for the one anchor wired today.
+     * as the typed convenience for the one anchor wired today. [type] must be an anchor
+     * attribute (`type.anchorBindingStrength != null`).
      *
      * @return the account id, or `null` if no account has established this anchor.
      */
-    fun resolveByAnchor(type: AnchorType, value: String): Long?
+    fun resolveByAnchor(type: AttributeType, value: String): Long?
 
     /**
-     * The account's established value for anchor [type], in the anchor type's normalized
+     * The account's established value for anchor [type], in the attribute type's normalized
      * form - the reverse read of [resolveByAnchor]: what that one resolves BY, per account.
      * `null` if this account has never established the anchor, or its latest claim on it
      * collided with another account's anchor (first writer wins there).
      */
-    fun anchorValue(accountId: Long, type: AnchorType): String?
+    fun anchorValue(accountId: Long, type: AttributeType): String?
 
     /**
      * The account's currently active credential for [method] (e.g. `"sms"`, `"password"`).

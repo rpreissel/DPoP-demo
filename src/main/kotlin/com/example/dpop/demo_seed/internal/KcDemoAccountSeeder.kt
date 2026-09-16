@@ -3,6 +3,9 @@ package com.example.dpop.demo_seed.internal
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
@@ -17,10 +20,13 @@ import org.springframework.stereotype.Component
  * to demonstrate on first boot - LoA1 is native Keycloak password now, so the orchestrator itself
  * never establishes these accounts' identity; something has to.
  *
- * Calls [AccountService.confirmEmail] and `PasswordCredentialPort.setNew` directly - both are
+ * Calls [AccountService.recordClaim] and `PasswordCredentialPort.setNew` directly - both are
  * public API of a module this one is allowed to depend on (see this module's own
  * `ModuleMetadata`); there is no method-level access control in Spring Modulith, only the
- * package/module boundary `DpopApplicationTests.modulithStructureIsValid` checks.
+ * package/module boundary `DpopApplicationTests.modulithStructureIsValid` checks. The seeded
+ * PERSON_ID/EMAIL claims use `ClaimSource.DEMO_BOOTSTRAP` (docs/ideen/account-attribute-und-
+ * trust-vereinheitlichen.md, Paket 6) - the same claims-/anchor-log path every real IDENT/
+ * enrollment run goes through, never a fabricated FSC/eID/email-tool run.
  *
  * Idempotent by construction (`accountId`/`personId` come from PersonDirectory - see
  * infra/tofu/keycloak/main.tf's `orchestratorAccountId` comment for why person insertion order
@@ -45,8 +51,21 @@ internal class KcDemoAccountSeeder(
                 return@forEach
             }
             val profile = accountService.findOrCreateAccount(personId)
+            // findOrCreateAccount already writes account.personId directly (race-safe insert,
+            // AccountRaceSafeCreator) but not its anchor - established here instead, guarded so a
+            // restart never re-logs the claim (account_anchor already holding this personId is
+            // the idempotency signal, same shape as the "none active email method" guard below).
+            if (accountService.anchorValue(profile.accountId, AttributeType.PERSON_ID) == null) {
+                accountService.recordClaim(
+                    profile.accountId,
+                    Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP)
+                )
+            }
             if (profile.activeAuthenticationMethods.none { it.method == "email" }) {
-                accountService.confirmEmail(profile.accountId, person.email)
+                accountService.recordClaim(
+                    profile.accountId,
+                    Claim(AttributeType.EMAIL, person.email, ClaimSource.DEMO_BOOTSTRAP)
+                )
                 accountService.addAuthenticationMethod(
                     profile.accountId,
                     "email",

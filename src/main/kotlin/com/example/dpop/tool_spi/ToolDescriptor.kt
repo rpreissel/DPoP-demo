@@ -47,7 +47,7 @@ interface ToolDescriptor {
 
     /**
      * The identifying attributes a successful run of this tool asserts about its subject, each
-     * with the [TrustAnchor] it is asserted with - carried as [Claim]s on
+     * with the [ClaimSource] it is asserted with - carried as [Claim]s on
      * [ToolOutcome.Completed.Identified]/[ToolOutcome.Completed.Enrolled]. The declared
      * direction of the claims vocabulary, mirroring [factorTypes]: this set names what the
      * tool MAY assert on whose authority - the offer, answerable without any run having
@@ -60,7 +60,7 @@ interface ToolDescriptor {
     /**
      * What the account must already have for this tool to be offered at all: each
      * [ClaimRequirement] is an [AttributeType] established at no less than its
-     * [AnchorClass], checked against the account's consolidated value including
+     * [TrustLevel], checked against the account's consolidated value including
      * retractions (ADR-12). The mirror direction of [claims] - colloquially, "confirmed
      * email" is `ClaimRequirement(EMAIL, PROVEN)`. OFFERING gate only - it does not say the
      * tool consumes the value at run time (that is an anchor read), nor that a channel/journey

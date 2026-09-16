@@ -14,12 +14,12 @@ import com.example.dpop.tool_spi.Claim
  * policy - discriminants, normalization, thresholds - for every identification procedure,
  * instead of one per tool.
  *
- * Resolution precedence is fixed: the `person_id` projection first, then anchor values
- * (unique, error-free), then attribute matching (ambiguous by nature - false merges and
- * false splits are its failure modes). A future EUDI-Wallet case slots in without a policy
- * fork: an issuer-scoped PID identifier arrives as its own anchor type, and selective
- * disclosure simply shrinks the claim set this method receives - a subset can only ever
- * bind weakly.
+ * Resolution precedence is fixed: anchor values first (unique, error-free - `person_id` ranks
+ * highest among them, docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame
+ * Aufloesung"), then attribute matching (ambiguous by nature - false merges and false splits
+ * are its failure modes). A future EUDI-Wallet case slots in without a policy fork: an
+ * issuer-scoped PID identifier arrives as its own anchor type, and selective disclosure simply
+ * shrinks the claim set this method receives - a subset can only ever bind weakly.
  */
 interface IdentityResolver {
     fun resolve(claims: Set<Claim>): Resolution
@@ -43,21 +43,24 @@ sealed interface Resolution {
 }
 
 /**
- * How a resolution matched, with its binding strength: `person_id` > anchor > attributes.
- * Binding strength is the upgrade basis - a later, stronger identification may lift a weak
- * binding, never the other way around.
+ * How a resolution matched, with its binding strength: anchor (`person_id` ranks highest among
+ * anchors, docs/ideen/account-attribute-und-trust-vereinheitlichen.md) > attributes. Binding
+ * strength is the upgrade basis - a later, stronger identification may lift a weak binding,
+ * never the other way around.
  */
 sealed interface MatchedVia {
     val bindingStrength: Int
 
-    /** The account's `person_id` projection matched the attested person reference. */
-    data class PersonId(val personId: Long) : MatchedVia {
-        override val bindingStrength = 3
-    }
-
-    /** A unique anchor value (e.g. kvnr, email) matched via `account_anchor`. */
+    /**
+     * A unique anchor value (`person_id`, `kvnr`, `email`) matched via `account_anchor` - its
+     * strength is [AttributeType.anchorBindingStrength], the SAME rule the resolver itself
+     * ranks candidate anchors by; there is no separate `person_id`-specific case any more
+     * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").
+     */
     data class Anchor(val attributeType: AttributeType) : MatchedVia {
-        override val bindingStrength = 2
+        override val bindingStrength = checkNotNull(attributeType.anchorBindingStrength) {
+            "$attributeType is not an anchor attribute, has no binding strength"
+        }
     }
 
     /** Normalized attribute combination (e.g. name + vorname + geburtsdatum) matched. */

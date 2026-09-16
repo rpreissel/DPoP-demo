@@ -37,12 +37,12 @@ class AccountAttribute(
     @Column(name = "normalized_value")
     var normalizedValue: String? = null,
 
-    // NOT converted to the TrustAnchor value class, unlike attributeType/AccountAnchor.anchorType
+    // NOT converted to the ClaimSource value class, unlike attributeType/AccountAnchor.anchorType
     // (C2): Hibernate's AttributeConverter machinery cannot round-trip a Kotlin
     // `@JvmInline value class` here - a nullable value-class property is boxed at the JVM level,
     // but Hibernate's own property access/enhancement path for it hands the converter a raw
-    // String instead of the boxed TrustAnchor, throwing `JpaSystemException: ... class
-    // java.lang.String cannot be cast to class TrustAnchor` at runtime (verified: AttributeType,
+    // String instead of the boxed ClaimSource, throwing `JpaSystemException: ... class
+    // java.lang.String cannot be cast to class ClaimSource` at runtime (verified: AttributeType,
     // a genuine enum, and AnchorType, a sealed interface of objects, do NOT have this problem -
     // only the value-class case does). Confirmed empirically before reverting this field.
     @Column(name = "trust_anchor", nullable = false)

@@ -53,6 +53,9 @@ class Account(
      * `tool_api`) - the one place that names, per type, which field(s) a claim actually writes.
      * Only ever called for a type `AccountService.recordClaim` already classified as
      * `OwnedColumn`; any other type reaching here is a caller bug, not a runtime case to handle.
+     * [value] arrives in its raw, un-normalized form (same as the log entry) for `EMAIL`; for
+     * `PERSON_ID` it is parsed as a `Long` regardless - the column has no raw/normalized
+     * distinction to preserve, unlike a string column.
      */
     fun applyOwnedColumn(type: AttributeType, value: String, establishedAt: Instant) {
         when (type) {
@@ -60,6 +63,7 @@ class Account(
                 email = value
                 emailConfirmedAt = establishedAt
             }
+            AttributeType.PERSON_ID -> personId = value.trim().toLong()
             else -> error("$type has no OwnedColumn mapping")
         }
     }

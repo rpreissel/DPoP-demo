@@ -7,7 +7,7 @@ import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
-import com.example.dpop.tool_spi.TrustAnchor
+import com.example.dpop.tool_spi.ClaimSource
 import org.springframework.stereotype.Component
 
 /** No sibling today (ident-eid is the only tool for "eid") - kept as its own value for the same uniform shape every other module follows. */
@@ -31,16 +31,16 @@ object IdentEidDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA3
     // The attributes a successful run asserts, each declared with the anchor it is asserted
     // with: the values are read from the eID card, so they rest on this procedure's own
-    // authority (TrustAnchor.of(toolId)) - ext_stammdaten is only cross-checked for
+    // authority (ClaimSource.of(toolId)) - ext_stammdaten is only cross-checked for
     // consistency, it is not the value's source (unlike ident-fsc, where the master-data
     // backend IS the source and the tool is only its channel). Address fields
     // (strasse/hausnummer/plz/ort) are deliberately not claims: no anchor or projection
     // consumer exists for them, so they stay in the auditDetails blob.
     override val claims = setOf(
-        ClaimDeclaration(AttributeType.PERSON_ID, TrustAnchor.of(toolId)),
-        ClaimDeclaration(AttributeType.KVNR, TrustAnchor.of(toolId)),
-        ClaimDeclaration(AttributeType.NAME, TrustAnchor.of(toolId)),
-        ClaimDeclaration(AttributeType.VORNAME, TrustAnchor.of(toolId)),
-        ClaimDeclaration(AttributeType.GEBURTSDATUM, TrustAnchor.of(toolId))
+        ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.KVNR, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.NAME, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId))
     )
 }

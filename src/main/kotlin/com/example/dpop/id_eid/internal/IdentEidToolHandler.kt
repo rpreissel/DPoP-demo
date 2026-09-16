@@ -4,7 +4,7 @@ import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ToolOutcome
-import com.example.dpop.tool_spi.TrustAnchor
+import com.example.dpop.tool_spi.ClaimSource
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -66,7 +66,6 @@ class IdentEidToolHandler(
 
                 val documentNumber = mockDocumentNumber(toolSessionId)
                 ToolOutcome.Completed.Identified(
-                    personId = decision.personId,
                     amr = listOf(descriptor.method),
                     achievedAcr = descriptor.maxAcr,
                     factorTypes = descriptor.factorTypes,
@@ -78,11 +77,11 @@ class IdentEidToolHandler(
                         // anchor or projection consumer exists for them, so they are not
                         // claims (see IdentEidDescriptor.claims). geburtsdatum is an ISO date
                         // string via LocalDate.toString().
-                        Claim(AttributeType.PERSON_ID, decision.personId.toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.NAME, checkNotNull(decision.claimed.name), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.VORNAME, checkNotNull(decision.claimed.vorname), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), TrustAnchor.of(descriptor.toolId), descriptor.maxAcr)
+                        Claim(AttributeType.PERSON_ID, decision.personId.toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.NAME, checkNotNull(decision.claimed.name), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.VORNAME, checkNotNull(decision.claimed.vorname), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
                     ),
                     auditDetails = mapOf(
                         "provider" to "eid-mock-service",

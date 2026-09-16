@@ -1,6 +1,6 @@
 package com.example.dpop.account.internal
 
-import com.example.dpop.tool_api.AnchorType
+import com.example.dpop.tool_spi.AttributeType
 import jakarta.persistence.Column
 import jakarta.persistence.Convert
 import jakarta.persistence.Entity
@@ -23,9 +23,12 @@ import java.time.Instant
 @Entity
 @Table(name = "account_anchor")
 class AccountAnchor(
-    @Convert(converter = AnchorTypeConverter::class)
+    // Reuses AttributeTypeConverter (account_attribute.attribute_type's own converter): both
+    // columns round-trip through the same AttributeType.wireName, and account_anchor.anchor_type
+    // already holds those wire names on disk (kvnr, email) - no second converter needed.
+    @Convert(converter = AttributeTypeConverter::class)
     @Column(name = "anchor_type", nullable = false)
-    var anchorType: AnchorType? = null,
+    var attributeType: AttributeType? = null,
 
     @Column(name = "anchor_value", nullable = false)
     var value: String? = null,

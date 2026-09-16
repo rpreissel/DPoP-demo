@@ -1,7 +1,7 @@
 package com.example.dpop.auth_password
 
 import com.example.dpop.tool_spi.AcrLevel
-import com.example.dpop.tool_spi.AnchorClass
+import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ClaimRequirement
 import com.example.dpop.tool_spi.FactorType
@@ -32,7 +32,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA1
     // No identifier field: the account's confirmed email is the identifier, so this tool only
     // ever asks for the password itself - and is only offered once that email is proven.
-    override val requires = setOf(ClaimRequirement(AttributeType.EMAIL, AnchorClass.PROVEN))
+    override val requires = setOf(ClaimRequirement(AttributeType.EMAIL, TrustLevel.PROVEN))
 }
 
 @Component

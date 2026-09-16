@@ -56,7 +56,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         val state = AuthChoice(listOf(ToolId("auth-sms")))
 
         then("Identified always finds-or-creates the account - brand new or found again by KVNR alike") {
-            val outcome = ToolOutcome.Completed.Identified(personId = 1L)
+            val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
                 Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)

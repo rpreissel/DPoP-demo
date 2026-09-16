@@ -7,7 +7,7 @@ import io.kotest.matchers.string.shouldContain
 
 /**
  * Pins the claims vocabulary 4vd.3 added to tool_spi: the closed [AttributeType] taxonomy, the
- * [TrustAnchor] value class with its [AnchorClass]es, the [Claim]/[ClaimRequirement] shapes,
+ * [ClaimSource] value class with its [TrustLevel]s, the [Claim]/[ClaimRequirement] shapes,
  * and the [ClaimDeclaration] offer side with its [assertClaimsCovered] contract check. The
  * policy-side gate (orchestrator's `requiresSatisfied`) is tested in its own module; this file
  * pins the SPI contract itself.
@@ -25,25 +25,25 @@ class ClaimsTest : BehaviorSpec({
         }
     }
 
-    given("TrustAnchor") {
+    given("ClaimSource") {
         then("the two named constants carry their wire values") {
-            TrustAnchor.EXT_STAMMDATEN.value shouldBe "ext_stammdaten"
-            TrustAnchor.SELF_REPORTED.value shouldBe "self-reported"
+            ClaimSource.EXT_STAMMDATEN.value shouldBe "ext_stammdaten"
+            ClaimSource.SELF_REPORTED.value shouldBe "self-reported"
         }
         then("of() names the proving tool by its toolId") {
-            TrustAnchor.of(ToolId("ident-eid")).value shouldBe "ident-eid"
+            ClaimSource.of(ToolId("ident-eid")).value shouldBe "ident-eid"
         }
     }
 
-    given("AnchorClass") {
+    given("TrustLevel") {
         then("rank encodes the precedence order: Stammdaten > Proven > Self-reported") {
-            (AnchorClass.STAMMDATEN.rank > AnchorClass.PROVEN.rank) shouldBe true
-            (AnchorClass.PROVEN.rank > AnchorClass.SELF_REPORTED.rank) shouldBe true
+            (TrustLevel.STAMMDATEN.rank > TrustLevel.PROVEN.rank) shouldBe true
+            (TrustLevel.PROVEN.rank > TrustLevel.SELF_REPORTED.rank) shouldBe true
         }
-        then("anchorClassOf maps every anchor kind to its class") {
-            anchorClassOf(TrustAnchor.EXT_STAMMDATEN) shouldBe AnchorClass.STAMMDATEN
-            anchorClassOf(TrustAnchor.SELF_REPORTED) shouldBe AnchorClass.SELF_REPORTED
-            anchorClassOf(TrustAnchor.of(ToolId("ident-eid"))) shouldBe AnchorClass.PROVEN
+        then("ClaimSource.trustLevel maps every source kind to its level") {
+            ClaimSource.EXT_STAMMDATEN.trustLevel shouldBe TrustLevel.STAMMDATEN
+            ClaimSource.SELF_REPORTED.trustLevel shouldBe TrustLevel.SELF_REPORTED
+            ClaimSource.of(ToolId("ident-eid")).trustLevel shouldBe TrustLevel.PROVEN
         }
     }
 
@@ -51,33 +51,33 @@ class ClaimsTest : BehaviorSpec({
         val claim = Claim(
             attributeType = AttributeType.KVNR,
             value = "A123456789",
-            trustAnchor = TrustAnchor.EXT_STAMMDATEN,
+            source = ClaimSource.EXT_STAMMDATEN,
             establishedLoa = AcrLevel.LOA2
         )
         then("carries value, provenance and assurance") {
             claim.attributeType shouldBe AttributeType.KVNR
             claim.value shouldBe "A123456789"
-            claim.trustAnchor shouldBe TrustAnchor.EXT_STAMMDATEN
+            claim.source shouldBe ClaimSource.EXT_STAMMDATEN
             claim.establishedLoa shouldBe AcrLevel.LOA2
         }
         then("establishedLoa defaults to null") {
-            Claim(AttributeType.EMAIL, "a@b.de", TrustAnchor.of(ToolId("enroll-email"))).establishedLoa shouldBe null
+            Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(ToolId("enroll-email"))).establishedLoa shouldBe null
         }
     }
 
     given("ClaimRequirement") {
-        then("mirrors a claim's attribute type with a minimum anchor class") {
-            val requirement = ClaimRequirement(AttributeType.EMAIL, AnchorClass.PROVEN)
+        then("mirrors a claim's attribute type with a minimum trust level") {
+            val requirement = ClaimRequirement(AttributeType.EMAIL, TrustLevel.PROVEN)
             requirement.attributeType shouldBe AttributeType.EMAIL
-            requirement.minAnchorClass shouldBe AnchorClass.PROVEN
+            requirement.minTrustLevel shouldBe TrustLevel.PROVEN
         }
     }
 
     given("ClaimDeclaration") {
-        then("declares an attribute type with the anchor a run asserts it with") {
-            val declaration = ClaimDeclaration(AttributeType.KVNR, TrustAnchor.EXT_STAMMDATEN)
+        then("declares an attribute type with the source a run asserts it with") {
+            val declaration = ClaimDeclaration(AttributeType.KVNR, ClaimSource.EXT_STAMMDATEN)
             declaration.attributeType shouldBe AttributeType.KVNR
-            declaration.trustAnchor shouldBe TrustAnchor.EXT_STAMMDATEN
+            declaration.source shouldBe ClaimSource.EXT_STAMMDATEN
         }
     }
 
@@ -89,16 +89,16 @@ class ClaimsTest : BehaviorSpec({
             override val factorTypes = setOf(FactorType.POSSESSION)
             override val maxAcr = AcrLevel.LOA2
             override val claims = setOf(
-                ClaimDeclaration(AttributeType.KVNR, TrustAnchor.EXT_STAMMDATEN),
-                ClaimDeclaration(AttributeType.EMAIL, TrustAnchor.of(toolId))
+                ClaimDeclaration(AttributeType.KVNR, ClaimSource.EXT_STAMMDATEN),
+                ClaimDeclaration(AttributeType.EMAIL, ClaimSource.of(toolId))
             )
         }
         then("accepts reported claims that match the declaration") {
             assertClaimsCovered(
                 descriptor,
                 listOf(
-                    Claim(AttributeType.KVNR, "A123456789", TrustAnchor.EXT_STAMMDATEN, AcrLevel.LOA2),
-                    Claim(AttributeType.EMAIL, "a@b.de", TrustAnchor.of(descriptor.toolId))
+                    Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2),
+                    Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(descriptor.toolId))
                 )
             )
         }
@@ -107,13 +107,24 @@ class ClaimsTest : BehaviorSpec({
         }
         then("rejects an undeclared attribute type") {
             shouldThrow<IllegalStateException> {
-                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.NAME, "Muster", TrustAnchor.EXT_STAMMDATEN)))
+                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN)))
             }.message shouldContain "declares none"
         }
-        then("rejects a trust anchor that differs from the declaration") {
+        then("rejects a claim source that differs from the declaration") {
             shouldThrow<IllegalStateException> {
-                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.KVNR, "A123456789", TrustAnchor.of(descriptor.toolId))))
+                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.KVNR, "A123456789", ClaimSource.of(descriptor.toolId))))
             }.message shouldContain "but declares"
+        }
+        then("rejects more than one claim for the same attribute type") {
+            shouldThrow<IllegalStateException> {
+                assertClaimsCovered(
+                    descriptor,
+                    listOf(
+                        Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN),
+                        Claim(AttributeType.KVNR, "A987654321", ClaimSource.EXT_STAMMDATEN)
+                    )
+                )
+            }.message shouldContain "more than one claim"
         }
     }
 })

@@ -566,7 +566,10 @@ class JourneyService(
         // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
         // identifying tool actually established, each with its own trust anchor - the
         // account columns remain the projection, this is the append-only provenance record.
-        action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
+        // PERSON_ID is ConsolidationStrategy.OwnedColumn (docs/ideen/account-attribute-und-
+        // trust-vereinheitlichen.md, Paket 4), so this single call already binds it too - no
+        // separate direct write.
+        accountService.recordClaims(accountId, action.outcome.claims)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
@@ -582,21 +585,24 @@ class JourneyService(
             action.outcome.personId -> {}
             null -> {
                 // First-ever identification of a previously unidentified account (REGISTER
-                // "Enrollment zuerst", docs/04-orchestrierung.md) - bind it, unless this
-                // person already has a DIFFERENT account (merge not supported, bewusst).
+                // "Enrollment zuerst", docs/04-orchestrierung.md) - reject up front if this
+                // person already has a DIFFERENT account (merge not supported, bewusst); the
+                // actual binding happens below, via the same claims-log write every other
+                // attribute goes through (PERSON_ID is ConsolidationStrategy.OwnedColumn since
+                // docs/ideen/account-attribute-und-trust-vereinheitlichen.md Paket 4) - no
+                // separate direct write here any more.
                 val existing = accountService.findAccountByPersonId(action.outcome.personId)
                 if (existing != null && existing.accountId != accountId) {
                     throw OrchestratorException.invalidState("Diese Person ist bereits über ein anderes Konto registriert")
                 }
-                accountService.bindPersonId(accountId, action.outcome.personId)
             }
             else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
         }
         bindAccount(journey, channel, accountId)
         assertClaimsCovered(action.tool, action.outcome.claims)
-        // Same claims-log append as AdoptIdentity above - also covers the first-ever
-        // identification of a previously unidentified account (bindPersonId branch).
-        action.outcome.claims.forEach { accountService.recordClaim(accountId, it) }
+        // Same claims-log write as AdoptIdentity above - also covers the first-ever
+        // identification of a previously unidentified account (the `null` branch above).
+        accountService.recordClaims(accountId, action.outcome.claims)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
@@ -624,11 +630,11 @@ class JourneyService(
         // blob, so the API can surface it without clients reaching into details.
         val label = enrolled.auditDetails?.get("label") as? String
         // Every claim this enrollment asserted lands in the account's identity log
-        // (AccountService.recordClaim); an EMAIL claim additionally consolidates the
+        // (AccountService.recordClaims); an EMAIL claim additionally consolidates the
         // canonical projection column, its anchor and the AccountChanged event. Done
         // here, before this method returns, so the very next context rebuild
         // (JourneyEvent.ActionCompleted) already sees it.
-        enrolled.claims.forEach { accountService.recordClaim(accountId, it) }
+        accountService.recordClaims(accountId, enrolled.claims)
         // What the environment already established BEFORE this completion (recordToolCompletion
         // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
         // session yet (REGISTER "Enrollment zuerst" with no identification at all,
