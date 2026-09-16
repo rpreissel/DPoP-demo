@@ -1,11 +1,12 @@
 # Handoff: Fortsetzung Domänen-/DB-Modell-Review (`account`, `orchestrator`)
 
 Dieses Dokument richtet sich an den nächsten Agenten, der diese Sicherheitsarbeit fortsetzt.
-Erledigt und committet sind inzwischen **A1–A3** (erster Durchgang), **B3** und der
-**A5-Rest** (zweiter Durchgang), **B1** (dritter Durchgang) sowie **A4, A6, A7-Rest, B2 (teilweise),
-B4 (teilweise), B6, C3, C4, D3** (vierter Durchgang — alle kleinen Einzelbefunde abgearbeitet).
-Als Nächstes dran sind **C2, D1** — die einzigen noch offenen Punkte im gesamten Review, neben den
-bewusst zurückgestellten **B5, D2** (siehe unten).
+Das Review ist inhaltlich **abgeschlossen**: Erledigt und committet sind **A1–A3** (erster
+Durchgang), **B3** und der **A5-Rest** (zweiter Durchgang), **B1** (dritter Durchgang), **A4, A6,
+A7-Rest, B2 (teilweise), B4 (teilweise), B6, C3, C4, D3** (vierter Durchgang) sowie **C2
+(teilweise)** (fünfter Durchgang). Jeder verbleibende offene Punkt — **B5, D1, D2** — trägt eine
+explizite, im Review-Dokument begründete Zurückstellung (Architektur-/Produktionsentscheidung,
+kein kleiner Einzelbefund mehr); keiner ist übersehen.
 
 - Vollständige Befundliste mit aktuellem Status: [`docs/13-review-domaenen-db-modell.md`](docs/13-review-domaenen-db-modell.md)
 - Projektkontext: [`docs/00-agent-quickstart.md`](docs/00-agent-quickstart.md)
@@ -74,21 +75,37 @@ bewusst zurückgestellten **B5, D2** (siehe unten).
   `keycloakSessionId` dagegen ist unter `keycloak` aktiv genutzt — Klassenkommentar korrigiert.
   Der vermeintliche Aufbewahrungswiderspruch war eine veraltete `docs/07-betrieb.md`-Zeile
   (Laufzeitverhalten unverändert), dort korrigiert.
+- **C2 (teilweise, fünfter Durchgang)** — `AccountAttribute.attributeType` und
+  `AccountAnchor.anchorType` waren `String`, obwohl `AttributeType`/`AnchorType` als Typen
+  existieren. Jetzt über eigene `AttributeConverter` typisiert (nicht `@Enumerated(STRING)`, weil
+  beide Spalten Wire-Names in Kleinschreibung tragen, nicht Enum-Konstantennamen — hätte sonst
+  jede Bestandszeile stumm verfehlt). **`trustAnchor` bleibt bewusst `String`**: `TrustAnchor` ist
+  eine Kotlin `@JvmInline value class`; ein echter `AttributeConverter<TrustAnchor, String>` ließ
+  Hibernate bei jedem Schreibzugriff mit `JpaSystemException: class java.lang.String cannot be
+  cast to class TrustAnchor` scheitern (verifiziert per vollem, zunächst rotem Testlauf mit
+  Dutzenden `InternalServerError`s) — eine bekannte Inkompatibilität zwischen Kotlin Value
+  Classes und Hibernates Converter-Mechanismus, keine lokal behebbare Fehlkonfiguration.
 
 Verifiziert: `./gradlew :test` → **BUILD SUCCESSFUL, 570 Tests, 0 Fehler**. `ddl-auto: validate`
 läuft durch.
 
 ## 2. Was noch offen ist
 
-1. **C2, D1 — als Nächstes dran, letzte offene Punkte im Review.** Strukturbereinigung
-   (String- statt Enum-Typisierung zwischen den Modulen; `authenticationMethods` als JSON-Liste
-   auf einer versionierten Zeile — teuerste Entwurfsentscheidung im Modell, siehe D1 im Dokument
-   für die drei Konsequenzen).
-2. **B5, D2 — bewusst zurückgestellt, keine Einzelbefunde mehr.** B5 (`dpop_proof_replay`
-   Hash-PK/Partitionierung oder KV-Store) ist explizit eine Produktionsinfrastruktur-Entscheidung.
-   D2 (Konto-Lebenszyklus/Merge-Pfad) berührt jeden Lesepfad, der eine `account`-Zeile als „die
-   eine gültige" voraussetzt — verdient einen eigenen, geplanten Durchgang, siehe Begründung im
-   Dokument.
+**Nichts mehr mit offener Empfehlung — das Review ist inhaltlich abgeschlossen.** Drei Punkte
+bleiben bewusst zurückgestellt, jeweils mit Begründung im Review-Dokument, keine Einzelbefunde
+mehr:
+
+- **B5** — `dpop_proof_replay` Hash-PK/Partitionierung oder KV-Store: explizit eine
+  Produktionsinfrastruktur-Entscheidung, keine lokale Codeänderung in dieser H2-Demo-Umgebung.
+- **D1** — `authenticationMethods` als JSON-Liste: die vom Review selbst als teuerste
+  Entwurfsentscheidung markierte Änderung. Betrifft 16 Produktionsdateien über mindestens sechs
+  Module und ändert echte Nebenläufigkeitssemantik (die heutige `@Version`-Serialisierung auf
+  einer Konto-Zeile), nicht nur die Speicherform.
+- **D2** — Konto-Lebenszyklus/Merge-Pfad: berührt jeden Lesepfad, der eine `account`-Zeile als
+  „die eine gültige" voraussetzt.
+
+Alle drei verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung vorab,
+nicht ein Einschieben nebenbei.
 
 ## 3. Arbeitsweise
 
@@ -130,3 +147,12 @@ Alle drei sind im Code an der jeweiligen Stelle dokumentiert — hier nur als Vo
   `AttemptThrottle`-Eintrag widersprach dem bereits committeten B3). Vor einer Laufzeitänderung
   wegen eines Doku-Codex-Widerspruchs erst prüfen, welche Seite tatsächlich die aktuelle Absicht
   trägt, statt automatisch die Doku für maßgeblich zu halten.
+- **Kotlin `@JvmInline value class` als JPA-`AttributeConverter`-Zieltyp bricht zur Laufzeit,
+  nicht beim Kompilieren.** `TrustAnchor` (value class) über einen eigenen `AttributeConverter`
+  zu typisieren kompilierte anstandslos, ließ aber jeden Schreibzugriff mit `JpaSystemException:
+  class java.lang.String cannot be cast to class TrustAnchor` scheitern — Hibernates
+  Property-Access/Enhancement-Pfad reicht dem Konverter eine rohe `String`-Instanz statt der
+  geboxten Value Class durch. Ein echtes Enum (`AttributeType`) oder ein sealed interface aus
+  `object`s (`AnchorType`) haben dieses Problem nicht. Vor einem `@Convert` auf einem
+  Kotlin-Value-Class-Feld: erst mit einem einzelnen Feld und vollem Testlauf verifizieren, nicht
+  auf Verdacht mehrere Felder gleichzeitig umstellen.

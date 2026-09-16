@@ -418,7 +418,7 @@ Verlierer des Rennens sehen so immer das existierende Konto, nie eine Constraint
 
 ## D) Struktur / unnötige Komplexität
 
-### D1 — `authenticationMethods` als JSON-Liste auf einer versionierten Zeile ⬜ offen
+### D1 — `authenticationMethods` als JSON-Liste auf einer versionierten Zeile ⬜ offen (bewusst zurückgestellt)
 
 Der teuerste Entwurfsentscheid im Modell. Drei Konsequenzen:
 
@@ -434,6 +434,19 @@ Der teuerste Entwurfsentscheid im Modell. Drei Konsequenzen:
 Eine eigene Tabelle `account_auth_method(id, account_id, method, active, enrolled_under_acr, …)`
 beseitigt Kommentar, Contention und Abfragelücke in einem Zug. Für `identifications` gilt dasselbe
 abgeschwächt (weniger Schreiblast).
+
+**Warum nicht in diesem Durchgang:** Anders als B1 (eine Migration, drei lokale Code-Schritte in
+zwei Dateien) ist das hier eine echte Architekturmigration: `authenticationMethods`/
+`AuthenticationMethod` werden produktivseitig in 16 Dateien über mindestens sechs Module hinweg
+gelesen oder geschrieben (`account`, `auth_email`, `auth_password`, `auth_qr`, `demo_seed`,
+mehrere `orchestrator`-Unterpakete), plus mindestens sechs Testdateien. Der Umbau ändert zudem
+echtes Laufzeitverhalten, nicht nur die Speicherform: die heutige `@Version`-Serialisierung auf
+*einer* Konto-Zeile (Punkt 1 oben, „Contention") ist genau die Nebenläufigkeitssemantik, die eine
+eigene Tabelle absichtlich auflöst — jeder Aufrufer, der sich (auch nur implizit) auf „ein
+Methoden-Update sperrt das ganze Konto" verlässt, braucht eine neue Prüfung. Das ist die vom
+Review selbst als teuerste Entwurfsentscheidung markierte Änderung — sie verdient einen eigenen,
+sorgfältig geplanten Durchgang mit Migrationsstrategie für Bestandsdaten vorab, keinen
+Einzelbefund nebenbei. Gleiche Kategorie wie B5/D2.
 
 ### D2 — Kein Konto-Lebenszyklus, kein Merge-Pfad ⬜ offen (bewusst zurückgestellt)
 
@@ -482,14 +495,15 @@ dem `keycloak`-Profil sehr wohl gebraucht wird.
    Cascade-Prüfung in `V30`/`V31` ergab dort keinen Handlungsbedarf.)*
 3. **B1** — die verbliebene DoS-Fläche. *(erledigt; Migration `V34` angewendet, ein statt drei
    Abfragen, harte Kandidaten-Obergrenze.)*
-4. **D1** — letzter offener Punkt im gesamten Review. Strukturbereinigung (`authenticationMethods`
-   als JSON-Liste auf einer versionierten Zeile — teuerste Entwurfsentscheidung im Modell, siehe
-   D1 im Dokument für die drei Konsequenzen). *(C1 ist mit A3 erledigt; C2 zu zwei Dritteln
-   erledigt, siehe dort.)*
+4. **D1** — bewusst zurückgestellt, wie B5/D2 (siehe dort: echte Architekturmigration über sechs
+   Module, ändert Nebenläufigkeitssemantik, kein Einzelbefund). *(C1 ist mit A3 erledigt; C2 zu
+   zwei Dritteln erledigt, siehe dort.)*
 
 Erledigt (dritter/vierter/fünfter Durchgang): A4, A6, A7-Rest, B2 (teilweise), B4 (teilweise), B6,
 C2 (teilweise), C3, C4, D3. Bewusst zurückgestellt (Produktions-/Architekturentscheidung, kein
-kleiner Einzelbefund): B5, D2.
+kleiner Einzelbefund, jeweils mit Begründung im Dokument): B5, D1, D2. Damit ist das Review
+inhaltlich abgeschlossen — jeder verbleibende offene Punkt trägt eine explizite Zurückstellungs-
+begründung, keiner ist übersehen.
 
 ---
 
