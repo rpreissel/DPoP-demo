@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.dpop.DpopValidationException
 import com.example.dpop.orchestrator.kc.OidcTokenValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.orm.ObjectOptimisticLockingFailureException
@@ -63,8 +64,17 @@ class OrchestratorExceptionHandler {
      * retry against freshly-read state rather than see an unhandled 500.
      */
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
-    fun handleConcurrentModification(e: ObjectOptimisticLockingFailureException): ResponseEntity<Map<String, String>> =
-        ResponseEntity.status(HttpStatus.CONFLICT).body(
+    fun handleConcurrentModification(e: ObjectOptimisticLockingFailureException): ResponseEntity<Map<String, String>> {
+        // The response is deliberately opaque, but a 409 must not be invisible in operations:
+        // a genuine race and a self-inflicted one (an unexpected mid-request flush, say) look
+        // identical from outside, and only the contended entity tells them apart.
+        log.warn("Optimistic lock conflict on {} id={}", e.persistentClassName, e.identifier, e)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
             mapOf("error" to "CONCURRENT_MODIFICATION", "message" to "Concurrent request on the same session - please retry.")
         )
+    }
+
+    private companion object {
+        private val log = LoggerFactory.getLogger(OrchestratorExceptionHandler::class.java)
+    }
 }

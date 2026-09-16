@@ -1,9 +1,11 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
+import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -33,6 +35,8 @@ class RetentionJobTest : BehaviorSpec({
         channelSessionRepository: ChannelSessionRepository,
         authContextRepository: AuthContextRepository = mockk(relaxed = true),
         authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true),
+        journeyLogRepository: JourneyLogRepository = mockk(relaxed = true),
+        attemptThrottleRepository: AttemptThrottleRepository = mockk(relaxed = true),
         keycloakAdminClient: ObjectProvider<KeycloakAdminClient> = noKeycloakClient()
     ) = RetentionJob(
         toolSessionRepository = mockk(relaxed = true),
@@ -41,6 +45,8 @@ class RetentionJobTest : BehaviorSpec({
         authContextRepository = authContextRepository,
         authEvidenceRepository = authEvidenceRepository,
         sessionEventRepository = mockk(relaxed = true),
+        journeyLogRepository = journeyLogRepository,
+        attemptThrottleRepository = attemptThrottleRepository,
         keycloakAdminClient = keycloakAdminClient
     )
 
@@ -158,6 +164,35 @@ class RetentionJobTest : BehaviorSpec({
             job(channelSessionRepository).cleanup()
 
             verify(exactly = 0) { channelSessionRepository.findByChannelAndExpiresAtBefore(any(), any()) }
+        }
+    }
+
+    given("a retention run over the two age-swept tables that hang off no foreign key") {
+        then("the journey log is swept by age, and stale throttle counters with it (B3)") {
+            val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
+            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            val journeyLogRepository = mockk<JourneyLogRepository>(relaxed = true)
+            val attemptThrottleRepository = mockk<AttemptThrottleRepository>(relaxed = true)
+            val logCutoff = slot<Instant>()
+            val throttleCutoff = slot<Instant>()
+            val throttleNow = slot<Instant>()
+            every { journeyLogRepository.deleteByCreatedAtBefore(capture(logCutoff)) } returns 0
+            every { attemptThrottleRepository.deleteStaleCounters(capture(throttleCutoff), capture(throttleNow)) } returns 0
+
+            val before = Instant.now()
+            job(
+                channelSessionRepository,
+                journeyLogRepository = journeyLogRepository,
+                attemptThrottleRepository = attemptThrottleRepository
+            ).cleanup()
+
+            // Both cutoffs are ages, not "now" - a sweep that passed the current instant would
+            // delete the whole table including counters whose lock still runs.
+            logCutoff.captured shouldBeLessThan before.minus(Duration.ofDays(29))
+            throttleCutoff.captured shouldBeLessThan before.minus(Duration.ofDays(6))
+            // The longest lockout any throttle service uses is 15 minutes; the retention window
+            // must stay far beyond it so a sweep can never shorten an active budget.
+            throttleCutoff.captured shouldBeLessThan throttleNow.captured.minus(Duration.ofHours(1))
         }
     }
 })

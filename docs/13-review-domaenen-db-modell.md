@@ -14,8 +14,9 @@ Lösch-/Aufbewahrungspfade**.
 
 | Status | Bedeutung |
 |---|---|
-| ✅ behoben | Im Code/DDL umgesetzt, vollständige Testsuite grün (565 Tests) |
+| ✅ behoben | Im Code/DDL umgesetzt, vollständige Testsuite grün (568 Tests) |
 | 🟡 teilweise | Ein Anteil umgesetzt, ein Rest ist offen (jeweils benannt) |
+| ⛔ blockiert | Analysiert, Lösung ausgearbeitet, Umsetzung durch eine Umgebungsgrenze verhindert |
 | ⬜ offen | Analysiert und belegt, nicht umgesetzt |
 
 ---
@@ -99,7 +100,7 @@ verschwindet diese Sicherheitsaussage lautlos und der schwächere Anchor kann ge
 Empfehlung: explizites Ranking über `AnchorClass` statt Iterationsreihenfolge — dann ist die
 Stärkeordnung eine Eigenschaft des Codes, nicht des Aufrufers.
 
-### A5 — Löschpfad unvollständig, aber nur bei `journey_log`/`attempt_throttle` (DSGVO) ⬜ offen
+### A5 — Löschpfad unvollständig, aber nur bei `journey_log`/`attempt_throttle` (DSGVO) ✅ behoben
 
 **Korrektur gegenüber der ursprünglichen Fassung:** Die vermutete funktionale Lücke trifft **nicht**
 zu. `V30__add_account_attribute.sql` und `V31__add_account_anchor.sql` sind beide lesbar und
@@ -115,12 +116,43 @@ Was bleibt, ist die DSGVO-Hälfte: `AccountService.deleteAccount` löscht nur di
 (mit den beiden Cascades im Schlepptau); `AccountDeletionService` räumt zusätzlich Credentials,
 `DeviceAccountLink`, Channels, `AuthContext`, `AuthEvidence` — **nicht** aber `journey_log` und
 `attempt_throttle`. Beide enthalten identitätsnahe Daten (`journey_log.detail`-JSON,
-`attempt_throttle.subject` bei `CONTACT_SEND` rohe Telefonnummern/E-Mails, siehe A7) und keine
+`attempt_throttle.subject` bei `CONTACT_SEND` ungepfefferte Hashes von Kontaktadressen, siehe A7) und keine
 Beziehung zu `account`, die eine Cascade tragen könnte — das ist eher B3/eine explizite
 Aufräum-Query im Löschpfad als ein fehlender Fremdschlüssel.
 
 Empfehlung: `AccountDeletionService` um `journey_log`/`attempt_throttle`-Aufräumung für die
 gelöschte `accountId` ergänzen, unabhängig von der Aufbewahrungsfrist aus B3.
+
+**Umsetzung:** `AccountDeletionService.deleteAccount` räumt beides jetzt explizit ab.
+
+- `journey_log` wird über **zwei** Schlüssel gelöscht — `account_id` **und** die Channel-Sessions
+  des Kontos. Einträge, die geschrieben wurden, bevor der Channel ein Konto aufgelöst hatte,
+  tragen `account_id = NULL` und hätten eine rein kontobezogene Löschung überlebt; es ist derselbe
+  Grund, aus dem `getLogForAccount` in der Leserichtung über die Channel-Menge geht.
+- `attempt_throttle` wird **nur** in den kontobezogenen Scopes (`ACCOUNT`, `ACCOUNT_SEND`)
+  gelöscht. `PERSON` gehört zum externen Register, `BINDING_KEY` und `CONTACT_SEND` sind bewusst
+  nicht kontobezogen — `CONTACT_SEND` speichert ohnehin nur einen Hash (siehe A7, dessen Annahme
+  roher Kontaktdaten damit hinfällig ist). Diese Scopes mitzulöschen würde die Kontolöschung in
+  einen Weg verwandeln, fremde Throttle-Budgets zurückzusetzen.
+
+Zwei Fallstricke, die dabei zutage traten und im Code dokumentiert sind:
+
+1. Die Löschung muss **eine einzige** Anweisung sein. Jede Bulk-Mutation auf `journey_log` löst
+   vorher einen Auto-Flush aus; bei zwei Anweisungen schrieb der zweite Flush einen Eintrag fort,
+   den die erste bereits gelöscht hatte → `Unexpected row count (expected 1 but was 0)`, nach
+   außen ein falscher `409 CONCURRENT_MODIFICATION` auf genau der Anfrage, die die Löschung
+   angestoßen hat.
+2. `flushAutomatically` **und** `clearAutomatically` gehören hier zusammen: Der Flush schreibt
+   alle offenen Änderungen (vor allem die Channel-Logouts) vor der Löschung weg, damit das Clear
+   sie nicht verwirft; das Clear löst die gelöschten Einträge aus dem Persistence-Context. Ohne
+   das bleiben sie verwaltet, und da `detail` eine veränderliche JSON-Map ist, die Hibernate als
+   dirty erneut prüft, flusht die nächste Abfrage derselben Anfrage ein UPDATE gegen nicht mehr
+   existierende Zeilen — derselbe falsche 409, nur später.
+
+Nebenbefund daraus: Ein `409 CONCURRENT_MODIFICATION` war betrieblich vollständig unsichtbar. Der
+`OrchestratorExceptionHandler` protokolliert jetzt Entity und Id des Konflikts (WARN) — echte und
+selbstverschuldete Kollisionen sind von außen nicht unterscheidbar, nur die betroffene Entity
+trennt sie.
 
 ### A6 — Interne Konto-IDs verlassen das System ⬜ offen
 
@@ -128,18 +160,28 @@ gelöschte `accountId` ergänzen, unabhängig von der Aufbewahrungsfrist aus B3.
 nach außen. `channelSessionId` ist ausdrücklich opaque gehalten — `accountId`/`personId` sind es
 nicht. Empfehlung: nach außen nur die Anzahl, Kandidaten intern (oder opaque Referenz).
 
-### A7 — Rohe Kontaktdaten als Primärschlüsselbestandteil ⬜ offen
+### A7 — Kontaktadressen als Primärschlüsselbestandteil, ungepfeffert gehasht 🟡 teilweise
 
-`ThrottleScope.CONTACT_SEND` speichert Telefonnummer bzw. E-Mail im Klartext in
-`attempt_throttle.subject` — unbegrenzt lange, ohne Aufbewahrungsgrenze (siehe auch A5/B3).
-Empfehlung: gepfefferter Hash, analog zur bereits vorhandenen `dpop.secrets.otp-pepper`-Begründung
-in `application.yml`.
+**Korrektur gegenüber der ursprünglichen Fassung:** Die Behauptung „im Klartext" trifft **nicht**
+zu. `SendThrottleService.isThrottledForContact` legt nicht die Adresse, sondern ihren
+SHA-256-Hash als `attempt_throttle.subject` ab (`SendThrottleService.hash`, mit eigener Begründung
+im Code). Der `CONTACT_SEND`-Scope enthält damit keine im Klartext lesbaren Kontaktdaten.
+
+Was bleibt: Der Hash ist **ungepfeffert**. Telefonnummern und E-Mail-Adressen haben zu wenig
+Entropie, um das allein zu tragen — der Suchraum deutscher Mobilnummern ist vollständig
+durchrechenbar, gängige Adressen stehen in Wörterbüchern. Aus einem Datenbankabzug ließe sich
+also weiterhin bestimmen, ob eine konkrete Adresse das System benutzt hat. Empfehlung unverändert:
+gepfefferter Hash, analog zur bereits vorhandenen `dpop.secrets.otp-pepper`-Begründung in
+`application.yml`.
+
+Die zweite Hälfte des ursprünglichen Befunds — „unbegrenzt lange, ohne Aufbewahrungsgrenze" — ist
+mit B3 erledigt: `attempt_throttle` wird nach 7 Tagen ausgekehrt.
 
 ---
 
 ## B) Skalierung (10 Mio. Nutzer, hohe Anmeldelast)
 
-### B1 — Full-Table-Scan im Identifikationspfad ⬜ offen
+### B1 — Full-Table-Scan im Identifikationspfad ⛔ blockiert
 
 `AccountAttributeRepository.findAccountIdsByTypeAndNormalizedValue` vergleicht
 `lower(trim(a.value))` — nicht sargable. Auf `account_attribute` existiert ausschließlich
@@ -155,19 +197,71 @@ Empfehlung: `normalized_value`-Spalte beim Insert schreiben, Index `(attribute_t
 normalized_value)`, Schnittmenge in **einer** SQL-Abfrage, zusätzlich eine harte
 Kandidaten-Obergrenze.
 
+**Warum blockiert:** Der Fix braucht zwingend DDL (`normalized_value` plus Index), und
+`ddl-auto: validate` lässt keine Entity-Spalte ohne passende Migration zu — eine halb
+angewandte Code-Hälfte würde die gesamte Testsuite rot färben. In der Umgebung, in der dieser
+Schritt bearbeitet wurde, verweigert die Content-Exclusion-Policy jeden Schreibzugriff auf
+`src/main/resources/db/migration/`. Deshalb bewusst **nicht** angefangen, sondern hier
+vollständig vorbereitet.
+
+Fertige Migration `V34__account_attribute_normalized_value.sql`:
+
+```sql
+ALTER TABLE account_attribute ADD COLUMN normalized_value VARCHAR(255);
+
+UPDATE account_attribute
+SET normalized_value = lower(trim(attribute_value))
+WHERE attribute_value IS NOT NULL;
+
+-- Führendes attribute_type hält den Index für die typgebundenen Gleichheits-Lookups selektiv;
+-- account_id ist mit aufgenommen, damit die Kandidatenabfrage allein aus dem Index beantwortet
+-- werden kann.
+CREATE INDEX idx_account_attribute_type_normalized
+    ON account_attribute (attribute_type, normalized_value, account_id);
+```
+
+Codeseitig gehören dazu:
+
+1. `AccountAttribute`: Spalte `normalized_value` (nullable wie `attribute_value`), gefüllt über
+   einen `@PrePersist`/`@PreUpdate`-Hook, damit die Normalisierungsregel genau **einmal**
+   existiert und nicht zwischen Schreib- und Lesepfad auseinanderlaufen kann.
+2. `AccountAttributeRepository`: die drei Einzelabfragen durch **eine** ersetzen —
+   `where (attribute_type, normalized_value)` dreifach ver-`or`-t, `group by account_id`,
+   `having count(distinct attribute_type) = 3`, `order by account_id`, plus `Pageable` als harte
+   Obergrenze (Vorschlag: 50 + 1 Zeile, um „mehr als die Obergrenze" von „genau die Obergrenze"
+   unterscheiden zu können).
+3. `IdentityMatchingService.resolveByAttributeCombination`: In-Memory-`intersect` entfällt. Wird
+   die Obergrenze überschritten, ist das Ergebnis `Resolution.Ambiguous` — nie ein Treffer, denn
+   die Regel „lieber gar nicht als falsch zusammenführen" darf eine Obergrenze nicht aufweichen.
+
 ### B2 — `allAccountIds()` lädt alle Konten in den Heap ⬜ offen
 
 `AccountService.allAccountIds()` ruft `accountRepository.findAll()` und mappt danach auf die ID —
 lädt also 10 Mio. `Account`-Entities inklusive beider JSON-Collections. Empfehlung: projizierende,
 paginierte Query (`select a.id from Account a`, Stream/Slice).
 
-### B3 — `journey_log` hat keinerlei Aufbewahrungsgrenze ⬜ offen
+### B3 — `journey_log` hat keinerlei Aufbewahrungsgrenze ✅ behoben
 
 `RetentionJob` deckt `ToolSession`, `AuthJourney`, `ChannelSession`, `AuthContext`, `AuthEvidence`
 und `SessionEvent` ab — `journey_log` kommt darin **nicht vor**. Die Tabelle bekommt pro
 Journey-Schritt eine Zeile samt `detail`-JSON und ist laut eigener Doku ein Debug-/Demo-Trace. Bei
 „vielen Anmeldungen" ist sie mit Abstand die größte Tabelle des Systems und enthält zugleich
 identitätsnahe Daten (siehe A5). Gleiches gilt für `attempt_throttle`.
+
+**Umsetzung:** `RetentionJob` kehrt beide Tabellen jetzt rein altersbasiert aus — beide hängen an
+keinem Fremdschlüssel, der sie mit aufräumen könnte, und sind durch nichts anderes begrenzt.
+
+- `JOURNEY_LOG_RETENTION = 30 Tage`, bewusst gleich `CHANNEL_SESSION_RETENTION`: Der Log wird über
+  die Channel-Sessions abgefragt (`JourneyLogService.getLogForAccount` löst erst die Channel-Menge
+  auf), länger zu leben als sie bringt also nichts. Er ist der Debug-Trace, **nicht** der
+  Audit-Trail — das bleibt `SessionEvent` mit seinen 90 Tagen.
+- `ATTEMPT_THROTTLE_RETENTION = 7 Tage`, zwei Größenordnungen über dem längsten Fenster bzw.
+  Lockout irgendeines Throttle-Dienstes (15 Minuten). Zusätzlich rührt
+  `AttemptThrottleRepository.deleteStaleCounters` keine Zeile an, deren `locked_until` noch läuft:
+  Ein Sweep darf einem Angreifer niemals seine Sperre abräumen.
+
+Beides sind Bulk-Statements statt abgeleiteter `deleteBy…`-Methoden — die abgeleitete Form würde
+die größte Tabelle des Systems zeilenweise in den Persistence-Context laden, nur um sie zu löschen.
 
 ### B4 — `RetentionJob` ohne Batching ⬜ offen
 
@@ -268,13 +362,15 @@ aufbewahrt. Beides sind Einladungen zur späteren Fehlinterpretation.
 ## Empfohlene Reihenfolge
 
 1. **A1, A2, A3** — aktive Sicherheitslücken. *(vollständig erledigt, Code + DDL.)*
-2. **B1, B3** — DoS-Fläche und unbegrenztes Datenwachstum.
-3. **A5** — verbleibender Löschpfad-Rest (`journey_log`/`attempt_throttle`); die
-   Cascade-Prüfung in `V30`/`V31` ist erledigt und ergab: kein Handlungsbedarf dort.
+2. **B3, A5** — unbegrenztes Datenwachstum und der Löschpfad-Rest. *(erledigt; die
+   Cascade-Prüfung in `V30`/`V31` ergab dort keinen Handlungsbedarf.)*
+3. **B1** — die verbliebene DoS-Fläche. Als Nächstes dran, vollständig ausgearbeitet und nur
+   noch anzuwenden (siehe B1: Migration `V34` im Wortlaut plus die drei Code-Schritte).
 4. **C2, D1** — Strukturbereinigung, bevor weitere Verfahren auf das Modell aufsetzen. *(C1 ist
    mit A3 erledigt.)*
 
-A4, A6, A7, B2, B4–B6, C3, C4, D2, D3 sind einzeln klein und können jederzeit eingeschoben werden.
+A4, A6, A7-Rest, B2, B4–B6, C3, C4, D2, D3 sind einzeln klein und können jederzeit eingeschoben
+werden.
 
 ---
 
@@ -292,5 +388,15 @@ verifizierbar. In dieser Umgebung sind alle Migrationsdateien lesbar. Nachverifi
   `ON DELETE CASCADE` auf `account_id`. Die A5-Vermutung eines fehlenden Cascades war **falsch**
   und wurde korrigiert (siehe A5 oben).
 
-Migration `V33__email_anchor_is_sole_uniqueness.sql` ist angelegt und verifiziert (565 Tests
-grün, `ddl-auto: validate` erfolgreich).
+Migration `V33__email_anchor_is_sole_uniqueness.sql` ist angelegt und verifiziert (`ddl-auto:
+validate` erfolgreich).
+
+Für B3 und A5 galt die Policy-Einschränkung erneut, aber folgenlos: Beide sind reine
+Code-Änderungen ohne DDL. B1 ist die Ausnahme — der Fix ist ohne Migration nicht teilbar, deshalb
+steht er dort vollständig vorbereitet statt halb angewandt. Ebenfalls in dieser Runde
+richtiggestellt: A7 (Hash statt Klartext, siehe dort).
+
+Stand der Testsuite nach B3/A5: **568 Tests grün** (565 vorher, plus drei Regressionstests — der
+Journey-Log-Sweep in `RetentionJobTest`, die zweischlüsselige Löschung und der Nachweis, dass die
+nicht kontobezogenen Throttle-Scopes unangetastet bleiben, beide in
+`AccountDeletionServiceTest`).

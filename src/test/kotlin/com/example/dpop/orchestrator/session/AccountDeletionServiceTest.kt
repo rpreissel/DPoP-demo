@@ -1,12 +1,15 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
 import com.example.dpop.tool_api.EnrollmentCleanup
 import com.example.dpop.tool_spi.EnrollmentRef
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyOrder
 
@@ -27,8 +30,19 @@ class AccountDeletionServiceTest : BehaviorSpec({
         deviceAccountLinkRepository: DeviceAccountLinkRepository = mockk(relaxed = true),
         channelSessionRepository: ChannelSessionRepository = mockk(relaxed = true),
         authContextRepository: AuthContextRepository = mockk(relaxed = true),
-        authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true)
-    ) = AccountDeletionService(accountService, cleanups, deviceAccountLinkRepository, channelSessionRepository, authContextRepository, authEvidenceRepository)
+        authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true),
+        journeyLogRepository: JourneyLogRepository = mockk(relaxed = true),
+        attemptThrottleRepository: AttemptThrottleRepository = mockk(relaxed = true)
+    ) = AccountDeletionService(
+        accountService,
+        cleanups,
+        deviceAccountLinkRepository,
+        channelSessionRepository,
+        authContextRepository,
+        authEvidenceRepository,
+        journeyLogRepository,
+        attemptThrottleRepository
+    )
 
     given("an account with channel sessions still bound to it") {
         then("every one of them is logged out with BOTH authContextId/authEvidenceId and their navigation properties cleared, not just one") {
@@ -118,6 +132,47 @@ class AccountDeletionServiceTest : BehaviorSpec({
                 deviceAccountLinkRepository.deleteByAccountId(1L)
                 accountService.deleteAccount(1L)
             }
+        }
+
+        then("erases the journey log by account AND by the account's channel sessions, plus the account-keyed throttle counters (A5)") {
+            val accountService = mockk<AccountService>(relaxed = true)
+            every { accountService.allEnrollmentRefs(1L) } returns emptyList()
+            val channelSessionId = java.util.UUID.randomUUID()
+            val session = ChannelSession().apply { this.channelSessionId = channelSessionId }
+            val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
+            every { channelSessionRepository.findByAccountId(1L) } returns listOf(session)
+            every { channelSessionRepository.save(any()) } returns session
+            val journeyLogRepository = mockk<JourneyLogRepository>(relaxed = true)
+            val attemptThrottleRepository = mockk<AttemptThrottleRepository>(relaxed = true)
+
+            service(
+                accountService,
+                channelSessionRepository = channelSessionRepository,
+                journeyLogRepository = journeyLogRepository,
+                attemptThrottleRepository = attemptThrottleRepository
+            ).deleteAccount(1L)
+
+            verify { journeyLogRepository.deleteByAccountIdOrChannelSessionIdIn(1L, listOf(channelSessionId)) }
+            verify {
+                attemptThrottleRepository.deleteBySubjectAndScopeIn(
+                    "1",
+                    listOf(ThrottleScope.ACCOUNT, ThrottleScope.ACCOUNT_SEND)
+                )
+            }
+        }
+
+        then("leaves the throttle scopes that are not account-keyed alone - deletion must not become a way to reset someone else's budget") {
+            val accountService = mockk<AccountService>(relaxed = true)
+            every { accountService.allEnrollmentRefs(1L) } returns emptyList()
+            val attemptThrottleRepository = mockk<AttemptThrottleRepository>(relaxed = true)
+            val scopes = slot<Collection<ThrottleScope>>()
+            every { attemptThrottleRepository.deleteBySubjectAndScopeIn(any(), capture(scopes)) } returns 0
+
+            service(accountService, attemptThrottleRepository = attemptThrottleRepository).deleteAccount(1L)
+
+            scopes.captured shouldNotContain ThrottleScope.PERSON
+            scopes.captured shouldNotContain ThrottleScope.BINDING_KEY
+            scopes.captured shouldNotContain ThrottleScope.CONTACT_SEND
         }
     }
 })

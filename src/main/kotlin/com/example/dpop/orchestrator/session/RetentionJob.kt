@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
+import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -18,8 +19,10 @@ import java.time.Instant
  * additionally clears any journeys still pointing at the channels it is about to delete (a
  * confirmed-dead KEYCLOAK channel can be much younger than the journey retention window).
  * SessionEvent is independent - it deliberately outlives the sessions it references (dangling
- * ids are expected, not a defect). account.*, AuthSmsEnrollment and person/fsc_code belong to
- * the account, never touched here.
+ * ids are expected, not a defect). The same holds for JourneyLogEntry and AttemptThrottle: both
+ * are keyed by ids they do not constrain, so both are swept purely by age - and both MUST be
+ * swept, because neither is bounded by anything else. account.*, AuthSmsEnrollment and
+ * person/fsc_code belong to the account, never touched here.
  */
 @Component
 class RetentionJob(
@@ -29,6 +32,8 @@ class RetentionJob(
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceRepository: AuthEvidenceRepository,
     private val sessionEventRepository: SessionEventRepository,
+    private val journeyLogRepository: JourneyLogRepository,
+    private val attemptThrottleRepository: AttemptThrottleRepository,
     // Optional: only present under the `keycloak` profile (KeycloakAdminClient.kt's own doc) -
     // RetentionJob itself runs in every profile, so it must tolerate the bean being absent.
     private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
@@ -56,6 +61,16 @@ class RetentionJob(
         deleteChannels(expiredChannels)
 
         sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
+
+        val journeyLogEntries = journeyLogRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_LOG_RETENTION))
+        val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
+        if (journeyLogEntries > 0 || staleCounters > 0) {
+            log.info(
+                "Retention: deleted {} journey log entry/entries and {} attempt throttle counter(s)",
+                journeyLogEntries,
+                staleCounters
+            )
+        }
     }
 
     /**
@@ -106,5 +121,23 @@ class RetentionJob(
         private val JOURNEY_RETENTION: Duration = Duration.ofDays(7)
         private val CHANNEL_SESSION_RETENTION: Duration = Duration.ofDays(30)
         private val SESSION_EVENT_RETENTION: Duration = Duration.ofDays(90)
+
+        /**
+         * The journey log is queried per channel session
+         * ([com.example.dpop.orchestrator.journeylog.JourneyLogService.getLogForAccount] resolves
+         * the channel set first), so outliving [CHANNEL_SESSION_RETENTION] buys nothing while
+         * this is by far the highest-volume table in the system - one row per journey step, each
+         * with a JSON `detail`. It is a debugging/demo trace, NOT the audit trail; that is
+         * SessionEvent, which keeps its own, longer window.
+         */
+        private val JOURNEY_LOG_RETENTION: Duration = Duration.ofDays(30)
+
+        /**
+         * Two orders of magnitude beyond the longest window or lockout any throttle service uses
+         * (15 minutes), so a sweep can never shorten an active budget - see
+         * [AttemptThrottleRepository.deleteStaleCounters], which additionally refuses to touch a
+         * row whose lock still runs.
+         */
+        private val ATTEMPT_THROTTLE_RETENTION: Duration = Duration.ofDays(7)
     }
 }
