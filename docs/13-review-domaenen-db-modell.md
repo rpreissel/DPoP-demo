@@ -360,12 +360,34 @@ Mit A3 ist das Zielbild jetzt vollständig erreicht: Lesepfad und Eindeutigkeits
 Existenz der E-Mail als solche bleibt bestehen — das ist die bewusste Drei-Schichten-Trennung
 (Provenienz/Auflösung/Projektion), keine offene Inkonsistenz mehr.
 
-### C2 — Typisierung zwischen den Modulen inkonsistent ⬜ offen
+### C2 — Typisierung zwischen den Modulen inkonsistent 🟡 teilweise
 
-`AccountAttribute.attributeType`/`trustAnchor` und `AccountAnchor.anchorType` sind `String`,
+`AccountAttribute.attributeType`/`trustAnchor` und `AccountAnchor.anchorType` waren `String`,
 obwohl `AttributeType`, `AnchorType` und `AnchorClass` als Typen existieren — während das
 `orchestrator`-Modul durchgängig `@Enumerated(EnumType.STRING)` verwendet. Über eine Laufzeit von
 10+ Jahren wird aus einer Umbenennung so stille Datenkorruption statt eines Compilerfehlers.
+
+**Umsetzung:** `attributeType` (→ `AttributeType`) und `AccountAnchor.anchorType` (→ `AnchorType`)
+sind jetzt typisiert, über eigene `AttributeConverter` (`AttributeTypeConverter`,
+`AnchorTypeConverter`), nicht `@Enumerated(STRING)` — beide Spalten enthalten bereits seit Jahren
+Wire-Names in Kleinschreibung (`person_id`, `email`), `@Enumerated(EnumType.STRING)` würde
+stattdessen den Enum-Konstantennamen (`PERSON_ID`) schreiben/erwarten und stumm gegen jede
+Bestandszeile ins Leere laufen. Die Konverter runden stattdessen über `wireName` und eine neue
+`fromWireName`-Rücklaufrichtung. Reverse-Lookup-Fehlerfall bei `AnchorType.fromWireName` wirft
+hart (`error(...)`) statt still `null` zu liefern — ein unbekannter Wert in dieser Spalte ist ein
+Programmierfehler, keine erwartbare Laufzeitsituation.
+
+**Nicht umgesetzt: `trustAnchor` bleibt `String`.** `TrustAnchor` ist eine Kotlin
+`@JvmInline value class` — beim Testen mit echtem `AttributeConverter<TrustAnchor, String>` warf
+Hibernate zur Laufzeit `JpaSystemException: Error attempting to apply AttributeConverter: class
+java.lang.String cannot be cast to class TrustAnchor` bei jedem Schreibzugriff (verifiziert:
+`AttributeType`, ein echtes Enum, und `AnchorType`, ein sealed interface aus Objects, haben dieses
+Problem NICHT — nur der Value-Class-Fall). Eine nullable Value-Class-Property wird auf JVM-Ebene
+zwar geboxt, aber Hibernates Property-Access/Enhancement-Pfad reicht dem Konverter dafür eine rohe
+`String`-Instanz statt der geboxten `TrustAnchor` durch. Das ist eine bekannte Inkompatibilität
+zwischen Kotlin Value Classes und Hibernates `AttributeConverter`-Mechanismus, keine lokal
+behebbare Fehlkonfiguration — `AccountService.recordClaim` entpackt weiterhin manuell
+(`claim.trustAnchor.value`).
 
 ### C3 — Spaltenname trägt die falsche Bedeutung ✅ behoben
 
@@ -460,12 +482,14 @@ dem `keycloak`-Profil sehr wohl gebraucht wird.
    Cascade-Prüfung in `V30`/`V31` ergab dort keinen Handlungsbedarf.)*
 3. **B1** — die verbliebene DoS-Fläche. *(erledigt; Migration `V34` angewendet, ein statt drei
    Abfragen, harte Kandidaten-Obergrenze.)*
-4. **C2, D1** — Strukturbereinigung, bevor weitere Verfahren auf das Modell aufsetzen. *(C1 ist
-   mit A3 erledigt; einzige verbleibende offene Punkte im gesamten Review.)*
+4. **D1** — letzter offener Punkt im gesamten Review. Strukturbereinigung (`authenticationMethods`
+   als JSON-Liste auf einer versionierten Zeile — teuerste Entwurfsentscheidung im Modell, siehe
+   D1 im Dokument für die drei Konsequenzen). *(C1 ist mit A3 erledigt; C2 zu zwei Dritteln
+   erledigt, siehe dort.)*
 
-Erledigt (dritter/vierter Durchgang): A4, A6, A7-Rest, B2 (teilweise), B4 (teilweise), B6, C3, C4,
-D3. Bewusst zurückgestellt (Produktions-/Architekturentscheidung, kein kleiner Einzelbefund): B5,
-D2.
+Erledigt (dritter/vierter/fünfter Durchgang): A4, A6, A7-Rest, B2 (teilweise), B4 (teilweise), B6,
+C2 (teilweise), C3, C4, D3. Bewusst zurückgestellt (Produktions-/Architekturentscheidung, kein
+kleiner Einzelbefund): B5, D2.
 
 ---
 

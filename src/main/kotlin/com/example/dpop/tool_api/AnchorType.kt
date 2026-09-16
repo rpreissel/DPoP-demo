@@ -45,5 +45,12 @@ sealed interface AnchorType {
             AttributeType.GEBURTSDATUM,
             AttributeType.PHONE_NUMBER -> null
         }
+
+        /** Reverse of [wireName] - the JPA persistence converter's only caller (C2, account.internal.AnchorTypeConverter). */
+        fun fromWireName(wireName: String): AnchorType = when (wireName) {
+            Kvnr.wireName -> Kvnr
+            Email.wireName -> Email
+            else -> error("Unknown anchor type wire name: $wireName")
+        }
     }
 }

@@ -56,7 +56,7 @@ class AccountServiceTest : BehaviorSpec({
             then("the claim lands in the log with all its provenance fields") {
                 savedAttributes shouldHaveSize 1
                 savedAttributes.single().accountId shouldBe 7L
-                savedAttributes.single().attributeType shouldBe "person_id"
+                savedAttributes.single().attributeType shouldBe AttributeType.PERSON_ID
                 savedAttributes.single().value shouldBe "42"
                 savedAttributes.single().trustAnchor shouldBe "ext_stammdaten"
                 savedAttributes.single().establishedLoa shouldBe "loa2"
@@ -155,8 +155,8 @@ class AccountServiceTest : BehaviorSpec({
         every { accountAttributeRepository.save(capture(savedAttributes)) } answers { savedAttributes.last() }
         val savedAnchors = mutableListOf<AccountAnchor>()
         every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
-        every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns null
-        every { accountAnchorRepository.findByAnchorTypeAndValue("email", any()) } returns null
+        every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, AnchorType.Email) } returns null
+        every { accountAnchorRepository.findByAnchorTypeAndValue(AnchorType.Email, any()) } returns null
 
         `when`("recording an email claim") {
             service.recordClaim(
@@ -171,15 +171,15 @@ class AccountServiceTest : BehaviorSpec({
                 verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
                 savedAnchors shouldHaveSize 1
                 savedAnchors.single().accountId shouldBe 7L
-                savedAnchors.single().anchorType shouldBe "email"
+                savedAnchors.single().anchorType shouldBe AnchorType.Email
                 savedAnchors.single().value shouldBe "max@example.com"
                 savedAnchors.single().establishedAt.shouldNotBeNull()
             }
         }
 
         `when`("recording an anchor another account already holds") {
-            every { accountAnchorRepository.findByAnchorTypeAndValue("email", "max@example.com") } returns
-                AccountAnchor(anchorType = "email", value = "max@example.com", accountId = 99L, establishedAt = Instant.now())
+            every { accountAnchorRepository.findByAnchorTypeAndValue(AnchorType.Email, "max@example.com") } returns
+                AccountAnchor(anchorType = AnchorType.Email, value = "max@example.com", accountId = 99L, establishedAt = Instant.now())
 
             then("the claim is rejected instead of silently skipping the anchor (ADR-11)") {
                 shouldThrow<IdentityConflictException> {
@@ -199,9 +199,9 @@ class AccountServiceTest : BehaviorSpec({
         }
 
         `when`("re-binding this account's own anchor to a new value") {
-            val oldAnchor = AccountAnchor(anchorType = "email", value = "old@example.com", accountId = 7L, establishedAt = Instant.now())
-            every { accountAnchorRepository.findByAnchorTypeAndValue("email", "new@example.com") } returns null
-            every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns oldAnchor
+            val oldAnchor = AccountAnchor(anchorType = AnchorType.Email, value = "old@example.com", accountId = 7L, establishedAt = Instant.now())
+            every { accountAnchorRepository.findByAnchorTypeAndValue(AnchorType.Email, "new@example.com") } returns null
+            every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, AnchorType.Email) } returns oldAnchor
 
             service.recordClaim(
                 accountId = 7L,
@@ -225,23 +225,23 @@ class AccountServiceTest : BehaviorSpec({
         val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
 
         `when`("resolving an account by anchor") {
-            every { accountAnchorRepository.findByAnchorTypeAndValue("email", "max@example.com") } returns
-                AccountAnchor(anchorType = "email", value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
+            every { accountAnchorRepository.findByAnchorTypeAndValue(AnchorType.Email, "max@example.com") } returns
+                AccountAnchor(anchorType = AnchorType.Email, value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
 
             then("the lookup runs normalized") {
                 service.resolveByAnchor(AnchorType.Email, "  Max@Example.COM ") shouldBe 7L
-                every { accountAnchorRepository.findByAnchorTypeAndValue("email", "other@example.com") } returns null
+                every { accountAnchorRepository.findByAnchorTypeAndValue(AnchorType.Email, "other@example.com") } returns null
                 service.resolveByAnchor(AnchorType.Email, "other@example.com") shouldBe null
             }
         }
 
         `when`("reading an account's anchor value") {
-            every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns
-                AccountAnchor(anchorType = "email", value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
+            every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, AnchorType.Email) } returns
+                AccountAnchor(anchorType = AnchorType.Email, value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
 
             then("it returns the stored normalized value") {
                 service.anchorValue(7L, AnchorType.Email) shouldBe "max@example.com"
-                every { accountAnchorRepository.findByAccountIdAndAnchorType(8L, "email") } returns null
+                every { accountAnchorRepository.findByAccountIdAndAnchorType(8L, AnchorType.Email) } returns null
                 service.anchorValue(8L, AnchorType.Email) shouldBe null
             }
         }
@@ -258,8 +258,8 @@ class AccountServiceTest : BehaviorSpec({
         val account = Account(personId = null, createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
         every { accountRepository.save(account) } returns account
-        every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns null
-        every { accountAnchorRepository.findByAnchorTypeAndValue("email", any()) } returns null
+        every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, AnchorType.Email) } returns null
+        every { accountAnchorRepository.findByAnchorTypeAndValue(AnchorType.Email, any()) } returns null
         val savedAnchors = mutableListOf<AccountAnchor>()
         every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
 
@@ -268,7 +268,7 @@ class AccountServiceTest : BehaviorSpec({
 
             then("the email anchor materializes normalized alongside the projection column") {
                 savedAnchors shouldHaveSize 1
-                savedAnchors.single().anchorType shouldBe "email"
+                savedAnchors.single().anchorType shouldBe AnchorType.Email
                 savedAnchors.single().value shouldBe "max@example.com"
                 savedAnchors.single().accountId shouldBe 7L
                 verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }

@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.tool_spi.AttributeType
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
@@ -33,11 +34,11 @@ interface AccountAttributeRepository : JpaRepository<AccountAttribute, Long> {
         """
     )
     fun findAccountIdsMatchingAllThree(
-        @Param("type1") type1: String,
+        @Param("type1") type1: AttributeType,
         @Param("value1") value1: String,
-        @Param("type2") type2: String,
+        @Param("type2") type2: AttributeType,
         @Param("value2") value2: String,
-        @Param("type3") type3: String,
+        @Param("type3") type3: AttributeType,
         @Param("value3") value3: String,
         pageable: Pageable
     ): List<Long>

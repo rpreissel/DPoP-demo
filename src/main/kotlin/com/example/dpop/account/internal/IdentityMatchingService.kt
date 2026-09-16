@@ -92,7 +92,7 @@ class IdentityMatchingService(
         for (claim in claims.sortedByDescending { anchorClassOf(it.trustAnchor).rank }) {
             val anchorType = AnchorType.of(claim.attributeType) ?: continue
             val anchor = accountAnchorRepository.findByAnchorTypeAndValue(
-                anchorType.wireName,
+                anchorType,
                 anchorType.normalize(claim.value)
             ) ?: continue
             val accountId = anchor.accountId ?: continue
@@ -117,11 +117,11 @@ class IdentityMatchingService(
         val geburtsdatum = claims.claimValue(AttributeType.GEBURTSDATUM) ?: return null
 
         val candidates = accountAttributeRepository.findAccountIdsMatchingAllThree(
-            type1 = AttributeType.NAME.wireName,
+            type1 = AttributeType.NAME,
             value1 = AccountAttribute.normalize(name)!!,
-            type2 = AttributeType.VORNAME.wireName,
+            type2 = AttributeType.VORNAME,
             value2 = AccountAttribute.normalize(vorname)!!,
-            type3 = AttributeType.GEBURTSDATUM.wireName,
+            type3 = AttributeType.GEBURTSDATUM,
             value3 = AccountAttribute.normalize(geburtsdatum)!!,
             pageable = PageRequest.of(0, CANDIDATE_LIMIT + 1)
         )

@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.MatchedVia
 import com.example.dpop.tool_api.PersonDirectory
@@ -116,8 +117,8 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.NAME, "Muster", anchor)
         )
         every { personDirectory.findPersonIdByKvnr("A123456789") } returns null
-        every { anchorRepository.findByAnchorTypeAndValue("kvnr", "A123456789") } returns
-            AccountAnchor(anchorType = "kvnr", value = "A123456789", accountId = 42L, establishedAt = Instant.now())
+        every { anchorRepository.findByAnchorTypeAndValue(AnchorType.Kvnr, "A123456789") } returns
+            AccountAnchor(anchorType = AnchorType.Kvnr, value = "A123456789", accountId = 42L, establishedAt = Instant.now())
 
         `when`("resolve is called") {
             then("layer 2 wins: the unique anchor lookup") {
@@ -140,7 +141,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         )
         every {
             attributeRepository.findAccountIdsMatchingAllThree(
-                "name", "muster", "vorname", "max", "geburtsdatum", "1970-01-01", any()
+                AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns listOf(7L)
 
@@ -168,7 +169,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         )
         every {
             attributeRepository.findAccountIdsMatchingAllThree(
-                "name", "muster", "vorname", "max", "geburtsdatum", "1970-01-01", any()
+                AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns listOf(7L, 8L)
 
@@ -194,7 +195,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val moreThanCeiling = (1L..51L).toList()
         every {
             attributeRepository.findAccountIdsMatchingAllThree(
-                "name", "muster", "vorname", "max", "geburtsdatum", "1970-01-01", any()
+                AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns moreThanCeiling
 
@@ -219,7 +220,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         )
         every {
             attributeRepository.findAccountIdsMatchingAllThree(
-                "name", "niemand", "vorname", "niemals", "geburtsdatum", "1970-01-01", any()
+                AttributeType.NAME, "niemand", AttributeType.VORNAME, "niemals", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns emptyList()
 

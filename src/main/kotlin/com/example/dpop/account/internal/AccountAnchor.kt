@@ -1,6 +1,8 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.tool_api.AnchorType
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -21,8 +23,9 @@ import java.time.Instant
 @Entity
 @Table(name = "account_anchor")
 class AccountAnchor(
+    @Convert(converter = AnchorTypeConverter::class)
     @Column(name = "anchor_type", nullable = false)
-    var anchorType: String? = null,
+    var anchorType: AnchorType? = null,
 
     @Column(name = "anchor_value", nullable = false)
     var value: String? = null,

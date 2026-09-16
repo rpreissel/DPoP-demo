@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.tool_api.AnchorType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Repository
  */
 @Repository
 interface AccountAnchorRepository : JpaRepository<AccountAnchor, Long> {
-    fun findByAnchorTypeAndValue(anchorType: String, value: String): AccountAnchor?
-    fun findByAccountIdAndAnchorType(accountId: Long, anchorType: String): AccountAnchor?
-    fun existsByAnchorTypeAndValue(anchorType: String, value: String): Boolean
+    fun findByAnchorTypeAndValue(anchorType: AnchorType, value: String): AccountAnchor?
+    fun findByAccountIdAndAnchorType(accountId: Long, anchorType: AnchorType): AccountAnchor?
+    fun existsByAnchorTypeAndValue(anchorType: AnchorType, value: String): Boolean
 }

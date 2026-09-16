@@ -87,7 +87,7 @@ class AccountService(
         accountAttributeRepository.save(
             AccountAttribute(
                 accountId = accountId,
-                attributeType = claim.attributeType.wireName,
+                attributeType = claim.attributeType,
                 value = claim.value,
                 trustAnchor = claim.trustAnchor.value,
                 establishedLoa = claim.establishedLoa?.value,
@@ -135,7 +135,7 @@ class AccountService(
      */
     private fun recordAnchor(accountId: Long, type: AnchorType, value: String, establishedAt: Instant) {
         val normalized = type.normalize(value)
-        accountAnchorRepository.findByAnchorTypeAndValue(type.wireName, normalized)?.let { held ->
+        accountAnchorRepository.findByAnchorTypeAndValue(type, normalized)?.let { held ->
             if (held.accountId == accountId) return
             log.warn(
                 "Anchor conflict: {} anchor already held by account {}, rejected for account {}",
@@ -143,12 +143,12 @@ class AccountService(
             )
             throw IdentityConflictException("Dieser ${type.wireName}-Wert gehoert bereits zu einem anderen Konto")
         }
-        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type.wireName)
+        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type)
             ?.let { accountAnchorRepository.delete(it) }
         accountAnchorRepository.save(
             AccountAnchor(
                 accountId = accountId,
-                anchorType = type.wireName,
+                anchorType = type,
                 value = normalized,
                 establishedAt = establishedAt
             )
@@ -319,7 +319,7 @@ class AccountService(
 
     @Transactional(readOnly = true)
     fun existsByEmail(email: String): Boolean =
-        accountAnchorRepository.existsByAnchorTypeAndValue(AnchorType.Email.wireName, AnchorType.Email.normalize(email))
+        accountAnchorRepository.existsByAnchorTypeAndValue(AnchorType.Email, AnchorType.Email.normalize(email))
 
     /**
      * Bootstrap special case of the claims write path - the live path is generic:
@@ -350,10 +350,10 @@ class AccountService(
     override fun resolveAccountByEmail(email: String): Long? = findAccountByEmail(email)?.accountId
 
     override fun resolveByAnchor(type: AnchorType, value: String): Long? =
-        accountAnchorRepository.findByAnchorTypeAndValue(type.wireName, type.normalize(value))?.accountId
+        accountAnchorRepository.findByAnchorTypeAndValue(type, type.normalize(value))?.accountId
 
     override fun anchorValue(accountId: Long, type: AnchorType): String? =
-        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type.wireName)?.value
+        accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type)?.value
 
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it.details) }

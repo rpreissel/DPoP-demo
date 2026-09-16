@@ -20,6 +20,11 @@ enum class AttributeType(val wireName: String) {
     GEBURTSDATUM("geburtsdatum"),
     EMAIL("email"),
     PHONE_NUMBER("phone_number");
+
+    companion object {
+        /** Reverse of [wireName] - the JPA persistence converter's only caller (C2, account.internal.AttributeTypeConverter). */
+        fun fromWireName(wireName: String): AttributeType = entries.first { it.wireName == wireName }
+    }
 }
 
 /**
