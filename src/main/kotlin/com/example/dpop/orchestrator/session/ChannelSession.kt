@@ -1,18 +1,17 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.orchestrator.journey.AuthIntent
-import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
-import jakarta.persistence.ElementCollection
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.Version
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
 
@@ -49,7 +48,7 @@ class ChannelSession(
      * later step-up's initial authenticator reads it back out and hands it to the fresh channel's
      * own first `PATCH` call as `restoreData`.
      */
-    @Column(name = "kc_session_id", length = 64)
+    @Column(name = "channel_anchor", length = 64)
     var channelAnchor: String? = null
 
     /**
@@ -131,10 +130,13 @@ class ChannelSession(
      * The toolIds this client declared support for at channel creation - fixed for the channel's
      * whole lifetime, never updated afterwards (docs/03-tool-architektur.md, availability). One
      * axis of tool availability; the other is the backend-wide ToolAvailabilityService kill-switch.
+     * A JSON column directly on this row (B6, migration V35), not a separate
+     * `@ElementCollection` table: the old mapping forced `FetchType.EAGER` (a join/extra query on
+     * the hottest path of the system) for a value that is constant over the channel's entire
+     * lifetime.
      */
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "channel_session_available_tools", joinColumns = [JoinColumn(name = "channel_session_id")])
-    @Column(name = "tool_id")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "available_tools")
     var availableClientTools: MutableSet<String> = mutableSetOf()
 
     @Column(name = "created_at", nullable = false)

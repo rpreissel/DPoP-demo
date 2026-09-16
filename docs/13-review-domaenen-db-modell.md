@@ -319,7 +319,13 @@ Ebenfalls unverändert: die gesamte `cleanup()`-Transaktion bleibt eine einzige 
 Transaktionen pro Batch (eigenes Bean wegen Self-Invocation, analog `AttemptThrottleRowInitializer`),
 was über eine kleine Korrektur hinausgeht.
 
-### B5 — `dpop_proof_replay` als Durchsatzdeckel ⬜ offen
+### B5 — `dpop_proof_replay` als Durchsatzdeckel ⬜ offen (bewusst zurückgestellt)
+
+**Warum nicht in diesem Durchgang:** Die Empfehlung selbst ist explizit als Produktionsentscheidung
+formuliert ("Empfehlung für den Produktivpfad") — Wahl zwischen Hash-PK mit Zeitpartitionierung
+oder einem separaten persistenten KV-Store ist eine Infrastrukturentscheidung, keine lokale
+Codeänderung, die sich in dieser H2-Demo-Umgebung sinnvoll klein umsetzen ließe. Bleibt offen für
+den produktiven Zielstack.
 
 Die Mechanik ist richtig gedacht (PK-Insert *ist* die Prüfung, kein Read-then-Write, überlebt
 Neustart und gilt über Replicas). Der Preis: ein INSERT pro authentifiziertem Request auf eine
@@ -328,12 +334,17 @@ Hash-PK (`BINARY(32)`/`UUID`) plus Zeitpartitionierung, alternativ ein persisten
 `jti` ist in beiden Validatoren Pflicht — der naheliegende Verdacht „Proof ohne `jti` sperrt das
 Gerät über den Schlüssel `thumbprint:null` dauerhaft aus" wurde geprüft und trifft **nicht** zu.
 
-### B6 — `availableClientTools` ist `FetchType.EAGER` ⬜ offen
+### B6 — `availableClientTools` ist `FetchType.EAGER` ✅ behoben
 
-`ChannelSession.availableClientTools` ist eine `@ElementCollection(fetch = EAGER)` und erzwingt
+`ChannelSession.availableClientTools` war eine `@ElementCollection(fetch = EAGER)` und erzwang
 damit auf dem heißesten Pfad des Systems einen zusätzlichen Join/Query — für einen Wert, der laut
-eigener Dokumentation über die gesamte Kanal-Lebenszeit **konstant** ist. Empfehlung: JSON-Spalte
-direkt auf `channel_session`.
+eigener Dokumentation über die gesamte Kanal-Lebenszeit **konstant** ist.
+
+**Umsetzung:** Migration `V35` fügt `channel_session.available_tools` als `JSON`-Spalte hinzu
+(gleiches Muster wie `account.identifications`/`authentication_methods`, `V1__schema.sql`),
+migriert die Bestandsdaten aus `channel_session_available_tools` per `LISTAGG` und löscht die
+alte Tabelle. Entity nutzt jetzt `@JdbcTypeCode(SqlTypes.JSON)` statt
+`@ElementCollection`/`@CollectionTable`.
 
 ---
 
@@ -356,12 +367,16 @@ obwohl `AttributeType`, `AnchorType` und `AnchorClass` als Typen existieren — 
 `orchestrator`-Modul durchgängig `@Enumerated(EnumType.STRING)` verwendet. Über eine Laufzeit von
 10+ Jahren wird aus einer Umbenennung so stille Datenkorruption statt eines Compilerfehlers.
 
-### C3 — Spaltenname trägt die falsche Bedeutung ⬜ offen
+### C3 — Spaltenname trägt die falsche Bedeutung ✅ behoben
 
-`ChannelSession.channelAnchor` liegt auf der Spalte `kc_session_id`, während das *tatsächliche*
+`ChannelSession.channelAnchor` lag auf der Spalte `kc_session_id`, während das *tatsächliche*
 Keycloak-Session-Feld `durableKcSessionId` auf `kc_durable_session_id` liegt. Das ist exakt die
-Verwechslung, vor der der Doc-Kommentar über 20 Zeilen warnt — in SQL, Betrieb und Forensik ist
-diese Warnung aber nicht sichtbar. Empfehlung: Spalte auf `channel_anchor` umbenennen.
+Verwechslung, vor der der Doc-Kommentar über 20 Zeilen warnt — in SQL, Betrieb und Forensik war
+diese Warnung aber nicht sichtbar.
+
+**Umsetzung:** Migration `V36` benennt Spalte und Index um (`kc_session_id` →
+`channel_anchor`, `idx_channel_session_kc_session_id` → `idx_channel_session_channel_anchor`);
+`@Column(name = ...)` auf der Entity folgt.
 
 ### C4 — `findOrCreateAccount` verliert das Rennen mit einem 500er ⬜ offen
 
