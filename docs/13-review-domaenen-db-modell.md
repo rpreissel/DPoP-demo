@@ -97,9 +97,14 @@ darauf, dass `toSet()` die Attestierungsreihenfolge erhält („der stärkste zu
 wird zuerst konsultiert"). `Set` gibt keine Reihenfolge zu; übergibt ein Aufrufer ein `HashSet`,
 verschwindet diese Sicherheitsaussage lautlos und der schwächere Anchor kann gewinnen.
 
-**Umsetzung:** `resolveByAnchor` iteriert jetzt `claims.sortedByDescending { anchorClassOf(it.trustAnchor).rank }`
-— die Stärkeordnung ist eine Eigenschaft des Codes, nicht mehr der `Set`-Implementierung des
-Aufrufers.
+**Umsetzung:** `resolveByAnchor` iterierte zunächst `claims.sortedByDescending { anchorClassOf(it.trustAnchor).rank }`
+— die Stärkeordnung war damit eine Eigenschaft des Codes, nicht mehr der `Set`-Implementierung
+des Aufrufers. **Nachtrag** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md)):
+das sortierte fachlich nach dem falschen Rang — Claim-Quelle/Vertrauensstufe statt Bindungsstärke
+des Attributtyps, zwei verschiedene Achsen (dort explizit als eigener Befund benannt: „bindingStrength
+NICHT aus TrustLevel.rank berechnen"). Seither `claims.sortedByDescending { it.attributeType.anchorBindingStrength ?: 0 }`
+(`tool_api/AttributeRules.kt`) — `PERSON_ID` rangiert damit unabhängig davon, welches Tool die
+Claims geliefert hat, immer über `EMAIL`/`KVNR`.
 
 ### A5 — Löschpfad unvollständig, aber nur bei `journey_log`/`attempt_throttle` (DSGVO) ✅ behoben
 
@@ -367,27 +372,35 @@ obwohl `AttributeType`, `AnchorType` und `AnchorClass` als Typen existieren — 
 `orchestrator`-Modul durchgängig `@Enumerated(EnumType.STRING)` verwendet. Über eine Laufzeit von
 10+ Jahren wird aus einer Umbenennung so stille Datenkorruption statt eines Compilerfehlers.
 
-**Umsetzung:** `attributeType` (→ `AttributeType`) und `AccountAnchor.anchorType` (→ `AnchorType`)
-sind jetzt typisiert, über eigene `AttributeConverter` (`AttributeTypeConverter`,
-`AnchorTypeConverter`), nicht `@Enumerated(STRING)` — beide Spalten enthalten bereits seit Jahren
-Wire-Names in Kleinschreibung (`person_id`, `email`), `@Enumerated(EnumType.STRING)` würde
-stattdessen den Enum-Konstantennamen (`PERSON_ID`) schreiben/erwarten und stumm gegen jede
-Bestandszeile ins Leere laufen. Die Konverter runden stattdessen über `wireName` und eine neue
-`fromWireName`-Rücklaufrichtung. Reverse-Lookup-Fehlerfall bei `AnchorType.fromWireName` wirft
-hart (`error(...)`) statt still `null` zu liefern — ein unbekannter Wert in dieser Spalte ist ein
-Programmierfehler, keine erwartbare Laufzeitsituation.
+**Umsetzung:** `attributeType` (→ `AttributeType`) und ursprünglich `AccountAnchor.anchorType`
+(→ ein damals eigenes `AnchorType`) waren typisiert, über eigene `AttributeConverter`
+(`AttributeTypeConverter`, `AnchorTypeConverter`), nicht `@Enumerated(STRING)` — beide Spalten
+enthalten bereits seit Jahren Wire-Names in Kleinschreibung (`person_id`, `email`),
+`@Enumerated(EnumType.STRING)` würde stattdessen den Enum-Konstantennamen (`PERSON_ID`)
+schreiben/erwarten und stumm gegen jede Bestandszeile ins Leere laufen. Die Konverter rundeten
+über `wireName` und eine `fromWireName`-Rücklaufrichtung, die bei einem unbekannten Wert hart
+wirft (`error(...)`) statt still `null` zu liefern.
 
-**Nicht umgesetzt: `trustAnchor` bleibt `String`.** `TrustAnchor` ist eine Kotlin
-`@JvmInline value class` — beim Testen mit echtem `AttributeConverter<TrustAnchor, String>` warf
-Hibernate zur Laufzeit `JpaSystemException: Error attempting to apply AttributeConverter: class
-java.lang.String cannot be cast to class TrustAnchor` bei jedem Schreibzugriff (verifiziert:
-`AttributeType`, ein echtes Enum, und `AnchorType`, ein sealed interface aus Objects, haben dieses
-Problem NICHT — nur der Value-Class-Fall). Eine nullable Value-Class-Property wird auf JVM-Ebene
-zwar geboxt, aber Hibernates Property-Access/Enhancement-Pfad reicht dem Konverter dafür eine rohe
-`String`-Instanz statt der geboxten `TrustAnchor` durch. Das ist eine bekannte Inkompatibilität
-zwischen Kotlin Value Classes und Hibernates `AttributeConverter`-Mechanismus, keine lokal
-behebbare Fehlkonfiguration — `AccountService.recordClaim` entpackt weiterhin manuell
-(`claim.trustAnchor.value`).
+**Nachtrag** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md), Paket 2): `AnchorType`
+entfiel als eigene, zur `AttributeType`-Taxonomie doppelte Hierarchie - `account_anchor.anchor_type`
+nutzt seither denselben `AttributeTypeConverter` wie `account_attribute.attribute_type` (identisches
+Wire-Format), `AnchorTypeConverter` ist entfallen. Die Anker-Regeln (welcher Typ überhaupt Anker
+ist, Normalisierung, Ersetzbarkeit) leben seither gebündelt in `tool_api/AttributeRules.kt` statt
+in einer eigenen Sealed-Hierarchie.
+
+**Weiterhin nicht umgesetzt: `trustAnchor` bleibt `String`.** `TrustAnchor` (seit Paket 1 in
+`ClaimSource` umbenannt) ist eine Kotlin `@JvmInline value class` — beim Testen mit echtem
+`AttributeConverter<TrustAnchor, String>` warf Hibernate zur Laufzeit `JpaSystemException: Error
+attempting to apply AttributeConverter: class java.lang.String cannot be cast to class
+TrustAnchor` bei jedem Schreibzugriff (verifiziert: `AttributeType`, ein echtes Enum, und das
+damalige `AnchorType`, ein sealed interface aus Objects, haben dieses Problem NICHT — nur der
+Value-Class-Fall). Eine nullable Value-Class-Property wird auf JVM-Ebene zwar geboxt, aber
+Hibernates Property-Access/Enhancement-Pfad reicht dem Konverter dafür eine rohe `String`-Instanz
+statt der geboxten `ClaimSource` durch. Das ist eine bekannte Inkompatibilität zwischen Kotlin
+Value Classes und Hibernates `AttributeConverter`-Mechanismus, keine lokal behebbare
+Fehlkonfiguration - unverändert seit diesem Befund, auch nach der Umbenennung in
+`ClaimSource`/`AttributeRules.kt`; `AccountService.recordClaims` entpackt weiterhin manuell
+(`claim.source.value`).
 
 ### C3 — Spaltenname trägt die falsche Bedeutung ✅ behoben
 
