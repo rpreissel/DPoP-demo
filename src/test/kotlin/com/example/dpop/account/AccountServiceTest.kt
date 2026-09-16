@@ -7,10 +7,12 @@ import com.example.dpop.account.internal.AccountAttribute
 import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.tool_api.AnchorType
+import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.TrustAnchor
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -123,6 +125,7 @@ class AccountServiceTest : BehaviorSpec({
         val savedAnchors = mutableListOf<AccountAnchor>()
         every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
         every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns null
+        every { accountAnchorRepository.findByAnchorTypeAndValue("email", any()) } returns null
 
         `when`("recording an email claim") {
             service.recordClaim(
@@ -144,22 +147,29 @@ class AccountServiceTest : BehaviorSpec({
         }
 
         `when`("recording an anchor another account already holds") {
-            every { accountAnchorRepository.existsByAnchorTypeAndValue("email", "max@example.com") } returns true
+            every { accountAnchorRepository.findByAnchorTypeAndValue("email", "max@example.com") } returns
+                AccountAnchor(anchorType = "email", value = "max@example.com", accountId = 99L, establishedAt = Instant.now())
 
-            service.recordClaim(
-                accountId = 7L,
-                claim = Claim(AttributeType.EMAIL, "max@example.com", TrustAnchor.SELF_REPORTED, AcrLevel.LOA1)
-            )
-
-            then("the claim is still logged but no anchor is re-assigned") {
-                savedAttributes shouldHaveSize 2
+            then("the claim is rejected instead of silently skipping the anchor (ADR-11)") {
+                shouldThrow<IdentityConflictException> {
+                    service.recordClaim(
+                        accountId = 7L,
+                        claim = Claim(AttributeType.EMAIL, "max@example.com", TrustAnchor.SELF_REPORTED, AcrLevel.LOA1)
+                    )
+                }
+                // No second anchor, and crucially no projection write either: the account must
+                // never end up claiming a value whose anchor points at account 99. Undoing the
+                // already-appended log row is the surrounding transaction's job, not this
+                // service's - hence the attribute count still moving here.
                 savedAnchors shouldHaveSize 1
+                account.email shouldBe "  Max@Example.COM "
+                savedAttributes shouldHaveSize 2
             }
         }
 
         `when`("re-binding this account's own anchor to a new value") {
             val oldAnchor = AccountAnchor(anchorType = "email", value = "old@example.com", accountId = 7L, establishedAt = Instant.now())
-            every { accountAnchorRepository.existsByAnchorTypeAndValue("email", "new@example.com") } returns false
+            every { accountAnchorRepository.findByAnchorTypeAndValue("email", "new@example.com") } returns null
             every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns oldAnchor
 
             service.recordClaim(
@@ -216,6 +226,7 @@ class AccountServiceTest : BehaviorSpec({
         every { accountRepository.findByIdOrNull(7L) } returns account
         every { accountRepository.save(account) } returns account
         every { accountAnchorRepository.findByAccountIdAndAnchorType(7L, "email") } returns null
+        every { accountAnchorRepository.findByAnchorTypeAndValue("email", any()) } returns null
         val savedAnchors = mutableListOf<AccountAnchor>()
         every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
 

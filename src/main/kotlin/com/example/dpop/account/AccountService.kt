@@ -11,12 +11,14 @@ import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AnchorType
 import com.example.dpop.tool_api.ConsolidationStrategy
+import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.consolidationStrategy
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
 import java.time.Instant
 import java.util.UUID
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -42,6 +44,8 @@ class AccountService(
     private val accountAnchorRepository: AccountAnchorRepository,
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
+
+    private val log = LoggerFactory.getLogger(AccountService::class.java)
 
     /**
      * Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md).
@@ -97,27 +101,40 @@ class AccountService(
      */
     private fun consolidateOwnedColumn(accountId: Long, type: AttributeType, value: String, establishedAt: Instant): AccountProfile {
         val account = getOrThrow(accountId)
+        // The anchor goes FIRST: it is the uniqueness authority for the value, so a
+        // cross-account conflict must abort before the projection column is written, not get
+        // undone by a rollback afterwards. Stored in the anchor's normalized form while the
+        // raw column stays raw - same ownership, one write.
+        AnchorType.of(type)?.let { recordAnchor(accountId, it, value, establishedAt) }
         account.applyOwnedColumn(type, value, establishedAt)
         val profile = toProfile(accountRepository.save(account))
-        // The anchor follows the canonical projection column - same ownership, one write: stored
-        // in the anchor's normalized form while the raw column stays raw.
-        AnchorType.of(type)?.let { recordAnchor(accountId, it, value, establishedAt) }
         eventPublisher.publishEvent(AccountChanged(accountId))
         return profile
     }
 
     /**
      * Materializes an anchor row - the resolve-identity projection, not provenance (that
-     * stays in `account_attribute`). Idempotent when this account already holds the value; a
-     * value held by ANOTHER account is never re-assigned (ADR-11: cross-account conflicts
-     * stay upstream rejections, never silent merges) - the claim itself is still logged, this
-     * account's anchor just stays whatever it was. A new value for THIS account's own anchor
-     * re-binds it: the old row goes, the anchor follows the account's latest established
-     * claim.
+     * stays in `account_attribute`). Idempotent when this account already holds the value. A
+     * value held by ANOTHER account is rejected outright ([IdentityConflictException]), never
+     * re-assigned and never silently skipped: ADR-11 makes a cross-account conflict an upstream
+     * rejection, and swallowing it here produced exactly the divergence the anchor exists to
+     * prevent - the caller's own projection column (`account.email`) was still written, so the
+     * account claimed a value whose anchor pointed at a DIFFERENT account, and the two lookup
+     * paths over it disagreed from then on. Throwing rolls the whole claim back instead, log
+     * entry included, leaving one consistent answer to "who owns this value". A new value for
+     * THIS account's own anchor re-binds it: the old row goes, the anchor follows the account's
+     * latest established claim.
      */
     private fun recordAnchor(accountId: Long, type: AnchorType, value: String, establishedAt: Instant) {
         val normalized = type.normalize(value)
-        if (accountAnchorRepository.existsByAnchorTypeAndValue(type.wireName, normalized)) return
+        accountAnchorRepository.findByAnchorTypeAndValue(type.wireName, normalized)?.let { held ->
+            if (held.accountId == accountId) return
+            log.warn(
+                "Anchor conflict: {} anchor already held by account {}, rejected for account {}",
+                type.wireName, held.accountId, accountId
+            )
+            throw IdentityConflictException("Dieser ${type.wireName}-Wert gehoert bereits zu einem anderen Konto")
+        }
         accountAnchorRepository.findByAccountIdAndAnchorType(accountId, type.wireName)
             ?.let { accountAnchorRepository.delete(it) }
         accountAnchorRepository.save(
@@ -281,12 +298,20 @@ class AccountService(
     fun enrollmentRefFor(accountId: Long, methodInstanceId: String): EnrollmentRef? =
         findAccount(accountId)?.authenticationMethods?.firstOrNull { it.id == methodInstanceId }?.let { extractEnrollmentRef(it.details) }
 
+    /**
+     * Resolved through the EMAIL anchor, not through `account.email` directly: the anchor holds
+     * the normalized form and is the one place uniqueness is enforced (docs/02-domaenenmodell.md),
+     * so a raw-column lookup would both be case-sensitive (`Max@x.de` failing to find the account
+     * that confirmed `max@x.de`) and answer from a projection that no longer carries a uniqueness
+     * guarantee of its own.
+     */
     @Transactional(readOnly = true)
     fun findAccountByEmail(email: String): AccountProfile? =
-        accountRepository.findByEmail(email)?.let { toProfile(it) }
+        resolveByAnchor(AnchorType.Email, email)?.let { findAccount(it) }
 
     @Transactional(readOnly = true)
-    fun existsByEmail(email: String): Boolean = accountRepository.existsByEmail(email)
+    fun existsByEmail(email: String): Boolean =
+        accountAnchorRepository.existsByAnchorTypeAndValue(AnchorType.Email.wireName, AnchorType.Email.normalize(email))
 
     /**
      * Bootstrap special case of the claims write path - the live path is generic:

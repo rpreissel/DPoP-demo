@@ -33,6 +33,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
 | [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
+| [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md) | Befunde zum Domänen-/DB-Modell (Sicherheit, Skalierung, Struktur) samt Umsetzungsstatus | Offene Risiken, nächste Härtungsschritte |
 | [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md) | Die Kernideen visuell, ohne API-Detail | Schneller Einstieg für App-Frontend-Entwickler |
 | [pitches/backend-konzepte.md](pitches/backend-konzepte.md) | Zusammenspiel von Tool und Orchestrator an einem Schritt | Schneller Einstieg für Backend-Entwickler |
