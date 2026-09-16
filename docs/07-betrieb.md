@@ -41,11 +41,12 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 | `ToolSession` | `expiresAt` | 24 h | reiner Lifecycle-Rest |
 | `AuthJourney` | `consumedAt` / `expiresAt` | 7 Tage | Korrelation für Support-Rückfragen |
 | `AuthContext` | Logout / Ende der `ChannelSession` | sofort | enthält Token-Referenzen |
-| `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 24 Stunden | bewusst kurzlebig ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) — die langlebige Geräte-Identität liegt seit `DeviceAccountLink` nicht mehr hier, ein einzelner Kanal muss nur noch eine App-Sitzung/einen Tag überdauern, nicht 30 |
+| `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | die langlebige Geräte-Identität liegt seit `DeviceAccountLink` nicht mehr hier, aber `JourneyLogEntry` fragt den Log über die Channel-Menge ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
 | `SessionEvent` | `createdAt` | 90 Tage | eigene Audit-Frist, überlebt die Sessions bewusst |
+| `JourneyLogEntry` | `createdAt` | 30 Tage | bewusst gleich `ChannelSession`: wird nur über die Channel-Menge abgefragt, länger zu leben bringt nichts. Debug-/Demo-Trace, NICHT der Audit-Trail — das bleibt `SessionEvent` |
 | `AuthSmsEnrollment` | — | kein Session-Cleanup | Bestandteil des Accounts, lebt bis zur Methodenlöschung |
 | `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst (Migration `V5__add_device_account_link.sql`, [DPoP-Bindung](09-dpop.md) Abschnitt 3) |
-| `AttemptThrottle` | — | kein Session-Cleanup | Fehlversuchs-/Versand-Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4), überlebt jede einzelne Session; die beiden Fehlversuchs-Scopes werden nur durch einen erfolgreichen Auth-/Ident-Abschluss zurückgesetzt, die drei Fenster-Scopes laufen einfach ab |
+| `AttemptThrottle` | letzter Zähler-Update | 7 Tage | zwei Größenordnungen über dem längsten Fenster/Lockout (15 Min.); ein Sweep rührt nie eine Zeile an, deren Sperre noch läuft. Fehlversuchs-/Versand-Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4); die beiden Fehlversuchs-Scopes werden nur durch einen erfolgreichen Auth-/Ident-Abschluss zurückgesetzt, die drei Fenster-Scopes laufen einfach ab |
 | `account_keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
 
 Umgang mit den Referenzen:

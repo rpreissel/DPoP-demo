@@ -15,11 +15,13 @@ import java.util.UUID
  * AccessToken/RefreshToken [com.example.dpop.orchestrator.session.TokenService] issues to a
  * channel. Deliberately holds NO evidence anymore (`amr`/`loa`/`currentAcr` etc.) - that is
  * [AuthEvidence]'s job now, referenced here via [authEvidenceId] so [TokenService] can resolve
- * the claims it mints without going through the channel. keycloakSessionId/keycloakSubject exist
- * for the shape of the target model but stay unused without the real Keycloak facade
- * (docs/11-umsetzungsplan.md, explicitly out of scope) - and moot anyway, since the KEYCLOAK
- * channel never creates an `AuthContext` at all (docs/05-api.md Abschnitt 3: it has no
- * App-style tokens to bind).
+ * the claims it mints without going through the channel. [keycloakSessionId] stays unused under
+ * the default profile (no real Keycloak facade there) but IS load-bearing under `keycloak`
+ * (`KcTokenProvider.tokenFor` writes it, `JourneyService`'s `Transition.Logout` reads it back to
+ * end exactly the one Keycloak session this token belongs to, never every session the account
+ * holds) - the KEYCLOAK channel itself never creates an `AuthContext` (docs/05-api.md Abschnitt
+ * 3: it has no App-style tokens to bind), but that is a different channel than the one this
+ * field's session id refers to.
  */
 @Entity
 @Table(name = "auth_context")
@@ -28,10 +30,7 @@ class AuthContext(
     var accountId: Long? = null,
 
     @Column(name = "keycloak_session_id", length = 255)
-    var keycloakSessionId: String? = null,
-
-    @Column(name = "keycloak_subject", length = 255)
-    var keycloakSubject: String? = null
+    var keycloakSessionId: String? = null
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

@@ -413,7 +413,15 @@ Eine eigene Tabelle `account_auth_method(id, account_id, method, active, enrolle
 beseitigt Kommentar, Contention und Abfragelücke in einem Zug. Für `identifications` gilt dasselbe
 abgeschwächt (weniger Schreiblast).
 
-### D2 — Kein Konto-Lebenszyklus, kein Merge-Pfad ⬜ offen
+### D2 — Kein Konto-Lebenszyklus, kein Merge-Pfad ⬜ offen (bewusst zurückgestellt)
+
+**Warum nicht in diesem Durchgang:** Anders als B1/C3/C4 gibt es hier keine mechanische, lokal
+abgeschlossene Änderung — ein Status-Enum plus `merged_into` zu ergänzen berührt jeden Lesepfad,
+der bisher voraussetzt, dass eine `account`-Zeile immer „die eine gültige" ist (Login,
+Step-up-Auflösung, `IdentityMatchingService`, Admin-Sync), plus die Frage, was beim Merge mit den
+Anchor-/Attribute-/Auth-Method-Zeilen zweier Konten passiert. Das ist die vom Review selbst als
+teuerste Entwurfsentscheidung markierte Änderung (siehe D1) und verdient einen eigenen,
+sorgfältig geplanten Durchgang mit Entwurfsentscheidung vorab, keinen Einzelbefund nebenbei.
 
 `Account` kennt keinen Status (gesperrt, deaktiviert, verstorben) und kein `merged_into`.
 Gleichzeitig ist „mehrdeutig / Merge-Konflikt" ein explizit modellierter Fall, der laut ADR-11
@@ -421,11 +429,27 @@ heute nur nach oben abgelehnt wird. Über die angestrebte Lebensdauer entsteht M
 zwangsläufig — ohne `merged_into` gibt es später keinen verlustfreien Weg dorthin, weil die
 Historie an der gelöschten ID hängt.
 
-### D3 — Tote Felder und ein widersprüchliches Lebensdauer-Versprechen ⬜ offen
+### D3 — Tote Felder und ein widersprüchliches Lebensdauer-Versprechen ✅ behoben (mit Korrektur)
 
-`AuthContext.keycloakSessionId`/`keycloakSubject` sind laut eigenem Kommentar dauerhaft ungenutzt
-(„moot anyway"). `ChannelSession` ist dokumentiert „bewusst kurzlebig", wird aber 30 Tage
-aufbewahrt. Beides sind Einladungen zur späteren Fehlinterpretation.
+**Korrektur gegenüber der ursprünglichen Fassung:** Nur `keycloakSubject` war wirklich tot.
+`keycloakSessionId` ist unter dem `keycloak`-Profil aktiv geschrieben (`KcTokenProvider.tokenFor`)
+und gelesen (`JourneyService`, `Transition.Logout`, um genau die eine zugehörige Keycloak-Session
+zu beenden) — der alte Klassenkommentar („moot anyway, since the KEYCLOAK channel never creates
+an AuthContext") verwechselte zwei verschiedene Kanäle: den KEYCLOAK-Kanal selbst (der wirklich
+nie einen `AuthContext` anlegt) mit dem APP-Kanal, dessen `AuthContext.keycloakSessionId` unter
+dem `keycloak`-Profil sehr wohl gebraucht wird.
+
+**Umsetzung:**
+- `keycloakSubject` (Feld + Spalte `keycloak_subject`) entfernt — nirgends gelesen oder
+  geschrieben (Migration `V37`).
+- Klassenkommentar auf `AuthContext` korrigiert: beschreibt jetzt akkurat, dass
+  `keycloakSessionId` unter `keycloak` tragend ist, statt es pauschal für „moot" zu erklären.
+- Das zweite Teilproblem („`ChannelSession` bewusst kurzlebig, aber 30 Tage aufbewahrt") war eine
+  veraltete `docs/07-betrieb.md`-Zeile, kein Code-Bug: Der 30-Tage-Wert in `RetentionJob` ist
+  bewusst (siehe B3 — der Journey-Log wird über die Channel-Menge abgefragt, `JOURNEY_LOG_RETENTION`
+  ist deshalb absichtlich gleich groß). Die Tabelle in `docs/07-betrieb.md` war zudem an einer
+  zweiten Stelle bereits stale (`AttemptThrottle` als „kein Session-Cleanup" — von B3 überholt).
+  Beide Zeilen korrigiert, `JourneyLogEntry`-Zeile ergänzt; Laufzeitverhalten unverändert.
 
 ---
 
@@ -437,10 +461,11 @@ aufbewahrt. Beides sind Einladungen zur späteren Fehlinterpretation.
 3. **B1** — die verbliebene DoS-Fläche. *(erledigt; Migration `V34` angewendet, ein statt drei
    Abfragen, harte Kandidaten-Obergrenze.)*
 4. **C2, D1** — Strukturbereinigung, bevor weitere Verfahren auf das Modell aufsetzen. *(C1 ist
-   mit A3 erledigt.)*
+   mit A3 erledigt; einzige verbleibende offene Punkte im gesamten Review.)*
 
-A4, A6, A7-Rest erledigt (dritter Durchgang). B2, B4–B6, C3, C4, D2, D3 bleiben einzeln klein und
-können jederzeit eingeschoben werden.
+Erledigt (dritter/vierter Durchgang): A4, A6, A7-Rest, B2 (teilweise), B4 (teilweise), B6, C3, C4,
+D3. Bewusst zurückgestellt (Produktions-/Architekturentscheidung, kein kleiner Einzelbefund): B5,
+D2.
 
 ---
 
