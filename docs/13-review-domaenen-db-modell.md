@@ -378,12 +378,19 @@ diese Warnung aber nicht sichtbar.
 `channel_anchor`, `idx_channel_session_kc_session_id` → `idx_channel_session_channel_anchor`);
 `@Column(name = ...)` auf der Entity folgt.
 
-### C4 — `findOrCreateAccount` verliert das Rennen mit einem 500er ⬜ offen
+### C4 — `findOrCreateAccount` verliert das Rennen mit einem 500er ✅ behoben
 
-Der Kommentar verweist korrekt auf `ux_account_person_id` (V32) als DB-seitigen Rennabschluss —
-die Verletzung wird aber nicht gefangen. Der unterlegene von zwei gleichzeitigen Step-up-Kanälen
-bekommt also einen Serverfehler statt des existierenden Kontos. Empfehlung: Constraint-Verletzung
-fangen und einmalig neu lesen.
+Der Kommentar verwies korrekt auf `ux_account_person_id` (V32) als DB-seitigen Rennabschluss —
+die Verletzung wurde aber nicht gefangen. Der unterlegene von zwei gleichzeitigen Step-up-Kanälen
+bekam also einen Serverfehler statt des existierenden Kontos.
+
+**Umsetzung:** Neue Bean `AccountRaceSafeCreator.createIfAbsent` (eigenes Bean statt privater
+Methode auf `AccountService` — analog `AttemptThrottleRowInitializer`s Begründung: eine
+`REQUIRES_NEW`-Methode auf demselben Bean würde den Spring-Proxy per Self-Invocation umgehen, und
+die Constraint-Verletzung eines konkurrierenden Erstellers darf die Transaktion des Aufrufers
+nicht vergiften). `findOrCreateAccount` liest zuerst, ruft bei Nichtvorhandensein
+`createIfAbsent` in dessen eigener Transaktion auf und liest danach erneut — Gewinner wie
+Verlierer des Rennens sehen so immer das existierende Konto, nie eine Constraint-Verletzung.
 
 ---
 

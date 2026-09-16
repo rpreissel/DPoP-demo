@@ -6,6 +6,7 @@ import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountAttribute
 import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountIdentification
+import com.example.dpop.account.internal.AccountRaceSafeCreator
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
@@ -42,6 +43,7 @@ class AccountService(
     private val accountRepository: AccountRepository,
     private val accountAttributeRepository: AccountAttributeRepository,
     private val accountAnchorRepository: AccountAnchorRepository,
+    private val accountRaceSafeCreator: AccountRaceSafeCreator,
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
 
@@ -50,15 +52,21 @@ class AccountService(
     /**
      * Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md).
      * The find-then-create race between parallel step-up channels is closed DB-side by
-     * ux_account_person_id (V32): a lost race surfaces as a constraint violation, not a duplicate.
+     * ux_account_person_id (V32); [AccountRaceSafeCreator] runs the actual insert attempt in its
+     * own transaction so the loser sees "already exists," not the constraint violation itself
+     * (C4, docs/13-review-domaenen-db-modell.md) - re-reading here after it returns is what
+     * resolves the race for both winner and loser alike.
      */
     @Transactional
     fun findOrCreateAccount(personId: Long): AccountProfile {
         val existing = accountRepository.findByPersonId(personId)
-        val account = existing ?: Account(personId, Instant.now())
-        val profile = toProfile(accountRepository.save(account))
-        if (existing == null) eventPublisher.publishEvent(AccountChanged(profile.accountId))
-        return profile
+        if (existing != null) return toProfile(existing)
+        val created = accountRaceSafeCreator.createIfAbsent(personId)
+        val account = checkNotNull(accountRepository.findByPersonId(personId)) {
+            "findOrCreateAccount($personId): row vanished right after creation"
+        }
+        if (created) eventPublisher.publishEvent(AccountChanged(checkNotNull(account.id)))
+        return toProfile(account)
     }
 
     /**
