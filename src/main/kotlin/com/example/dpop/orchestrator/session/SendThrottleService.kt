@@ -1,11 +1,14 @@
 package com.example.dpop.orchestrator.session
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
+import java.security.SecureRandom
 import java.time.Duration
 import java.util.Base64
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 /**
  * Rate limit on TAN/code SENDS, either to one account (once a LOOKUP_AUTH tool has resolved the
@@ -30,7 +33,20 @@ import java.util.Base64
  */
 @Service
 @Transactional
-class SendThrottleService(private val counter: AttemptCounter) {
+class SendThrottleService(
+    private val counter: AttemptCounter,
+    @Value("\${dpop.secrets.otp-pepper:}") configuredPepper: String
+) {
+
+    // Same shape, own copy, own configuration lookup as auth_sms's TanGenerator/auth_email's
+    // EmailCodeGenerator (module boundaries stay decoupled) - reusing their property is
+    // deliberate, not a coincidence: a phone number or e-mail address has too little entropy to
+    // resist an offline dictionary/brute-force pass on its own, exactly the reasoning already
+    // documented for dpop.secrets.otp-pepper. Blank means a fresh random pepper per boot, safe
+    // by default; the 10-minute window this pepper guards makes a restart-triggered reset a
+    // non-issue in practice, same cost/benefit as the five-minute OTPs.
+    private val pepper: ByteArray = configuredPepper.takeIf { it.isNotBlank() }?.toByteArray()
+        ?: ByteArray(32).also { SecureRandom().nextBytes(it) }
 
     fun isThrottled(accountId: Long): Boolean =
         !counter.recordWindowedAttempt(ThrottleScope.ACCOUNT_SEND, accountId.toString(), MAX_PER_WINDOW, WINDOW)
@@ -39,16 +55,22 @@ class SendThrottleService(private val counter: AttemptCounter) {
     fun isThrottledForContact(contact: String): Boolean =
         !counter.recordWindowedAttempt(ThrottleScope.CONTACT_SEND, hash(contact), MAX_PER_WINDOW, WINDOW)
 
-    // Hashed rather than stored raw: unlike ACCOUNT_SEND's numeric id, a contact address is PII,
-    // and the throttle subject only ever needs to prove "same address as before", not the value
-    // itself. Also sidesteps the subject column's 128-char limit for arbitrarily long addresses.
+    // HMAC-SHA256 under the pepper above, not a bare digest: unlike ACCOUNT_SEND's numeric id, a
+    // contact address is PII with too little entropy (phone numbers are fully enumerable, common
+    // e-mail addresses are dictionary-guessable) for an unpeppered hash to resist a database-read
+    // attacker. The throttle subject only ever needs to prove "same address as before", not the
+    // value itself. Also sidesteps the subject column's 128-char limit for arbitrarily long
+    // addresses.
     private fun hash(contact: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(contact.toByteArray(StandardCharsets.UTF_8))
+        val mac = Mac.getInstance(HMAC_ALGORITHM)
+        mac.init(SecretKeySpec(pepper, HMAC_ALGORITHM))
+        val digest = mac.doFinal(contact.toByteArray(StandardCharsets.UTF_8))
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
     }
 
     companion object {
         private const val MAX_PER_WINDOW = 3
         private val WINDOW: Duration = Duration.ofMinutes(10)
+        private const val HMAC_ALGORITHM = "HmacSHA256"
     }
 }

@@ -83,11 +83,13 @@ class IdentityMatchingService(
 
     /**
      * Layer 2: anchor values - unique, error-free lookups via `account_anchor`'s UNIQUE
-     * constraint. Iterates the claims in their attestation order (`toSet()` preserves it), so
-     * the strongest anchor attested first is consulted first when several are present.
+     * constraint. Ranks claims by [AnchorClass] before iterating, so the strongest anchor is
+     * always consulted first when several are present - a property of this code, not of
+     * whatever `Set` implementation a caller happens to pass in (a plain `HashSet` gives no
+     * iteration-order guarantee at all).
      */
     private fun resolveByAnchor(claims: Set<Claim>): Resolution.ExistingAccount? {
-        for (claim in claims) {
+        for (claim in claims.sortedByDescending { anchorClassOf(it.trustAnchor).rank }) {
             val anchorType = AnchorType.of(claim.attributeType) ?: continue
             val anchor = accountAnchorRepository.findByAnchorTypeAndValue(
                 anchorType.wireName,
@@ -129,8 +131,10 @@ class IdentityMatchingService(
                 candidates.first(),
                 MatchedVia.Attributes(setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM))
             )
-            candidates.size > CANDIDATE_LIMIT -> Resolution.Ambiguous(candidates.take(CANDIDATE_LIMIT))
-            else -> Resolution.Ambiguous(candidates)
+            // candidates.size caps at CANDIDATE_LIMIT + 1 (the page size requested above) - past
+            // the ceiling this is a floor, not an exact count, and callers only need "how many"
+            // to abort, never the account ids themselves (A6).
+            else -> Resolution.Ambiguous(candidates.size)
         }
     }
 

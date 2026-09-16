@@ -90,15 +90,16 @@ tatsächlichen Schema verifiziert: `V31` enthielt noch keinen Backfill (Schritt 
 die Spalte heißt `email_confirmed_at` (`V6` Zeile 6), der Index heißt `idx_account_email` (`V6`
 Zeile 9). `./gradlew :test` bleibt grün (565 Tests), `ddl-auto: validate` läuft weiterhin durch.
 
-### A4 — Anchor-Reihenfolge hängt an einer nicht garantierten Eigenschaft ⬜ offen
+### A4 — Anchor-Reihenfolge hängt an einer nicht garantierten Eigenschaft ✅ behoben
 
-`IdentityMatchingService.resolveByAnchor` iteriert `Set<Claim>` und verlässt sich laut Kommentar
+`IdentityMatchingService.resolveByAnchor` iterierte `Set<Claim>` und verließ sich laut Kommentar
 darauf, dass `toSet()` die Attestierungsreihenfolge erhält („der stärkste zuerst attestierte Anchor
 wird zuerst konsultiert"). `Set` gibt keine Reihenfolge zu; übergibt ein Aufrufer ein `HashSet`,
 verschwindet diese Sicherheitsaussage lautlos und der schwächere Anchor kann gewinnen.
 
-Empfehlung: explizites Ranking über `AnchorClass` statt Iterationsreihenfolge — dann ist die
-Stärkeordnung eine Eigenschaft des Codes, nicht des Aufrufers.
+**Umsetzung:** `resolveByAnchor` iteriert jetzt `claims.sortedByDescending { anchorClassOf(it.trustAnchor).rank }`
+— die Stärkeordnung ist eine Eigenschaft des Codes, nicht mehr der `Set`-Implementierung des
+Aufrufers.
 
 ### A5 — Löschpfad unvollständig, aber nur bei `journey_log`/`attempt_throttle` (DSGVO) ✅ behoben
 
@@ -154,25 +155,34 @@ Nebenbefund daraus: Ein `409 CONCURRENT_MODIFICATION` war betrieblich vollständ
 selbstverschuldete Kollisionen sind von außen nicht unterscheidbar, nur die betroffene Entity
 trennt sie.
 
-### A6 — Interne Konto-IDs verlassen das System ⬜ offen
+### A6 — Interne Konto-IDs verlassen das System ✅ behoben
 
-`Resolution.Ambiguous(candidates)` transportiert eine Liste interner, fortlaufender `accountId`s
+`Resolution.Ambiguous(candidates)` transportierte eine Liste interner, fortlaufender `accountId`s
 nach außen. `channelSessionId` ist ausdrücklich opaque gehalten — `accountId`/`personId` sind es
-nicht. Empfehlung: nach außen nur die Anzahl, Kandidaten intern (oder opaque Referenz).
+nicht.
 
-### A7 — Kontaktadressen als Primärschlüsselbestandteil, ungepfeffert gehasht 🟡 teilweise
+**Umsetzung:** `Resolution.Ambiguous` trägt jetzt `candidateCount: Int` statt `candidates: List<Long>`.
+Der einzige Aufrufer (`JourneyService`) nutzte ohnehin nur `candidates.size` für die
+Fehlermeldung; kein Downstream-Code brauchte je die IDs selbst.
+
+### A7 — Kontaktadressen als Primärschlüsselbestandteil, ungepfeffert gehasht ✅ behoben
 
 **Korrektur gegenüber der ursprünglichen Fassung:** Die Behauptung „im Klartext" trifft **nicht**
 zu. `SendThrottleService.isThrottledForContact` legt nicht die Adresse, sondern ihren
 SHA-256-Hash als `attempt_throttle.subject` ab (`SendThrottleService.hash`, mit eigener Begründung
 im Code). Der `CONTACT_SEND`-Scope enthält damit keine im Klartext lesbaren Kontaktdaten.
 
-Was bleibt: Der Hash ist **ungepfeffert**. Telefonnummern und E-Mail-Adressen haben zu wenig
+Was blieb: Der Hash war **ungepfeffert**. Telefonnummern und E-Mail-Adressen haben zu wenig
 Entropie, um das allein zu tragen — der Suchraum deutscher Mobilnummern ist vollständig
 durchrechenbar, gängige Adressen stehen in Wörterbüchern. Aus einem Datenbankabzug ließe sich
-also weiterhin bestimmen, ob eine konkrete Adresse das System benutzt hat. Empfehlung unverändert:
-gepfefferter Hash, analog zur bereits vorhandenen `dpop.secrets.otp-pepper`-Begründung in
-`application.yml`.
+also weiterhin bestimmen, ob eine konkrete Adresse das System benutzt hat.
+
+**Umsetzung:** `SendThrottleService.hash` ist jetzt HMAC-SHA256 unter demselben
+`dpop.secrets.otp-pepper` wie `TanGenerator`/`EmailCodeGenerator` — eigener `@Value`-Lookup pro
+Modul (Modulgrenzen bleiben entkoppelt), aber dieselbe Konfiguration und Begründung. Blank
+bedeutet wie dort einen frischen Zufalls-Pepper pro Boot; das 10-Minuten-Fenster, das dieser
+Pepper schützt, macht einen Neustart-bedingten Reset praktisch irrelevant (gleiches
+Kosten-Nutzen-Verhältnis wie bei den Fünf-Minuten-OTPs).
 
 Die zweite Hälfte des ursprünglichen Befunds — „unbegrenzt lange, ohne Aufbewahrungsgrenze" — ist
 mit B3 erledigt: `attempt_throttle` wird nach 7 Tagen ausgekehrt.
@@ -381,8 +391,8 @@ aufbewahrt. Beides sind Einladungen zur späteren Fehlinterpretation.
 4. **C2, D1** — Strukturbereinigung, bevor weitere Verfahren auf das Modell aufsetzen. *(C1 ist
    mit A3 erledigt.)*
 
-A4, A6, A7-Rest, B2, B4–B6, C3, C4, D2, D3 sind einzeln klein und können jederzeit eingeschoben
-werden.
+A4, A6, A7-Rest erledigt (dritter Durchgang). B2, B4–B6, C3, C4, D2, D3 bleiben einzeln klein und
+können jederzeit eingeschoben werden.
 
 ---
 

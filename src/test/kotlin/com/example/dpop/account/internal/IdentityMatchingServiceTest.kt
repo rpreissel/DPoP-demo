@@ -174,7 +174,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         `when`("resolve is called") {
             then("it never guesses - the resolution is ambiguous") {
-                resolver.resolve(claims) shouldBe Resolution.Ambiguous(listOf(7L, 8L))
+                resolver.resolve(claims) shouldBe Resolution.Ambiguous(2)
             }
         }
     }
@@ -200,7 +200,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         `when`("resolve is called") {
             then("it stays ambiguous rather than widening or guessing") {
-                resolver.resolve(claims) shouldBe Resolution.Ambiguous(moreThanCeiling.take(50))
+                resolver.resolve(claims) shouldBe Resolution.Ambiguous(moreThanCeiling.size)
             }
         }
     }

@@ -553,7 +553,7 @@ class JourneyService(
             // planned Interessenten form.
             Resolution.NewInteressent -> accountService.findOrCreateAccount(action.outcome.personId).accountId
             is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
-                "Identifizierung mehrdeutig: ${resolution.candidates.size} Kandidaten - keine automatische Zuordnung"
+                "Identifizierung mehrdeutig: ${resolution.candidateCount} Kandidaten - keine automatische Zuordnung"
             )
             // Deliberately no persistent candidate log here: this aborts the journey
             // transaction anyway, and the real policy for ambiguous matches (offer a

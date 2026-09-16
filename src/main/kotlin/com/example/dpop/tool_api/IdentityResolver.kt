@@ -33,8 +33,13 @@ sealed interface Resolution {
     /** Nothing in the stock matches - the identified subject has no account yet. */
     object NewInteressent : Resolution
 
-    /** Attribute matching produced more than one candidate - no automatic assignment. */
-    data class Ambiguous(val candidates: List<Long>) : Resolution
+    /**
+     * Attribute matching produced more than one candidate - no automatic assignment.
+     * [candidateCount] only, never the internal account ids themselves: unlike
+     * `channelSessionId`, `accountId` is not meant to leave the account module, and nothing
+     * downstream needs more than "how many" to abort the journey.
+     */
+    data class Ambiguous(val candidateCount: Int) : Resolution
 }
 
 /**

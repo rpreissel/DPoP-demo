@@ -63,9 +63,11 @@ dpop:
     max-clock-skew-seconds: 30
     max-age-seconds: 120
   secrets:
-    # Pepper for the short-lived SMS/e-mail OTP hashes. A six-digit code has only 10^6 possible
-    # preimages, so a bare digest of it is reversible on sight by anyone who can read the table;
-    # this key is what such a reader does not have.
+    # Pepper for the short-lived SMS/e-mail OTP hashes and the CONTACT_SEND throttle's hashed
+    # contact addresses. A six-digit code has only 10^6 possible preimages, and phone numbers/
+    # e-mail addresses are similarly low-entropy (fully enumerable / dictionary-guessable), so a
+    # bare digest of either is reversible on sight by anyone who can read the table; this key is
+    # what such a reader does not have.
     # Blank (the default) means a fresh random pepper per boot - nothing to check in and forget.
     # A restart then invalidates codes still in flight (they live five minutes) and two instances
     # cannot verify each other's, so set this explicitly for any multi-instance deployment.
