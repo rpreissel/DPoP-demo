@@ -55,6 +55,7 @@ Umgang mit den Referenzen:
 - **Moduldaten** räumt jedes Modul eigenständig nach Alter (`createdAt`) auf, ohne Signal vom Orchestrator. Das ist robuster als ein Löschbefehl (ein verpasstes Signal hinterließe dauerhafte Waisen) und bleibt gültig, falls ein Modul später ein eigener Service mit eigener Datenbank wird.
 - **Audit ist entkoppelt**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel. Das ist Absicht — das Audit muss die Sessions überleben, und der Eintrag speichert ohnehin nur `payloadHash` statt Nutzdaten. Ins Leere zeigende IDs sind hier erwartet, kein Defekt.
 - **Account-Objekte sind für den Session-Cleanup tabu**: `AuthSmsEnrollment`, `account.authenticationMethods`, `account.identifications`, `DeviceAccountLink` und `LoginAttemptThrottle` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, die Geräte-Wiedererkennung kappen oder den Brute-Force-Schutz aushebeln. `account.identifications` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
+- **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `attempt_throttle` (nur die kontobezogenen Scopes `ACCOUNT`/`ACCOUNT_SEND` — `BINDING_KEY`/`CONTACT_SEND` blieben sonst ein Weg, fremde Throttle-Budgets über eine Neuregistrierung zurückzusetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
 - **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3) - der Orchestrator erfährt nie aktiv davon. `RetentionJob` prüft deshalb für bereits abgelaufene `KEYCLOAK`-Kanäle zusätzlich per Keycloak-Admin-API, ob die zugehörige Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf statt erst nach der vollen Retention-Frist. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) führt nie zu einem verfrühten Löschen - sie fällt zurück auf die normale zeitbasierte Frist.
 
 ## 4) Kontosperre, Rate-Limits und Versand-Drosselung (Brute-Force-/Bombing-Schutz)
@@ -88,6 +89,13 @@ aufbauend je ein benannter `@Service` mit eigenem Vokabular und eigenen Limits:
   `CONTACT_SEND` begrenzt (Zeile oben).
 - Schwellwerte Fehlversuche: `MAX_FAILURES = 5`, `LOCKOUT_DURATION = 15 Minuten`. Schwellwerte
   Kanaleröffnung: `20`/`5 Minuten`. Schwellwerte Versand: `3`/`10 Minuten`.
+- Jeder Zähler erhöht sich über ein einziges atomares `UPDATE` unter der Zeilensperre, die das
+  Statement selbst nimmt — nie per Lesen-dann-Schreiben. Read-Modify-Write ließe N gleichzeitige
+  Requests denselben Vorher-Stand lesen und denselben Wert zurückschreiben; das effektive Budget
+  wäre `Limit × Parallelität` und der Lockout überspringbar gewesen. Eine fehlende Zählerzeile
+  wird nach dem Muster „erst `UPDATE`, nur bei 0 getroffenen Zeilen anlegen, dann erneut `UPDATE`"
+  behandelt (`AttemptThrottleRowInitializer`, eigene Transaktion), der Normalfall kostet also
+  genau ein Statement.
 - Ein erfolgreicher AUTH-/IDENT-Abschluss setzt den jeweiligen Zähler zurück (`recordSuccess`),
   auch wenn zuvor kein Fehlversuch vorlag (dann ein No-op). Versand- und Kanal-Throttles kennen
   keinen Reset — sie sind reine rollierende Fenster.

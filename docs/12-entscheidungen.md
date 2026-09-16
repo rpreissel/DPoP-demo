@@ -387,6 +387,22 @@ aber innerhalb EINES Kontos, zwischen Quellen für dasselbe Konto; sie endet an 
 bis zu einer (ungebauten) Merge-Fähigkeit bleibt der Fall ein Support-Vorgang. Und die
 bezeugte Identifikation bleibt nur im ephemeren Journey-Log, nicht im Account-Log.
 
+**Nachtrag** (Härtung, [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)): Drei
+Lücken zwischen dieser Entscheidung und ihrer Umsetzung wurden geschlossen. Erstens brach
+`AccountService.recordAnchor` bei einem fremden Anchor zwar ab, schrieb die Projektionsspalte
+(z. B. `account.email`) aber trotzdem — genau die Divergenz, gegen die der Anchor eingeführt
+wurde. Der Anchor wird jetzt **vor** der Projektionsspalte geschrieben, ein Konflikt bricht also
+ab, bevor etwas geschrieben ist, statt nur per Rollback rückgängig gemacht zu werden. Zweitens
+verließ sich `IdentityMatchingService.resolveByAnchor` bei mehreren attestierten Ankern auf die
+zufällige Iterationsreihenfolge eines `Set`, statt auf die hier beschriebene Rangfolge — er
+iteriert jetzt explizit nach `AnchorClass.rank` absteigend sortiert, die Stärkeordnung ist damit
+eine Eigenschaft des Codes, nicht mehr der `Set`-Implementierung des Aufrufers. Drittens fing
+`findOrCreateAccount` die `UNIQUE(person_id)`-Kollision selbst nicht ab — der Verlierer eines
+Rennens zweier gleichzeitiger Step-up-Kanäle bekam einen Serverfehler statt des inzwischen
+existierenden Kontos; eine eigene, in `REQUIRES_NEW` laufende Bean
+(`AccountRaceSafeCreator.createIfAbsent`) versucht jetzt zu erstellen und behandelt die
+Konfliktantwort als „existiert bereits", bevor der Aufrufer erneut liest.
+
 ---
 
 ## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
@@ -405,3 +421,65 @@ Tool-Vertrag frei von Negativ-Formen: Tools bezeugen nur, Widerrufe sind Konto-L
 
 **Preis**: Zwei Formen statt eine — "gültiger Wert" ist immer eine Subtraktion über zwei
 Tabellen, und jeder Konsolidierungs- und Abfragepfad muss den Widerruf mitdenken.
+
+---
+
+## ADR-13: Account-Domänentypen über eigene `AttributeConverter`, nicht `@Enumerated`
+
+**Entscheidung** (umgesetzt, [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)
+C2): `AccountAttribute.attributeType` (→ `AttributeType`) und `AccountAnchor.anchorType` (→
+`AnchorType`) sind über eigene JPA-`AttributeConverter` typisiert (`AttributeTypeConverter`,
+`AnchorTypeConverter`), die über `wireName` runden — nicht über `@Enumerated(EnumType.STRING)`,
+das der `orchestrator`-Modul für seine eigenen Enums durchgängig nutzt.
+`AccountAttribute.trustAnchor` bleibt bewusst `String`.
+
+**Erwogene Alternativen**:
+
+- **`@Enumerated(EnumType.STRING)`**, konsistent mit dem `orchestrator`-Modul: verworfen, weil
+  `account_attribute.attribute_type`/`account_anchor.anchor_type` seit Jahren Wire-Names in
+  Kleinschreibung tragen (`person_id`, `email`). `@Enumerated(STRING)` schreibt/erwartet den
+  Enum-Konstantennamen (`PERSON_ID`) und hätte jede Bestandszeile stumm verfehlt — ohne
+  Datenmigration nicht anwendbar.
+- **`trustAnchor` ebenfalls typisieren** (`TrustAnchor`, eine `@JvmInline value class`): verworfen
+  nach einem verifizierten Fehlschlag, nicht aus Vorsicht. Ein echter
+  `AttributeConverter<TrustAnchor, String>` ließ Hibernate bei jedem Schreibzugriff mit
+  `JpaSystemException: class java.lang.String cannot be cast to class TrustAnchor` scheitern —
+  Hibernates Property-Access/Enhancement-Pfad reicht dem Konverter dafür eine rohe
+  `String`-Instanz statt der auf JVM-Ebene geboxten Value Class durch. `AttributeType` (ein
+  echtes Enum) und `AnchorType` (ein sealed interface aus `object`s) haben dieses Problem nicht.
+
+**Warum diese**: Eine Umbenennung im Wire-Format sollte ein Compilerfehler sein, keine stille
+Datenkorruption über eine Laufzeit von 10+ Jahren — genau das leistet ein typisiertes Feld, das
+ein reiner `String` nicht kann. Die eigenen Konverter statt `@Enumerated` erhalten dabei exakt
+das bestehende, bereits jahrelang geschriebene Wire-Format, ohne Migration der Bestandsdaten.
+
+**Preis**: Zwei verschiedene Typisierungsmuster im selben Modul (`@Convert` hier,
+`@Enumerated(STRING)` im `orchestrator`) statt eines einheitlichen — eine Inkonsequenz, die sich
+nur auflösen ließe, wenn entweder alle Bestandsdaten migriert würden oder der `orchestrator`
+ebenfalls auf Wire-Name-Konverter umgestellt würde. `trustAnchor` bleibt zudem als einziges der
+drei ursprünglich benannten Felder ungetypt — eine bekannte, dokumentierte Lücke, keine
+übersehene.
+
+---
+
+## Erkannte, bewusst zurückgestellte Verbesserungen
+
+Drei Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md) sind
+identifiziert, ausformuliert und bewusst **nicht** umgesetzt — jeweils eine
+Architektur-/Infrastrukturentscheidung, kein lokal abschließbarer Fix:
+
+- **`dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Hash-PK
+  mit Zeitpartitionierung oder ein separater persistenter KV-Store statt des heutigen
+  `VARCHAR(255)`-Primärschlüssels — eine Entscheidung für den Produktivstack, nicht für diese
+  H2-Demo-Umgebung.
+- **`account.authenticationMethods` als eigene Tabelle statt JSON-Liste** (D1): löst die
+  `@Version`-Serialisierung auf einer Konto-Zeile für jede Methodenänderung auf und macht „alle
+  Konten mit Methode X" abfragbar — betrifft aber produktivseitig 16 Dateien über mindestens
+  sechs Module und ändert echtes Nebenläufigkeitsverhalten, nicht nur die Speicherform.
+- **Konto-Lebenszyklus und Merge-Pfad** (D2): `Account` kennt keinen Status (gesperrt,
+  deaktiviert, verstorben) und kein `merged_into`. ADR-11 weist einen `person_id`-Konflikt
+  bewusst ab, statt zu mergen — über die angestrebte Lebensdauer entsteht Merge-Bedarf aber
+  zwangsläufig, und ohne `merged_into` gibt es dann keinen verlustfreien Weg dorthin.
+
+Alle drei verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung bzw.
+Migrationsstrategie vorab — Details und Begründung stehen im Review-Dokument.
