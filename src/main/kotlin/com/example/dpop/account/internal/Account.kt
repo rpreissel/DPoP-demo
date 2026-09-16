@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.tool_spi.AttributeType
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -46,6 +47,22 @@ class Account(
      */
     var email: String? = null
     var emailConfirmedAt: Instant? = null
+
+    /**
+     * Sets whichever column(s) [type] owns (see `ConsolidationStrategy.OwnedColumn` in
+     * `tool_api`) - the one place that names, per type, which field(s) a claim actually writes.
+     * Only ever called for a type `AccountService.recordClaim` already classified as
+     * `OwnedColumn`; any other type reaching here is a caller bug, not a runtime case to handle.
+     */
+    fun applyOwnedColumn(type: AttributeType, value: String, establishedAt: Instant) {
+        when (type) {
+            AttributeType.EMAIL -> {
+                email = value
+                emailConfirmedAt = establishedAt
+            }
+            else -> error("$type has no OwnedColumn mapping")
+        }
+    }
 
     fun addIdentification(identification: AccountIdentification) {
         identifications.add(identification)

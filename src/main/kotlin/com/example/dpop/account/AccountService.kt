@@ -10,6 +10,8 @@ import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AnchorType
+import com.example.dpop.tool_api.ConsolidationStrategy
+import com.example.dpop.tool_api.consolidationStrategy
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -59,15 +61,13 @@ class AccountService(
      * Appends a claim to the account's identity log
      * (docs/ideen/claims-modell-und-vertrauensanker.md, Phase 1) - the typed counterpart of what
      * `Completed.Identified`/`Completed.Enrolled` now carry as [Claim]. Never overwrites a prior
-     * claim; the log is provenance. EMAIL is the first claim type consolidated synchronously:
-     * [consolidateEmail] writes the canonical projection column, the anchor and the
-     * [AccountChanged] event. Every other attribute keeps `account`'s own columns as the
-     * actively consolidated projection, written straight through by the existing paths
-     * (`findOrCreateAccount`, `bindPersonId`); nothing reads their log rows back yet. When
-     * something eventually does, consolidation prefers anchor class over recency - recency is
-     * only the tiebreaker within one anchor class (ADR-11, docs/12-entscheidungen.md).
-     * Anchor-role claims additionally materialize their `account_anchor` row ([recordAnchor]) -
-     * the resolve-identity projection, not provenance.
+     * claim; the log is provenance. [AttributeType.consolidationStrategy] decides what happens
+     * beyond logging: [ConsolidationStrategy.OwnedColumn] additionally writes the canonical
+     * projection column ([consolidateOwnedColumn]), its anchor and the [AccountChanged] event;
+     * [ConsolidationStrategy.ExternalLiveLookup] does nothing further here - authority for that
+     * value lives at ext_stammdaten, reachable via this account's own `personId`, so the log
+     * entry above is already the only local trace this claim needs (see that strategy's own doc
+     * for why nothing per-attribute is ever cached).
      */
     @Transactional
     fun recordClaim(accountId: Long, claim: Claim) {
@@ -82,28 +82,26 @@ class AccountService(
                 establishedAt = establishedAt
             )
         )
-        if (claim.attributeType == AttributeType.EMAIL) {
-            consolidateEmail(accountId, claim.value, establishedAt)
-        } else {
-            AnchorType.of(claim.attributeType)?.let { recordAnchor(accountId, it, claim.value, establishedAt) }
+        when (claim.attributeType.consolidationStrategy()) {
+            ConsolidationStrategy.OwnedColumn -> consolidateOwnedColumn(accountId, claim.attributeType, claim.value, establishedAt)
+            ConsolidationStrategy.ExternalLiveLookup -> {}
         }
     }
 
     /**
-     * Synchronously consolidates the canonical email projection - column, anchor and event -
-     * from a proven EMAIL claim (enroll-email via [recordClaim]) or a bootstrap seed
-     * ([confirmEmail]). Fires [AccountChanged] because Keycloak mirrors this attribute (the
-     * sync listener re-reads the account). Behavior is identical to what `confirmEmail` did
-     * before the claims write path went generic.
+     * Synchronously consolidates an [ConsolidationStrategy.OwnedColumn] attribute - the account's
+     * own column(s) ([Account.applyOwnedColumn]), its [AnchorType] if it has one, and the
+     * [AccountChanged] event (Keycloak mirrors these attributes, the sync listener re-reads the
+     * account). Generic over every `OwnedColumn` type - EMAIL is the only one today
+     * ([confirmEmail]'s bootstrap seed calls this directly, [recordClaim] for every other caller).
      */
-    private fun consolidateEmail(accountId: Long, email: String, confirmedAt: Instant): AccountProfile {
+    private fun consolidateOwnedColumn(accountId: Long, type: AttributeType, value: String, establishedAt: Instant): AccountProfile {
         val account = getOrThrow(accountId)
-        account.email = email
-        account.emailConfirmedAt = confirmedAt
+        account.applyOwnedColumn(type, value, establishedAt)
         val profile = toProfile(accountRepository.save(account))
-        // The email anchor follows the canonical projection column - same ownership, one
-        // write: stored in the anchor's normalized form while the raw column stays raw.
-        recordAnchor(accountId, AnchorType.Email, email, confirmedAt)
+        // The anchor follows the canonical projection column - same ownership, one write: stored
+        // in the anchor's normalized form while the raw column stays raw.
+        AnchorType.of(type)?.let { recordAnchor(accountId, it, value, establishedAt) }
         eventPublisher.publishEvent(AccountChanged(accountId))
         return profile
     }
@@ -293,7 +291,7 @@ class AccountService(
     /**
      * Bootstrap special case of the claims write path - the live path is generic:
      * `JourneyService`'s `Action.AdoptCredential` handling records every enrolled claim via
-     * [recordClaim], and an EMAIL claim lands in [consolidateEmail]. What remains here is
+     * [recordClaim], and an EMAIL claim lands in [consolidateOwnedColumn]. What remains here is
      * `demo_seed`'s `KcDemoAccountSeeder`, once at startup, to give the `keycloak` profile's
      * seeded test persons a confirmed email before any real enrollment ever runs.
      *
@@ -303,7 +301,7 @@ class AccountService(
      */
     @Transactional
     fun confirmEmail(accountId: Long, email: String): AccountProfile =
-        consolidateEmail(accountId, email, Instant.now())
+        consolidateOwnedColumn(accountId, AttributeType.EMAIL, email, Instant.now())
 
     @Transactional(readOnly = true)
     fun findActiveMethod(accountId: Long, method: String): AuthMethodView? =

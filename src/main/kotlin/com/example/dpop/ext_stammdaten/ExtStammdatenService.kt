@@ -48,9 +48,9 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
 
     fun findPersonByKvnr(kvnr: String): PersonData? =
         personRepository.findByKvnr(kvnr)
-            ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname) }
+            ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname, it.geburtsdatum) }
 
     fun findPersonById(personId: Long): PersonData? =
         personRepository.findByIdOrNull(personId)
-            ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname) }
+            ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname, it.geburtsdatum) }
 }

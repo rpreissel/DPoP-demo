@@ -66,15 +66,20 @@ class KeycloakAdminClient(
      * created user is `federationLink`-ed to `OrchestratorPasswordStorageProvider`,
      * which delegates the "password" credential type to the orchestrator's own `auth_password`
      * store - there is nothing local for this method to seed.
+     *
+     * [attributes] mirrors every `ConsolidationStrategy.ExternalLiveLookup` attribute the caller
+     * resolved live for this sync (`kvnr`/`geburtsdatum`/`personId` - see
+     * `KeycloakAccountSyncListener`/`-Service`) as plain Keycloak custom user attributes, exactly
+     * like `orchestratorAccountId` already is - never cached here either, just relayed each sync.
      */
-    fun upsertUser(accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?) {
+    fun upsertUser(accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String> = emptyMap()) {
         val existingUserId = findUserId(accountId)
         if (existingUserId == null) {
             val username = uniqueUsername(email, firstName, lastName, accountId)
-            val userId = createUser(accountId, username, email, emailConfirmed, firstName, lastName)
+            val userId = createUser(accountId, username, email, emailConfirmed, firstName, lastName, attributes)
             log.info("Keycloak account sync: created user {} ({}) for accountId={}", userId, username, accountId)
         } else {
-            updateEmail(existingUserId, email, emailConfirmed)
+            updateUser(accountId, existingUserId, email, emailConfirmed, attributes)
             log.info("Keycloak account sync: updated user {} for accountId={}", existingUserId, accountId)
         }
     }
@@ -223,7 +228,7 @@ class KeycloakAdminClient(
         return users.firstOrNull()?.get("id") as? String
     }
 
-    private fun createUser(accountId: Long, username: String, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?): String {
+    private fun createUser(accountId: Long, username: String, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String>): String {
         val body = buildMap<String, Any?> {
             put("username", username)
             put("enabled", true)
@@ -233,7 +238,7 @@ class KeycloakAdminClient(
             }
             if (firstName != null) put("firstName", firstName)
             if (lastName != null) put("lastName", lastName)
-            put("attributes", mapOf("orchestratorAccountId" to listOf(accountId.toString())))
+            put("attributes", keycloakAttributes(accountId, attributes))
             passwordStorageComponentId()?.let { put("federationLink", it) }
         }
         val response = authorized().post().uri("/admin/realms/{realm}/users", realm)
@@ -243,13 +248,29 @@ class KeycloakAdminClient(
         return location.substringAfterLast('/')
     }
 
-    private fun updateEmail(userId: String, email: String?, emailConfirmed: Boolean) {
-        if (email == null) return
+    /**
+     * Keycloak's user PUT REPLACES the whole `attributes` map, it never merges - so
+     * `orchestratorAccountId` must be re-sent here too, even though [attributes] itself never
+     * contains it, or the very next [findUserId] lookup for this account would silently stop
+     * finding this user.
+     */
+    private fun updateUser(accountId: Long, userId: String, email: String?, emailConfirmed: Boolean, attributes: Map<String, String>) {
+        val body = buildMap<String, Any?> {
+            if (email != null) {
+                put("email", email)
+                put("emailVerified", emailConfirmed)
+            }
+            put("attributes", keycloakAttributes(accountId, attributes))
+        }
         authorized().put().uri("/admin/realms/{realm}/users/{id}", realm, userId)
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("email" to email, "emailVerified" to emailConfirmed))
+            .body(body)
             .retrieve().toBodilessEntity()
     }
+
+    /** `orchestratorAccountId` plus every caller-supplied attribute, in Keycloak's `Map<String, List<String>>` wire form. */
+    private fun keycloakAttributes(accountId: Long, attributes: Map<String, String>): Map<String, List<String>> =
+        mapOf("orchestratorAccountId" to listOf(accountId.toString())) + attributes.mapValues { listOf(it.value) }
 
     /**
      * The `OrchestratorPasswordStorageProvider` User Federation component's id -

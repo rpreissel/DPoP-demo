@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountChanged
 import com.example.dpop.account.AccountDeleted
 import com.example.dpop.account.AccountService
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
+import com.example.dpop.ext_stammdaten.PersonData
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
@@ -49,7 +50,8 @@ class KeycloakAccountSyncListener(
         try {
             keycloakAdminClient.upsertUser(
                 profile.accountId, profile.email, profile.emailConfirmed,
-                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME
+                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME,
+                stammdatenAttributes(profile.personId, person)
             )
             val keypair = accountKeypairService.keypairFor(profile.accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
@@ -85,3 +87,15 @@ class KeycloakAccountSyncListener(
  */
 internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
 internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
+
+/**
+ * The `ConsolidationStrategy.ExternalLiveLookup` attributes (`tool_api`), resolved live right
+ * here and relayed to Keycloak as plain custom user attributes - never cached anywhere else
+ * (see that strategy's own doc for why). Shared by [KeycloakAccountSyncListener] and
+ * [KeycloakAccountSyncService], the two places that already run this exact live lookup.
+ */
+internal fun stammdatenAttributes(personId: Long?, person: PersonData?): Map<String, String> = buildMap {
+    personId?.let { put("personId", it.toString()) }
+    person?.kvnr?.let { put("kvnr", it) }
+    person?.geburtsdatum?.let { put("geburtsdatum", it.toString()) }
+}

@@ -40,7 +40,8 @@ class KeycloakAccountSyncService(
             val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
             keycloakAdminClient.upsertUser(
                 accountId, profile.email, profile.emailConfirmed,
-                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME
+                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME,
+                stammdatenAttributes(profile.personId, person)
             )
             val keypair = accountKeypairService.keypairFor(accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
