@@ -59,7 +59,7 @@ class RetentionJobTest : BehaviorSpec({
                 ChannelSession().apply { authContextId = authContextId2 }
             )
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns expired
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returnsMany listOf(expired, emptyList())
             val authContextRepository = mockk<AuthContextRepository>(relaxed = true)
 
             job(channelSessionRepository, authContextRepository).cleanup()
@@ -74,7 +74,8 @@ class RetentionJobTest : BehaviorSpec({
     given("expired channels with no AuthContext at all") {
         then("deleteAllById is never called - nothing to orphan, no pointless empty-list call") {
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns listOf(ChannelSession().apply { authContextId = null })
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returnsMany
+                listOf(listOf(ChannelSession().apply { authContextId = null }), emptyList())
             val authContextRepository = mockk<AuthContextRepository>(relaxed = true)
 
             job(channelSessionRepository, authContextRepository).cleanup()
@@ -86,7 +87,7 @@ class RetentionJobTest : BehaviorSpec({
     given("no expired channels at all") {
         then("deleteAllById is never called - no orphaned AuthContext to name") {
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
             val authContextRepository = mockk<AuthContextRepository>(relaxed = true)
 
             job(channelSessionRepository, authContextRepository).cleanup()
@@ -98,12 +99,12 @@ class RetentionJobTest : BehaviorSpec({
     given("the channel-session retention cutoff") {
         then("is roughly 30 days in the past, not e.g. days-vs-hours confused with another repository's window") {
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
             val cutoffSlot = slot<Instant>()
 
             job(channelSessionRepository).cleanup()
 
-            verify { channelSessionRepository.findByExpiresAtBefore(capture(cutoffSlot)) }
+            verify { channelSessionRepository.findByExpiresAtBefore(capture(cutoffSlot), any()) }
             val expected = Instant.now().minus(Duration.ofDays(30))
             val drift = Duration.between(cutoffSlot.captured, expected).abs()
             (drift < Duration.ofMinutes(1)) shouldBe true
@@ -118,7 +119,7 @@ class RetentionJobTest : BehaviorSpec({
                 durableKcSessionId = "kc-session-1"
             }
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
             every { channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelSession.Channel.KEYCLOAK, any()) } returns listOf(kcChannel)
             val client = mockk<KeycloakAdminClient>()
             every { client.isSessionAlive(42L, "kc-session-1") } returns false
@@ -142,7 +143,7 @@ class RetentionJobTest : BehaviorSpec({
                 channelSessionId = UUID.randomUUID(); accountId = 3L; durableKcSessionId = null
             }
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
             every { channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelSession.Channel.KEYCLOAK, any()) } returns
                 listOf(stillAlive, unknownAccount, noDurableIdYet)
             val client = mockk<KeycloakAdminClient>()
@@ -159,7 +160,7 @@ class RetentionJobTest : BehaviorSpec({
     given("no Keycloak Admin client configured (e.g. the default, non-keycloak profile)") {
         then("skips the early-cleanup check entirely and never queries for KEYCLOAK candidates") {
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
 
             job(channelSessionRepository).cleanup()
 
@@ -170,7 +171,7 @@ class RetentionJobTest : BehaviorSpec({
     given("a retention run over the two age-swept tables that hang off no foreign key") {
         then("the journey log is swept by age, and stale throttle counters with it (B3)") {
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
-            every { channelSessionRepository.findByExpiresAtBefore(any()) } returns emptyList()
+            every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
             val journeyLogRepository = mockk<JourneyLogRepository>(relaxed = true)
             val attemptThrottleRepository = mockk<AttemptThrottleRepository>(relaxed = true)
             val logCutoff = slot<Instant>()

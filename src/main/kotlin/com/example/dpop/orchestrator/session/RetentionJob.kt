@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -46,19 +47,12 @@ class RetentionJob(
         val now = Instant.now()
 
         toolSessionRepository.deleteByExpiresAtBefore(now.minus(TOOL_SESSION_RETENTION))
-        val journeyCutoff = now.minus(JOURNEY_RETENTION)
-        val retainedJourneyIds = journeyRepository.findIdsForRetention(journeyCutoff)
-        if (retainedJourneyIds.isNotEmpty()) {
-            toolSessionRepository.deleteByJourneyIdIn(retainedJourneyIds)
-            journeyRepository.deleteAllByIdInBatch(retainedJourneyIds)
-        }
+        deleteExpiredJourneys(now.minus(JOURNEY_RETENTION))
 
         val confirmedDeadKcChannels = confirmedDeadKcChannels(now)
         deleteChannels(confirmedDeadKcChannels)
 
-        val expiredChannels = channelSessionRepository.findByExpiresAtBefore(now.minus(CHANNEL_SESSION_RETENTION))
-            .filterNot { it.channelSessionId in confirmedDeadKcChannels.mapNotNull { c -> c.channelSessionId } }
-        deleteChannels(expiredChannels)
+        deleteExpiredChannels(now.minus(CHANNEL_SESSION_RETENTION))
 
         sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
 
@@ -94,6 +88,29 @@ class RetentionJob(
             }
     }
 
+    /**
+     * Pages through due journeys in fixed-size batches instead of loading the whole backlog's ids
+     * (and building one unbounded `IN`-list) in a single go (B4) - deletes every returned batch
+     * before asking again, so page 0 always reflects the current remaining backlog.
+     */
+    private fun deleteExpiredJourneys(cutoff: Instant) {
+        var batch = journeyRepository.findIdsForRetention(cutoff, PageRequest.of(0, RETENTION_BATCH_SIZE))
+        while (batch.isNotEmpty()) {
+            toolSessionRepository.deleteByJourneyIdIn(batch)
+            journeyRepository.deleteAllByIdInBatch(batch)
+            batch = journeyRepository.findIdsForRetention(cutoff, PageRequest.of(0, RETENTION_BATCH_SIZE))
+        }
+    }
+
+    /** Same batching as [deleteExpiredJourneys], for the channel-session side of retention (B4). */
+    private fun deleteExpiredChannels(cutoff: Instant) {
+        var batch = channelSessionRepository.findByExpiresAtBefore(cutoff, PageRequest.of(0, RETENTION_BATCH_SIZE))
+        while (batch.isNotEmpty()) {
+            deleteChannels(batch)
+            batch = channelSessionRepository.findByExpiresAtBefore(cutoff, PageRequest.of(0, RETENTION_BATCH_SIZE))
+        }
+    }
+
     private fun deleteChannels(channels: List<ChannelSession>) {
         if (channels.isEmpty()) return
         val orphanedAuthContextIds = channels.mapNotNull { it.authContextId }
@@ -117,6 +134,9 @@ class RetentionJob(
     }
 
     companion object {
+        /** Fixed page size for [deleteExpiredJourneys]/[deleteExpiredChannels] (B4). */
+        private const val RETENTION_BATCH_SIZE = 500
+
         private val TOOL_SESSION_RETENTION: Duration = Duration.ofHours(24)
         private val JOURNEY_RETENTION: Duration = Duration.ofDays(7)
         private val CHANNEL_SESSION_RETENTION: Duration = Duration.ofDays(30)

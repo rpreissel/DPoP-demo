@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
@@ -18,14 +19,18 @@ interface AuthJourneyRepository : JpaRepository<AuthJourney, UUID> {
         lifecycle: JourneyLifecycle
     ): AuthJourney?
 
-    /** Retention clock starts at consumedAt or expiresAt, whichever applies (docs/07-betrieb.md #3). */
+    /**
+     * Retention clock starts at consumedAt or expiresAt, whichever applies (docs/07-betrieb.md
+     * #3). [pageable] bounds one retention batch (`RetentionJob`, B4) - callers delete every
+     * returned id before asking again, so page 0 always reflects the current remaining backlog.
+     */
     @Query(
         """
         select j.journeyId from AuthJourney j
         where j.consumedAt < :cutoff or j.expiresAt < :cutoff
         """
     )
-    fun findIdsForRetention(cutoff: Instant): List<UUID>
+    fun findIdsForRetention(cutoff: Instant, pageable: Pageable): List<UUID>
 
     fun deleteByConsumedAtBeforeOrExpiresAtBefore(consumedCutoff: Instant, expiresCutoff: Instant): Long
 

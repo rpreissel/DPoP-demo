@@ -292,13 +292,32 @@ keinem Fremdschlüssel, der sie mit aufräumen könnte, und sind durch nichts an
 Beides sind Bulk-Statements statt abgeleiteter `deleteBy…`-Methoden — die abgeleitete Form würde
 die größte Tabelle des Systems zeilenweise in den Persistence-Context laden, nur um sie zu löschen.
 
-### B4 — `RetentionJob` ohne Batching ⬜ offen
+### B4 — `RetentionJob` ohne Batching 🟡 teilweise
 
-`findByExpiresAtBefore` lädt alle fälligen Zeilen als vollständige Entities in **einer**
-Transaktion; anschließend werden `IN`-Listen unbekannter Größe gebaut
+`findByExpiresAtBefore` lud alle fälligen Zeilen als vollständige Entities in **einer**
+Transaktion; anschließend wurden `IN`-Listen unbekannter Größe gebaut
 (`deleteByJourneyIdIn`, `deleteAllByIdInBatch`). Das skaliert nicht über einen Ausfalltag hinweg
-und läuft zusätzlich in Parameter-Obergrenzen. Empfehlung: Paging mit fester Batchgröße und
-Schleife bis leer.
+und läuft zusätzlich in Parameter-Obergrenzen.
+
+**Umsetzung:** `deleteExpiredJourneys`/`deleteExpiredChannels` paginieren jetzt mit fester
+Batchgröße (`RETENTION_BATCH_SIZE = 500`) über `AuthJourneyRepository.findIdsForRetention`
+bzw. `ChannelSessionRepository.findByExpiresAtBefore` (beide um `Pageable` erweitert) — Schleife
+bis leer, jede Runde löscht ihre Zeilen vollständig, bevor erneut Seite 0 abgefragt wird (korrekt
+unabhängig von Sortierung, weil bereits gelöschte Zeilen nicht wieder erscheinen können).
+
+**Nicht umgesetzt:** `confirmedDeadKcChannels` (der KEYCLOAK-Frühräum-Pfad) bleibt unbatched — dort
+wird die geladene Menge erst per Admin-API-Aufruf gefiltert, sodass nicht jede geladene Zeile in
+derselben Runde gelöscht wird; das "Seite 0 nach Löschen erneut abfragen"-Muster wäre dort falsch
+(Zeilen, die die Liveness-Prüfung nicht bestehen, blieben stehen und würden bei der nächsten
+Abfrage erneut zurückgegeben — kein Fortschritt, potenzielle Endlosschleife). Ein korrekter Fix
+bräuchte Keyset-Pagination (Sortierung nach `channel_session_id`, Fortschritt über die letzte
+gesehene ID statt Offset/Requery) — das ist ein eigener, sorgfältiger Schritt, kein Teil dieser
+kleinen Korrektur. Diese Menge ist zudem klein (nur `KEYCLOAK`-Kanäle, nur profilgebunden aktiv),
+also nicht die vom Befund gemeinte Hauptskalierungssorge.
+Ebenfalls unverändert: die gesamte `cleanup()`-Transaktion bleibt eine einzige `@Transactional`
+über alle Batches hinweg — echtes "übersteht einen Ausfalltag" bräuchte zusätzlich unabhängige
+Transaktionen pro Batch (eigenes Bean wegen Self-Invocation, analog `AttemptThrottleRowInitializer`),
+was über eine kleine Korrektur hinausgeht.
 
 ### B5 — `dpop_proof_replay` als Durchsatzdeckel ⬜ offen
 

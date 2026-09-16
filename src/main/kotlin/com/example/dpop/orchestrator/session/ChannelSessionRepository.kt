@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 import java.time.Instant
@@ -7,7 +8,11 @@ import java.util.UUID
 
 @Repository
 interface ChannelSessionRepository : JpaRepository<ChannelSession, UUID> {
-    fun findByExpiresAtBefore(cutoff: Instant): List<ChannelSession>
+    /**
+     * [pageable] bounds one retention batch (`RetentionJob`, B4) - the caller deletes every
+     * returned row before asking again, so page 0 always reflects the current remaining backlog.
+     */
+    fun findByExpiresAtBefore(cutoff: Instant, pageable: Pageable): List<ChannelSession>
 
     /**
      * Every already-expired channel of one [ChannelSession.Channel] - `RetentionJob`
