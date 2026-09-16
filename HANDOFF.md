@@ -1,9 +1,10 @@
 # Handoff: Fortsetzung Domänen-/DB-Modell-Review (`account`, `orchestrator`)
 
 Dieses Dokument richtet sich an den nächsten Agenten, der diese Sicherheitsarbeit fortsetzt.
-Erledigt und committet sind inzwischen **A1–A3** (erster Durchgang) sowie **B3** und der
-**A5-Rest** (zweiter Durchgang). Als Nächstes dran ist **B1** — vollständig ausgearbeitet, aber
-bewusst nicht angefangen (Begründung unten).
+Erledigt und committet sind inzwischen **A1–A3** (erster Durchgang), **B3** und der
+**A5-Rest** (zweiter Durchgang) sowie **B1** (dritter Durchgang — Migrationsordner war in dieser
+Umgebung schreibbar, die Blockade aus dem zweiten Durchgang griff hier nicht). Als Nächstes dran
+sind **C2, D1**.
 
 - Vollständige Befundliste mit aktuellem Status: [`docs/13-review-domaenen-db-modell.md`](docs/13-review-domaenen-db-modell.md)
 - Projektkontext: [`docs/00-agent-quickstart.md`](docs/00-agent-quickstart.md)
@@ -35,29 +36,29 @@ bewusst nicht angefangen (Begründung unten).
   mitnehmen könnte.
 - **A7 richtiggestellt** — der Befund behauptete rohe Kontaktdaten in `attempt_throttle.subject`;
   tatsächlich steht dort ein SHA-256-Hash. Offen bleibt nur der fehlende Pepper.
+- **B1** — `AccountAttributeRepository.findAccountIdsByTypeAndNormalizedValue` verglich
+  `lower(trim(value))` ohne nutzbaren Index; `IdentityMatchingService` setzte drei solche
+  Abfragen ab und schnitt in der Anwendung — trivial auslösbarer DoS im Pfad vor jeder
+  Authentisierung. Migration `V34__account_attribute_normalized_value.sql` (Spalte
+  `normalized_value`, Index `(attribute_type, normalized_value, account_id)`) angewendet, Typ
+  `VARCHAR(255)` gegen `V30` verifiziert. `AccountAttribute` füllt `normalized_value` über einen
+  `@PrePersist`/`@PreUpdate`-Hook, der dieselbe `companion object`-Funktion `normalize()` nutzt
+  wie `IdentityMatchingService` beim Aufbau der Suchparameter — die Regel existiert damit an
+  genau einer Stelle. Repository hat jetzt eine Abfrage (`findAccountIdsMatchingAllThree`,
+  `group by account_id having count(distinct attribute_type) = 3`) statt drei; In-Memory-
+  `intersect` ist raus. `IdentityMatchingService` holt `CANDIDATE_LIMIT + 1` (50 + 1) Zeilen;
+  wird die Obergrenze überschritten, ist das Ergebnis `Resolution.Ambiguous` (auf 50 gekappt) —
+  nie ein Treffer. Neuer Test für den Obergrenze-Fall.
 
-Verifiziert: `./gradlew :test` → **BUILD SUCCESSFUL, 568 Tests, 0 Fehler**. `ddl-auto: validate`
+Verifiziert: `./gradlew :test` → **BUILD SUCCESSFUL, 569 Tests, 0 Fehler**. `ddl-auto: validate`
 läuft durch.
 
 ## 2. Was noch offen ist
 
 Aus dem Review-Dokument, empfohlene Reihenfolge:
 
-1. **B1 — als Nächstes dran, fertig ausgearbeitet.** Nicht-sargabler Full-Table-Scan im
-   Identifikationspfad (`AccountAttributeRepository.findAccountIdsByTypeAndNormalizedValue`
-   vergleicht `lower(trim(value))` ohne nutzbaren Index; drei solche Abfragen pro Versuch,
-   Schnittmenge in der Anwendung). Trivial auslösbarer DoS aus einem Pfad vor jeder
-   Authentisierung.
-
-   **Warum nicht schon erledigt:** Der Fix ist ohne DDL nicht teilbar — `ddl-auto: validate`
-   lässt keine Entity-Spalte ohne passende Migration zu, eine halb angewandte Code-Hälfte färbt
-   die gesamte Suite rot. Im zweiten Durchgang verweigerte die Content-Exclusion-Policy jeden
-   Schreibzugriff auf `src/main/resources/db/migration/`. Der Befund B1 im Review-Dokument
-   enthält deshalb die Migration `V34__account_attribute_normalized_value.sql` im Wortlaut plus
-   die drei Code-Schritte (Entity-Hook, eine statt drei Abfragen, Kandidaten-Obergrenze). In
-   einer Umgebung ohne diese Sperre ist das reines Anwenden.
-2. **C2, D1** — Strukturbereinigung (String- statt Enum-Typisierung zwischen den Modulen;
-   `authenticationMethods` als JSON-Liste auf einer versionierten Zeile — teuerste
+1. **C2, D1 — als Nächstes dran.** Strukturbereinigung (String- statt Enum-Typisierung zwischen
+   den Modulen; `authenticationMethods` als JSON-Liste auf einer versionierten Zeile — teuerste
    Entwurfsentscheidung im Modell, siehe D1 im Dokument für die drei Konsequenzen).
 
 Einzeln klein und jederzeit einschiebbar: A4, A6, A7, B2, B4–B6, C3, C4, D2, D3 — alle mit
@@ -66,14 +67,12 @@ Begründung und Lösungsvorschlag im Review-Dokument.
 ## 3. Arbeitsweise
 
 - Doku (`docs/`) beschreibt das Zielbild; bei Abweichung hat sie Vorrang vor dem Code.
-- Nach jeder Änderung `./gradlew :test` — muss grün bleiben (aktuell 568 Tests).
+- Nach jeder Änderung `./gradlew :test` — muss grün bleiben (aktuell 569 Tests).
 - `bd` (beads) für Aufgaben-Tracking; `bd prime` für Workflow-Details. **Achtung:** In der
   Umgebung des zweiten Durchgangs war `bd` wegen eines Schema-Skews (DB auf v65, Binary kennt
   v53) nicht benutzbar; das Tracking lief deshalb über das Review-Dokument. Vor der Nutzung
   prüfen und ggf. den Recovery-Guide aus der `bd`-Fehlermeldung fahren.
 - Konservatives Git-Profil: committen ja, **pushen nur auf ausdrückliche Anweisung**.
-- Migrationsdateien unter `src/main/resources/db/migration/` müssen schreibbar sein, sonst ist
-  B1 nicht umsetzbar (siehe oben). Vor Beginn kurz prüfen.
 
 ## 4. Fallstricke, die Zeit gekostet haben
 
@@ -92,3 +91,7 @@ Alle drei sind im Code an der jeweiligen Stelle dokumentiert — hier nur als Vo
 - **H2 2.4.240 kennt `INSERT … ON CONFLICT DO NOTHING` nicht.** Deshalb das portable
   Upsert-Muster in `AttemptThrottleRowInitializer` (eigene Bean wegen `REQUIRES_NEW`; Self-
   Invocation würde den Spring-Proxy umgehen).
+- **Nach `git am` eines größeren Patches kann der Kotlin-Incremental-Compile-Cache stale
+  Fehler werfen**, die mit dem eigenen Diff nichts zu tun haben (`Unresolved reference` auf
+  längst vorhandene Funktionen aus einem anderen Modul). `./gradlew compileKotlin --rerun`
+  (oder `--rerun-tasks`) einmal fahren, bevor man dem Fehler im eigenen Code hinterherjagt.

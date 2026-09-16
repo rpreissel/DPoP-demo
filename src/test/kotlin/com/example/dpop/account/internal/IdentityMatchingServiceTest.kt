@@ -138,9 +138,11 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.VORNAME, "Max", anchor),
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("name", "Muster") } returns listOf(7L)
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("vorname", "Max") } returns listOf(7L)
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("geburtsdatum", "1970-01-01") } returns listOf(7L)
+        every {
+            attributeRepository.findAccountIdsMatchingAllThree(
+                "name", "muster", "vorname", "max", "geburtsdatum", "1970-01-01", any()
+            )
+        } returns listOf(7L)
 
         `when`("resolve is called") {
             then("layer 3 intersects to the one account") {
@@ -164,13 +166,41 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.VORNAME, "Max", anchor),
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("name", "Muster") } returns listOf(8L, 7L)
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("vorname", "Max") } returns listOf(7L, 8L)
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("geburtsdatum", "1970-01-01") } returns listOf(7L, 8L)
+        every {
+            attributeRepository.findAccountIdsMatchingAllThree(
+                "name", "muster", "vorname", "max", "geburtsdatum", "1970-01-01", any()
+            )
+        } returns listOf(7L, 8L)
 
         `when`("resolve is called") {
             then("it never guesses - the resolution is ambiguous") {
                 resolver.resolve(claims) shouldBe Resolution.Ambiguous(listOf(7L, 8L))
+            }
+        }
+    }
+
+    given("attribute matching past the candidate ceiling") {
+        val accountRepository = mockk<AccountRepository>()
+        val anchorRepository = mockk<AccountAnchorRepository>()
+        val attributeRepository = mockk<AccountAttributeRepository>()
+        val personDirectory = mockk<PersonDirectory>()
+        val resolver = service(accountRepository, anchorRepository, attributeRepository, personDirectory)
+        val anchor = TrustAnchor.of(ToolId("ident-eid"))
+        val claims = setOf(
+            Claim(AttributeType.NAME, "Muster", anchor),
+            Claim(AttributeType.VORNAME, "Max", anchor),
+            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
+        )
+        val moreThanCeiling = (1L..51L).toList()
+        every {
+            attributeRepository.findAccountIdsMatchingAllThree(
+                "name", "muster", "vorname", "max", "geburtsdatum", "1970-01-01", any()
+            )
+        } returns moreThanCeiling
+
+        `when`("resolve is called") {
+            then("it stays ambiguous rather than widening or guessing") {
+                resolver.resolve(claims) shouldBe Resolution.Ambiguous(moreThanCeiling.take(50))
             }
         }
     }
@@ -187,9 +217,11 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.VORNAME, "Niemals", anchor),
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("name", "Niemand") } returns emptyList()
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("vorname", "Niemals") } returns emptyList()
-        every { attributeRepository.findAccountIdsByTypeAndNormalizedValue("geburtsdatum", "1970-01-01") } returns emptyList()
+        every {
+            attributeRepository.findAccountIdsMatchingAllThree(
+                "name", "niemand", "vorname", "niemals", "geburtsdatum", "1970-01-01", any()
+            )
+        } returns emptyList()
 
         `when`("resolve is called") {
             then("nothing matches - a new Interessent") {

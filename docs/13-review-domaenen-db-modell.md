@@ -181,7 +181,7 @@ mit B3 erledigt: `attempt_throttle` wird nach 7 Tagen ausgekehrt.
 
 ## B) Skalierung (10 Mio. Nutzer, hohe Anmeldelast)
 
-### B1 — Full-Table-Scan im Identifikationspfad ⛔ blockiert
+### B1 — Full-Table-Scan im Identifikationspfad ✅ behoben
 
 `AccountAttributeRepository.findAccountIdsByTypeAndNormalizedValue` vergleicht
 `lower(trim(a.value))` — nicht sargable. Auf `account_attribute` existiert ausschließlich
@@ -197,14 +197,26 @@ Empfehlung: `normalized_value`-Spalte beim Insert schreiben, Index `(attribute_t
 normalized_value)`, Schnittmenge in **einer** SQL-Abfrage, zusätzlich eine harte
 Kandidaten-Obergrenze.
 
-**Warum blockiert:** Der Fix braucht zwingend DDL (`normalized_value` plus Index), und
+**Warum zuvor blockiert:** Der Fix braucht zwingend DDL (`normalized_value` plus Index), und
 `ddl-auto: validate` lässt keine Entity-Spalte ohne passende Migration zu — eine halb
 angewandte Code-Hälfte würde die gesamte Testsuite rot färben. In der Umgebung, in der dieser
-Schritt bearbeitet wurde, verweigert die Content-Exclusion-Policy jeden Schreibzugriff auf
-`src/main/resources/db/migration/`. Deshalb bewusst **nicht** angefangen, sondern hier
-vollständig vorbereitet.
+Schritt zuerst bearbeitet wurde, verweigerte die Content-Exclusion-Policy jeden Schreibzugriff auf
+`src/main/resources/db/migration/`, deshalb wurde er dort nur vollständig vorbereitet.
 
-Fertige Migration `V34__account_attribute_normalized_value.sql`:
+**Umsetzung (diese Umgebung, Migrationsordner schreibbar):** Migration `V34` wie unten angewendet
+(Typ `VARCHAR(255)` gegen `V30__add_account_attribute.sql` verifiziert — passt). `AccountAttribute`
+trägt jetzt `normalizedValue`, gefüllt über `@PrePersist`/`@PreUpdate` plus eine
+`companion object`-Funktion `normalize()`, die sowohl der Hook als auch
+`IdentityMatchingService` beim Aufbau der Suchparameter aufrufen — die Regel existiert damit
+syntaktisch an einer Stelle. `AccountAttributeRepository.findAccountIdsByTypeAndNormalizedValue`
+(dreimal aufgerufen) ist ersetzt durch `findAccountIdsMatchingAllThree` — eine Abfrage, `group by
+account_id`, `having count(distinct attribute_type) = 3`, `order by account_id`, beantwortet allein
+aus `idx_account_attribute_type_normalized`. `IdentityMatchingService.resolveByAttributeCombination`
+holt eine Seite der Größe `CANDIDATE_LIMIT + 1` (50 + 1); wird die Obergrenze überschritten, ist das
+Ergebnis `Resolution.Ambiguous` (auf die ersten 50 gekappt) — nie ein Treffer. Test ergänzt
+(„attribute matching past the candidate ceiling"), 569 Tests grün.
+
+Angewendete Migration `V34__account_attribute_normalized_value.sql`:
 
 ```sql
 ALTER TABLE account_attribute ADD COLUMN normalized_value VARCHAR(255);
@@ -364,8 +376,8 @@ aufbewahrt. Beides sind Einladungen zur späteren Fehlinterpretation.
 1. **A1, A2, A3** — aktive Sicherheitslücken. *(vollständig erledigt, Code + DDL.)*
 2. **B3, A5** — unbegrenztes Datenwachstum und der Löschpfad-Rest. *(erledigt; die
    Cascade-Prüfung in `V30`/`V31` ergab dort keinen Handlungsbedarf.)*
-3. **B1** — die verbliebene DoS-Fläche. Als Nächstes dran, vollständig ausgearbeitet und nur
-   noch anzuwenden (siehe B1: Migration `V34` im Wortlaut plus die drei Code-Schritte).
+3. **B1** — die verbliebene DoS-Fläche. *(erledigt; Migration `V34` angewendet, ein statt drei
+   Abfragen, harte Kandidaten-Obergrenze.)*
 4. **C2, D1** — Strukturbereinigung, bevor weitere Verfahren auf das Modell aufsetzen. *(C1 ist
    mit A3 erledigt.)*
 

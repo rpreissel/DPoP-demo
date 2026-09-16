@@ -11,6 +11,7 @@ import com.example.dpop.tool_spi.AnchorClass
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.anchorClassOf
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -34,6 +35,15 @@ class IdentityMatchingService(
     private val accountAttributeRepository: AccountAttributeRepository,
     private val personDirectory: PersonDirectory
 ) : IdentityResolver {
+
+    companion object {
+        /**
+         * Hard ceiling on attribute-match candidates, fetched as [CANDIDATE_LIMIT] + 1 so
+         * "more than the ceiling" is distinguishable from "exactly the ceiling" without a
+         * separate count query.
+         */
+        private const val CANDIDATE_LIMIT = 50
+    }
 
     override fun resolve(claims: Set<Claim>): Resolution {
         verifyToolAttestedConsistency(claims)
@@ -91,32 +101,35 @@ class IdentityMatchingService(
 
     /**
      * Layer 3, weakest: normalized attribute matching over the identity log. One real
-     * combination today - name + vorname + geburtsdatum, three queries intersected -
-     * deliberately the most discriminant triple the log carries; further combinations (and
-     * their rank order) arrive with the procedures that need them. 0 hits falls through to
-     * NewInteressent; more than one is Ambiguous, never a guess.
+     * combination today - name + vorname + geburtsdatum, matched in a single sargable query
+     * (`idx_account_attribute_type_normalized`, migration V34) - deliberately the most
+     * discriminant triple the log carries; further combinations (and their rank order) arrive
+     * with the procedures that need them. 0 hits falls through to NewInteressent; hitting the
+     * candidate ceiling - like more than one hit - is Ambiguous, never a guess: "lieber gar
+     * nicht als falsch zusammenführen" doesn't allow softening the ceiling into a best-effort
+     * top-N.
      */
     private fun resolveByAttributeCombination(claims: Set<Claim>): Resolution? {
         val name = claims.claimValue(AttributeType.NAME) ?: return null
         val vorname = claims.claimValue(AttributeType.VORNAME) ?: return null
         val geburtsdatum = claims.claimValue(AttributeType.GEBURTSDATUM) ?: return null
 
-        fun accountIds(type: AttributeType, value: String): Set<Long> =
-            accountAttributeRepository
-                .findAccountIdsByTypeAndNormalizedValue(type.wireName, value)
-                .mapNotNull { it }
-                .toSet()
-
-        val candidates = accountIds(AttributeType.NAME, name)
-            .intersect(accountIds(AttributeType.VORNAME, vorname))
-            .intersect(accountIds(AttributeType.GEBURTSDATUM, geburtsdatum))
-            .sorted()
-        return when (candidates.size) {
-            0 -> null
-            1 -> Resolution.ExistingAccount(
+        val candidates = accountAttributeRepository.findAccountIdsMatchingAllThree(
+            type1 = AttributeType.NAME.wireName,
+            value1 = AccountAttribute.normalize(name)!!,
+            type2 = AttributeType.VORNAME.wireName,
+            value2 = AccountAttribute.normalize(vorname)!!,
+            type3 = AttributeType.GEBURTSDATUM.wireName,
+            value3 = AccountAttribute.normalize(geburtsdatum)!!,
+            pageable = PageRequest.of(0, CANDIDATE_LIMIT + 1)
+        )
+        return when {
+            candidates.isEmpty() -> null
+            candidates.size == 1 -> Resolution.ExistingAccount(
                 candidates.first(),
                 MatchedVia.Attributes(setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM))
             )
+            candidates.size > CANDIDATE_LIMIT -> Resolution.Ambiguous(candidates.take(CANDIDATE_LIMIT))
             else -> Resolution.Ambiguous(candidates)
         }
     }

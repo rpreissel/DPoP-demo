@@ -5,6 +5,8 @@ import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.PrePersist
+import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import java.time.Instant
 
@@ -29,6 +31,9 @@ class AccountAttribute(
     @Column(name = "attribute_value")
     var value: String? = null,
 
+    @Column(name = "normalized_value")
+    var normalizedValue: String? = null,
+
     @Column(name = "trust_anchor", nullable = false)
     var trustAnchor: String? = null,
 
@@ -41,4 +46,20 @@ class AccountAttribute(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
+
+    @PrePersist
+    @PreUpdate
+    fun normalizeValue() {
+        normalizedValue = normalize(value)
+    }
+
+    companion object {
+        /**
+         * The one place the normalization rule exists - the write-time hook above and every
+         * caller that queries by [normalizedValue] (`IdentityMatchingService`) must go through
+         * this, or the index (`idx_account_attribute_type_normalized`, migration V34) silently
+         * stops matching.
+         */
+        fun normalize(value: String?): String? = value?.trim()?.lowercase()
+    }
 }
