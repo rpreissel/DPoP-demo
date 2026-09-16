@@ -266,7 +266,7 @@ class AccountService(
 
     /** Every account id that currently exists - the full-reconciliation counterpart of the per-event [AccountChanged]/[AccountDeleted] (see `KeycloakAccountSyncService`'s explicit "Sync with Keycloak" action, which also needs to find KEYCLOAK-side orphans nothing here still references). */
     @Transactional(readOnly = true)
-    fun allAccountIds(): List<Long> = accountRepository.findAll().mapNotNull { it.id }
+    fun allAccountIds(): List<Long> = accountRepository.findAllIds()
 
     /**
      * Deletes only the account row itself - this module must never depend on a method module

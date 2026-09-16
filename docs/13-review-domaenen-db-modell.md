@@ -256,11 +256,18 @@ Codeseitig gehören dazu:
    die Obergrenze überschritten, ist das Ergebnis `Resolution.Ambiguous` — nie ein Treffer, denn
    die Regel „lieber gar nicht als falsch zusammenführen" darf eine Obergrenze nicht aufweichen.
 
-### B2 — `allAccountIds()` lädt alle Konten in den Heap ⬜ offen
+### B2 — `allAccountIds()` lädt alle Konten in den Heap 🟡 teilweise
 
-`AccountService.allAccountIds()` ruft `accountRepository.findAll()` und mappt danach auf die ID —
-lädt also 10 Mio. `Account`-Entities inklusive beider JSON-Collections. Empfehlung: projizierende,
-paginierte Query (`select a.id from Account a`, Stream/Slice).
+`AccountService.allAccountIds()` rief `accountRepository.findAll()` und mappte danach auf die ID —
+lud also 10 Mio. `Account`-Entities inklusive beider JSON-Collections.
+
+**Umsetzung:** `AccountRepository.findAllIds()` (projizierende Query `select a.id from Account a`)
+ersetzt `findAll().mapNotNull { it.id }` — die JSON-Collections werden nicht mehr mitgeladen.
+**Nicht umgesetzt:** echte Pagination/Streaming der ID-Liste selbst. Der einzige Aufrufer
+(`KeycloakAccountSyncService.syncAll`) lädt ohnehin pro ID das volle `AccountProfile` in derselben
+Schleife — eine paginierte ID-Query allein würde den Speicherdruck nicht senken, ohne dass auch
+diese Schleife selbst batchweise arbeitet. Das wäre ein Umbau des vollständigen
+Reconciliation-Ablaufs, kein kleiner Einzelbefund mehr.
 
 ### B3 — `journey_log` hat keinerlei Aufbewahrungsgrenze ✅ behoben
 
