@@ -8,6 +8,7 @@ import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_api.anchorBindingStrength
 import com.example.dpop.tool_api.normalizeAnchorValue
+import com.example.dpop.tool_api.normalizeKvnr
 import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -48,8 +49,13 @@ class IdentityMatchingService(
     }
 
     override fun resolve(claims: Set<Claim>): Resolution {
-        verifyToolAttestedConsistency(claims)
-        resolveByAnchor(claims)?.let { return it }
+        val kvnrClaim = claims.firstOrNull { it.attributeType == AttributeType.KVNR }
+        val personClaim = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }
+        val externalPersonId = if (kvnrClaim != null &&
+            (personClaim == null || kvnrClaim.source.trustLevel != TrustLevel.STAMMDATEN)
+        ) personDirectory.findPersonIdByKvnr(normalizeKvnr(kvnrClaim.value)) else null
+        verifyToolAttestedConsistency(claims, externalPersonId)
+        resolveByAnchor(claims, externalPersonId.takeIf { personClaim == null })?.let { return it }
         return resolveByAttributeCombination(claims) ?: Resolution.NewInteressent
     }
 
@@ -60,10 +66,14 @@ class IdentityMatchingService(
      * they were checked at the source. A kvnr that resolves to nobody passes - that's the
      * Interessent case, not a conflict.
      */
-    private fun verifyToolAttestedConsistency(claims: Set<Claim>) {
+    private fun verifyToolAttestedConsistency(claims: Set<Claim>, personId: Long?) {
         val kvnrClaim = claims.firstOrNull { it.attributeType == AttributeType.KVNR } ?: return
         if (kvnrClaim.source.trustLevel == TrustLevel.STAMMDATEN) return
-        val personId = personDirectory.findPersonIdByKvnr(kvnrClaim.value) ?: return
+        if (personId == null) return
+        val personClaim = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }
+        if (personClaim != null && personClaim.value.trim().toLong() != personId) {
+            throw IdentityConflictException("KVNR und PersonId verweisen auf unterschiedliche Personen")
+        }
         val claimed = ClaimedIdentity(
             name = claims.claimValue(AttributeType.NAME),
             vorname = claims.claimValue(AttributeType.VORNAME),
@@ -78,7 +88,9 @@ class IdentityMatchingService(
      * Layer 1: anchor values - unique, error-free lookups via `account_anchor`'s UNIQUE
      * constraint, PERSON_ID included (docs/ideen/account-attribute-und-trust-vereinheitlichen.md,
      * Paket 4: PERSON_ID is `ConsolidationStrategy.OwnedColumn` now, so it is anchored exactly
-     * like EMAIL/KVNR). Ranks claims by [AttributeType.anchorBindingStrength] before iterating,
+     * like EMAIL). KVNR instead resolves live to the external person ID and then to that
+     * person's anchor; a historical local KVNR anchor is never consulted.
+     * Ranks claims by [AttributeType.anchorBindingStrength] before iterating,
      * so the strongest anchor (PERSON_ID) is always consulted first when several are present -
      * deliberately NOT the claims' [TrustLevel] (docs/ideen/account-attribute-und-trust-
      * vereinheitlichen.md: binding strength and trust level are different axes; a PERSON_ID match
@@ -86,7 +98,12 @@ class IdentityMatchingService(
      * `Set` implementation a caller happens to pass in (a plain `HashSet` gives no iteration-order
      * guarantee at all).
      */
-    private fun resolveByAnchor(claims: Set<Claim>): Resolution.ExistingAccount? {
+    private fun resolveByAnchor(claims: Set<Claim>, externalPersonId: Long?): Resolution.ExistingAccount? {
+        val matches = mutableListOf<Resolution.ExistingAccount>()
+        externalPersonId?.let { personId ->
+            accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, personId.toString())
+                ?.accountId?.let { matches.add(Resolution.ExistingAccount(it, MatchedVia.Anchor(AttributeType.PERSON_ID))) }
+        }
         for (claim in claims.sortedByDescending { it.attributeType.anchorBindingStrength ?: 0 }) {
             val attributeType = claim.attributeType.takeIf { it.anchorBindingStrength != null } ?: continue
             val anchor = accountAnchorRepository.findByAttributeTypeAndValue(
@@ -94,9 +111,12 @@ class IdentityMatchingService(
                 attributeType.normalizeAnchorValue(claim.value)
             ) ?: continue
             val accountId = anchor.accountId ?: continue
-            return Resolution.ExistingAccount(accountId, MatchedVia.Anchor(claim.attributeType))
+            matches.add(Resolution.ExistingAccount(accountId, MatchedVia.Anchor(claim.attributeType)))
         }
-        return null
+        if (matches.map { it.accountId }.distinct().size > 1) {
+            throw IdentityConflictException("Identitaetsanker verweisen auf unterschiedliche Konten")
+        }
+        return matches.maxByOrNull { it.matchedVia.bindingStrength }
     }
 
     /**

@@ -5,6 +5,7 @@ import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.ToolEndpoint
+import com.example.dpop.tool_api.normalizeKvnr
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -101,7 +102,7 @@ class IdentFscToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: IdentFscPatchRequest()
-        val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(it) }
+        val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(normalizeKvnr(it)) }
         // Folded into the handler's ordinary failure rather than raised - see
         // ToolEndpoint.isIdentLockedOut: a distinguishable lock would leak which KVNRs exist.
         val throttled = toolEndpoint.isIdentLockedOut(personId)

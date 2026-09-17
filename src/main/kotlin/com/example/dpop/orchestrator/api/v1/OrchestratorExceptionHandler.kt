@@ -3,13 +3,16 @@ package com.example.dpop.orchestrator.api.v1
 import com.example.dpop.orchestrator.dpop.DpopValidationException
 import com.example.dpop.orchestrator.kc.OidcTokenValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
+import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
+import org.hibernate.exception.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import java.util.Locale
 
 /** Maps the error contract from docs/07-betrieb.md #1 onto exceptions raised anywhere in the call chain. */
 @RestControllerAdvice
@@ -49,6 +52,27 @@ class OrchestratorExceptionHandler {
     fun handleIllegalState(e: IllegalStateException): ResponseEntity<Map<String, String>> =
         ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to "INVALID_STATE_TRANSITION", "message" to (e.message ?: "")))
 
+    @ExceptionHandler(IdentityConflictException::class)
+    fun handleIdentityConflict(e: IdentityConflictException): ResponseEntity<Map<String, String>> {
+        log.warn("Identity claim conflict: {}", e.message)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            mapOf("error" to "INVALID_STATE_TRANSITION", "message" to (e.message ?: "Identity claim conflict"))
+        )
+    }
+
+    // MVC also matches nested causes: this covers repository flushes AND transaction-commit errors.
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolation(e: ConstraintViolationException): ResponseEntity<Map<String, String>> {
+        // H2 reports schema-qualified names, optionally followed by " ON ..."; never inspect values.
+        val constraint = e.constraintName?.substringBefore(" ON ")?.substringAfterLast('.')
+            ?.trim('"')?.lowercase(Locale.ROOT)
+        if (e.sqlState != "23505" || constraint !in ACCOUNT_BINDING_CONSTRAINTS) throw e
+        log.warn("Concurrent account binding rejected by {}", constraint)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            mapOf("error" to "INVALID_STATE_TRANSITION", "message" to "Identity claim conflicts with an existing account binding")
+        )
+    }
+
     /** Fachlich unverarbeitbar, kein Nutzereingabefehler (unknown enrollmentRef) - docs/07-betrieb.md #1: 422. */
     @ExceptionHandler(UnresolvableReferenceException::class)
     fun handleUnresolvableReference(e: UnresolvableReferenceException): ResponseEntity<Map<String, String>> =
@@ -75,6 +99,9 @@ class OrchestratorExceptionHandler {
     }
 
     private companion object {
+        private val ACCOUNT_BINDING_CONSTRAINTS = setOf(
+            "ux_account_anchor", "ux_account_anchor_account_type", "ux_account_person_id"
+        )
         private val log = LoggerFactory.getLogger(OrchestratorExceptionHandler::class.java)
     }
 }

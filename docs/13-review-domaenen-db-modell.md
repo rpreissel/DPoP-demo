@@ -79,7 +79,8 @@ Zusätzlich war der Lesepfad `findByEmail` case-sensitiv: Wer sich mit `Max@x.de
 das Konto nicht, das `max@x.de` bestätigt hatte.
 
 Umgesetzt (Code): `account_anchor` ist die alleinige Auflösungs- und Eindeutigkeitsautorität.
-`findAccountByEmail`/`existsByEmail`/`resolveAccountByEmail` laufen über den normalisierten Anchor;
+`findAccountByEmail`/`resolveAccountByEmail` sind Extensions über dem normalisierten Anchor;
+der ungenutzte `existsByEmail`-Sonderweg entfällt. Reine ID-Lookups laden kein Account-Profil;
 `AccountRepository.findByEmail`/`existsByEmail` wurden entfernt, damit kein zweiter, schwächerer
 Lesepfad zurückkehren kann. `account.email` bleibt rohe Projektionsspalte.
 
@@ -419,13 +420,12 @@ Der Kommentar verwies korrekt auf `ux_account_person_id` (V32) als DB-seitigen R
 die Verletzung wurde aber nicht gefangen. Der unterlegene von zwei gleichzeitigen Step-up-Kanälen
 bekam also einen Serverfehler statt des existierenden Kontos.
 
-**Umsetzung:** Neue Bean `AccountRaceSafeCreator.createIfAbsent` (eigenes Bean statt privater
-Methode auf `AccountService` — analog `AttemptThrottleRowInitializer`s Begründung: eine
-`REQUIRES_NEW`-Methode auf demselben Bean würde den Spring-Proxy per Self-Invocation umgehen, und
-die Constraint-Verletzung eines konkurrierenden Erstellers darf die Transaktion des Aufrufers
-nicht vergiften). `findOrCreateAccount` liest zuerst, ruft bei Nichtvorhandensein
-`createIfAbsent` in dessen eigener Transaktion auf und liest danach erneut — Gewinner wie
-Verlierer des Rennens sehen so immer das existierende Konto, nie eine Constraint-Verletzung.
+**Aktuelle Umsetzung:** Die zwischenzeitliche `REQUIRES_NEW`-Erzeugung ist entfernt.
+Account-Anlage und Claim-/Anker-Übernahme laufen gemeinsam in der Journey-Transaktion.
+Ein Bindungsrennen wird durch die DB-Eindeutigkeit entschieden: Der Verlierer rollt
+einschließlich Account-Anlage zurück und erhält gezielt HTTP 409, keinen automatischen Retry
+und keinen unvollständigen Account. Die Zuordnung umfasst nur bekannte Bindungs-Unique-Constraints,
+auch bei Flush/Commit; andere Integritätsfehler bleiben sichtbar.
 
 ---
 

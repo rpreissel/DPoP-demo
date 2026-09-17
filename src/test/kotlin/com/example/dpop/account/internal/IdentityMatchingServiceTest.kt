@@ -103,7 +103,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         }
     }
 
-    given("a kvnr anchor already bound to an account, no person claim") {
+    given("a live kvnr-to-person mapping, no person claim") {
         val anchorRepository = mockk<AccountAnchorRepository>()
         val attributeRepository = mockk<AccountAttributeRepository>()
         val personDirectory = mockk<PersonDirectory>()
@@ -113,18 +113,20 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.KVNR, "A123456789", anchor),
             Claim(AttributeType.NAME, "Muster", anchor)
         )
-        every { personDirectory.findPersonIdByKvnr("A123456789") } returns null
-        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, "A123456789") } returns
-            AccountAnchor(attributeType = AttributeType.KVNR, value = "A123456789", accountId = 42L, establishedAt = Instant.now())
+        every { personDirectory.findPersonIdByKvnr("A123456789") } returns 7L
+        every { personDirectory.matchesStammdaten(7L, any()) } returns true
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "7") } returns
+            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "7", accountId = 42L, establishedAt = Instant.now())
 
         `when`("resolve is called") {
-            then("the unique kvnr anchor lookup wins") {
-                resolver.resolve(claims) shouldBe Resolution.ExistingAccount(42L, MatchedVia.Anchor(AttributeType.KVNR))
+            then("the current external mapping resolves through the person_id anchor") {
+                resolver.resolve(claims) shouldBe Resolution.ExistingAccount(42L, MatchedVia.Anchor(AttributeType.PERSON_ID))
+                verify(exactly = 0) { anchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, any()) }
             }
         }
     }
 
-    given("both a person_id and a kvnr claim, only the kvnr anchored") {
+    given("both a person_id and a kvnr claim, with only a stale local kvnr anchor") {
         val anchorRepository = mockk<AccountAnchorRepository>()
         val attributeRepository = mockk<AccountAttributeRepository>()
         val personDirectory = mockk<PersonDirectory>()
@@ -139,8 +141,27 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             AccountAnchor(attributeType = AttributeType.KVNR, value = "A123456789", accountId = 42L, establishedAt = Instant.now())
 
         `when`("resolve is called") {
-            then("person_id is tried first (higher binding strength), falls through to kvnr") {
-                resolver.resolve(claims) shouldBe Resolution.ExistingAccount(42L, MatchedVia.Anchor(AttributeType.KVNR))
+            then("it does not adopt an account through the stale local kvnr anchor") {
+                resolver.resolve(claims) shouldBe Resolution.NewInteressent
+                verify(exactly = 0) { anchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, any()) }
+            }
+        }
+    }
+
+    given("person_id and email anchors pointing to different accounts") {
+        val anchorRepository = mockk<AccountAnchorRepository>()
+        val resolver = service(anchorRepository, mockk(), mockk())
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "7") } returns
+            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "7", accountId = 7L, establishedAt = Instant.now())
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "other@example.com") } returns
+            AccountAnchor(attributeType = AttributeType.EMAIL, value = "other@example.com", accountId = 8L, establishedAt = Instant.now())
+        then("claim order cannot hide a conflicting owner") {
+            val claims = listOf(
+                Claim(AttributeType.PERSON_ID, "7", ClaimSource.EXT_STAMMDATEN),
+                Claim(AttributeType.EMAIL, "other@example.com", ClaimSource.EXT_STAMMDATEN)
+            )
+            for (ordered in listOf(claims, claims.reversed())) {
+                shouldThrow<IdentityConflictException> { resolver.resolve(ordered.toSet()) }
             }
         }
     }

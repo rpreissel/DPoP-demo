@@ -14,5 +14,4 @@ import org.springframework.stereotype.Repository
 interface AccountAnchorRepository : JpaRepository<AccountAnchor, Long> {
     fun findByAttributeTypeAndValue(attributeType: AttributeType, value: String): AccountAnchor?
     fun findByAccountIdAndAttributeType(accountId: Long, attributeType: AttributeType): AccountAnchor?
-    fun existsByAttributeTypeAndValue(attributeType: AttributeType, value: String): Boolean
 }

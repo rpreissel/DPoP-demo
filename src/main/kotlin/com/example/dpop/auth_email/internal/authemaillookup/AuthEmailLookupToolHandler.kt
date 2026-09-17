@@ -3,6 +3,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.AuthEmailLookupDescriptor
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -55,7 +56,7 @@ class AuthEmailLookupToolHandler(
     fun submitEmail(toolSessionId: UUID, email: String, throttled: Boolean): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-email-lookup tool session: $toolSessionId" }
 
-        val resolvedAccountId = accountDirectory.resolveByAnchor(AttributeType.EMAIL, email).takeUnless { throttled }
+        val resolvedAccountId = accountDirectory.resolveAccountByEmail(email).takeUnless { throttled }
         val confirmedEmail = resolvedAccountId?.let { accountDirectory.anchorValue(it, AttributeType.EMAIL) }
 
         val issued = emailCodeGenerator.issue()

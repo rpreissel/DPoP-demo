@@ -53,7 +53,7 @@ sealed interface RegisterState : JourneyState {
     /**
      * Last-resort fallback state: identification - here for a login FAST_ACCESS couldn't shortcut
      * AND a genuine fresh registration alike. Which one it was is decided afterwards by
-     * `findOrCreateAccount`, which is exactly why a single state covers both.
+     * claim-based identity resolution, which is exactly why a single state covers both.
      */
     data class Identifying(
         override val offered: List<ToolId>,

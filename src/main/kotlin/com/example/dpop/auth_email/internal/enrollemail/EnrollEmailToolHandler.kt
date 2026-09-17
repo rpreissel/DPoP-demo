@@ -3,6 +3,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -77,7 +78,7 @@ class EnrollEmailToolHandler(
                 // side uses, so "already taken" can't be raced past via case tricks; only a
                 // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port
                 // (every other method module's own account access) is enough.
-                if (accountDirectory.resolveByAnchor(AttributeType.EMAIL, decision.email) != null) {
+                if (accountDirectory.resolveAccountByEmail(decision.email) != null) {
                     ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
                 } else if (sendThrottled) {
                     ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")

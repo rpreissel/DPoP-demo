@@ -3,6 +3,7 @@ package com.example.dpop.demo_seed.internal
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.resolveAccountByPersonId
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
@@ -12,6 +13,7 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 /**
  * Demo-only: gives every V2__testdata.sql test person a real orchestrator account with one active
@@ -43,6 +45,7 @@ internal class KcDemoAccountSeeder(
 
     private val log = LoggerFactory.getLogger(KcDemoAccountSeeder::class.java)
 
+    @Transactional
     override fun run(args: ApplicationArguments) {
         TEST_PERSONS.forEach { person ->
             val personId = personDirectory.findPersonIdByKvnr(person.kvnr)
@@ -50,11 +53,9 @@ internal class KcDemoAccountSeeder(
                 log.warn("kc demo seed: no person found for kvnr {} - skipping", person.kvnr)
                 return@forEach
             }
-            val profile = accountService.findOrCreateAccount(personId)
-            // findOrCreateAccount already writes account.personId directly (race-safe insert,
-            // AccountRaceSafeCreator) but not its anchor - established here instead, guarded so a
-            // restart never re-logs the claim (account_anchor already holding this personId is
-            // the idempotency signal, same shape as the "none active email method" guard below).
+            val existingId = accountService.resolveAccountByPersonId(personId)
+            val profile = if (existingId == null) accountService.createUnidentifiedAccount()
+                else checkNotNull(accountService.findAccount(existingId)) { "Account not found: $existingId" }
             if (accountService.anchorValue(profile.accountId, AttributeType.PERSON_ID) == null) {
                 accountService.recordClaim(
                     profile.accountId,

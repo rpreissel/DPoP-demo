@@ -12,7 +12,7 @@ Standardfehler (Ist und Soll):
 - `401 Unauthorized`: missing/invalid DPoP, invalid channel trust
 - `403 Forbidden`: binding mismatch, policy violation
 - `404 Not Found`: unknown session/process
-- `409 Conflict`: invalid state transition, disallowed action, concurrent process on same channel session
+- `409 Conflict`: invalid state transition, disallowed action, concurrent process on same channel session, conflicting account claims
 - `410 Gone`: process expired/consumed/abgebrochen nach erschöpften Retries
 - `422 Unprocessable Entity`: fachlich unverarbeitbarer Request, der kein Nutzereingabefehler ist (z. B. unbekannte `enrollmentRef`, fehlendes Enrollment)
 - `423 Locked`: Account durch zu viele fehlgeschlagene AUTH-Versuche gesperrt (`ACCOUNT_LOCKED`, `OrchestratorException.accountLocked()`, siehe Abschnitt 4)
@@ -26,7 +26,9 @@ Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Ve
 - `AuthJourney` darf nur auf gültige Folgezustände wechseln — sowohl im Lebenszyklus als auch im intent-eigenen `JourneyState`.
 - `AuthContext` wird nur bei `SUCCEEDED` aktualisiert.
 - Jede relevante Transition erzeugt einen `SessionEvent` Audit-Eintrag.
-- Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) läuft vollständig in einer Transaktion — Moduldaten, Enrollment-Anlage, Account-Eintrag, `AuthJourney`-Update und `AuthContext`-Nachweis committen gemeinsam oder gar nicht. Im Modulith ist das der einfache Weg, Zwischenzustände wie „Enrollment angelegt, aber nirgends verknüpft" auszuschließen.
+- Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) atomarisiert die Journey-Übernahme, den Account-Eintrag, den Claim-Log und den `AuthContext`-Nachweis. Das jeweilige Methodenmodul schreibt seine Tool-/Enrollment-Daten bereits beim `PATCH` in einer eigenen Transaktion; scheitert die spätere Journey-Übernahme, bleibt diese Moduldatenzeile als kurzlebige, vom Modul bereinigte Arbeitsdaten bestehen, wird aber nicht als Account-Credential aktiviert. Im Modulith verhindert die gemeinsame Übernahmetransaktion Zwischenzustände innerhalb der Orchestrierung.
+- Auch neue Accounts, Claim-Log, Anker und Projektionen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung bleibt nur der Gewinner bestehen, der Verlierer rollt vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`. Es gibt keinen automatischen Wiederholungsversuch. Unique-Verletzungen der Account-Bindungsindizes (`ux_account_anchor`, `ux_account_anchor_account_type`, `ux_account_person_id`) werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler. After-Commit-Synchronisierung läuft nur nach erfolgreichem Commit.
+- Der reine Demo-Seed verwendet eine eigene transaktionale Klammer um seine Anlage und Claim-Übernahme. Er löst bestehende Accounts über PersonId-Anker auf und erzeugt bei Neustarts keine zusätzlichen Bootstrap-Claims; er benötigt keine produktive Wiederholungslogik.
 - Nicht transaktional ist der SMS-Versand als externer Effekt: Ein Rollback macht eine bereits versendete SMS nicht rückgängig. Das ist ein Zustellthema (der Nutzer erhält im Zweifel eine TAN zu viel), kein Konsistenzproblem der Daten — die zugehörige `issuedTanHash`-Zeile wurde ja mit zurückgerollt und läuft ins Leere.
 
 ## 3) Aufbewahrung und Löschung

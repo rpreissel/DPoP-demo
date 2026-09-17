@@ -26,8 +26,8 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
-import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
+import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
@@ -541,17 +541,12 @@ class JourneyService(
      * service only governs the consequences.
      */
     private fun performAdoptIdentity(journey: AuthJourney, channel: ChannelSession, action: Action.AdoptIdentity) {
-        val resolution = try {
-            identityResolver.resolve(action.outcome.claims.toSet())
-        } catch (e: IdentityConflictException) {
-            throw OrchestratorException.invalidState(e.message ?: "Identitaetsbezeugung kollidiert mit dem Bestand")
-        }
+        assertClaimsCovered(action.tool, action.outcome.claims)
+        val resolution = identityResolver.resolve(action.outcome.claims.toSet())
         val accountId = when (resolution) {
             is Resolution.ExistingAccount -> resolution.accountId
-            // "New" here can only ever mean "no account for this identified person
-            // yet" - claims-only subjects without a person reference arrive with the
-            // planned Interessenten form.
-            Resolution.NewInteressent -> accountService.findOrCreateAccount(action.outcome.personId).accountId
+            // The account and its claims share this journey transaction, including rollback.
+            Resolution.NewInteressent -> accountService.createUnidentifiedAccount().accountId
             is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
                 "Identifizierung mehrdeutig: ${resolution.candidateCount} Kandidaten - keine automatische Zuordnung"
             )
@@ -560,48 +555,31 @@ class JourneyService(
             // stronger procedure, human review) arrives with the first EUDI case.
         }
         bindAccount(journey, channel, accountId)
-        // Fail-fast: what the run reported must be a subset of the descriptor's
-        // declaration, with the same trust anchors.
-        assertClaimsCovered(action.tool, action.outcome.claims)
-        // Claims-Log (Phase 1, docs/ideen/claims-modell-und-vertrauensanker.md): what the
-        // identifying tool actually established, each with its own trust anchor - the
-        // account columns remain the projection, this is the append-only provenance record.
-        // PERSON_ID is ConsolidationStrategy.OwnedColumn (docs/ideen/account-attribute-und-
-        // trust-vereinheitlichen.md, Paket 4), so this single call already binds it too - no
-        // separate direct write.
         accountService.recordClaims(accountId, action.outcome.claims)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
 
     private fun performConfirmIdentity(journey: AuthJourney, channel: ChannelSession, action: Action.ConfirmIdentity) {
+        assertClaimsCovered(action.tool, action.outcome.claims)
         val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
             "Identified without a known account under ${journey.intent}"
         }
-        val account = checkNotNull(accountService.findAccount(accountId)) { "Account not found: $accountId" }
-        when (account.personId) {
-            // Ordinary re-identification: the account already knows who it is, this run
-            // must confirm the SAME person, never silently adopt a different one.
-            action.outcome.personId -> {}
-            null -> {
-                // First-ever identification of a previously unidentified account (REGISTER
-                // "Enrollment zuerst", docs/04-orchestrierung.md) - reject up front if this
-                // person already has a DIFFERENT account (merge not supported, bewusst); the
-                // actual binding happens below, via the same claims-log write every other
-                // attribute goes through (PERSON_ID is ConsolidationStrategy.OwnedColumn since
-                // docs/ideen/account-attribute-und-trust-vereinheitlichen.md Paket 4) - no
-                // separate direct write here any more.
-                val existing = accountService.findAccountByPersonId(action.outcome.personId)
-                if (existing != null && existing.accountId != accountId) {
-                    throw OrchestratorException.invalidState("Diese Person ist bereits über ein anderes Konto registriert")
+        when (val resolution = identityResolver.resolve(action.outcome.claims.toSet())) {
+            is Resolution.ExistingAccount ->
+                if (resolution.accountId != accountId) {
+                    throw IdentityConflictException("Identification claims resolve to a different account")
                 }
-            }
-            else -> throw OrchestratorException.invalidState("Identifizierte Person passt nicht zum angemeldeten Konto")
+            // A known account may still be an unbound enrollment-first account. In that case
+            // resolution has no existing anchor to return yet; the shared recordClaims call
+            // below performs the first immutable PERSON_ID binding.
+            Resolution.NewInteressent -> Unit
+            is Resolution.Ambiguous ->
+                throw OrchestratorException.invalidState(
+                    "Identifizierung mehrdeutig: ${resolution.candidateCount} Kandidaten - keine automatische Zuordnung"
+                )
         }
         bindAccount(journey, channel, accountId)
-        assertClaimsCovered(action.tool, action.outcome.claims)
-        // Same claims-log write as AdoptIdentity above - also covers the first-ever
-        // identification of a previously unidentified account (the `null` branch above).
         accountService.recordClaims(accountId, action.outcome.claims)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)

@@ -10,6 +10,13 @@ der einzige Attribut-Schlüssel, auch für Ankeroperationen), `IdentityMatchingS
 sowie PERSON_ID als `ConsolidationStrategy.OwnedColumn` mit eigenem Anker - `bindPersonId` und
 `confirmEmail` (unten noch als Zielbild beschrieben) existieren im Code nicht mehr, ihre
 Aufgabe übernimmt `AccountService.recordClaim`/`recordClaims` einheitlich für beide Attribute.
+Auch neue Accounts entstehen nun ohne direkte Personenbindung in derselben Transaktion wie ihre
+Claims. `findOrCreateAccount` und sein separat committender Helfer entfallen; Bindungsrennen
+enden für den Verlierer mit vollständigem Rollback und HTTP 409.
+KVNR bleibt ausschließlich bei `ext_stammdaten`: Eine aktuelle KVNR-Suche liefert dort die
+PersonId, deren Anker anschließend zum Account führt. Es wird kein lokaler KVNR-Anker gepflegt;
+historische KVNR-Claims sind keine aktuelle Zuordnungsquelle. Ändert `ext_stammdaten` eine KVNR,
+ist keine lokale Ankerkopie zu aktualisieren.
 Offen bleibt vor allem die Skalierungsfrage (Bestandsmigration `identifications`-JSON,
 `DPoP-demo-4vd.12`) sowie die in diesem Dokument unten noch offen benannten Terminologie- und
 Wert-Typ-Fragen (Email/Kvnr/PersonId als eigene value classes, `DPoP-demo-4vd.5`/`.6`). Diese
@@ -82,9 +89,9 @@ Drei Restgewinne der Idee bleiben vom gelösten Trigger unabhängig, plus zwei k
    nachgebaute Spezialwege (heute Details-JSON-Parsing in `ext_stammdaten`/`id_eid`).
 3. **Strukturiertes Attribut-Audit** statt `auditDetails`-Blob
    (`ToolOutcome.Completed.Identified.auditDetails`, `Map<String, Any?>`, Freitext).
-4. **`UNIQUE(person_id)` fehlt als DB-Garantie** - nur `idx_account_person_id`.
-   `findOrCreateAccount` ist find-then-create; zwei parallele Step-up-Kanäle können dasselbe
-   Duplikat still anlegen. Unabhängig von der ganzen Idee nachrüstbar.
+4. **Historischer Befund, behoben:** `UNIQUE(person_id)` und Anker-Eindeutigkeit sichern die
+   Personenbindung inzwischen ab. Die atomare Claim-Übernahme rollt konkurrierende Verlierer
+   einschließlich neuer Account-Zeilen zurück.
 5. **Keine Retraktion**: nichts im Modell drückt aus, dass ein Wert *zurückgezogen* wurde
    (KVNR abgemeldet, E-Mail verworfen). Das heutige `identifications`-Log wie auch jede simple
    "Zeile pro Behauptung"-Form teilen diese Lücke. Für das Zielbild ist die Negativ-Form inzwischen
@@ -267,19 +274,21 @@ Gate beim Offering (`requires`), der Wert-Konsum zur Laufzeit (`anchorValue` - `
 liest die Adresse über den Port, statt sie zu deklarieren; das Gate ersetzt die heutige
 `UnresolvableReferenceException` aus `start`) und die Konto-/Kanal-Politik (`emailObligation`).
 
-**Lesepfad** - `AccountDirectory` (tool_api) bekommt die zwei generischen Anker-Operationen, die
-heute fehlen:
+**Lesepfad (umgesetzt)** - `AccountDirectory` (tool_api) stellt die generischen
+Anker-Operationen bereit:
 
 ```kotlin
-fun resolveByAnchor(type: AnchorType, value: String): Long?   // Wert -> Konto
-fun anchorValue(accountId: Long, type: AnchorType): String?   // Konto -> bestätigter Wert
+fun resolveByAnchor(type: AttributeType, value: String): Long?   // Wert -> Konto
+fun anchorValue(accountId: Long, type: AttributeType): String?   // Konto -> bestätigter Wert
 ```
 
-`resolveByAnchor` brauchen `auth-sms-lookup` und `auth-password-lookup` ohnehin - ihre
-Konto-Auflösung ist heute fest über `resolveAccountByEmail` verdrahtet. `anchorValue` ist das,
-was `AuthEmailUseToolHandler` heute per Entity-Zugriff liest ("bestätigte Adresse dieses
-Kontos"). Damit fällt `account` aus `auth_email`'s `allowedDependencies` heraus:
-Anker-Auflösung statt EnrollmentRef-Auflösung, dieselbe Form wie alle Methoden-Module.
+Die typisierten ID-Lookups sind Extensions auf diesem Port:
+`resolveAccountByEmail`, `resolveAccountByPersonId` und `resolveAccountByKvnr`.
+Sie laden kein Account-Profil; KVNR wird zunächst live über `PersonDirectory` zur PersonId
+aufgelöst. Wer tatsächlich ein Profil benötigt, verwendet die entsprechenden `findAccountBy*`-
+Extensions auf `AccountService`. `AuthEmailUseToolHandler` liest den bestätigten Ankerwert über
+`anchorValue`, nicht per Entity-Zugriff. `auth_email` hat keine `allowedDependencies`-Kante
+auf `account` mehr.
 
 **Asymmetrie zu `auth_sms`** - zwei Rollen, zwei Ablagen: Credential-Instanz (Rufnummer,
 mehrwertig, `allowsMultipleInstances`, modul-eigen) versus Anker (E-Mail, kanonisch,

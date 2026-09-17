@@ -52,7 +52,7 @@ sealed interface MatchedVia {
     val bindingStrength: Int
 
     /**
-     * A unique anchor value (`person_id`, `kvnr`, `email`) matched via `account_anchor` - its
+     * A unique anchor value (`person_id`, `email`) matched via `account_anchor` - its
      * strength is [AttributeType.anchorBindingStrength], the SAME rule the resolver itself
      * ranks candidate anchors by; there is no separate `person_id`-specific case any more
      * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").

@@ -3,6 +3,7 @@ package com.example.dpop.ext_stammdaten
 import com.example.dpop.ext_stammdaten.internal.PersonRepository
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.normalizeKvnr
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
@@ -20,7 +21,7 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
     }
 
     override fun findPersonIdByKvnr(kvnr: String): Long? =
-        personRepository.findByKvnr(kvnr)?.id
+        personRepository.findByKvnr(normalizeKvnr(kvnr))?.id
 
     override fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
@@ -47,7 +48,7 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
     }
 
     fun findPersonByKvnr(kvnr: String): PersonData? =
-        personRepository.findByKvnr(kvnr)
+        personRepository.findByKvnr(normalizeKvnr(kvnr))
             ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname, it.geburtsdatum) }
 
     fun findPersonById(personId: Long): PersonData? =

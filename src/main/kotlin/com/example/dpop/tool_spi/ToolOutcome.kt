@@ -68,13 +68,15 @@ sealed interface ToolOutcome {
             val auditDetails: Map<String, Any?>? = null
         ) : Completed {
             /** The single mandatory `PERSON_ID` claim's value, parsed - see the class doc. */
-            val personId: Long get() = claims.first { it.attributeType == AttributeType.PERSON_ID }.value.toLong()
+            val personId: Long
+                get() = claims.first { it.attributeType == AttributeType.PERSON_ID }.value.trim().toLong()
 
             init {
                 val personIdClaims = claims.count { it.attributeType == AttributeType.PERSON_ID }
                 check(personIdClaims == 1) {
                     "Completed.Identified requires exactly one PERSON_ID claim, got $personIdClaims"
                 }
+                claims.forEach { it.validateValue() }
             }
         }
 

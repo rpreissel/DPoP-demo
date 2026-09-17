@@ -11,18 +11,12 @@ import com.example.dpop.tool_spi.EnrollmentRef
  */
 interface AccountDirectory {
     /**
-     * Resolves the account that has [email] as its confirmed address.
-     *
-     * @return the account id, or `null` if no account has this address confirmed.
-     */
-    fun resolveAccountByEmail(email: String): Long?
-
-    /**
      * Resolves the account that has established [value] as its anchor of [type] - the generic
      * resolve-identity read of the claims model. Lookup runs on the attribute type's normalized
-     * form, exactly like the write side does. Generalizes [resolveAccountByEmail], which stays
-     * as the typed convenience for the one anchor wired today. [type] must be an anchor
-     * attribute (`type.anchorBindingStrength != null`).
+     * form, exactly like the write side does. Typed lookups such as [resolveAccountByEmail]
+     * are extensions delegating here. [type] must be a local anchor attribute
+     * (`PERSON_ID` or `EMAIL`). KVNR is resolved live through PersonDirectory to a PersonId,
+     * then through the PERSON_ID anchor; it is not a local account anchor.
      *
      * @return the account id, or `null` if no account has established this anchor.
      */
@@ -31,8 +25,8 @@ interface AccountDirectory {
     /**
      * The account's established value for anchor [type], in the attribute type's normalized
      * form - the reverse read of [resolveByAnchor]: what that one resolves BY, per account.
-     * `null` if this account has never established the anchor, or its latest claim on it
-     * collided with another account's anchor (first writer wins there).
+     * `null` if this account has never established the anchor. A rejected change preserves
+     * the previous value. Non-anchor types, including KVNR, are contract errors.
      */
     fun anchorValue(accountId: Long, type: AttributeType): String?
 

@@ -1,5 +1,7 @@
 package com.example.dpop.tool_spi
 
+import java.time.LocalDate
+
 /**
  * A kind of identifying attribute a tool can assert about its subject. Closed taxonomy on
  * purpose, mirroring [FactorType]: it appears on BOTH sides of the tool contract
@@ -95,6 +97,24 @@ data class Claim(
 )
 
 /**
+ * Validates shared claim invariants before resolution or persistence.
+ */
+fun Claim.validateValue() {
+    check(value.isNotBlank()) {
+        "${attributeType.wireName} claim must not be blank"
+    }
+    when (attributeType) {
+        AttributeType.PERSON_ID -> check(value.trim().toLongOrNull()?.let { it > 0 } == true) {
+            "person_id claim must be a positive integer"
+        }
+        AttributeType.GEBURTSDATUM -> check(runCatching { LocalDate.parse(value.trim()) }.isSuccess) {
+            "geburtsdatum claim must be an ISO date"
+        }
+        else -> Unit
+    }
+}
+
+/**
  * What an account must already have for a tool to be offered at all: [attributeType]
  * established at no less than [minTrustLevel], checked against the consolidated value
  * including retractions (ADR-12). The mirror direction of [ToolDescriptor.claims] -
@@ -133,6 +153,7 @@ fun assertClaimsCovered(descriptor: ToolDescriptor, claims: List<Claim>) {
     val declared = descriptor.claims.associateBy { it.attributeType }
     val seen = mutableSetOf<AttributeType>()
     claims.forEach { claim ->
+        claim.validateValue()
         val declaration = checkNotNull(declared[claim.attributeType]) {
             "${descriptor.toolId} reported a ${claim.attributeType.wireName} claim but declares none"
         }

@@ -5,10 +5,12 @@ import com.example.dpop.account.internal.AccountAnchor
 import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountAttribute
 import com.example.dpop.account.internal.AccountAttributeRepository
-import com.example.dpop.account.internal.AccountRaceSafeCreator
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.IdentityConflictException
+import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.resolveAccountByEmail
+import com.example.dpop.tool_api.resolveAccountByPersonId
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
@@ -18,6 +20,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
+import io.mockk.Called
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
@@ -42,9 +45,8 @@ class AccountServiceTest : BehaviorSpec({
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
         val account = Account(personId = null, createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -85,9 +87,8 @@ class AccountServiceTest : BehaviorSpec({
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>(relaxed = true)
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
         val account = Account(personId = 42L, createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -121,76 +122,22 @@ class AccountServiceTest : BehaviorSpec({
         }
     }
 
-    given("no account exists yet for a person") {
+    given("no account exists yet") {
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
-        val personId = 42L
-        val created = Account(personId, Instant.now()).apply { id = 7L }
-        every { accountRepository.findByPersonId(personId) } returnsMany listOf(null, created)
-        every { accountRaceSafeCreator.createIfAbsent(personId) } returns true
+        every { accountRepository.save(any()) } answers { firstArg<Account>().apply { id = 7L } }
 
-        `when`("finding or creating an account") {
-            val profile = service.findOrCreateAccount(personId)
+        `when`("creating an account before accepting its claims") {
+            val profile = service.createUnidentifiedAccount()
 
-            then("a new account is created and its creation is published") {
-                profile.personId shouldBe personId
+            then("the new account has no direct person binding") {
+                profile.personId shouldBe null
+                verify(exactly = 1) { accountRepository.save(match { it.personId == null }) }
                 verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
-            }
-        }
-    }
-
-    given("a concurrent step-up channel wins the race to create the account first") {
-        val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>()
-        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
-        val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
-
-        val personId = 42L
-        val winnersAccount = Account(personId, Instant.now()).apply { id = 7L }
-        // The initial lookup still sees nothing (this caller lost the race); createIfAbsent hits
-        // ux_account_person_id (V32) and reports "already exists" rather than throwing.
-        every { accountRepository.findByPersonId(personId) } returnsMany listOf(null, winnersAccount)
-        every { accountRaceSafeCreator.createIfAbsent(personId) } returns false
-
-        `when`("finding or creating an account") {
-            val profile = service.findOrCreateAccount(personId)
-
-            then("the winner's account is returned instead of a constraint-violation error, no duplicate event") {
-                profile.accountId shouldBe 7L
-                profile.personId shouldBe personId
-                verify(exactly = 0) { eventPublisher.publishEvent(any()) }
-            }
-        }
-    }
-
-    given("an account already exists for a person") {
-        val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>()
-        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
-        val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
-
-        val personId = 42L
-        val existing = Account(personId, Instant.now()).apply { id = 7L }
-        every { accountRepository.findByPersonId(personId) } returns existing
-        every { accountRepository.save(existing) } returns existing
-
-        `when`("re-identifying the same person") {
-            val profile = service.findOrCreateAccount(personId)
-
-            then("the existing account is reused, not a second one, and no event fires") {
-                profile.accountId shouldBe 7L
-                profile.personId shouldBe personId
-                verify(exactly = 0) { accountRepository.save(match { it !== existing }) }
-                verify(exactly = 0) { eventPublisher.publishEvent(any()) }
             }
         }
     }
@@ -199,9 +146,8 @@ class AccountServiceTest : BehaviorSpec({
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
 
         val account = Account(personId = null, createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -275,13 +221,68 @@ class AccountServiceTest : BehaviorSpec({
         }
     }
 
+    given("ID lookups on the concrete account service") {
+        then("they do not load an account or build a profile") {
+            val accounts = mockk<AccountRepository>()
+            val anchors = mockk<AccountAnchorRepository>()
+            val service = AccountService(accounts, mockk(), anchors, mockk())
+            every { anchors.findByAttributeTypeAndValue(AttributeType.EMAIL, "max@example.com") } returns
+                AccountAnchor(attributeType = AttributeType.EMAIL, value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
+            every { anchors.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns
+                AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 7L, establishedAt = Instant.now())
+            service.resolveAccountByEmail("  Max@Example.COM ") shouldBe 7L
+            service.resolveAccountByPersonId(42L) shouldBe 7L
+            verify { accounts wasNot Called }
+        }
+    }
+
     given("the anchor read ports") {
         val accountRepository = mockk<AccountRepository>()
         val accountAttributeRepository = mockk<AccountAttributeRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
-        val accountRaceSafeCreator = mockk<AccountRaceSafeCreator>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, accountRaceSafeCreator, eventPublisher)
+        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, eventPublisher)
+
+        then("KVNR changes follow ext_stammdaten without creating or reading a local KVNR anchor") {
+            val persons = mockk<PersonDirectory>()
+            val account = Account(personId = 42L, createdAt = Instant.now()).apply { id = 7L }
+            every { accountRepository.findByIdOrNull(7L) } returns account
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns
+                AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 7L, establishedAt = Instant.now())
+            every { persons.findPersonIdByKvnr("A123456789") } returns 42L
+            service.findAccountByKvnr(" a123456789 ", persons)?.accountId shouldBe 7L
+
+            every { persons.findPersonIdByKvnr("A123456789") } returns null
+            every { persons.findPersonIdByKvnr("B987654321") } returns 42L
+            service.findAccountByKvnr("A123456789", persons) shouldBe null
+            service.findAccountByKvnr("B987654321", persons)?.accountId shouldBe 7L
+            verify(exactly = 0) { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, any()) }
+            shouldThrow<IllegalStateException> { service.resolveByAnchor(AttributeType.KVNR, "A123456789") }
+            shouldThrow<IllegalStateException> { service.anchorValue(7L, AttributeType.KVNR) }
+        }
+
+        then("a KVNR claim records provenance only, not a local binding") {
+            every { accountAttributeRepository.save(any()) } answers { firstArg() }
+            service.recordClaim(7L, Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN))
+            verify(exactly = 1) { accountAttributeRepository.save(match { it.attributeType == AttributeType.KVNR }) }
+            verify(exactly = 0) { accountAnchorRepository.save(any()) }
+            verify(exactly = 0) { accountRepository.save(any()) }
+        }
+
+        then("typed extensions resolve both person ID and email through anchors") {
+            val account = Account(personId = 42L, createdAt = Instant.now()).apply { id = 7L }
+            every { accountRepository.findByIdOrNull(7L) } returns account
+            for ((type, value) in listOf(AttributeType.EMAIL to "max@example.com", AttributeType.PERSON_ID to "42")) {
+                every { accountAnchorRepository.findByAttributeTypeAndValue(type, value) } returns
+                    AccountAnchor(attributeType = type, value = value, accountId = 7L, establishedAt = Instant.now())
+            }
+            service.findAccountByEmail("  Max@Example.COM ")?.accountId shouldBe 7L
+            service.findAccountByPersonId(42L)?.accountId shouldBe 7L
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "missing@example.com") } returns null
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "99") } returns null
+            service.findAccountByEmail("missing@example.com") shouldBe null
+            service.findAccountByPersonId(99L) shouldBe null
+        }
 
         `when`("resolving an account by anchor") {
             every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "max@example.com") } returns

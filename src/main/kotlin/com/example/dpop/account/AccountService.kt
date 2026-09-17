@@ -6,7 +6,6 @@ import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountAttribute
 import com.example.dpop.account.internal.AccountAttributeRepository
 import com.example.dpop.account.internal.AccountIdentification
-import com.example.dpop.account.internal.AccountRaceSafeCreator
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AuthenticationMethod
 import com.example.dpop.tool_api.AccountDirectory
@@ -19,6 +18,7 @@ import com.example.dpop.tool_api.normalizeAnchorValue
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
+import com.example.dpop.tool_spi.validateValue
 import java.time.Instant
 import java.util.UUID
 import org.slf4j.LoggerFactory
@@ -45,31 +45,10 @@ class AccountService(
     private val accountRepository: AccountRepository,
     private val accountAttributeRepository: AccountAttributeRepository,
     private val accountAnchorRepository: AccountAnchorRepository,
-    private val accountRaceSafeCreator: AccountRaceSafeCreator,
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
 
     private val log = LoggerFactory.getLogger(AccountService::class.java)
-
-    /**
-     * Only the orchestrator calls this, right after Completed.Identified (docs/04-orchestrierung.md).
-     * The find-then-create race between parallel step-up channels is closed DB-side by
-     * ux_account_person_id (V32); [AccountRaceSafeCreator] runs the actual insert attempt in its
-     * own transaction so the loser sees "already exists," not the constraint violation itself
-     * (C4, docs/13-review-domaenen-db-modell.md) - re-reading here after it returns is what
-     * resolves the race for both winner and loser alike.
-     */
-    @Transactional
-    fun findOrCreateAccount(personId: Long): AccountProfile {
-        val existing = accountRepository.findByPersonId(personId)
-        if (existing != null) return toProfile(existing)
-        val created = accountRaceSafeCreator.createIfAbsent(personId)
-        val account = checkNotNull(accountRepository.findByPersonId(personId)) {
-            "findOrCreateAccount($personId): row vanished right after creation"
-        }
-        if (created) eventPublisher.publishEvent(AccountChanged(checkNotNull(account.id)))
-        return toProfile(account)
-    }
 
     /**
      * Delegating convenience wrapper (docs/ideen/account-attribute-und-trust-vereinheitlichen.md,
@@ -96,6 +75,7 @@ class AccountService(
     fun recordClaims(accountId: Long, claims: List<Claim>) {
         val seen = mutableSetOf<AttributeType>()
         claims.forEach { claim ->
+            claim.validateValue()
             check(seen.add(claim.attributeType)) {
                 "recordClaims($accountId): more than one claim for ${claim.attributeType.wireName}"
             }
@@ -127,7 +107,7 @@ class AccountService(
      * and every caller, [recordClaim]/[recordClaims] included - `demo_seed`'s `KcDemoAccountSeeder`
      * goes through the same path too, with `ClaimSource.DEMO_BOOTSTRAP` naming its provenance.
      */
-    private fun consolidateOwnedColumn(accountId: Long, type: AttributeType, value: String, establishedAt: Instant): AccountProfile {
+    private fun consolidateOwnedColumn(accountId: Long, type: AttributeType, value: String, establishedAt: Instant) {
         val account = getOrThrow(accountId)
         // The anchor goes FIRST: it is the uniqueness authority for the value, so a
         // cross-account conflict must abort before the projection column is written, not get
@@ -135,9 +115,8 @@ class AccountService(
         // raw column stays raw - same ownership, one write.
         if (type.anchorBindingStrength != null) recordAnchor(accountId, type, value, establishedAt)
         account.applyOwnedColumn(type, value, establishedAt)
-        val profile = toProfile(accountRepository.save(account))
+        accountRepository.save(account)
         eventPublisher.publishEvent(AccountChanged(accountId))
-        return profile
     }
 
     /**
@@ -151,7 +130,7 @@ class AccountService(
      * paths over it disagreed from then on. Throwing rolls the whole claim back instead, log
      * entry included, leaving one consistent answer to "who owns this value". A new value for
      * THIS account's own anchor re-binds it ONLY if [AttributeType.allowsAnchorReplacement] says
-     * so (`EMAIL`: the old row goes, the anchor follows the account's latest established claim).
+     * so (`EMAIL`: the existing anchor follows the account's latest established claim).
      * For a type where it does not (`PERSON_ID`: immutable after first binding), re-asserting the
      * SAME value is idempotent (handled above, before this ever runs), but a DIFFERENT value for
      * an account that already holds one is rejected the same way a cross-account conflict is -
@@ -198,13 +177,9 @@ class AccountService(
     }
 
     /**
-     * A fresh account with no person behind it yet (REGISTER "Enrollment zuerst",
-     * docs/04-orchestrierung.md) - created lazily on the first completed enrollment, never
-     * upfront, so a channel that never gets that far never leaves an orphan row behind.
-     * Identification remains entirely optional and can bind a `PERSON_ID` claim (via
-     * [recordClaim]/[recordClaims], `PERSON_ID` is `ConsolidationStrategy.OwnedColumn` since
-     * docs/ideen/account-attribute-und-trust-vereinheitlichen.md Paket 4) at any later point, not
-     * just right after registration.
+     * Creates an account without a person binding. Identification binds it via [recordClaims],
+     * in the SAME caller transaction, so a failed claim also rolls back the new account.
+     * Enrollment-first registration may intentionally leave it unbound until later identification.
      */
     @Transactional
     fun createUnidentifiedAccount(): AccountProfile {
@@ -212,17 +187,6 @@ class AccountService(
         eventPublisher.publishEvent(AccountChanged(profile.accountId))
         return profile
     }
-
-    /**
-     * Same lookup [findOrCreateAccount] already does internally, exposed for the merge-conflict
-     * check a caller runs BEFORE recording a `PERSON_ID` claim on a previously unidentified
-     * account (a DIFFERENT account already owning this person) - the actual binding then goes
-     * through [recordClaim]/[recordClaims] like every other claim, not a separate direct write;
-     * [recordAnchor]'s own cross-account check is the same-shaped backstop at the anchor layer.
-     */
-    @Transactional(readOnly = true)
-    fun findAccountByPersonId(personId: Long): AccountProfile? =
-        accountRepository.findByPersonId(personId)?.let { toProfile(it) }
 
     @Transactional
     fun addIdentification(
@@ -339,21 +303,6 @@ class AccountService(
     fun enrollmentRefFor(accountId: Long, methodInstanceId: String): EnrollmentRef? =
         findAccount(accountId)?.authenticationMethods?.firstOrNull { it.id == methodInstanceId }?.let { extractEnrollmentRef(it.details) }
 
-    /**
-     * Resolved through the EMAIL anchor, not through `account.email` directly: the anchor holds
-     * the normalized form and is the one place uniqueness is enforced (docs/02-domaenenmodell.md),
-     * so a raw-column lookup would both be case-sensitive (`Max@x.de` failing to find the account
-     * that confirmed `max@x.de`) and answer from a projection that no longer carries a uniqueness
-     * guarantee of its own.
-     */
-    @Transactional(readOnly = true)
-    fun findAccountByEmail(email: String): AccountProfile? =
-        resolveByAnchor(AttributeType.EMAIL, email)?.let { findAccount(it) }
-
-    @Transactional(readOnly = true)
-    fun existsByEmail(email: String): Boolean =
-        accountAnchorRepository.existsByAttributeTypeAndValue(AttributeType.EMAIL, AttributeType.EMAIL.normalizeAnchorValue(email))
-
     @Transactional(readOnly = true)
     fun findActiveMethod(accountId: Long, method: String): AuthMethodView? =
         findAccount(accountId)?.authenticationMethods?.firstOrNull { it.active && it.method == method }
@@ -365,13 +314,13 @@ class AccountService(
 
     // AccountDirectory (tool_api) -------------------------------------------------------------
 
-    override fun resolveAccountByEmail(email: String): Long? = findAccountByEmail(email)?.accountId
-
     override fun resolveByAnchor(type: AttributeType, value: String): Long? =
         accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value))?.accountId
 
-    override fun anchorValue(accountId: Long, type: AttributeType): String? =
-        accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
+    override fun anchorValue(accountId: Long, type: AttributeType): String? {
+        check(type.anchorBindingStrength != null) { "$type is not a local account anchor" }
+        return accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
+    }
 
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.let { extractEnrollmentRef(it.details) }

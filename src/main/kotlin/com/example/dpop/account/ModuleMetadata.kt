@@ -3,7 +3,7 @@ package com.example.dpop.account
 import org.springframework.modulith.ApplicationModule
 
 /**
- * The account module must never depend on a method module. That is what keeps auth_email -> account (see that module) acyclic and therefore permissible at all.
+ * The account module and method modules are independent; they share only tool_spi/tool_api contracts.
  *
  * `tool_api` is safe alongside `tool_spi`: it is the shared SPI, not a method module, and does
  * not depend back on `account` - `AccountService` implements `tool_api.AccountDirectory` directly

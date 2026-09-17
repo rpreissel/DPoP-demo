@@ -6,6 +6,7 @@ import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.ToolEndpoint
+import com.example.dpop.tool_api.normalizeKvnr
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -121,7 +122,7 @@ class IdentEidToolController(
         toolEndpoint.requireCurrentTool(context)
 
         val body = request ?: IdentEidPatchRequest()
-        val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(it) }
+        val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(normalizeKvnr(it)) }
         val fields = EidPatchFields(
             kvnr = body.kvnr,
             name = body.name,

@@ -14,7 +14,7 @@ import org.springframework.modulith.ApplicationModule
  * `ClaimSource.DEMO_BOOTSTRAP` naming its provenance) for a different reason - bootstrap seeding
  * instead of a live enrollment/identification run.
  *
- * `account` for `recordClaim`/`addAuthenticationMethod`/`findOrCreateAccount`/`anchorValue`;
+ * `account` for `recordClaim`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue`;
  * `tool_api` for `PersonDirectory` (resolves the seeded persons) and `PasswordCredentialPort`
  * (sets the demo password without depending on `auth_password` directly).
  *

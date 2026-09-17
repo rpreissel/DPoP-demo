@@ -323,11 +323,18 @@ stateDiagram-v2
 `Identifying` ist gleichzeitig Login-Notausgang (für `FAST_ACCESS`, per Sub-Journey) und
 Registrierungseinstieg. Eine `REGISTRATION`/`LOGIN`-Trennung gibt es nicht, weil sie im
 Zustandsmodell keinen eigenen Zustand hätte: Welches von beidem es war, entscheidet erst
-`findOrCreateAccount` danach. Genau deshalb darf eine leere Kandidatenliste hier auch nicht
+die Claim-basierte Account-Auflösung danach. Genau deshalb darf eine leere Kandidatenliste hier auch nicht
 abbrechen — „keine Methode vorhanden" ist der Grund, aus dem `Identifying` als Login-Weg überhaupt
 erlaubt wird. `Identified` wird deshalb überall dort, wo `REGISTER` es verarbeitet, immer als
 „finde oder übernimm den Account" interpretiert (`AdoptIdentity`) — `RE_IDENTIFY` selbst nutzt
 stattdessen `ConfirmIdentity`, weil dort der Account bereits bekannt ist.
+
+Bei `Resolution.NewInteressent` entsteht zunächst ein Account ohne Personenbindung.
+`recordClaims` schreibt anschließend PersonId wie E-Mail über den gemeinsamen Claim-/Ankerpfad.
+Anlage, Claims und Journey-Zustand teilen dieselbe Transaktion; ein Konflikt rollt auch den
+neuen Account zurück. Bekannte Konten werden ausschließlich über Anker bzw. das nachrangige
+Attributmatching aufgelöst. Bei `ConfirmIdentity` erzwingt die Account-Schicht Erstbindung,
+Unveränderlichkeit der PersonId und Ankerbesitz, ohne separaten PersonId-Repository-Lookup.
 
 **Web-Kanal (seit DPoP-demo-urt):** `REGISTER` ist neben `KC_SELECT_METHOD` ein zweiter,
 Web-nutzbarer Entry-Intent — `PATCH /kc/channels/{channelSessionId}` mit `intent=register`
@@ -1121,7 +1128,7 @@ noch keine aktive `password`-Methode existiert, wird stattdessen `PasswordObliga
 
 **Reihenfolge, technisch erzwungen, nicht gewählt**: `PasswordObligation` steht *nach*
 `ConfirmingEmail`, nicht davor — `enroll-password` selbst setzt eine bestätigte E-Mail voraus
-(`ToolDescriptor.requiresConfirmedEmail`, [Tool-Architektur](03-tool-architektur.md) Abschnitt 1);
+(`ToolDescriptor.requires` mit `ClaimRequirement(EMAIL, PROVEN)`, [Tool-Architektur](03-tool-architektur.md) Abschnitt 1);
 `enroll-password` ist vor bestätigter E-Mail nicht einmal Kandidat. Die Kette lautet deshalb
 zwingend `Enrolling → ConfirmingEmail → PasswordObligation`, unabhängig davon, welche Reihenfolge
 fachlich naheliegender schiene.

@@ -86,7 +86,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             enrollDevice(channelASessionId, deviceAKey, "Laptop")
 
             // Device B: a different physical device (different bindingKeyRef, never linked before) -
-            // re-identifies into the SAME account (same KVNR -> findOrCreateAccount reuses it) and
+            // re-identifies into the SAME account (the PERSON_ID anchor resolves it) and
             // enrolls its OWN key. Must NOT deactivate device A's credential.
             val deviceBKey = ECKeyGenerator(Curve.P_256).generate()
             currentChannelKey = deviceBKey

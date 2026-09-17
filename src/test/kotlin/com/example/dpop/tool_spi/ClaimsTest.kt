@@ -63,6 +63,17 @@ class ClaimsTest : BehaviorSpec({
         then("establishedLoa defaults to null") {
             Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(ToolId("enroll-email"))).establishedLoa shouldBe null
         }
+        then("rejects malformed shared identity values") {
+            shouldThrow<IllegalStateException> {
+                Claim(AttributeType.PERSON_ID, "not-a-number", ClaimSource.EXT_STAMMDATEN).validateValue()
+            }
+            shouldThrow<IllegalStateException> {
+                Claim(AttributeType.GEBURTSDATUM, "31.12.1970", ClaimSource.EXT_STAMMDATEN).validateValue()
+            }
+            shouldThrow<IllegalStateException> {
+                Claim(AttributeType.EMAIL, " ", ClaimSource.SELF_REPORTED).validateValue()
+            }
+        }
     }
 
     given("ClaimRequirement") {

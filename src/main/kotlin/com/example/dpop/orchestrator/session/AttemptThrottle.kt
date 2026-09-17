@@ -23,7 +23,7 @@ enum class ThrottleScope {
      * IDENT attempts against one person. Deliberately NOT folded into [ACCOUNT]: an
      * identification runs before any account is known (and may create one), so there is no
      * accountId to key on - yet `ident-fsc` guesses exactly one secret and its success is a full
-     * account adoption via `findOrCreateAccount`.
+     * account adoption through the identified claims.
      */
     PERSON,
 

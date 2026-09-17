@@ -37,6 +37,8 @@ interface PersonDirectory {
     fun displayName(personId: Long): String?
 }
 
+fun normalizeKvnr(kvnr: String): String = kvnr.trim().uppercase()
+
 /**
  * The attributes a claimed identity (e.g. an eID card read) can be verified against - never the
  * KVNR, which resolves [PersonDirectory.findPersonIdByKvnr] itself. `null` means the attestation

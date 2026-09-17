@@ -15,13 +15,15 @@ import com.example.dpop.tool_spi.AttributeType
 /**
  * The binding strength an anchor match on this attribute type carries, or `null` if this
  * attribute is no anchor at all. `PERSON_ID` outranks the others (3) - it is the strongest
- * possible identity match; `EMAIL`/`KVNR` share rank 2. A new anchor kind is a deliberate new
+ * possible identity match; `EMAIL` has rank 2. KVNR is resolved live through PersonDirectory,
+ * not stored as a local account anchor. A new anchor kind is a deliberate new
  * case here, not a silently-added `if`.
  */
 val AttributeType.anchorBindingStrength: Int?
     get() = when (this) {
         AttributeType.PERSON_ID -> 3
-        AttributeType.EMAIL, AttributeType.KVNR -> 2
+        AttributeType.EMAIL -> 2
+        AttributeType.KVNR,
         AttributeType.NAME,
         AttributeType.VORNAME,
         AttributeType.GEBURTSDATUM,
@@ -38,8 +40,15 @@ val AttributeType.anchorBindingStrength: Int?
  */
 fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.PERSON_ID -> value.trim().toLong().toString()
-    AttributeType.KVNR -> Kvnr.of(value).value
     AttributeType.EMAIL -> Email.of(value).value
+    AttributeType.KVNR -> {
+        // Format-validate first (Kvnr.of throws IllegalArgumentException for a malformed value,
+        // same contract as any other bad input) - only THEN refuse the local-anchor question
+        // itself: KVNR is resolved live through PersonDirectory (docs/ideen/account-attribute-
+        // und-trust-vereinheitlichen.md), never stored/looked up as a local account_anchor row.
+        Kvnr.of(value)
+        error("$this is not a local account anchor - resolved live via PersonDirectory")
+    }
     AttributeType.NAME,
     AttributeType.VORNAME,
     AttributeType.GEBURTSDATUM,
@@ -51,9 +60,8 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
  * on the SAME account. `PERSON_ID` is `false` - immutable after first binding
  * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "PersonId bleibt nach
  * Erstbindung unveraenderlich"); `EMAIL` is `true` - re-provable and therefore changeable.
- * `KVNR` stays normalizable for the existing read path but has no productive anchor WRITE path
- * in this codebase yet, so asking here is a contract error, same as for a non-anchor attribute -
- * both throw rather than silently answering `true`/`false` for a case nothing actually exercises.
+ * `KVNR` is owned and changed by ext_stammdaten, not by the account's anchor projection.
+ * Asking for a local replacement rule for it is a contract error.
  */
 val AttributeType.allowsAnchorReplacement: Boolean
     get() = when (this) {

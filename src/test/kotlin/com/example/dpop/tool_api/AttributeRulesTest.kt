@@ -9,7 +9,7 @@ import io.kotest.matchers.shouldBe
 /**
  * Unit test for the anchor-role vocabulary (docs/ideen/account-attribute-und-trust-
  * vereinheitlichen.md): exactly one normalization rule per anchor kind, applied identically on
- * write and lookup, and the attribute -> anchor-binding-strength mapping - PERSON_ID, KVNR and
+ * write and lookup, and the attribute -> anchor-binding-strength mapping - PERSON_ID and
  * EMAIL are anchors today, `phone_number` is the documented next case and stays unmapped until
  * it grows one.
  */
@@ -19,11 +19,11 @@ class AttributeRulesTest : BehaviorSpec({
         then("PERSON_ID outranks the other anchors") {
             AttributeType.PERSON_ID.anchorBindingStrength shouldBe 3
         }
-        then("KVNR and EMAIL share the same rank") {
-            AttributeType.KVNR.anchorBindingStrength shouldBe 2
+        then("EMAIL is weaker than PERSON_ID") {
             AttributeType.EMAIL.anchorBindingStrength shouldBe 2
         }
         then("non-anchor attributes are null") {
+            AttributeType.KVNR.anchorBindingStrength.shouldBeNull()
             AttributeType.PHONE_NUMBER.anchorBindingStrength.shouldBeNull()
             AttributeType.NAME.anchorBindingStrength.shouldBeNull()
             AttributeType.VORNAME.anchorBindingStrength.shouldBeNull()
@@ -40,9 +40,9 @@ class AttributeRulesTest : BehaviorSpec({
                 shouldThrow<IllegalArgumentException> { AttributeType.EMAIL.normalizeAnchorValue("not-an-email") }
             }
         }
-        `when`("normalizing a kvnr") {
-            then("it folds to trimmed uppercase") {
-                AttributeType.KVNR.normalizeAnchorValue(" a123456789 ") shouldBe "A123456789"
+        `when`("attempting a local kvnr anchor lookup") {
+            then("it refuses because KVNR belongs to the live master data") {
+                shouldThrow<IllegalStateException> { AttributeType.KVNR.normalizeAnchorValue(" a123456789 ") }
             }
             then("a malformed value fails explicitly (Kvnr.of)") {
                 shouldThrow<IllegalArgumentException> { AttributeType.KVNR.normalizeAnchorValue("not-a-kvnr") }
@@ -70,7 +70,7 @@ class AttributeRulesTest : BehaviorSpec({
         then("EMAIL is re-provable and therefore changeable") {
             AttributeType.EMAIL.allowsAnchorReplacement shouldBe true
         }
-        then("KVNR has no productive write path yet and rejects the question explicitly") {
+        then("KVNR belongs to ext_stammdaten and rejects local replacement") {
             shouldThrow<IllegalStateException> { AttributeType.KVNR.allowsAnchorReplacement }
         }
         then("a non-anchor attribute rejects the question explicitly") {

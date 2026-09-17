@@ -6,6 +6,7 @@ import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
+import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_spi.ToolOutcome
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content

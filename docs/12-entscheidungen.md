@@ -400,9 +400,9 @@ absteigend sortiert, die Stärkeordnung ist damit eine Eigenschaft des Codes, ni
 `Set`-Implementierung des Aufrufers. Drittens fing `findOrCreateAccount` die
 `UNIQUE(person_id)`-Kollision selbst nicht ab — der Verlierer eines Rennens zweier gleichzeitiger
 Step-up-Kanäle bekam einen Serverfehler statt des inzwischen existierenden Kontos; eine eigene,
-in `REQUIRES_NEW` laufende Bean (`AccountRaceSafeCreator.createIfAbsent`) versucht jetzt zu
-erstellen und behandelt die Konfliktantwort als „existiert bereits", bevor der Aufrufer erneut
-liest.
+in `REQUIRES_NEW` laufende Bean (`AccountRaceSafeCreator.createIfAbsent`) behandelte zunächst
+die Konfliktantwort als „existiert bereits". Dieser Zwischenstand ist durch die atomare
+Claim-Übernahme unten abgelöst.
 
 **Nachtrag 2** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md), alle 7 Pakete): `person_id` ist seither
 kein Sonderfall mehr, sondern `ConsolidationStrategy.OwnedColumn` mit eigenem `account_anchor`-
@@ -416,6 +416,30 @@ ein Konto, das schon einen anderen Wert gebunden hat, wird ebenfalls per
 kennt `person_id` seither als gewöhnlichen (höchstrangigen) Anker, kein separater
 `resolveByPersonIdProjection`-Zweig mehr; `MatchedVia.PersonId` ist entfallen zugunsten von
 `MatchedVia.Anchor(PERSON_ID)`.
+
+**Nachtrag 3 — atomare Account-Anlage:** `findOrCreateAccount`, `AccountRaceSafeCreator` und
+der direkte Account-Repository-Lookup per PersonId entfallen. `findAccountByPersonId` und
+`findAccountByEmail` bleiben als Extensions auf `AccountService` erhalten; beide delegieren
+an `resolveByAnchor` und lesen danach das Profil, ohne eigenen Repository-Sonderpfad oder
+eigene Transaktionsgrenze. Ein neues Konto entsteht ungebunden
+und erhält seine PersonId ausschließlich über `recordClaims`, gemeinsam mit Log und Anker in
+der Journey-Transaktion. Der Verlierer einer konkurrierenden Bindung erhält nach vollständigem
+Rollback `409 INVALID_STATE_TRANSITION`, statt automatisch das Gewinnerkonto zu übernehmen.
+Auch ein Fehler nach erfolgreicher Claim-Übernahme lässt keinen vorab committeten Account zurück.
+Ein abgeleiteter `Identified.personId`-Getter für Protokollierung und Drosselung bleibt zulässig:
+Er liest den Pflicht-Claim, speichert aber keine zweite Identitätsquelle.
+
+Die ID-Komfortfunktionen `resolveAccountByEmail`, `resolveAccountByPersonId` und
+`resolveAccountByKvnr` sind Extensions auf `AccountDirectory`, keine Port-Methoden oder
+Service-Overrides. Die Profil-Extensions auf `AccountService` delegieren zuerst an diese
+ID-Lookups und laden nur bei Bedarf das Profil. Der ungenutzte `existsByEmail`-Sonderweg
+und eine ungenutzte Profil-Erzeugung beim Claim-Schreiben sind entfernt.
+
+**KVNR-Zuständigkeit:** Die eindeutige, zeitlich änderbare KVNR wird ausschließlich durch
+`ext_stammdaten` verwaltet. KVNR → externe PersonId → lokaler PersonId-Anker → Account ist
+der aktuelle Suchpfad. KVNR ist kein lokaler Account-Ankertyp mehr; historische Claims dürfen
+weiter gespeichert, aber nicht als aktuelle KVNR-Zuordnung verwendet werden. E-Mail bleibt
+dagegen ein im Account-System bestätigter, wechselbarer Anker.
 
 ---
 

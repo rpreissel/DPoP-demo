@@ -44,7 +44,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 registerAndAuthenticate()
 
                 // A brand-new channel (e.g. a different device) identifies with the SAME KVNR -
-                // findOrCreateAccount (docs/05-api.md #2) reuses the existing account instead of a second one.
+                // Claim-based identity resolution reuses the existing account instead of a second one.
                 currentBindingKeyRef = "binding-" + UUID.randomUUID()
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String

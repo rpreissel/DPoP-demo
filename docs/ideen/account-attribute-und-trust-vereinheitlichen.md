@@ -1,9 +1,11 @@
 # Implementierungsplan: Account-Attribute und Trust-Begriffe vereinheitlichen
 
-Status: **abgestimmter Zielentwurf, noch nicht implementiert**.
+Status: **Implementierungsplan mit praezisiertem Zielbild**. Die atomare Account-Anlage und
+KVNR-Aufloesung wurden nachtraeglich freigegeben; aktueller Vertrag:
+[ADR-11](../12-entscheidungen.md), Nachtrag 3, und [Konsistenz-Regeln](../07-betrieb.md).
 
 Dieses Dokument konkretisiert das [Claims-Zielbild](claims-modell-und-vertrauensanker.md).
-Freigegeben ist die Erstellung dieses Plans, nicht die unten beschriebene Code-Implementierung. Die zusaetzlichen Terminologievorschlaege sind gesondert zur Auswahl gestellt.
+Die zusaetzlichen Terminologievorschlaege bleiben gesondert zur Auswahl gestellt.
 
 ## Arbeitsanweisung fuer das implementierende Modell
 
@@ -30,7 +32,7 @@ Mit dem Nutzer abgestimmt:
 - Trust-Begriffe werden vereinfacht, ohne Quellenrang, Identifikatorstaerke und Authentifizierungsniveau fachlich zusammenzulegen.
 - `TrustAnchor` wird `ClaimSource`, `AnchorClass` wird `TrustLevel`; der Rang wird zentral aus der Quelle abgeleitet.
 - `AnchorType` entfaellt als doppelte Attribut-Taxonomie. `AttributeType` ist der einzige Attribut-Schluessel, auch fuer Ankeroperationen.
-- Dies ist ein Planungsauftrag. Kein Implementierungsstart, Commit, Push oder Remote-Sync ohne weitere Freigabe.
+- Implementierung der atomaren Account-Anlage und Live-KVNR-Aufloesung ist freigegeben; Ausgabe als Mail-Patch, kein Commit, Push oder Remote-Sync.
 
 ## Analyse des Ist-Zustands
 
@@ -99,9 +101,10 @@ Persistenzkompatibilitaet: `account_attribute.trust_anchor` und die bisherigen g
 
 Keine neue Typ-Hierarchie als Ersatz fuer `AnchorType`. Seine kleinen Regeln liegen als Extensions auf `AttributeType` in `tool_api/AttributeRules.kt`; `tool_spi` bleibt frei von Persistenzwissen:
 
-- `anchorBindingStrength: Int?`: `PERSON_ID` = 3, `EMAIL`/`KVNR` = 2, sonst `null`. `null` bezeichnet explizit ein Nicht-Anker-Attribut, keinen fehlgeschlagenen Lookup.
-- `normalizeAnchorValue(value: String): String`: PersonId als kanonische, validierte Long-Darstellung; E-Mail trim/lowercase und KVNR trim/uppercase wie bisher. Nicht-Anker-Aufrufe sind Vertragsfehler, kein Durchreichen des Rohwerts. Ungueltige PersonId darf nicht still auf schwaecheres Matching zurueckfallen.
-- `allowsAnchorReplacement: Boolean`: PersonId = false, E-Mail = true. KVNR bleibt fuer die bestehende Lesefunktion normalisierbar, erhaelt aber in diesem Vorhaben keinen produktiven Schreibpfad; Ersatzversuche fuer KVNR oder Nicht-Anker explizit ablehnen.
+- `anchorBindingStrength: Int?`: `PERSON_ID` = 3, `EMAIL` = 2, sonst `null`, auch fuer KVNR. `null` bezeichnet explizit ein Nicht-Anker-Attribut, keinen fehlgeschlagenen Lookup.
+- `normalizeAnchorValue(value: String): String`: PersonId als kanonische, validierte Long-Darstellung; E-Mail trim/lowercase. Nicht-Anker-Aufrufe sind Vertragsfehler, kein Durchreichen des Rohwerts. Ungueltige PersonId darf nicht still auf schwaecheres Matching zurueckfallen.
+- `allowsAnchorReplacement: Boolean`: PersonId = false, E-Mail = true. KVNR wird ausschliesslich von `ext_stammdaten` verwaltet und kann dort geaendert werden; keine lokale Ankerersetzung.
+- KVNR-Suchen normalisieren trim/uppercase und fuehren ueber `PersonDirectory.findPersonIdByKvnr` zum PersonId-Anker. Historische KVNR-Claims bleiben Provenanz, keine aktuelle Account-Zuordnung. Es gibt weder einen lokalen KVNR-Anker noch eine synchron zu haltende Kopie.
 - `PERSON_ID` wird wie `EMAIL` lokal projiziert (`OwnedColumn`). Namen, Geburtsdatum und andere bisher delegierte Stammdaten bleiben `ExternalLiveLookup`.
 - `Account.applyOwnedColumn` setzt beide Projektionsarten. Die generische Service-Operation erzwingt die typabhaengigen Bindungsregeln vor der Mutation.
 - `AccountService.recordClaims(accountId, claims)` ist die gemeinsame transaktionale Mehrclaim-Operation: gesamte Eingabe pruefen und Log, Anker und Account gemeinsam schreiben. `recordClaim` nur als delegierenden Komfort-Wrapper behalten, falls benoetigt. Kein zusaetzlicher Service-Layer.
@@ -111,7 +114,7 @@ Die Fallunterscheidungen liegen zentral in dieser kleinen Datei, nicht erneut in
 
 ### Gemeinsame Aufloesung
 
-Alle Account-Identifikator-Lookups laufen ueber `account_anchor`, auch PersonId. `AccountDirectory.resolveByAnchor(type: AttributeType, value)` und `anchorValue(accountId, type: AttributeType)` behalten ihre Operationsnamen, pruefen aber die Anker-Eignung des Typs explizit. Typisierte Komfortmethoden duerfen bleiben, delegieren aber an denselben Pfad.
+Lokale Account-Identifikator-Lookups laufen ueber `account_anchor`, auch PersonId. KVNR wird vorgeschaltet live in den Stammdaten zur PersonId aufgeloest. `AccountDirectory.resolveByAnchor(type: AttributeType, value)` und `anchorValue(accountId, type: AttributeType)` behalten ihre Operationsnamen, pruefen aber die lokale Anker-Eignung des Typs explizit. Typisierte Komfortmethoden bleiben als Extensions: PersonId und E-Mail delegieren an denselben Ankerpfad, KVNR zuerst an `PersonDirectory`.
 
 Der Resolver priorisiert anhand expliziter Ankerstaerke statt eines separaten PersonId-Repository-Zweigs oder der zufaelligen Claim-Reihenfolge. `MatchedVia.Anchor` traegt auch PersonId; dessen Staerke wird aus der Typregel abgeleitet, `MatchedVia.PersonId` entfaellt nach Umstellung seiner Verbraucher.
 
@@ -181,7 +184,7 @@ Extensions wie oben beschrieben einfuehren; alle `AnchorType`-Argumente auf `Att
 
 Claim-Pruefung um Eindeutigkeit pro Attribut und gueltige Werte erweitern. Den Pflicht-PersonId-Check nur am IDENT-Erfolgsvertrag anwenden, nicht pauschal auf Enrollment oder den auch fuer andere Claim-Sets verwendeten Resolver. Bestehende Deklarations- und Quellenpruefung erhalten.
 
-**Fertig wenn:** Kein produktiver `AnchorType` mehr existiert; E-Mail/KVNR normalisieren wie bisher; PersonId normalisiert eindeutig; Nicht-Anker-Aufrufe und ungueltige PersonId scheitern explizit.
+**Fertig wenn:** Kein produktiver `AnchorType` mehr existiert; E-Mail und externe KVNR-Suchen normalisieren wie bisher; PersonId normalisiert eindeutig; lokale Nicht-Anker-Aufrufe und ungueltige PersonId scheitern explizit.
 
 ### 3. `anchor-migration`: Bestand sicher auf PersonId-Anker umstellen
 
@@ -276,4 +279,6 @@ Die dokumentierten spaeteren Ausbaustufen bleiben Zielbild, werden aber nicht al
 
 Vor einer freigegebenen Implementierung passende Beads-Aufgaben suchen beziehungsweise anlegen und beanspruchen. Die Ablage dieses Dokuments unter `docs/ideen/` ist eine gesonderte Dokumentationsfreigabe; sie gibt weder die Implementierung noch die zusaetzlichen Terminologievorschlaege frei.
 
-Implementierung bleibt bis zur ausdruecklichen Freigabe ausstehend. Migrationspaket ist zusaetzlich durch den beschriebenen Dateizugriff begrenzt.
+Fuer weitere Aenderungen ausserhalb der freigegebenen atomaren Anlage und KVNR-Aufloesung ist
+eine gesonderte Freigabe erforderlich. Die historische Zugriffsgrenze fuer Migrationen bleibt
+dokumentiert; dieser Patch aendert keine Migrationen.
