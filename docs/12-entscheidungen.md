@@ -52,7 +52,7 @@ Fremdschlüssel auf einzelne JSON-Attribute sind nicht möglich, Konsistenz muss
 
 ## ADR-3: `ChannelSession` bewusst kurzlebig, Geräte-Identität in `DeviceAccountLink`
 
-**Entscheidung**: `ChannelSession` hat eine kurze TTL (24 Stunden, [Betrieb](07-betrieb.md)) und
+**Entscheidung**: `ChannelSession` hat eine begrenzte Aufbewahrungsfrist (30 Tage, [Betrieb](07-betrieb.md)) und
 trägt keine langlebige Geräte-Zuordnung. Die einzige dauerhafte Zuordnung Gerät -> Account
 (`bindingKeyRef -> accountId`) liegt in `DeviceAccountLink`, einer eigenen, von jeder einzelnen
 `ChannelSession` unabhängigen Tabelle ([Domänenmodell](02-domaenenmodell.md) Abschnitt 1,

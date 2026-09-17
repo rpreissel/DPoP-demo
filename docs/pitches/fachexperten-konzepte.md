@@ -111,10 +111,11 @@ desto höher die Hürde:
 ```mermaid
 flowchart LR
   L1["loa1<br/>Basis"] --> L2["loa2<br/>Methoden verwalten,<br/>QR-Login bestätigen"]
-  L2 --> L3["loa3<br/>Konto löschen"]
+  L2 --> L3["loa3<br/>stärkere Identifikation"]
 ```
 
-Das ist an genau der Stelle im Modell festgelegt, an der das jeweilige Ziel beschrieben ist —
+Konto löschen verlangt aktuell `loa2` **und** einen frischen Faktor, nicht `loa3`. Das ist an
+genau der Stelle im Modell festgelegt, an der das jeweilige Ziel beschrieben ist —
 nicht verteilt über Prüfungen, die überall im Code passieren könnten. Eine fachliche
 Entscheidung wie „QR-Bestätigung braucht künftig einen frischen Nachweis, kein altes
 Niveau" ist damit eine punktuelle, nachvollziehbare Änderung an der Beschreibung dieses

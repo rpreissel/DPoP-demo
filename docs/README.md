@@ -69,7 +69,7 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
 Drei Session-Ebenen mit fallender Lebensdauer:
 
 - **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web), nie direkt fachlicher Challenge-State.
-- **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird (`FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS`).
+- **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird. Einstieg: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `KC_SELECT_METHOD`, `CONFIRM_PEER_LOGIN`; innerhalb eines bestehenden Kanals: `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`, `LOGOUT`, `RE_IDENTIFY`.
 - **AuthJourney**: ein laufender Durchlauf eines Intents; läuft über ein oder mehrere Tools.
 - **JourneyState**: die Position auf diesem Weg samt ihrer Attribute (was angeboten wurde, was abgelehnt ist, welches Tool läuft); je Intent eine eigene versiegelte Zustandsmenge.
 - **ToolSession**: ein einzelner Tool-Durchlauf innerhalb einer Journey (z. B. die TAN-Eingabe bei `auth-sms`); trägt nur Lifecycle-Metadaten, die Fachdaten liegen im Modul.
@@ -85,7 +85,8 @@ Diese Dokumentation beschreibt das **Zielbild**; Backend und Frontend wurden gem
 [11-umsetzungsplan.md](11-umsetzungsplan.md) vollständig darauf umgebaut, einschließlich der
 Keycloak-Anbindung ([12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Die
 verbleibenden bewussten Scope-Entscheidungen stehen in
-[11-umsetzungsplan.md](11-umsetzungsplan.md).
+[11-umsetzungsplan.md](11-umsetzungsplan.md); bekannte Betriebsrisiken in
+[07-betrieb.md](07-betrieb.md) und [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md).
 
 ---
 
@@ -93,7 +94,7 @@ verbleibenden bewussten Scope-Entscheidungen stehen in
 
 1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (+`JourneyState` je Intent), `AuthContext`, `SessionEvent`, `ToolSession`, `DeviceAccountLink`.
 2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool — `ident-fsc`, `ident-eid`, `enroll-sms`/`auth-sms`/`auth-sms-lookup`, `enroll-password`/`auth-password`/`auth-password-lookup`, `enroll-email`/`auth-email`/`auth-email-lookup`, `enroll-device`/`auth-device`, `enroll-qr`/`auth-qr`/`auth-qr-lookup`, `confirm-qr-login` ([03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1).
-3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Cancel (`POST .../cancel`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
+3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Journey-Abbruch (`DELETE /channels/{channelSessionId}/journey`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
 4. **Keycloak-Fassade** ✅: `/orchestrator/api/v1/kc/...` (`KcChannelController`/`KcMeController`/`KeycloakSyncController`), inkl. Step-up und Server-zu-Server-Anbindung an Keycloaks native Credentials ([05-api.md](05-api.md) Abschnitt 3, [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9).
 5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus (siehe [11-umsetzungsplan.md](11-umsetzungsplan.md) Abschnitt 4).
 

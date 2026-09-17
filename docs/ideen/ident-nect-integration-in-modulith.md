@@ -109,9 +109,9 @@ internal const val NECT_METHOD = "nect"
 object IdentNectDescriptor : ToolDescriptor {
     override val toolId = "ident-nect"
     override val method = NECT_METHOD
-    override val role = ToolRole.IDENTIFICATION
+    override val role = MethodRole.IDENTIFICATION
     override val factorTypes = setOf(FactorType.POSSESSION)
-    override val maxAcr = Acr.LOA2
+    override val maxAcr = AcrLevel.LOA2
 }
 ```
 

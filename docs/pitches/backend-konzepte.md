@@ -49,8 +49,7 @@ flowchart LR
 
   KC["Keycloak"]
   EXT1["externer SMS-Versand"]
-  KOBIL["Kobil"]
-  KC ~~~ EXT1 ~~~ KOBIL
+  KC ~~~ EXT1
 
   NE --> O
   O --> KC
@@ -62,15 +61,13 @@ flowchart LR
   UI3 --> M3
 
   M1 -.-> EXT1
-  UI3 -. "geräteeigenes SDK, kein Umweg möglich" .-> KOBIL
-  M3 -.-> KOBIL
 ```
 
 ### Zwei Kanäle, ein Modell
 
 Das Bild oben zeigt bewusst nur den App-Kanal (eigene UI, DPoP-Proof pro Request) — aus
 Backend-Sicht ist das aber nur eine von zwei Fassaden vor demselben Orchestrator. Ein
-`Channel` trägt seinen `channelType` (`APP`/`KEYCLOAK`) fest für seine ganze Lebenszeit
+`ChannelSession` trägt ihren `channel` (`APP`/`KEYCLOAK`) fest für ihre ganze Lebenszeit
 ([02-domaenenmodell.md](../02-domaenenmodell.md)), aber Journey/Tool/`next` — alles, was
 oben und im Sequenzdiagramm unten beschrieben ist — läuft für beide identisch.
 
@@ -112,9 +109,9 @@ flowchart TD
 ```
 
 Ineinander geschachtelt, keine Kette von Vorher/Nachher — genau das bildet `next` in
-jeder `ChannelResponse` ab. Journeys sind nach ihrem Ziel benannt (`LOGIN`, `STEP_UP`,
-`MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`, dazu Web-spezifisch `KC_SELECT_METHOD` und
-`CONFIRM_PEER_LOGIN` für die kanalübergreifende QR-Anmeldung), Tools nach Verfahren und
+jeder `ChannelResponse` ab. Journeys sind nach ihrem Ziel benannt (`FAST_ACCESS`, `REGISTER`,
+`LOOKUP_LOGIN`, `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`, dazu Web-spezifisch
+`KC_SELECT_METHOD` und `CONFIRM_PEER_LOGIN` für die kanalübergreifende QR-Anmeldung), Tools nach Verfahren und
 Zweck (`enroll-sms` richtet ein, `auth-sms` benutzt ein bereits eingerichtetes).
 
 Der Rest dieses Dokuments zoomt in genau die `Backend`-Box hinein: Wie hängen Orchestrator und

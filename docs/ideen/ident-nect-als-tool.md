@@ -98,9 +98,9 @@ Orchestrator          id_nect-Tool         Frontend           ext-ident        N
 object IdentNectDescriptor : ToolDescriptor {
     override val toolId = "ident-nect"
     override val method = "nect"
-    override val role = ToolRole.IDENTIFICATION
+    override val role = MethodRole.IDENTIFICATION
     override val factorTypes = setOf(FactorType.POSSESSION)  // ePass/eID
-    override val maxAcr = Acr.LOA2
+    override val maxAcr = AcrLevel.LOA2
 }
 ```
 

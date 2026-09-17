@@ -52,8 +52,7 @@ flowchart LR
 
   KC["Keycloak"]
   EXT1["externer SMS-Versand"]
-  KOBIL["Kobil"]
-  KC ~~~ EXT1 ~~~ KOBIL
+  KC ~~~ EXT1
 
   NE --> O
   O --> KC
@@ -65,8 +64,6 @@ flowchart LR
   UI3 --> M3
 
   M1 -.-> EXT1
-  UI3 -. "geräteeigenes SDK, kein Umweg möglich" .-> KOBIL
-  M3 -.-> KOBIL
 ```
 
 Jedes Verfahren hat auf beiden Seiten eine eigene, gleichnamige, kleine Einheit: im
@@ -84,10 +81,10 @@ flowchart TD
   J --> T["Tool<br/><em>Verfahren, das gerade dran ist, z. B. auth-sms</em>"]
 ```
 
-Ein `Channel` ist die Verbindung zwischen App und Backend für diesen Besuch, verankert am
+Eine `ChannelSession` ist die Verbindung zwischen App und Backend für diesen Besuch, verankert am
 DPoP-Schlüssel dieses Geräts. Innerhalb läuft eine `Journey` — der vom Backend geführte
-Ablauf für genau ein Ziel: `LOGIN` (Registrieren, Automatisch anmelden oder Neu anmelden
-führen alle zum selben Ziel), `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`. Eine
+Ablauf für genau ein Ziel: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `STEP_UP`,
+`MANAGE_AUTH_METHODS` oder `DELETE_ACCOUNT`. Eine
 Journey besteht wiederum aus einem oder mehreren `Tool`s, benannt danach, ob sie ein
 Verfahren einrichten (`enroll-sms`) oder ein bereits eingerichtetes benutzen (`auth-sms`).
 Channel, Journey und Tool sind also ineinander geschachtelt, keine Kette von
@@ -105,10 +102,9 @@ Zwei Ergänzungen aus der Praxis:
   brauchen dafür aus technischen Gründen ohnehin ein eigenes Protokoll statt des üblichen
   Anfrage/Antwort-Schemas (WebAuthn, eID-Redirect) — bleibt aber auf diese eine
   UI-Komponente begrenzt.
-- Ein Tool-Modul kann intern an weitere Dienste delegieren (SMS-Versand, ...) — für App
-  und Orchestrator unsichtbar. `auth_device` etwa spricht dafür mit Kobil. Spiegelbildlich
-  greift auch die Geräte-UI selbst direkt auf Kobil zu, wenn ein Schritt an ein
-  geräteeigenes SDK gebunden ist, das sich nicht über das Backend führen lässt.
+- Ein Tool-Modul kapselt seine technische Umsetzung vollständig. Der aktuelle
+  `auth_device`-Demoablauf validiert den Geräte-Proof im Orchestrator; direkte
+  Fremdsystem-Aufrufe der Geräte-UI gehören nicht zum implementierten Vertrag.
 - Den OIDC-Tokenfluss gegen Keycloak führt ausschließlich der Orchestrator — dafür gibt es
   in der App keinen eigenen, direkten Weg. Ein eigenes `account`-Modul im Backend legt
   Accounts an und hält sie mit Keycloak synchron; auch das bleibt vollständig hinter dem

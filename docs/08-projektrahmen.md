@@ -172,7 +172,7 @@ Aufbewahrung und Löschung in [07-betrieb.md](07-betrieb.md).
 - **Build**: Gradle 9.x mit Kotlin-DSL (`build.gradle.kts`, `settings.gradle.kts`)
 - **Versionsverwaltung**: Gradle Version Catalog in `gradle/libs.versions.toml`
 - **Persistenz**: H2 + Spring Data JPA + Flyway
-- **Frontend**: React 19.x + TypeScript 6.x mit Vite 8.x
+- **Frontend**: React 19.x + TypeScript 7.x mit Vite 8.x
 - **Frontend-Integration**: Vite-Build schreibt in `src/main/resources/static`; Gradle führt `npm install` und `npm run build` aus
 - **Test**: JUnit 5 mit Spring Boot Test und Spring Modulith Test-Starter
 
