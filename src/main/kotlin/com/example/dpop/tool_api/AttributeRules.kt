@@ -32,14 +32,14 @@ val AttributeType.anchorBindingStrength: Int?
  * Canonical form of [value] for storage and lookup, applied identically on write
  * (`AccountService` stores the normalized form) and on read (`AccountDirectory.resolveByAnchor`),
  * so spellings agree regardless of who typed them. `PERSON_ID` normalizes to the canonical
- * decimal representation of its `Long` value - an invalid value throws rather than falling back
- * to a weaker match. Calling this for a non-anchor attribute type is a contract error: it throws
- * instead of silently handing back the raw value.
+ * decimal representation of its `Long` value; `EMAIL`/`KVNR` go through [Email]/[Kvnr] - an
+ * invalid value throws rather than falling back to a weaker match. Calling this for a non-anchor
+ * attribute type is a contract error: it throws instead of silently handing back the raw value.
  */
 fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.PERSON_ID -> value.trim().toLong().toString()
-    AttributeType.KVNR -> value.trim().uppercase()
-    AttributeType.EMAIL -> value.trim().lowercase()
+    AttributeType.KVNR -> Kvnr.of(value).value
+    AttributeType.EMAIL -> Email.of(value).value
     AttributeType.NAME,
     AttributeType.VORNAME,
     AttributeType.GEBURTSDATUM,

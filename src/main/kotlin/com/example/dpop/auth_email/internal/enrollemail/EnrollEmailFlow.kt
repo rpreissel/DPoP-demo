@@ -1,6 +1,7 @@
 package com.example.dpop.auth_email.internal.enrollemail
 
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
+import com.example.dpop.tool_api.Email
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.demoData
 import java.time.Instant
@@ -72,12 +73,8 @@ internal object EnrollEmailFlow {
 
     fun decide(state: EnrollEmailState, input: EnrollEmailInput, emailCodeGenerator: EmailCodeGenerator): EnrollEmailDecision {
         input.email?.let { raw ->
-            val normalized = raw.trim().lowercase()
-            return if (EMAIL_PATTERN.matches(normalized)) {
-                EnrollEmailDecision.RequestCode(normalized)
-            } else {
-                EnrollEmailDecision.InvalidEmail(raw)
-            }
+            val email = Email.ofOrNull(raw) ?: return EnrollEmailDecision.InvalidEmail(raw)
+            return EnrollEmailDecision.RequestCode(email.value)
         }
         return when (state) {
             is EnrollEmailState.AwaitingEmail -> EnrollEmailDecision.Unchanged(state)
@@ -91,6 +88,4 @@ internal object EnrollEmailFlow {
             }
         }
     }
-
-    private val EMAIL_PATTERN = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$".toRegex()
 }

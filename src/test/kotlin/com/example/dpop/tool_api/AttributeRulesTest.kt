@@ -36,10 +36,16 @@ class AttributeRulesTest : BehaviorSpec({
             then("it folds to trimmed lowercase") {
                 AttributeType.EMAIL.normalizeAnchorValue("  Max@Example.COM ") shouldBe "max@example.com"
             }
+            then("a malformed value fails explicitly (Email.of)") {
+                shouldThrow<IllegalArgumentException> { AttributeType.EMAIL.normalizeAnchorValue("not-an-email") }
+            }
         }
         `when`("normalizing a kvnr") {
             then("it folds to trimmed uppercase") {
                 AttributeType.KVNR.normalizeAnchorValue(" a123456789 ") shouldBe "A123456789"
+            }
+            then("a malformed value fails explicitly (Kvnr.of)") {
+                shouldThrow<IllegalArgumentException> { AttributeType.KVNR.normalizeAnchorValue("not-a-kvnr") }
             }
         }
         `when`("normalizing a personId") {
