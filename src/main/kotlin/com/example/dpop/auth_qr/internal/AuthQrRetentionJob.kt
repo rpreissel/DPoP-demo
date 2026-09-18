@@ -1,9 +1,9 @@
 package com.example.dpop.auth_qr.internal
 
-import com.example.dpop.auth_qr.internal.authqr.AuthQrToolDataRepository
-import com.example.dpop.auth_qr.internal.authqrlookup.AuthQrLookupToolDataRepository
-import com.example.dpop.auth_qr.internal.confirmqrlogin.ConfirmQrLoginToolDataRepository
-import com.example.dpop.auth_qr.internal.enrollqr.EnrollQrToolDataRepository
+import com.example.dpop.auth_qr.internal.authqr.AuthQrToolSessionRepository
+import com.example.dpop.auth_qr.internal.authqrlookup.AuthQrLookupToolSessionRepository
+import com.example.dpop.auth_qr.internal.confirmqrlogin.ConfirmQrLoginToolSessionRepository
+import com.example.dpop.auth_qr.internal.enrollqr.EnrollQrToolSessionRepository
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -17,10 +17,10 @@ import java.time.Instant
  */
 @Component
 class AuthQrRetentionJob(
-    private val enrollToolDataRepository: EnrollQrToolDataRepository,
-    private val authToolDataRepository: AuthQrToolDataRepository,
-    private val authLookupToolDataRepository: AuthQrLookupToolDataRepository,
-    private val confirmToolDataRepository: ConfirmQrLoginToolDataRepository,
+    private val enrollToolSessionRepository: EnrollQrToolSessionRepository,
+    private val authToolSessionRepository: AuthQrToolSessionRepository,
+    private val authLookupToolSessionRepository: AuthQrLookupToolSessionRepository,
+    private val confirmToolSessionRepository: ConfirmQrLoginToolSessionRepository,
     private val loginRequestRepository: QrLoginRequestRepository
 ) {
 
@@ -28,10 +28,10 @@ class AuthQrRetentionJob(
     @Transactional
     fun cleanup() {
         val cutoff = Instant.now().minus(RETENTION)
-        enrollToolDataRepository.deleteByCreatedAtBefore(cutoff)
-        authToolDataRepository.deleteByCreatedAtBefore(cutoff)
-        authLookupToolDataRepository.deleteByCreatedAtBefore(cutoff)
-        confirmToolDataRepository.deleteByCreatedAtBefore(cutoff)
+        enrollToolSessionRepository.deleteByCreatedAtBefore(cutoff)
+        authToolSessionRepository.deleteByCreatedAtBefore(cutoff)
+        authLookupToolSessionRepository.deleteByCreatedAtBefore(cutoff)
+        confirmToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         loginRequestRepository.deleteByExpiresAtBefore(cutoff)
     }
 

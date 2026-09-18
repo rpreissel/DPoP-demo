@@ -26,14 +26,14 @@ import java.util.UUID
 @Component
 class AuthEmailLookupToolHandler(
     private val descriptor: AuthEmailLookupDescriptor,
-    private val toolDataRepository: AuthEmailLookupToolDataRepository,
+    private val toolDataRepository: AuthEmailLookupToolSessionRepository,
     private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(AuthEmailLookupToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(AuthEmailLookupToolSession(toolSessionId = toolSessionId))
         return outcomeFor(AuthEmailLookupState.AwaitingEmail)
     }
 
@@ -110,7 +110,7 @@ class AuthEmailLookupToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun AuthEmailLookupToolData.toState(): AuthEmailLookupState = AuthEmailLookupState.of(
+    private fun AuthEmailLookupToolSession.toState(): AuthEmailLookupState = AuthEmailLookupState.of(
         toolSessionId = checkNotNull(toolSessionId),
         accountId = accountId,
         issuedCodeHash = issuedCodeHash,

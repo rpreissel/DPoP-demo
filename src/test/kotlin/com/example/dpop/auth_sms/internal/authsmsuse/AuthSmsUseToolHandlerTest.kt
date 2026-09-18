@@ -25,7 +25,7 @@ import java.util.UUID
  */
 class AuthSmsUseToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<AuthSmsUseToolDataRepository>()
+    val toolDataRepository = mockk<AuthSmsUseToolSessionRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     val tanGenerator = TanGenerator("test-pepper")
     val handler = AuthSmsUseToolHandler(AuthSmsUseDescriptor, toolDataRepository, enrollmentRepository, tanGenerator)
@@ -53,7 +53,7 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
         `when`("the referenced enrollment exists") {
             val enrollment = AuthSmsEnrollment(phoneNumber = "+491701234567").apply { id = 1L }
             every { enrollmentRepository.findById(1L) } returns Optional.of(enrollment)
-            val saved = slot<AuthSmsUseToolData>()
+            val saved = slot<AuthSmsUseToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it persists a fresh TAN and asks for it at step auth") {
@@ -68,7 +68,7 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
 
     given("an active auth-sms tool session with a pending TAN") {
         val issued = tanGenerator.issue()
-        val data = AuthSmsUseToolData(toolSessionId = toolSessionId, issuedTanHash = issued.hash, tanExpiresAt = issued.expiresAt)
+        val data = AuthSmsUseToolSession(toolSessionId = toolSessionId, issuedTanHash = issued.hash, tanExpiresAt = issued.expiresAt)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("confirming with the correct TAN") {

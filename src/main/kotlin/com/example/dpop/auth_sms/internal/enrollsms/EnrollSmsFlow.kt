@@ -11,7 +11,7 @@ private const val FIELD_TAN = "tan"
 
 /**
  * Pure state of the enroll-sms flow (docs/03-tool-architektur.md #3, the optional Flow pattern) -
- * never leaves this file. Persisted as [EnrollSmsToolData]'s nullable columns; [Companion.of] is
+ * never leaves this file. Persisted as [EnrollSmsToolSession]'s nullable columns; [Companion.of] is
  * the one place that turns those columns back into this type.
  */
 internal sealed interface EnrollSmsState {
@@ -33,7 +33,7 @@ internal sealed interface EnrollSmsState {
     }
 
     companion object {
-        /** Turns [EnrollSmsToolData]'s persisted, nullable columns back into a [EnrollSmsState]. */
+        /** Turns [EnrollSmsToolSession]'s persisted, nullable columns back into a [EnrollSmsState]. */
         fun of(toolSessionId: UUID, phoneNumber: String?, issuedTanHash: String?, tanExpiresAt: Instant?): EnrollSmsState {
             val number = phoneNumber ?: return AwaitingPhoneNumber
             return AwaitingTan(

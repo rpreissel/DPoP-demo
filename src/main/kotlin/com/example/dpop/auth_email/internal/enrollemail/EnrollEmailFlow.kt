@@ -38,7 +38,7 @@ internal sealed interface EnrollEmailState {
     }
 
     companion object {
-        /** Turns [EnrollEmailToolData]'s persisted, nullable columns back into a [EnrollEmailState]. */
+        /** Turns [EnrollEmailToolSession]'s persisted, nullable columns back into a [EnrollEmailState]. */
         fun of(toolSessionId: UUID, email: String?, issuedCodeHash: String?, codeExpiresAt: Instant?): EnrollEmailState {
             val value = email ?: return AwaitingEmail
             return AwaitingCode(

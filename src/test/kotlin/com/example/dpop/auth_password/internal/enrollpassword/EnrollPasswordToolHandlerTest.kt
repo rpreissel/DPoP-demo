@@ -19,13 +19,13 @@ import java.util.UUID
  */
 class EnrollPasswordToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<EnrollPasswordToolDataRepository>()
+    val toolDataRepository = mockk<EnrollPasswordToolSessionRepository>()
     val enrollmentRepository = mockk<AuthPasswordEnrollmentRepository>()
     val handler = EnrollPasswordToolHandler(EnrollPasswordDescriptor, toolDataRepository, enrollmentRepository)
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-password tool session") {
-        every { toolDataRepository.findById(toolSessionId) } returns Optional.of(EnrollPasswordToolData(toolSessionId = toolSessionId))
+        every { toolDataRepository.findById(toolSessionId) } returns Optional.of(EnrollPasswordToolSession(toolSessionId = toolSessionId))
 
         `when`("submitting a password meeting the minimum length") {
             every { enrollmentRepository.save(any()) } answers { firstArg<AuthPasswordEnrollment>().apply { id = 7L } }

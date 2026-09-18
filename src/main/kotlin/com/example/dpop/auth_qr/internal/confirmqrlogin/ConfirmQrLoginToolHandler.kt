@@ -20,7 +20,7 @@ import java.util.UUID
 @Component
 class ConfirmQrLoginToolHandler(
     private val descriptor: ConfirmQrLoginDescriptor,
-    private val toolDataRepository: ConfirmQrLoginToolDataRepository,
+    private val toolDataRepository: ConfirmQrLoginToolSessionRepository,
     private val qrLoginRequestRepository: QrLoginRequestRepository
 ) {
 
@@ -33,7 +33,7 @@ class ConfirmQrLoginToolHandler(
      */
     @Transactional
     fun start(toolSessionId: UUID, pairingCode: String? = null): ToolOutcome {
-        val data = ConfirmQrLoginToolData(toolSessionId = toolSessionId)
+        val data = ConfirmQrLoginToolSession(toolSessionId = toolSessionId)
         toolDataRepository.save(data)
         if (pairingCode.isNullOrBlank()) {
             return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
@@ -88,7 +88,7 @@ class ConfirmQrLoginToolHandler(
         }
     }
 
-    private fun resolvePairingCode(data: ConfirmQrLoginToolData, pairingCode: String?): ToolOutcome {
+    private fun resolvePairingCode(data: ConfirmQrLoginToolSession, pairingCode: String?): ToolOutcome {
         if (pairingCode.isNullOrBlank()) {
             return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
         }

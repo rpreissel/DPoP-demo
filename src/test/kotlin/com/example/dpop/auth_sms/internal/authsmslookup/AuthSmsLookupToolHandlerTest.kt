@@ -23,20 +23,20 @@ import java.util.UUID
  */
 class AuthSmsLookupToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<AuthSmsLookupToolDataRepository>()
+    val toolDataRepository = mockk<AuthSmsLookupToolSessionRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     val tanGenerator = TanGenerator("test-pepper")
     val handler = AuthSmsLookupToolHandler(AuthSmsLookupDescriptor, toolDataRepository, enrollmentRepository, tanGenerator)
     val toolSessionId = UUID.randomUUID()
 
     given("an active auth-sms-lookup tool session") {
-        val data = AuthSmsLookupToolData(toolSessionId = toolSessionId)
+        val data = AuthSmsLookupToolSession(toolSessionId = toolSessionId)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("the submitted email resolves to an account with an active sms method") {
             val enrollment = AuthSmsEnrollment(phoneNumber = "+491701234567").apply { id = 1L }
             every { enrollmentRepository.findById(1L) } returns Optional.of(enrollment)
-            val saved = slot<AuthSmsLookupToolData>()
+            val saved = slot<AuthSmsLookupToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it persists the resolved account and a fresh TAN, revealing the demo TAN") {
@@ -51,7 +51,7 @@ class AuthSmsLookupToolHandlerTest : BehaviorSpec({
         }
 
         `when`("the submitted email does not resolve to anything (enumeration protection)") {
-            val saved = slot<AuthSmsLookupToolData>()
+            val saved = slot<AuthSmsLookupToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it still issues a TAN, but reveals no demo TAN and stores no account") {
@@ -67,7 +67,7 @@ class AuthSmsLookupToolHandlerTest : BehaviorSpec({
 
     given("a resolved account with a pending TAN") {
         val issued = tanGenerator.issue()
-        val data = AuthSmsLookupToolData(toolSessionId = toolSessionId, accountId = 42L, issuedTanHash = issued.hash, tanExpiresAt = issued.expiresAt)
+        val data = AuthSmsLookupToolSession(toolSessionId = toolSessionId, accountId = 42L, issuedTanHash = issued.hash, tanExpiresAt = issued.expiresAt)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("confirming with the correct TAN") {

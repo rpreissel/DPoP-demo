@@ -29,13 +29,13 @@ import java.util.UUID
 @Component
 class IdentEidToolHandler(
     private val descriptor: IdentEidDescriptor,
-    private val repository: IdEidToolDataRepository
+    private val repository: IdEidToolSessionRepository
 ) {
 
     /** Called directly by IdentEidToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        repository.save(IdEidToolData(toolSessionId = toolSessionId))
+        repository.save(IdEidToolSession(toolSessionId = toolSessionId))
         return outcomeFor(IdentEidState())
     }
 
@@ -109,10 +109,10 @@ class IdentEidToolHandler(
     private fun mockDocumentNumber(toolSessionId: UUID): String =
         "MOCK" + toolSessionId.toString().replace("-", "").take(9).uppercase()
 
-    private fun IdEidToolData.toState(): IdentEidState =
+    private fun IdEidToolSession.toState(): IdentEidState =
         IdentEidState(kvnr, name, vorname, personId, geburtsdatum, strasse, hausnummer, plz, ort, pinHash)
 
-    private fun IdEidToolData.applyState(state: IdentEidState) {
+    private fun IdEidToolSession.applyState(state: IdentEidState) {
         kvnr = state.kvnr
         name = state.name
         vorname = state.vorname

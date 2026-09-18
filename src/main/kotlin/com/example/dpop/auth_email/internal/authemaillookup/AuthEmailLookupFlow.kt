@@ -38,7 +38,7 @@ internal sealed interface AuthEmailLookupState {
     }
 
     companion object {
-        /** Turns [AuthEmailLookupToolData]'s persisted, nullable columns back into a [AuthEmailLookupState]. */
+        /** Turns [AuthEmailLookupToolSession]'s persisted, nullable columns back into a [AuthEmailLookupState]. */
         fun of(toolSessionId: UUID, accountId: Long?, issuedCodeHash: String?, codeExpiresAt: Instant?): AuthEmailLookupState {
             val hash = issuedCodeHash ?: return AwaitingEmail
             return AwaitingCode(

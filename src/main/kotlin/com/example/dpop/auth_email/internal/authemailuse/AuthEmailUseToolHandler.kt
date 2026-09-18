@@ -28,7 +28,7 @@ import java.util.UUID
 @Component
 class AuthEmailUseToolHandler(
     private val descriptor: AuthEmailUseDescriptor,
-    private val toolDataRepository: AuthEmailUseToolDataRepository,
+    private val toolDataRepository: AuthEmailUseToolSessionRepository,
     private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
@@ -49,7 +49,7 @@ class AuthEmailUseToolHandler(
 
         val issued = emailCodeGenerator.issue()
         toolDataRepository.save(
-            AuthEmailUseToolData(toolSessionId = toolSessionId, issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)
+            AuthEmailUseToolSession(toolSessionId = toolSessionId, issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)
         )
         sendMockEmail(email, issued.plainCode)
 
@@ -85,7 +85,7 @@ class AuthEmailUseToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun AuthEmailUseToolData.toState(): AuthEmailUseState = AuthEmailUseState.of(
+    private fun AuthEmailUseToolSession.toState(): AuthEmailUseState = AuthEmailUseState.of(
         toolSessionId = checkNotNull(toolSessionId),
         issuedCodeHash = issuedCodeHash,
         codeExpiresAt = codeExpiresAt

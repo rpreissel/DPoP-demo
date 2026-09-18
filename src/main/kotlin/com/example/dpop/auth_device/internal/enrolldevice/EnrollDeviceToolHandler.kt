@@ -25,14 +25,14 @@ import java.util.UUID
 @Component
 class EnrollDeviceToolHandler(
     private val descriptor: EnrollDeviceDescriptor,
-    private val toolDataRepository: EnrollDeviceToolDataRepository,
+    private val toolDataRepository: EnrollDeviceToolSessionRepository,
     private val enrollmentRepository: DeviceEnrollmentRepository
 ) {
 
     /** Called directly by EnrollDeviceToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(EnrollDeviceToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(EnrollDeviceToolSession(toolSessionId = toolSessionId))
         return outcomeFor()
     }
 

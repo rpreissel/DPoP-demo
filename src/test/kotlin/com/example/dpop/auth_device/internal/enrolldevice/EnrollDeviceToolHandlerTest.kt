@@ -25,14 +25,14 @@ import java.util.UUID
  */
 class EnrollDeviceToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<EnrollDeviceToolDataRepository>()
+    val toolDataRepository = mockk<EnrollDeviceToolSessionRepository>()
     val enrollmentRepository = mockk<DeviceEnrollmentRepository>()
     val handler = EnrollDeviceToolHandler(EnrollDeviceDescriptor, toolDataRepository, enrollmentRepository)
     val toolSessionId = UUID.randomUUID()
     val devicePublicKey = DevicePublicKey(kty = "EC", crv = "P-256", x = "x-coord", y = "y-coord", thumbprint = "thumb-1")
 
     given("an active enroll-device tool session") {
-        every { toolDataRepository.findById(toolSessionId) } returns Optional.of(EnrollDeviceToolData(toolSessionId = toolSessionId))
+        every { toolDataRepository.findById(toolSessionId) } returns Optional.of(EnrollDeviceToolSession(toolSessionId = toolSessionId))
 
         `when`("no device with this thumbprint is enrolled yet") {
             every { enrollmentRepository.findByThumbprint("thumb-1") } returns null

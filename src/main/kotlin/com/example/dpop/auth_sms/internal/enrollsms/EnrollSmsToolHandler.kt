@@ -25,7 +25,7 @@ import java.util.UUID
 @Component
 class EnrollSmsToolHandler(
     private val descriptor: EnrollSmsDescriptor,
-    private val toolDataRepository: EnrollSmsToolDataRepository,
+    private val toolDataRepository: EnrollSmsToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
     private val tanGenerator: TanGenerator
 ) {
@@ -33,7 +33,7 @@ class EnrollSmsToolHandler(
     /** Called directly by EnrollSmsToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(EnrollSmsToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(EnrollSmsToolSession(toolSessionId = toolSessionId))
         return outcomeFor(EnrollSmsState.AwaitingPhoneNumber)
     }
 
@@ -100,7 +100,7 @@ class EnrollSmsToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun EnrollSmsToolData.toState(): EnrollSmsState = EnrollSmsState.of(
+    private fun EnrollSmsToolSession.toState(): EnrollSmsState = EnrollSmsState.of(
         toolSessionId = checkNotNull(toolSessionId),
         phoneNumber = phoneNumber,
         issuedTanHash = issuedTanHash,

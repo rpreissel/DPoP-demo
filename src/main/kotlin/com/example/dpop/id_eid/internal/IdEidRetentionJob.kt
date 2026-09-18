@@ -12,7 +12,7 @@ import java.time.Instant
  * after the process has moved on.
  */
 @Component
-class IdEidRetentionJob(private val repository: IdEidToolDataRepository) {
+class IdEidRetentionJob(private val repository: IdEidToolSessionRepository) {
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional

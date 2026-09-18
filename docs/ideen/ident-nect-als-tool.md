@@ -146,7 +146,7 @@ id-nect:
 ### Datenmodell (Tool-Session-Daten)
 
 ```kotlin
-data class IdentNectToolData(
+data class IdentNectToolSession(
     val orderId: String,           // JWT-ID der Order
     val challenge: String,         // zufälliger Challenge-Wert
     val codeVerifier: String,      // PKCE code_verifier (serverseitig)

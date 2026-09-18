@@ -23,14 +23,14 @@ import java.util.UUID
 @Component
 class EnrollPasswordToolHandler(
     private val descriptor: EnrollPasswordDescriptor,
-    private val toolDataRepository: EnrollPasswordToolDataRepository,
+    private val toolDataRepository: EnrollPasswordToolSessionRepository,
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
 ) {
 
     /** Called directly by EnrollPasswordToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(EnrollPasswordToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(EnrollPasswordToolSession(toolSessionId = toolSessionId))
         return outcomeFor()
     }
 

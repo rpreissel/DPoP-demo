@@ -39,10 +39,10 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 
 | Objekt | Frist läuft ab | Richtwert | Grund |
 |---|---|---|---|
-| `*ToolData` (Moduldaten) | `createdAt` | 24 h | Personenbezug und TAN-Hash; nach Prozessende zwecklos. Jedes Methodenmodul hat dafür einen eigenen `*RetentionJob` (auch `auth_device`, `auth_qr`) |
+| `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h | Personenbezug und TAN-Hash; nach Prozessende zwecklos. Jedes Methodenmodul hat dafür einen eigenen `*RetentionJob` (auch `auth_device`, `auth_qr`) |
 | `QrLoginRequest` | `expiresAt` | 24 h | Pairing-Anfrage, nach Ablauf (5 Min.) wirkungslos; von `AuthQrRetentionJob` mit abgeräumt |
 | `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Replay-Schutz gilt nur im Akzeptanzfenster eines Proofs |
-| `ToolSession` | `expiresAt` | 24 h | reiner Lifecycle-Rest |
+| `orchestrator.tool_session` | `expiresAt` | 24 h | reiner Lifecycle-Rest |
 | `AuthJourney` | `consumedAt` / `expiresAt` | 7 Tage | Korrelation für Support-Rückfragen |
 | `AuthContext` | Logout / Ende der `ChannelSession` | sofort | enthält Token-Referenzen |
 | `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | die langlebige Geräte-Identität liegt seit `DeviceAccountLink` nicht mehr hier, aber `JourneyLogEntry` fragt den Log über die Channel-Menge ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
@@ -56,7 +56,7 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 
 Umgang mit den Referenzen:
 
-- **Besitzkette** (`ChannelSession` -> `AuthJourney` -> `ToolSession` -> `*ToolData`): wird von innen nach außen abgeräumt. Weil die Fristen von innen nach außen wachsen, ergibt sich diese Reihenfolge automatisch — ein `ToolSession` verschwindet nie vor seinen Moduldaten.
+- **Besitzkette** (`ChannelSession` -> `AuthJourney` -> `orchestrator.tool_session` -> die Modulhälfte `<modul>.*_tool_session`): wird von innen nach außen abgeräumt. Weil die Fristen von innen nach außen wachsen, ergibt sich diese Reihenfolge automatisch — die Lifecycle-Zeile verschwindet nie vor den Moduldaten, die an ihrer `tool_session_id` hängen.
 - **Moduldaten** räumt jedes Modul eigenständig nach Alter (`createdAt`) auf, ohne Signal vom Orchestrator. Das ist robuster als ein Löschbefehl (ein verpasstes Signal hinterließe dauerhafte Waisen) und bleibt gültig, falls ein Modul später ein eigener Service mit eigener Datenbank wird.
 - **Audit ist entkoppelt**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel. Das ist Absicht — das Audit muss die Sessions überleben, und der Eintrag speichert ohnehin nur `payloadHash` statt Nutzdaten. Ins Leere zeigende IDs sind hier erwartet, kein Defekt.
 - **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, oder die Geräte-Wiedererkennung kappen. `account.identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.

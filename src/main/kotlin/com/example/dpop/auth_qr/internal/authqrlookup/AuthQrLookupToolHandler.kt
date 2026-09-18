@@ -23,7 +23,7 @@ import java.util.UUID
 @Component
 class AuthQrLookupToolHandler(
     private val descriptor: AuthQrLookupDescriptor,
-    private val toolDataRepository: AuthQrLookupToolDataRepository,
+    private val toolDataRepository: AuthQrLookupToolSessionRepository,
     private val qrLoginRequestRepository: QrLoginRequestRepository
 ) {
 
@@ -37,7 +37,7 @@ class AuthQrLookupToolHandler(
                 expectedAccountId = null
             ).apply { expiresAt = Instant.now().plus(QR_LOGIN_TTL) }
         )
-        toolDataRepository.save(AuthQrLookupToolData(toolSessionId = toolSessionId, pairingCode = pairingCode))
+        toolDataRepository.save(AuthQrLookupToolSession(toolSessionId = toolSessionId, pairingCode = pairingCode))
         return outcomeFor(pairingCode)
     }
 

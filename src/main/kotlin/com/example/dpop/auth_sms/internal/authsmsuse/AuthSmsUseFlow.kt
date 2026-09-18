@@ -21,7 +21,7 @@ internal data class AuthSmsUseState(val issuedTanHash: String, val tanExpiresAt:
     fun describe(): Pair<String, Map<String, Any?>> = step to mapOf("missingFields" to missingFields)
 
     companion object {
-        /** Turns [AuthSmsUseToolData]'s persisted columns back into a [AuthSmsUseState]. */
+        /** Turns [AuthSmsUseToolSession]'s persisted columns back into a [AuthSmsUseState]. */
         fun of(toolSessionId: UUID, issuedTanHash: String?, tanExpiresAt: Instant?): AuthSmsUseState = AuthSmsUseState(
             checkNotNull(issuedTanHash) { "auth-sms tool data $toolSessionId without issuedTanHash" },
             checkNotNull(tanExpiresAt) { "auth-sms tool data $toolSessionId without tanExpiresAt" }

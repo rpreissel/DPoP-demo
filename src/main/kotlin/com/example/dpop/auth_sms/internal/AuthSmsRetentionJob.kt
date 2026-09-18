@@ -1,7 +1,7 @@
 package com.example.dpop.auth_sms.internal
-import com.example.dpop.auth_sms.internal.authsmslookup.AuthSmsLookupToolDataRepository
-import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolDataRepository
-import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolDataRepository
+import com.example.dpop.auth_sms.internal.authsmslookup.AuthSmsLookupToolSessionRepository
+import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolSessionRepository
+import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolSessionRepository
 
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -16,18 +16,18 @@ import java.time.Instant
  */
 @Component
 class AuthSmsRetentionJob(
-    private val enrollToolDataRepository: EnrollSmsToolDataRepository,
-    private val authUseToolDataRepository: AuthSmsUseToolDataRepository,
-    private val authLookupToolDataRepository: AuthSmsLookupToolDataRepository
+    private val enrollToolSessionRepository: EnrollSmsToolSessionRepository,
+    private val authUseToolSessionRepository: AuthSmsUseToolSessionRepository,
+    private val authLookupToolSessionRepository: AuthSmsLookupToolSessionRepository
 ) {
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
     fun cleanup() {
         val cutoff = Instant.now().minus(RETENTION)
-        enrollToolDataRepository.deleteByCreatedAtBefore(cutoff)
-        authUseToolDataRepository.deleteByCreatedAtBefore(cutoff)
-        authLookupToolDataRepository.deleteByCreatedAtBefore(cutoff)
+        enrollToolSessionRepository.deleteByCreatedAtBefore(cutoff)
+        authUseToolSessionRepository.deleteByCreatedAtBefore(cutoff)
+        authLookupToolSessionRepository.deleteByCreatedAtBefore(cutoff)
     }
 
     companion object {

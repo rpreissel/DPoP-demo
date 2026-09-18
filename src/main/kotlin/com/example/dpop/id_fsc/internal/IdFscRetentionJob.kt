@@ -12,7 +12,7 @@ import java.time.Instant
  * after the process has moved on.
  */
 @Component
-class IdFscRetentionJob(private val repository: IdFscToolDataRepository) {
+class IdFscRetentionJob(private val repository: IdFscToolSessionRepository) {
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional

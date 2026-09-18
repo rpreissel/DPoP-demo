@@ -30,7 +30,7 @@ import java.util.UUID
 @Component
 class AuthDeviceToolHandler(
     private val descriptor: AuthDeviceDescriptor,
-    private val toolDataRepository: AuthDeviceToolDataRepository,
+    private val toolDataRepository: AuthDeviceToolSessionRepository,
     private val enrollmentRepository: DeviceEnrollmentRepository
 ) {
 
@@ -45,7 +45,7 @@ class AuthDeviceToolHandler(
             ?: throw UnresolvableReferenceException("Geraete-Enrollment nicht gefunden: ${enrollmentRef.id}")
 
         toolDataRepository.save(
-            AuthDeviceToolData(
+            AuthDeviceToolSession(
                 toolSessionId = toolSessionId,
                 enrollmentRefType = enrollmentRef.type,
                 enrollmentRefId = enrollmentRef.id

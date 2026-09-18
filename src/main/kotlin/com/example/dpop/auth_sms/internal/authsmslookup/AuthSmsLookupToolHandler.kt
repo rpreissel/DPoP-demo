@@ -25,14 +25,14 @@ import java.util.UUID
 @Component
 class AuthSmsLookupToolHandler(
     private val descriptor: AuthSmsLookupDescriptor,
-    private val toolDataRepository: AuthSmsLookupToolDataRepository,
+    private val toolDataRepository: AuthSmsLookupToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
     private val tanGenerator: TanGenerator
 ) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(AuthSmsLookupToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(AuthSmsLookupToolSession(toolSessionId = toolSessionId))
         return outcomeFor(AuthSmsLookupState.AwaitingEmail)
     }
 
@@ -106,7 +106,7 @@ class AuthSmsLookupToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun AuthSmsLookupToolData.toState(): AuthSmsLookupState = AuthSmsLookupState.of(
+    private fun AuthSmsLookupToolSession.toState(): AuthSmsLookupState = AuthSmsLookupState.of(
         toolSessionId = checkNotNull(toolSessionId),
         accountId = accountId,
         issuedTanHash = issuedTanHash,

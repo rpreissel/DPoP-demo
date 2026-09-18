@@ -27,7 +27,7 @@ import java.util.UUID
 @Component
 class IdentFscToolHandler(
     private val descriptor: IdentFscDescriptor,
-    private val repository: IdFscToolDataRepository,
+    private val repository: IdFscToolSessionRepository,
     private val fscCodeRepository: FscCodeRepository,
     private val personDirectory: PersonDirectory
 ) {
@@ -35,7 +35,7 @@ class IdentFscToolHandler(
     /** Called directly by IdentFscToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        repository.save(IdFscToolData(toolSessionId = toolSessionId))
+        repository.save(IdFscToolSession(toolSessionId = toolSessionId))
         return outcomeFor(IdentFscState())
     }
 
@@ -110,9 +110,9 @@ class IdentFscToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun IdFscToolData.toState(): IdentFscState = IdentFscState(kvnr, name, vorname, fscHash, personId)
+    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, name, vorname, fscHash, personId)
 
-    private fun IdFscToolData.applyState(state: IdentFscState) {
+    private fun IdFscToolSession.applyState(state: IdentFscState) {
         kvnr = state.kvnr
         name = state.name
         vorname = state.vorname

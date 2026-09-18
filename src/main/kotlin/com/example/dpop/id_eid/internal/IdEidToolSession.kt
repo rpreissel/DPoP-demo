@@ -1,0 +1,44 @@
+package com.example.dpop.id_eid.internal
+
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
+import java.time.Instant
+import java.time.LocalDate
+import java.util.UUID
+
+/** Tool-session-scoped working data for toolId=ident-eid. */
+@Entity
+@Table(schema = "id_eid", name = "ident_tool_session")
+class IdEidToolSession(
+    @Id
+    @Column(name = "tool_session_id", nullable = false)
+    var toolSessionId: UUID? = null,
+
+    var kvnr: String? = null,
+
+    @Column(name = "person_id")
+    var personId: Long? = null,
+
+    var name: String? = null,
+    var vorname: String? = null,
+
+    /** From here on: the simulated eID card's Ausweisdaten, read in the "card" step. */
+    var geburtsdatum: LocalDate? = null,
+    var strasse: String? = null,
+    var hausnummer: String? = null,
+    var plz: String? = null,
+    var ort: String? = null,
+
+    /** SHA-256 of the submitted PIN - the PIN itself is never persisted. */
+    @Column(name = "pin_hash")
+    var pinHash: String? = null
+) {
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant? = null
+
+    init {
+        createdAt = Instant.now()
+    }
+}

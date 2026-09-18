@@ -1,7 +1,7 @@
 package com.example.dpop.auth_device.internal
 
-import com.example.dpop.auth_device.internal.authdevice.AuthDeviceToolDataRepository
-import com.example.dpop.auth_device.internal.enrolldevice.EnrollDeviceToolDataRepository
+import com.example.dpop.auth_device.internal.authdevice.AuthDeviceToolSessionRepository
+import com.example.dpop.auth_device.internal.enrolldevice.EnrollDeviceToolSessionRepository
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -14,16 +14,16 @@ import java.time.Instant
  */
 @Component
 class AuthDeviceRetentionJob(
-    private val enrollToolDataRepository: EnrollDeviceToolDataRepository,
-    private val authToolDataRepository: AuthDeviceToolDataRepository
+    private val enrollToolSessionRepository: EnrollDeviceToolSessionRepository,
+    private val authToolSessionRepository: AuthDeviceToolSessionRepository
 ) {
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
     fun cleanup() {
         val cutoff = Instant.now().minus(RETENTION)
-        enrollToolDataRepository.deleteByCreatedAtBefore(cutoff)
-        authToolDataRepository.deleteByCreatedAtBefore(cutoff)
+        enrollToolSessionRepository.deleteByCreatedAtBefore(cutoff)
+        authToolSessionRepository.deleteByCreatedAtBefore(cutoff)
     }
 
     companion object {

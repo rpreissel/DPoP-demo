@@ -23,7 +23,7 @@ import java.util.UUID
  */
 class EnrollSmsToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<EnrollSmsToolDataRepository>()
+    val toolDataRepository = mockk<EnrollSmsToolSessionRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     // Explicit pepper so issue()/matches() stay reproducible within the test run.
     val tanGenerator = TanGenerator("test-pepper")
@@ -31,11 +31,11 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-sms tool session with no phone number yet") {
-        val data = EnrollSmsToolData(toolSessionId = toolSessionId)
+        val data = EnrollSmsToolSession(toolSessionId = toolSessionId)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("submitting a valid phone number") {
-            val saved = slot<EnrollSmsToolData>()
+            val saved = slot<EnrollSmsToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it normalizes the number, issues a TAN, and asks for tanInput next") {
@@ -51,7 +51,7 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
 
     given("an active enroll-sms tool session with a phone number and a valid, unexpired TAN") {
         val issued = tanGenerator.issue()
-        val data = EnrollSmsToolData(
+        val data = EnrollSmsToolSession(
             toolSessionId = toolSessionId,
             phoneNumber = "+491701234567",
             issuedTanHash = issued.hash,

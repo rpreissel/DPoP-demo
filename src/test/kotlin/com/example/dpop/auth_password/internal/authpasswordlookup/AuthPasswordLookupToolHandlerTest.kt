@@ -21,13 +21,13 @@ import java.util.UUID
  */
 class AuthPasswordLookupToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<AuthPasswordLookupToolDataRepository>()
+    val toolDataRepository = mockk<AuthPasswordLookupToolSessionRepository>()
     val enrollmentRepository = mockk<AuthPasswordEnrollmentRepository>()
     val handler = AuthPasswordLookupToolHandler(AuthPasswordLookupDescriptor, toolDataRepository, enrollmentRepository)
     val toolSessionId = UUID.randomUUID()
 
     given("an active auth-password-lookup tool session") {
-        every { toolDataRepository.findById(toolSessionId) } returns Optional.of(AuthPasswordLookupToolData(toolSessionId = toolSessionId))
+        every { toolDataRepository.findById(toolSessionId) } returns Optional.of(AuthPasswordLookupToolSession(toolSessionId = toolSessionId))
 
         `when`("email and password resolve to an active, matching enrollment") {
             val enrollment = AuthPasswordEnrollment(passwordHash = PasswordHasher.hash("hunter2")).apply { id = 1L }

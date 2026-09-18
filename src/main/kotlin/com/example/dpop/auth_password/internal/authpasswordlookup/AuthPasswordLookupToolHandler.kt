@@ -24,13 +24,13 @@ import java.util.UUID
 @Component
 class AuthPasswordLookupToolHandler(
     private val descriptor: AuthPasswordLookupDescriptor,
-    private val toolDataRepository: AuthPasswordLookupToolDataRepository,
+    private val toolDataRepository: AuthPasswordLookupToolSessionRepository,
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
 ) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(AuthPasswordLookupToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(AuthPasswordLookupToolSession(toolSessionId = toolSessionId))
         return outcomeFor()
     }
 

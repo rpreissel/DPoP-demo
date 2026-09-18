@@ -38,7 +38,7 @@ import java.util.UUID
 @Component
 class EnrollEmailToolHandler(
     private val descriptor: EnrollEmailDescriptor,
-    private val toolDataRepository: EnrollEmailToolDataRepository,
+    private val toolDataRepository: EnrollEmailToolSessionRepository,
     private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
@@ -46,7 +46,7 @@ class EnrollEmailToolHandler(
     /** Called directly by EnrollEmailToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(EnrollEmailToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(EnrollEmailToolSession(toolSessionId = toolSessionId))
         return outcomeFor(EnrollEmailState.AwaitingEmail)
     }
 
@@ -123,7 +123,7 @@ class EnrollEmailToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun EnrollEmailToolData.toState(): EnrollEmailState = EnrollEmailState.of(
+    private fun EnrollEmailToolSession.toState(): EnrollEmailState = EnrollEmailState.of(
         toolSessionId = checkNotNull(toolSessionId),
         email = email,
         issuedCodeHash = issuedCodeHash,

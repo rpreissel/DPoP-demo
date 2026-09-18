@@ -20,14 +20,14 @@ import java.util.UUID
  */
 class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<ConfirmQrLoginToolDataRepository>()
+    val toolDataRepository = mockk<ConfirmQrLoginToolSessionRepository>()
     val qrLoginRequestRepository = mockk<QrLoginRequestRepository>()
     val handler = ConfirmQrLoginToolHandler(ConfirmQrLoginDescriptor, toolDataRepository, qrLoginRequestRepository)
     val toolSessionId = UUID.randomUUID()
     val pairingCode = "ABCD1234"
 
     given("a confirm-qr-login tool session that already resolved its pairing code") {
-        val data = ConfirmQrLoginToolData(toolSessionId = toolSessionId).apply { this.pairingCode = pairingCode }
+        val data = ConfirmQrLoginToolSession(toolSessionId = toolSessionId).apply { this.pairingCode = pairingCode }
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("the pairing's expectedAccountId belongs to a DIFFERENT account than the one confirming") {

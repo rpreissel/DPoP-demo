@@ -25,7 +25,7 @@ import java.util.UUID
 @Component
 class AuthPasswordUseToolHandler(
     private val descriptor: AuthPasswordUseDescriptor,
-    private val toolDataRepository: AuthPasswordUseToolDataRepository,
+    private val toolDataRepository: AuthPasswordUseToolSessionRepository,
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
 ) {
 
@@ -41,7 +41,7 @@ class AuthPasswordUseToolHandler(
         }
 
         toolDataRepository.save(
-            AuthPasswordUseToolData(
+            AuthPasswordUseToolSession(
                 toolSessionId = toolSessionId,
                 enrollmentRefType = enrollmentRef.type,
                 enrollmentRefId = enrollmentRef.id

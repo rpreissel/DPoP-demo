@@ -25,19 +25,19 @@ import java.util.UUID
  */
 class EnrollEmailToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<EnrollEmailToolDataRepository>()
+    val toolDataRepository = mockk<EnrollEmailToolSessionRepository>()
     val accountDirectory = mockk<AccountDirectory>()
     val emailCodeGenerator = EmailCodeGenerator("test-pepper")
     val handler = EnrollEmailToolHandler(EnrollEmailDescriptor, toolDataRepository, accountDirectory, emailCodeGenerator)
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-email tool session with no email yet") {
-        val data = EnrollEmailToolData(toolSessionId = toolSessionId)
+        val data = EnrollEmailToolSession(toolSessionId = toolSessionId)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("submitting an email that is not yet taken") {
             every { accountDirectory.resolveByAnchor(AttributeType.EMAIL, "max@example.com") } returns null
-            val saved = slot<EnrollEmailToolData>()
+            val saved = slot<EnrollEmailToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it persists the address and a fresh code, asking for codeInput") {
@@ -63,7 +63,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
 
     given("an active enroll-email tool session with a pending code") {
         val issued = emailCodeGenerator.issue()
-        val data = EnrollEmailToolData(toolSessionId = toolSessionId, email = "max@example.com", issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)
+        val data = EnrollEmailToolSession(toolSessionId = toolSessionId, email = "max@example.com", issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
             `when`("confirming with the correct code") {

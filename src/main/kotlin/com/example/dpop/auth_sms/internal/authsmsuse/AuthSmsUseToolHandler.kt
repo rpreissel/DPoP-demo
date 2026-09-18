@@ -25,7 +25,7 @@ import java.util.UUID
 @Component
 class AuthSmsUseToolHandler(
     private val descriptor: AuthSmsUseDescriptor,
-    private val toolDataRepository: AuthSmsUseToolDataRepository,
+    private val toolDataRepository: AuthSmsUseToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
     private val tanGenerator: TanGenerator
 ) {
@@ -42,7 +42,7 @@ class AuthSmsUseToolHandler(
 
         val issued = tanGenerator.issue()
         toolDataRepository.save(
-            AuthSmsUseToolData(
+            AuthSmsUseToolSession(
                 toolSessionId = toolSessionId,
                 enrollmentRefType = enrollmentRef.type,
                 enrollmentRefId = enrollmentRef.id,
@@ -86,7 +86,7 @@ class AuthSmsUseToolHandler(
         return ToolOutcome.InProgress(nextStep = step, data = fields)
     }
 
-    private fun AuthSmsUseToolData.toState(): AuthSmsUseState = AuthSmsUseState.of(
+    private fun AuthSmsUseToolSession.toState(): AuthSmsUseState = AuthSmsUseState.of(
         toolSessionId = checkNotNull(toolSessionId),
         issuedTanHash = issuedTanHash,
         tanExpiresAt = tanExpiresAt

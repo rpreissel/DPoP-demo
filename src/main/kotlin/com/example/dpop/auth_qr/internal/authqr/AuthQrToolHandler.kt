@@ -23,7 +23,7 @@ import java.util.UUID
 @Component
 class AuthQrToolHandler(
     private val descriptor: AuthQrDescriptor,
-    private val toolDataRepository: AuthQrToolDataRepository,
+    private val toolDataRepository: AuthQrToolSessionRepository,
     private val qrLoginRequestRepository: QrLoginRequestRepository
 ) {
 
@@ -37,7 +37,7 @@ class AuthQrToolHandler(
                 expectedAccountId = accountId
             ).apply { expiresAt = Instant.now().plus(QR_LOGIN_TTL) }
         )
-        toolDataRepository.save(AuthQrToolData(toolSessionId = toolSessionId, pairingCode = pairingCode))
+        toolDataRepository.save(AuthQrToolSession(toolSessionId = toolSessionId, pairingCode = pairingCode))
         return outcomeFor(pairingCode)
     }
 

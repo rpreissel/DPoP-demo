@@ -24,13 +24,13 @@ import java.util.UUID
 class IdentFscToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
-    val repository = mockk<IdFscToolDataRepository>()
+    val repository = mockk<IdFscToolSessionRepository>()
     val fscCodeRepository = mockk<FscCodeRepository>()
     val personDirectory = mockk<PersonDirectory>()
     val handler = IdentFscToolHandler(IdentFscDescriptor, repository, fscCodeRepository, personDirectory)
 
     given("a fully filled-in ident-fsc session with a valid code and matching name") {
-        val data = IdFscToolData(
+        val data = IdFscToolSession(
             toolSessionId = toolSessionId,
             kvnr = "A123456789",
             personId = 7L,

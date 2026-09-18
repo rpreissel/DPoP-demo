@@ -40,7 +40,7 @@ internal sealed interface AuthSmsLookupState {
     }
 
     companion object {
-        /** Turns [AuthSmsLookupToolData]'s persisted, nullable columns back into a [AuthSmsLookupState]. */
+        /** Turns [AuthSmsLookupToolSession]'s persisted, nullable columns back into a [AuthSmsLookupState]. */
         fun of(toolSessionId: UUID, accountId: Long?, issuedTanHash: String?, tanExpiresAt: Instant?): AuthSmsLookupState {
             val hash = issuedTanHash ?: return AwaitingEmail
             return AwaitingTan(

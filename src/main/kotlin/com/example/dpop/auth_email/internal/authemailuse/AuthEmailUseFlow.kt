@@ -20,7 +20,7 @@ internal data class AuthEmailUseState(val issuedCodeHash: String, val codeExpire
     fun describe(): Pair<String, Map<String, Any?>> = step to mapOf("missingFields" to missingFields)
 
     companion object {
-        /** Turns [AuthEmailUseToolData]'s persisted columns back into a [AuthEmailUseState]. */
+        /** Turns [AuthEmailUseToolSession]'s persisted columns back into a [AuthEmailUseState]. */
         fun of(toolSessionId: UUID, issuedCodeHash: String?, codeExpiresAt: Instant?): AuthEmailUseState = AuthEmailUseState(
             checkNotNull(issuedCodeHash) { "auth-email tool data $toolSessionId without issuedCodeHash" },
             checkNotNull(codeExpiresAt) { "auth-email tool data $toolSessionId without codeExpiresAt" }

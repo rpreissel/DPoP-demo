@@ -20,13 +20,13 @@ import java.util.UUID
 @Component
 class EnrollQrToolHandler(
     private val descriptor: EnrollQrDescriptor,
-    private val toolDataRepository: EnrollQrToolDataRepository,
+    private val toolDataRepository: EnrollQrToolSessionRepository,
     private val qrOptInRepository: QrOptInRepository
 ) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        toolDataRepository.save(EnrollQrToolData(toolSessionId = toolSessionId))
+        toolDataRepository.save(EnrollQrToolSession(toolSessionId = toolSessionId))
         return outcomeFor()
     }
 

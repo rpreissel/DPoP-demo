@@ -23,7 +23,7 @@ import java.util.UUID
  */
 class AuthPasswordUseToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<AuthPasswordUseToolDataRepository>()
+    val toolDataRepository = mockk<AuthPasswordUseToolSessionRepository>()
     val enrollmentRepository = mockk<AuthPasswordEnrollmentRepository>()
     val handler = AuthPasswordUseToolHandler(AuthPasswordUseDescriptor, toolDataRepository, enrollmentRepository)
     val toolSessionId = UUID.randomUUID()
@@ -52,7 +52,7 @@ class AuthPasswordUseToolHandlerTest : BehaviorSpec({
 
     given("an active auth-password tool session bound to an enrollment") {
         val enrollment = AuthPasswordEnrollment(passwordHash = PasswordHasher.hash("hunter2")).apply { id = 1L }
-        val data = AuthPasswordUseToolData(toolSessionId = toolSessionId, enrollmentRefType = PASSWORD_ENROLLMENT_TYPE, enrollmentRefId = "1")
+        val data = AuthPasswordUseToolSession(toolSessionId = toolSessionId, enrollmentRefType = PASSWORD_ENROLLMENT_TYPE, enrollmentRefId = "1")
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
         every { enrollmentRepository.findById(1L) } returns Optional.of(enrollment)
 
