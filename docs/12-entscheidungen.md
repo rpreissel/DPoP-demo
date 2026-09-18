@@ -646,8 +646,11 @@ eigener Kategorie `ToolCategory.ATTEST` (Rolle `ATTESTATION`) und eigener Ergebn
 erzeugt **keine** Methodeninstanz. `enroll-email` bleibt daneben bestehen, setzt aber eine bereits
 bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) und ist dadurch ein Ein-Schritt-Tool
 ohne Code-Austausch — bewiesen ist die Kontrolle ja schon. Weil damit der Wissensfaktor nicht mehr
-als Nebenprodukt der Adressbestätigung entsteht, ist **das Passwort in jeder Registrierung Pflicht**,
-nicht mehr nur im Web-Kanal; die Reihenfolge ist Adresse, Passwort, Besitzfaktor.
+als Nebenprodukt der Adressbestätigung entsteht, verlangt eine Registrierung auf **jedem** Kanal
+ein Passwort — aber nur dann, wenn das Konto `loa2` sonst nicht erreichen könnte. Ein
+Gerätecredential trägt `POSSESSION`, `KNOWLEDGE` und `INHERENCE` zugleich, deckt das also allein
+ab; wer eines gebunden hat, wird nicht zusätzlich nach einem Passwort gefragt. Die Reihenfolge ist
+Adresse, Passwort, Besitzfaktor.
 
 **Erwogene Alternative**: Alles beim Alten lassen und die Kopplung nur dokumentieren — `enroll-email`
 bestätigt die Adresse *und* legt die Methode an, wie bisher.

@@ -315,6 +315,28 @@ class RegisterStrategyTest : BehaviorSpec({
         }
     }
 
+    // The obligation is about a second FACTOR KIND, not about a password: a device credential
+    // declares POSSESSION+KNOWLEDGE+INHERENCE by itself, so an account that just bound one is
+    // already able to reach loa2 and must not be asked for a password on top.
+    given("Enrolling, the account already holds a device credential") {
+        val acc = account(method("device", AcrLevel.LOA2), emailConfirmed = true)
+        val theCtx = ctx(
+            account = acc,
+            evidence = evidence(listOf("device"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc),
+            acrFloor = AcrLevel.LOA1,
+            channel = ChannelSession.Channel.APP
+        )
+        val state = Enrolling(listOf(ToolId("enroll-sms")), emailObligation = false)
+
+        then("no password is demanded - loa2 is reachable without one") {
+            val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
+            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            strategy.transition(state, event, theCtx) shouldBe
+                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
+        }
+    }
+
     given("Enrolling on the APP channel - the obligation applies here too since the email split") {
         val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(

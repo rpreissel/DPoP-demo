@@ -159,6 +159,20 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         if (base != Transition.Authenticated) return base
 
         val account = ctx.requireAccount()
+        // Only when the account could not otherwise get back to loa2 on its own. A password is not
+        // the point - a second FACTOR KIND is, and some credentials already carry one by
+        // themselves: enroll-device declares POSSESSION+KNOWLEDGE+INHERENCE, auth-qr
+        // POSSESSION+KNOWLEDGE. Demanding a password from someone who just bound a device would be
+        // asking for a factor they already have.
+        //
+        // loa2 rather than this channel's own floor: the point is not to finish THIS run but to
+        // leave an account that can still manage itself afterwards - method management is gated at
+        // loa2 (docs/05-api.md), so a registration that ends below it strands the user with
+        // re-identification as the only way back in.
+        if (ctx.policy.reachability(account, AuthEnrollCore.ENROLLMENT_FLOOR_ACR) is Reachability.Reachable) return base
+        // Nothing a password could still add: asking for one the account already holds would loop.
+        // What is missing then is a possession factor, and the generic enrollment offer above is
+        // what hands those out.
         if (account.activeAuthenticationMethods.any { it.method == PASSWORD_METHOD }) return base
         val candidates = passwordEnrollmentCandidates(ctx)
         return if (candidates.isNotEmpty()) Transition.To(RegisterState.PasswordObligation(candidates)) else base

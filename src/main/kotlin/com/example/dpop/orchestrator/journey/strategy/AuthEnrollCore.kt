@@ -140,7 +140,12 @@ internal object AuthEnrollCore {
         }
     }
 
-    private val ENROLLMENT_FLOOR_ACR = AcrLevel.LOA2
+    /**
+     * Also the bar a REGISTER run must leave the account ABLE to reach (see
+     * `RegisterStrategy.afterEnrollment`): both are the same statement - never hand out trust
+     * nobody verified, and never strand an account below the level its own method management needs.
+     */
+    val ENROLLMENT_FLOOR_ACR = AcrLevel.LOA2
 
     /**
      * On a mandatory state, backing out of a tool is not declining it - the obligation

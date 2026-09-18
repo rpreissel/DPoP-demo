@@ -102,10 +102,11 @@ sealed interface RegisterState : JourneyState {
 
     /**
      * Third obligation, on every channel (docs/04-orchestrierung.md #8, [RegisterStrategy]): a
-     * REGISTER run must always end up with a password credential, not just any sufficient one.
-     * Applies since confirming an email stopped being an enrollment - the address is account
-     * infrastructure and leaves no KNOWLEDGE method behind, so the knowledge factor is named
-     * outright instead of arriving as a side effect. Applied by [RegisterStrategy] right after the
+     * REGISTER run must not end below the level its own method management needs (loa2). Applies
+     * since confirming an email stopped being an enrollment: the address is account infrastructure
+     * and leaves no KNOWLEDGE method behind, so the knowledge factor is asked for outright instead
+     * of arriving as a side effect. Only when nothing else covers it - a device credential carries
+     * POSSESSION, KNOWLEDGE and INHERENCE by itself and makes this obligation moot. Applied by [RegisterStrategy] right after the
      * shared `afterEnrollment` re-check would otherwise finish the run.
      *
      * Ordered AFTER [ConfirmingEmail], not before: `enroll-password` itself requires a confirmed
