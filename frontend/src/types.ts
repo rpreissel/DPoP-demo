@@ -171,7 +171,7 @@ export interface ChannelResponse {
 
 /**
  * One row of the rich, per-step journey trace (GET /journey-log) - distinct from the backend's
- * minimized orchestrator_session_event audit trail. Demo/debug only: shows everything the backend could
+ * minimized orchestrator.session_event audit trail. Demo/debug only: shows everything the backend could
  * determine about a journey's path, grouped client-side by channelSessionId/journeyId.
  */
 export interface JourneyLogEntryView {

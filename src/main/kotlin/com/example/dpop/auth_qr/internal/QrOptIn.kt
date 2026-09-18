@@ -14,7 +14,7 @@ import java.time.Instant
  * exactly like every other method's credential row.
  */
 @Entity
-@Table(name = "auth_qr_enrollment")
+@Table(schema = "auth_qr", name = "enrollment")
 class QrOptIn {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=auth-qr - just which QrLoginRequest this session waits on. */
+/** Tool-session-scoped working data for toolId=auth-qr - just which QrLoginRequest this session waits on. */
 @Entity
-@Table(name = "auth_qr_auth_data")
+@Table(schema = "auth_qr", name = "auth_tool_session")
 class AuthQrToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

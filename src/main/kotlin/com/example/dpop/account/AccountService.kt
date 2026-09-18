@@ -105,7 +105,7 @@ class AccountService(
      *
      * A rebind UPDATES the row in place rather than deleting and re-inserting: Hibernate flushes
      * insertions before deletions, so a delete-then-insert pair would briefly hold both rows and
-     * trip `ux_account_anchor_account_type`.
+     * trip `ux_anchor_account_type`.
      */
     private fun recordAnchor(accountId: Long, type: AttributeType, value: String, establishedAt: Instant) {
         val normalized = type.normalizeAnchorValue(value)

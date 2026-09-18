@@ -5,7 +5,7 @@ package com.example.dpop.tool_api
  * `DPoP-demo-4vd.5`) - the one place the format rule and the normalization rule (trim, lowercase)
  * both live. Replaces `EnrollEmailFlow`'s own local `EMAIL_PATTERN` (same regex, now shared) and
  * backs [AttributeRules.normalizeAnchorValue]'s `EMAIL` case, so `resolveByAnchor`/`anchorValue`/
- * `resolveAccountByEmail` and the `account_anchor` write path all agree on exactly one definition
+ * `resolveAccountByEmail` and the `account.anchor` write path all agree on exactly one definition
  * of "a well-formed email", not three ad hoc ones.
  */
 @JvmInline

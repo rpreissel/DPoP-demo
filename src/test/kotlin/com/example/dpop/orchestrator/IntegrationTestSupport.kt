@@ -65,21 +65,21 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     init {
         beforeEach {
-            // Children first (FK order); ext_stammdaten_person/id_fsc_code seed data is left
+            // Children first (FK order); ext_stammdaten.person/id_fsc.code seed data is left
             // untouched. The union of every table any suite ever touches - deleting from one a
             // given test never populated is a harmless no-op. account's own children cascade.
             listOf(
-                "id_fsc_ident_data", "id_eid_ident_data",
-                "auth_sms_enroll_data", "auth_sms_auth_data", "auth_sms_lookup_data", "auth_sms_enrollment",
-                "auth_password_enroll_data", "auth_password_auth_data", "auth_password_lookup_data", "auth_password_enrollment",
-                "auth_email_enroll_data", "auth_email_auth_data", "auth_email_lookup_data",
-                "auth_device_enroll_data", "auth_device_auth_data", "auth_device_enrollment",
-                "auth_qr_enroll_data", "auth_qr_auth_data", "auth_qr_lookup_data", "auth_qr_confirm_data",
-                "auth_qr_login_request", "auth_qr_enrollment",
-                "orchestrator_tool_session", "orchestrator_auth_journey", "orchestrator_session_event", "orchestrator_journey_log",
-                "orchestrator_channel_session", "orchestrator_auth_context", "orchestrator_auth_evidence", "account",
-                "orchestrator_device_account_link", "orchestrator_attempt_throttle", "orchestrator_tool_availability", "orchestrator_dpop_proof_replay",
-                "orchestrator_feature_flag"
+                "id_fsc.ident_tool_session", "id_eid.ident_tool_session",
+                "auth_sms.enroll_tool_session", "auth_sms.auth_tool_session", "auth_sms.lookup_tool_session", "auth_sms.enrollment",
+                "auth_password.enroll_tool_session", "auth_password.auth_tool_session", "auth_password.lookup_tool_session", "auth_password.enrollment",
+                "auth_email.enroll_tool_session", "auth_email.auth_tool_session", "auth_email.lookup_tool_session",
+                "auth_device.enroll_tool_session", "auth_device.auth_tool_session", "auth_device.enrollment",
+                "auth_qr.enroll_tool_session", "auth_qr.auth_tool_session", "auth_qr.lookup_tool_session", "auth_qr.confirm_tool_session",
+                "auth_qr.login_request", "auth_qr.enrollment",
+                "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.session_event", "orchestrator.journey_log",
+                "orchestrator.channel_session", "orchestrator.auth_context", "orchestrator.auth_evidence", "account.account",
+                "orchestrator.device_account_link", "orchestrator.attempt_throttle", "orchestrator.tool_availability", "orchestrator.dpop_proof_replay",
+                "orchestrator.feature_flag"
             ).forEach { jdbcTemplate.update("DELETE FROM $it") }
         }
     }

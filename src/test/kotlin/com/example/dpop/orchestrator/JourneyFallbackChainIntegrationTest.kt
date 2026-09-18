@@ -41,7 +41,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
         patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-        return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java)!!
+        return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account.account", Long::class.java)!!
     }
 
     init {
@@ -84,8 +84,8 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
             // choice made up front, only an observation about which path was taken. So identifying on
             // the last state must not leave a second account behind.
             identified.next()["type"].shouldNotBeNull()
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account", Int::class.java) shouldBe 1
-            jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java) shouldBe accountId
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.account", Int::class.java) shouldBe 1
+            jdbcTemplate.queryForObject("SELECT MIN(id) FROM account.account", Long::class.java) shouldBe accountId
         }
 
         // LOGIN_LOOKUP -------------------------------------------------------------

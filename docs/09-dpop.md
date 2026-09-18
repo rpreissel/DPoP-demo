@@ -36,7 +36,7 @@ Alle Requests des App-Kanals tragen den Header `DPoP: <proof>`.
 | D-7 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP `401` abgewiesen |
 | D-8 | Das `iat`-Zeitfenster ist konfigurierbar. | `max-age-seconds` und `max-clock-skew-seconds` werden über `application.yml` gesetzt und im Validator verwendet |
 
-D-6 wird über `orchestrator_dpop_proof_replay` gelöst: Der Primärschlüssel-Insert **ist** die Prüfung
+D-6 wird über `orchestrator.dpop_proof_replay` gelöst: Der Primärschlüssel-Insert **ist** die Prüfung
 (kein Read-then-Write), überlebt einen Neustart und gilt über Replicas hinweg. Der Schlüssel ist
 SHA-256(`thumbprint:jti`) mit fester Breite (`VARCHAR(64)`), damit ein clientgewählter `jti` weder
 die Schlüssellänge sprengen noch den heißesten Index des Systems aufblähen kann. Bekannte

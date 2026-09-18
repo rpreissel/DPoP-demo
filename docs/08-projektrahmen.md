@@ -129,6 +129,10 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 
 - Als Datenbank wird **H2** verwendet: dateibasiert unter `./data/dpopdb` im Betrieb, **In-Memory** im Testprofil.
 - Das Schema wird mit **Flyway**-Migrationen aufgebaut, der Zugriff erfolgt über **Spring Data JPA**.
+- **Ein Datenbankschema je Modul** (`account`, `orchestrator`, `auth_sms`, …): Jede Tabelle liegt im
+  Schema ihres Moduls, Fremdschlüssel gibt es nur innerhalb eines Schemas
+  ([12-entscheidungen.md](12-entscheidungen.md) ADR-16). Der Flyway-Verlauf bleibt in `PUBLIC` — er
+  gehört keinem Modul.
 - Im Modul `ext_stammdaten` existiert eine `Person`-Entität mit `id`, `kvnr` (eindeutig), `name`, `vorname`, `strasse`, `hausnummer`, `plz`, `ort`, `geburtsdatum`.
 - Bei Applikationsstart werden Testpersonen sowie gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow direkt durchspielbar ist.
 

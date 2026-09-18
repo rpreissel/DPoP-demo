@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=enroll-device (docs/06-ablaeufe.md pattern). */
+/** Tool-session-scoped working data for toolId=enroll-device (docs/06-ablaeufe.md pattern). */
 @Entity
-@Table(name = "auth_device_enroll_data")
+@Table(schema = "auth_device", name = "enroll_tool_session")
 class EnrollDeviceToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

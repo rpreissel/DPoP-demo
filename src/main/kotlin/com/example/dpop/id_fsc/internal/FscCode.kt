@@ -8,7 +8,7 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 @Entity
-@Table(name = "id_fsc_code")
+@Table(schema = "id_fsc", name = "code")
 class FscCode(
     var personId: Long? = null,
 

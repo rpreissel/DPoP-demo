@@ -3,7 +3,7 @@
 > **Stand 2026-09-17 ([ADR-14](../12-entscheidungen.md))**: Alle Pakete sind umgesetzt und durch die
 > Schema-Konsolidierung überholt: Die hier noch „als typisierte Leseprojektion erhaltenen“ Spalten
 > `Account.personId`/`email`/`emailConfirmedAt` gibt es nicht mehr — `AccountProfile` liest dieselben
-> Werte aus `account_anchor`. `OwnedColumn`/`ExternalLiveLookup` sind entfallen (lokal konsolidiert
+> Werte aus `account.anchor`. `OwnedColumn`/`ExternalLiveLookup` sind entfallen (lokal konsolidiert
 > heißt jetzt: ist Anker). Spalten heißen `claim_source`, `attribute_type`, `normalized_value`.
 
 Status: **Implementierungsplan mit praezisiertem Zielbild**. Die atomare Account-Anlage und
@@ -47,7 +47,7 @@ Mit dem Nutzer abgestimmt:
 | Claim | `PERSON_ID` vorhanden, `recordClaim` schreibt nur Provenanz | `EMAIL` schreibt Provenanz, Projektion und Anker |
 | Konsolidierung | Als `ExternalLiveLookup` klassifiziert, obwohl die Referenz selbst lokal gespeichert wird | `OwnedColumn` |
 | Account-Schreibung | `findOrCreateAccount`/`bindPersonId` schreiben direkt | `recordClaim` -> `consolidateOwnedColumn`; Seed nutzt `confirmEmail` ohne Claim-Log |
-| Aufloesung | `AccountRepository.findByPersonId` und eigener Resolver-Zweig | `AccountDirectory.resolveByAnchor`/`account_anchor` |
+| Aufloesung | `AccountRepository.findByPersonId` und eigener Resolver-Zweig | `AccountDirectory.resolveByAnchor`/`account.anchor` |
 | Tool-Ergebnis | Separates Pflichtfeld plus derselbe Wert in `claims` | Nur Claim in `Completed.Enrolled` |
 | Regeln | Journey prueft Erstbindung, falsche Person und fremdes Konto | AccountService prueft Ankerbesitz und ersetzt alten E-Mail-Anker |
 
@@ -101,7 +101,7 @@ Verbindliche Umbenennungen:
 
 `ClaimSource` bleibt ein nominaler Value-Typ. `EXT_STAMMDATEN`, `SELF_REPORTED` und `of(ToolId)` behalten ihre Werte und Bedeutung. `trustLevel` wird berechnet, nicht separat im Claim gespeichert oder vom Aufrufer gesetzt. Die bestehenden drei Rangwerte bleiben unveraendert. `ConsolidationStrategy`, `AcrLevel`, `FactorType` und `EvidenceAxis` werden nicht mit Trust verschmolzen.
 
-Persistenzkompatibilitaet: `account_attribute.trust_anchor` und die bisherigen gespeicherten Quellenstrings bleiben erhalten. Falls die Entity-Property in `source` umbenannt wird, explizit auf `trust_anchor` mappen. `account_anchor.anchor_type` speichert weiterhin dieselben Attribut-Wire-Namen. Keine DB-Spaltenmigration allein wegen besserer Kotlin-Namen. An Serialisierungsgrenzen vorhandene JSON-Vertraege gezielt pruefen und erhalten; keine globale Such-und-Ersetze-Aktion auf gespeicherten Daten.
+Persistenzkompatibilitaet: `account.attribute.trust_anchor` und die bisherigen gespeicherten Quellenstrings bleiben erhalten. Falls die Entity-Property in `source` umbenannt wird, explizit auf `trust_anchor` mappen. `account.anchor.anchor_type` speichert weiterhin dieselben Attribut-Wire-Namen. Keine DB-Spaltenmigration allein wegen besserer Kotlin-Namen. An Serialisierungsgrenzen vorhandene JSON-Vertraege gezielt pruefen und erhalten; keine globale Such-und-Ersetze-Aktion auf gespeicherten Daten.
 
 ### Ein technischer Pfad, explizite Semantik pro Typ
 
@@ -120,7 +120,7 @@ Die Fallunterscheidungen liegen zentral in dieser kleinen Datei, nicht erneut in
 
 ### Gemeinsame Aufloesung
 
-Lokale Account-Identifikator-Lookups laufen ueber `account_anchor`, auch PersonId. KVNR wird vorgeschaltet live in den Stammdaten zur PersonId aufgeloest. `AccountDirectory.resolveByAnchor(type: AttributeType, value)` und `anchorValue(accountId, type: AttributeType)` behalten ihre Operationsnamen, pruefen aber die lokale Anker-Eignung des Typs explizit. Typisierte Komfortmethoden bleiben als Extensions: PersonId und E-Mail delegieren an denselben Ankerpfad, KVNR zuerst an `PersonDirectory`.
+Lokale Account-Identifikator-Lookups laufen ueber `account.anchor`, auch PersonId. KVNR wird vorgeschaltet live in den Stammdaten zur PersonId aufgeloest. `AccountDirectory.resolveByAnchor(type: AttributeType, value)` und `anchorValue(accountId, type: AttributeType)` behalten ihre Operationsnamen, pruefen aber die lokale Anker-Eignung des Typs explizit. Typisierte Komfortmethoden bleiben als Extensions: PersonId und E-Mail delegieren an denselben Ankerpfad, KVNR zuerst an `PersonDirectory`.
 
 Der Resolver priorisiert anhand expliziter Ankerstaerke statt eines separaten PersonId-Repository-Zweigs oder der zufaelligen Claim-Reihenfolge. `MatchedVia.Anchor` traegt auch PersonId; dessen Staerke wird aus der Typregel abgeleitet, `MatchedVia.PersonId` entfaellt nach Umstellung seiner Verbraucher.
 
@@ -145,7 +145,7 @@ Die folgenden Befunde stammen aus den gelesenen Domain-Typen und ihren unmittelb
 | Heute | Vorschlag | Konkretes Missverstaendnis | Umfang bei spaeterer Freigabe |
 | --- | --- | --- | --- |
 | `Resolution.NewInteressent` | `Resolution.NoMatch` | Der Resolver hat keinen passenden Account gefunden. Daraus folgt weder, dass die Person neu ist, noch dass sie keinen Stammdatensatz hat. Die Journey kann heute gerade fuer eine vorhandene Person ein Konto anlegen. | `tool_api/IdentityResolver.kt`, Resolver, Journey und Resolver-Tests. Ergebnis bleibt identisch; kein neuer Interessenten-Flow. |
-| `AccountAttribute` | `AccountClaim` | Die Entity speichert eine historische Behauptung mit Herkunft und Zeitpunkt, nicht den aktuell gueltigen Attributwert. Der aktuelle Wert steht in der Projektion. | Entity und Repository im Account-Modul sowie Service/Tests. Tabelle `account_attribute` unveraendert lassen; vom SPI-Wertobjekt `Claim` durch den Account-Bezug unterscheiden. |
+| `AccountAttribute` | `AccountClaim` | Die Entity speichert eine historische Behauptung mit Herkunft und Zeitpunkt, nicht den aktuell gueltigen Attributwert. Der aktuelle Wert steht in der Projektion. | Entity und Repository im Account-Modul sowie Service/Tests. Tabelle `account.attribute` unveraendert lassen; vom SPI-Wertobjekt `Claim` durch den Account-Bezug unterscheiden. |
 | `createUnidentifiedAccount()` | `createUnboundAccount()` | Fehlende PersonId bedeutet genau: keine Bindung an eine Stammdaten-Person. Es kann bereits eine bestaetigte E-Mail oder andere Evidenz geben. Im spaeteren Claims-only-Zielbild waere sogar eine Identifizierung ohne Personenbindung moeglich. | AccountService, Journey, Seed und Tests. KDoc muss ausdruecklich sagen: ungebunden an eine Stammdaten-Person, nicht ungebunden an Kanal/Geraet. Kein neues Account-Zustandsfeld. |
 
 Empfehlung: `NoMatch` und `AccountClaim` zuerst entscheiden; sie beseitigen konkrete semantische Verwechslungen. `createUnboundAccount` ist ebenfalls praeziser, braucht aber wegen der verschiedenen Bindungen im Projekt die genannte KDoc. Alternativ ist `createAccountWithoutPersonBinding` laenger, dafuer voellig eindeutig.

@@ -129,7 +129,7 @@ class KcTokenProviderTest : BehaviorSpec({
                         com.example.dpop.account.AuthMethodView(
                             id = "m1", method = "password", active = true,
                             createdAt = Instant.now(), enrolledUnderAcr = "loa1", details = null,
-                            enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("auth_password_enrollment", "1")
+                            enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("auth_password.enrollment", "1")
                         )
                     )
                 )

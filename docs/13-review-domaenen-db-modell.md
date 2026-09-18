@@ -78,12 +78,12 @@ dass dabei **weder** ein zweiter Anchor **noch** die Projektionsspalte geschrieb
 ### A3 — Zwei widersprüchliche Eindeutigkeiten für dieselbe E-Mail ✅ behoben
 
 `V6` legte einen UNIQUE-Index auf die **rohe** Spalte `account.email`, `V31` einen auf den
-**normalisierten** `account_anchor(anchor_type, anchor_value)`. `A@x.de` und `a@x.de` passierten
+**normalisierten** `account.anchor(anchor_type, anchor_value)`. `A@x.de` und `a@x.de` passierten
 damit den Spaltenindex, kollidierten aber am Anchor — und diese Kollision wurde von A2 verschluckt.
 Zusätzlich war der Lesepfad `findByEmail` case-sensitiv: Wer sich mit `Max@x.de` anmeldete, fand
 das Konto nicht, das `max@x.de` bestätigt hatte.
 
-Umgesetzt (Code): `account_anchor` ist die alleinige Auflösungs- und Eindeutigkeitsautorität.
+Umgesetzt (Code): `account.anchor` ist die alleinige Auflösungs- und Eindeutigkeitsautorität.
 `findAccountByEmail`/`resolveAccountByEmail` sind Extensions über dem normalisierten Anchor;
 der ungenutzte `existsByEmail`-Sonderweg entfällt. Reine ID-Lookups laden kein Account-Profil;
 `AccountRepository.findByEmail`/`existsByEmail` wurden entfernt, damit kein zweiter, schwächerer
@@ -112,36 +112,36 @@ NICHT aus TrustLevel.rank berechnen"). Seither `claims.sortedByDescending { it.a
 (`tool_api/AttributeRules.kt`) — `PERSON_ID` rangiert damit unabhängig davon, welches Tool die
 Claims geliefert hat, immer über `EMAIL`/`KVNR`.
 
-### A5 — Löschpfad unvollständig, aber nur bei `orchestrator_journey_log`/`orchestrator_attempt_throttle` (DSGVO) ✅ behoben
+### A5 — Löschpfad unvollständig, aber nur bei `orchestrator.journey_log`/`orchestrator.attempt_throttle` (DSGVO) ✅ behoben
 
 **Korrektur gegenüber der ursprünglichen Fassung:** Die vermutete funktionale Lücke trifft **nicht**
 zu. `V30__add_account_attribute.sql` und `V31__add_account_anchor.sql` sind beide lesbar und
-setzen `account_id BIGINT NOT NULL REFERENCES account(id) ON DELETE CASCADE` (`V30` Zeile 15,
+setzen `account_id BIGINT NOT NULL REFERENCES account.account(id) ON DELETE CASCADE` (`V30` Zeile 15,
 `V31` Zeile 13) — beide Migrationen dokumentieren das sogar explizit im Kopfkommentar als
 gewollte Eigenschaft. `AccountService.deleteAccount` führt mit `accountRepository.deleteById(...)`
-ein echtes SQL-`DELETE FROM account` aus, das diese DB-seitige Cascade auslöst. Damit räumt sich
-`account_attribute` **und** `account_anchor` beim Löschen einer Account-Zeile selbst mit auf: kein
+ein echtes SQL-`DELETE FROM account.account` aus, das diese DB-seitige Cascade auslöst. Damit räumt sich
+`account.attribute` **und** `account.anchor` beim Löschen einer Account-Zeile selbst mit auf: kein
 verwaister EMAIL-Anchor, `resolveByAnchor` findet nach der Löschung nichts mehr, die Adresse ist
 sofort wieder für eine Neuregistrierung frei.
 
 Was bleibt, ist die DSGVO-Hälfte: `AccountService.deleteAccount` löscht nur die `account`-Zeile
 (mit den beiden Cascades im Schlepptau); `AccountDeletionService` räumt zusätzlich Credentials,
-`DeviceAccountLink`, Channels, `AuthContext`, `AuthEvidence` — **nicht** aber `orchestrator_journey_log` und
-`orchestrator_attempt_throttle`. Beide enthalten identitätsnahe Daten (`orchestrator_journey_log.detail`-JSON,
-`orchestrator_attempt_throttle.subject` bei `CONTACT_SEND` ungepfefferte Hashes von Kontaktadressen, siehe A7) und keine
+`DeviceAccountLink`, Channels, `AuthContext`, `AuthEvidence` — **nicht** aber `orchestrator.journey_log` und
+`orchestrator.attempt_throttle`. Beide enthalten identitätsnahe Daten (`orchestrator.journey_log.detail`-JSON,
+`orchestrator.attempt_throttle.subject` bei `CONTACT_SEND` ungepfefferte Hashes von Kontaktadressen, siehe A7) und keine
 Beziehung zu `account`, die eine Cascade tragen könnte — das ist eher B3/eine explizite
 Aufräum-Query im Löschpfad als ein fehlender Fremdschlüssel.
 
-Empfehlung: `AccountDeletionService` um `orchestrator_journey_log`/`orchestrator_attempt_throttle`-Aufräumung für die
+Empfehlung: `AccountDeletionService` um `orchestrator.journey_log`/`orchestrator.attempt_throttle`-Aufräumung für die
 gelöschte `accountId` ergänzen, unabhängig von der Aufbewahrungsfrist aus B3.
 
 **Umsetzung:** `AccountDeletionService.deleteAccount` räumt beides jetzt explizit ab.
 
-- `orchestrator_journey_log` wird über **zwei** Schlüssel gelöscht — `account_id` **und** die Channel-Sessions
+- `orchestrator.journey_log` wird über **zwei** Schlüssel gelöscht — `account_id` **und** die Channel-Sessions
   des Kontos. Einträge, die geschrieben wurden, bevor der Channel ein Konto aufgelöst hatte,
   tragen `account_id = NULL` und hätten eine rein kontobezogene Löschung überlebt; es ist derselbe
   Grund, aus dem `getLogForAccount` in der Leserichtung über die Channel-Menge geht.
-- `orchestrator_attempt_throttle` wird **nur** in den kontobezogenen Scopes (`ACCOUNT`, `ACCOUNT_SEND`)
+- `orchestrator.attempt_throttle` wird **nur** in den kontobezogenen Scopes (`ACCOUNT`, `ACCOUNT_SEND`)
   gelöscht. `PERSON` gehört zum externen Register, `BINDING_KEY` und `CONTACT_SEND` sind bewusst
   nicht kontobezogen — `CONTACT_SEND` speichert ohnehin nur einen Hash (siehe A7, dessen Annahme
   roher Kontaktdaten damit hinfällig ist). Diese Scopes mitzulöschen würde die Kontolöschung in
@@ -149,7 +149,7 @@ gelöschte `accountId` ergänzen, unabhängig von der Aufbewahrungsfrist aus B3.
 
 Zwei Fallstricke, die dabei zutage traten und im Code dokumentiert sind:
 
-1. Die Löschung muss **eine einzige** Anweisung sein. Jede Bulk-Mutation auf `orchestrator_journey_log` löst
+1. Die Löschung muss **eine einzige** Anweisung sein. Jede Bulk-Mutation auf `orchestrator.journey_log` löst
    vorher einen Auto-Flush aus; bei zwei Anweisungen schrieb der zweite Flush einen Eintrag fort,
    den die erste bereits gelöscht hatte → `Unexpected row count (expected 1 but was 0)`, nach
    außen ein falscher `409 CONCURRENT_MODIFICATION` auf genau der Anfrage, die die Löschung
@@ -180,7 +180,7 @@ Fehlermeldung; kein Downstream-Code brauchte je die IDs selbst.
 
 **Korrektur gegenüber der ursprünglichen Fassung:** Die Behauptung „im Klartext" trifft **nicht**
 zu. `SendThrottleService.isThrottledForContact` legt nicht die Adresse, sondern ihren
-SHA-256-Hash als `orchestrator_attempt_throttle.subject` ab (`SendThrottleService.hash`, mit eigener Begründung
+SHA-256-Hash als `orchestrator.attempt_throttle.subject` ab (`SendThrottleService.hash`, mit eigener Begründung
 im Code). Der `CONTACT_SEND`-Scope enthält damit keine im Klartext lesbaren Kontaktdaten.
 
 Was blieb: Der Hash war **ungepfeffert**. Telefonnummern und E-Mail-Adressen haben zu wenig
@@ -196,7 +196,7 @@ Pepper schützt, macht einen Neustart-bedingten Reset praktisch irrelevant (glei
 Kosten-Nutzen-Verhältnis wie bei den Fünf-Minuten-OTPs).
 
 Die zweite Hälfte des ursprünglichen Befunds — „unbegrenzt lange, ohne Aufbewahrungsgrenze" — ist
-mit B3 erledigt: `orchestrator_attempt_throttle` wird nach 7 Tagen ausgekehrt.
+mit B3 erledigt: `orchestrator.attempt_throttle` wird nach 7 Tagen ausgekehrt.
 
 ---
 
@@ -205,7 +205,7 @@ mit B3 erledigt: `orchestrator_attempt_throttle` wird nach 7 Tagen ausgekehrt.
 ### B1 — Full-Table-Scan im Identifikationspfad ✅ behoben
 
 `AccountAttributeRepository.findAccountIdsByTypeAndNormalizedValue` vergleicht
-`lower(trim(a.value))` — nicht sargable. Auf `account_attribute` existiert ausschließlich
+`lower(trim(a.value))` — nicht sargable. Auf `account.attribute` existiert ausschließlich
 `idx_account_attribute_account_id`; für `(attribute_type, value)` gibt es **keinen** Index, und
 selbst mit einem wäre das funktionsumhüllte Prädikat nicht nutzbar.
 
@@ -240,9 +240,9 @@ Ergebnis `Resolution.Ambiguous` (auf die ersten 50 gekappt) — nie ein Treffer.
 Angewendete Migration `V34__account_attribute_normalized_value.sql`:
 
 ```sql
-ALTER TABLE account_attribute ADD COLUMN normalized_value VARCHAR(255);
+ALTER TABLE account.attribute ADD COLUMN normalized_value VARCHAR(255);
 
-UPDATE account_attribute
+UPDATE account.attribute
 SET normalized_value = lower(trim(attribute_value))
 WHERE attribute_value IS NOT NULL;
 
@@ -250,7 +250,7 @@ WHERE attribute_value IS NOT NULL;
 -- account_id ist mit aufgenommen, damit die Kandidatenabfrage allein aus dem Index beantwortet
 -- werden kann.
 CREATE INDEX idx_account_attribute_type_normalized
-    ON account_attribute (attribute_type, normalized_value, account_id);
+    ON account.attribute (attribute_type, normalized_value, account_id);
 ```
 
 Codeseitig gehören dazu:
@@ -280,13 +280,13 @@ Schleife — eine paginierte ID-Query allein würde den Speicherdruck nicht senk
 diese Schleife selbst batchweise arbeitet. Das wäre ein Umbau des vollständigen
 Reconciliation-Ablaufs, kein kleiner Einzelbefund mehr.
 
-### B3 — `orchestrator_journey_log` hat keinerlei Aufbewahrungsgrenze ✅ behoben
+### B3 — `orchestrator.journey_log` hat keinerlei Aufbewahrungsgrenze ✅ behoben
 
 `RetentionJob` deckt `ToolSession`, `AuthJourney`, `ChannelSession`, `AuthContext`, `AuthEvidence`
-und `SessionEvent` ab — `orchestrator_journey_log` kommt darin **nicht vor**. Die Tabelle bekommt pro
+und `SessionEvent` ab — `orchestrator.journey_log` kommt darin **nicht vor**. Die Tabelle bekommt pro
 Journey-Schritt eine Zeile samt `detail`-JSON und ist laut eigener Doku ein Debug-/Demo-Trace. Bei
 „vielen Anmeldungen" ist sie mit Abstand die größte Tabelle des Systems und enthält zugleich
-identitätsnahe Daten (siehe A5). Gleiches gilt für `orchestrator_attempt_throttle`.
+identitätsnahe Daten (siehe A5). Gleiches gilt für `orchestrator.attempt_throttle`.
 
 **Umsetzung:** `RetentionJob` kehrt beide Tabellen jetzt rein altersbasiert aus — beide hängen an
 keinem Fremdschlüssel, der sie mit aufräumen könnte, und sind durch nichts anderes begrenzt.
@@ -330,7 +330,7 @@ Ebenfalls unverändert: die gesamte `cleanup()`-Transaktion bleibt eine einzige 
 Transaktionen pro Batch (eigenes Bean wegen Self-Invocation, analog `AttemptThrottleRowInitializer`),
 was über eine kleine Korrektur hinausgeht.
 
-### B5 — `orchestrator_dpop_proof_replay` als Durchsatzdeckel 🟡 teilweise
+### B5 — `orchestrator.dpop_proof_replay` als Durchsatzdeckel 🟡 teilweise
 
 **Umsetzung (ADR-14):** Der Primärschlüssel ist `proof_hash VARCHAR(64)` = SHA-256(`thumbprint:jti`),
 berechnet in `DpopReplayProtectionService`. **Offen:** Zeitpartitionierung bzw. KV-Store (unten).
@@ -354,7 +354,7 @@ Gerät über den Schlüssel `thumbprint:null` dauerhaft aus" wurde geprüft und 
 damit auf dem heißesten Pfad des Systems einen zusätzlichen Join/Query — für einen Wert, der laut
 eigener Dokumentation über die gesamte Kanal-Lebenszeit **konstant** ist.
 
-**Umsetzung:** Migration `V35` fügt `orchestrator_channel_session.available_tools` als `JSON`-Spalte hinzu
+**Umsetzung:** Migration `V35` fügt `orchestrator.channel_session.available_tools` als `JSON`-Spalte hinzu
 (gleiches Muster wie `account.identifications`/`authentication_methods`, `V1__schema.sql`),
 migriert die Bestandsdaten aus `channel_session_available_tools` per `LISTAGG` und löscht die
 alte Tabelle. Entity nutzt jetzt `@JdbcTypeCode(SqlTypes.JSON)` statt
@@ -366,15 +366,15 @@ alte Tabelle. Entity nutzt jetzt `@JdbcTypeCode(SqlTypes.JSON)` statt
 
 ### C1 — E-Mail existiert vierfach ✅ behoben
 
-`account.email` + `account.emailConfirmedAt` + `account_anchor(EMAIL)` + `account_attribute(EMAIL)`.
-Sauberes Zielbild: `account_attribute` = Provenienz (append-only), `account_anchor` =
+`account.email` + `account.emailConfirmedAt` + `account.anchor(EMAIL)` + `account.attribute(EMAIL)`.
+Sauberes Zielbild: `account.attribute` = Provenienz (append-only), `account.anchor` =
 Auflösung **und** Eindeutigkeit, Spalte = reine Projektion ohne eigene Unique-Zusage.
 Mit A3 ist das Zielbild jetzt vollständig erreicht: Lesepfad und Eindeutigkeitsautorität laufen
 über den Anchor, die Spalte trägt nur noch die (unbenutzte) Rohwert-Historie.
 
 **Nachtrag (ADR-14):** Die Projektionsspalten `account.email`/`email_confirmed_at` (und ebenso
-`account.person_id`) sind entfallen. Es bleiben zwei Schichten: `account_attribute` (Provenienz,
-Rohwert) und `account_anchor` (aktueller normalisierter Wert, Auflösung, Eindeutigkeit).
+`account.person_id`) sind entfallen. Es bleiben zwei Schichten: `account.attribute` (Provenienz,
+Rohwert) und `account.anchor` (aktueller normalisierter Wert, Auflösung, Eindeutigkeit).
 `AccountProfile.email`/`emailConfirmedAt`/`personId` werden aus dem Anker gelesen.
 
 ### C2 — Typisierung zwischen den Modulen inkonsistent 🟡 teilweise
@@ -394,8 +394,8 @@ schreiben/erwarten und stumm gegen jede Bestandszeile ins Leere laufen. Die Konv
 wirft (`error(...)`) statt still `null` zu liefern.
 
 **Nachtrag** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md), Paket 2): `AnchorType`
-entfiel als eigene, zur `AttributeType`-Taxonomie doppelte Hierarchie - `account_anchor.anchor_type`
-nutzt seither denselben `AttributeTypeConverter` wie `account_attribute.attribute_type` (identisches
+entfiel als eigene, zur `AttributeType`-Taxonomie doppelte Hierarchie - `account.anchor.anchor_type`
+nutzt seither denselben `AttributeTypeConverter` wie `account.attribute.attribute_type` (identisches
 Wire-Format), `AnchorTypeConverter` ist entfallen. Die Anker-Regeln (welcher Typ überhaupt Anker
 ist, Normalisierung, Ersetzbarkeit) leben seither gebündelt in `tool_api/AttributeRules.kt` statt
 in einer eigenen Sealed-Hierarchie.
@@ -445,13 +445,13 @@ auch bei Flush/Commit; andere Integritätsfehler bleiben sichtbar.
 
 ### D1 — `authenticationMethods` als JSON-Liste auf einer versionierten Zeile ✅ behoben
 
-**Umsetzung (ADR-14):** `account_auth_method` (eine Zeile je Methodeninstanz, `id UUID`,
+**Umsetzung (ADR-14):** `account.auth_method` (eine Zeile je Methodeninstanz, `id UUID`,
 `enrollment_type`/`enrollment_id` als Spalten, `deactivated_at` mit CHECK-Constraint gegen `active`,
 Indizes `(account_id, method)` und `(enrollment_type, enrollment_id)`). Die
 Nebenläufigkeitssemantik ist bewusst erhalten: Jede Änderung lädt die Kontozeile mit
 `OPTIMISTIC_FORCE_INCREMENT`, zwei konkurrierende Methodenänderungen desselben Kontos enden also
 weiterhin in genau einem `409`; Lesen schreibt dagegen nie mehr, und der Dirty-Checking-Kommentar
-samt `data class`-Zwang ist gegenstandslos. `identifications` ist analog zu `account_identification`
+samt `data class`-Zwang ist gegenstandslos. `identifications` ist analog zu `account.identification`
 geworden (append-only, keine Versionserhöhung). Der ursprüngliche Befund folgt unverändert.
 
 Der teuerste Entwurfsentscheid im Modell. Drei Konsequenzen:
@@ -465,7 +465,7 @@ Der teuerste Entwurfsentscheid im Modell. Drei Konsequenzen:
    ist selbst das Symptom — die Korrektheit hängt daran, dass niemand die `data class` in eine
    `class` ändert oder ein Feld aus dem Primärkonstruktor herausbewegt.
 
-Eine eigene Tabelle `account_auth_method(id, account_id, method, active, enrolled_under_acr, …)`
+Eine eigene Tabelle `account.auth_method(id, account_id, method, active, enrolled_under_acr, …)`
 beseitigt Kommentar, Contention und Abfragelücke in einem Zug. Für `identifications` gilt dasselbe
 abgeschwächt (weniger Schreiblast).
 

@@ -7,8 +7,8 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Each module cleans up its own attempt-scoped data by age, without a signal from the
- * orchestrator (docs/07-betrieb.md #3) - id_eid_tool_data holds KVNR/name/PIN and is pointless
+ * Each module cleans up its own tool-session-scoped working data by age, without a signal from the
+ * orchestrator (docs/07-betrieb.md #3) - id_eid.ident_tool_session holds KVNR/name/PIN and is pointless
  * after the process has moved on.
  */
 @Component

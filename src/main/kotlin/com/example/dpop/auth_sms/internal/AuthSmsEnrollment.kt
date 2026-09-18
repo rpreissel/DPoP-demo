@@ -12,7 +12,7 @@ import java.time.Instant
  * successful TAN check, so it is valid by definition - no `validated` flag, no `updatedAt`.
  */
 @Entity
-@Table(name = "auth_sms_enrollment")
+@Table(schema = "auth_sms", name = "enrollment")
 class AuthSmsEnrollment(
     var phoneNumber: String? = null
 ) {

@@ -67,7 +67,7 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Enrolled>()
                 val enrolled = outcome as ToolOutcome.Completed.Enrolled
-                enrolled.enrollmentRef.type shouldBe "auth_sms_enrollment"
+                enrolled.enrollmentRef.type shouldBe "auth_sms.enrollment"
                 enrolled.enrollmentRef.id shouldBe "42"
                 enrolled.amr shouldBe listOf("sms")
                 enrolled.achievedAcr shouldBe EnrollSmsDescriptor.maxAcr

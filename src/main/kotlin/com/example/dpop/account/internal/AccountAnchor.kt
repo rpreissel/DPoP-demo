@@ -20,12 +20,12 @@ import java.time.Instant
  * re-assignment. Provenance stays in [AccountAttribute].
  */
 @Entity
-@Table(name = "account_anchor")
+@Table(schema = "account", name = "anchor")
 class AccountAnchor(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,
 
-    // Same converter as account_attribute.attribute_type: both columns hold AttributeType.wireName.
+    // Same converter as account.attribute.attribute_type: both columns hold AttributeType.wireName.
     @Convert(converter = AttributeTypeConverter::class)
     @Column(name = "attribute_type", nullable = false)
     var attributeType: AttributeType? = null,

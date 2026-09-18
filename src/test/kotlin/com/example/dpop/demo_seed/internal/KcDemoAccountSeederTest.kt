@@ -29,7 +29,7 @@ class KcDemoAccountSeederTest(
     txManager: PlatformTransactionManager
 ) : BehaviorSpec({
     beforeEach {
-        listOf("account").forEach { jdbc.update("DELETE FROM $it") }
+        listOf("account.account").forEach { jdbc.update("DELETE FROM $it") }
     }
 
     fun seed(persons: PersonDirectory, passwords: PasswordCredentialPort): ApplicationRunner {
@@ -55,13 +55,13 @@ class KcDemoAccountSeederTest(
             val ids = accountService.allAccountIds().sorted()
             ids.size shouldBe 3
             (1L..3L).map { accountService.resolveByAnchor(AttributeType.PERSON_ID, it.toString()) } shouldBe ids
-            jdbc.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 6
-            jdbc.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 6
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 6
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
 
             runner.run(DefaultApplicationArguments())
             accountService.allAccountIds().sorted() shouldBe ids
-            jdbc.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 6
-            jdbc.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 6
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 6
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
             ids.forEach { accountService.findAccount(it)?.activeAuthenticationMethods?.size shouldBe 2 }
             verify(exactly = 3) { passwords.setNew(any()) }
         }
@@ -75,8 +75,8 @@ class KcDemoAccountSeederTest(
                 seed(persons, passwords).run(DefaultApplicationArguments())
             }
             accountService.allAccountIds() shouldBe emptyList()
-            jdbc.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 0
-            jdbc.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 0
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 0
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 0
         }
     }
 })

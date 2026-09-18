@@ -103,8 +103,8 @@ zusammengeführt — mit Modellbereinigung, siehe ADR-14.
 ## ADR-5: Dreifache Deckelung des Sicherheitsniveaus
 
 **Entscheidung**: Das erreichbare Sicherheitsniveau wird an drei unabhängigen Stellen gedeckelt,
-nie nur an einer: das LoA der Identifizierung (`account_identification.achieved_loa`) begrenzt,
-was ein Account je erreichen kann; `account_auth_method.enrolled_under_acr` begrenzt, was eine einzelne Methode bei ihrer
+nie nur an einer: das LoA der Identifizierung (`account.identification.achieved_loa`) begrenzt,
+was ein Account je erreichen kann; `account.auth_method.enrolled_under_acr` begrenzt, was eine einzelne Methode bei ihrer
 Verwendung beisteuern darf; `achievedAcr` einer Session ist das Minimum aus dem, was tatsächlich
 nachgewiesen wurde, und dem, was die verwendete Methode laut ihrem `enrolledUnderAcr` überhaupt
 tragen darf ([Orchestrierung](04-orchestrierung.md) Abschnitt 8, [Überblick](01-ueberblick.md)).
@@ -123,8 +123,8 @@ hergab.
 
 **Preis**: Drei Stellen, an denen ein Niveau sinken kann, statt einer — wer nur `achievedAcr`
 einer laufenden Session betrachtet, sieht nicht, welche der drei Deckelungen gerade greift; das
-muss über `AuthContext`, `account_auth_method.enrolled_under_acr` und
-`account_identification.achieved_loa` gemeinsam nachvollzogen werden.
+muss über `AuthContext`, `account.auth_method.enrolled_under_acr` und
+`account.identification.achieved_loa` gemeinsam nachvollzogen werden.
 
 **Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet den ersten Deckel (LoA der Identifizierung)
 inzwischen nicht mehr implizit über einen undifferenzierten Maximalwert aller Nachweise, sondern
@@ -292,7 +292,7 @@ mintet bei jedem Aufruf ohnehin frisch aus der aktuellen Evidenz), das gemeinsam
 Felder kostet dort lediglich ein überflüssiges neues Mock-RefreshToken.
 
 Dafür erzeugt der Orchestrator bei jedem Keycloak-Account-Sync ein eigenes, asymmetrisches
-Schlüsselpaar pro Account (`orchestrator_keycloak_keypair`, EC P-256) und spiegelt den Public Key als
+Schlüsselpaar pro Account (`orchestrator.keycloak_keypair`, EC P-256) und spiegelt den Public Key als
 echtes Keycloak-`Credential` (Typ `orchestrator-public-key`, `KeycloakAdminClient.setPublicKeyCredential`)
 auf den Keycloak-User — bewusst nicht als Attribut: Proof-of-possession-Material gehört in den
 Credential-Store, nicht neben `email`/`firstName` in dieselben, deutlich leichter versehentlich
@@ -335,7 +335,7 @@ kurzlebig (`exp` <= 60s) und wird nur beim ERSTEN Mint bzw. bei einer tatsächli
 Änderung gebraucht - jede reine Fristverlängerung dazwischen läuft über das von Keycloak
 ausgegebene `refresh_token`, ohne den Account-Private-Key erneut anzufassen.
 
-**Preis**: Ein weiterer, account-gebundener Datensatz (`orchestrator_keycloak_keypair`) mit eigenem
+**Preis**: Ein weiterer, account-gebundener Datensatz (`orchestrator.keycloak_keypair`) mit eigenem
 Lebenszyklus (erzeugt bei Sync, gelöscht bei `AccountDeleted`, [07-betrieb.md](07-betrieb.md)
 Abschnitt 3) sowie ein zusätzliches, projektspezifisches Stück Keycloak-Erweiterung, das bei einem
 Keycloak-Versions-Upgrade gegen die `server-spi-private`-Schnittstelle (bewusst als "private"
@@ -408,7 +408,7 @@ die Konfliktantwort als „existiert bereits". Dieser Zwischenstand ist durch di
 Claim-Übernahme unten abgelöst.
 
 **Nachtrag 2** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md), alle 7 Pakete): `person_id` ist seither
-kein Sonderfall mehr, sondern hat einen eigenen `account_anchor`-Eintrag, genau wie `email`
+kein Sonderfall mehr, sondern hat einen eigenen `account.anchor`-Eintrag, genau wie `email`
 (seit ADR-14 ohne zusätzliche Projektionsspalte) — die kontoübergreifende Abweisung dieser Entscheidung läuft seither
 technisch über denselben `recordAnchor`-Pfad (Cross-Account-Konflikt: fremder Anchor-Wert bereits
 vergeben) statt über einen separaten `bindPersonId`/`findAccountByPersonId`-Vergleich in
@@ -448,7 +448,7 @@ dagegen ein im Account-System bestätigter, wechselbarer Anker.
 
 ## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
 
-**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Umsetzung folgt): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account_retraction(account_id, attribute_type, value, trust_anchor, reason, retracted_at)`. Die Retraktion ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück (Stammdaten-Backend, Konto-Verwaltung, Operator), plus Grund und Zeitpunkt. Das Log (`account_attribute`) bleibt reine, strikt append-only Behauptungstabelle; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account_anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only, Quellen sind Konto-Verwaltung und Backend-Sync.
+**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Umsetzung folgt): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account_retraction(account_id, attribute_type, value, trust_anchor, reason, retracted_at)`. Die Retraktion ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück (Stammdaten-Backend, Konto-Verwaltung, Operator), plus Grund und Zeitpunkt. Das Log (`account.attribute`) bleibt reine, strikt append-only Behauptungstabelle; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only, Quellen sind Konto-Verwaltung und Backend-Sync.
 
 **Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
 Claim-Zeile — eine Tabelle, einfachste Abfrage "gültige Werte", aber die einzige
@@ -481,7 +481,7 @@ nutzen denselben `AttributeTypeConverter`; die Quelle heißt durchgängig `claim
 **Erwogene Alternativen**:
 
 - **`@Enumerated(EnumType.STRING)`**, konsistent mit dem `orchestrator`-Modul: verworfen, weil
-  `account_attribute.attribute_type`/`account_anchor.attribute_type` seit Jahren Wire-Names in
+  `account.attribute.attribute_type`/`account.anchor.attribute_type` seit Jahren Wire-Names in
   Kleinschreibung tragen (`person_id`, `email`). `@Enumerated(STRING)` schreibt/erwartet den
   Enum-Konstantennamen (`PERSON_ID`) und hätte jede Bestandszeile stumm verfehlt — ohne
   Datenmigration nicht anwendbar.
@@ -515,9 +515,9 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
 
 - `account` trägt nur noch `id`, `created_at`, `version` und ist Sperrwurzel für Änderungen am
   aktuellen Kontozustand (`OPTIMISTIC_FORCE_INCREMENT`).
-- Aktueller Zustand liegt in Zeilen je Fakt: `account_anchor` (einziger Speicherort von PersonId und
-  bestätigter E-Mail), `account_auth_method` (eine Zeile je Methodeninstanz, `EnrollmentRef` als
-  Spalten). Historie ist append-only: `account_attribute` (Claims), `account_identification`
+- Aktueller Zustand liegt in Zeilen je Fakt: `account.anchor` (einziger Speicherort von PersonId und
+  bestätigter E-Mail), `account.auth_method` (eine Zeile je Methodeninstanz, `EnrollmentRef` als
+  Spalten). Historie ist append-only: `account.attribute` (Claims), `account.identification`
   (Nachweise). Die JSON-Listen `identifications`/`authentication_methods` und die Projektionsspalten
   `person_id`/`email`/`email_confirmed_at` entfallen; `ConsolidationStrategy` entfällt, weil „lokal
   konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.
@@ -530,18 +530,8 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
   aufgeräumt über Modul-APIs.
 - Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<modul>_<tool-rolle>_data`,
   `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).
-- **Nachtrag**: Der Modulname ist inzwischen Präfix **jeder** Tabelle, auch im Orchestrator-Kern
-  (`orchestrator_channel_session`), und Tool-Arbeitsdaten heißen nach ihrem Modul statt nach ihrer
-  `toolId` (`auth_sms_enroll_data` statt `enroll_sms_tool_data`). Vorher dominierte die Art der
-  Tabelle den Namen, und eine alphabetische Liste verstreute die Tabellen eines Moduls über den
-  ganzen Katalog. Bei der Gelegenheit ist `registration_order_setting` — eine Tabelle mit einer
-  Spalte für genau ein Flag — der allgemeinen Tabelle `orchestrator_feature_flag` gewichen, und
-  `account_keycloak_keypair` heißt `orchestrator_keycloak_keypair`, weil sie nie dem Konto-Modul
-  gehörte.
-- `orchestrator_dpop_proof_replay` ist über SHA-256(`thumbprint:jti`) mit fester Breite geschlüsselt, statt über
-  einen clientbestimmten `VARCHAR(255)`-Schlüssel.
-- Jede Retention-Löschung ist ein Bulk-Statement mit Index auf ihrer Stichtagsspalte; auch
-  `auth_device` und `auth_qr` (inkl. `auth_qr_login_request`) räumen ihre Arbeitsdaten jetzt auf.
+- **Nachtrag**: Die Namenskonventionen dieses ADR sind von ADR-16 abgelöst — Besitz wird seither
+  nicht mehr über ein Präfix geschrieben, sondern über ein eigenes Schema je Modul.
 
 **Erwogene Alternative**: Nur squashen und die Form des Modells unverändert lassen (JSON-Listen auf
 der Kontozeile, Projektionsspalten neben den Ankern).
@@ -562,9 +552,9 @@ produktiven Einsatz sind Migrationen ausschließlich additiv.
 
 ## ADR-15: Nachweise und ausgestellte Tokens in getrennten Tabellen
 
-**Entscheidung**: `orchestrator_auth_evidence` (was auf einem Kanal bewiesen wurde) und `orchestrator_auth_context` (was
+**Entscheidung**: `orchestrator.auth_evidence` (was auf einem Kanal bewiesen wurde) und `orchestrator.auth_context` (was
 daraus an Tokens ausgestellt wurde) sind zwei Tabellen. Die Abhängigkeit ist einseitig:
-`orchestrator_auth_context.auth_evidence_id` zeigt auf die Nachweise, nie umgekehrt; mehrere Token-Kontexte
+`orchestrator.auth_context.auth_evidence_id` zeigt auf die Nachweise, nie umgekehrt; mehrere Token-Kontexte
 dürfen auf dieselbe Evidenz zeigen (`AuthContextRepository.findByAuthEvidenceId` liefert eine
 Liste). Abgeleitete Größen werden in keiner der beiden gespeichert: `currentAcr` berechnet
 `AuthPolicy.resolveAcr` bei jedem Lesen neu aus `amr_evidence`
@@ -595,13 +585,42 @@ und seit diesem ADR hier.
 
 ---
 
+## ADR-16: Ein Datenbankschema je Modul statt Namenspräfix
+
+**Entscheidung**: Jedes Modul bekommt ein eigenes Datenbankschema, und jede Tabelle liegt im
+Schema ihres Moduls: `account.anchor`, `auth_sms.enrollment`, `orchestrator.channel_session`.
+Tabellennamen tragen kein Modulpräfix mehr, weil das Schema es schon trägt; Indizes und
+Constraints sind schema-eigene Objekte und ebenfalls präfixfrei (`ux_anchor_value`). Die
+Arbeitsdaten eines Tool-Durchlaufs heißen `<modul>.<tool-rolle>_tool_session`
+([Betrieb](07-betrieb.md) Abschnitt 6, Kopf von `V1__schema.sql`).
+
+**Erwogene Alternative**: Der Zustand davor — eine flache Tabellenmenge, in der der Modulname als
+Präfix im Tabellennamen steht (`auth_sms_enrollment`, `orchestrator_channel_session`).
+
+**Warum diese**: Das Präfix war eine Konvention, an die sich jemand halten musste; das Schema ist
+eine Struktur, die sich nicht umgehen lässt. Eine Tabelle kann nicht mehr versehentlich im falschen
+Modul entstehen, und die tragende Regel dieses Schemas — Fremdschlüssel nur innerhalb eines Moduls
+— steht jetzt in der DDL selbst statt nur in einem Kommentar darüber. Nebeneffekte, die dieselbe
+Richtung stützen: Der Name sagt zweimal dasselbe nicht mehr doppelt (`auth_sms.enrollment` statt
+`auth_sms_enrollment`), und eine spätere Aufteilung eines Moduls in einen eigenen Dienst hat eine
+klare Schnittlinie — genau die Grenze, entlang derer die Module ohnehin geschnitten sind.
+
+**Preis**: Jede Query, jede `@Table`-Annotation und jedes Admin-Werkzeug muss qualifizieren; ein
+unqualifiziertes `SELECT ... FROM anchor` findet nichts mehr, weil der Suchpfad auf `PUBLIC` steht.
+Der Flyway-Verlauf (`flyway_schema_history`) bleibt bewusst in `PUBLIC` — er gehört keinem Modul.
+Und wo vorher ein Tabellenname global eindeutig war, ist er es jetzt nur noch je Schema: Fünf
+Module haben ein `enroll_tool_session`, und ein Log- oder Fehlertext ist erst mit dem Schema davor
+eindeutig.
+
+---
+
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 
 Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md), die
 identifiziert, ausformuliert und bewusst **nicht** vollständig umgesetzt sind — jeweils eine
 Architektur-/Infrastrukturentscheidung, kein lokal abschließbarer Fix:
 
-- **`orchestrator_dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
+- **`orchestrator.dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
   Schlüssel ist seit ADR-14 ein fester SHA-256-Hash. Offen bleibt die Zeitpartitionierung bzw. ein
   separater persistenter KV-Store — eine Entscheidung für den Produktivstack, nicht für diese
   H2-Demo-Umgebung.

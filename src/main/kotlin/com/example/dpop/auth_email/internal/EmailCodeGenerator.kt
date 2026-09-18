@@ -11,7 +11,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Generates and verifies attempt-scoped confirmation codes; the plaintext never gets persisted.
+ * Generates and verifies tool-session-scoped confirmation codes; the plaintext never gets persisted.
  *
  * The stored value is an HMAC-SHA256 under a server-side pepper, not a bare digest: a six-digit
  * code has only 10^6 possible preimages, so a plain SHA-256 is trivially reversed by anyone who

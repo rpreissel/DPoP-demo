@@ -50,21 +50,21 @@ classDiagram
   Account "1" --> "0..*" AccountAttribute : Claim-Log (append-only)
   Account "1" --> "0..*" AccountIdentification : Nachweis-Log (append-only)
   Account "1" --> "0..*" AccountAuthMethod : Methodeninstanzen
-  AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms_enrollment, id)
+  AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms.enrollment, id)
 ```
 
 Entscheidungen, die an diesem Modell hängen:
 
 - **`enrolledUnderAcr` als eigenes Feld, nicht nur Audit-Inhalt**: Eine Methode darf bei der Authentifizierung nicht mehr Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war — das effektive `achievedAcr` eines `auth-*`-Tools ist durch `enrolledUnderAcr` der verwendeten Methode gedeckelt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). Ohne diese Regel gäbe es einen Eskalationspfad: Wer eine schwache Session übernimmt, hinterlegt dort eine eigene Methode und erreicht damit dauerhaft ein höheres Niveau, als er je nachgewiesen hat. Den Wert kennt nur der Orchestrator (aus dem `AuthContext` zum Enrollment-Zeitpunkt), nie das Modul.
-- **`EnrollmentRef` als echte Spalten, nicht im `details`-Blob**: `account_auth_method.enrollment_type`/`enrollment_id` ist die einzige Verknüpfung zwischen Konto und Credential. Sie ist indiziert, also in beide Richtungen abfragbar (Konto → Credentials bei der Löschung, Credential → Konten bei einem Widerrufs- oder Krypto-Wechsel-Sweep). Die Credential-Tabellen der Module tragen bewusst keine `account_id`: Sie entstehen im Tool-Handler, bevor der Orchestrator das Konto kennt, und eine zweite Kopie der Verknüpfung könnte auseinanderlaufen.
+- **`EnrollmentRef` als echte Spalten, nicht im `details`-Blob**: `account.auth_method.enrollment_type`/`enrollment_id` ist die einzige Verknüpfung zwischen Konto und Credential. Sie ist indiziert, also in beide Richtungen abfragbar (Konto → Credentials bei der Löschung, Credential → Konten bei einem Widerrufs- oder Krypto-Wechsel-Sweep). Die Credential-Tabellen der Module tragen bewusst keine `account_id`: Sie entstehen im Tool-Handler, bevor der Orchestrator das Konto kennt, und eine zweite Kopie der Verknüpfung könnte auseinanderlaufen.
 - **Eine Zeile je Methodeninstanz statt JSON-Liste auf dem Konto**: Lesen schreibt nie; Änderungen sperren nur die Kontozeile per Versions-Inkrement; deaktivierte Instanzen tragen `deactivated_at` (ein CHECK-Constraint hält `active` und `deactivated_at` konsistent).
 - **`details.enrolledUnderAmr` ist Audit-Kontext, kein Modellfeld**: Beim Enrollment speichert der Orchestrator die damals vorhandenen AMR-Werte in `AccountAuthMethod.details`. Sie erklären rückblickend, unter welchen Nachweisen die Methode eingerichtet wurde, beeinflussen aber weder Kandidatenauswahl noch ACR-Berechnung. Maßgeblich dafür ist ausschließlich `enrolledUnderAcr`.
 - **Die bestätigte E-Mail ist der EMAIL-Anker**, keine Spalte auf `Account` und kein Modul-Credential: Ein Account hat höchstens eine bestätigte E-Mail zu jeder Zeit, dieselbe Behandlung wie `personId`. Erlaubt, dieselbe Adresse sowohl als Auth-Mittel (`enroll-email`/`auth-email`, `EnrollmentRef` = `EMAIL_ANCHOR_ENROLLMENT`) als auch als Identifikator für den lookup-basierten Login zu nutzen. `UNIQUE(attribute_type, normalized_value)` verhindert doppelt vergebene Adressen in jeder Schreibweise.
 - **Kein eigenes Identifikator-Feld bei `enroll-password`/`auth-password`**: Der EMAIL-Anker übernimmt diese Rolle, erzwungen über `ToolDescriptor.requires = { ClaimRequirement(EMAIL, PROVEN) }` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2).
 - **Keine TAN im Enrollment**: Die ausgestellte TAN ist ein versuchsbezogenes Einmalgeheimnis und liegt gehasht mit Ablaufzeit in der Tool-Session-Tabelle, nicht im langlebigen Enrollment-Datensatz — sonst würden sich zwei parallele Versuche gegenseitig die TAN überschreiben. Die eingereichte TAN wird nirgends gespeichert, nur gegen den Hash geprüft.
-- **Orchestrator speichert nur Lifecycle/Routing**, nie Fach- oder Moduldaten — die liegen ausschließlich im jeweiligen Methodenmodul (`auth_sms_auth_data`/`auth_sms_enroll_data` bei SMS).
+- **Orchestrator speichert nur Lifecycle/Routing**, nie Fach- oder Moduldaten — die liegen ausschließlich im jeweiligen Methodenmodul (`auth_sms.auth_tool_session`/`auth_sms.enroll_tool_session` bei SMS).
 
-Regel für `account_identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören Nachweisanker (`provider`, `providerTxId`), Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext (die hängen über `personId` an der Person) oder Geheimnisse.
+Regel für `account.identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören Nachweisanker (`provider`, `providerTxId`), Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext (die hängen über `personId` an der Person) oder Geheimnisse.
 
 ---
 

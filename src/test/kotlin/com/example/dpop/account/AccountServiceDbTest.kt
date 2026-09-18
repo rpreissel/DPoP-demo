@@ -41,7 +41,7 @@ class AccountServiceDbTest(
 ) : BehaviorSpec({
 
     beforeEach {
-        listOf("account").forEach { jdbcTemplate.update("DELETE FROM $it") }
+        listOf("account.account").forEach { jdbcTemplate.update("DELETE FROM $it") }
     }
 
     given("account creation and claim adoption sharing the caller transaction") {
@@ -58,8 +58,8 @@ class AccountServiceDbTest(
                 }
             }
             accountService.allAccountIds() shouldBe listOf(holder.accountId)
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 1
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 1
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 1
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 1
             accountService.resolveByAnchor(AttributeType.PERSON_ID, "555").shouldBeNull()
         }
 
@@ -75,8 +75,8 @@ class AccountServiceDbTest(
                 }
             }
             accountService.allAccountIds() shouldBe emptyList()
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 0
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 0
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 0
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 0
         }
     }
 
@@ -114,8 +114,8 @@ class AccountServiceDbTest(
                     OrchestratorExceptionHandler().handleConstraintViolation(violation).statusCode shouldBe HttpStatus.CONFLICT
                     accountService.allAccountIds() shouldBe listOf(winnerId)
                     accountService.resolveByAnchor(type, value) shouldBe winnerId
-                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 1
-                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 1
+                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 1
+                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 1
                     val winner = checkNotNull(accountService.findAccount(winnerId))
                     when (type) {
                         AttributeType.PERSON_ID -> winner.personId shouldBe value.toLong()
@@ -152,10 +152,10 @@ class AccountServiceDbTest(
             // the PERSON_ID claim already processed earlier in the SAME call, not just stop
             // applying further ones.
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account_attribute WHERE account_id = ?", Int::class.java, subject.accountId
+                "SELECT COUNT(*) FROM account.attribute WHERE account_id = ?", Int::class.java, subject.accountId
             ) shouldBe 0
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account_anchor WHERE account_id = ?", Int::class.java, subject.accountId
+                "SELECT COUNT(*) FROM account.anchor WHERE account_id = ?", Int::class.java, subject.accountId
             ) shouldBe 0
             accountService.findAccount(subject.accountId)?.personId.shouldBeNull()
         }
@@ -192,8 +192,8 @@ class AccountServiceDbTest(
                 accountService.resolveByAnchor(AttributeType.EMAIL, "shared@example.com") shouldBe winner
                 accountService.findAccount(loser)?.email shouldBe "old${ids.indexOf(loser) + 1}@example.com"
                 accountService.allAccountIds().sorted() shouldBe ids.sorted()
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_attribute", Int::class.java) shouldBe 3
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_anchor", Int::class.java) shouldBe 2
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 3
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 2
             } finally {
                 executor.shutdownNow()
                 check(executor.awaitTermination(10, TimeUnit.SECONDS)) { "Concurrent rebind tasks did not terminate" }
@@ -212,7 +212,7 @@ class AccountServiceDbTest(
             }
 
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account_anchor WHERE attribute_type = 'person_id' AND normalized_value = '777'",
+                "SELECT COUNT(*) FROM account.anchor WHERE attribute_type = 'person_id' AND normalized_value = '777'",
                 Int::class.java
             ) shouldBe 1
             accountService.findAccount(second.accountId)?.personId.shouldBeNull()
@@ -228,7 +228,7 @@ class AccountServiceDbTest(
             accountService.findAccountByEmail("old@example.com").shouldBeNull()
             accountService.findAccountByEmail("new@example.com")?.accountId shouldBe account.accountId
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account_anchor WHERE account_id = ? AND attribute_type = 'email'",
+                "SELECT COUNT(*) FROM account.anchor WHERE account_id = ? AND attribute_type = 'email'",
                 Int::class.java, account.accountId
             ) shouldBe 1
         }

@@ -108,7 +108,7 @@ entscheidet `TokenProvider` profilabhängig:
   ACR/AMR unverändert → billige Erneuerung über Keycloaks eigenen `refresh_token`-Grant, ohne
   Account-Private-Key; (3) kein gültiges RefreshToken mehr (Erstausstellung oder ein Step-up hat
   den Cache gerade invalidiert) → frische, signierte Assertion (Private Key AUS
-  `orchestrator_keycloak_keypair`, trägt `acr`/`amr` selbst als Claims) über den custom OAuth2-Grant
+  `orchestrator.keycloak_keypair`, trägt `acr`/`amr` selbst als Claims) über den custom OAuth2-Grant
   (`urn:dpop-demo:account-token`, `keycloak-extension`s `AccountTokenGrantType`; Details: ADR-9).
   Alle Aufrufe für denselben Account teilen sich dabei dieselbe Keycloak-Session
   (`AccountTokenGrantType` sucht sie über eine eigene Session-Note wieder, statt bei jedem Aufruf
@@ -205,7 +205,7 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 Liest den stabilen Kanalzustand — Resume-Einstieg und einfache Session-/Policy-Sicht. Zwei zusätzliche Felder im `channel`-Block neben `state`:
 
 - `currentAmr`: was **diese Sitzung** bereits nachgewiesen hat (Sitzungsevidenz aus dem `AuthContext`).
-- `activeMethods`: der volle, kontostabile Methodenbestand als `{id, method, label}`-Objekte — unabhängig davon, was diese Sitzung geprüft hat. Enthält nie `fsc` (Identifikation liegt im Audit-Log `account_identification`, nicht in `account_auth_method`). `id` adressiert die Instanz für `DELETE`; `label` ist nur bei mehrfach-möglichen Methoden gesetzt (aktuell nur `device` — mehrere Geräte können je ein eigenes, benanntes Credential halten). `auth-device` erscheint als AUTH-Kandidat nur auf dem physischen Gerät, das den passenden Schlüssel hält (`docs/04-orchestrierung.md`); Deaktivieren selbst bleibt bewusst ungefiltert.
+- `activeMethods`: der volle, kontostabile Methodenbestand als `{id, method, label}`-Objekte — unabhängig davon, was diese Sitzung geprüft hat. Enthält nie `fsc` (Identifikation liegt im Audit-Log `account.identification`, nicht in `account.auth_method`). `id` adressiert die Instanz für `DELETE`; `label` ist nur bei mehrfach-möglichen Methoden gesetzt (aktuell nur `device` — mehrere Geräte können je ein eigenes, benanntes Credential halten). `auth-device` erscheint als AUTH-Kandidat nur auf dem physischen Gerät, das den passenden Schlüssel hält (`docs/04-orchestrierung.md`); Deaktivieren selbst bleibt bewusst ungefiltert.
 
 Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer gesetzt — auch bei abgeschlossener Journey (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es bewusst nicht, da schon `next` selbst zeigt, ob ein Step-up ansteht. Nur bei `LOGGED_OUT` (terminal) fehlt `next` ganz.
 

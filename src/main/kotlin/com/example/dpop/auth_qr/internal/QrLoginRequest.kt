@@ -27,7 +27,7 @@ enum class QrLoginStatus { PENDING, APPROVED, DENIED, EXPIRED }
  * [resolvingAccountId].
  */
 @Entity
-@Table(name = "auth_qr_login_request")
+@Table(schema = "auth_qr", name = "login_request")
 class QrLoginRequest(
     @Id
     @Column(name = "pairing_code", nullable = false)

@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=auth-password-lookup - just an existence marker, single-step self-verifying tool. */
+/** Tool-session-scoped working data for toolId=auth-password-lookup - just an existence marker, single-step self-verifying tool. */
 @Entity
-@Table(name = "auth_password_lookup_data")
+@Table(schema = "auth_password", name = "lookup_tool_session")
 class AuthPasswordLookupToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

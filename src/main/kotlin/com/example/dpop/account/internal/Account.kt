@@ -19,7 +19,7 @@ import java.time.Instant
  * appends never bump it.
  */
 @Entity
-@Table(name = "account")
+@Table(schema = "account", name = "account")
 class Account(
     var createdAt: Instant? = null
 ) {

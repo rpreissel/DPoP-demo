@@ -16,7 +16,7 @@ import java.time.Instant
 import java.util.UUID
 
 @Entity
-@Table(name = "orchestrator_channel_session")
+@Table(schema = "orchestrator", name = "channel_session")
 class ChannelSession(
     @Enumerated(EnumType.STRING)
     @Column(name = "channel", nullable = false, length = 32)

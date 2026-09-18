@@ -21,7 +21,7 @@ import java.util.UUID
  * debugging/demo purposes - not a replacement, a different tradeoff.
  */
 @Entity
-@Table(name = "orchestrator_journey_log")
+@Table(schema = "orchestrator", name = "journey_log")
 class JourneyLogEntry(
     /** APP-only - null for WEB-channel entries, which have no DPoP binding key (docs/02-domaenenmodell.md Abschnitt 1). */
     @Column(name = "binding_key_ref", length = 64)

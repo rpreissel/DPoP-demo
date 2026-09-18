@@ -36,7 +36,7 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
         }
         patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-        return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account", Long::class.java)!!
+        return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account.account", Long::class.java)!!
     }
 
     init {

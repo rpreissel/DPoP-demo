@@ -38,7 +38,7 @@ class EnrollDeviceToolHandlerTest : BehaviorSpec({
             every { enrollmentRepository.findByThumbprint("thumb-1") } returns null
             every { enrollmentRepository.save(any()) } answers { firstArg<DeviceEnrollment>().apply { id = 9L } }
 
-            then("it enrolls a new auth_device_enrollment row, with PIN mapped to POSSESSION+KNOWLEDGE") {
+            then("it enrolls a new auth_device.enrollment row, with PIN mapped to POSSESSION+KNOWLEDGE") {
                 val outcome = handler.patch(toolSessionId, devicePublicKey, UserVerification.PIN, "binding-key-1", "Handy")
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Enrolled>()

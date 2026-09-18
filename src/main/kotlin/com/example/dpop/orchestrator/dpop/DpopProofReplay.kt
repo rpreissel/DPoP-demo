@@ -16,7 +16,7 @@ import java.time.Instant
  * window, and no in-process map that a restart empties or a second replica never sees.
  */
 @Entity
-@Table(name = "orchestrator_dpop_proof_replay")
+@Table(schema = "orchestrator", name = "dpop_proof_replay")
 class DpopProofReplay(
     @Id
     @Column(name = "proof_hash", nullable = false, length = 64)

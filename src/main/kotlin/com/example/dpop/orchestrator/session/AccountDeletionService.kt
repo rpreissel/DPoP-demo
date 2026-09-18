@@ -8,10 +8,10 @@ import org.springframework.transaction.annotation.Transactional
 
 /**
  * Hard-deletes an account and everything it exclusively owns (docs/05-api.md, Account löschen).
- * `ext_stammdaten_person` is deliberately untouched - it is the external register the account
+ * `ext_stammdaten.person` is deliberately untouched - it is the external register the account
  * only references, not something it owns. The account module's own child tables (anchors,
  * methods, claim and identification logs) are not listed below either: they cascade with the
- * final `DELETE FROM account`. Everything that hangs off no such key has to be named
+ * final `DELETE FROM account.account`. Everything that hangs off no such key has to be named
  * explicitly here - see the journey log and throttle cleanup in [deleteAccount].
  *
  * Orchestrates across module boundaries without ever depending on a method module by name: the
@@ -64,7 +64,7 @@ class AccountDeletionService(
         accountService.deleteAccount(accountId)
 
         // Strictly LAST, and deliberately so. These are bulk statements, and a bulk statement over
-        // `orchestrator_journey_log` overlaps the query space of the entries the running journey has itself
+        // `orchestrator.journey_log` overlaps the query space of the entries the running journey has itself
         // just written but not yet flushed - which forces Hibernate to auto-flush the whole
         // persistence context mid-request. That early flush bumps the version of every dirty
         // session entity, and any caller still holding the pre-flush copy then fails its own

@@ -8,9 +8,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=ident-eid. */
+/** Tool-session-scoped working data for toolId=ident-eid. */
 @Entity
-@Table(name = "id_eid_ident_data")
+@Table(schema = "id_eid", name = "ident_tool_session")
 class IdEidToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

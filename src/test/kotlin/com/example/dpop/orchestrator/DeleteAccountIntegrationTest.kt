@@ -35,12 +35,12 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 declined.channel()["state"] shouldBe "AUTHENTICATED"
 
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
+                    "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account_anchor WHERE account_id = ? AND attribute_type = 'person_id'",
+                    "SELECT COUNT(*) FROM account.anchor WHERE account_id = ? AND attribute_type = 'person_id'",
                     Int::class.java,
                     accountId
                 ) shouldBe 0
@@ -60,7 +60,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
 
                 completed.channel()["state"] shouldBe "LOGGED_OUT"
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account WHERE id = ?",
+                    "SELECT COUNT(*) FROM account.account WHERE id = ?",
                     Int::class.java,
                     accountId
                 ) shouldBe 0
@@ -84,11 +84,11 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                jdbcTemplate.update("UPDATE orchestrator_channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
-                jdbcTemplate.update("UPDATE orchestrator_auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
+                jdbcTemplate.update("UPDATE orchestrator.channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
+                jdbcTemplate.update("UPDATE orchestrator.auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
 
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
+                    "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
@@ -122,7 +122,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 declined.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
                 declined.channel()["state"] shouldBe "AUTHENTICATED"
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account WHERE id = ?",
+                    "SELECT COUNT(*) FROM account.account WHERE id = ?",
                     Int::class.java,
                     accountId
                 ) shouldBe 1
@@ -133,7 +133,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
             then("the completion response already reports LOGGED_OUT, not AUTHENTICATED") {
                 val channelSessionId = registerAndAuthenticate()
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
+                    "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
@@ -153,7 +153,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 completed.channel()["state"] shouldBe "LOGGED_OUT"
                 completed["next"] shouldBe null
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account WHERE id = ?",
+                    "SELECT COUNT(*) FROM account.account WHERE id = ?",
                     Int::class.java,
                     accountId
                 ) shouldBe 0

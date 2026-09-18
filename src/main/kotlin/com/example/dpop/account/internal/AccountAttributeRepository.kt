@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository
  * Append-only identity log; written by `AccountService.recordClaim`, read only by
  * `IdentityMatchingService`'s attribute-matching layer (normalized comparisons against
  * [AccountAttribute.normalizedValue], written once at persist time - see its `@PrePersist`
- * hook - and served entirely from `ix_account_attribute_type_value`).
+ * hook - and served entirely from `ix_attribute_type_value`).
  */
 @Repository
 interface AccountAttributeRepository : JpaRepository<AccountAttribute, Long> {

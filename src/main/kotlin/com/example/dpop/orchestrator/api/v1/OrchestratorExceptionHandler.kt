@@ -101,7 +101,7 @@ class OrchestratorExceptionHandler {
 
     private companion object {
         private val ACCOUNT_BINDING_CONSTRAINTS = setOf(
-            "ux_account_anchor_value", "ux_account_anchor_account_type"
+            "ux_anchor_value", "ux_anchor_account_type"
         )
         private val log = LoggerFactory.getLogger(OrchestratorExceptionHandler::class.java)
     }

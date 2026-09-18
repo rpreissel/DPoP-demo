@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=enroll-email (mirrors auth_sms's EnrollSmsToolData). */
+/** Tool-session-scoped working data for toolId=enroll-email (mirrors auth_sms's EnrollSmsToolData). */
 @Entity
-@Table(name = "auth_email_enroll_data")
+@Table(schema = "auth_email", name = "enroll_tool_session")
 class EnrollEmailToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

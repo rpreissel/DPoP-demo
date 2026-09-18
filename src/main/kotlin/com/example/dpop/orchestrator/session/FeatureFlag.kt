@@ -19,7 +19,7 @@ import java.time.Instant
  * stored here - that is the `FeatureFlags` constant and the strategy that reads it.
  */
 @Entity
-@Table(name = "orchestrator_feature_flag")
+@Table(schema = "orchestrator", name = "feature_flag")
 class FeatureFlag(
     @Id
     @Column(name = "flag_key", nullable = false, length = 100)

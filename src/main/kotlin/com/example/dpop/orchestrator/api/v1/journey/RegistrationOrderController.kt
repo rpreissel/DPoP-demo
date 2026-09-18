@@ -18,7 +18,7 @@ data class RegistrationOrderState(val enrollFirst: Boolean)
  * status quo (`enrollFirst = false`, the default) and the alternative order, without a redeploy.
  * A named endpoint for one flag rather than a generic flag API: the flag's meaning (which REGISTER
  * order) is the contract the frontend knows, `register-enroll-first` is only its storage key in
- * `orchestrator_feature_flag`. Demo scope deliberately: no auth guard, same as
+ * `orchestrator.feature_flag`. Demo scope deliberately: no auth guard, same as
  * `ToolAvailabilityController` - do not expose this beyond a trusted operator network as-is.
  */
 @RestController

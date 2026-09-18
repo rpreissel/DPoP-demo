@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component
 internal const val PASSWORD_METHOD = "password"
 
 /** The [com.example.dpop.tool_spi.EnrollmentRef.type] enroll-password writes and auth-password/auth-password-lookup read back - the one place it is spelled out. */
-internal const val PASSWORD_ENROLLMENT_TYPE = "auth_password_enrollment"
+internal const val PASSWORD_ENROLLMENT_TYPE = "auth_password.enrollment"
 
 /**
  * Self-description for every auth_password tool (docs/03-tool-architektur.md #1), one bean per

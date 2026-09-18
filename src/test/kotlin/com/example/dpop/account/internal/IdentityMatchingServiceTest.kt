@@ -22,7 +22,7 @@ import java.time.Instant
  * vereinheitlichen.md, "Gemeinsame Aufloesung"): the tool-attested consistency gate, the fixed
  * layer precedence (unique anchor - PERSON_ID ranked highest via anchorBindingStrength - then
  * attribute combination), and the never-guess rule for ambiguous attribute matches. No separate
- * PersonId-repository path any more: PERSON_ID resolves through the same `account_anchor` lookup
+ * PersonId-repository path any more: PERSON_ID resolves through the same `account.anchor` lookup
  * as every other anchor. Address fields are no longer part of the consistency check - they are
  * not claims (IdentEidDescriptor.claims).
  */

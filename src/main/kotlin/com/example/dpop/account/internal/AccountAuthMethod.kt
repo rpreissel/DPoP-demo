@@ -21,7 +21,7 @@ import java.util.UUID
  * this module never interprets.
  */
 @Entity
-@Table(name = "account_auth_method")
+@Table(schema = "account", name = "auth_method")
 class AccountAuthMethod(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,

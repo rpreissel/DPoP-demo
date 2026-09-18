@@ -53,7 +53,7 @@ class EnrollDeviceToolHandler(
         // Idempotent: getOrCreateDeviceKeyPair() on the client always returns the SAME key once
         // generated, so re-enrolling on the same device (e.g. after a rename or a lost link)
         // would resubmit the same thumbprint - reuse that row instead of a second INSERT, which
-        // would violate the UNIQUE constraint on auth_device_enrollment.thumbprint.
+        // would violate the UNIQUE constraint on auth_device.enrollment.thumbprint.
         val enrollment = enrollmentRepository.findByThumbprint(decision.devicePublicKey.thumbprint)
             ?: enrollmentRepository.save(
                 DeviceEnrollment(

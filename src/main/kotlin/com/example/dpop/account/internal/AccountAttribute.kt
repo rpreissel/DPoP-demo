@@ -20,7 +20,7 @@ import java.time.Instant
  * first, recency only as tiebreaker (ADR-11, docs/12-entscheidungen.md).
  */
 @Entity
-@Table(name = "account_attribute")
+@Table(schema = "account", name = "attribute")
 class AccountAttribute(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,
@@ -60,7 +60,7 @@ class AccountAttribute(
         /**
          * The one place the normalization rule exists - the write-time hook above and every
          * caller that queries by [normalizedValue] (`IdentityMatchingService`) must go through
-         * this, or the index (`ix_account_attribute_type_value`) silently
+         * this, or the index (`ix_attribute_type_value`) silently
          * stops matching.
          */
         fun normalize(value: String?): String? = value?.trim()?.lowercase()

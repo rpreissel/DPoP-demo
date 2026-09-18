@@ -33,7 +33,7 @@ class AuthDeviceToolHandlerTest : BehaviorSpec({
         `when`("the enrollment reference has the wrong type") {
             then("it throws UnresolvableReferenceException") {
                 shouldThrow<UnresolvableReferenceException> {
-                    handler.start(toolSessionId, EnrollmentRef("auth_password_enrollment", "1"))
+                    handler.start(toolSessionId, EnrollmentRef("auth_password.enrollment", "1"))
                 }
             }
         }
@@ -46,7 +46,7 @@ class AuthDeviceToolHandlerTest : BehaviorSpec({
             }
         }
 
-        `when`("the referenced auth_device_enrollment row does not exist") {
+        `when`("the referenced auth_device.enrollment row does not exist") {
             every { enrollmentRepository.findById(1L) } returns Optional.empty()
 
             then("it throws UnresolvableReferenceException") {
@@ -56,7 +56,7 @@ class AuthDeviceToolHandlerTest : BehaviorSpec({
             }
         }
 
-        `when`("the referenced auth_device_enrollment row exists") {
+        `when`("the referenced auth_device.enrollment row exists") {
             every { enrollmentRepository.findById(1L) } returns Optional.of(DeviceEnrollment(thumbprint = "thumb-1").apply { id = 1L })
             every { toolDataRepository.save(any()) } answers { firstArg() }
 

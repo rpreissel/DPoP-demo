@@ -143,7 +143,7 @@ stateDiagram-v2
 - `AccountAuthMethod` ist eine eingerichtete Methodeninstanz (`method`, `active`/`deactivatedAt`, `enrolledUnderAcr`, `label`, `details`) mit der `EnrollmentRef` als echten Spalten (`enrollment_type`, `enrollment_id`) — die einzige Stelle, an der Konto und Credential verknüpft sind. Die Credential-Zeile selbst gehört dem Methodenmodul; deaktivierte Instanzen bleiben stehen, damit die Kontolöschung jedes je referenzierte Credential erreicht. Die Methode `email` hat kein Modul-Credential: ihre Referenz ist der EMAIL-Anker (`EMAIL_ANCHOR_ENROLLMENT`).
 - `AccountIdentification` ist der Audit-Datensatz jeder Identifizierung: Verfahren, erreichtes LoA, Zeitpunkt und Nachweisanker ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1). Er ergänzt das Claim-Log, weil ein Claim seine Quelle (z. B. `ext_stammdaten`) nennt, nicht das prüfende Verfahren; für Entscheidungen wird er nie gelesen.
 - `AccountAttribute` ist das Provenienz-Log: jede je bezeugte Behauptung (`AttributeType`, Wert, Quelle — Spalte `claim_source`, im Code `ClaimSource` —, `AcrLevel`), append-only, nie überschrieben. Eine `normalized_value`-Spalte (befüllt über einen `@PrePersist`/`@PreUpdate`-Hook) trägt die Normalisierungsregel für den lesenden Abgleich an genau einer Stelle.
-- Wo ein Attribut seine Autorität hat, ist ein deklarierter Fall, keine Ableitung: `AttributeType.authority` (`tool_api/AttributeRules.kt`) kennt `LOCAL_ANCHOR` (`PERSON_ID`, `EMAIL` — lokal in `account_anchor`), `EXT_STAMMDATEN` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `METHOD_MODULE` (`PHONE_NUMBER` — in der `<modul>_enrollment`-Zeile des Methodenmoduls). Das `when` ist exhaustiv: ein neuer Attributtyp kompiliert erst, wenn seine Herkunft entschieden ist. `anchorBindingStrength` bleibt daneben bestehen, weil es eine andere Frage beantwortet — nicht „wem gehört der Wert", sondern „wie stark bindet ein Treffer darauf eine Identität"; ein Test hält fest, dass `LOCAL_ANCHOR` genau für die Typen mit Bindungsstärke gilt.
+- Wo ein Attribut seine Autorität hat, ist ein deklarierter Fall, keine Ableitung: `AttributeType.authority` (`tool_api/AttributeRules.kt`) kennt `LOCAL_ANCHOR` (`PERSON_ID`, `EMAIL` — lokal in `account.anchor`), `EXT_STAMMDATEN` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `METHOD_MODULE` (`PHONE_NUMBER` — in der `<modul>_enrollment`-Zeile des Methodenmoduls). Das `when` ist exhaustiv: ein neuer Attributtyp kompiliert erst, wenn seine Herkunft entschieden ist. `anchorBindingStrength` bleibt daneben bestehen, weil es eine andere Frage beantwortet — nicht „wem gehört der Wert", sondern „wie stark bindet ein Treffer darauf eine Identität"; ein Test hält fest, dass `LOCAL_ANCHOR` genau für die Typen mit Bindungsstärke gilt.
 - `AccountAnchor` ist die Auflösungs- und Eindeutigkeits-Projektion für die lokal geführten Attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`, `EMAIL`) und zugleich deren einziger Speicherort — `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem Lookup statt einem Abgleich und ist die einzige Eindeutigkeitsautorität, `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen Wert je Konto und Attributtyp. Lokal konsolidiert wird genau, was Anker ist; alle übrigen Attribute behalten ihre Autorität in `ext_stammdaten` und werden nur geloggt. KVNR wird ausschließlich live über `ext_stammdaten` zur PersonId und anschließend zum lokalen PersonId-Anker aufgelöst; historische KVNR-Claims sind keine lokale Zuordnungsquelle. Ein Anker, der bereits einem anderen Konto gehört, wird abgewiesen, nie still übersprungen oder umgehängt ([12-entscheidungen.md](12-entscheidungen.md) ADR-11).
 - `IdentityMatchingService.resolve` beantwortet „gehört diese bezeugte Identität zu einem bestehenden Konto?" in fester, nach Bindungsstärke fallender Schichtfolge: (1) eindeutiger Anker (`PERSON_ID` rangiert unter den Ankern am höchsten, Reihenfolge bei mehreren attestierten Ankern nach `AttributeType.anchorBindingStrength`, nicht nach Claim-Quelle/Vertrauensrang und nicht nach Aufrufer-Zufall — es gibt keinen separaten `personId`-Projektions-Sonderweg mehr), (2) normalisierte Attributkombination (Name+Vorname+Geburtsdatum, eine sargable Abfrage mit harter Kandidaten-Obergrenze). Wird die Obergrenze überschritten oder passen mehrere Konten, ist das Ergebnis `Ambiguous`, nie ein Treffer — „lieber gar nicht als falsch zusammenführen" gilt für diese Schicht uneingeschränkt.
 - Herleitung und noch nicht umgesetzte Ausbaustufen (Retraktion als eigene Widerrufs-Zeile, Konto-Merge) stehen in [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md); die getroffenen Entscheidungen in [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-11/ADR-12/ADR-13; die Sicherheits- und Skalierungs-Härtung dieses Modells in [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md); die technische Vereinheitlichung von `personId` und `email` auf denselben Claim-/Anker-Pfad in [ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md).
@@ -154,12 +154,15 @@ stateDiagram-v2
 
 Das Schema steht vollständig in `src/main/resources/db/migration/V1__schema.sql`, die Konventionen
 dahinter in [07-betrieb.md](07-betrieb.md) Abschnitt 6 und [12-entscheidungen.md](12-entscheidungen.md)
-ADR-14. Die beiden Diagramme zeigen die tragenden Tabellen mit ihren identifizierenden Spalten,
+ADR-14/ADR-16. Die beiden Diagramme zeigen die tragenden Tabellen mit ihren identifizierenden Spalten,
 nicht jede Spalte.
 
+Jedes Modul hat ein eigenes Datenbankschema; der qualifizierte Name nennt also immer den Besitzer
+([12-entscheidungen.md](12-entscheidungen.md) ADR-16).
+
 **Linienarten, und warum sie sich unterscheiden:** Eine durchgezogene Linie ist ein echter
-Fremdschlüssel — den gibt es ausschließlich **innerhalb** eines Moduls. Eine gestrichelte Linie ist
-ein modulübergreifender Bezug: eine indizierte Spalte ohne Constraint, aufgeräumt über die API des
+Fremdschlüssel — den gibt es ausschließlich **innerhalb** eines Schemas. Eine gestrichelte Linie ist
+ein schemaübergreifender Bezug: eine indizierte Spalte ohne Constraint, aufgeräumt über die API des
 besitzenden Moduls (`EnrollmentCleanup`, `AccountDeletionService`), nie per Kaskade. Eine Kaskade
 über eine Modulgrenze würde die Löschregel eines fremden Moduls in die DDL dieses Moduls schreiben.
 
@@ -167,24 +170,24 @@ besitzenden Moduls (`EnrollmentCleanup`, `AccountDeletionService`), nie per Kask
 
 ```mermaid
 erDiagram
-  account ||--o{ account_anchor : "hat aktuellen Ankerwert"
-  account ||--o{ account_auth_method : "hat Methodeninstanz"
-  account ||--o{ account_attribute : "bezeugt (append-only)"
-  account ||--o{ account_identification : "identifiziert (append-only)"
-  account_auth_method }o..o| auth_sms_enrollment : "enrollment_type/_id"
-  account_auth_method }o..o| auth_device_enrollment : "enrollment_type/_id"
-  account_anchor }o..o| ext_stammdaten_person : "PERSON_ID-Anker"
+  account.account ||--o{ account.anchor : "hat aktuellen Ankerwert"
+  account.account ||--o{ account.auth_method : "hat Methodeninstanz"
+  account.account ||--o{ account.attribute : "bezeugt (append-only)"
+  account.account ||--o{ account.identification : "identifiziert (append-only)"
+  account.auth_method }o..o| auth_sms.enrollment : "enrollment_type/_id"
+  account.auth_method }o..o| auth_device.enrollment : "enrollment_type/_id"
+  account.anchor }o..o| ext_stammdaten.person : "PERSON_ID-Anker"
 
-  account {
+  account.account {
     bigint id PK "Identitaetsschluessel und Sperrwurzel"
     bigint version "OPTIMISTIC_FORCE_INCREMENT je Zustandsaenderung"
   }
-  account_anchor {
+  account.anchor {
     bigint account_id FK
     varchar attribute_type UK "ux(account_id, attribute_type)"
     varchar normalized_value UK "ux(attribute_type, normalized_value)"
   }
-  account_auth_method {
+  account.auth_method {
     uuid id PK "adressiert von DELETE .../methods/{id}"
     bigint account_id FK
     varchar method
@@ -192,7 +195,7 @@ erDiagram
     varchar enrollment_id
     boolean active "ck: active = (deactivated_at IS NULL)"
   }
-  account_attribute {
+  account.attribute {
     bigint account_id FK
     varchar attribute_type
     varchar attribute_value "wie bezeugt"
@@ -200,32 +203,32 @@ erDiagram
     varchar claim_source "z.B. ext_stammdaten"
     varchar established_loa
   }
-  account_identification {
+  account.identification {
     bigint account_id FK
     varchar method "welches Verfahren"
     varchar achieved_loa
     json details "Nachweisanker"
   }
-  auth_sms_enrollment {
+  auth_sms.enrollment {
     bigint id PK
     varchar phone_number
   }
-  auth_device_enrollment {
+  auth_device.enrollment {
     bigint id PK
     varchar thumbprint UK
   }
-  ext_stammdaten_person {
+  ext_stammdaten.person {
     bigint id PK
     varchar kvnr UK
   }
 ```
 
-`account` trägt selbst keinen Fakt: `personId` und `email` stehen als Anker in `account_anchor`,
-die Methodenliste in `account_auth_method` (Abschnitt 6). Die Credential-Tabellen der
-Methodenmodule (hier beispielhaft `auth_sms_enrollment`, `auth_device_enrollment`) haben bewusst
+`account` trägt selbst keinen Fakt: `personId` und `email` stehen als Anker in `account.anchor`,
+die Methodenliste in `account.auth_method` (Abschnitt 6). Die Credential-Tabellen der
+Methodenmodule (hier beispielhaft `auth_sms.enrollment`, `auth_device.enrollment`) haben bewusst
 **keine** `account_id`: Sie entstehen im Tool-Handler, bevor die Orchestrierung das Konto kennt —
 bei „Enrollment zuerst" existiert noch gar keins. Die einzige Verknüpfung ist
-`account_auth_method.enrollment_type/enrollment_id`, in beide Richtungen indiziert.
+`account.auth_method.enrollment_type/enrollment_id`, in beide Richtungen indiziert.
 `auth_email` hat aus demselben Grund keine eigene Credential-Tabelle: Das Credential *ist* der
 EMAIL-Anker.
 
@@ -233,18 +236,18 @@ EMAIL-Anker.
 
 ```mermaid
 erDiagram
-  orchestrator_channel_session ||--o{ orchestrator_auth_journey : "fuehrt Lauf"
-  orchestrator_auth_journey ||--o{ orchestrator_tool_session : "aktiviert Tool"
-  orchestrator_channel_session }o--o| orchestrator_auth_context : "APP: Token-Buchhaltung"
-  orchestrator_channel_session }o--o| orchestrator_auth_evidence : "Nachweise dieses Kanals"
-  orchestrator_auth_context }o--o| orchestrator_auth_evidence : "bewertet"
-  orchestrator_auth_journey }o..o| orchestrator_auth_journey : "parent_journey_id (ohne FK)"
-  orchestrator_tool_session ||..o| auth_sms_enroll_data : "tool_session_id ist PK"
-  orchestrator_tool_session ||..o| auth_sms_auth_data : "tool_session_id ist PK"
-  orchestrator_channel_session }o..o| account : "account_id"
-  orchestrator_device_account_link }o..|| account : "account_id"
+  orchestrator.channel_session ||--o{ orchestrator.auth_journey : "fuehrt Lauf"
+  orchestrator.auth_journey ||--o{ orchestrator.tool_session : "aktiviert Tool"
+  orchestrator.channel_session }o--o| orchestrator.auth_context : "APP: Token-Buchhaltung"
+  orchestrator.channel_session }o--o| orchestrator.auth_evidence : "Nachweise dieses Kanals"
+  orchestrator.auth_context }o--o| orchestrator.auth_evidence : "bewertet"
+  orchestrator.auth_journey }o..o| orchestrator.auth_journey : "parent_journey_id (ohne FK)"
+  orchestrator.tool_session ||..o| auth_sms.enroll_tool_session : "tool_session_id ist PK"
+  orchestrator.tool_session ||..o| auth_sms.auth_tool_session : "tool_session_id ist PK"
+  orchestrator.channel_session }o..o| account.account : "account_id"
+  orchestrator.device_account_link }o..|| account.account : "account_id"
 
-  orchestrator_channel_session {
+  orchestrator.channel_session {
     uuid id PK
     varchar channel "APP | KEYCLOAK"
     varchar binding_key_ref "ck: genau bei channel = APP gesetzt"
@@ -252,7 +255,7 @@ erDiagram
     varchar acr_floor "dauerhafte Untergrenze des Kanals"
     timestamp expires_at "ix, Retention"
   }
-  orchestrator_auth_journey {
+  orchestrator.auth_journey {
     uuid id PK
     uuid channel_session_id FK
     varchar intent
@@ -260,54 +263,56 @@ erDiagram
     varchar state_type "abfragbarer Diskriminator"
     json state "JourneyState, kein next_*"
   }
-  orchestrator_tool_session {
+  orchestrator.tool_session {
     uuid id PK
     uuid journey_id FK
     timestamp expires_at "ix, Retention"
   }
-  orchestrator_auth_context {
+  orchestrator.auth_context {
     uuid id PK
     varchar access_token "der Token selbst, kein Handle - Cache"
     varchar refresh_token "nie im Frontend"
     timestamp access_expires_at
   }
-  orchestrator_auth_evidence {
+  orchestrator.auth_evidence {
     uuid id PK
     json amr_evidence "aktuelles ACR wird abgeleitet, nie gespeichert"
   }
-  orchestrator_device_account_link {
+  orchestrator.device_account_link {
     varchar binding_key_ref PK "einzige langlebige Zuordnung Geraet -> Konto"
   }
-  account {
+  account.account {
     bigint id PK "Spalten siehe Diagramm Konto"
   }
-  auth_sms_enroll_data {
+  auth_sms.enroll_tool_session {
     uuid tool_session_id PK
     varchar issued_tan_hash
     timestamp created_at "ix, Retention"
   }
-  auth_sms_auth_data {
+  auth_sms.auth_tool_session {
     uuid tool_session_id PK
     varchar enrollment_ref_type
     varchar enrollment_ref_id
   }
 ```
 
-`orchestrator_auth_evidence` und `orchestrator_auth_context` sind getrennt, obwohl sie im
+`orchestrator.auth_evidence` und `orchestrator.auth_context` sind getrennt, obwohl sie im
 APP-Kanal gemeinsam entstehen: Nachweise hat jeder Kanal (der KEYCLOAK-Kanal legt nie einen
 `AuthContext` an), und sie sind die Wahrheit, aus der die Policy rechnet — der Token ist nur die
 daraus ausgestellte, jederzeit verwerfbare Kopie
 ([12-entscheidungen.md](12-entscheidungen.md) ADR-15).
 
-Die `*_data`-Tabellen tragen den Modulnamen wie jede andere Tabelle, obwohl nicht das Modul,
-sondern die `ToolSession` ihr Lebenszyklus-Eigentümer ist: Ihr Primärschlüssel *ist* die
-`tool_session_id`, ein Fremdschlüssel darauf wäre modulübergreifend. Der Name nennt den Besitzer,
-der Schlüssel den Lebenszyklus — zwei verschiedene Fragen. Jedes Methodenmodul folgt demselben
-Zuschnitt wie `auth_sms` oben: ein langlebiges `<modul>_enrollment` plus je eine kurzlebige
-`<modul>_<tool-rolle>_data` pro Tool; die vollständige Liste steht in `V1__schema.sql`.
+Die `*_tool_session`-Tabellen liegen im Schema ihres Moduls, obwohl nicht das Modul, sondern die
+`ToolSession` ihr Lebenszyklus-Eigentümer ist: Ihr Primärschlüssel *ist* die `tool_session_id`, ein
+Fremdschlüssel darauf wäre schemaübergreifend. Der Ort nennt den Besitzer, der Schlüssel den
+Lebenszyklus — zwei verschiedene Fragen, und der Name sagt beides: `auth_sms.enroll_tool_session`
+ist die Modulhälfte derselben `orchestrator.tool_session`, keine vierte Session-Ebene. Jedes
+Methodenmodul folgt demselben Zuschnitt wie `auth_sms` oben: ein langlebiges `<modul>.enrollment`
+plus je eine kurzlebige `<modul>.<tool-rolle>_tool_session` pro Tool; die vollständige Liste steht
+in `V1__schema.sql`.
 
-Nicht im Diagramm, weil ohne Beziehungen: `orchestrator_session_event` und
-`orchestrator_journey_log` (Session-IDs sind dort historische Werte, keine Referenzen — die Spur
-überlebt die Sessions), `orchestrator_attempt_throttle`, `orchestrator_dpop_proof_replay`,
-`orchestrator_tool_availability`, `orchestrator_feature_flag` und
-`orchestrator_keycloak_keypair`.
+Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.session_event` und
+`orchestrator.journey_log` (Session-IDs sind dort historische Werte, keine Referenzen — die Spur
+überlebt die Sessions), `orchestrator.attempt_throttle`, `orchestrator.dpop_proof_replay`,
+`orchestrator.tool_availability`, `orchestrator.feature_flag` und
+`orchestrator.keycloak_keypair`.

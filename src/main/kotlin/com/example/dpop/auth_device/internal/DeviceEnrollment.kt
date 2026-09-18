@@ -14,7 +14,7 @@ import java.time.Instant
  * self-signed proof only the matching private key could have produced.
  */
 @Entity
-@Table(name = "auth_device_enrollment")
+@Table(schema = "auth_device", name = "enrollment")
 class DeviceEnrollment(
     var kty: String? = null,
     var crv: String? = null,

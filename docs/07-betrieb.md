@@ -27,7 +27,7 @@ Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Ve
 - `AuthContext` wird nur bei `SUCCEEDED` aktualisiert.
 - Jede relevante Transition erzeugt einen `SessionEvent` Audit-Eintrag.
 - Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) atomarisiert die Journey-Übernahme, den Account-Eintrag, den Claim-Log und den `AuthContext`-Nachweis. Das jeweilige Methodenmodul schreibt seine Tool-/Enrollment-Daten bereits beim `PATCH` in einer eigenen Transaktion; scheitert die spätere Journey-Übernahme, bleibt diese Moduldatenzeile als kurzlebige, vom Modul bereinigte Arbeitsdaten bestehen, wird aber nicht als Account-Credential aktiviert. Im Modulith verhindert die gemeinsame Übernahmetransaktion Zwischenzustände innerhalb der Orchestrierung.
-- Auch neue Accounts, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung bleibt nur der Gewinner bestehen, der Verlierer rollt vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`. Es gibt keinen automatischen Wiederholungsversuch. Unique-Verletzungen der Account-Bindungs-Constraints (`ux_account_anchor_value`, `ux_account_anchor_account_type`) werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler. After-Commit-Synchronisierung läuft nur nach erfolgreichem Commit.
+- Auch neue Accounts, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung bleibt nur der Gewinner bestehen, der Verlierer rollt vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`. Es gibt keinen automatischen Wiederholungsversuch. Unique-Verletzungen der Account-Bindungs-Constraints (`ux_anchor_value`, `ux_anchor_account_type`) werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler. After-Commit-Synchronisierung läuft nur nach erfolgreichem Commit.
 - Der reine Demo-Seed verwendet eine eigene transaktionale Klammer um seine Anlage und Claim-Übernahme. Er löst bestehende Accounts über PersonId-Anker auf und erzeugt bei Neustarts keine zusätzlichen Bootstrap-Claims; er benötigt keine produktive Wiederholungslogik.
 - Nicht transaktional ist der SMS-Versand als externer Effekt: Ein Rollback macht eine bereits versendete SMS nicht rückgängig. Das ist ein Zustellthema (der Nutzer erhält im Zweifel eine TAN zu viel), kein Konsistenzproblem der Daten — die zugehörige `issuedTanHash`-Zeile wurde ja mit zurückgerollt und läuft ins Leere.
 
@@ -48,19 +48,19 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 | `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | die langlebige Geräte-Identität liegt seit `DeviceAccountLink` nicht mehr hier, aber `JourneyLogEntry` fragt den Log über die Channel-Menge ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
 | `SessionEvent` | `createdAt` | 90 Tage | eigene Audit-Frist, überlebt die Sessions bewusst |
 | `JourneyLogEntry` | `createdAt` | 30 Tage | bewusst gleich `ChannelSession`: wird nur über die Channel-Menge abgefragt, länger zu leben bringt nichts. Debug-/Demo-Trace, NICHT der Audit-Trail — das bleibt `SessionEvent` |
-| `*Enrollment` (Modul-Credentials) | — | kein Session-Cleanup | Bestandteil des Accounts, lebt bis zur Kontolöschung (erreicht über `account_auth_method`, auch deaktivierte Instanzen) |
+| `*Enrollment` (Modul-Credentials) | — | kein Session-Cleanup | Bestandteil des Accounts, lebt bis zur Kontolöschung (erreicht über `account.auth_method`, auch deaktivierte Instanzen) |
 | `account_*` (Anker, Methoden, Claim- und Identifizierungs-Log) | — | kein Session-Cleanup | gehört dem Konto, kaskadiert mit dessen Löschung |
 | `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
 | `AttemptThrottle` | letzter Zähler-Update | 7 Tage | zwei Größenordnungen über dem längsten Fenster/Lockout (15 Min.); ein Sweep rührt nie eine Zeile an, deren Sperre noch läuft. Fehlversuchs-/Versand-Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4); die beiden Fehlversuchs-Scopes werden nur durch einen erfolgreichen Auth-/Ident-Abschluss zurückgesetzt, die drei Fenster-Scopes laufen einfach ab |
-| `orchestrator_keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
+| `orchestrator.keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
 
 Umgang mit den Referenzen:
 
 - **Besitzkette** (`ChannelSession` -> `AuthJourney` -> `ToolSession` -> `*ToolData`): wird von innen nach außen abgeräumt. Weil die Fristen von innen nach außen wachsen, ergibt sich diese Reihenfolge automatisch — ein `ToolSession` verschwindet nie vor seinen Moduldaten.
 - **Moduldaten** räumt jedes Modul eigenständig nach Alter (`createdAt`) auf, ohne Signal vom Orchestrator. Das ist robuster als ein Löschbefehl (ein verpasstes Signal hinterließe dauerhafte Waisen) und bleibt gültig, falls ein Modul später ein eigener Service mit eigener Datenbank wird.
 - **Audit ist entkoppelt**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel. Das ist Absicht — das Audit muss die Sessions überleben, und der Eintrag speichert ohnehin nur `payloadHash` statt Nutzdaten. Ins Leere zeigende IDs sind hier erwartet, kein Defekt.
-- **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account_auth_method`, `account_identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, oder die Geräte-Wiedererkennung kappen. `account_identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
-- **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `orchestrator_journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `orchestrator_attempt_throttle` (nur die kontobezogenen Scopes `ACCOUNT`/`ACCOUNT_SEND` — `BINDING_KEY`/`CONTACT_SEND` blieben sonst ein Weg, fremde Throttle-Budgets über eine Neuregistrierung zurückzusetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
+- **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, oder die Geräte-Wiedererkennung kappen. `account.identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
+- **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `orchestrator.journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `orchestrator.attempt_throttle` (nur die kontobezogenen Scopes `ACCOUNT`/`ACCOUNT_SEND` — `BINDING_KEY`/`CONTACT_SEND` blieben sonst ein Weg, fremde Throttle-Budgets über eine Neuregistrierung zurückzusetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
 - **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3) - der Orchestrator erfährt nie aktiv davon. `RetentionJob` prüft deshalb für bereits abgelaufene `KEYCLOAK`-Kanäle zusätzlich per Keycloak-Admin-API, ob die zugehörige Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf statt erst nach der vollen Retention-Frist. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) führt nie zu einem verfrühten Löschen - sie fällt zurück auf die normale zeitbasierte Frist.
 
 ## 4) Kontosperre, Rate-Limits und Versand-Drosselung (Brute-Force-/Bombing-Schutz)
@@ -141,24 +141,26 @@ beim Lesen unwirksam und werden von `AuthQrRetentionJob` abgeräumt (Abschnitt 3
 ## 6) Datenbankschema: Konventionen
 
 Das Schema steht vollständig in `src/main/resources/db/migration/V1__schema.sql`; die Regeln
-stehen einmal in dessen Kopf und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14).
+stehen einmal in dessen Kopf und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16).
 Die tragenden Tabellen und ihre Beziehungen als Diagramm stehen in
 [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7. Die Regeln im Einzelnen:
 
-- **Besitz**: Jede Tabelle gehört genau einem Modul. Fremdschlüssel nur innerhalb eines Moduls;
-  modulübergreifende Bezüge (z. B. `account_id` in Orchestrator-Tabellen) sind indizierte
-  Spalten und werden über die Modul-APIs aufgeräumt, nie per modulübergreifender Kaskade.
-- **Namen**: **Jede** Tabelle heißt `<modul>_<rest>`, der Orchestrator-Kern eingeschlossen — der
-  Besitzer ist damit am Namen ablesbar, und eine alphabetische Tabellenliste gruppiert nach Modul.
-  Wo sich der Modulname sonst wiederholen würde, wird der Rest gekürzt: Das Modul `auth_sms` legt
-  die Daten des Tools `auth-sms` in `auth_sms_auth_data` ab, nicht in `auth_sms_auth_sms_data`;
-  dasselbe gilt für die zweite Hälfte eines Constraint-Namens, die per Regel ohnehin eine Tabelle
-  desselben Moduls nennt. Langlebige Credentials heißen `<modul>_enrollment`, und dieser Name ist
-  `EnrollmentRef.type`; Tool-Arbeitsdaten heißen `<modul>_<tool-rolle>_data`. PK-Spalte immer `id`,
-  Referenzen `<tabelle>_id`, Indizes `ux_`/`ix_`.
+- **Besitz ist strukturell**: Ein Datenbankschema je Modul, und jede Tabelle liegt im Schema
+  ihres Moduls (`account.anchor`, `auth_sms.enrollment`). „Wem gehört diese Tabelle?" beantwortet
+  damit ihr Ort, nicht ihre Schreibweise — eine Tabelle kann nicht versehentlich am falschen Platz
+  entstehen. Tabellennamen bleiben kurz, weil das Schema den Modulnamen schon trägt.
+- **Fremdschlüssel** nur innerhalb eines Schemas; modulübergreifende Bezüge (z. B. `account_id` in
+  Orchestrator-Tabellen) sind indizierte Spalten und werden über die Modul-APIs aufgeräumt, nie per
+  schemaübergreifender Kaskade.
+- **Namen**: Langlebige Credentials heißen `<modul>.enrollment`, und dieser qualifizierte Name ist
+  `EnrollmentRef.type`. Die Arbeitsdaten eines Tool-Durchlaufs heißen
+  `<modul>.<tool-rolle>_tool_session` — ihr Schlüssel *ist* die `tool_session_id`, die Zeile ist
+  also die Modulhälfte der `orchestrator.tool_session`, keine vierte Session-Ebene und keine Zeile
+  je Versuch. PK-Spalte immer `id`, Referenzen `<tabelle>_id`. Indizes und Constraints sind
+  schema-eigene Objekte und tragen deshalb ebenfalls kein Modulpräfix (`ux_anchor_value`).
 - **Typen**: Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
   `VARCHAR(16)`, Tool-IDs/Methoden/Attributtypen/Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
-- **Konto**: `account` ist Sperrwurzel; aktueller Zustand in eigenen Zeilen, Historie append-only
+- **Konto**: `account.account` ist Sperrwurzel; aktueller Zustand in eigenen Zeilen, Historie append-only
   ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
 - **Retention**: Jede Aufräumabfrage ist ein Bulk-Statement und hat einen Index auf ihrer
   Stichtagsspalte.

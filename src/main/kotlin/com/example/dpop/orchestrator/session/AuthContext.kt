@@ -25,7 +25,7 @@ import java.util.UUID
  * field's session id refers to.
  */
 @Entity
-@Table(name = "orchestrator_auth_context")
+@Table(schema = "orchestrator", name = "auth_context")
 class AuthContext(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,

@@ -11,7 +11,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Generates and verifies attempt-scoped TANs; the plaintext never gets persisted.
+ * Generates and verifies tool-session-scoped TANs; the plaintext never gets persisted.
  *
  * The stored value is an HMAC-SHA256 under a server-side pepper, not a bare digest. A bare
  * SHA-256 of a six-digit TAN is not a one-way function in any useful sense - the whole preimage

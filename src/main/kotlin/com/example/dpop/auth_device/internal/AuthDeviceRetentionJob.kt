@@ -9,7 +9,7 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Self-cleanup by age (docs/07-betrieb.md #3) of the attempt-scoped tool data. DeviceEnrollment
+ * Self-cleanup by age (docs/07-betrieb.md #3) of the tool-session-scoped working data. DeviceEnrollment
  * (the long-lived credential) belongs to the account and is out of scope.
  */
 @Component

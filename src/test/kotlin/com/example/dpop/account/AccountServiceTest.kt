@@ -31,9 +31,9 @@ import org.springframework.data.repository.findByIdOrNull
 /**
  * Pure unit test: no Spring context, repositories mocked with MockK. Covers the claims-log write
  * (docs/ideen/claims-modell-und-vertrauensanker.md Phase 1; docs/ideen/account-attribute-und-
- * trust-vereinheitlichen.md Paket 4): account_attribute is the append-only provenance record
+ * trust-vereinheitlichen.md Paket 4): account.attribute is the append-only provenance record
  * every Completed.Identified/Completed.Enrolled claim lands in; PERSON_ID and EMAIL are both
- * consolidated into their account_anchor - same technical path, `AttributeType.allowsAnchorReplacement` is what actually differs
+ * consolidated into their account.anchor - same technical path, `AttributeType.allowsAnchorReplacement` is what actually differs
  * (personId is immutable after first binding, email is re-provable). Mocks are created fresh per
  * `given` block (not shared at spec level) so call-count assertions in one scenario never see
  * invocations from another.

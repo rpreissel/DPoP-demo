@@ -18,7 +18,7 @@ import java.time.Instant
  * the procedure that checked it. Never read for a decision - `AuthEvidence` is re-proven per session.
  */
 @Entity
-@Table(name = "account_identification")
+@Table(schema = "account", name = "identification")
 class AccountIdentification(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,

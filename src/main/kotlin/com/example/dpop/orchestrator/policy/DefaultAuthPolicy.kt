@@ -36,7 +36,7 @@ import org.springframework.stereotype.Component
  *
  * `resolveAcr` splits its input into two independently computed levels before combining them: IAL
  * ([identityAssuranceLevel], "who is this?" - an IDENTIFICATION tool's own loa, THIS session only,
- * see that function's doc for why an account's past `account_identification.achieved_loa` is deliberately NOT
+ * see that function's doc for why an account's past `account.identification.achieved_loa` is deliberately NOT
  * also consulted here) and AAL ([authenticatorAssuranceLevel], "how strong is the proof at THIS
  * login?" - the MFA-bump logic above, restricted to [EvidenceAxis.AUTHENTICATOR] evidence only).
  * The result is simply `max(IAL, AAL)` - a single tool reaching loa2/loa3 on either axis alone
@@ -54,13 +54,13 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     /**
      * IAL: the highest loa any IDENTIFICATION has established THIS session ([evidence]'s own
      * [EvidenceAxis.IDENTITY] entries) - deliberately NOT also falling back to [AccountProfile]'s
-     * persisted `account_identification.achieved_loa` from a past session: `AuthEvidence` is one-per-channel,
+     * persisted `account.identification.achieved_loa` from a past session: `AuthEvidence` is one-per-channel,
      * cleared at logout, precisely so identity must be re-proven per session
      * (`orchestrator.session.AuthEvidence`'s own class doc) - a fresh channel on a device that was
      * never re-identified stays at whatever THIS session's own IDENTITY evidence says, "none" if
      * there is none, regardless of what the account achieved in some earlier, unrelated session
      * (`MfaCombinationIntegrationTest`: "no re-identification, so fsc's own loa2 isn't in play this
-     * time"). `account_identification.achieved_loa`'s OWN role in the three-way cap (ADR-5) already happens
+     * time"). `account.identification.achieved_loa`'s OWN role in the three-way cap (ADR-5) already happens
      * upstream of this - baked into `enrolledUnderAcr` at the moment a method was enrolled - not
      * re-applied here a second time.
      */

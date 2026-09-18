@@ -6,7 +6,7 @@ import jakarta.persistence.Converter
 
 /**
  * Round-trips [AttributeType] through its [AttributeType.wireName], not `@Enumerated(STRING)`'s
- * enum-constant-name (`PERSON_ID`) - `account_attribute.attribute_type` already holds wire names
+ * enum-constant-name (`PERSON_ID`) - `account.attribute.attribute_type` already holds wire names
  * (`person_id`) written since before this converter existed (C2, docs/13-review-domaenen-db-
  * modell.md), and switching to the default `@Enumerated(EnumType.STRING)` encoding would silently
  * stop matching every row already on disk.

@@ -27,7 +27,7 @@ import java.time.LocalDate
  * docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").
  *
  * Layer precedence is fixed: unique anchor values first (PERSON_ID ranks highest among them via
- * [AttributeType.anchorBindingStrength] - the same technical `account_anchor` lookup as every
+ * [AttributeType.anchorBindingStrength] - the same technical `account.anchor` lookup as every
  * other anchor, no separate person_id repository path), then attribute matching. Attribute
  * matching is the only layer that can be ambiguous, and the most expensive error it can
  * make is a false merge, so it never guesses. A future EUDI-Wallet case slots in without a
@@ -87,7 +87,7 @@ class IdentityMatchingService(
     }
 
     /**
-     * Layer 1: anchor values - unique, error-free lookups via `account_anchor`'s UNIQUE
+     * Layer 1: anchor values - unique, error-free lookups via `account.anchor`'s UNIQUE
      * constraint, PERSON_ID included (anchored exactly like EMAIL,
      * docs/ideen/account-attribute-und-trust-vereinheitlichen.md). KVNR instead resolves live to the external person ID and then to that
      * person's anchor; a historical local KVNR anchor is never consulted.
@@ -123,7 +123,7 @@ class IdentityMatchingService(
     /**
      * Layer 2, weakest: normalized attribute matching over the identity log. One real
      * combination today - name + vorname + geburtsdatum, matched in a single sargable query
-     * (`ix_account_attribute_type_value`) - deliberately the most
+     * (`ix_attribute_type_value`) - deliberately the most
      * discriminant triple the log carries; further combinations (and their rank order) arrive
      * with the procedures that need them. 0 hits falls through to NewInteressent; hitting the
      * candidate ceiling - like more than one hit - is Ambiguous, never a guess: "lieber gar

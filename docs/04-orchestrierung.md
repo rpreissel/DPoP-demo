@@ -361,7 +361,7 @@ erneut das Flag, damit ein Flip mitten im Lauf nichts zerstört.
 
 Aktiviert über das Runtime-Feature-Flag `FeatureFlags.REGISTER_ENROLL_FIRST`
 (`"register-enroll-first"`), das `FeatureFlagService` (`@Service`, implementiert
-`FeatureFlagProvider`) aus der Tabelle `orchestrator_feature_flag` beisteuert — eine Zeile je
+`FeatureFlagProvider`) aus der Tabelle `orchestrator.feature_flag` beisteuert — eine Zeile je
 Flag, keine Zeile heißt „aus". Dessen aktueller Zustand wird über
 `GET/PUT /orchestrator/api/v1/admin/registration-order` (`RegistrationOrderController`) abgefragt
 und gesetzt.
@@ -1031,7 +1031,7 @@ kombiniert sie erst am Ende zu der einen nach außen sichtbaren `acr`-Zahl:
 
 - **IAL** (`identityAssuranceLevel`, "wer ist das?") — das höchste `loa`, das eine
   IDENTIFICATION-Rolle (`ident-fsc`, `ident-eid`) **in dieser Session** erbracht hat. Bewusst
-  NICHT zusätzlich aus `account_identification` einer früheren Session nachgeladen: `AuthEvidence`
+  NICHT zusätzlich aus `account.identification` einer früheren Session nachgeladen: `AuthEvidence`
   ist eigens "one per channel, cleared at logout" (`orchestrator.session.AuthEvidence`), damit eine
   Identität pro Session neu bewiesen werden muss — ein Gerät, das in dieser Session nicht erneut
   identifiziert wurde, darf keine loa2/loa3-Identität einer früheren, fremden Session erben.
@@ -1066,10 +1066,10 @@ In einem Auth-Zustand lautet die Frage „reicht das *jetzt*?" (`isSatisfied`). 
 in einem Enrollment-Zustand lautet sie „kommt der Nutzer damit *künftig wieder herein*?"
 (`canAccountReach`) — verschiedene Fragen, weil eine Identifizierung keine dauerhafte
 Methode ist: `ident-fsc` zählt für `AuthContext.currentFactorTypes` dieser Session, landet
-aber im Audit-Log `account_identification`, nicht in `account_auth_method`.
+aber im Audit-Log `account.identification`, nicht in `account.auth_method`.
 
 Daraus folgt eine Deckelungskette über drei Größen: das LoA der Identifizierung begrenzt, was ein
-Account überhaupt je erreichen kann; `account_auth_method.enrolled_under_acr` begrenzt, was eine
+Account überhaupt je erreichen kann; `account.auth_method.enrolled_under_acr` begrenzt, was eine
 einzelne Methode liefern darf; `Completed.achievedAcr` meldet, was der konkrete Durchlauf erreicht
 hat. Praktische Folge: Ein Kanal, der `loa3` verlangt, braucht bereits ein `loa3`-fähiges
 Ident-Tool — wurde nur mit `loa2` identifiziert, bleiben auch alle danach eingerichteten

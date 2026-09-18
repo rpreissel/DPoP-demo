@@ -57,8 +57,8 @@ interface AccountDirectory {
 
 /**
  * The credential of the `email` method is not a module-owned row but the account's own EMAIL
- * anchor (`account_anchor`, keyed by account and attribute type) - every enrollment of that
+ * anchor (`account.anchor`, keyed by account and attribute type) - every enrollment of that
  * method references it the same way, and no `EnrollmentCleanup` exists for it: the anchor goes
  * with the account.
  */
-val EMAIL_ANCHOR_ENROLLMENT = EnrollmentRef(type = "account_anchor", id = "email")
+val EMAIL_ANCHOR_ENROLLMENT = EnrollmentRef(type = "account.anchor", id = "email")

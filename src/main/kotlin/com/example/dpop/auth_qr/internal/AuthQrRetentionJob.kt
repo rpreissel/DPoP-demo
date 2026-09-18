@@ -11,7 +11,7 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Self-cleanup by age (docs/07-betrieb.md #3) of the attempt-scoped tool data and of pairing
+ * Self-cleanup by age (docs/07-betrieb.md #3) of the tool-session-scoped working data and of pairing
  * requests past their own expiry. QrOptIn (the long-lived opt-in) belongs to the account and is
  * out of scope.
  */

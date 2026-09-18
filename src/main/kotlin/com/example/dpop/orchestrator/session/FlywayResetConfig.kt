@@ -14,7 +14,7 @@ import javax.sql.DataSource
  * This is a demo project with no real users or data to protect, and its migration history gets
  * rewritten in place from time to time (squashing an old column-by-column patch into the
  * original CREATE TABLE once nobody needs the intermediate shape anymore, docs: see the
- * `orchestrator_auth_context` table's history). That makes Flyway's own checksum/history validation - correct
+ * `orchestrator.auth_context` table's history). That makes Flyway's own checksum/history validation - correct
  * and load-bearing for a real deployment - actively hostile here: any local H2 file created
  * before such a rewrite fails validation on next boot with no way to proceed short of a manual
  * `rm -rf data/`. Since there's nothing in that file worth protecting, recover automatically

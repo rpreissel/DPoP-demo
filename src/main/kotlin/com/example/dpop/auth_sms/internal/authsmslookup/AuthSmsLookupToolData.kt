@@ -8,12 +8,12 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Attempt-scoped module data for toolId=auth-sms-lookup. [accountId] is only known once the
+ * Tool-session-scoped working data for toolId=auth-sms-lookup. [accountId] is only known once the
  * first PATCH (email) resolved it - unlike AuthSmsUseToolData, which always knows the account
  * up front via the device-bound channel.
  */
 @Entity
-@Table(name = "auth_sms_lookup_data")
+@Table(schema = "auth_sms", name = "lookup_tool_session")
 class AuthSmsLookupToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

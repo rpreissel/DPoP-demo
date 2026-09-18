@@ -18,7 +18,7 @@ import java.time.Instant
  * [KcTokenProvider] to sign an outgoing assertion.
  */
 @Entity
-@Table(name = "orchestrator_keycloak_keypair")
+@Table(schema = "orchestrator", name = "keycloak_keypair")
 class AccountKeycloakKeypair(
     @Id
     @Column(name = "account_id")

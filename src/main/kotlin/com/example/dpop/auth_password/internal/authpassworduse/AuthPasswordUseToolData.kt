@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=auth-password (docs/06-ablaeufe.md #1 pattern). */
+/** Tool-session-scoped working data for toolId=auth-password (docs/06-ablaeufe.md #1 pattern). */
 @Entity
-@Table(name = "auth_password_auth_data")
+@Table(schema = "auth_password", name = "auth_tool_session")
 class AuthPasswordUseToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

@@ -18,7 +18,7 @@ import java.time.Instant
  * auth_sms already is, referenced only via the generic EnrollmentRef on account.authenticationMethods.
  */
 @Entity
-@Table(name = "auth_password_enrollment")
+@Table(schema = "auth_password", name = "enrollment")
 class AuthPasswordEnrollment(
     var passwordHash: String? = null
 ) {

@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=enroll-qr (docs/06-ablaeufe.md #1 pattern). */
+/** Tool-session-scoped working data for toolId=enroll-qr (docs/06-ablaeufe.md #1 pattern). */
 @Entity
-@Table(name = "auth_qr_enroll_data")
+@Table(schema = "auth_qr", name = "enroll_tool_session")
 class EnrollQrToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

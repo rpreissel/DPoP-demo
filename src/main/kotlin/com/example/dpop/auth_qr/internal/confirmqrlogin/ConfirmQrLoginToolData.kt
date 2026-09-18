@@ -8,12 +8,12 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Attempt-scoped module data for toolId=confirm-qr-login. [pairingCode] is `null` until the
+ * Tool-session-scoped working data for toolId=confirm-qr-login. [pairingCode] is `null` until the
  * `input` step resolves a valid one - that transition from `null` to set is what moves this tool
  * from `input` to `confirm` (docs/05-api.md, Peer-Login bestätigen).
  */
 @Entity
-@Table(name = "auth_qr_confirm_data")
+@Table(schema = "auth_qr", name = "confirm_tool_session")
 class ConfirmQrLoginToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

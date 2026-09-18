@@ -192,7 +192,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val deviceMethod = AuthMethodView(
                 id = "device-instance", method = "device", active = true, createdAt = null,
                 enrolledUnderAcr = AcrLevel.LOA2.value, details = mapOf("deviceBindingKeyRef" to "key-1"),
-                enrollmentRef = EnrollmentRef("auth_device_enrollment", "1")
+                enrollmentRef = EnrollmentRef("auth_device.enrollment", "1")
             )
             val acc = account(deviceMethod)
             val fresh = AuthEvidence(emptyList())

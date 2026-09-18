@@ -35,7 +35,7 @@ class EnrollPasswordToolHandlerTest : BehaviorSpec({
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Enrolled>()
                 val enrolled = outcome as ToolOutcome.Completed.Enrolled
-                enrolled.enrollmentRef.type shouldBe "auth_password_enrollment"
+                enrolled.enrollmentRef.type shouldBe "auth_password.enrollment"
                 enrolled.enrollmentRef.id shouldBe "7"
                 enrolled.amr shouldBe listOf("password")
                 enrolled.achievedAcr shouldBe EnrollPasswordDescriptor.maxAcr

@@ -66,7 +66,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
     private fun registerWithQrOptIn(): Pair<String, Long> {
         val channelSessionId = registerAndAuthenticate()
         val accountId = jdbcTemplate.queryForObject(
-            "SELECT id FROM account ORDER BY id DESC LIMIT 1", Long::class.java
+            "SELECT id FROM account.account ORDER BY id DESC LIMIT 1", Long::class.java
         )!!
 
         post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")

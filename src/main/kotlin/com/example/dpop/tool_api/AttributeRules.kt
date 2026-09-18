@@ -24,20 +24,20 @@ import com.example.dpop.tool_spi.AttributeType
  * inference drawn from a missing anchor rank.
  */
 enum class AttributeAuthority {
-    /** Stored locally in `account_anchor`, which is also the uniqueness authority for it. */
+    /** Stored locally in `account.anchor`, which is also the uniqueness authority for it. */
     LOCAL_ANCHOR,
 
     /**
      * Owned by the master-data backend and read live through [PersonDirectory] whenever it is
      * needed - never projected into a local column, so it cannot go stale. Local
-     * `account_attribute` rows for these types are claim history (what was asserted, by whom,
+     * `account.attribute` rows for these types are claim history (what was asserted, by whom,
      * when), never the current truth.
      */
     EXT_STAMMDATEN,
 
     /**
      * Owned by the method module that enrolled it, in its own `<module>_enrollment` row (e.g.
-     * `auth_sms_enrollment.phone_number`). The `account` module never resolves it.
+     * `auth_sms.enrollment.phone_number`). The `account` module never resolves it.
      */
     METHOD_MODULE
 }
@@ -96,7 +96,7 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
         // Format-validate first (Kvnr.of throws IllegalArgumentException for a malformed value,
         // same contract as any other bad input) - only THEN refuse the local-anchor question
         // itself: KVNR is resolved live through PersonDirectory (docs/ideen/account-attribute-
-        // und-trust-vereinheitlichen.md), never stored/looked up as a local account_anchor row.
+        // und-trust-vereinheitlichen.md), never stored/looked up as a local account.anchor row.
         Kvnr.of(value)
         error("$this is not a local account anchor - authority is $authority, resolved live via PersonDirectory")
     }

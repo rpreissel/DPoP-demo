@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-/** Attempt-scoped module data for toolId=ident-fsc (docs/06-ablaeufe.md #1). */
+/** Tool-session-scoped working data for toolId=ident-fsc (docs/06-ablaeufe.md #1). */
 @Entity
-@Table(name = "id_fsc_ident_data")
+@Table(schema = "id_fsc", name = "ident_tool_session")
 class IdFscToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)
