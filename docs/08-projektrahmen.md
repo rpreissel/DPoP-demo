@@ -1,25 +1,23 @@
 # Projektrahmen
 
 Aufgabenstellung, Modulstruktur und technische Rahmenbedingungen der Anwendung.
-Die fachlichen Abläufe beschreiben [01-ueberblick.md](01-ueberblick.md) und die folgenden Dokumente.
+Die fachlichen Abläufe beschreibt [01-ueberblick.md](01-ueberblick.md).
 
 ---
 
 ## 1) Aufgabenstellung
 
-Aufbau einer kompilier- und startfähigen **Spring Boot Modulith**-Applikation zur Demonstration
-eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
+Aufbau einer startfähigen **Spring Boot Modulith**-Applikation zur Demonstration eines
+DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 
 - Ein React/TypeScript-Frontend, das einen DPoP-Proof erzeugt und mit dem Backend kommuniziert.
 - Einen `orchestrator`, der Session- und Journey-Zustände verwaltet und die fachliche Richtigkeit
-  (Policy, Retry, DPoP-Bindung) durchsetzt, ohne die Methodenmodule selbst zu kennen.
+  (Policy, Retry, DPoP-Bindung) durchsetzt, ohne die Methodenmodule zu kennen.
 - Mehrere fachliche Module (`id_fsc`, `id_eid`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`),
-  die ihre eigenen Tool-Endpunkte mitbringen und den Orchestrator ausschließlich über die
-  gemeinsame Schnittstelle `tool_api` erreichen ([Tool-Architektur](03-tool-architektur.md)
-  Abschnitt 4).
+  die ihre eigenen Tool-Endpunkte mitbringen und den Orchestrator ausschließlich über
+  `tool_api` erreichen ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4).
 - Zwei Datenmodule (`account`, `ext_stammdaten`), die Konto- bzw. Personendaten halten und
-  ebenfalls Teile von `tool_api` implementieren, statt vom Orchestrator direkt aufgerufen zu
-  werden.
+  ebenfalls Teile von `tool_api` implementieren.
 - Persistenz in einer H2-Datenbank mit Flyway-Migrationen.
 
 ### Qualitätsziele
@@ -58,19 +56,19 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 
 | Nr. | Modul | Verantwortung |
 |-----|-------|---------------|
-| M1 | `orchestrator` | Verwaltet Session-/Journey-Zustand, Policy und Retry; stellt die Channel-REST-API für das Frontend bereit und implementiert die `tool_api`-Ports `ToolEndpoint`/`DeviceProofs` |
-| M2 | `id_fsc` | Identifizierungsfunktionalität (Tool `ident-fsc`); bringt den eigenen `@RestController` mit |
-| M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); bringt die eigenen `@RestController` mit |
-| M4 | `account` | Verwaltung von Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
-| M5 | `ext_stammdaten` | Zugriff auf externe Stammdaten; verwaltet `Person`-Entitäten mit Adressdaten; implementiert den `tool_api`-Port `PersonDirectory` |
+| M1 | `orchestrator` | Verwaltet Session-/Journey-Zustand, Policy und Retry; stellt die Channel-REST-API bereit und implementiert die `tool_api`-Ports `ToolEndpoint`/`DeviceProofs` |
+| M2 | `id_fsc` | Identifizierung (Tool `ident-fsc`); eigener `@RestController` |
+| M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); eigene `@RestController` |
+| M4 | `account` | Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
+| M5 | `ext_stammdaten` | Externe Stammdaten: verwaltet `Person`-Entitäten mit Adressdaten; implementiert den `tool_api`-Port `PersonDirectory` |
 | M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`), voraussetzungsgebunden über `ToolDescriptor.requires` mit `ClaimRequirement(EMAIL, PROVEN)` ([Tool-Architektur](03-tool-architektur.md)) |
-| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`); eigenständiges Modul mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims zur gemeinsamen Übernahme; kein direkter Zugriff auf `account` |
-| M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …); außerdem der generische, tool-lose `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
-| M9 | `tool_spi` | Reine Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
-| M10 | `id_eid` | Zweite Identifizierungsfunktionalität (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bringt den eigenen `@RestController` mit |
-| M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff nötig; bringt die eigenen `@RestController` mit |
-| M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); bringt die eigenen `@RestController` mit, keine `account`-Abhängigkeit |
-| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein echtes Orchestrator-Konto mit bestätigter Adresse und zwei Login-Methoden an — `password` (KNOWLEDGE) und `sms` (POSSESSION), also dem Paar, das ein Step-up auf LoA2 kombinieren kann (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; die PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; Anlage und Claims in einer Transaktion); kein eigener `@RestController` |
+| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account` |
+| M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …), `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
+| M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
+| M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); eigener `@RestController` |
+| M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff; eigene `@RestController` |
+| M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine `account`-Abhängigkeit |
+| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE) und `sms` (POSSESSION) an — dem Paar für ein Step-up auf LoA2 (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); kein `@RestController` |
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -107,12 +105,12 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
        └─────────────┘   └─────────────┘      └───────────────────┘
 ```
 
-- Kein Methodenmodul referenziert den `orchestrator` mehr, und der `orchestrator` referenziert kein Methodenmodul mehr (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten"]`). Die einzige gemeinsame Kante zwischen Orchestrator und Methodenmodulen ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
-- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind identisch geblieben; nur die Kotlin-Package-Zugehörigkeit des jeweiligen `@RestController` hat sich geändert (`id_fsc.api.v1`, `id_eid.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package.
-- Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Account-Lookups laufen über `tool_api.AccountDirectory`, Schreibungen über Claims in `ToolOutcome` und deren gemeinsame Übernahme durch die Journey. E-Mail-spezifische Lookup-Komfortfunktionen sind Extensions auf dem Port, keine zusätzlichen Implementierungspflichten für das Account-Modul.
+- Kein Methodenmodul referenziert den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten"]`). Die einzige gemeinsame Kante ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
+- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package.
+- Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Account-Lookups laufen über `tool_api.AccountDirectory`, Schreibungen über Claims in `ToolOutcome` und deren Übernahme durch die Journey. E-Mail-spezifische Lookup-Komfortfunktionen sind Extensions auf dem Port.
 - `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
-- Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build namentlich. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` und damit ein Java-Sourceset sind nicht nötig.
-- Das Frontend kommuniziert ausschließlich über HTTP mit der Applikation als Ganzes — welches Modul einen gegebenen Endpunkt implementiert, ist für das Frontend nicht sichtbar und nicht relevant.
+- Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` ist nicht nötig.
+- Das Frontend kommuniziert ausschließlich über HTTP mit der Applikation als Ganzes; welches Modul einen Endpunkt implementiert, ist für es nicht sichtbar.
 
 ### Anforderungen an die Modulstruktur
 
@@ -120,7 +118,7 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 |----|-------------|-----------|
 | M-1 | Jedes Modul besitzt ein eigenes Package. | Package-Struktur unter `com.example.dpop.<modul>` |
 | M-2 | Jedes Modul enthält mindestens eine Service-Klasse. | `@Service` in jedem Modul vorhanden |
-| M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` gekoppelt, nie direkt. | Konstruktor-Injection ausschließlich gegen `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator`, und `orchestrator` importiert kein Methodenmodul |
+| M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` gekoppelt, nie direkt. | Konstruktor-Injection nur gegen `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt |
 | M-4 | Die Modulstruktur ist verifizierbar. | `ApplicationModules.verify()` in Tests |
 
 ---
@@ -130,14 +128,13 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 - Als Datenbank wird **H2** verwendet: dateibasiert unter `./data/dpopdb` im Betrieb, **In-Memory** im Testprofil.
 - Das Schema wird mit **Flyway**-Migrationen aufgebaut, der Zugriff erfolgt über **Spring Data JPA**.
 - **Ein Datenbankschema je Modul** (`account`, `orchestrator`, `auth_sms`, …): Jede Tabelle liegt im
-  Schema ihres Moduls, Fremdschlüssel gibt es nur innerhalb eines Schemas
-  ([12-entscheidungen.md](12-entscheidungen.md) ADR-16). Der Flyway-Verlauf bleibt in `PUBLIC` — er
-  gehört keinem Modul.
+  Schema ihres Moduls, Fremdschlüssel nur innerhalb eines Schemas
+  ([12-entscheidungen.md](12-entscheidungen.md) ADR-16). Der Flyway-Verlauf bleibt in `PUBLIC`.
 - Im Modul `ext_stammdaten` existiert eine `Person`-Entität mit `id`, `kvnr` (eindeutig), `name`, `vorname`, `strasse`, `hausnummer`, `plz`, `ort`, `geburtsdatum`.
-- Bei Applikationsstart werden Testpersonen sowie gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow direkt durchspielbar ist.
+- Bei Applikationsstart werden Testpersonen und gültige FSC-Codes per Flyway-Migration eingespielt.
 
-Die Session- und Tool-Entitäten sind in [02-domaenenmodell.md](02-domaenenmodell.md) beschrieben,
-das Tabellenmodell dort in Abschnitt 7, Aufbewahrung und Löschung in [07-betrieb.md](07-betrieb.md).
+Die Session- und Tool-Entitäten beschreibt [02-domaenenmodell.md](02-domaenenmodell.md) (Tabellenmodell
+in Abschnitt 7), Aufbewahrung und Löschung [07-betrieb.md](07-betrieb.md).
 
 ### H2-Konsole: nur beim Host-Start
 
@@ -146,20 +143,17 @@ Die H2-Konsole unter `/h2-console` ist bewusst eingeschaltet, aber `web-allow-ot
 allein H2s eigene Localhost-Prüfung diesen Pfad, hinter dem Passwort-Hashes, Geräteschlüssel und
 alle Sessions liegen.
 
-Diese Prüfung vergleicht die Absenderadresse des Requests. Bei `./gradlew bootRun` ist das
-`127.0.0.1`, und die Konsole geht. **Aus dem Container (`compose.yml`) geht sie nicht:** Der
-Request des Browsers kommt über die Portweiterleitung `8080:8080` herein und erreicht den
-Orchestrator im Container-Netz mit der Bridge-Gateway-Adresse. Für H2 ist das eine „remote
-connection", und sie wird mit *„remote connections ('webAllowOthers') are disabled on this server"*
-abgewiesen — das Sicherheitsnetz greift also wie vorgesehen.
+Diese Prüfung vergleicht die Absenderadresse: Bei `./gradlew bootRun` ist das `127.0.0.1`, und die
+Konsole geht. **Aus dem Container (`compose.yml`) geht sie nicht:** Der Request erreicht den
+Orchestrator über die Portweiterleitung `8080:8080` mit der Bridge-Gateway-Adresse, für H2 eine
+„remote connection" — abgewiesen mit *„remote connections ('webAllowOthers') are disabled on this
+server"*. Das Sicherheitsnetz greift also wie vorgesehen.
 
 Für den DB-Blick deshalb den Orchestrator auf dem Host starten und nur Keycloak aus Compose
-laufen lassen; `ORCHESTRATOR_BASE_URL` zeigt bereits per Default auf
-`host.containers.internal:8080`. Wer die Daten eines Container-Laufs braucht, kopiert die Datei aus
-dem Volume `orchestrator-data` heraus und öffnet sie lokal — dafür muss der Container gestoppt
-sein, sonst hält er die H2-Dateisperre und man kopiert einen inkonsistenten Stand.
-`web-allow-others` ist dafür keine Option: Der Port ist auf dem Host gemappt, das öffnete den
-vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
+laufen lassen; `ORCHESTRATOR_BASE_URL` zeigt per Default auf `host.containers.internal:8080`. Wer
+die Daten eines Container-Laufs braucht, kopiert die Datei aus dem gestoppten Volume
+`orchestrator-data` heraus. `web-allow-others` ist keine Option: Der Port ist auf dem Host
+gemappt, das öffnete den vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
 
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
@@ -186,19 +180,19 @@ vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
 | A8 | Datenbank: H2 (dateibasiert im Betrieb, In-Memory in Tests) | Einfache lokale Entwicklung und schnelle Tests |
 | A9 | Schema-Management mit Flyway | Versionierter und reproduzierbarer Datenbankaufbau |
 | A10 | Datenzugriff mit Spring Data JPA | Standardisierte Persistenzschicht |
-| A11 | Lesbarkeit hat Vorrang vor maximal generischem API-Wiring | Endpunkte, DTOs und Handler bleiben tool-spezifisch explizit (`ident-fsc`, `enroll-sms`, `auth-sms`), auch wenn dadurch mehr, aber klarerer Code entsteht |
+| A11 | Lesbarkeit hat Vorrang vor maximal generischem API-Wiring | Endpunkte, DTOs und Handler bleiben tool-spezifisch explizit (`ident-fsc`, `enroll-sms`, `auth-sms`) |
 
 ---
 
 ## 6) Lösungsstrategie und Versionen
 
-- **Framework**: Spring Boot 4.x mit eingebettetem Tomcat
-- **Sprache**: Kotlin 2.2.x als Backend-Implementierungssprache
-- **Modularisierung**: Spring Modulith 2.x zur Architekturverifikation
-- **Build**: Gradle 9.x mit Kotlin-DSL (`build.gradle.kts`, `settings.gradle.kts`)
+- **Framework**: Spring Boot mit eingebettetem Tomcat
+- **Sprache**: Kotlin als Backend-Implementierungssprache
+- **Modularisierung**: Spring Modulith zur Architekturverifikation
+- **Build**: Gradle mit Kotlin-DSL (`build.gradle.kts`, `settings.gradle.kts`)
 - **Versionsverwaltung**: Gradle Version Catalog in `gradle/libs.versions.toml`
 - **Persistenz**: H2 + Spring Data JPA + Flyway
-- **Frontend**: React 19.x + TypeScript 7.x mit Vite 8.x
+- **Frontend**: React + TypeScript mit Vite
 - **Frontend-Integration**: Vite-Build schreibt in `src/main/resources/static`; Gradle führt `npm install` und `npm run build` aus
 - **Test**: JUnit 5 mit Spring Boot Test und Spring Modulith Test-Starter
 
@@ -223,22 +217,21 @@ vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
 
 - `./gradlew build` baut Backend und Frontend und führt alle Tests aus.
 - `./gradlew bootRun` startet die Applikation auf Port 8080 (blockierend; für Verifikation eignen sich Integrationstests besser).
-- Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den vollständigen DPoP-Session-Flow.
+- Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den DPoP-Session-Flow.
 - `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
 
 ### Vorbedingungen in Integrationstests
 
-Der Registrierungsablauf (Identifikation → E-Mail-Bestätigung → Enrollments) wird bewusst nur dort
-per HTTP durchgeklickt, wo er selbst Prüfgegenstand ist: in `RegistrationFlowIntegrationTest`
-(End-to-End-Ablauf), `RequiredActionIntegrationTest` (Reihenfolge der Pflichten) und
-`JourneyLogIntegrationTest` (das Journey-Log entsteht nur durch einen echten Durchlauf).
+Der Registrierungsablauf (Identifikation → E-Mail-Bestätigung → Enrollments) wird nur dort per
+HTTP durchgeklickt, wo er selbst Prüfgegenstand ist: `RegistrationFlowIntegrationTest`,
+`RequiredActionIntegrationTest` (Reihenfolge der Pflichten) und `JourneyLogIntegrationTest` (das
+Journey-Log entsteht nur durch einen echten Durchlauf).
 
-Alle anderen Suiten brauchen den Ablauf nicht, sondern nur sein *Ergebnis* — „ein Konto mit sms und
-Passwort, an dieses Gerät gebunden". Dieses Ergebnis stellt `AccountFixtures` (Test-Sourceset) über
-die Domain-Services her, nicht über SQL: so gelten dieselben Invarianten wie im Produktivpfad
-(Anchor-Floors, Singleton-Ersetzung, Claim-Provenienz), und es können keine Konto-Zustände
-entstehen, die der Ablauf selbst nie erzeugen würde. Dasselbe Vorgehen nutzt `demo_seed`
-(`KcDemoAccountSeeder`) bereits im Produktionscode.
+Alle anderen Suiten brauchen nur sein *Ergebnis* — „ein Konto mit sms und Passwort, an dieses
+Gerät gebunden". Das stellt `AccountFixtures` (Test-Sourceset) über die Domain-Services her, nicht
+über SQL: so gelten dieselben Invarianten wie im Produktivpfad (Anchor-Floors,
+Singleton-Ersetzung, Claim-Provenienz). Dasselbe Vorgehen nutzt `demo_seed`
+(`KcDemoAccountSeeder`).
 
 Einstiegspunkte in `IntegrationTestSupport`:
 
@@ -248,9 +241,6 @@ Einstiegspunkte in `IntegrationTestSupport`:
 | `loginAsSeededAccount()` | dazu ein angemeldeter loa2-Kanal (`amr = [sms, password]`) |
 | `registerAndAuthenticate()` | echter Registrierungsdurchlauf — trägt zusätzlich eigene `fsc`-Evidenz |
 
-Der Unterschied zwischen den letzten beiden ist fachlich, nicht kosmetisch: Ein angemeldeter Kanal
-besitzt keine eigene Identifikationsevidenz. Tests, die diese brauchen (etwa das Entfernen einer
-Methode, die sonst die aktuelle Anmeldeevidenz wäre), müssen `registerAndAuthenticate()` verwenden.
-
-Dadurch ist eine Änderung an der Reihenfolge der Registrierungsschritte keine Änderung an 15
-Testdateien mehr.
+Der Unterschied zwischen den letzten beiden ist fachlich: Ein angemeldeter Kanal besitzt keine
+eigene Identifikationsevidenz. Tests, die diese brauchen (etwa das Entfernen einer Methode, die
+sonst die aktuelle Anmeldeevidenz wäre), müssen `registerAndAuthenticate()` verwenden.
