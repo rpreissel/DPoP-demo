@@ -3,6 +3,7 @@ package com.example.dpop.account
 import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.orchestrator.api.v1.OrchestratorExceptionHandler
 import com.example.dpop.tool_api.IdentityConflictException
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
@@ -52,14 +53,14 @@ class AccountServiceDbTest(
     given("account creation and claim adoption sharing the caller transaction") {
         then("a later claim conflict also removes the newly created account") {
             val holder = accountService.createUnidentifiedAccount()
-            accountService.recordClaim(holder.accountId, Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED))
+            accountService.recordClaim(holder.accountId, Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2)
             shouldThrow<IdentityConflictException> {
                 TransactionTemplate(transactionManager).executeWithoutResult {
                     val subject = accountService.createUnidentifiedAccount()
                     accountService.recordClaims(subject.accountId, listOf(
                         Claim(AttributeType.PERSON_ID, "555", ClaimSource.EXT_STAMMDATEN),
                         Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED)
-                    ))
+                    ), provenAcr = AcrLevel.LOA2)
                 }
             }
             accountService.allAccountIds() shouldBe listOf(holder.accountId)
@@ -75,7 +76,7 @@ class AccountServiceDbTest(
                     accountService.recordClaims(subject.accountId, listOf(
                         Claim(AttributeType.PERSON_ID, "555", ClaimSource.EXT_STAMMDATEN),
                         Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED)
-                    ))
+                    ), provenAcr = AcrLevel.LOA2)
                     error("Later journey step failed")
                 }
             }
@@ -104,7 +105,7 @@ class AccountServiceDbTest(
                                 checkNotNull(TransactionTemplate(transactionManager).execute {
                                     accountService.resolveByAnchor(type, value).shouldBeNull()
                                     val subject = accountService.createUnidentifiedAccount()
-                                    accountService.recordClaim(subject.accountId, Claim(type, value, ClaimSource.EXT_STAMMDATEN))
+                                    accountService.recordClaim(subject.accountId, Claim(type, value, ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
                                     subject.accountId
                                 })
                             }
@@ -139,7 +140,7 @@ class AccountServiceDbTest(
     given("a claim batch whose second claim conflicts with another account's anchor") {
         then("the whole batch rolls back - no partial log/projection/anchor survives from the first claim") {
             val holder = accountService.createUnidentifiedAccount()
-            accountService.recordClaim(holder.accountId, Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED))
+            accountService.recordClaim(holder.accountId, Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2)
 
             val subject = accountService.createUnidentifiedAccount()
 
@@ -149,8 +150,7 @@ class AccountServiceDbTest(
                     listOf(
                         Claim(AttributeType.PERSON_ID, "555", ClaimSource.EXT_STAMMDATEN),
                         Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED)
-                    )
-                )
+                    ), provenAcr = AcrLevel.LOA2)
             }
 
             // recordClaims is one @Transactional method - the EMAIL claim's failure must undo
@@ -170,7 +170,7 @@ class AccountServiceDbTest(
         then("a unique conflict at commit rolls back the losing projection and claim") {
             val ids = (1..2).map { index ->
                 val account = accountService.createUnidentifiedAccount()
-                accountService.recordClaim(account.accountId, Claim(AttributeType.EMAIL, "old$index@example.com", ClaimSource.SELF_REPORTED))
+                accountService.recordClaim(account.accountId, Claim(AttributeType.EMAIL, "old$index@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2)
                 account.accountId
             }
             val commitBarrier = CyclicBarrier(2)
@@ -180,7 +180,7 @@ class AccountServiceDbTest(
                     executor.submit<Result<Long>> {
                         runCatching {
                             checkNotNull(TransactionTemplate(transactionManager).execute {
-                                accountService.recordClaim(accountId, Claim(AttributeType.EMAIL, "shared@example.com", ClaimSource.SELF_REPORTED))
+                                accountService.recordClaim(accountId, Claim(AttributeType.EMAIL, "shared@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2)
                                 // Existing anchor updates are deferred: both callbacks finish before commit.
                                 commitBarrier.await(10, TimeUnit.SECONDS)
                                 accountId
@@ -209,11 +209,11 @@ class AccountServiceDbTest(
     given("two accounts, the second trying to claim a person_id the first already holds") {
         then("the real unique index rejects it - exactly one owner survives") {
             val first = accountService.createUnidentifiedAccount()
-            accountService.recordClaim(first.accountId, Claim(AttributeType.PERSON_ID, "777", ClaimSource.EXT_STAMMDATEN))
+            accountService.recordClaim(first.accountId, Claim(AttributeType.PERSON_ID, "777", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
 
             val second = accountService.createUnidentifiedAccount()
             shouldThrow<IdentityConflictException> {
-                accountService.recordClaim(second.accountId, Claim(AttributeType.PERSON_ID, "777", ClaimSource.EXT_STAMMDATEN))
+                accountService.recordClaim(second.accountId, Claim(AttributeType.PERSON_ID, "777", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
             }
 
             jdbcTemplate.queryForObject(
@@ -227,8 +227,8 @@ class AccountServiceDbTest(
     given("an account's email anchor being rebound to a new value") {
         then("the rebind commits atomically under real unique constraints") {
             val account = accountService.createUnidentifiedAccount()
-            accountService.recordClaim(account.accountId, Claim(AttributeType.EMAIL, "old@example.com", ClaimSource.SELF_REPORTED))
-            accountService.recordClaim(account.accountId, Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED))
+            accountService.recordClaim(account.accountId, Claim(AttributeType.EMAIL, "old@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2)
+            accountService.recordClaim(account.accountId, Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2)
 
             accountService.findAccountByEmail("old@example.com").shouldBeNull()
             accountService.findAccountByEmail("new@example.com")?.accountId shouldBe account.accountId
@@ -248,7 +248,7 @@ class AccountServiceDbTest(
                 Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN),
                 Claim(AttributeType.VORNAME, "Max", ClaimSource.EXT_STAMMDATEN),
                 Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.EXT_STAMMDATEN)
-            ))
+            ), provenAcr = AcrLevel.LOA2)
             fun matches() = attributeRepository.findAccountIdsMatchingAllThree(
                 AttributeType.NAME, "muster",
                 AttributeType.VORNAME, "max",
@@ -281,7 +281,8 @@ class AccountServiceDbTest(
                     Claim(AttributeType.PHONE_NUMBER, "+491701234567", ClaimSource.of(ToolId("enroll-sms"))),
                     Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.of(ToolId("enroll-sms")))
                 ),
-                authMethodId = instanceId
+                authMethodId = instanceId,
+                provenAcr = AcrLevel.LOA2
             )
 
             accountService.retractClaimsOf(
@@ -295,6 +296,58 @@ class AccountServiceDbTest(
                 String::class.java, account.accountId
             ) shouldBe "phone_number"
             accountService.findAccount(account.accountId)?.email shouldBe "max@example.com"
+        }
+    }
+
+    // ADR-5's line applied to anchors: a write is priced by what the session actually proved,
+    // not by what the asserting tool declares for itself.
+    given("an anchor write below its declared floor") {
+        then("establishing a person_id at loa1 is refused, and nothing is anchored") {
+            val account = accountService.createUnidentifiedAccount()
+
+            shouldThrow<IdentityConflictException> {
+                accountService.recordClaim(
+                    account.accountId,
+                    Claim(AttributeType.PERSON_ID, "4711", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2),
+                    provenAcr = AcrLevel.LOA1
+                )
+            }
+            accountService.findAccount(account.accountId)?.personId.shouldBeNull()
+        }
+
+        then("replacing an email costs loa2 even though establishing it cost loa1") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                account.accountId,
+                Claim(AttributeType.EMAIL, "first@example.com", ClaimSource.SELF_REPORTED),
+                provenAcr = AcrLevel.LOA1
+            )
+
+            shouldThrow<IdentityConflictException> {
+                accountService.recordClaim(
+                    account.accountId,
+                    Claim(AttributeType.EMAIL, "second@example.com", ClaimSource.SELF_REPORTED),
+                    provenAcr = AcrLevel.LOA1
+                )
+            }
+            accountService.findAccount(account.accountId)?.email shouldBe "first@example.com"
+        }
+    }
+
+    given("an anchor that was written") {
+        then("it remembers the level the session actually proved, not the claim's own") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                account.accountId,
+                // The claim declares loa2; the session only ever proved loa1, and that is what counts.
+                Claim(AttributeType.EMAIL, "capped@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA2),
+                provenAcr = AcrLevel.LOA1
+            )
+
+            jdbcTemplate.queryForObject(
+                "SELECT established_loa FROM account.anchor WHERE account_id = ? AND attribute_type = 'email'",
+                String::class.java, account.accountId
+            ) shouldBe "loa1"
         }
     }
 })

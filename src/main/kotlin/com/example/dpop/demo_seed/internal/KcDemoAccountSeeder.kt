@@ -5,6 +5,7 @@ import com.example.dpop.tool_api.EMAIL_ANCHOR_ENROLLMENT
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.resolveAccountByPersonId
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
@@ -59,13 +60,18 @@ internal class KcDemoAccountSeeder(
             if (accountService.anchorValue(profile.accountId, AttributeType.PERSON_ID) == null) {
                 accountService.recordClaim(
                     profile.accountId,
-                    Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP)
+                    Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP),
+                    // The seed stands in for a completed identification, so it pays the same price
+                    // a real one would (AttributeType.anchorAcrFloor) - stated here rather than
+                    // waved through, so the demo data is not held to a weaker rule than production.
+                    provenAcr = SEEDED_ACR
                 )
             }
             if (profile.activeAuthenticationMethods.none { it.method == "email" }) {
                 accountService.recordClaim(
                     profile.accountId,
-                    Claim(AttributeType.EMAIL, person.email, ClaimSource.DEMO_BOOTSTRAP)
+                    Claim(AttributeType.EMAIL, person.email, ClaimSource.DEMO_BOOTSTRAP),
+                    provenAcr = SEEDED_ACR
                 )
                 accountService.addAuthenticationMethod(
                     profile.accountId,
@@ -101,6 +107,14 @@ internal class KcDemoAccountSeeder(
         // project-wide; duplicated rather than imported since this module may not depend on
         // auth_password directly (module boundary).
         private const val DEMO_PASSWORD = "Demo1234!"
+
+        /**
+         * What the seed claims to have proven. It stands in for a completed ident-fsc run
+         * (`ClaimSource.DEMO_BOOTSTRAP`, rank PROVEN), so it pays the PERSON_ID anchor's own price
+         * (`AttributeType.anchorAcrFloor`) rather than being waved through - demo data must not be
+         * held to a weaker rule than the flow it imitates.
+         */
+        private val SEEDED_ACR = AcrLevel.LOA2
 
         // Same three persons/kvnrs as V2__testdata.sql - kept in that exact order because a fresh
         // DB assigns account ids sequentially in the order accounts are first created, and

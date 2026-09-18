@@ -14,10 +14,12 @@ import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
+import com.example.dpop.tool_api.anchorAcrFloor
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.allowsAnchorReplacement
 import com.example.dpop.tool_api.authority
 import com.example.dpop.tool_api.normalizeAnchorValue
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -57,7 +59,8 @@ class AccountService(
 
     /** Single-claim convenience wrapper around [recordClaims]. */
     @Transactional
-    fun recordClaim(accountId: Long, claim: Claim) = recordClaims(accountId, listOf(claim))
+    fun recordClaim(accountId: Long, claim: Claim, provenAcr: AcrLevel) =
+        recordClaims(accountId, listOf(claim), provenAcr)
 
     /**
      * Withdraws what one method instance asserted, as its own retraction row per distinct value -
@@ -112,9 +115,20 @@ class AccountService(
      * additionally consolidated into its [AccountAnchor]; every other attribute keeps its
      * authority where [AttributeType.authority] says it lives (`ext_stammdaten`, reachable via
      * the PERSON_ID anchor, or a method module's own enrollment row) and is only logged here.
+     *
+     * [provenAcr] is what the session had ACTUALLY established when this run completed - the same
+     * capped figure `AccountAuthMethod.enrolledUnderAcr` records, never a tool's own declared
+     * ceiling. It is the price an anchor write is paid with ([AttributeType.anchorAcrFloor]) and
+     * what the anchor row then remembers. The log itself is never gated: a claim below the floor
+     * is still provenance, it just does not get to move the anchor.
      */
     @Transactional
-    fun recordClaims(accountId: Long, claims: List<Claim>, authMethodId: UUID? = null) {
+    fun recordClaims(
+        accountId: Long,
+        claims: List<Claim>,
+        provenAcr: AcrLevel,
+        authMethodId: UUID? = null
+    ) {
         val seen = mutableSetOf<AttributeType>()
         claims.forEach { claim ->
             claim.validateValue()
@@ -137,7 +151,7 @@ class AccountService(
             )
             if (claim.attributeType.authority == AttributeAuthority.LOCAL_ANCHOR) {
                 lockForUpdate(accountId)
-                recordAnchor(accountId, claim.attributeType, claim.value, establishedAt)
+                recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
                 eventPublisher.publishEvent(AccountChanged(accountId))
             }
         }
@@ -154,8 +168,18 @@ class AccountService(
      * A rebind UPDATES the row in place rather than deleting and re-inserting: Hibernate flushes
      * insertions before deletions, so a delete-then-insert pair would briefly hold both rows and
      * trip `ux_anchor_account_type`.
+     *
+     * Both writes are priced separately by [AttributeType.anchorAcrFloor] and refused below it -
+     * establishing binds a value to an account, replacing re-points an account that other people's
+     * lookups already resolve through, which is the write worth protecting.
      */
-    private fun recordAnchor(accountId: Long, type: AttributeType, value: String, establishedAt: Instant) {
+    private fun recordAnchor(
+        accountId: Long,
+        type: AttributeType,
+        value: String,
+        establishedAt: Instant,
+        provenAcr: AcrLevel
+    ) {
         val normalized = type.normalizeAnchorValue(value)
         accountAnchorRepository.findByAttributeTypeAndValue(type, normalized)?.let { held ->
             if (held.accountId == accountId) return
@@ -174,18 +198,38 @@ class AccountService(
                 )
                 throw IdentityConflictException("Dieser ${type.wireName}-Wert kann fuer dieses Konto nicht mehr geaendert werden")
             }
+            requireAnchorAcr(type, provenAcr, floor = type.anchorAcrFloor?.replace, write = "ersetzt")
             existing.value = normalized
+            existing.establishedLoa = provenAcr.value
             existing.establishedAt = establishedAt
             accountAnchorRepository.save(existing)
             return
         }
+        requireAnchorAcr(type, provenAcr, floor = type.anchorAcrFloor?.establish, write = "gesetzt")
         accountAnchorRepository.save(
             AccountAnchor(
                 accountId = accountId,
                 attributeType = type,
                 value = normalized,
+                establishedLoa = provenAcr.value,
                 establishedAt = establishedAt
             )
+        )
+    }
+
+    /**
+     * Refuses an anchor write the session has not paid for. Rejecting rather than silently logging
+     * the claim without its anchor: a caller that believed it bound an identity must not proceed on
+     * a false premise (ADR-11's line - reject, never quietly skip).
+     */
+    private fun requireAnchorAcr(type: AttributeType, provenAcr: AcrLevel, floor: AcrLevel?, write: String) {
+        if (floor == null || AcrLevel.rank(provenAcr) >= AcrLevel.rank(floor)) return
+        log.warn(
+            "Anchor floor: {} may only be {} at {} or above, session proved {}",
+            type.wireName, write, floor.value, provenAcr.value
+        )
+        throw IdentityConflictException(
+            "Dieser ${type.wireName}-Wert kann erst ab ${floor.value} $write werden, nachgewiesen ist ${provenAcr.value}"
         )
     }
 

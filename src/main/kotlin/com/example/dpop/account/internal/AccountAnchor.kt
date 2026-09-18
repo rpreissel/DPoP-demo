@@ -33,6 +33,14 @@ class AccountAnchor(
     @Column(name = "normalized_value", nullable = false)
     var value: String? = null,
 
+    /**
+     * What was actually proven when this value was bound - the anchor's counterpart to
+     * `AccountAuthMethod.enrolledUnderAcr`, capped the same way (ADR-5) rather than the level a
+     * tool declares for itself. `null` only for rows written before this existed.
+     */
+    @Column(name = "established_loa", length = 16)
+    var establishedLoa: String? = null,
+
     @Column(name = "established_at", nullable = false)
     var establishedAt: Instant? = null
 ) {

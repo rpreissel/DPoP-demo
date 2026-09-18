@@ -61,7 +61,8 @@ class AccountServiceTest : BehaviorSpec({
 
             service.recordClaim(
                 accountId = 7L,
-                claim = Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2)
+                claim = Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2),
+                provenAcr = AcrLevel.LOA2
             )
 
             then("the claim lands in the log and its anchor consolidates") {
@@ -98,7 +99,7 @@ class AccountServiceTest : BehaviorSpec({
             every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns existingAnchor
 
             then("it is idempotent - no new anchor row, no rejection") {
-                service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN))
+                service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
                 verify(exactly = 0) { accountAnchorRepository.save(any()) }
                 verify(exactly = 0) { accountAnchorRepository.delete(any()) }
             }
@@ -110,7 +111,7 @@ class AccountServiceTest : BehaviorSpec({
 
             then("it is rejected - person_id is immutable after first binding (docs/ideen/account-attribute-und-trust-vereinheitlichen.md)") {
                 shouldThrow<IdentityConflictException> {
-                    service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "99", ClaimSource.EXT_STAMMDATEN))
+                    service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "99", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
                 }
                 verify(exactly = 0) { accountAnchorRepository.delete(any()) }
                 verify(exactly = 0) { accountAnchorRepository.save(any()) }
@@ -159,7 +160,8 @@ class AccountServiceTest : BehaviorSpec({
         `when`("recording an email claim") {
             service.recordClaim(
                 accountId = 7L,
-                claim = Claim(AttributeType.EMAIL, "  Max@Example.COM ", ClaimSource.SELF_REPORTED, AcrLevel.LOA1)
+                claim = Claim(AttributeType.EMAIL, "  Max@Example.COM ", ClaimSource.SELF_REPORTED, AcrLevel.LOA1),
+                provenAcr = AcrLevel.LOA2
             )
 
             then("the claim is logged raw, its anchor materializes normalized") {
@@ -181,7 +183,8 @@ class AccountServiceTest : BehaviorSpec({
                 shouldThrow<IdentityConflictException> {
                     service.recordClaim(
                         accountId = 7L,
-                        claim = Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1)
+                        claim = Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1),
+                        provenAcr = AcrLevel.LOA2
                     )
                 }
                 // No second anchor. Undoing the already-appended log row is the surrounding
@@ -198,7 +201,8 @@ class AccountServiceTest : BehaviorSpec({
 
             service.recordClaim(
                 accountId = 7L,
-                claim = Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1)
+                claim = Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1),
+                provenAcr = AcrLevel.LOA2
             )
 
             then("the existing row is UPDATED in place, not deleted and re-inserted (real unique-constraint ordering, docs/ideen/account-attribute-und-trust-vereinheitlichen.md)") {
@@ -254,7 +258,7 @@ class AccountServiceTest : BehaviorSpec({
 
         then("a KVNR claim records provenance only, not a local binding") {
             every { accountAttributeRepository.save(any()) } answers { firstArg() }
-            service.recordClaim(7L, Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN))
+            service.recordClaim(7L, Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
             verify(exactly = 1) { accountAttributeRepository.save(match { it.attributeType == AttributeType.KVNR }) }
             verify(exactly = 0) { accountAnchorRepository.save(any()) }
             verify(exactly = 0) { accountRepository.save(any()) }

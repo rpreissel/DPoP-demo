@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 
 /**
@@ -61,6 +62,41 @@ val AttributeType.authority: AttributeAuthority
         AttributeType.VORNAME,
         AttributeType.GEBURTSDATUM -> AttributeAuthority.EXT_STAMMDATEN
         AttributeType.PHONE_NUMBER -> AttributeAuthority.METHOD_MODULE
+    }
+
+/**
+ * The assurance an anchor write must be backed by. Two levels, because the two writes are not the
+ * same risk: [establish] is the first binding of a value to an account, [replace] re-points an
+ * account that already resolves by some other value - and that is the attack, since the anchor is
+ * the lookup authority every lookup-login resolves through.
+ *
+ * Deliberately separate from [AttributeType.allowsAnchorReplacement]: that one answers WHETHER a
+ * replacement is permitted at all, this one WITH WHAT it has to be paid for. `PERSON_ID` says no
+ * to the first question, so its [replace] level is never reached - it stands as the second line of
+ * defence, not the first.
+ */
+data class AnchorAcrFloor(val establish: AcrLevel, val replace: AcrLevel)
+
+/**
+ * The floor for writing this type's anchor, or `null` if it is no anchor at all. Exhaustive like
+ * its siblings: a new [AttributeType] does not compile until the decision is made.
+ *
+ * `EMAIL` establishes at loa1 on purpose - a registration has proven nothing yet, so demanding
+ * loa2 there would make the first account impossible; replacing it costs loa2, because that write
+ * is what would hand someone else's account to a new address.
+ *
+ * Invariant, asserted in `AttributeRulesTest`: non-null exactly for
+ * [AttributeAuthority.LOCAL_ANCHOR] types - the same shape the other two rules are bound by.
+ */
+val AttributeType.anchorAcrFloor: AnchorAcrFloor?
+    get() = when (this) {
+        AttributeType.PERSON_ID -> AnchorAcrFloor(establish = AcrLevel.LOA2, replace = AcrLevel.LOA2)
+        AttributeType.EMAIL -> AnchorAcrFloor(establish = AcrLevel.LOA1, replace = AcrLevel.LOA2)
+        AttributeType.KVNR,
+        AttributeType.NAME,
+        AttributeType.VORNAME,
+        AttributeType.GEBURTSDATUM,
+        AttributeType.PHONE_NUMBER -> null
     }
 
 /**

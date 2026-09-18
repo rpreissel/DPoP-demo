@@ -77,6 +77,10 @@ CREATE TABLE account.anchor (
     account_id       BIGINT       NOT NULL,
     attribute_type   VARCHAR(50)  NOT NULL,
     normalized_value VARCHAR(255) NOT NULL,
+    -- What was actually proven when this value was bound, capped the same way
+    -- account.auth_method.enrolled_under_acr is (ADR-5) - never the level a tool merely claims.
+    -- Written against AttributeType.anchorAcrFloor, which also refuses a write below it.
+    established_loa  VARCHAR(16),
     established_at   TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT ux_anchor_account_type UNIQUE (account_id, attribute_type),
     CONSTRAINT ux_anchor_value UNIQUE (attribute_type, normalized_value),

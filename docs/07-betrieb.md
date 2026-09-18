@@ -160,6 +160,10 @@ Die tragenden Tabellen und ihre Beziehungen als Diagramm stehen in
   schema-eigene Objekte und tragen deshalb ebenfalls kein Modulpräfix (`ux_anchor_value`).
 - **Typen**: Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
   `VARCHAR(16)`, Tool-IDs/Methoden/Attributtypen/Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
+- **Anker**: Jeder Schreibvorgang auf `account.anchor` ist nach `AttributeType.anchorAcrFloor`
+  bepreist (Erstbinden und Ersetzen getrennt) und die Zeile merkt sich mit `established_loa` das
+  tatsächlich bewiesene, nach ADR-5 gedeckelte Niveau
+  ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
 - **Konto**: `account.account` ist Sperrwurzel; aktueller Zustand in eigenen Zeilen, Historie append-only
   ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
 - **Retention**: Jede Aufräumabfrage ist ein Bulk-Statement und hat einen Index auf ihrer

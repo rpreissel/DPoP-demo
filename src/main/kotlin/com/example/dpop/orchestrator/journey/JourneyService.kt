@@ -555,7 +555,9 @@ class JourneyService(
             // stronger procedure, human review) arrives with the first EUDI case.
         }
         bindAccount(journey, channel, accountId)
-        accountService.recordClaims(accountId, action.outcome.claims)
+        // An identification's own achieved level IS what this session proved about the identity -
+        // the figure AttributeType.anchorAcrFloor prices the PERSON_ID anchor against.
+        accountService.recordClaims(accountId, action.outcome.claims, provenAcr = action.outcome.achievedAcr ?: AcrLevel.NONE)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
@@ -580,7 +582,9 @@ class JourneyService(
                 )
         }
         bindAccount(journey, channel, accountId)
-        accountService.recordClaims(accountId, action.outcome.claims)
+        // An identification's own achieved level IS what this session proved about the identity -
+        // the figure AttributeType.anchorAcrFloor prices the PERSON_ID anchor against.
+        accountService.recordClaims(accountId, action.outcome.claims, provenAcr = action.outcome.achievedAcr ?: AcrLevel.NONE)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
@@ -613,11 +617,10 @@ class JourneyService(
         // method can retract exactly that later (ADR-12).
         val methodInstanceId = UUID.randomUUID()
         // Every claim this enrollment asserted lands in the account's identity log
-        // (AccountService.recordClaims); an EMAIL claim additionally consolidates its
-        // anchor and fires the AccountChanged event. Done
-        // here, before this method returns, so the very next context rebuild
-        // (JourneyEvent.ActionCompleted) already sees it.
-        accountService.recordClaims(accountId, enrolled.claims, authMethodId = methodInstanceId)
+        // (AccountService.recordClaims, a few lines below); an EMAIL claim additionally
+        // consolidates its anchor and fires the AccountChanged event. Done here, before this
+        // method returns, so the very next context rebuild (JourneyEvent.ActionCompleted) already
+        // sees it.
         // What the environment already established BEFORE this completion (recordToolCompletion
         // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
         // session yet (REGISTER "Enrollment zuerst" with no identification at all,
@@ -635,6 +638,17 @@ class JourneyService(
         // self-escalation ADR-5 exists to prevent.
         val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
         val enrolledUnderAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+        // Recorded AFTER the level is known, because an anchor write is priced against it
+        // (AttributeType.anchorAcrFloor) and the anchor row remembers it. Safe to order this way:
+        // resolveAcr computes purely from the evidence - its `account` argument is not read - so
+        // the figure is the same whether the claims have landed yet or not.
+        accountService.recordClaims(
+            accountId,
+            enrolled.claims,
+            // The same capped figure the credential itself is stamped with (ADR-5).
+            provenAcr = enrolledUnderAcr,
+            authMethodId = methodInstanceId
+        )
         // Demo-only transparency for the ADR-5 cap above: this tool's own maxAcr promises
         // more than the session had actually established, so the credential just created is
         // quietly weaker than its catalog entry suggests - visible here once, at the moment

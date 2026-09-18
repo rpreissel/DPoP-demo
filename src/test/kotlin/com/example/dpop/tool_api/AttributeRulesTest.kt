@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -32,6 +33,24 @@ class AttributeRulesTest : BehaviorSpec({
         then("LOCAL_ANCHOR holds for exactly the attributes with an anchor binding strength") {
             AttributeType.entries.forEach { type ->
                 (type.authority == AttributeAuthority.LOCAL_ANCHOR) shouldBe (type.anchorBindingStrength != null)
+            }
+        }
+    }
+
+    given("anchorAcrFloor") {
+        then("an anchor may be established at what a registration can actually prove") {
+            AttributeType.EMAIL.anchorAcrFloor?.establish shouldBe AcrLevel.LOA1
+            AttributeType.PERSON_ID.anchorAcrFloor?.establish shouldBe AcrLevel.LOA2
+        }
+        // Replacing re-points an account that other people's lookups already resolve through -
+        // the write worth protecting, unlike the first binding.
+        then("replacing one costs loa2 regardless of what establishing it cost") {
+            AttributeType.EMAIL.anchorAcrFloor?.replace shouldBe AcrLevel.LOA2
+            AttributeType.PERSON_ID.anchorAcrFloor?.replace shouldBe AcrLevel.LOA2
+        }
+        then("a floor exists for exactly the locally anchored attributes") {
+            AttributeType.entries.forEach { type ->
+                (type.anchorAcrFloor != null) shouldBe (type.authority == AttributeAuthority.LOCAL_ANCHOR)
             }
         }
     }
