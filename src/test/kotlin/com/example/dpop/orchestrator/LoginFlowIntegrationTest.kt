@@ -32,7 +32,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
     private fun linkedAccountsFor(bindingKeyRef: String): Int =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM device_account_link WHERE binding_key_ref = ?", Int::class.java, bindingKeyRef
+            "SELECT COUNT(*) FROM orchestrator_device_account_link WHERE binding_key_ref = ?", Int::class.java, bindingKeyRef
         ) ?: 0
 
     init {

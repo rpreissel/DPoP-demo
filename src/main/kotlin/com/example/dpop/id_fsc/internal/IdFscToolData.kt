@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=ident-fsc (docs/06-ablaeufe.md #1). */
 @Entity
-@Table(name = "ident_fsc_tool_data")
+@Table(name = "id_fsc_ident_data")
 class IdFscToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

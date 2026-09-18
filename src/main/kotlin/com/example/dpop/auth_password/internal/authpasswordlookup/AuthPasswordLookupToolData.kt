@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=auth-password-lookup - just an existence marker, single-step self-verifying tool. */
 @Entity
-@Table(name = "auth_password_lookup_tool_data")
+@Table(name = "auth_password_lookup_data")
 class AuthPasswordLookupToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

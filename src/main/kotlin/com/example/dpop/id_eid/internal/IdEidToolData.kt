@@ -10,7 +10,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=ident-eid. */
 @Entity
-@Table(name = "ident_eid_tool_data")
+@Table(name = "id_eid_ident_data")
 class IdEidToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

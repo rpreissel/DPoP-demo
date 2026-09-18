@@ -141,7 +141,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                 Then("it binds the channel to that account and offers its auth candidates") {
                     val authenticatedChannelSessionId = registerAndAuthenticate()
                     val accountId = jdbcTemplate.queryForObject(
-                        "SELECT account_id FROM channel_session WHERE id = ?",
+                        "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
                         Long::class.java,
                         UUID.fromString(authenticatedChannelSessionId)
                     )
@@ -227,7 +227,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                 Then("the merged evidence is reflected in authData and, once sufficient, authenticates") {
                     val authenticatedChannelSessionId = registerAndAuthenticate()
                     val accountId = jdbcTemplate.queryForObject(
-                        "SELECT account_id FROM channel_session WHERE id = ?",
+                        "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
                         Long::class.java,
                         UUID.fromString(authenticatedChannelSessionId)
                     )

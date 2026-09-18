@@ -69,17 +69,17 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
             // untouched. The union of every table any suite ever touches - deleting from one a
             // given test never populated is a harmless no-op. account's own children cascade.
             listOf(
-                "ident_fsc_tool_data", "ident_eid_tool_data",
-                "enroll_sms_tool_data", "auth_sms_tool_data", "auth_sms_lookup_tool_data", "auth_sms_enrollment",
-                "enroll_password_tool_data", "auth_password_tool_data", "auth_password_lookup_tool_data", "auth_password_enrollment",
-                "enroll_email_tool_data", "auth_email_tool_data", "auth_email_lookup_tool_data",
-                "enroll_device_tool_data", "auth_device_tool_data", "auth_device_enrollment",
-                "enroll_qr_tool_data", "auth_qr_tool_data", "auth_qr_lookup_tool_data", "confirm_qr_login_tool_data",
+                "id_fsc_ident_data", "id_eid_ident_data",
+                "auth_sms_enroll_data", "auth_sms_auth_data", "auth_sms_lookup_data", "auth_sms_enrollment",
+                "auth_password_enroll_data", "auth_password_auth_data", "auth_password_lookup_data", "auth_password_enrollment",
+                "auth_email_enroll_data", "auth_email_auth_data", "auth_email_lookup_data",
+                "auth_device_enroll_data", "auth_device_auth_data", "auth_device_enrollment",
+                "auth_qr_enroll_data", "auth_qr_auth_data", "auth_qr_lookup_data", "auth_qr_confirm_data",
                 "auth_qr_login_request", "auth_qr_enrollment",
-                "tool_session", "auth_journey", "session_event", "journey_log",
-                "channel_session", "auth_context", "auth_evidence", "account",
-                "device_account_link", "attempt_throttle", "tool_availability", "dpop_proof_replay",
-                "registration_order_setting"
+                "orchestrator_tool_session", "orchestrator_auth_journey", "orchestrator_session_event", "orchestrator_journey_log",
+                "orchestrator_channel_session", "orchestrator_auth_context", "orchestrator_auth_evidence", "account",
+                "orchestrator_device_account_link", "orchestrator_attempt_throttle", "orchestrator_tool_availability", "orchestrator_dpop_proof_replay",
+                "orchestrator_feature_flag"
             ).forEach { jdbcTemplate.update("DELETE FROM $it") }
         }
     }

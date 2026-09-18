@@ -16,7 +16,7 @@ import java.time.Instant
  * time it reconnects.
  */
 @Entity
-@Table(name = "device_account_link")
+@Table(name = "orchestrator_device_account_link")
 class DeviceAccountLink(
     @Id
     @Column(name = "binding_key_ref", nullable = false, length = 64)

@@ -292,7 +292,7 @@ mintet bei jedem Aufruf ohnehin frisch aus der aktuellen Evidenz), das gemeinsam
 Felder kostet dort lediglich ein überflüssiges neues Mock-RefreshToken.
 
 Dafür erzeugt der Orchestrator bei jedem Keycloak-Account-Sync ein eigenes, asymmetrisches
-Schlüsselpaar pro Account (`account_keycloak_keypair`, EC P-256) und spiegelt den Public Key als
+Schlüsselpaar pro Account (`orchestrator_keycloak_keypair`, EC P-256) und spiegelt den Public Key als
 echtes Keycloak-`Credential` (Typ `orchestrator-public-key`, `KeycloakAdminClient.setPublicKeyCredential`)
 auf den Keycloak-User — bewusst nicht als Attribut: Proof-of-possession-Material gehört in den
 Credential-Store, nicht neben `email`/`firstName` in dieselben, deutlich leichter versehentlich
@@ -335,7 +335,7 @@ kurzlebig (`exp` <= 60s) und wird nur beim ERSTEN Mint bzw. bei einer tatsächli
 Änderung gebraucht - jede reine Fristverlängerung dazwischen läuft über das von Keycloak
 ausgegebene `refresh_token`, ohne den Account-Private-Key erneut anzufassen.
 
-**Preis**: Ein weiterer, account-gebundener Datensatz (`account_keycloak_keypair`) mit eigenem
+**Preis**: Ein weiterer, account-gebundener Datensatz (`orchestrator_keycloak_keypair`) mit eigenem
 Lebenszyklus (erzeugt bei Sync, gelöscht bei `AccountDeleted`, [07-betrieb.md](07-betrieb.md)
 Abschnitt 3) sowie ein zusätzliches, projektspezifisches Stück Keycloak-Erweiterung, das bei einem
 Keycloak-Versions-Upgrade gegen die `server-spi-private`-Schnittstelle (bewusst als "private"
@@ -528,9 +528,17 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
   `tool_api/AttributeRules.kt` zurückgeholt; ein Test bindet sie an `anchorBindingStrength`.
 - Fremdschlüssel nur innerhalb eines Moduls; modulübergreifende Bezüge sind indizierte Spalten,
   aufgeräumt über Modul-APIs.
-- Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<tool_id>_tool_data`,
+- Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<modul>_<tool-rolle>_data`,
   `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).
-- `dpop_proof_replay` ist über SHA-256(`thumbprint:jti`) mit fester Breite geschlüsselt, statt über
+- **Nachtrag**: Der Modulname ist inzwischen Präfix **jeder** Tabelle, auch im Orchestrator-Kern
+  (`orchestrator_channel_session`), und Tool-Arbeitsdaten heißen nach ihrem Modul statt nach ihrer
+  `toolId` (`auth_sms_enroll_data` statt `enroll_sms_tool_data`). Vorher dominierte die Art der
+  Tabelle den Namen, und eine alphabetische Liste verstreute die Tabellen eines Moduls über den
+  ganzen Katalog. Bei der Gelegenheit ist `registration_order_setting` — eine Tabelle mit einer
+  Spalte für genau ein Flag — der allgemeinen Tabelle `orchestrator_feature_flag` gewichen, und
+  `account_keycloak_keypair` heißt `orchestrator_keycloak_keypair`, weil sie nie dem Konto-Modul
+  gehörte.
+- `orchestrator_dpop_proof_replay` ist über SHA-256(`thumbprint:jti`) mit fester Breite geschlüsselt, statt über
   einen clientbestimmten `VARCHAR(255)`-Schlüssel.
 - Jede Retention-Löschung ist ein Bulk-Statement mit Index auf ihrer Stichtagsspalte; auch
   `auth_device` und `auth_qr` (inkl. `auth_qr_login_request`) räumen ihre Arbeitsdaten jetzt auf.
@@ -554,9 +562,9 @@ produktiven Einsatz sind Migrationen ausschließlich additiv.
 
 ## ADR-15: Nachweise und ausgestellte Tokens in getrennten Tabellen
 
-**Entscheidung**: `auth_evidence` (was auf einem Kanal bewiesen wurde) und `auth_context` (was
+**Entscheidung**: `orchestrator_auth_evidence` (was auf einem Kanal bewiesen wurde) und `orchestrator_auth_context` (was
 daraus an Tokens ausgestellt wurde) sind zwei Tabellen. Die Abhängigkeit ist einseitig:
-`auth_context.auth_evidence_id` zeigt auf die Nachweise, nie umgekehrt; mehrere Token-Kontexte
+`orchestrator_auth_context.auth_evidence_id` zeigt auf die Nachweise, nie umgekehrt; mehrere Token-Kontexte
 dürfen auf dieselbe Evidenz zeigen (`AuthContextRepository.findByAuthEvidenceId` liefert eine
 Liste). Abgeleitete Größen werden in keiner der beiden gespeichert: `currentAcr` berechnet
 `AuthPolicy.resolveAcr` bei jedem Lesen neu aus `amr_evidence`
@@ -593,7 +601,7 @@ Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md), 
 identifiziert, ausformuliert und bewusst **nicht** vollständig umgesetzt sind — jeweils eine
 Architektur-/Infrastrukturentscheidung, kein lokal abschließbarer Fix:
 
-- **`dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
+- **`orchestrator_dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
   Schlüssel ist seit ADR-14 ein fester SHA-256-Hash. Offen bleibt die Zeitpartitionierung bzw. ein
   separater persistenter KV-Store — eine Entscheidung für den Produktivstack, nicht für diese
   H2-Demo-Umgebung.

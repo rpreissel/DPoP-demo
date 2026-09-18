@@ -80,8 +80,8 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // to AUTHENTICATED without it, via SQL, to reproduce a pre-existing account that predates
             // this Required Action (the scope this test guards: a plain login and MANAGE must never
             // retroactively enforce it).
-            jdbcTemplate.update("UPDATE channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
-            jdbcTemplate.update("UPDATE auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
+            jdbcTemplate.update("UPDATE orchestrator_channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
+            jdbcTemplate.update("UPDATE orchestrator_auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
 
             // A fresh channel on the same device recognizes the account via DeviceAccountLink and logs
             // in via the existing sms method - no email confirmation demanded.

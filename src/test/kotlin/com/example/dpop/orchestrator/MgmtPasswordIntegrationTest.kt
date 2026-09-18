@@ -120,7 +120,7 @@ class MgmtPasswordIntegrationTest : IntegrationTestSupport() {
                 Then("it reports valid=false without throwing (constant-shape, no enumeration oracle)") {
                     val channelSessionId = identify()
                     val accountId = jdbcTemplate.queryForObject(
-                        "SELECT account_id FROM channel_session WHERE id = ?",
+                        "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
                         Long::class.java,
                         UUID.fromString(channelSessionId)
                     )

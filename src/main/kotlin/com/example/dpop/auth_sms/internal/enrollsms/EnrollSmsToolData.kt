@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=enroll-sms (docs/06-ablaeufe.md #1). */
 @Entity
-@Table(name = "enroll_sms_tool_data")
+@Table(name = "auth_sms_enroll_data")
 class EnrollSmsToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

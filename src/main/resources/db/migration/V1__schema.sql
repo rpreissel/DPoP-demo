@@ -5,10 +5,16 @@
 --   * Every table belongs to exactly one module. Foreign keys exist only WITHIN a module; a
 --     reference into another module is an indexed plain column, cleaned up through that module's
 --     API (EnrollmentCleanup, AccountDeletionService), never by a cross-module cascade.
---   * Module tables carry the module name as prefix. Two declared exceptions: the orchestrator is
---     the core and stays unprefixed; attempt-scoped tool data is named after its toolId
---     (<tool_id>_tool_data), because the ToolSession, not the module, is its lifecycle owner.
+--   * EVERY table is named <module>_<rest>, the orchestrator core included - so the owner is
+--     readable off the name alone and an alphabetical table listing groups by module. Where the
+--     module name would otherwise repeat, the rest is shortened: module auth_sms holds the data
+--     of tool auth-sms as auth_sms_auth_data, not auth_sms_auth_sms_data. The same applies to
+--     a constraint's second half, which names a table in the same module by rule
+--     (fk_orchestrator_auth_context_auth_evidence).
 --   * A long-lived credential table is <module>_enrollment, and that name IS its EnrollmentRef.type.
+--   * Attempt-scoped tool data is <module>_<tool role>_data (auth_qr_confirm_data for
+--     confirm-qr-login). Its key is the tool_session_id, since the ToolSession - not the module -
+--     owns its lifecycle; the module still owns the table, hence the prefix.
 --
 -- Account model
 --   * account is identity key and optimistic-lock root only. Current state lives in rows keyed by
@@ -114,21 +120,21 @@ CREATE INDEX ix_account_auth_method_account_id ON account_auth_method (account_i
 CREATE INDEX ix_account_auth_method_enrollment ON account_auth_method (enrollment_type, enrollment_id);
 
 -- =============================================================================================
--- orchestrator (core, unprefixed)
+-- orchestrator (core)
 -- =============================================================================================
 
 -- Evidence proven on one channel; cleared at logout. current ACR is never stored, always derived.
-CREATE TABLE auth_evidence (
+CREATE TABLE orchestrator_auth_evidence (
     id           UUID   PRIMARY KEY,
     account_id   BIGINT NOT NULL,
     amr_evidence JSON   NOT NULL,
     updated_at   TIMESTAMP WITH TIME ZONE NOT NULL,
     version      BIGINT NOT NULL DEFAULT 0
 );
-CREATE INDEX ix_auth_evidence_account_id ON auth_evidence (account_id);
+CREATE INDEX ix_orchestrator_auth_evidence_account_id ON orchestrator_auth_evidence (account_id);
 
 -- APP-channel token bookkeeping.
-CREATE TABLE auth_context (
+CREATE TABLE orchestrator_auth_context (
     id                   UUID   PRIMARY KEY,
     account_id           BIGINT NOT NULL,
     auth_evidence_id     UUID,
@@ -143,12 +149,12 @@ CREATE TABLE auth_context (
     refresh_expires_at   TIMESTAMP WITH TIME ZONE,
     updated_at           TIMESTAMP WITH TIME ZONE NOT NULL,
     version              BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_auth_context_auth_evidence FOREIGN KEY (auth_evidence_id) REFERENCES auth_evidence (id)
+    CONSTRAINT fk_orchestrator_auth_context_auth_evidence FOREIGN KEY (auth_evidence_id) REFERENCES orchestrator_auth_evidence (id)
 );
-CREATE INDEX ix_auth_context_account_id ON auth_context (account_id);
-CREATE INDEX ix_auth_context_auth_evidence_id ON auth_context (auth_evidence_id);
+CREATE INDEX ix_orchestrator_auth_context_account_id ON orchestrator_auth_context (account_id);
+CREATE INDEX ix_orchestrator_auth_context_auth_evidence_id ON orchestrator_auth_context (auth_evidence_id);
 
-CREATE TABLE channel_session (
+CREATE TABLE orchestrator_channel_session (
     id                    UUID        PRIMARY KEY,
     channel               VARCHAR(32) NOT NULL,
     -- APP channels anchor on the DPoP key, KEYCLOAK channels have none (docs/02-domaenenmodell.md #1).
@@ -166,20 +172,20 @@ CREATE TABLE channel_session (
     last_accessed_at      TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at            TIMESTAMP WITH TIME ZONE NOT NULL,
     version               BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT ck_channel_session_binding_key CHECK ((channel = 'APP') = (binding_key_ref IS NOT NULL)),
-    CONSTRAINT fk_channel_session_auth_context FOREIGN KEY (auth_context_id) REFERENCES auth_context (id),
-    CONSTRAINT fk_channel_session_auth_evidence FOREIGN KEY (auth_evidence_id) REFERENCES auth_evidence (id)
+    CONSTRAINT ck_orchestrator_channel_session_binding_key CHECK ((channel = 'APP') = (binding_key_ref IS NOT NULL)),
+    CONSTRAINT fk_orchestrator_channel_session_auth_context FOREIGN KEY (auth_context_id) REFERENCES orchestrator_auth_context (id),
+    CONSTRAINT fk_orchestrator_channel_session_auth_evidence FOREIGN KEY (auth_evidence_id) REFERENCES orchestrator_auth_evidence (id)
 );
-CREATE INDEX ix_channel_session_account_id ON channel_session (account_id);
-CREATE INDEX ix_channel_session_expires_at ON channel_session (expires_at);
-CREATE INDEX ix_channel_session_channel_expires_at ON channel_session (channel, expires_at);
-CREATE INDEX ix_channel_session_auth_context_id ON channel_session (auth_context_id);
-CREATE INDEX ix_channel_session_auth_evidence_id ON channel_session (auth_evidence_id);
+CREATE INDEX ix_orchestrator_channel_session_account_id ON orchestrator_channel_session (account_id);
+CREATE INDEX ix_orchestrator_channel_session_expires_at ON orchestrator_channel_session (expires_at);
+CREATE INDEX ix_orchestrator_channel_session_channel_expires_at ON orchestrator_channel_session (channel, expires_at);
+CREATE INDEX ix_orchestrator_channel_session_auth_context_id ON orchestrator_channel_session (auth_context_id);
+CREATE INDEX ix_orchestrator_channel_session_auth_evidence_id ON orchestrator_channel_session (auth_evidence_id);
 
 -- One run of one AuthIntent. state_type keeps the JourneyState queryable; there is deliberately no
 -- next_* column, next is derived from state. parent_journey_id has no FK: parent and child age out
 -- independently in retention batches.
-CREATE TABLE auth_journey (
+CREATE TABLE orchestrator_auth_journey (
     id                 UUID         PRIMARY KEY,
     channel_session_id UUID         NOT NULL,
     parent_journey_id  UUID,
@@ -193,34 +199,34 @@ CREATE TABLE auth_journey (
     expires_at         TIMESTAMP WITH TIME ZONE NOT NULL,
     consumed_at        TIMESTAMP WITH TIME ZONE,
     version            BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_auth_journey_channel_session FOREIGN KEY (channel_session_id) REFERENCES channel_session (id)
+    CONSTRAINT fk_orchestrator_auth_journey_channel_session FOREIGN KEY (channel_session_id) REFERENCES orchestrator_channel_session (id)
 );
-CREATE INDEX ix_auth_journey_channel_session ON auth_journey (channel_session_id, lifecycle, created_at);
-CREATE INDEX ix_auth_journey_expires_at ON auth_journey (expires_at);
-CREATE INDEX ix_auth_journey_consumed_at ON auth_journey (consumed_at);
+CREATE INDEX ix_orchestrator_auth_journey_channel_session ON orchestrator_auth_journey (channel_session_id, lifecycle, created_at);
+CREATE INDEX ix_orchestrator_auth_journey_expires_at ON orchestrator_auth_journey (expires_at);
+CREATE INDEX ix_orchestrator_auth_journey_consumed_at ON orchestrator_auth_journey (consumed_at);
 
 -- Lifecycle metadata only; toolId comes from the route, tool data lives in the module.
-CREATE TABLE tool_session (
+CREATE TABLE orchestrator_tool_session (
     id         UUID PRIMARY KEY,
     journey_id UUID NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     version    BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_tool_session_auth_journey FOREIGN KEY (journey_id) REFERENCES auth_journey (id)
+    CONSTRAINT fk_orchestrator_tool_session_auth_journey FOREIGN KEY (journey_id) REFERENCES orchestrator_auth_journey (id)
 );
-CREATE INDEX ix_tool_session_journey_id ON tool_session (journey_id);
-CREATE INDEX ix_tool_session_expires_at ON tool_session (expires_at);
+CREATE INDEX ix_orchestrator_tool_session_journey_id ON orchestrator_tool_session (journey_id);
+CREATE INDEX ix_orchestrator_tool_session_expires_at ON orchestrator_tool_session (expires_at);
 
-CREATE TABLE device_account_link (
+CREATE TABLE orchestrator_device_account_link (
     binding_key_ref VARCHAR(64) PRIMARY KEY,
     account_id      BIGINT      NOT NULL,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_device_account_link_account_id ON device_account_link (account_id);
+CREATE INDEX ix_orchestrator_device_account_link_account_id ON orchestrator_device_account_link (account_id);
 
 -- Minimized audit trail. Session ids are historical values, not references: it outlives them.
-CREATE TABLE session_event (
+CREATE TABLE orchestrator_session_event (
     id                 UUID         PRIMARY KEY,
     channel_session_id UUID,
     journey_id         UUID,
@@ -229,10 +235,10 @@ CREATE TABLE session_event (
     payload_hash       VARCHAR(128),
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_session_event_created_at ON session_event (created_at);
+CREATE INDEX ix_orchestrator_session_event_created_at ON orchestrator_session_event (created_at);
 
--- Rich debugging trace, deliberately not minimized (unlike session_event); short retention.
-CREATE TABLE journey_log (
+-- Rich debugging trace, deliberately not minimized (unlike orchestrator_session_event); short retention.
+CREATE TABLE orchestrator_journey_log (
     id                 UUID         PRIMARY KEY,
     channel_session_id UUID         NOT NULL,
     journey_id         UUID,
@@ -246,48 +252,51 @@ CREATE TABLE journey_log (
     detail             JSON,
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_journey_log_channel_session_id ON journey_log (channel_session_id, created_at);
-CREATE INDEX ix_journey_log_account_id ON journey_log (account_id, created_at);
-CREATE INDEX ix_journey_log_binding_key_ref ON journey_log (binding_key_ref, created_at);
-CREATE INDEX ix_journey_log_created_at ON journey_log (created_at);
+CREATE INDEX ix_orchestrator_journey_log_channel_session_id ON orchestrator_journey_log (channel_session_id, created_at);
+CREATE INDEX ix_orchestrator_journey_log_account_id ON orchestrator_journey_log (account_id, created_at);
+CREATE INDEX ix_orchestrator_journey_log_binding_key_ref ON orchestrator_journey_log (binding_key_ref, created_at);
+CREATE INDEX ix_orchestrator_journey_log_created_at ON orchestrator_journey_log (created_at);
 
 -- One counter per (scope, subject); scope is part of the key so the subject spaces never collide.
-CREATE TABLE attempt_throttle (
+CREATE TABLE orchestrator_attempt_throttle (
     scope        VARCHAR(32)  NOT NULL,
     subject      VARCHAR(128) NOT NULL,
     failed_count INT          NOT NULL DEFAULT 0,
     locked_until TIMESTAMP WITH TIME ZONE,
     updated_at   TIMESTAMP WITH TIME ZONE NOT NULL,
-    CONSTRAINT pk_attempt_throttle PRIMARY KEY (scope, subject)
+    CONSTRAINT pk_orchestrator_attempt_throttle PRIMARY KEY (scope, subject)
 );
-CREATE INDEX ix_attempt_throttle_updated_at ON attempt_throttle (updated_at);
+CREATE INDEX ix_orchestrator_attempt_throttle_updated_at ON orchestrator_attempt_throttle (updated_at);
 
 -- The primary key insert IS the replay check. Keyed by SHA-256(thumbprint:jti): fixed width, and a
 -- client-chosen jti can neither overflow the key nor bloat the hottest index in the system.
-CREATE TABLE dpop_proof_replay (
+CREATE TABLE orchestrator_dpop_proof_replay (
     proof_hash VARCHAR(64) PRIMARY KEY,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_dpop_proof_replay_expires_at ON dpop_proof_replay (expires_at);
+CREATE INDEX ix_orchestrator_dpop_proof_replay_expires_at ON orchestrator_dpop_proof_replay (expires_at);
 
 -- Runtime kill-switch per tool; no row = enabled.
-CREATE TABLE tool_availability (
+CREATE TABLE orchestrator_tool_availability (
     tool_id    VARCHAR(50) PRIMARY KEY,
     enabled    BOOLEAN     NOT NULL,
     reason     VARCHAR(255),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
--- Runtime feature flag for REGISTER's enrollment-first order; no row = ident first.
-CREATE TABLE registration_order_setting (
-    id           VARCHAR(50) PRIMARY KEY,
-    enroll_first BOOLEAN     NOT NULL,
-    updated_at   TIMESTAMP WITH TIME ZONE NOT NULL
+-- One row per runtime feature flag; no row = off, the documented default of that flag. flag_key
+-- is a FeatureFlags constant (e.g. 'register-enroll-first'), never free-form: a strategy reads the
+-- name from that object, so a typo here simply leaves the flag off rather than inventing one.
+CREATE TABLE orchestrator_feature_flag (
+    flag_key   VARCHAR(100) PRIMARY KEY,
+    enabled    BOOLEAN      NOT NULL,
+    reason     VARCHAR(255),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 -- keycloak profile: per-account keypair for the account-token grant. Demo-only: private key in
 -- plaintext. Removed by KeycloakAccountSyncListener once the account deletion has committed.
-CREATE TABLE account_keycloak_keypair (
+CREATE TABLE orchestrator_keycloak_keypair (
     account_id      BIGINT        PRIMARY KEY,
     public_key_jwk  VARCHAR(2000) NOT NULL,
     private_key_jwk VARCHAR(2000) NOT NULL,
@@ -307,7 +316,7 @@ CREATE TABLE id_fsc_code (
 );
 CREATE INDEX ix_id_fsc_code_person_id ON id_fsc_code (person_id, code_hash);
 
-CREATE TABLE ident_fsc_tool_data (
+CREATE TABLE id_fsc_ident_data (
     tool_session_id UUID PRIMARY KEY,
     kvnr            VARCHAR(20),
     person_id       BIGINT,
@@ -316,13 +325,13 @@ CREATE TABLE ident_fsc_tool_data (
     fsc_hash        VARCHAR(64),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_ident_fsc_tool_data_created_at ON ident_fsc_tool_data (created_at);
+CREATE INDEX ix_id_fsc_ident_data_created_at ON id_fsc_ident_data (created_at);
 
 -- =============================================================================================
 -- id_eid
 -- =============================================================================================
 
-CREATE TABLE ident_eid_tool_data (
+CREATE TABLE id_eid_ident_data (
     tool_session_id UUID PRIMARY KEY,
     kvnr            VARCHAR(20),
     person_id       BIGINT,
@@ -336,7 +345,7 @@ CREATE TABLE ident_eid_tool_data (
     pin_hash        VARCHAR(64),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_ident_eid_tool_data_created_at ON ident_eid_tool_data (created_at);
+CREATE INDEX ix_id_eid_ident_data_created_at ON id_eid_ident_data (created_at);
 
 -- =============================================================================================
 -- auth_sms
@@ -349,16 +358,16 @@ CREATE TABLE auth_sms_enrollment (
     created_at   TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE TABLE enroll_sms_tool_data (
+CREATE TABLE auth_sms_enroll_data (
     tool_session_id UUID PRIMARY KEY,
     phone_number    VARCHAR(32),
     issued_tan_hash VARCHAR(64),
     tan_expires_at  TIMESTAMP WITH TIME ZONE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_enroll_sms_tool_data_created_at ON enroll_sms_tool_data (created_at);
+CREATE INDEX ix_auth_sms_enroll_data_created_at ON auth_sms_enroll_data (created_at);
 
-CREATE TABLE auth_sms_tool_data (
+CREATE TABLE auth_sms_auth_data (
     tool_session_id     UUID PRIMARY KEY,
     enrollment_ref_type VARCHAR(50),
     enrollment_ref_id   VARCHAR(255),
@@ -366,17 +375,17 @@ CREATE TABLE auth_sms_tool_data (
     tan_expires_at      TIMESTAMP WITH TIME ZONE,
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_sms_tool_data_created_at ON auth_sms_tool_data (created_at);
+CREATE INDEX ix_auth_sms_auth_data_created_at ON auth_sms_auth_data (created_at);
 
 -- account_id is only known after the first PATCH resolved it.
-CREATE TABLE auth_sms_lookup_tool_data (
+CREATE TABLE auth_sms_lookup_data (
     tool_session_id UUID PRIMARY KEY,
     account_id      BIGINT,
     issued_tan_hash VARCHAR(64),
     tan_expires_at  TIMESTAMP WITH TIME ZONE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_sms_lookup_tool_data_created_at ON auth_sms_lookup_tool_data (created_at);
+CREATE INDEX ix_auth_sms_lookup_data_created_at ON auth_sms_lookup_data (created_at);
 
 -- =============================================================================================
 -- auth_password
@@ -389,55 +398,55 @@ CREATE TABLE auth_password_enrollment (
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE TABLE enroll_password_tool_data (
+CREATE TABLE auth_password_enroll_data (
     tool_session_id UUID PRIMARY KEY,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_enroll_password_tool_data_created_at ON enroll_password_tool_data (created_at);
+CREATE INDEX ix_auth_password_enroll_data_created_at ON auth_password_enroll_data (created_at);
 
-CREATE TABLE auth_password_tool_data (
+CREATE TABLE auth_password_auth_data (
     tool_session_id     UUID PRIMARY KEY,
     enrollment_ref_type VARCHAR(50),
     enrollment_ref_id   VARCHAR(255),
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_password_tool_data_created_at ON auth_password_tool_data (created_at);
+CREATE INDEX ix_auth_password_auth_data_created_at ON auth_password_auth_data (created_at);
 
-CREATE TABLE auth_password_lookup_tool_data (
+CREATE TABLE auth_password_lookup_data (
     tool_session_id UUID PRIMARY KEY,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_password_lookup_tool_data_created_at ON auth_password_lookup_tool_data (created_at);
+CREATE INDEX ix_auth_password_lookup_data_created_at ON auth_password_lookup_data (created_at);
 
 -- =============================================================================================
 -- auth_email (no enrollment table: the credential is the account's EMAIL anchor)
 -- =============================================================================================
 
-CREATE TABLE enroll_email_tool_data (
+CREATE TABLE auth_email_enroll_data (
     tool_session_id  UUID PRIMARY KEY,
     email            VARCHAR(255),
     issued_code_hash VARCHAR(64),
     code_expires_at  TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_enroll_email_tool_data_created_at ON enroll_email_tool_data (created_at);
+CREATE INDEX ix_auth_email_enroll_data_created_at ON auth_email_enroll_data (created_at);
 
-CREATE TABLE auth_email_tool_data (
+CREATE TABLE auth_email_auth_data (
     tool_session_id  UUID PRIMARY KEY,
     issued_code_hash VARCHAR(64),
     code_expires_at  TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_email_tool_data_created_at ON auth_email_tool_data (created_at);
+CREATE INDEX ix_auth_email_auth_data_created_at ON auth_email_auth_data (created_at);
 
-CREATE TABLE auth_email_lookup_tool_data (
+CREATE TABLE auth_email_lookup_data (
     tool_session_id  UUID PRIMARY KEY,
     account_id       BIGINT,
     issued_code_hash VARCHAR(64),
     code_expires_at  TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_email_lookup_tool_data_created_at ON auth_email_lookup_tool_data (created_at);
+CREATE INDEX ix_auth_email_lookup_data_created_at ON auth_email_lookup_data (created_at);
 
 -- =============================================================================================
 -- auth_device
@@ -455,19 +464,19 @@ CREATE TABLE auth_device_enrollment (
     CONSTRAINT ux_auth_device_enrollment_thumbprint UNIQUE (thumbprint)
 );
 
-CREATE TABLE enroll_device_tool_data (
+CREATE TABLE auth_device_enroll_data (
     tool_session_id UUID PRIMARY KEY,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_enroll_device_tool_data_created_at ON enroll_device_tool_data (created_at);
+CREATE INDEX ix_auth_device_enroll_data_created_at ON auth_device_enroll_data (created_at);
 
-CREATE TABLE auth_device_tool_data (
+CREATE TABLE auth_device_auth_data (
     tool_session_id     UUID PRIMARY KEY,
     enrollment_ref_type VARCHAR(50),
     enrollment_ref_id   VARCHAR(255),
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_device_tool_data_created_at ON auth_device_tool_data (created_at);
+CREATE INDEX ix_auth_device_auth_data_created_at ON auth_device_auth_data (created_at);
 
 -- =============================================================================================
 -- auth_qr
@@ -492,29 +501,29 @@ CREATE TABLE auth_qr_login_request (
 );
 CREATE INDEX ix_auth_qr_login_request_expires_at ON auth_qr_login_request (expires_at);
 
-CREATE TABLE enroll_qr_tool_data (
+CREATE TABLE auth_qr_enroll_data (
     tool_session_id UUID PRIMARY KEY,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_enroll_qr_tool_data_created_at ON enroll_qr_tool_data (created_at);
+CREATE INDEX ix_auth_qr_enroll_data_created_at ON auth_qr_enroll_data (created_at);
 
-CREATE TABLE auth_qr_tool_data (
-    tool_session_id UUID PRIMARY KEY,
-    pairing_code    VARCHAR(16) NOT NULL,
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL
-);
-CREATE INDEX ix_auth_qr_tool_data_created_at ON auth_qr_tool_data (created_at);
-
-CREATE TABLE auth_qr_lookup_tool_data (
+CREATE TABLE auth_qr_auth_data (
     tool_session_id UUID PRIMARY KEY,
     pairing_code    VARCHAR(16) NOT NULL,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_auth_qr_lookup_tool_data_created_at ON auth_qr_lookup_tool_data (created_at);
+CREATE INDEX ix_auth_qr_auth_data_created_at ON auth_qr_auth_data (created_at);
 
-CREATE TABLE confirm_qr_login_tool_data (
+CREATE TABLE auth_qr_lookup_data (
+    tool_session_id UUID PRIMARY KEY,
+    pairing_code    VARCHAR(16) NOT NULL,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL
+);
+CREATE INDEX ix_auth_qr_lookup_data_created_at ON auth_qr_lookup_data (created_at);
+
+CREATE TABLE auth_qr_confirm_data (
     tool_session_id UUID PRIMARY KEY,
     pairing_code    VARCHAR(16),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_confirm_qr_login_tool_data_created_at ON confirm_qr_login_tool_data (created_at);
+CREATE INDEX ix_auth_qr_confirm_data_created_at ON auth_qr_confirm_data (created_at);

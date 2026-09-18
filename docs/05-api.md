@@ -108,7 +108,7 @@ entscheidet `TokenProvider` profilabhängig:
   ACR/AMR unverändert → billige Erneuerung über Keycloaks eigenen `refresh_token`-Grant, ohne
   Account-Private-Key; (3) kein gültiges RefreshToken mehr (Erstausstellung oder ein Step-up hat
   den Cache gerade invalidiert) → frische, signierte Assertion (Private Key AUS
-  `account_keycloak_keypair`, trägt `acr`/`amr` selbst als Claims) über den custom OAuth2-Grant
+  `orchestrator_keycloak_keypair`, trägt `acr`/`amr` selbst als Claims) über den custom OAuth2-Grant
   (`urn:dpop-demo:account-token`, `keycloak-extension`s `AccountTokenGrantType`; Details: ADR-9).
   Alle Aufrufe für denselben Account teilen sich dabei dieselbe Keycloak-Session
   (`AccountTokenGrantType` sucht sie über eine eigene Session-Note wieder, statt bei jedem Aufruf

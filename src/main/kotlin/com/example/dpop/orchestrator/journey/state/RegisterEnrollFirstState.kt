@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * The "Enrollment zuerst" experiment (docs/04-orchestrierung.md, REGISTER): an alternative
- * REGISTER journey, toggled at runtime via `RegistrationOrderService`, that enrolls a login method
+ * REGISTER journey, toggled at runtime via `FeatureFlagService`, that enrolls a login method
  * (and, on KEYCLOAK, a password) BEFORE any identification - completely autark from
  * [RegisterState]/`AuthEnrollCore` (its own states, its own transition function, no shared types
  * beyond ones that already existed before this experiment, like `RE_IDENTIFY`): the two journeys

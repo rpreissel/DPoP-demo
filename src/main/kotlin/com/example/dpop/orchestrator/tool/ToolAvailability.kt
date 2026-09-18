@@ -12,7 +12,7 @@ import java.time.Instant
  * live here, so the catalog never needs pre-seeding.
  */
 @Entity
-@Table(name = "tool_availability")
+@Table(name = "orchestrator_tool_availability")
 class ToolAvailability(
     @Id
     @Column(name = "tool_id", nullable = false, length = 50)

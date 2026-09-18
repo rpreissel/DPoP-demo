@@ -64,7 +64,7 @@ class AccountDeletionService(
         accountService.deleteAccount(accountId)
 
         // Strictly LAST, and deliberately so. These are bulk statements, and a bulk statement over
-        // `journey_log` overlaps the query space of the entries the running journey has itself
+        // `orchestrator_journey_log` overlaps the query space of the entries the running journey has itself
         // just written but not yet flushed - which forces Hibernate to auto-flush the whole
         // persistence context mid-request. That early flush bumps the version of every dirty
         // session entity, and any caller still holding the pre-flush copy then fails its own

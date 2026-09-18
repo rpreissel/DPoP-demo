@@ -52,7 +52,7 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 | `account_*` (Anker, Methoden, Claim- und Identifizierungs-Log) | — | kein Session-Cleanup | gehört dem Konto, kaskadiert mit dessen Löschung |
 | `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
 | `AttemptThrottle` | letzter Zähler-Update | 7 Tage | zwei Größenordnungen über dem längsten Fenster/Lockout (15 Min.); ein Sweep rührt nie eine Zeile an, deren Sperre noch läuft. Fehlversuchs-/Versand-Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4); die beiden Fehlversuchs-Scopes werden nur durch einen erfolgreichen Auth-/Ident-Abschluss zurückgesetzt, die drei Fenster-Scopes laufen einfach ab |
-| `account_keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
+| `orchestrator_keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
 
 Umgang mit den Referenzen:
 
@@ -60,7 +60,7 @@ Umgang mit den Referenzen:
 - **Moduldaten** räumt jedes Modul eigenständig nach Alter (`createdAt`) auf, ohne Signal vom Orchestrator. Das ist robuster als ein Löschbefehl (ein verpasstes Signal hinterließe dauerhafte Waisen) und bleibt gültig, falls ein Modul später ein eigener Service mit eigener Datenbank wird.
 - **Audit ist entkoppelt**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel. Das ist Absicht — das Audit muss die Sessions überleben, und der Eintrag speichert ohnehin nur `payloadHash` statt Nutzdaten. Ins Leere zeigende IDs sind hier erwartet, kein Defekt.
 - **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account_auth_method`, `account_identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, oder die Geräte-Wiedererkennung kappen. `account_identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
-- **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `attempt_throttle` (nur die kontobezogenen Scopes `ACCOUNT`/`ACCOUNT_SEND` — `BINDING_KEY`/`CONTACT_SEND` blieben sonst ein Weg, fremde Throttle-Budgets über eine Neuregistrierung zurückzusetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
+- **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `orchestrator_journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `orchestrator_attempt_throttle` (nur die kontobezogenen Scopes `ACCOUNT`/`ACCOUNT_SEND` — `BINDING_KEY`/`CONTACT_SEND` blieben sonst ein Weg, fremde Throttle-Budgets über eine Neuregistrierung zurückzusetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
 - **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3) - der Orchestrator erfährt nie aktiv davon. `RetentionJob` prüft deshalb für bereits abgelaufene `KEYCLOAK`-Kanäle zusätzlich per Keycloak-Admin-API, ob die zugehörige Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf statt erst nach der vollen Retention-Frist. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) führt nie zu einem verfrühten Löschen - sie fällt zurück auf die normale zeitbasierte Frist.
 
 ## 4) Kontosperre, Rate-Limits und Versand-Drosselung (Brute-Force-/Bombing-Schutz)
@@ -148,10 +148,14 @@ Die tragenden Tabellen und ihre Beziehungen als Diagramm stehen in
 - **Besitz**: Jede Tabelle gehört genau einem Modul. Fremdschlüssel nur innerhalb eines Moduls;
   modulübergreifende Bezüge (z. B. `account_id` in Orchestrator-Tabellen) sind indizierte
   Spalten und werden über die Modul-APIs aufgeräumt, nie per modulübergreifender Kaskade.
-- **Namen**: Modultabellen tragen den Modulnamen als Präfix; deklarierte Ausnahmen sind der
-  Orchestrator (Kern, ohne Präfix) und Tool-Arbeitsdaten (`<tool_id>_tool_data`, Besitzer ist die
-  `ToolSession`). Langlebige Credentials heißen `<modul>_enrollment`, und dieser Name ist
-  `EnrollmentRef.type`. PK-Spalte immer `id`, Referenzen `<tabelle>_id`, Indizes `ux_`/`ix_`.
+- **Namen**: **Jede** Tabelle heißt `<modul>_<rest>`, der Orchestrator-Kern eingeschlossen — der
+  Besitzer ist damit am Namen ablesbar, und eine alphabetische Tabellenliste gruppiert nach Modul.
+  Wo sich der Modulname sonst wiederholen würde, wird der Rest gekürzt: Das Modul `auth_sms` legt
+  die Daten des Tools `auth-sms` in `auth_sms_auth_data` ab, nicht in `auth_sms_auth_sms_data`;
+  dasselbe gilt für die zweite Hälfte eines Constraint-Namens, die per Regel ohnehin eine Tabelle
+  desselben Moduls nennt. Langlebige Credentials heißen `<modul>_enrollment`, und dieser Name ist
+  `EnrollmentRef.type`; Tool-Arbeitsdaten heißen `<modul>_<tool-rolle>_data`. PK-Spalte immer `id`,
+  Referenzen `<tabelle>_id`, Indizes `ux_`/`ix_`.
 - **Typen**: Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
   `VARCHAR(16)`, Tool-IDs/Methoden/Attributtypen/Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
 - **Konto**: `account` ist Sperrwurzel; aktueller Zustand in eigenen Zeilen, Historie append-only

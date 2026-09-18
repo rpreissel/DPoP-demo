@@ -13,7 +13,7 @@ import java.util.UUID
  * from `input` to `confirm` (docs/05-api.md, Peer-Login bestätigen).
  */
 @Entity
-@Table(name = "confirm_qr_login_tool_data")
+@Table(name = "auth_qr_confirm_data")
 class ConfirmQrLoginToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=enroll-qr (docs/06-ablaeufe.md #1 pattern). */
 @Entity
-@Table(name = "enroll_qr_tool_data")
+@Table(name = "auth_qr_enroll_data")
 class EnrollQrToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

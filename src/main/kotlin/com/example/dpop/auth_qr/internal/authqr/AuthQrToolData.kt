@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=auth-qr - just which QrLoginRequest this session waits on. */
 @Entity
-@Table(name = "auth_qr_tool_data")
+@Table(name = "auth_qr_auth_data")
 class AuthQrToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

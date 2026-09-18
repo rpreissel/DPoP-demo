@@ -112,7 +112,7 @@ NICHT aus TrustLevel.rank berechnen"). Seither `claims.sortedByDescending { it.a
 (`tool_api/AttributeRules.kt`) — `PERSON_ID` rangiert damit unabhängig davon, welches Tool die
 Claims geliefert hat, immer über `EMAIL`/`KVNR`.
 
-### A5 — Löschpfad unvollständig, aber nur bei `journey_log`/`attempt_throttle` (DSGVO) ✅ behoben
+### A5 — Löschpfad unvollständig, aber nur bei `orchestrator_journey_log`/`orchestrator_attempt_throttle` (DSGVO) ✅ behoben
 
 **Korrektur gegenüber der ursprünglichen Fassung:** Die vermutete funktionale Lücke trifft **nicht**
 zu. `V30__add_account_attribute.sql` und `V31__add_account_anchor.sql` sind beide lesbar und
@@ -126,22 +126,22 @@ sofort wieder für eine Neuregistrierung frei.
 
 Was bleibt, ist die DSGVO-Hälfte: `AccountService.deleteAccount` löscht nur die `account`-Zeile
 (mit den beiden Cascades im Schlepptau); `AccountDeletionService` räumt zusätzlich Credentials,
-`DeviceAccountLink`, Channels, `AuthContext`, `AuthEvidence` — **nicht** aber `journey_log` und
-`attempt_throttle`. Beide enthalten identitätsnahe Daten (`journey_log.detail`-JSON,
-`attempt_throttle.subject` bei `CONTACT_SEND` ungepfefferte Hashes von Kontaktadressen, siehe A7) und keine
+`DeviceAccountLink`, Channels, `AuthContext`, `AuthEvidence` — **nicht** aber `orchestrator_journey_log` und
+`orchestrator_attempt_throttle`. Beide enthalten identitätsnahe Daten (`orchestrator_journey_log.detail`-JSON,
+`orchestrator_attempt_throttle.subject` bei `CONTACT_SEND` ungepfefferte Hashes von Kontaktadressen, siehe A7) und keine
 Beziehung zu `account`, die eine Cascade tragen könnte — das ist eher B3/eine explizite
 Aufräum-Query im Löschpfad als ein fehlender Fremdschlüssel.
 
-Empfehlung: `AccountDeletionService` um `journey_log`/`attempt_throttle`-Aufräumung für die
+Empfehlung: `AccountDeletionService` um `orchestrator_journey_log`/`orchestrator_attempt_throttle`-Aufräumung für die
 gelöschte `accountId` ergänzen, unabhängig von der Aufbewahrungsfrist aus B3.
 
 **Umsetzung:** `AccountDeletionService.deleteAccount` räumt beides jetzt explizit ab.
 
-- `journey_log` wird über **zwei** Schlüssel gelöscht — `account_id` **und** die Channel-Sessions
+- `orchestrator_journey_log` wird über **zwei** Schlüssel gelöscht — `account_id` **und** die Channel-Sessions
   des Kontos. Einträge, die geschrieben wurden, bevor der Channel ein Konto aufgelöst hatte,
   tragen `account_id = NULL` und hätten eine rein kontobezogene Löschung überlebt; es ist derselbe
   Grund, aus dem `getLogForAccount` in der Leserichtung über die Channel-Menge geht.
-- `attempt_throttle` wird **nur** in den kontobezogenen Scopes (`ACCOUNT`, `ACCOUNT_SEND`)
+- `orchestrator_attempt_throttle` wird **nur** in den kontobezogenen Scopes (`ACCOUNT`, `ACCOUNT_SEND`)
   gelöscht. `PERSON` gehört zum externen Register, `BINDING_KEY` und `CONTACT_SEND` sind bewusst
   nicht kontobezogen — `CONTACT_SEND` speichert ohnehin nur einen Hash (siehe A7, dessen Annahme
   roher Kontaktdaten damit hinfällig ist). Diese Scopes mitzulöschen würde die Kontolöschung in
@@ -149,7 +149,7 @@ gelöschte `accountId` ergänzen, unabhängig von der Aufbewahrungsfrist aus B3.
 
 Zwei Fallstricke, die dabei zutage traten und im Code dokumentiert sind:
 
-1. Die Löschung muss **eine einzige** Anweisung sein. Jede Bulk-Mutation auf `journey_log` löst
+1. Die Löschung muss **eine einzige** Anweisung sein. Jede Bulk-Mutation auf `orchestrator_journey_log` löst
    vorher einen Auto-Flush aus; bei zwei Anweisungen schrieb der zweite Flush einen Eintrag fort,
    den die erste bereits gelöscht hatte → `Unexpected row count (expected 1 but was 0)`, nach
    außen ein falscher `409 CONCURRENT_MODIFICATION` auf genau der Anfrage, die die Löschung
@@ -180,7 +180,7 @@ Fehlermeldung; kein Downstream-Code brauchte je die IDs selbst.
 
 **Korrektur gegenüber der ursprünglichen Fassung:** Die Behauptung „im Klartext" trifft **nicht**
 zu. `SendThrottleService.isThrottledForContact` legt nicht die Adresse, sondern ihren
-SHA-256-Hash als `attempt_throttle.subject` ab (`SendThrottleService.hash`, mit eigener Begründung
+SHA-256-Hash als `orchestrator_attempt_throttle.subject` ab (`SendThrottleService.hash`, mit eigener Begründung
 im Code). Der `CONTACT_SEND`-Scope enthält damit keine im Klartext lesbaren Kontaktdaten.
 
 Was blieb: Der Hash war **ungepfeffert**. Telefonnummern und E-Mail-Adressen haben zu wenig
@@ -196,7 +196,7 @@ Pepper schützt, macht einen Neustart-bedingten Reset praktisch irrelevant (glei
 Kosten-Nutzen-Verhältnis wie bei den Fünf-Minuten-OTPs).
 
 Die zweite Hälfte des ursprünglichen Befunds — „unbegrenzt lange, ohne Aufbewahrungsgrenze" — ist
-mit B3 erledigt: `attempt_throttle` wird nach 7 Tagen ausgekehrt.
+mit B3 erledigt: `orchestrator_attempt_throttle` wird nach 7 Tagen ausgekehrt.
 
 ---
 
@@ -280,13 +280,13 @@ Schleife — eine paginierte ID-Query allein würde den Speicherdruck nicht senk
 diese Schleife selbst batchweise arbeitet. Das wäre ein Umbau des vollständigen
 Reconciliation-Ablaufs, kein kleiner Einzelbefund mehr.
 
-### B3 — `journey_log` hat keinerlei Aufbewahrungsgrenze ✅ behoben
+### B3 — `orchestrator_journey_log` hat keinerlei Aufbewahrungsgrenze ✅ behoben
 
 `RetentionJob` deckt `ToolSession`, `AuthJourney`, `ChannelSession`, `AuthContext`, `AuthEvidence`
-und `SessionEvent` ab — `journey_log` kommt darin **nicht vor**. Die Tabelle bekommt pro
+und `SessionEvent` ab — `orchestrator_journey_log` kommt darin **nicht vor**. Die Tabelle bekommt pro
 Journey-Schritt eine Zeile samt `detail`-JSON und ist laut eigener Doku ein Debug-/Demo-Trace. Bei
 „vielen Anmeldungen" ist sie mit Abstand die größte Tabelle des Systems und enthält zugleich
-identitätsnahe Daten (siehe A5). Gleiches gilt für `attempt_throttle`.
+identitätsnahe Daten (siehe A5). Gleiches gilt für `orchestrator_attempt_throttle`.
 
 **Umsetzung:** `RetentionJob` kehrt beide Tabellen jetzt rein altersbasiert aus — beide hängen an
 keinem Fremdschlüssel, der sie mit aufräumen könnte, und sind durch nichts anderes begrenzt.
@@ -330,7 +330,7 @@ Ebenfalls unverändert: die gesamte `cleanup()`-Transaktion bleibt eine einzige 
 Transaktionen pro Batch (eigenes Bean wegen Self-Invocation, analog `AttemptThrottleRowInitializer`),
 was über eine kleine Korrektur hinausgeht.
 
-### B5 — `dpop_proof_replay` als Durchsatzdeckel 🟡 teilweise
+### B5 — `orchestrator_dpop_proof_replay` als Durchsatzdeckel 🟡 teilweise
 
 **Umsetzung (ADR-14):** Der Primärschlüssel ist `proof_hash VARCHAR(64)` = SHA-256(`thumbprint:jti`),
 berechnet in `DpopReplayProtectionService`. **Offen:** Zeitpartitionierung bzw. KV-Store (unten).
@@ -354,7 +354,7 @@ Gerät über den Schlüssel `thumbprint:null` dauerhaft aus" wurde geprüft und 
 damit auf dem heißesten Pfad des Systems einen zusätzlichen Join/Query — für einen Wert, der laut
 eigener Dokumentation über die gesamte Kanal-Lebenszeit **konstant** ist.
 
-**Umsetzung:** Migration `V35` fügt `channel_session.available_tools` als `JSON`-Spalte hinzu
+**Umsetzung:** Migration `V35` fügt `orchestrator_channel_session.available_tools` als `JSON`-Spalte hinzu
 (gleiches Muster wie `account.identifications`/`authentication_methods`, `V1__schema.sql`),
 migriert die Bestandsdaten aus `channel_session_available_tools` per `LISTAGG` und löscht die
 alte Tabelle. Entity nutzt jetzt `@JdbcTypeCode(SqlTypes.JSON)` statt

@@ -28,7 +28,7 @@ import java.util.UUID
  * to drift.
  */
 @Entity
-@Table(name = "auth_journey")
+@Table(name = "orchestrator_auth_journey")
 class AuthJourney(
     @Column(name = "channel_session_id", nullable = false)
     var channelSessionId: UUID? = null,

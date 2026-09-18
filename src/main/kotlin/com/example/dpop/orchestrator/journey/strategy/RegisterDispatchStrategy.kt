@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
  * type-erased (`Map<AuthIntent, IntentStrategy<*>>`), so this fits the existing machinery without
  * any change there.
  *
- * Deliberately takes no `RegistrationOrderService` itself: `IntentStrategy` implementations must
+ * Deliberately takes no `FeatureFlagService` itself: `IntentStrategy` implementations must
  * never depend on a `@Service`/`@Repository` (its own class doc, enforced by
  * `OrchestratorArchitectureTest` - "a strategy DECIDES, it never ACTS"). `JourneyService` reads the
  * flag once, into [JourneyContext.enrollFirstRegistration], the same read-only channel every other

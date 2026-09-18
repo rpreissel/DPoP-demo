@@ -360,10 +360,11 @@ danach nur noch der Zustandstyp selbst (`is RegisterEnrollFirstState` vs. `is Re
 erneut das Flag, damit ein Flip mitten im Lauf nichts zerstört.
 
 Aktiviert über das Runtime-Feature-Flag `FeatureFlags.REGISTER_ENROLL_FIRST`
-(`"register-enroll-first"`), das `RegistrationOrderService` (`@Service`, implementiert
-`FeatureFlagProvider`) beisteuert und dessen aktueller Zustand über
-`GET/PUT /orchestrator/api/v1/admin/registration-order` (`RegistrationOrderController`) abgefragt/
-gesetzt wird.
+(`"register-enroll-first"`), das `FeatureFlagService` (`@Service`, implementiert
+`FeatureFlagProvider`) aus der Tabelle `orchestrator_feature_flag` beisteuert — eine Zeile je
+Flag, keine Zeile heißt „aus". Dessen aktueller Zustand wird über
+`GET/PUT /orchestrator/api/v1/admin/registration-order` (`RegistrationOrderController`) abgefragt
+und gesetzt.
 
 **Kernidee**: Kein Konto nötig, um zu starten — es entsteht erst lazy, beim ersten abgeschlossenen
 Enrollment (`JourneyService`s generisches `Action.AdoptCredential`-Handling), nicht schon bei der

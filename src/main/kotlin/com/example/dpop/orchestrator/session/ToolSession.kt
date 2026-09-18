@@ -19,7 +19,7 @@ import java.util.UUID
  * brute force that simply moves on to the next state.
  */
 @Entity
-@Table(name = "tool_session")
+@Table(name = "orchestrator_tool_session")
 class ToolSession(
     @Column(name = "journey_id", nullable = false)
     var journeyId: UUID? = null,

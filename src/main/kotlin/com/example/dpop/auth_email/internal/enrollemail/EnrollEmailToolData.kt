@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=enroll-email (mirrors auth_sms's EnrollSmsToolData). */
 @Entity
-@Table(name = "enroll_email_tool_data")
+@Table(name = "auth_email_enroll_data")
 class EnrollEmailToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

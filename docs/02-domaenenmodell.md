@@ -233,18 +233,18 @@ EMAIL-Anker.
 
 ```mermaid
 erDiagram
-  channel_session ||--o{ auth_journey : "fuehrt Lauf"
-  auth_journey ||--o{ tool_session : "aktiviert Tool"
-  channel_session }o--o| auth_context : "APP: Token-Buchhaltung"
-  channel_session }o--o| auth_evidence : "Nachweise dieses Kanals"
-  auth_context }o--o| auth_evidence : "bewertet"
-  auth_journey }o..o| auth_journey : "parent_journey_id (ohne FK)"
-  tool_session ||..o| enroll_sms_tool_data : "tool_session_id ist PK"
-  tool_session ||..o| auth_sms_tool_data : "tool_session_id ist PK"
-  channel_session }o..o| account : "account_id"
-  device_account_link }o..|| account : "account_id"
+  orchestrator_channel_session ||--o{ orchestrator_auth_journey : "fuehrt Lauf"
+  orchestrator_auth_journey ||--o{ orchestrator_tool_session : "aktiviert Tool"
+  orchestrator_channel_session }o--o| orchestrator_auth_context : "APP: Token-Buchhaltung"
+  orchestrator_channel_session }o--o| orchestrator_auth_evidence : "Nachweise dieses Kanals"
+  orchestrator_auth_context }o--o| orchestrator_auth_evidence : "bewertet"
+  orchestrator_auth_journey }o..o| orchestrator_auth_journey : "parent_journey_id (ohne FK)"
+  orchestrator_tool_session ||..o| auth_sms_enroll_data : "tool_session_id ist PK"
+  orchestrator_tool_session ||..o| auth_sms_auth_data : "tool_session_id ist PK"
+  orchestrator_channel_session }o..o| account : "account_id"
+  orchestrator_device_account_link }o..|| account : "account_id"
 
-  channel_session {
+  orchestrator_channel_session {
     uuid id PK
     varchar channel "APP | KEYCLOAK"
     varchar binding_key_ref "ck: genau bei channel = APP gesetzt"
@@ -252,7 +252,7 @@ erDiagram
     varchar acr_floor "dauerhafte Untergrenze des Kanals"
     timestamp expires_at "ix, Retention"
   }
-  auth_journey {
+  orchestrator_auth_journey {
     uuid id PK
     uuid channel_session_id FK
     varchar intent
@@ -260,51 +260,54 @@ erDiagram
     varchar state_type "abfragbarer Diskriminator"
     json state "JourneyState, kein next_*"
   }
-  tool_session {
+  orchestrator_tool_session {
     uuid id PK
     uuid journey_id FK
     timestamp expires_at "ix, Retention"
   }
-  auth_context {
+  orchestrator_auth_context {
     uuid id PK
     varchar access_token "der Token selbst, kein Handle - Cache"
     varchar refresh_token "nie im Frontend"
     timestamp access_expires_at
   }
-  auth_evidence {
+  orchestrator_auth_evidence {
     uuid id PK
     json amr_evidence "aktuelles ACR wird abgeleitet, nie gespeichert"
   }
-  device_account_link {
+  orchestrator_device_account_link {
     varchar binding_key_ref PK "einzige langlebige Zuordnung Geraet -> Konto"
   }
   account {
     bigint id PK "Spalten siehe Diagramm Konto"
   }
-  enroll_sms_tool_data {
+  auth_sms_enroll_data {
     uuid tool_session_id PK
     varchar issued_tan_hash
     timestamp created_at "ix, Retention"
   }
-  auth_sms_tool_data {
+  auth_sms_auth_data {
     uuid tool_session_id PK
     varchar enrollment_ref_type
     varchar enrollment_ref_id
   }
 ```
 
-`auth_evidence` und `auth_context` sind getrennt, obwohl sie im APP-Kanal gemeinsam entstehen:
-Nachweise hat jeder Kanal (der KEYCLOAK-Kanal legt nie einen `AuthContext` an), und sie sind die
-Wahrheit, aus der die Policy rechnet — der Token ist nur die daraus ausgestellte, jederzeit
-verwerfbare Kopie ([12-entscheidungen.md](12-entscheidungen.md) ADR-15).
+`orchestrator_auth_evidence` und `orchestrator_auth_context` sind getrennt, obwohl sie im
+APP-Kanal gemeinsam entstehen: Nachweise hat jeder Kanal (der KEYCLOAK-Kanal legt nie einen
+`AuthContext` an), und sie sind die Wahrheit, aus der die Policy rechnet — der Token ist nur die
+daraus ausgestellte, jederzeit verwerfbare Kopie
+([12-entscheidungen.md](12-entscheidungen.md) ADR-15).
 
-Die `*_tool_data`-Tabellen sind nach ihrer `toolId` benannt, nicht nach ihrem Modul, weil die
-`ToolSession` ihr Lebenszyklus-Eigentümer ist: Ihr Primärschlüssel *ist* die `tool_session_id`, ein
-Fremdschlüssel darauf wäre modulübergreifend. Jedes Methodenmodul folgt demselben Zuschnitt wie
-`auth_sms` oben — ein langlebiges `<modul>_enrollment` plus je eine kurzlebige
-`<tool_id>_tool_data` pro Tool; die vollständige Liste steht in `V1__schema.sql`.
+Die `*_data`-Tabellen tragen den Modulnamen wie jede andere Tabelle, obwohl nicht das Modul,
+sondern die `ToolSession` ihr Lebenszyklus-Eigentümer ist: Ihr Primärschlüssel *ist* die
+`tool_session_id`, ein Fremdschlüssel darauf wäre modulübergreifend. Der Name nennt den Besitzer,
+der Schlüssel den Lebenszyklus — zwei verschiedene Fragen. Jedes Methodenmodul folgt demselben
+Zuschnitt wie `auth_sms` oben: ein langlebiges `<modul>_enrollment` plus je eine kurzlebige
+`<modul>_<tool-rolle>_data` pro Tool; die vollständige Liste steht in `V1__schema.sql`.
 
-Nicht im Diagramm, weil ohne Beziehungen: `session_event` und `journey_log` (Session-IDs sind dort
-historische Werte, keine Referenzen — die Spur überlebt die Sessions), `attempt_throttle`,
-`dpop_proof_replay`, `tool_availability`, `registration_order_setting` und
-`account_keycloak_keypair`.
+Nicht im Diagramm, weil ohne Beziehungen: `orchestrator_session_event` und
+`orchestrator_journey_log` (Session-IDs sind dort historische Werte, keine Referenzen — die Spur
+überlebt die Sessions), `orchestrator_attempt_throttle`, `orchestrator_dpop_proof_replay`,
+`orchestrator_tool_availability`, `orchestrator_feature_flag` und
+`orchestrator_keycloak_keypair`.

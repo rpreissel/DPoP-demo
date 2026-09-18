@@ -15,7 +15,7 @@ import java.util.UUID
  * are expected to point into nothing once the referenced session is gone.
  */
 @Entity
-@Table(name = "session_event")
+@Table(name = "orchestrator_session_event")
 class SessionEvent(
     @Column(name = "channel_session_id")
     var channelSessionId: UUID? = null,

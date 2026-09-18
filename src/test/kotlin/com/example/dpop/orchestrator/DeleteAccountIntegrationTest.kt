@@ -35,7 +35,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 declined.channel()["state"] shouldBe "AUTHENTICATED"
 
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM channel_session WHERE id = ?",
+                    "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
@@ -84,11 +84,11 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                jdbcTemplate.update("UPDATE channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
-                jdbcTemplate.update("UPDATE auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
+                jdbcTemplate.update("UPDATE orchestrator_channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
+                jdbcTemplate.update("UPDATE orchestrator_auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
 
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM channel_session WHERE id = ?",
+                    "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
@@ -133,7 +133,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
             then("the completion response already reports LOGGED_OUT, not AUTHENTICATED") {
                 val channelSessionId = registerAndAuthenticate()
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM channel_session WHERE id = ?",
+                    "SELECT account_id FROM orchestrator_channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )

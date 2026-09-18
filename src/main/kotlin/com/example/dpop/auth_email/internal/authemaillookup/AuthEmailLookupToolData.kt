@@ -13,7 +13,7 @@ import java.util.UUID
  * (email lives directly on Account, resolved once at the call site by the controller).
  */
 @Entity
-@Table(name = "auth_email_lookup_tool_data")
+@Table(name = "auth_email_lookup_data")
 class AuthEmailLookupToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

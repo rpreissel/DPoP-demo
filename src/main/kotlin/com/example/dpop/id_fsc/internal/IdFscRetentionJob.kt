@@ -8,7 +8,7 @@ import java.time.Instant
 
 /**
  * Each module cleans up its own attempt-scoped data by age, without a signal from the
- * orchestrator (docs/07-betrieb.md #3) - ident_fsc_tool_data holds KVNR/name and is pointless
+ * orchestrator (docs/07-betrieb.md #3) - id_fsc_ident_data holds KVNR/name and is pointless
  * after the process has moved on.
  */
 @Component

@@ -5,11 +5,11 @@ package com.example.dpop.orchestrator.journey
  * shared, generic `Set<String>` field rather than a new named `JourneyContext` property per flag
  * (which would otherwise touch this widely-used data class again for every future experiment).
  * `JourneyService` is the only place that resolves the actual `@Service`-backed value (e.g.
- * `RegistrationOrderService`) and turns it into membership in this set - see `IntentStrategy`'s own
+ * `FeatureFlagService`) and turns it into membership in this set - see `IntentStrategy`'s own
  * class doc for why a strategy itself is never allowed to hold such a service directly.
  */
 object FeatureFlags {
-    /** REGISTER's "Enrollment zuerst" experiment (`RegistrationOrderService`, docs/04-orchestrierung.md). */
+    /** REGISTER's "Enrollment zuerst" experiment (`FeatureFlagService`, docs/04-orchestrierung.md). */
     const val REGISTER_ENROLL_FIRST = "register-enroll-first"
 }
 

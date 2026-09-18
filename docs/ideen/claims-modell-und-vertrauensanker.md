@@ -71,12 +71,12 @@ Dazu die Ist-Fakten, auf denen alles Weitere aufbaut:
   Enroll-Email-Verfahren" hängt an der `CONFIRMED_EMAIL_AUDIT_KEY`-Konvention, `email_confirmed_at`
   hat keinen Vertrauensanker daneben.
 - **Anker heute**: KVNR (`person.kvnr UNIQUE`, `PersonDirectory.findPersonIdByKvnr`),
-  E-Mail (`idx_account_email`), Geräte (`device_account_link.binding_key_ref` PK). Jeder Anker
+  E-Mail (`idx_account_email`), Geräte (`orchestrator_device_account_link.binding_key_ref` PK). Jeder Anker
   hat seine eigene, fest verdrahtete Auflösung - keine gemeinsame Form.
 - **Nur der Account wächst unbegrenzt**: alle attempt-/journey-behafteten Tabellen
-  (`tool_session`, `auth_journey`, `channel_session`, `*_tool_data`, `session_event`,
-  `journey_log`) werden von stündlichen Retention-Jobs geräumt; `session_event` ist bewusst
-  minimiert (`payload_hash`, kein Rohdaten-Archiv), `journey_log` ist Debugging-Log, kein
+  (`orchestrator_tool_session`, `orchestrator_auth_journey`, `orchestrator_channel_session`, `*_tool_data`, `orchestrator_session_event`,
+  `orchestrator_journey_log`) werden von stündlichen Retention-Jobs geräumt; `orchestrator_session_event` ist bewusst
+  minimiert (`payload_hash`, kein Rohdaten-Archiv), `orchestrator_journey_log` ist Debugging-Log, kein
   Audit-Trail. Die vollen Rohdaten eines ID-Laufs liegen in den attempt-scoped
   `*_tool_data`-Tabellen (bis zum Sweep) und im Journey-State.
 - **Umgebung**: Der Demo-Betrieb läuft auf H2-Datei-DB; alles Skalierungs-Spezifische unten ist
@@ -413,7 +413,7 @@ werden muss** - und zwei Befunde am heutigen Modell, die bei 10M unabhängig von
 
 - **Alle Hot Paths bleiben typisierte Zeilen-Lookups.** Niemand liest EAV im Hot-Path - jede
   existierende Abfrage (`account` per PK, per `person_id`, per `email`,
-  `device_account_link` per `binding_key_ref`) bleibt B-Tree auf engen Spalten. Bei 10M Zeilen
+  `orchestrator_device_account_link` per `binding_key_ref`) bleibt B-Tree auf engen Spalten. Bei 10M Zeilen
   kostet ein PK-Lookup ~4 Index-Ebenen - unauffällig.
 - **Synchron konsolidieren heißt pro-Konto konsolidieren**, nicht pro Tabelle: eine neue
   Behauptung rechnet die Projektion für **ein** (account, attribute)-Paar neu - O(Attribut-Zeilen

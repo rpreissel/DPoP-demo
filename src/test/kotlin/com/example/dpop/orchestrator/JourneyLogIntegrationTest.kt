@@ -9,7 +9,7 @@ import io.kotest.matchers.string.shouldNotBeBlank
 
 /**
  * The rich, per-step journey trace (docs/04-orchestrierung.md), distinct from the minimized
- * session_event audit trail - see JourneyLogEntry's own doc.
+ * orchestrator_session_event audit trail - see JourneyLogEntry's own doc.
  */
 class JourneyLogIntegrationTest : IntegrationTestSupport() {
 

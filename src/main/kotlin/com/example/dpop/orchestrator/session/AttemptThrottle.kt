@@ -75,7 +75,7 @@ data class AttemptThrottleId(
  * its own vocabulary and its own limits rather than sharing one generic entry point.
  */
 @Entity
-@Table(name = "attempt_throttle")
+@Table(name = "orchestrator_attempt_throttle")
 class AttemptThrottle(
     @EmbeddedId
     var id: AttemptThrottleId? = null

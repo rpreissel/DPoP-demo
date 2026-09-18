@@ -31,7 +31,7 @@ import java.util.UUID
  * evidence can never lower the resolved level, so there is nothing a cached max() could add.
  */
 @Entity
-@Table(name = "auth_evidence")
+@Table(name = "orchestrator_auth_evidence")
 class AuthEvidence(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null

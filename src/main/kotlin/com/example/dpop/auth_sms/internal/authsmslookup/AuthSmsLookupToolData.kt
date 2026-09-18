@@ -13,7 +13,7 @@ import java.util.UUID
  * up front via the device-bound channel.
  */
 @Entity
-@Table(name = "auth_sms_lookup_tool_data")
+@Table(name = "auth_sms_lookup_data")
 class AuthSmsLookupToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

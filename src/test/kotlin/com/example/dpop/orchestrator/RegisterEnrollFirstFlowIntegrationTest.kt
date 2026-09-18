@@ -17,7 +17,7 @@ import org.springframework.web.client.HttpClientErrorException
  * enrollment happens against an account with no person behind it yet, identification is offered
  * only at the very end, optionally. Toggled on for the whole suite via the admin endpoint
  * (`RegistrationOrderController`) - `IntegrationTestSupport`'s shared `beforeEach` resets
- * `registration_order_setting` too, so this never leaks into an ident-first test.
+ * `orchestrator_feature_flag` too, so this never leaks into an ident-first test.
  */
 class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
 

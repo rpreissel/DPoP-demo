@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=enroll-device (docs/06-ablaeufe.md pattern). */
 @Entity
-@Table(name = "enroll_device_tool_data")
+@Table(name = "auth_device_enroll_data")
 class EnrollDeviceToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)
