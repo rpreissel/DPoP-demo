@@ -3,10 +3,10 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.tool_api.AccountDirectory
+import com.example.dpop.tool_api.EMAIL_ANCHOR_ENROLLMENT
 import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
-import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.demoData
@@ -21,12 +21,11 @@ import java.util.UUID
  * mail send, exactly like the mock SMS gateway.
  *
  * Unlike enroll-sms/enroll-password, the confirmed value is NOT stored in a module-owned
- * enrollment table referenced via EnrollmentRef - it is the account's canonical email attribute,
+ * enrollment table - it is the account's EMAIL anchor, referenced as [EMAIL_ANCHOR_ENROLLMENT],
  * the first anchor-role application of the claims model (docs/ideen/
  * claims-modell-und-vertrauensanker.md). It is therefore asserted as a typed EMAIL claim on
  * `Completed.Enrolled`, which `JourneyService`'s generic `Action.AdoptCredential` handling
- * records via `AccountService.recordClaim` - consolidating the projection column, the anchor
- * and the AccountChanged event. This is what lets REGISTER "Enrollment zuerst"
+ * records via `AccountService.recordClaim` - consolidating the anchor and firing AccountChanged. This is what lets REGISTER "Enrollment zuerst"
  * (docs/04-orchestrierung.md) create the account lazily, on first `AdoptCredential`, instead of
  * needing one to already exist before this tool's own PATCH can even run - this was the ONE enroll
  * handler in the whole catalog that needed an account mid-PATCH; every other one already operates
@@ -100,10 +99,7 @@ class EnrollEmailToolHandler(
             }
 
             is EnrollEmailDecision.Complete -> ToolOutcome.Completed.Enrolled(
-                // The anchor IS the durable reference here: it binds this method instance to the
-                // actual confirmed value instead of an inert placeholder, so the singleton
-                // idempotency check in `addAuthenticationMethod` matches on the real thing.
-                enrollmentRef = EnrollmentRef(type = "email", id = decision.email),
+                enrollmentRef = EMAIL_ANCHOR_ENROLLMENT,
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes,

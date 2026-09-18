@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
@@ -7,6 +8,7 @@ import com.example.dpop.tool_api.MatchedVia
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_api.anchorBindingStrength
+import com.example.dpop.tool_api.authority
 import com.example.dpop.tool_api.normalizeAnchorValue
 import com.example.dpop.tool_api.normalizeKvnr
 import com.example.dpop.tool_spi.TrustLevel
@@ -86,9 +88,8 @@ class IdentityMatchingService(
 
     /**
      * Layer 1: anchor values - unique, error-free lookups via `account_anchor`'s UNIQUE
-     * constraint, PERSON_ID included (docs/ideen/account-attribute-und-trust-vereinheitlichen.md,
-     * Paket 4: PERSON_ID is `ConsolidationStrategy.OwnedColumn` now, so it is anchored exactly
-     * like EMAIL). KVNR instead resolves live to the external person ID and then to that
+     * constraint, PERSON_ID included (anchored exactly like EMAIL,
+     * docs/ideen/account-attribute-und-trust-vereinheitlichen.md). KVNR instead resolves live to the external person ID and then to that
      * person's anchor; a historical local KVNR anchor is never consulted.
      * Ranks claims by [AttributeType.anchorBindingStrength] before iterating,
      * so the strongest anchor (PERSON_ID) is always consulted first when several are present -
@@ -105,7 +106,7 @@ class IdentityMatchingService(
                 ?.accountId?.let { matches.add(Resolution.ExistingAccount(it, MatchedVia.Anchor(AttributeType.PERSON_ID))) }
         }
         for (claim in claims.sortedByDescending { it.attributeType.anchorBindingStrength ?: 0 }) {
-            val attributeType = claim.attributeType.takeIf { it.anchorBindingStrength != null } ?: continue
+            val attributeType = claim.attributeType.takeIf { it.authority == AttributeAuthority.LOCAL_ANCHOR } ?: continue
             val anchor = accountAnchorRepository.findByAttributeTypeAndValue(
                 attributeType,
                 attributeType.normalizeAnchorValue(claim.value)
@@ -122,7 +123,7 @@ class IdentityMatchingService(
     /**
      * Layer 2, weakest: normalized attribute matching over the identity log. One real
      * combination today - name + vorname + geburtsdatum, matched in a single sargable query
-     * (`idx_account_attribute_type_normalized`, migration V34) - deliberately the most
+     * (`ix_account_attribute_type_value`) - deliberately the most
      * discriminant triple the log carries; further combinations (and their rank order) arrive
      * with the procedures that need them. 0 hits falls through to NewInteressent; hitting the
      * candidate ceiling - like more than one hit - is Ambiguous, never a guess: "lieber gar

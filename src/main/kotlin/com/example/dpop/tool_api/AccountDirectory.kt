@@ -54,3 +54,11 @@ interface AccountDirectory {
      */
     fun activeInstanceEnrollment(accountId: Long, method: String, matchesCaller: (Map<String, Any?>?) -> Boolean): EnrollmentRef?
 }
+
+/**
+ * The credential of the `email` method is not a module-owned row but the account's own EMAIL
+ * anchor (`account_anchor`, keyed by account and attribute type) - every enrollment of that
+ * method references it the same way, and no `EnrollmentCleanup` exists for it: the anchor goes
+ * with the account.
+ */
+val EMAIL_ANCHOR_ENROLLMENT = EnrollmentRef(type = "account_anchor", id = "email")

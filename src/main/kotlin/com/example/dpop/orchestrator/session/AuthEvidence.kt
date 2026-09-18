@@ -19,7 +19,8 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * The persistent, central evidence record - one per channel, cleared at logout (not per account:
+ * The persistent, central evidence record, kept apart from the tokens issued from it
+ * (docs/12-entscheidungen.md ADR-15) - one per channel, cleared at logout (not per account:
  * a step-up channel gets its own fresh row, evidence continuity across flow runs is the kc-facade's
  * own `RestoreData` mechanism, not a shared account-wide row). Named the same as
  * [com.example.dpop.orchestrator.policy.AuthEvidence] deliberately - this IS that evidence,
@@ -37,7 +38,7 @@ class AuthEvidence(
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "auth_evidence_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var authEvidenceId: UUID? = null
 
     /**

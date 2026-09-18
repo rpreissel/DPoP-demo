@@ -608,8 +608,8 @@ class JourneyService(
         // blob, so the API can surface it without clients reaching into details.
         val label = enrolled.auditDetails?.get("label") as? String
         // Every claim this enrollment asserted lands in the account's identity log
-        // (AccountService.recordClaims); an EMAIL claim additionally consolidates the
-        // canonical projection column, its anchor and the AccountChanged event. Done
+        // (AccountService.recordClaims); an EMAIL claim additionally consolidates its
+        // anchor and fires the AccountChanged event. Done
         // here, before this method returns, so the very next context rebuild
         // (JourneyEvent.ActionCompleted) already sees it.
         accountService.recordClaims(accountId, enrolled.claims)

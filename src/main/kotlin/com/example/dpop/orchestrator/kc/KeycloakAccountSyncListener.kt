@@ -90,9 +90,9 @@ internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
 internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
 
 /**
- * The `ConsolidationStrategy.ExternalLiveLookup` attributes (`tool_api`), resolved live right
- * here and relayed to Keycloak as plain custom user attributes - never cached anywhere else
- * (see that strategy's own doc for why). Shared by [KeycloakAccountSyncListener] and
+ * The non-anchor person attributes, resolved live from ext_stammdaten right here and relayed to
+ * Keycloak as plain custom user attributes - never cached anywhere else: they are asserted together
+ * with PERSON_ID, so that anchor alone re-derives them on demand. Shared by [KeycloakAccountSyncListener] and
  * [KeycloakAccountSyncService], the two places that already run this exact live lookup.
  */
 internal fun stammdatenAttributes(personId: Long?, person: PersonData?): Map<String, String> = buildMap {

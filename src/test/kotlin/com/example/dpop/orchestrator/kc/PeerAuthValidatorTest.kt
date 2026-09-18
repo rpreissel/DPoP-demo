@@ -255,8 +255,8 @@ private fun inMemoryReplayRepository(): DpopProofReplayRepository {
     val repository = mockk<DpopProofReplayRepository>()
     every { repository.saveAndFlush(any()) } answers {
         val entry = firstArg<DpopProofReplay>()
-        if (!seen.add(entry.proofKey!!)) {
-            throw DataIntegrityViolationException("duplicate proof_key ${entry.proofKey}")
+        if (!seen.add(entry.proofHash!!)) {
+            throw DataIntegrityViolationException("duplicate proof_hash ${entry.proofHash}")
         }
         entry
     }

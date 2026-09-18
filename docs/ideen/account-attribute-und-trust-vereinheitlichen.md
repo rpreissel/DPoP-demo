@@ -1,5 +1,11 @@
 # Implementierungsplan: Account-Attribute und Trust-Begriffe vereinheitlichen
 
+> **Stand 2026-09-17 ([ADR-14](../12-entscheidungen.md))**: Alle Pakete sind umgesetzt und durch die
+> Schema-Konsolidierung überholt: Die hier noch „als typisierte Leseprojektion erhaltenen“ Spalten
+> `Account.personId`/`email`/`emailConfirmedAt` gibt es nicht mehr — `AccountProfile` liest dieselben
+> Werte aus `account_anchor`. `OwnedColumn`/`ExternalLiveLookup` sind entfallen (lokal konsolidiert
+> heißt jetzt: ist Anker). Spalten heißen `claim_source`, `attribute_type`, `normalized_value`.
+
 Status: **Implementierungsplan mit praezisiertem Zielbild**. Die atomare Account-Anlage und
 KVNR-Aufloesung wurden nachtraeglich freigegeben; aktueller Vertrag:
 [ADR-11](../12-entscheidungen.md), Nachtrag 3, und [Konsistenz-Regeln](../07-betrieb.md).

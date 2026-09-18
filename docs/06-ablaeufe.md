@@ -12,42 +12,59 @@ und die Entscheidungen dahinter. Ein durchgängiges Call-Beispiel steht in [05-a
 classDiagram
   class Account {
     long id
-    long personId
-    string email
-    Instant emailConfirmedAt
-    json identifications
-    json authenticationMethods
+    Instant createdAt
+    long version
   }
-  class AuthenticationMethodEntry {
+  class AccountAnchor {
+    AttributeType attributeType
+    string normalizedValue
+    Instant establishedAt
+  }
+  class AccountAttribute {
+    AttributeType attributeType
+    string value
+    string claimSource
+    string establishedLoa
+  }
+  class AccountIdentification {
+    string method
+    string achievedLoa
+    Instant identifiedAt
+    json details
+  }
+  class AccountAuthMethod {
+    UUID id
     string method
     bool active
     string enrolledUnderAcr
+    string enrollmentType
+    string enrollmentId
     json details
-  }
-  class EnrollmentRef {
-    string type
-    string id
   }
   class AuthSmsEnrollment {
     long id
     string phoneNumber
   }
 
-  Account "1" --> "0..*" AuthenticationMethodEntry : authenticationMethods
-  AuthenticationMethodEntry "1" --> "0..1" EnrollmentRef : details.enrollmentRef
-  EnrollmentRef --> AuthSmsEnrollment : resolved by (type=auth_sms_enrollment, id)
+  Account "1" --> "0..*" AccountAnchor : aktueller Wert je Ankertyp
+  Account "1" --> "0..*" AccountAttribute : Claim-Log (append-only)
+  Account "1" --> "0..*" AccountIdentification : Nachweis-Log (append-only)
+  Account "1" --> "0..*" AccountAuthMethod : Methodeninstanzen
+  AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms_enrollment, id)
 ```
 
 Entscheidungen, die an diesem Modell hängen:
 
 - **`enrolledUnderAcr` als eigenes Feld, nicht nur Audit-Inhalt**: Eine Methode darf bei der Authentifizierung nicht mehr Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war — das effektive `achievedAcr` eines `auth-*`-Tools ist durch `enrolledUnderAcr` der verwendeten Methode gedeckelt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). Ohne diese Regel gäbe es einen Eskalationspfad: Wer eine schwache Session übernimmt, hinterlegt dort eine eigene Methode und erreicht damit dauerhaft ein höheres Niveau, als er je nachgewiesen hat. Den Wert kennt nur der Orchestrator (aus dem `AuthContext` zum Enrollment-Zeitpunkt), nie das Modul.
-- **`details.enrolledUnderAmr` ist Audit-Kontext, kein Modellfeld**: Beim Enrollment speichert der Orchestrator die damals vorhandenen AMR-Werte in `AuthenticationMethodEntry.details`. Sie erklären rückblickend, unter welchen Nachweisen die Methode eingerichtet wurde, beeinflussen aber weder Kandidatenauswahl noch ACR-Berechnung. Maßgeblich dafür ist ausschließlich `enrolledUnderAcr`.
-- **`email`/`emailConfirmedAt` direkt auf `Account`**, nicht in `authenticationMethods[].details`: Ein Account hat höchstens eine bestätigte E-Mail zu jeder Zeit, dieselbe Behandlung wie `personId`. Erlaubt, dieselbe Adresse sowohl als Auth-Mittel (`enroll-email`/`auth-email`) als auch als Identifikator für den lookup-basierten Login zu nutzen. Ein eindeutiger Index verhindert doppelt vergebene, bereits bestätigte Adressen.
-- **Kein eigenes Identifikator-Feld bei `enroll-password`/`auth-password`**: Die bestätigte `account.email` übernimmt diese Rolle, erzwungen über `ToolDescriptor.requires = { ClaimRequirement(EMAIL, PROVEN) }` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2).
+- **`EnrollmentRef` als echte Spalten, nicht im `details`-Blob**: `account_auth_method.enrollment_type`/`enrollment_id` ist die einzige Verknüpfung zwischen Konto und Credential. Sie ist indiziert, also in beide Richtungen abfragbar (Konto → Credentials bei der Löschung, Credential → Konten bei einem Widerrufs- oder Krypto-Wechsel-Sweep). Die Credential-Tabellen der Module tragen bewusst keine `account_id`: Sie entstehen im Tool-Handler, bevor der Orchestrator das Konto kennt, und eine zweite Kopie der Verknüpfung könnte auseinanderlaufen.
+- **Eine Zeile je Methodeninstanz statt JSON-Liste auf dem Konto**: Lesen schreibt nie; Änderungen sperren nur die Kontozeile per Versions-Inkrement; deaktivierte Instanzen tragen `deactivated_at` (ein CHECK-Constraint hält `active` und `deactivated_at` konsistent).
+- **`details.enrolledUnderAmr` ist Audit-Kontext, kein Modellfeld**: Beim Enrollment speichert der Orchestrator die damals vorhandenen AMR-Werte in `AccountAuthMethod.details`. Sie erklären rückblickend, unter welchen Nachweisen die Methode eingerichtet wurde, beeinflussen aber weder Kandidatenauswahl noch ACR-Berechnung. Maßgeblich dafür ist ausschließlich `enrolledUnderAcr`.
+- **Die bestätigte E-Mail ist der EMAIL-Anker**, keine Spalte auf `Account` und kein Modul-Credential: Ein Account hat höchstens eine bestätigte E-Mail zu jeder Zeit, dieselbe Behandlung wie `personId`. Erlaubt, dieselbe Adresse sowohl als Auth-Mittel (`enroll-email`/`auth-email`, `EnrollmentRef` = `EMAIL_ANCHOR_ENROLLMENT`) als auch als Identifikator für den lookup-basierten Login zu nutzen. `UNIQUE(attribute_type, normalized_value)` verhindert doppelt vergebene Adressen in jeder Schreibweise.
+- **Kein eigenes Identifikator-Feld bei `enroll-password`/`auth-password`**: Der EMAIL-Anker übernimmt diese Rolle, erzwungen über `ToolDescriptor.requires = { ClaimRequirement(EMAIL, PROVEN) }` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2).
 - **Keine TAN im Enrollment**: Die ausgestellte TAN ist ein versuchsbezogenes Einmalgeheimnis und liegt gehasht mit Ablaufzeit in der Tool-Session-Tabelle, nicht im langlebigen Enrollment-Datensatz — sonst würden sich zwei parallele Versuche gegenseitig die TAN überschreiben. Die eingereichte TAN wird nirgends gespeichert, nur gegen den Hash geprüft.
-- **Orchestrator speichert nur Lifecycle/Routing**, nie Fach- oder Moduldaten — die liegen ausschließlich im jeweiligen Methodenmodul (`auth_sms_use_tool_data`/`enroll_sms_tool_data` bei SMS).
+- **Orchestrator speichert nur Lifecycle/Routing**, nie Fach- oder Moduldaten — die liegen ausschließlich im jeweiligen Methodenmodul (`auth_sms_tool_data`/`enroll_sms_tool_data` bei SMS).
 
-Regel für `identifications[].details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören Nachweisanker (`provider`, `providerTxId`), Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext (die hängen über `personId` an der Person) oder Geheimnisse.
+Regel für `account_identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören Nachweisanker (`provider`, `providerTxId`), Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext (die hängen über `personId` an der Person) oder Geheimnisse.
 
 ---
 
@@ -61,7 +78,7 @@ Besonderheiten gegenüber dem allgemeinen Muster in [05-api.md](05-api.md): Zwei
 
 ## 3) `auth-sms` (und `auth-password`/`auth-email` analog)
 
-Der Orchestrator liest die aktive Enrollment-Referenz des Accounts (`details.enrollmentRef`) und übergibt sie an den Handler — `auth_sms` referenziert `account` nicht selbst, sondern bekommt eine opake `EnrollmentRef` gereicht (Modulith-Grenze, [Projektrahmen](08-projektrahmen.md)). Auch `auth_email` verwendet nur `tool_api`/`tool_spi`: Account-IDs und Ankerwerte werden über `AccountDirectory` gelesen, Attribute durch Claims übernommen ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2). `auth_sms` löst die Referenz auf ein bestehendes Enrollment auf, erzeugt/versendet/prüft die TAN, verändert das Enrollment aber nie.
+Der Orchestrator liest die aktive Enrollment-Referenz des Accounts (`AccountDirectory.activeEnrollment`) und übergibt sie an den Handler — `auth_sms` referenziert `account` nicht selbst, sondern bekommt eine opake `EnrollmentRef` gereicht (Modulith-Grenze, [Projektrahmen](08-projektrahmen.md)). Auch `auth_email` verwendet nur `tool_api`/`tool_spi`: Account-IDs und Ankerwerte werden über `AccountDirectory` gelesen, Attribute durch Claims übernommen ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2). `auth_sms` löst die Referenz auf ein bestehendes Enrollment auf, erzeugt/versendet/prüft die TAN, verändert das Enrollment aber nie.
 
 Fehlerfall zusätzlich zum allgemeinen Vertrag ([Betrieb](07-betrieb.md)): unbekannte `enrollmentRef` oder fehlendes Enrollment -> `422`.
 

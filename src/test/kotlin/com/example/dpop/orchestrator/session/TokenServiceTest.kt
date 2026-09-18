@@ -29,15 +29,15 @@ class TokenServiceTest : BehaviorSpec({
 
     fun authContext(
         accountId: Long? = 42L,
-        tokenHandle: String? = null,
-        tokenExpiresAt: Instant? = null,
-        refreshTokenHandle: String? = null,
+        accessToken: String? = null,
+        accessExpiresAt: Instant? = null,
+        refreshToken: String? = null,
         refreshExpiresAt: Instant? = null,
         authEvidenceId: UUID? = UUID.randomUUID()
     ) = AuthContext(accountId = accountId).apply {
-        this.tokenHandle = tokenHandle
-        this.tokenExpiresAt = tokenExpiresAt
-        this.refreshTokenHandle = refreshTokenHandle
+        this.accessToken = accessToken
+        this.accessExpiresAt = accessExpiresAt
+        this.refreshToken = refreshToken
         this.refreshExpiresAt = refreshExpiresAt
         this.authEvidenceId = authEvidenceId
     }
@@ -74,7 +74,7 @@ class TokenServiceTest : BehaviorSpec({
 
     given("an AccessToken that still has well over minValiditySeconds left") {
         val authContextId = UUID.randomUUID()
-        val ctx = authContext(tokenHandle = "existing-token", tokenExpiresAt = Instant.now().plusSeconds(300), refreshExpiresAt = Instant.now().plusSeconds(1800))
+        val ctx = authContext(accessToken = "existing-token", accessExpiresAt = Instant.now().plusSeconds(300), refreshExpiresAt = Instant.now().plusSeconds(1800))
         val repository = mockk<AuthContextRepository>()
         every { repository.findById(authContextId) } returns Optional.of(ctx)
 
@@ -82,7 +82,7 @@ class TokenServiceTest : BehaviorSpec({
             val result = service(repository).tokenFor(authContextId, minValiditySeconds = 15)
 
             result.accessToken shouldBe "existing-token"
-            result.accessExpiresAt shouldBe ctx.tokenExpiresAt
+            result.accessExpiresAt shouldBe ctx.accessExpiresAt
             verify(exactly = 0) { repository.save(any()) }
         }
     }
@@ -92,8 +92,8 @@ class TokenServiceTest : BehaviorSpec({
         val originalRefreshHandle = "mockrt_original"
         val originalRefreshExpiry = Instant.now().plusSeconds(1000)
         val ctx = authContext(
-            tokenHandle = "stale-token", tokenExpiresAt = Instant.now().plusSeconds(5),
-            refreshTokenHandle = originalRefreshHandle, refreshExpiresAt = originalRefreshExpiry
+            accessToken = "stale-token", accessExpiresAt = Instant.now().plusSeconds(5),
+            refreshToken = originalRefreshHandle, refreshExpiresAt = originalRefreshExpiry
         )
         val repository = mockk<AuthContextRepository>()
         every { repository.findById(authContextId) } returns Optional.of(ctx)
@@ -104,7 +104,7 @@ class TokenServiceTest : BehaviorSpec({
 
             result.accessToken shouldNotBe "stale-token"
             result.refreshExpiresAt shouldBe originalRefreshExpiry
-            ctx.refreshTokenHandle shouldBe originalRefreshHandle
+            ctx.refreshToken shouldBe originalRefreshHandle
             verify(exactly = 1) { repository.save(ctx) }
         }
     }
@@ -113,8 +113,8 @@ class TokenServiceTest : BehaviorSpec({
         val authContextId = UUID.randomUUID()
         val oldRefreshHandle = "mockrt_expired"
         val ctx = authContext(
-            tokenHandle = "stale-token", tokenExpiresAt = Instant.now().minusSeconds(5),
-            refreshTokenHandle = oldRefreshHandle, refreshExpiresAt = Instant.now().minusSeconds(5)
+            accessToken = "stale-token", accessExpiresAt = Instant.now().minusSeconds(5),
+            refreshToken = oldRefreshHandle, refreshExpiresAt = Instant.now().minusSeconds(5)
         )
         val repository = mockk<AuthContextRepository>()
         every { repository.findById(authContextId) } returns Optional.of(ctx)
@@ -124,7 +124,7 @@ class TokenServiceTest : BehaviorSpec({
             val result = service(repository, evidenceService(ctx.authEvidenceId, evidence())).tokenFor(authContextId)
 
             result.accessToken shouldNotBe "stale-token"
-            ctx.refreshTokenHandle shouldNotBe oldRefreshHandle
+            ctx.refreshToken shouldNotBe oldRefreshHandle
             result.refreshExpiresAt.isAfter(Instant.now()) shouldBe true
         }
     }
@@ -173,7 +173,7 @@ class TokenServiceTest : BehaviorSpec({
             every { repository.findById(authContextId) } returns Optional.of(ctx)
             val accountService = mockk<AccountService>()
             every { accountService.findAccount(7L) } returns com.example.dpop.account.AccountProfile(
-                accountId = 7L, personId = 55L, identifications = emptyList(), authenticationMethods = emptyList(),
+                accountId = 7L, personId = 55L, authenticationMethods = emptyList(),
                 email = "max@example.test", emailConfirmedAt = Instant.now()
             )
 

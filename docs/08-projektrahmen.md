@@ -133,7 +133,29 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 - Bei Applikationsstart werden Testpersonen sowie gültige FSC-Codes per Flyway-Migration eingespielt, damit der Registrierungsflow direkt durchspielbar ist.
 
 Die Session- und Tool-Entitäten sind in [02-domaenenmodell.md](02-domaenenmodell.md) beschrieben,
-Aufbewahrung und Löschung in [07-betrieb.md](07-betrieb.md).
+das Tabellenmodell dort in Abschnitt 7, Aufbewahrung und Löschung in [07-betrieb.md](07-betrieb.md).
+
+### H2-Konsole: nur beim Host-Start
+
+Die H2-Konsole unter `/h2-console` ist bewusst eingeschaltet, aber `web-allow-others` bleibt
+`false` (Begründung im Kommentar in `application.yml`): Ohne Spring Security im Classpath bewacht
+allein H2s eigene Localhost-Prüfung diesen Pfad, hinter dem Passwort-Hashes, Geräteschlüssel und
+alle Sessions liegen.
+
+Diese Prüfung vergleicht die Absenderadresse des Requests. Bei `./gradlew bootRun` ist das
+`127.0.0.1`, und die Konsole geht. **Aus dem Container (`compose.yml`) geht sie nicht:** Der
+Request des Browsers kommt über die Portweiterleitung `8080:8080` herein und erreicht den
+Orchestrator im Container-Netz mit der Bridge-Gateway-Adresse. Für H2 ist das eine „remote
+connection", und sie wird mit *„remote connections ('webAllowOthers') are disabled on this server"*
+abgewiesen — das Sicherheitsnetz greift also wie vorgesehen.
+
+Für den DB-Blick deshalb den Orchestrator auf dem Host starten und nur Keycloak aus Compose
+laufen lassen; `ORCHESTRATOR_BASE_URL` zeigt bereits per Default auf
+`host.containers.internal:8080`. Wer die Daten eines Container-Laufs braucht, kopiert die Datei aus
+dem Volume `orchestrator-data` heraus und öffnet sie lokal — dafür muss der Container gestoppt
+sein, sonst hält er die H2-Dateisperre und man kopiert einen inkonsistenten Stand.
+`web-allow-others` ist dafür keine Option: Der Port ist auf dem Host gemappt, das öffnete den
+vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
 
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|

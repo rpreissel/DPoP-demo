@@ -63,9 +63,10 @@ class OrchestratorExceptionHandler {
     // MVC also matches nested causes: this covers repository flushes AND transaction-commit errors.
     @ExceptionHandler(ConstraintViolationException::class)
     fun handleConstraintViolation(e: ConstraintViolationException): ResponseEntity<Map<String, String>> {
-        // H2 reports schema-qualified names, optionally followed by " ON ..."; never inspect values.
-        val constraint = e.constraintName?.substringBefore(" ON ")?.substringAfterLast('.')
-            ?.trim('"')?.lowercase(Locale.ROOT)
+        // H2 reports schema-qualified names, optionally followed by " ON ..." (unique index) or
+        // " INDEX <backing index> ON ..." (named unique constraint); never inspect values.
+        val constraint = e.constraintName?.substringBefore(" ON ")?.substringBefore(" INDEX ")
+            ?.substringAfterLast('.')?.trim('"')?.lowercase(Locale.ROOT)
         if (e.sqlState != "23505" || constraint !in ACCOUNT_BINDING_CONSTRAINTS) throw e
         log.warn("Concurrent account binding rejected by {}", constraint)
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
@@ -100,7 +101,7 @@ class OrchestratorExceptionHandler {
 
     private companion object {
         private val ACCOUNT_BINDING_CONSTRAINTS = setOf(
-            "ux_account_anchor", "ux_account_anchor_account_type", "ux_account_person_id"
+            "ux_account_anchor_value", "ux_account_anchor_account_type"
         )
         private val log = LoggerFactory.getLogger(OrchestratorExceptionHandler::class.java)
     }

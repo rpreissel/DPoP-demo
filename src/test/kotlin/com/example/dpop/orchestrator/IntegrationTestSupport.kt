@@ -65,16 +65,19 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     init {
         beforeEach {
-            // Children first (FK order); person/fsc_code seed data is left untouched. The union
-            // of every table any suite ever touches - deleting from one a given test never
-            // populated is a harmless no-op.
+            // Children first (FK order); ext_stammdaten_person/id_fsc_code seed data is left
+            // untouched. The union of every table any suite ever touches - deleting from one a
+            // given test never populated is a harmless no-op. account's own children cascade.
             listOf(
-                "id_fsc_tool_data", "enroll_sms_tool_data", "auth_sms_use_tool_data",
-                "auth_sms_lookup_tool_data", "enroll_password_tool_data", "auth_password_use_tool_data",
-                "auth_password_lookup_tool_data", "enroll_email_tool_data", "auth_email_use_tool_data",
-                "auth_device_tool_data", "enroll_device_tool_data", "device_enrollment",
+                "ident_fsc_tool_data", "ident_eid_tool_data",
+                "enroll_sms_tool_data", "auth_sms_tool_data", "auth_sms_lookup_tool_data", "auth_sms_enrollment",
+                "enroll_password_tool_data", "auth_password_tool_data", "auth_password_lookup_tool_data", "auth_password_enrollment",
+                "enroll_email_tool_data", "auth_email_tool_data", "auth_email_lookup_tool_data",
+                "enroll_device_tool_data", "auth_device_tool_data", "auth_device_enrollment",
+                "enroll_qr_tool_data", "auth_qr_tool_data", "auth_qr_lookup_tool_data", "confirm_qr_login_tool_data",
+                "auth_qr_login_request", "auth_qr_enrollment",
                 "tool_session", "auth_journey", "session_event", "journey_log",
-                "channel_session", "auth_context", "account_anchor", "account_attribute", "account", "auth_sms", "auth_password",
+                "channel_session", "auth_context", "auth_evidence", "account",
                 "device_account_link", "attempt_throttle", "tool_availability", "dpop_proof_replay",
                 "registration_order_setting"
             ).forEach { jdbcTemplate.update("DELETE FROM $it") }

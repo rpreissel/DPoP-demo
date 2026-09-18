@@ -23,7 +23,7 @@ import java.time.Instant
  * ids are expected, not a defect). The same holds for JourneyLogEntry and AttemptThrottle: both
  * are keyed by ids they do not constrain, so both are swept purely by age - and both MUST be
  * swept, because neither is bounded by anything else. account.*, AuthSmsEnrollment and
- * person/fsc_code belong to the account, never touched here.
+ * ext_stammdaten_person/id_fsc_code belong to the account, never touched here.
  */
 @Component
 class RetentionJob(

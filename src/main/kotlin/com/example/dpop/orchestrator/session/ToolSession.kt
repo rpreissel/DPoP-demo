@@ -29,7 +29,7 @@ class ToolSession(
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "tool_session_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var toolSessionId: UUID? = null
 
     @Column(name = "created_at", nullable = false)

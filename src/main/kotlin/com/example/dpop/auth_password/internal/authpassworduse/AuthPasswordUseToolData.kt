@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=auth-password (docs/06-ablaeufe.md #1 pattern). */
 @Entity
-@Table(name = "auth_password_use_tool_data")
+@Table(name = "auth_password_tool_data")
 class AuthPasswordUseToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

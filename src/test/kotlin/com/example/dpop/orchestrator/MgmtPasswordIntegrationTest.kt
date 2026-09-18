@@ -41,7 +41,7 @@ class MgmtPasswordIntegrationTest : IntegrationTestSupport() {
     }
 
     private fun accountIdFor(email: String): Long =
-        jdbcTemplate.queryForObject("SELECT id FROM account WHERE email = ?", Long::class.java, email)!!
+        jdbcTemplate.queryForObject("SELECT account_id FROM account_anchor WHERE attribute_type = 'email' AND normalized_value = ?", Long::class.java, email)!!
 
     private fun mgmtPost(path: String, body: String): org.springframework.http.ResponseEntity<Map<String, Any?>> =
         restTemplate.exchange(
@@ -120,7 +120,7 @@ class MgmtPasswordIntegrationTest : IntegrationTestSupport() {
                 Then("it reports valid=false without throwing (constant-shape, no enumeration oracle)") {
                     val channelSessionId = identify()
                     val accountId = jdbcTemplate.queryForObject(
-                        "SELECT account_id FROM channel_session WHERE channel_session_id = ?",
+                        "SELECT account_id FROM channel_session WHERE id = ?",
                         Long::class.java,
                         UUID.fromString(channelSessionId)
                     )

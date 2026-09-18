@@ -35,15 +35,15 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 declined.channel()["state"] shouldBe "AUTHENTICATED"
 
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM channel_session WHERE channel_session_id = ?",
+                    "SELECT account_id FROM channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
                 jdbcTemplate.queryForObject(
-                    "SELECT person_id FROM account WHERE id = ?",
-                    Long::class.java,
+                    "SELECT COUNT(*) FROM account_anchor WHERE account_id = ? AND attribute_type = 'person_id'",
+                    Int::class.java,
                     accountId
-                ).shouldBeNull()
+                ) shouldBe 0
 
                 val started = post("/orchestrator/api/v1/channels/$channelSessionId/account-deletions")
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
@@ -84,11 +84,11 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                jdbcTemplate.update("UPDATE channel_session SET state = 'AUTHENTICATED' WHERE channel_session_id = ?", channelSessionId)
+                jdbcTemplate.update("UPDATE channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
                 jdbcTemplate.update("UPDATE auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
 
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM channel_session WHERE channel_session_id = ?",
+                    "SELECT account_id FROM channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )
@@ -133,7 +133,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
             then("the completion response already reports LOGGED_OUT, not AUTHENTICATED") {
                 val channelSessionId = registerAndAuthenticate()
                 val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM channel_session WHERE channel_session_id = ?",
+                    "SELECT account_id FROM channel_session WHERE id = ?",
                     Long::class.java,
                     channelSessionId
                 )

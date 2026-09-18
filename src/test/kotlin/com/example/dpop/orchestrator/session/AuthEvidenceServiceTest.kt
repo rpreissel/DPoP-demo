@@ -32,9 +32,9 @@ class AuthEvidenceServiceTest : BehaviorSpec({
             every { authEvidenceRepository.save(any()) } answers { firstArg() }
 
             val staleContext = AuthContext(accountId = 1L).apply {
-                tokenHandle = "stale-token"
-                tokenExpiresAt = Instant.now().plusSeconds(300)
-                refreshTokenHandle = "stale-refresh"
+                accessToken = "stale-token"
+                accessExpiresAt = Instant.now().plusSeconds(300)
+                refreshToken = "stale-refresh"
                 refreshExpiresAt = Instant.now().plusSeconds(1800)
             }
             val authContextRepository = mockk<AuthContextRepository>()
@@ -43,9 +43,9 @@ class AuthEvidenceServiceTest : BehaviorSpec({
 
             service(authEvidenceRepository, authContextRepository).applyEvidence(authEvidenceId, emptyList())
 
-            staleContext.tokenHandle shouldBe null
-            staleContext.tokenExpiresAt shouldBe null
-            staleContext.refreshTokenHandle shouldBe null
+            staleContext.accessToken shouldBe null
+            staleContext.accessExpiresAt shouldBe null
+            staleContext.refreshToken shouldBe null
             staleContext.refreshExpiresAt shouldBe null
             verify { authContextRepository.save(staleContext) }
         }

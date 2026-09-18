@@ -11,7 +11,9 @@ import java.util.UUID
 @Repository
 interface ToolSessionRepository : JpaRepository<ToolSession, UUID> {
     /** Retention clock starts at expiresAt, not createdAt (docs/07-betrieb.md #3). */
-    fun deleteByExpiresAtBefore(cutoff: Instant): Long
+    @Modifying
+    @Query("delete from ToolSession e where e.expiresAt < :cutoff")
+    fun deleteByExpiresAtBefore(@Param("cutoff") cutoff: Instant): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from ToolSession t where t.journeyId in :journeyIds")

@@ -29,8 +29,8 @@ object EnrollEmailDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA1
     // The confirmed address this enrollment asserts about its subject, carried as a claim on
     // Completed.Enrolled - the generic Action.AdoptCredential handling records it
-    // (AccountService.recordClaim), which consolidates the account.email projection, its anchor
-    // and the AccountChanged event in one write. The proof is this tool's own code exchange,
+    // (AccountService.recordClaim), which consolidates its EMAIL anchor and fires AccountChanged
+    // in one write. The proof is this tool's own code exchange,
     // hence the tool itself as trust anchor.
     override val claims = setOf(ClaimDeclaration(AttributeType.EMAIL, ClaimSource.of(toolId)))
 }

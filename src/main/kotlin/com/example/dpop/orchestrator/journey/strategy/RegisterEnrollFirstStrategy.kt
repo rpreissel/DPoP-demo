@@ -117,7 +117,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         // No account exists yet at this point (see EnrollFirstStart's own doc) - enrollmentCandidates
         // only ever reads authenticationMethods/emailConfirmed, both trivially empty/false for a
         // brand-new account, so a transient, unpersisted placeholder is enough.
-        val blankAccount = AccountProfile(accountId = -1, personId = null, identifications = emptyList(), authenticationMethods = emptyList())
+        val blankAccount = AccountProfile(accountId = -1, personId = null, authenticationMethods = emptyList())
         val candidates = CandidateTools.forEnrollment(blankAccount, ctx.acrFloor, ctx)
         return if (candidates.isNotEmpty()) {
             Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(candidates))

@@ -27,7 +27,7 @@ Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Ve
 - `AuthContext` wird nur bei `SUCCEEDED` aktualisiert.
 - Jede relevante Transition erzeugt einen `SessionEvent` Audit-Eintrag.
 - Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) atomarisiert die Journey-Übernahme, den Account-Eintrag, den Claim-Log und den `AuthContext`-Nachweis. Das jeweilige Methodenmodul schreibt seine Tool-/Enrollment-Daten bereits beim `PATCH` in einer eigenen Transaktion; scheitert die spätere Journey-Übernahme, bleibt diese Moduldatenzeile als kurzlebige, vom Modul bereinigte Arbeitsdaten bestehen, wird aber nicht als Account-Credential aktiviert. Im Modulith verhindert die gemeinsame Übernahmetransaktion Zwischenzustände innerhalb der Orchestrierung.
-- Auch neue Accounts, Claim-Log, Anker und Projektionen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung bleibt nur der Gewinner bestehen, der Verlierer rollt vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`. Es gibt keinen automatischen Wiederholungsversuch. Unique-Verletzungen der Account-Bindungsindizes (`ux_account_anchor`, `ux_account_anchor_account_type`, `ux_account_person_id`) werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler. After-Commit-Synchronisierung läuft nur nach erfolgreichem Commit.
+- Auch neue Accounts, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung bleibt nur der Gewinner bestehen, der Verlierer rollt vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`. Es gibt keinen automatischen Wiederholungsversuch. Unique-Verletzungen der Account-Bindungs-Constraints (`ux_account_anchor_value`, `ux_account_anchor_account_type`) werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler. After-Commit-Synchronisierung läuft nur nach erfolgreichem Commit.
 - Der reine Demo-Seed verwendet eine eigene transaktionale Klammer um seine Anlage und Claim-Übernahme. Er löst bestehende Accounts über PersonId-Anker auf und erzeugt bei Neustarts keine zusätzlichen Bootstrap-Claims; er benötigt keine produktive Wiederholungslogik.
 - Nicht transaktional ist der SMS-Versand als externer Effekt: Ein Rollback macht eine bereits versendete SMS nicht rückgängig. Das ist ein Zustellthema (der Nutzer erhält im Zweifel eine TAN zu viel), kein Konsistenzproblem der Daten — die zugehörige `issuedTanHash`-Zeile wurde ja mit zurückgerollt und läuft ins Leere.
 
@@ -39,15 +39,18 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 
 | Objekt | Frist läuft ab | Richtwert | Grund |
 |---|---|---|---|
-| `*ToolData` (Moduldaten) | `createdAt` | 24 h | Personenbezug und TAN-Hash; nach Prozessende zwecklos |
+| `*ToolData` (Moduldaten) | `createdAt` | 24 h | Personenbezug und TAN-Hash; nach Prozessende zwecklos. Jedes Methodenmodul hat dafür einen eigenen `*RetentionJob` (auch `auth_device`, `auth_qr`) |
+| `QrLoginRequest` | `expiresAt` | 24 h | Pairing-Anfrage, nach Ablauf (5 Min.) wirkungslos; von `AuthQrRetentionJob` mit abgeräumt |
+| `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Replay-Schutz gilt nur im Akzeptanzfenster eines Proofs |
 | `ToolSession` | `expiresAt` | 24 h | reiner Lifecycle-Rest |
 | `AuthJourney` | `consumedAt` / `expiresAt` | 7 Tage | Korrelation für Support-Rückfragen |
 | `AuthContext` | Logout / Ende der `ChannelSession` | sofort | enthält Token-Referenzen |
 | `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | die langlebige Geräte-Identität liegt seit `DeviceAccountLink` nicht mehr hier, aber `JourneyLogEntry` fragt den Log über die Channel-Menge ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
 | `SessionEvent` | `createdAt` | 90 Tage | eigene Audit-Frist, überlebt die Sessions bewusst |
 | `JourneyLogEntry` | `createdAt` | 30 Tage | bewusst gleich `ChannelSession`: wird nur über die Channel-Menge abgefragt, länger zu leben bringt nichts. Debug-/Demo-Trace, NICHT der Audit-Trail — das bleibt `SessionEvent` |
-| `AuthSmsEnrollment` | — | kein Session-Cleanup | Bestandteil des Accounts, lebt bis zur Methodenlöschung |
-| `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst (Migration `V5__add_device_account_link.sql`, [DPoP-Bindung](09-dpop.md) Abschnitt 3) |
+| `*Enrollment` (Modul-Credentials) | — | kein Session-Cleanup | Bestandteil des Accounts, lebt bis zur Kontolöschung (erreicht über `account_auth_method`, auch deaktivierte Instanzen) |
+| `account_*` (Anker, Methoden, Claim- und Identifizierungs-Log) | — | kein Session-Cleanup | gehört dem Konto, kaskadiert mit dessen Löschung |
+| `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
 | `AttemptThrottle` | letzter Zähler-Update | 7 Tage | zwei Größenordnungen über dem längsten Fenster/Lockout (15 Min.); ein Sweep rührt nie eine Zeile an, deren Sperre noch läuft. Fehlversuchs-/Versand-Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4); die beiden Fehlversuchs-Scopes werden nur durch einen erfolgreichen Auth-/Ident-Abschluss zurückgesetzt, die drei Fenster-Scopes laufen einfach ab |
 | `account_keycloak_keypair` | — | kein Session-Cleanup | Account-gebundenes Schlüsselpaar für den echten Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht direkt bei `AccountDeleted`, nicht über `RetentionJob` |
 
@@ -56,7 +59,7 @@ Umgang mit den Referenzen:
 - **Besitzkette** (`ChannelSession` -> `AuthJourney` -> `ToolSession` -> `*ToolData`): wird von innen nach außen abgeräumt. Weil die Fristen von innen nach außen wachsen, ergibt sich diese Reihenfolge automatisch — ein `ToolSession` verschwindet nie vor seinen Moduldaten.
 - **Moduldaten** räumt jedes Modul eigenständig nach Alter (`createdAt`) auf, ohne Signal vom Orchestrator. Das ist robuster als ein Löschbefehl (ein verpasstes Signal hinterließe dauerhafte Waisen) und bleibt gültig, falls ein Modul später ein eigener Service mit eigener Datenbank wird.
 - **Audit ist entkoppelt**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel. Das ist Absicht — das Audit muss die Sessions überleben, und der Eintrag speichert ohnehin nur `payloadHash` statt Nutzdaten. Ins Leere zeigende IDs sind hier erwartet, kein Defekt.
-- **Account-Objekte sind für den Session-Cleanup tabu**: `AuthSmsEnrollment`, `account.authenticationMethods`, `account.identifications`, `DeviceAccountLink` und `LoginAttemptThrottle` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, die Geräte-Wiedererkennung kappen oder den Brute-Force-Schutz aushebeln. `account.identifications` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
+- **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account_auth_method`, `account_identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. Ein Cleanup-Job, der sie mitnimmt, würde dem Nutzer seinen zweiten Faktor entfernen, den Nachweis vernichten, wie seine Identität festgestellt wurde, oder die Geräte-Wiedererkennung kappen. `account_identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
 - **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `attempt_throttle` (nur die kontobezogenen Scopes `ACCOUNT`/`ACCOUNT_SEND` — `BINDING_KEY`/`CONTACT_SEND` blieben sonst ein Weg, fremde Throttle-Budgets über eine Neuregistrierung zurückzusetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
 - **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3) - der Orchestrator erfährt nie aktiv davon. `RetentionJob` prüft deshalb für bereits abgelaufene `KEYCLOAK`-Kanäle zusätzlich per Keycloak-Admin-API, ob die zugehörige Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf statt erst nach der vollen Retention-Frist. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) führt nie zu einem verfrühten Löschen - sie fällt zurück auf die normale zeitbasierte Frist.
 
@@ -101,9 +104,7 @@ aufbauend je ein benannter `@Service` mit eigenem Vokabular und eigenen Limits:
 - Ein erfolgreicher AUTH-/IDENT-Abschluss setzt den jeweiligen Zähler zurück (`recordSuccess`),
   auch wenn zuvor kein Fehlversuch vorlag (dann ein No-op). Versand- und Kanal-Throttles kennen
   keinen Reset — sie sind reine rollierende Fenster.
-- Migration: `V15__security_hardening.sql` (ersetzt die frühere kontobezogene
-  `login_attempt_throttle`, siehe deren eigener Kommentar). Aufbewahrung: siehe Tabelle in
-  Abschnitt 3 — kein Session-Cleanup, der Zähler ist Bestandteil des Accounts bzw. der Kontaktadresse.
+- Aufbewahrung: siehe Tabelle in Abschnitt 3 (7 Tage nach letztem Update, nie während einer laufenden Sperre).
 
 ## 5) QR-Login (`auth_qr`): Pairing-Code-Sicherheit
 
@@ -128,12 +129,36 @@ Drei Maßnahmen sind umgesetzt:
 
 **Noch offener Punkt**, analog zu Abschnitt 4: Weil manuelle Eingabe ein regulärer Weg ist, bräuchte
 der `input`-Schritt einen eigenen, IP-/anonymen Zähler auf fehlgeschlagene `pairingCode`-Lookups —
-`LoginAttemptThrottle` (Abschnitt 4) greift hier nicht, da an dieser Stelle noch kein Account
+`AttemptThrottle` (Abschnitt 4) greift hier nicht, da an dieser Stelle noch kein Account
 bekannt ist, an den sich ein Zähler hängen ließe. Bei 8 Zeichen aus einem 32er-Alphabet ist das
 kein optionales Add-on, sondern Voraussetzung dafür, dass manuelle Eingabe unbegrenzt sicher
 angeboten werden darf — aktuell **nicht implementiert**.
 
 `QrLoginRequest.expiresAt` (5 Minuten, `QR_LOGIN_TTL`) orientiert sich an bestehenden TAN-Timeouts
-(`enroll-sms`/`auth-sms`), ist aber nicht weiter validiert; abgelaufene Zeilen räumt aktuell kein
-`RetentionJob` auf (anders als die Objekte in Abschnitt 3) — sie sind über `expiresAt` beim Lesen
-bereits unwirksam, bleiben aber als Daten stehen.
+(`enroll-sms`/`auth-sms`), ist aber nicht weiter validiert; abgelaufene Zeilen sind über `expiresAt`
+beim Lesen unwirksam und werden von `AuthQrRetentionJob` abgeräumt (Abschnitt 3).
+
+## 6) Datenbankschema: Konventionen
+
+Das Schema steht vollständig in `src/main/resources/db/migration/V1__schema.sql`; die Regeln
+stehen einmal in dessen Kopf und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14).
+Die tragenden Tabellen und ihre Beziehungen als Diagramm stehen in
+[02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7. Die Regeln im Einzelnen:
+
+- **Besitz**: Jede Tabelle gehört genau einem Modul. Fremdschlüssel nur innerhalb eines Moduls;
+  modulübergreifende Bezüge (z. B. `account_id` in Orchestrator-Tabellen) sind indizierte
+  Spalten und werden über die Modul-APIs aufgeräumt, nie per modulübergreifender Kaskade.
+- **Namen**: Modultabellen tragen den Modulnamen als Präfix; deklarierte Ausnahmen sind der
+  Orchestrator (Kern, ohne Präfix) und Tool-Arbeitsdaten (`<tool_id>_tool_data`, Besitzer ist die
+  `ToolSession`). Langlebige Credentials heißen `<modul>_enrollment`, und dieser Name ist
+  `EnrollmentRef.type`. PK-Spalte immer `id`, Referenzen `<tabelle>_id`, Indizes `ux_`/`ix_`.
+- **Typen**: Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
+  `VARCHAR(16)`, Tool-IDs/Methoden/Attributtypen/Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
+- **Konto**: `account` ist Sperrwurzel; aktueller Zustand in eigenen Zeilen, Historie append-only
+  ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
+- **Retention**: Jede Aufräumabfrage ist ein Bulk-Statement und hat einen Index auf ihrer
+  Stichtagsspalte.
+- **Migrationen**: `V1`/`V2` sind eine Neubaseline ohne Produktivdaten (lokale H2-Dateien setzt
+  `FlywayResetConfig` bei Checksummen-Abweichung zurück). Ab dem ersten produktiven Einsatz sind
+  Migrationen ausschließlich additiv; eine Tabelle mit ≥ 10 Mio. Zeilen wird dabei nie in einem
+  einzelnen Statement umgeschrieben, sondern in idempotenten Chunks nachgezogen.

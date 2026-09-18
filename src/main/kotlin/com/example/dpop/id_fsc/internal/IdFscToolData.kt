@@ -9,7 +9,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=ident-fsc (docs/06-ablaeufe.md #1). */
 @Entity
-@Table(name = "id_fsc_tool_data")
+@Table(name = "ident_fsc_tool_data")
 class IdFscToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)
@@ -22,7 +22,7 @@ class IdFscToolData(
 
     var name: String? = null,
     var vorname: String? = null,
-    /** SHA-256 of the submitted code - the code itself is never persisted (V15). */
+    /** SHA-256 of the submitted code - the code itself is never persisted. */
     @Column(name = "fsc_hash")
     var fscHash: String? = null
 ) {

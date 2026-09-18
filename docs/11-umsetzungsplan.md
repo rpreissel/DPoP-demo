@@ -8,7 +8,7 @@ Scope-Entscheidungen fest, auf die der Code an mehreren Stellen verweist:
 - **Keycloak-Anbindung ist umgesetzt** (siehe [12-entscheidungen.md](12-entscheidungen.md) ADR-7/
   ADR-8/ADR-9): die kc-Fassade (`KcChannelController`/`KcMeController`/`KeycloakSyncController`
   unter `/orchestrator/api/v1/kc/...`) sowie der reale `AuthContext`↔Keycloak-Tokenfluss
-  (`keycloakSessionId`/`keycloakSubject`/`tokenHandle`, befüllt über `KcTokenProvider`/
+  (`keycloakSessionId`/`keycloakSubject`/`accessToken`, befüllt über `KcTokenProvider`/
   `KeycloakAdminClient`) existieren. Der App-Kanal (DPoP, `bindingKeyRef`) und der Web-Kanal
   (Keycloak-Session) laufen als zwei getrennte, jeweils vollständige Zugangswege nebeneinander.
 - **`AuthPolicy.resolveAcr` (amr→acr-Abbildung) ist bewusst vorläufig**: Welche Kombination von

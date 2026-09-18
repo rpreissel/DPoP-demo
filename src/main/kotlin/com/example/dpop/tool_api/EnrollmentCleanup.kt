@@ -11,8 +11,9 @@ import com.example.dpop.tool_spi.EnrollmentRef
  * dispatches by [enrollmentType], exactly the way [com.example.dpop.orchestrator.tool.ToolHandlerRegistry]
  * aggregates every module's [com.example.dpop.tool_spi.ToolDescriptor].
  *
- * A method module without a long-lived credential table (`auth_email` - the confirmed address
- * lives directly on `Account`) needs no implementation at all.
+ * A method module without a long-lived credential table (`auth_email` - its credential is the
+ * account's own EMAIL anchor, see [EMAIL_ANCHOR_ENROLLMENT]) needs no implementation at all: the
+ * anchor is deleted with the account.
  */
 interface EnrollmentCleanup {
     /** Matches [EnrollmentRef.type] as written by this module's own enrollment handler. */

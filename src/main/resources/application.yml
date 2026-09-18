@@ -30,8 +30,8 @@ spring:
       # bewacht sonst NICHTS diesen Pfad. Was ihn traegt, ist allein H2s eigener Default
       # web-allow-others=false, der Zugriffe auf localhost begrenzt. Wer den auf true setzt,
       # oeffnet jedem, der den Port erreicht, vollen Lese-/Schreibzugriff auf die Datei-DB -
-      # inklusive Passwort-Hashes (auth_password), Geraeteschluesseln (device_enrollment),
-      # Freischaltcodes (fsc_code) und allen Sessions. Also: nicht setzen.
+      # inklusive Passwort-Hashes (auth_password), Geraeteschluesseln (auth_device_enrollment),
+      # Freischaltcodes (id_fsc_code) und allen Sessions. Also: nicht setzen.
       enabled: true
       path: /h2-console
 

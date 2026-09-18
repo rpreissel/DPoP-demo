@@ -24,6 +24,7 @@ import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
@@ -61,7 +62,6 @@ object StrategyTestFixtures {
     ) = AccountProfile(
         accountId = accountId,
         personId = personId,
-        identifications = emptyList(),
         authenticationMethods = methods.toList(),
         emailConfirmedAt = if (emailConfirmed) Instant.now() else null
     )
@@ -73,7 +73,8 @@ object StrategyTestFixtures {
         details: Map<String, Any?>? = null
     ) = AuthMethodView(
         id = "$method-instance", method = method, active = active,
-        createdAt = null, enrolledUnderAcr = enrolledUnderAcr.value, details = details
+        createdAt = null, enrolledUnderAcr = enrolledUnderAcr.value, details = details,
+        enrollmentRef = EnrollmentRef("${method}_enrollment", "1")
     )
 
     /** A device credential's `details` map, matching what `CandidateTools.preferredDeviceAuth` looks for. */

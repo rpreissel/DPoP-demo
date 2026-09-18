@@ -95,13 +95,16 @@ außerdem das übliche Gegenargument (Datenverlust bei bestehenden Kunden).
 Bei echten Bestandsdaten wäre eine Neubaseline nicht vertretbar; die hier gewählte Lösung ist
 kein Vorbild für ein Projekt mit echten Nutzerdaten.
 
+**Nachtrag**: Eine zweite Neubaseline hat die danach wieder aufgelaufenen 37 Migrationen
+zusammengeführt — mit Modellbereinigung, siehe ADR-14.
+
 ---
 
 ## ADR-5: Dreifache Deckelung des Sicherheitsniveaus
 
 **Entscheidung**: Das erreichbare Sicherheitsniveau wird an drei unabhängigen Stellen gedeckelt,
-nie nur an einer: `identifications[].loa` begrenzt, was ein Account je erreichen kann;
-`authenticationMethods[].enrolledUnderAcr` begrenzt, was eine einzelne Methode bei ihrer
+nie nur an einer: das LoA der Identifizierung (`account_identification.achieved_loa`) begrenzt,
+was ein Account je erreichen kann; `account_auth_method.enrolled_under_acr` begrenzt, was eine einzelne Methode bei ihrer
 Verwendung beisteuern darf; `achievedAcr` einer Session ist das Minimum aus dem, was tatsächlich
 nachgewiesen wurde, und dem, was die verwendete Methode laut ihrem `enrolledUnderAcr` überhaupt
 tragen darf ([Orchestrierung](04-orchestrierung.md) Abschnitt 8, [Überblick](01-ueberblick.md)).
@@ -114,16 +117,16 @@ rückwirkend zu berücksichtigen.
 schwache Session übernimmt (z. B. `loa1`), könnte darin eine eigene Methode hinterlegen und
 dauerhaft ein höheres Niveau vortäuschen, als er je nachgewiesen hat — eine Methode darf bei der
 Authentifizierung nie mehr Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war. Die dritte
-Deckelung (`identifications[].loa`) verhindert zusätzlich, dass eine schwach identifizierte
+Deckelung (LoA der Identifizierung) verhindert zusätzlich, dass eine schwach identifizierte
 Person nachträglich über starke Auth-Methoden ein Niveau erreicht, das ihre Identifizierung nie
 hergab.
 
 **Preis**: Drei Stellen, an denen ein Niveau sinken kann, statt einer — wer nur `achievedAcr`
 einer laufenden Session betrachtet, sieht nicht, welche der drei Deckelungen gerade greift; das
-muss über `AuthContext`, `authenticationMethods[].enrolledUnderAcr` und `identifications[].loa`
-gemeinsam nachvollzogen werden.
+muss über `AuthContext`, `account_auth_method.enrolled_under_acr` und
+`account_identification.achieved_loa` gemeinsam nachvollzogen werden.
 
-**Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet den ersten Deckel (`identifications[].loa`)
+**Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet den ersten Deckel (LoA der Identifizierung)
 inzwischen nicht mehr implizit über einen undifferenzierten Maximalwert aller Nachweise, sondern
 als eigene, explizite Größe (IAL, `identityAssuranceLevel`), getrennt von der reinen
 Authentifizierungsstärke (AAL, `authenticatorAssuranceLevel`) — siehe
@@ -281,7 +284,7 @@ versehentlich wieder auf denselben Client-Secret zusammengeführt.
 
 Unabhängig vom Profil gilt außerdem: ein Step-up, der die zugrunde liegende `AuthEvidence` verändert
 (`AuthEvidenceService.applyEvidence`/`applyEvidenceUpdate`), verwirft aktiv das im `AuthContext`
-gecachte Access- UND RefreshToken (`tokenHandle`/`tokenExpiresAt`/`refreshTokenHandle`/
+gecachte Access- UND RefreshToken (`accessToken`/`accessExpiresAt`/`refreshToken`/
 `refreshExpiresAt` auf `null`) — sonst würde `KcTokenProvider`s eigener Refresh-Pfad die alte
 Keycloak-Session mit den alten ACR/AMR-Notes einfach weiter verlängern, ohne den Step-up je zu
 bemerken. Für `TokenService`s Mock-Pfad ist nur die erste Hälfte sicherheitsrelevant (der Mock
@@ -405,8 +408,8 @@ die Konfliktantwort als „existiert bereits". Dieser Zwischenstand ist durch di
 Claim-Übernahme unten abgelöst.
 
 **Nachtrag 2** ([ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md), alle 7 Pakete): `person_id` ist seither
-kein Sonderfall mehr, sondern `ConsolidationStrategy.OwnedColumn` mit eigenem `account_anchor`-
-Eintrag, genau wie `email` — die kontoübergreifende Abweisung dieser Entscheidung läuft seither
+kein Sonderfall mehr, sondern hat einen eigenen `account_anchor`-Eintrag, genau wie `email`
+(seit ADR-14 ohne zusätzliche Projektionsspalte) — die kontoübergreifende Abweisung dieser Entscheidung läuft seither
 technisch über denselben `recordAnchor`-Pfad (Cross-Account-Konflikt: fremder Anchor-Wert bereits
 vergeben) statt über einen separaten `bindPersonId`/`findAccountByPersonId`-Vergleich in
 `JourneyService`. Neu dazugekommen, INNERHALB eines Kontos: `AttributeType.allowsAnchorReplacement`
@@ -471,10 +474,14 @@ C2): `AccountAttribute.attributeType` (→ `AttributeType`) und `AccountAnchor.a
 das der `orchestrator`-Modul für seine eigenen Enums durchgängig nutzt.
 `AccountAttribute.trustAnchor` bleibt bewusst `String`.
 
+**Nachtrag**: `AnchorType` ist entfallen, beide Spalten heißen seit ADR-14 `attribute_type` und
+nutzen denselben `AttributeTypeConverter`; die Quelle heißt durchgängig `claim_source` /
+`AccountAttribute.claimSource` (weiterhin `String`, aus dem unten genannten Grund).
+
 **Erwogene Alternativen**:
 
 - **`@Enumerated(EnumType.STRING)`**, konsistent mit dem `orchestrator`-Modul: verworfen, weil
-  `account_attribute.attribute_type`/`account_anchor.anchor_type` seit Jahren Wire-Names in
+  `account_attribute.attribute_type`/`account_anchor.attribute_type` seit Jahren Wire-Names in
   Kleinschreibung tragen (`person_id`, `email`). `@Enumerated(STRING)` schreibt/erwartet den
   Enum-Konstantennamen (`PERSON_ID`) und hätte jede Bestandszeile stumm verfehlt — ohne
   Datenmigration nicht anwendbar.
@@ -500,24 +507,101 @@ drei ursprünglich benannten Felder ungetypt — eine bekannte, dokumentierte L�
 
 ---
 
+## ADR-14: Schema-Konsolidierung — Konto als Sperrwurzel, eine Wahrheit je Fakt
+
+**Entscheidung**: Die 37 inkrementellen Migrationen sind in `V1__schema.sql` (+ `V2__testdata.sql`)
+zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf von `V1__schema.sql`,
+[Betrieb](07-betrieb.md) Abschnitt 6). Inhaltlich:
+
+- `account` trägt nur noch `id`, `created_at`, `version` und ist Sperrwurzel für Änderungen am
+  aktuellen Kontozustand (`OPTIMISTIC_FORCE_INCREMENT`).
+- Aktueller Zustand liegt in Zeilen je Fakt: `account_anchor` (einziger Speicherort von PersonId und
+  bestätigter E-Mail), `account_auth_method` (eine Zeile je Methodeninstanz, `EnrollmentRef` als
+  Spalten). Historie ist append-only: `account_attribute` (Claims), `account_identification`
+  (Nachweise). Die JSON-Listen `identifications`/`authentication_methods` und die Projektionsspalten
+  `person_id`/`email`/`email_confirmed_at` entfallen; `ConsolidationStrategy` entfällt, weil „lokal
+  konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.
+- **Nachtrag**: Ihr zweiter Fall (`ExternalLiveLookup`) ist mit ihr verschwunden, obwohl er nicht
+  redundant war — „kein lokaler Anker" deckte danach zwei verschiedene Dinge ab (Stammdaten-Hoheit
+  bei `NAME`, Modul-Hoheit bei `PHONE_NUMBER`). Er ist als eigene Eigenschaft
+  `AttributeType.authority` (`LOCAL_ANCHOR`/`EXT_STAMMDATEN`/`METHOD_MODULE`, exhaustiv) in
+  `tool_api/AttributeRules.kt` zurückgeholt; ein Test bindet sie an `anchorBindingStrength`.
+- Fremdschlüssel nur innerhalb eines Moduls; modulübergreifende Bezüge sind indizierte Spalten,
+  aufgeräumt über Modul-APIs.
+- Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<tool_id>_tool_data`,
+  `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).
+- `dpop_proof_replay` ist über SHA-256(`thumbprint:jti`) mit fester Breite geschlüsselt, statt über
+  einen clientbestimmten `VARCHAR(255)`-Schlüssel.
+- Jede Retention-Löschung ist ein Bulk-Statement mit Index auf ihrer Stichtagsspalte; auch
+  `auth_device` und `auth_qr` (inkl. `auth_qr_login_request`) räumen ihre Arbeitsdaten jetzt auf.
+
+**Erwogene Alternative**: Nur squashen und die Form des Modells unverändert lassen (JSON-Listen auf
+der Kontozeile, Projektionsspalten neben den Ankern).
+
+**Warum diese**: Bei ≥ 10 Mio. Konten und langer Lebensdauer sind die JSON-Listen weder abfragbar
+(„alle Konten mit Methode X" bei einem Widerrufs- oder Krypto-Wechsel) noch schreibgünstig (jede
+Änderung schreibt die ganze Zeile, `identifications` wächst unbegrenzt), und jede Projektionsspalte
+neben einem Anker ist eine zweite Eindeutigkeitsautorität für denselben Fakt — genau der Fehler, den
+A3 im Review einmal schon beheben musste. Ein Squash ohne diese Bereinigung hätte die
+Inkonsistenzen nur in eine einzige Datei verschoben.
+
+**Preis**: Ein Kontoprofil braucht drei indizierte Lesezugriffe statt einem; die E-Mail im Profil
+ist die normalisierte Form (Kleinschreibung), die Rohschreibweise steht nur noch im Claim-Log. Wie
+bei ADR-4 gilt: Diese Neubaseline ist nur ohne Produktivdaten vertretbar. Ab dem ersten
+produktiven Einsatz sind Migrationen ausschließlich additiv.
+
+---
+
+## ADR-15: Nachweise und ausgestellte Tokens in getrennten Tabellen
+
+**Entscheidung**: `auth_evidence` (was auf einem Kanal bewiesen wurde) und `auth_context` (was
+daraus an Tokens ausgestellt wurde) sind zwei Tabellen. Die Abhängigkeit ist einseitig:
+`auth_context.auth_evidence_id` zeigt auf die Nachweise, nie umgekehrt; mehrere Token-Kontexte
+dürfen auf dieselbe Evidenz zeigen (`AuthContextRepository.findByAuthEvidenceId` liefert eine
+Liste). Abgeleitete Größen werden in keiner der beiden gespeichert: `currentAcr` berechnet
+`AuthPolicy.resolveAcr` bei jedem Lesen neu aus `amr_evidence`
+([Domänenmodell](02-domaenenmodell.md) Abschnitt 7).
+
+**Erwogene Alternative**: Eine Tabelle — die Token-Spalten neben den Nachweisen in derselben
+Zeile, so wie es vor der kc-Fassade (`07e7156`) auch war.
+
+**Warum diese**: Zwei Gründe, die beide nicht an der Kardinalität hängen.
+
+1. **Nicht jeder Kanal hat Tokens, aber jeder hat Nachweise.** Der KEYCLOAK-Kanal legt nie einen
+   `AuthContext` an ([API](05-api.md) Abschnitt 3: Er hat keine App-Tokens zu binden), erbringt
+   aber sehr wohl Nachweise. In einer gemeinsamen Tabelle trüge jede Web-Kanal-Zeile vier
+   dauerhaft leere Token-Spalten — oder man legte einen „AuthContext" an, der keiner ist, nur um
+   die Nachweise unterzubringen. Die Bedeutung der Tabelle hinge dann am Kanaltyp.
+2. **Das eine ist Wahrheit, das andere Cache.** Nachweise sind die Eingabe der Policy und wachsen
+   nur; der Token ist die Ausgabe an den Client und ist jederzeit verwerfbar. Genau davon lebt
+   `AuthEvidenceService.invalidateCachedTokens`: Ein Step-up setzt Access- und RefreshToken auf
+   `null`, **während die Nachweise stehen bleiben**. In einer gemeinsamen Zeile wäre „Nachweise
+   geändert" und „Token verworfen" ein einziges Update — der Unterschied zwischen „gilt weiter"
+   und „ist ungültig geworden" ließe sich nicht mehr ausdrücken.
+
+**Preis**: Zwei Tabellen, die einander äußerlich stark ähneln (beide mit `account_id`, `version`,
+`updated_at`) und im APP-Kanal praktisch immer gemeinsam entstehen — das vom Repository erlaubte
+1:n ist in den heutigen Abläufen durchgehend 1:1. Wer nur ins Schema schaut, sieht deshalb zwei
+fast gleiche Tabellen und den Grund nicht; er steht in den KDocs von `AuthContext`/`AuthEvidence`
+und seit diesem ADR hier.
+
+---
+
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 
-Drei Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md) sind
-identifiziert, ausformuliert und bewusst **nicht** umgesetzt — jeweils eine
+Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md), die
+identifiziert, ausformuliert und bewusst **nicht** vollständig umgesetzt sind — jeweils eine
 Architektur-/Infrastrukturentscheidung, kein lokal abschließbarer Fix:
 
-- **`dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Hash-PK
-  mit Zeitpartitionierung oder ein separater persistenter KV-Store statt des heutigen
-  `VARCHAR(255)`-Primärschlüssels — eine Entscheidung für den Produktivstack, nicht für diese
+- **`dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
+  Schlüssel ist seit ADR-14 ein fester SHA-256-Hash. Offen bleibt die Zeitpartitionierung bzw. ein
+  separater persistenter KV-Store — eine Entscheidung für den Produktivstack, nicht für diese
   H2-Demo-Umgebung.
-- **`account.authenticationMethods` als eigene Tabelle statt JSON-Liste** (D1): löst die
-  `@Version`-Serialisierung auf einer Konto-Zeile für jede Methodenänderung auf und macht „alle
-  Konten mit Methode X" abfragbar — betrifft aber produktivseitig 16 Dateien über mindestens
-  sechs Module und ändert echtes Nebenläufigkeitsverhalten, nicht nur die Speicherform.
 - **Konto-Lebenszyklus und Merge-Pfad** (D2): `Account` kennt keinen Status (gesperrt,
   deaktiviert, verstorben) und kein `merged_into`. ADR-11 weist einen `person_id`-Konflikt
   bewusst ab, statt zu mergen — über die angestrebte Lebensdauer entsteht Merge-Bedarf aber
   zwangsläufig, und ohne `merged_into` gibt es dann keinen verlustfreien Weg dorthin.
 
-Alle drei verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung bzw.
-Migrationsstrategie vorab — Details und Begründung stehen im Review-Dokument.
+Beide verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung vorab —
+Details und Begründung stehen im Review-Dokument. D1 (Methoden als eigene Tabelle) ist mit ADR-14
+umgesetzt.

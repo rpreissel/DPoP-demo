@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.policy
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
@@ -51,11 +52,11 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
 
     fun account(vararg methods: AuthMethodView) = AccountProfile(
-        accountId = 1L, personId = 1L, identifications = emptyList(), authenticationMethods = methods.toList()
+        accountId = 1L, personId = 1L, authenticationMethods = methods.toList()
     )
 
     fun method(method: String, enrolledUnderAcr: AcrLevel, active: Boolean = true) =
-        AuthMethodView(id = "$method-instance", method = method, active = active, createdAt = null, enrolledUnderAcr = enrolledUnderAcr.value, details = null)
+        AuthMethodView(id = "$method-instance", method = method, active = active, createdAt = null, enrolledUnderAcr = enrolledUnderAcr.value, details = null, enrollmentRef = EnrollmentRef("${method}_enrollment", "1"))
 
     given("a synthetic catalog of ident-fsc/enroll-sms/auth-sms plus a hypothetical passkey pair") {
 
@@ -190,7 +191,8 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val devicePolicy = DefaultAuthPolicy(deviceRegistry)
             val deviceMethod = AuthMethodView(
                 id = "device-instance", method = "device", active = true, createdAt = null,
-                enrolledUnderAcr = AcrLevel.LOA2.value, details = mapOf("deviceBindingKeyRef" to "key-1")
+                enrolledUnderAcr = AcrLevel.LOA2.value, details = mapOf("deviceBindingKeyRef" to "key-1"),
+                enrollmentRef = EnrollmentRef("auth_device_enrollment", "1")
             )
             val acc = account(deviceMethod)
             val fresh = AuthEvidence(emptyList())

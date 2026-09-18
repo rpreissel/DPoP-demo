@@ -8,10 +8,11 @@ import org.springframework.stereotype.Repository
  * The resolve-identity index of the claims model - see [AccountAnchor]. Writes go only
  * through `AccountService` (claims with an anchor role, via `recordClaim`/`recordClaims`); reads back this
  * repository are the generic anchor lookups behind `AccountDirectory.resolveByAnchor` /
- * `anchorValue`.
+ * `anchorValue` and the profile projection.
  */
 @Repository
 interface AccountAnchorRepository : JpaRepository<AccountAnchor, Long> {
     fun findByAttributeTypeAndValue(attributeType: AttributeType, value: String): AccountAnchor?
     fun findByAccountIdAndAttributeType(accountId: Long, attributeType: AttributeType): AccountAnchor?
+    fun findByAccountId(accountId: Long): List<AccountAnchor>
 }

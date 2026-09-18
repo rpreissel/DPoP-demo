@@ -35,7 +35,7 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
             response.body?.get("error") shouldBe "INVALID_STATE_TRANSITION"
         }
 
-        for (constraint in listOf("ux_account_anchor", "ux_account_anchor_account_type", "ux_account_person_id")) {
+        for (constraint in listOf("ux_account_anchor_value", "ux_account_anchor_account_type")) {
             then("known unique constraint $constraint maps to 409 without exposing SQL or values") {
                 val response = handler.handleConstraintViolation(
                     ConstraintViolationException("private SQL data", SQLException("private value", "23505"), constraint)
@@ -61,7 +61,7 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
         for (atCommit in listOf(false, true)) {
             then("MVC finds nested binding violations at ${if (atCommit) "commit" else "flush"}") {
                 val violation = ConstraintViolationException(
-                    "duplicate", SQLException("duplicate", "23505"), "PUBLIC.UX_ACCOUNT_ANCHOR ON PUBLIC.ACCOUNT_ANCHOR(...)"
+                    "duplicate", SQLException("duplicate", "23505"), "PUBLIC.UX_ACCOUNT_ANCHOR_VALUE INDEX PUBLIC.UX_ACCOUNT_ANCHOR_VALUE_INDEX_2 ON PUBLIC.ACCOUNT_ANCHOR(...)"
                 )
                 val failure = if (atCommit) TransactionSystemException("commit failed", violation)
                     else DataIntegrityViolationException("flush failed", violation)

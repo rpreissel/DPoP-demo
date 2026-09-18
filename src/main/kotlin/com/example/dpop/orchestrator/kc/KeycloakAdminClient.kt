@@ -67,7 +67,7 @@ class KeycloakAdminClient(
      * which delegates the "password" credential type to the orchestrator's own `auth_password`
      * store - there is nothing local for this method to seed.
      *
-     * [attributes] mirrors every `ConsolidationStrategy.ExternalLiveLookup` attribute the caller
+     * [attributes] mirrors every non-anchor person attribute the caller
      * resolved live for this sync (`kvnr`/`geburtsdatum`/`personId` - see
      * `KeycloakAccountSyncListener`/`-Service`) as plain Keycloak custom user attributes, exactly
      * like `orchestratorAccountId` already is - never cached here either, just relayed each sync.

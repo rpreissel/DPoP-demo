@@ -28,7 +28,7 @@ class JourneyLogEntry(
     var bindingKeyRef: String? = null,
 
     /** Persisted source of the log entry itself - APP or KEYCLOAK - so the channel remains visible even after the session is gone. */
-    @Column(name = "channel_type", length = 20)
+    @Column(name = "channel_type", length = 32)
     var channelType: String? = null,
 
     /** Null until the channel resolves an account (e.g. before identification) - the lookup key every facade's entries share once one is known, unlike [bindingKeyRef] which is APP-only. */
@@ -47,10 +47,10 @@ class JourneyLogEntry(
     var parentJourneyId: UUID? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "intent", length = 20)
+    @Column(name = "intent", length = 32)
     var intent: AuthIntent? = null,
 
-    @Column(name = "event_type", nullable = false, length = 50)
+    @Column(name = "event_type", nullable = false, length = 100)
     var eventType: String? = null,
 
     /** The JourneyState subtype the journey was in when this event happened (e.g. "AwaitingTan") - null for a channel-level event with no journey. */
@@ -63,7 +63,7 @@ class JourneyLogEntry(
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "log_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var logId: UUID? = null
 
     @Column(name = "created_at", nullable = false)

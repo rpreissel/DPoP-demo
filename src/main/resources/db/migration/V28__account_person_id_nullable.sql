@@ -1,1 +1,0 @@
-ALTER TABLE account ALTER COLUMN person_id DROP NOT NULL;

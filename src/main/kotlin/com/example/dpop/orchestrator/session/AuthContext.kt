@@ -11,11 +11,12 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * APP-channel-only token bookkeeping (docs/02-domaenenmodell.md #1) - binds the mock
- * AccessToken/RefreshToken [com.example.dpop.orchestrator.session.TokenService] issues to a
- * channel. Deliberately holds NO evidence anymore (`amr`/`loa`/`currentAcr` etc.) - that is
- * [AuthEvidence]'s job now, referenced here via [authEvidenceId] so [TokenService] can resolve
- * the claims it mints without going through the channel. [keycloakSessionId] stays unused under
+ * APP-channel-only token bookkeeping (docs/02-domaenenmodell.md #1; docs/12-entscheidungen.md
+ * ADR-15 for why this is a table of its own) - binds the mock AccessToken/RefreshToken
+ * [com.example.dpop.orchestrator.session.TokenService] issues to a channel. Deliberately holds NO
+ * evidence anymore (`amr`/`loa`/`currentAcr` etc.) - that is [AuthEvidence]'s job now, referenced
+ * here via [authEvidenceId] so [TokenService] can resolve the claims it mints without going
+ * through the channel. [keycloakSessionId] stays unused under
  * the default profile (no real Keycloak facade there) but IS load-bearing under `keycloak`
  * (`KcTokenProvider.tokenFor` writes it, `JourneyService`'s `Transition.Logout` reads it back to
  * end exactly the one Keycloak session this token belongs to, never every session the account
@@ -29,36 +30,41 @@ class AuthContext(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,
 
-    @Column(name = "keycloak_session_id", length = 255)
+    @Column(name = "keycloak_session_id", length = 64)
     var keycloakSessionId: String? = null
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "auth_context_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var authContextId: UUID? = null
 
     /** Pairs this token context to the evidence it was minted from - [TokenService] resolves claims through here, never by storing its own copy. */
     @Column(name = "auth_evidence_id")
     var authEvidenceId: UUID? = null
 
-    /** The mock AccessToken itself (a full JWT), not a short handle - hence the generous length. */
-    @Column(name = "token_handle", length = 4096)
-    var tokenHandle: String? = null
+    /**
+     * The AccessToken itself - the mock JWT [TokenService] mints under the default profile, the
+     * real Keycloak `access_token` under `keycloak`; hence the generous length. A cache, not a
+     * source of truth: it exists so repeated `.../token` calls return the same token instead of
+     * minting a new one per request, and [AuthEvidenceService] clears it on every evidence change.
+     */
+    @Column(name = "access_token", length = 4096)
+    var accessToken: String? = null
 
     /**
-     * Never exposed to the frontend (docs/05-api.md) - a credential, unlike [tokenHandle]'s
-     * parsed-JWT display use. Same generous length as [tokenHandle] (V25): the `keycloak` profile
+     * Never exposed to the frontend (docs/05-api.md) - a credential, unlike [accessToken]'s
+     * parsed-JWT display use. Same generous length as [accessToken]: the `keycloak` profile
      * stores a real, full-size Keycloak refresh_token JWT here, not just the short opaque mock
      * secret (`mockrt_<uuid>`) the default profile still uses.
      */
-    @Column(name = "refresh_token_handle", length = 4096)
-    var refreshTokenHandle: String? = null
+    @Column(name = "refresh_token", length = 4096)
+    var refreshToken: String? = null
 
     @Column(name = "auth_time", nullable = false)
     var authTime: Instant? = null
 
-    @Column(name = "token_expires_at")
-    var tokenExpiresAt: Instant? = null
+    @Column(name = "access_expires_at")
+    var accessExpiresAt: Instant? = null
 
     @Column(name = "refresh_expires_at")
     var refreshExpiresAt: Instant? = null

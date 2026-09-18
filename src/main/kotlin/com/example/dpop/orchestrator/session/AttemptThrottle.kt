@@ -57,7 +57,7 @@ enum class ThrottleScope {
 @Embeddable
 data class AttemptThrottleId(
     @Enumerated(EnumType.STRING)
-    @Column(name = "scope", nullable = false, length = 20)
+    @Column(name = "scope", nullable = false, length = 32)
     var scope: ThrottleScope? = null,
 
     @Column(name = "subject", nullable = false, length = 128)

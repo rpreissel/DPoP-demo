@@ -41,7 +41,7 @@ class AccountServiceDbTest(
 ) : BehaviorSpec({
 
     beforeEach {
-        listOf("account_anchor", "account_attribute", "account").forEach { jdbcTemplate.update("DELETE FROM $it") }
+        listOf("account").forEach { jdbcTemplate.update("DELETE FROM $it") }
     }
 
     given("account creation and claim adoption sharing the caller transaction") {
@@ -212,7 +212,7 @@ class AccountServiceDbTest(
             }
 
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account_anchor WHERE anchor_type = 'person_id' AND anchor_value = '777'",
+                "SELECT COUNT(*) FROM account_anchor WHERE attribute_type = 'person_id' AND normalized_value = '777'",
                 Int::class.java
             ) shouldBe 1
             accountService.findAccount(second.accountId)?.personId.shouldBeNull()
@@ -228,7 +228,7 @@ class AccountServiceDbTest(
             accountService.findAccountByEmail("old@example.com").shouldBeNull()
             accountService.findAccountByEmail("new@example.com")?.accountId shouldBe account.accountId
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account_anchor WHERE account_id = ? AND anchor_type = 'email'",
+                "SELECT COUNT(*) FROM account_anchor WHERE account_id = ? AND attribute_type = 'email'",
                 Int::class.java, account.accountId
             ) shouldBe 1
         }

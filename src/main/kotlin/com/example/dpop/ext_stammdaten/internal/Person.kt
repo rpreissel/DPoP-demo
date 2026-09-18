@@ -9,7 +9,7 @@ import jakarta.persistence.Table
 import java.time.LocalDate
 
 @Entity
-@Table(name = "person")
+@Table(name = "ext_stammdaten_person")
 class Person(
     @Column(name = "kvnr", unique = true, nullable = false, length = 20)
     var kvnr: String? = null,

@@ -35,7 +35,7 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
         `when`("the enrollment reference has the wrong type") {
             then("it throws UnresolvableReferenceException") {
                 shouldThrow<UnresolvableReferenceException> {
-                    handler.start(toolSessionId, EnrollmentRef("device_enrollment", "1"))
+                    handler.start(toolSessionId, EnrollmentRef("auth_device_enrollment", "1"))
                 }
             }
         }

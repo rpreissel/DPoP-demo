@@ -58,31 +58,31 @@ class KcTokenProvider(
         val accountId = requireNotNull(authContext.accountId) { "AuthContext $authContextId has no accountId" }
         val now = Instant.now()
 
-        val currentExpiry = authContext.tokenExpiresAt
-        if (authContext.tokenHandle != null && currentExpiry != null &&
+        val currentExpiry = authContext.accessExpiresAt
+        if (authContext.accessToken != null && currentExpiry != null &&
             currentExpiry.isAfter(now.plusSeconds(minValiditySeconds))
         ) {
-            return TokenPair(authContext.tokenHandle!!, currentExpiry, authContext.refreshExpiresAt ?: currentExpiry)
+            return TokenPair(authContext.accessToken!!, currentExpiry, authContext.refreshExpiresAt ?: currentExpiry)
         }
 
-        val refreshStillValid = authContext.refreshTokenHandle != null &&
+        val refreshStillValid = authContext.refreshToken != null &&
             authContext.refreshExpiresAt?.isAfter(now) == true
         val response = if (refreshStillValid) {
-            keycloakAdminClient.refreshAccountToken(authContext.refreshTokenHandle!!)
+            keycloakAdminClient.refreshAccountToken(authContext.refreshToken!!)
         } else {
             keycloakAdminClient.requestAccountToken(accountId, signAssertion(authContext))
         }
 
         val accessExpiresAt = now.plusSeconds(response.expiresInSeconds)
-        authContext.tokenHandle = response.accessToken
-        authContext.tokenExpiresAt = accessExpiresAt
+        authContext.accessToken = response.accessToken
+        authContext.accessExpiresAt = accessExpiresAt
         // The Keycloak session THIS token belongs to (its `sid` claim) - not read back for
         // anything here, only kept so a later App-channel logout (JourneyService's
         // Transition.Logout) can end exactly this one session, never every session this account
         // happens to hold.
         authContext.keycloakSessionId = sidClaimOf(response.accessToken) ?: authContext.keycloakSessionId
         if (response.refreshToken != null) {
-            authContext.refreshTokenHandle = response.refreshToken
+            authContext.refreshToken = response.refreshToken
             authContext.refreshExpiresAt = response.refreshExpiresInSeconds?.let { now.plusSeconds(it) }
         }
         authContextRepository.save(authContext)

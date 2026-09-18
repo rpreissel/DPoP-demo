@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param
 import java.time.Instant
 
 /**
- * One already-seen proof, keyed by `thumbprint:jti`. The PRIMARY KEY is the replay check: a
+ * One already-seen proof, keyed by the SHA-256 of `thumbprint:jti`. The PRIMARY KEY is the replay check: a
  * second insert of the same pair fails, and that failure is the detection - no read-then-write
  * window, and no in-process map that a restart empties or a second replica never sees.
  */
@@ -19,8 +19,8 @@ import java.time.Instant
 @Table(name = "dpop_proof_replay")
 class DpopProofReplay(
     @Id
-    @Column(name = "proof_key", nullable = false, length = 255)
-    var proofKey: String? = null,
+    @Column(name = "proof_hash", nullable = false, length = 64)
+    var proofHash: String? = null,
 
     @Column(name = "expires_at", nullable = false)
     var expiresAt: Instant? = null

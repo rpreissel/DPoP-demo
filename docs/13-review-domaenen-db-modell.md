@@ -10,6 +10,11 @@ Nutzer bei hoher Anmeldelast**. Das Modell ist konzeptionell überdurchschnittli
 Lücken liegen fast vollständig auf den Achsen **Nebenläufigkeit, Skalierung und
 Lösch-/Aufbewahrungspfade**.
 
+> **Hinweis (2026-09-17, [ADR-14](12-entscheidungen.md))**: Die hier zitierten Migrationen `V3`–`V38`
+> existieren nicht mehr; sie sind in `V1__schema.sql` zusammengeführt. Die Verweise bleiben als
+> Befundhistorie stehen. Mit derselben Konsolidierung sind D1 umgesetzt und B5 teilweise, außerdem
+> entfallen die Projektionsspalten `account.person_id`/`email`/`email_confirmed_at` (siehe C1).
+
 ## Statuslegende
 
 | Status | Bedeutung |
@@ -325,7 +330,10 @@ Ebenfalls unverändert: die gesamte `cleanup()`-Transaktion bleibt eine einzige 
 Transaktionen pro Batch (eigenes Bean wegen Self-Invocation, analog `AttemptThrottleRowInitializer`),
 was über eine kleine Korrektur hinausgeht.
 
-### B5 — `dpop_proof_replay` als Durchsatzdeckel ⬜ offen (bewusst zurückgestellt)
+### B5 — `dpop_proof_replay` als Durchsatzdeckel 🟡 teilweise
+
+**Umsetzung (ADR-14):** Der Primärschlüssel ist `proof_hash VARCHAR(64)` = SHA-256(`thumbprint:jti`),
+berechnet in `DpopReplayProtectionService`. **Offen:** Zeitpartitionierung bzw. KV-Store (unten).
 
 **Warum nicht in diesem Durchgang:** Die Empfehlung selbst ist explizit als Produktionsentscheidung
 formuliert ("Empfehlung für den Produktivpfad") — Wahl zwischen Hash-PK mit Zeitpartitionierung
@@ -362,9 +370,12 @@ alte Tabelle. Entity nutzt jetzt `@JdbcTypeCode(SqlTypes.JSON)` statt
 Sauberes Zielbild: `account_attribute` = Provenienz (append-only), `account_anchor` =
 Auflösung **und** Eindeutigkeit, Spalte = reine Projektion ohne eigene Unique-Zusage.
 Mit A3 ist das Zielbild jetzt vollständig erreicht: Lesepfad und Eindeutigkeitsautorität laufen
-über den Anchor, die Spalte trägt nur noch die (unbenutzte) Rohwert-Historie. Die vierfache
-Existenz der E-Mail als solche bleibt bestehen — das ist die bewusste Drei-Schichten-Trennung
-(Provenienz/Auflösung/Projektion), keine offene Inkonsistenz mehr.
+über den Anchor, die Spalte trägt nur noch die (unbenutzte) Rohwert-Historie.
+
+**Nachtrag (ADR-14):** Die Projektionsspalten `account.email`/`email_confirmed_at` (und ebenso
+`account.person_id`) sind entfallen. Es bleiben zwei Schichten: `account_attribute` (Provenienz,
+Rohwert) und `account_anchor` (aktueller normalisierter Wert, Auflösung, Eindeutigkeit).
+`AccountProfile.email`/`emailConfirmedAt`/`personId` werden aus dem Anker gelesen.
 
 ### C2 — Typisierung zwischen den Modulen inkonsistent 🟡 teilweise
 
@@ -389,7 +400,8 @@ Wire-Format), `AnchorTypeConverter` ist entfallen. Die Anker-Regeln (welcher Typ
 ist, Normalisierung, Ersetzbarkeit) leben seither gebündelt in `tool_api/AttributeRules.kt` statt
 in einer eigenen Sealed-Hierarchie.
 
-**Weiterhin nicht umgesetzt: `trustAnchor` bleibt `String`.** `TrustAnchor` (seit Paket 1 in
+**Weiterhin nicht umgesetzt: die Quelle bleibt `String`** (seit ADR-14 `AccountAttribute.claimSource`,
+Spalte `claim_source`). `TrustAnchor` (seit Paket 1 in
 `ClaimSource` umbenannt) ist eine Kotlin `@JvmInline value class` — beim Testen mit echtem
 `AttributeConverter<TrustAnchor, String>` warf Hibernate zur Laufzeit `JpaSystemException: Error
 attempting to apply AttributeConverter: class java.lang.String cannot be cast to class
@@ -431,7 +443,16 @@ auch bei Flush/Commit; andere Integritätsfehler bleiben sichtbar.
 
 ## D) Struktur / unnötige Komplexität
 
-### D1 — `authenticationMethods` als JSON-Liste auf einer versionierten Zeile ⬜ offen (bewusst zurückgestellt)
+### D1 — `authenticationMethods` als JSON-Liste auf einer versionierten Zeile ✅ behoben
+
+**Umsetzung (ADR-14):** `account_auth_method` (eine Zeile je Methodeninstanz, `id UUID`,
+`enrollment_type`/`enrollment_id` als Spalten, `deactivated_at` mit CHECK-Constraint gegen `active`,
+Indizes `(account_id, method)` und `(enrollment_type, enrollment_id)`). Die
+Nebenläufigkeitssemantik ist bewusst erhalten: Jede Änderung lädt die Kontozeile mit
+`OPTIMISTIC_FORCE_INCREMENT`, zwei konkurrierende Methodenänderungen desselben Kontos enden also
+weiterhin in genau einem `409`; Lesen schreibt dagegen nie mehr, und der Dirty-Checking-Kommentar
+samt `data class`-Zwang ist gegenstandslos. `identifications` ist analog zu `account_identification`
+geworden (append-only, keine Versionserhöhung). Der ursprüngliche Befund folgt unverändert.
 
 Der teuerste Entwurfsentscheid im Modell. Drei Konsequenzen:
 
@@ -508,13 +529,12 @@ dem `keycloak`-Profil sehr wohl gebraucht wird.
    Cascade-Prüfung in `V30`/`V31` ergab dort keinen Handlungsbedarf.)*
 3. **B1** — die verbliebene DoS-Fläche. *(erledigt; Migration `V34` angewendet, ein statt drei
    Abfragen, harte Kandidaten-Obergrenze.)*
-4. **D1** — bewusst zurückgestellt, wie B5/D2 (siehe dort: echte Architekturmigration über sechs
-   Module, ändert Nebenläufigkeitssemantik, kein Einzelbefund). *(C1 ist mit A3 erledigt; C2 zu
+4. **D1** — mit ADR-14 umgesetzt (Schema-Konsolidierung), B5 dabei teilweise. *(C1 ist mit A3 erledigt; C2 zu
    zwei Dritteln erledigt, siehe dort.)*
 
 Erledigt (dritter/vierter/fünfter Durchgang): A4, A6, A7-Rest, B2 (teilweise), B4 (teilweise), B6,
-C2 (teilweise), C3, C4, D3. Bewusst zurückgestellt (Produktions-/Architekturentscheidung, kein
-kleiner Einzelbefund, jeweils mit Begründung im Dokument): B5, D1, D2. Damit ist das Review
+C2 (teilweise), C3, C4, D3; mit ADR-14 zusätzlich D1 und B5 (teilweise). Bewusst zurückgestellt
+(Produktions-/Architekturentscheidung, jeweils mit Begründung im Dokument): B5-Rest, D2. Damit ist das Review
 inhaltlich abgeschlossen — jeder verbleibende offene Punkt trägt eine explizite Zurückstellungs-
 begründung, keiner ist übersehen.
 

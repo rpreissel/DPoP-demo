@@ -1,5 +1,6 @@
 package com.example.dpop.account
 
+import com.example.dpop.tool_spi.EnrollmentRef
 import java.time.Instant
 
 data class AuthMethodView(
@@ -9,22 +10,16 @@ data class AuthMethodView(
     val createdAt: Instant?,
     val enrolledUnderAcr: String?,
     val details: Map<String, Any?>?,
+    val enrollmentRef: EnrollmentRef,
     val label: String? = null
-)
-
-data class IdentificationView(
-    val method: String,
-    val loa: String?,
-    val identifiedAt: Instant?,
-    val details: Map<String, Any?>?
 )
 
 data class AccountProfile(
     val accountId: Long,
     /** Null for an account that was never identified - a deliberate, potentially permanent state (docs/04-orchestrierung.md, REGISTER "Enrollment zuerst"), not a short-lived gap. */
     val personId: Long?,
-    val identifications: List<IdentificationView>,
     val authenticationMethods: List<AuthMethodView>,
+    /** The account's EMAIL anchor, i.e. its normalized form. */
     val email: String? = null,
     val emailConfirmedAt: Instant? = null
 ) {

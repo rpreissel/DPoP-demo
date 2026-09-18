@@ -19,7 +19,7 @@ import java.util.UUID
 @Table(name = "channel_session")
 class ChannelSession(
     @Enumerated(EnumType.STRING)
-    @Column(name = "channel", nullable = false, length = 20)
+    @Column(name = "channel", nullable = false, length = 32)
     var channel: Channel? = null,
 
     /** APP-only (docs/02-domaenenmodell.md Abschnitt 1) - null on KEYCLOAK channels, which anchor via [channelAnchor] instead. */
@@ -72,14 +72,14 @@ class ChannelSession(
      * getting a fresh random id.
      */
     @Id
-    @Column(name = "channel_session_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var channelSessionId: UUID? = null
 
     @Column(name = "account_id")
     var accountId: Long? = null
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "state", nullable = false, length = 50)
+    @Column(name = "state", nullable = false, length = 32)
     var state: ChannelState? = null
 
     /** APP-only (docs/05-api.md Abschnitt 3) - the KEYCLOAK channel never sets this, it has no App-style tokens to bind ([AuthContext]'s own doc). */
@@ -114,7 +114,7 @@ class ChannelSession(
      * The channel's DURABLE lower bound; survives individual journeys. Distinct from a single
      * step-up run's target, which lives in that run's own state (docs/04-orchestrierung.md #8).
      */
-    @Column(name = "acr_floor", length = 50)
+    @Column(name = "acr_floor", length = 16)
     var acrFloor: String? = null
 
     /**
@@ -123,17 +123,16 @@ class ChannelSession(
      * the device happens to be linked to.
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "entry_intent", nullable = false, length = 20)
+    @Column(name = "entry_intent", nullable = false, length = 32)
     var entryIntent: AuthIntent = AuthIntent.FAST_ACCESS
 
     /**
      * The toolIds this client declared support for at channel creation - fixed for the channel's
      * whole lifetime, never updated afterwards (docs/03-tool-architektur.md, availability). One
      * axis of tool availability; the other is the backend-wide ToolAvailabilityService kill-switch.
-     * A JSON column directly on this row (B6, migration V35), not a separate
-     * `@ElementCollection` table: the old mapping forced `FetchType.EAGER` (a join/extra query on
-     * the hottest path of the system) for a value that is constant over the channel's entire
-     * lifetime.
+     * A JSON column directly on this row, not a separate `@ElementCollection` table: that would
+     * force a join/extra query on the hottest path of the system for a value that is constant over
+     * the channel's entire lifetime.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "available_tools")

@@ -5,7 +5,7 @@ import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_api.resolveAccountByKvnr
 import com.example.dpop.tool_api.resolveAccountByPersonId
 
-/** Typed lookups share the normalized anchor index, never the account's projection columns. */
+/** Typed lookups share the normalized anchor index, the only place these values are stored. */
 fun AccountService.findAccountByEmail(email: String): AccountProfile? =
     resolveAccountByEmail(email)?.let { findAccount(it) }
 

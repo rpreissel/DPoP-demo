@@ -242,7 +242,7 @@ class ChannelController(
         summary = "Read the account's active authentication methods",
         description = "The methods collection as a real readable resource - identical data to ChannelResponse's " +
             "activeMethods (docs/05-api.md #2), just addressable on its own. Never includes fsc (identification " +
-            "lives in identifications, not authenticationMethods). Empty list, not an error, when no account is " +
+            "lives in the identification audit log, not authenticationMethods). Empty list, not an error, when no account is " +
             "known yet for this channel.",
         responses = [
             ApiResponse(

@@ -34,7 +34,7 @@ class SessionEvent(
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "event_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var eventId: UUID? = null
 
     @Column(name = "created_at", nullable = false)

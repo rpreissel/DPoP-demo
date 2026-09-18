@@ -34,7 +34,7 @@ class AuthJourney(
     var channelSessionId: UUID? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "intent", nullable = false, length = 20)
+    @Column(name = "intent", nullable = false, length = 32)
     var intent: AuthIntent? = null,
 
     @Column(name = "expires_at", nullable = false)
@@ -42,18 +42,18 @@ class AuthJourney(
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "journey_id", nullable = false)
+    @Column(name = "id", nullable = false)
     var journeyId: UUID? = null
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "lifecycle", nullable = false, length = 20)
+    @Column(name = "lifecycle", nullable = false, length = 32)
     var lifecycle: JourneyLifecycle = JourneyLifecycle.STARTED
 
     @Column(name = "account_id")
     var accountId: Long? = null
 
     /** Discriminator of [state], kept as its own column so journeys stay queryable by position. */
-    @Column(name = "state_type", nullable = false, length = 50)
+    @Column(name = "state_type", nullable = false, length = 100)
     var stateType: String? = null
 
     @JdbcTypeCode(SqlTypes.JSON)

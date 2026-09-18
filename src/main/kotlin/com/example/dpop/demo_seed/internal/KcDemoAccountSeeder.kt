@@ -1,13 +1,13 @@
 package com.example.dpop.demo_seed.internal
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.tool_api.EMAIL_ANCHOR_ENROLLMENT
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.resolveAccountByPersonId
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
-import com.example.dpop.tool_spi.EnrollmentRef
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -70,7 +70,7 @@ internal class KcDemoAccountSeeder(
                 accountService.addAuthenticationMethod(
                     profile.accountId,
                     "email",
-                    EnrollmentRef(type = "account_email", id = "self"),
+                    EMAIL_ANCHOR_ENROLLMENT,
                     enrolledUnderAcr = "loa1",
                     details = emptyMap()
                 )

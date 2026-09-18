@@ -15,6 +15,27 @@ import io.kotest.matchers.shouldBe
  */
 class AttributeRulesTest : BehaviorSpec({
 
+    given("authority") {
+        then("the locally anchored attributes are exactly PERSON_ID and EMAIL") {
+            AttributeType.entries.filter { it.authority == AttributeAuthority.LOCAL_ANCHOR } shouldBe
+                listOf(AttributeType.PERSON_ID, AttributeType.EMAIL)
+        }
+        then("master data owns the identifying attributes it is the register for") {
+            AttributeType.entries.filter { it.authority == AttributeAuthority.EXT_STAMMDATEN } shouldBe
+                listOf(AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+        }
+        then("a method module owns what it enrolled itself") {
+            AttributeType.PHONE_NUMBER.authority shouldBe AttributeAuthority.METHOD_MODULE
+        }
+        // The one rule tying the two properties together: without it, an attribute could claim an
+        // anchor rank while declaring its truth to live somewhere else, and nothing would notice.
+        then("LOCAL_ANCHOR holds for exactly the attributes with an anchor binding strength") {
+            AttributeType.entries.forEach { type ->
+                (type.authority == AttributeAuthority.LOCAL_ANCHOR) shouldBe (type.anchorBindingStrength != null)
+            }
+        }
+    }
+
     given("anchorBindingStrength") {
         then("PERSON_ID outranks the other anchors") {
             AttributeType.PERSON_ID.anchorBindingStrength shouldBe 3

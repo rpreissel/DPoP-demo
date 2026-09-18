@@ -8,10 +8,10 @@ import org.springframework.transaction.annotation.Transactional
 
 /**
  * Hard-deletes an account and everything it exclusively owns (docs/05-api.md, Account löschen).
- * `person` (ext_stammdaten) is deliberately untouched - it is the external register the account
- * only references, not something it owns. `account_attribute` and `account_anchor` are not listed
- * below either: both carry `ON DELETE CASCADE` on their `account_id` (V30/V31), so the final
- * `DELETE FROM account` clears them. Everything that hangs off no such key has to be named
+ * `ext_stammdaten_person` is deliberately untouched - it is the external register the account
+ * only references, not something it owns. The account module's own child tables (anchors,
+ * methods, claim and identification logs) are not listed below either: they cascade with the
+ * final `DELETE FROM account`. Everything that hangs off no such key has to be named
  * explicitly here - see the journey log and throttle cleanup in [deleteAccount].
  *
  * Orchestrates across module boundaries without ever depending on a method module by name: the

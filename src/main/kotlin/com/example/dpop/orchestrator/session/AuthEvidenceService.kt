@@ -49,7 +49,7 @@ class AuthEvidenceService(
     /**
      * A step-up (docs/07-betrieb.md #2) mutates the SAME [AuthEvidence] row an already-minted
      * AccessToken was baked from ([TokenService]/[KcTokenProvider] both cache purely by time,
-     * `authContext.tokenExpiresAt`) - without this, a client polling `.../token` right after a
+     * `authContext.accessExpiresAt`) - without this, a client polling `.../token` right after a
      * step-up could keep getting back the pre-step-up token/claims for up to the token's own TTL,
      * never noticing the account's ACR/AMR actually changed. Clearing the cache (not re-minting
      * here) keeps this service free of [TokenService]/[TokenProvider] as a dependency - the next
@@ -65,9 +65,9 @@ class AuthEvidenceService(
      */
     private fun invalidateCachedTokens(authEvidenceId: UUID) {
         authContextRepository.findByAuthEvidenceId(authEvidenceId).forEach { authContext ->
-            authContext.tokenHandle = null
-            authContext.tokenExpiresAt = null
-            authContext.refreshTokenHandle = null
+            authContext.accessToken = null
+            authContext.accessExpiresAt = null
+            authContext.refreshToken = null
             authContext.refreshExpiresAt = null
             authContextRepository.save(authContext)
         }

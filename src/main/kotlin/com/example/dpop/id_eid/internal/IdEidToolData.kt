@@ -10,7 +10,7 @@ import java.util.UUID
 
 /** Attempt-scoped module data for toolId=ident-eid. */
 @Entity
-@Table(name = "id_eid_tool_data")
+@Table(name = "ident_eid_tool_data")
 class IdEidToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)
@@ -31,7 +31,7 @@ class IdEidToolData(
     var plz: String? = null,
     var ort: String? = null,
 
-    /** SHA-256 of the submitted PIN - the PIN itself is never persisted (V15). */
+    /** SHA-256 of the submitted PIN - the PIN itself is never persisted. */
     @Column(name = "pin_hash")
     var pinHash: String? = null
 ) {

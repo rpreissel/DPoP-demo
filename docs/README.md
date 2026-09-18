@@ -22,7 +22,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 |---|---|---|
 | [00-agent-quickstart.md](00-agent-quickstart.md) | Kompakter Projektkontext und zielgerichteter Lesepfad für Agents | Token-sparender Einstieg |
 | [01-ueberblick.md](01-ueberblick.md) | Die tragenden Konzepte in Kurzform | Einstieg, erster Überblick |
-| [02-domaenenmodell.md](02-domaenenmodell.md) | Entitäten, Zustände, Enumerationen, Persistenz-Regeln | „Wie sieht das Datenmodell aus?" |
+| [02-domaenenmodell.md](02-domaenenmodell.md) | Entitäten, Zustände, Enumerationen, Persistenz-Regeln, Tabellenmodell (ER) | „Wie sieht das Datenmodell aus?" |
 | [03-tool-architektur.md](03-tool-architektur.md) | Tool-Katalog, Descriptor, `ToolOutcome`, Modulklassen | Ein neues Verfahren anbinden |
 | [04-orchestrierung.md](04-orchestrierung.md) | `next`-Ermittlung, `AuthPolicy`, MFA, ACR-Deckelung | „Wer entscheidet was?" |
 | [05-api.md](05-api.md) | API-Grundsätze, App- und Keycloak-Fassade, Beispiele | Client-Entwicklung |

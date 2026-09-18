@@ -37,11 +37,13 @@ Alle Requests des App-Kanals tragen den Header `DPoP: <proof>`.
 | D-8 | Das `iat`-Zeitfenster ist konfigurierbar. | `max-age-seconds` und `max-clock-skew-seconds` werden über `application.yml` gesetzt und im Validator verwendet |
 
 D-6 wird über `dpop_proof_replay` gelöst: Der Primärschlüssel-Insert **ist** die Prüfung
-(kein Read-then-Write), überlebt einen Neustart und gilt über Replicas hinweg. Bekannte
-Skalierungsgrenze für den Produktivstack: `VARCHAR(255)`-Primärschlüssel auf einer global heißen
-Tabelle mit einem Insert pro authentifiziertem Request — Härtung (Hash-PK plus
-Zeitpartitionierung oder ein persistenter KV-Store) ist eine Infrastrukturentscheidung, bewusst
-zurückgestellt (Review-Befund B5, [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)).
+(kein Read-then-Write), überlebt einen Neustart und gilt über Replicas hinweg. Der Schlüssel ist
+SHA-256(`thumbprint:jti`) mit fester Breite (`VARCHAR(64)`), damit ein clientgewählter `jti` weder
+die Schlüssellänge sprengen noch den heißesten Index des Systems aufblähen kann. Bekannte
+Skalierungsgrenze für den Produktivstack: eine global heiße Tabelle mit einem Insert pro
+authentifiziertem Request — Zeitpartitionierung oder ein persistenter KV-Store ist eine
+Infrastrukturentscheidung, bewusst zurückgestellt (Review-Befund B5,
+[13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)).
 
 ---
 

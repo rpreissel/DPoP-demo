@@ -51,26 +51,26 @@ class TokenService(
         }
         val now = Instant.now()
 
-        val currentExpiry = authContext.tokenExpiresAt
-        if (authContext.tokenHandle != null && currentExpiry != null &&
+        val currentExpiry = authContext.accessExpiresAt
+        if (authContext.accessToken != null && currentExpiry != null &&
             currentExpiry.isAfter(now.plusSeconds(minValiditySeconds))
         ) {
-            return TokenPair(authContext.tokenHandle!!, currentExpiry, authContext.refreshExpiresAt!!)
+            return TokenPair(authContext.accessToken!!, currentExpiry, authContext.refreshExpiresAt!!)
         }
 
-        val refreshStillValid = authContext.refreshTokenHandle != null &&
+        val refreshStillValid = authContext.refreshToken != null &&
             authContext.refreshExpiresAt?.isAfter(now) == true
         if (!refreshStillValid) {
-            authContext.refreshTokenHandle = "mockrt_${UUID.randomUUID()}"
+            authContext.refreshToken = "mockrt_${UUID.randomUUID()}"
             authContext.refreshExpiresAt = now.plus(REFRESH_TTL)
         }
 
         val accessExpiresAt = now.plus(ACCESS_TTL)
-        authContext.tokenHandle = mintAccessToken(authContext, now, accessExpiresAt)
-        authContext.tokenExpiresAt = accessExpiresAt
+        authContext.accessToken = mintAccessToken(authContext, now, accessExpiresAt)
+        authContext.accessExpiresAt = accessExpiresAt
         authContextRepository.save(authContext)
 
-        return TokenPair(authContext.tokenHandle!!, accessExpiresAt, authContext.refreshExpiresAt!!)
+        return TokenPair(authContext.accessToken!!, accessExpiresAt, authContext.refreshExpiresAt!!)
     }
 
     /** The fachliche (business) ID-token claims - a separate JSON shape from the AccessToken, on purpose. */

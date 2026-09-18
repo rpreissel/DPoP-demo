@@ -29,7 +29,7 @@ class KcDemoAccountSeederTest(
     txManager: PlatformTransactionManager
 ) : BehaviorSpec({
     beforeEach {
-        listOf("account_anchor", "account_attribute", "account").forEach { jdbc.update("DELETE FROM $it") }
+        listOf("account").forEach { jdbc.update("DELETE FROM $it") }
     }
 
     fun seed(persons: PersonDirectory, passwords: PasswordCredentialPort): ApplicationRunner {

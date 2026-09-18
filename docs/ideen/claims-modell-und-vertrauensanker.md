@@ -1,5 +1,11 @@
 # Idee: Claims-Modell mit Vertrauensanker statt fester `person_id`
 
+> **Stand 2026-09-17 ([ADR-14](../12-entscheidungen.md))**: Die Schema-Konsolidierung hat die
+> hier noch als offen beschriebenen Skalierungsschritte vorweggenommen: `identifications`-JSON ist
+> durch `account_identification` ersetzt, die Projektionsspalten auf `account` sind entfallen
+> (`account_anchor` ist einziger Speicherort), `ConsolidationStrategy` existiert nicht mehr. SQL-
+> und Migrationsausschnitte unten sind Entwurfshistorie; maßgeblich ist `V1__schema.sql`.
+
 Status: **teilweise umgesetzt** (Stand nach [account-attribute-und-trust-vereinheitlichen.md](account-attribute-und-trust-vereinheitlichen.md), alle 7 Pakete abgeschlossen). Die drei fachlichen Grundfragen
 (Interessenten-Verzweigung, Merge-Verhalten, Retraktionsform) sind entschieden: ADR-10 bis
 ADR-12. Umgesetzt sind: das Claims-Vokabular in `tool_spi` (`AttributeType`, `ClaimSource`,

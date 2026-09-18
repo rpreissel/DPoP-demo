@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.orchestrator.kc.AccountKeycloakKeypair
 import com.example.dpop.orchestrator.kc.AccountKeypairService
@@ -58,7 +59,7 @@ class KcTokenProviderTest : BehaviorSpec({
         then("it is returned unchanged - no grant call, no keypair lookup") {
             val authContextId = UUID.randomUUID()
             val expiry = Instant.now().plusSeconds(300)
-            val ctx = AuthContext(accountId = 42L).apply { tokenHandle = "existing-token"; tokenExpiresAt = expiry }
+            val ctx = AuthContext(accountId = 42L).apply { accessToken = "existing-token"; accessExpiresAt = expiry }
             val authContextRepository = mockk<AuthContextRepository>()
             every { authContextRepository.findById(authContextId) } returns Optional.of(ctx)
             val keycloakAdminClient = mockk<KeycloakAdminClient>()
@@ -77,8 +78,8 @@ class KcTokenProviderTest : BehaviorSpec({
             val authContextId = UUID.randomUUID()
             val accountId = 3L
             val ctx = AuthContext(accountId = accountId).apply {
-                tokenHandle = "stale"; tokenExpiresAt = Instant.now().minusSeconds(5)
-                refreshTokenHandle = "existing-refresh"; refreshExpiresAt = Instant.now().plusSeconds(600)
+                accessToken = "stale"; accessExpiresAt = Instant.now().minusSeconds(5)
+                refreshToken = "existing-refresh"; refreshExpiresAt = Instant.now().plusSeconds(600)
             }
             val authContextRepository = mockk<AuthContextRepository>()
             every { authContextRepository.findById(authContextId) } returns Optional.of(ctx)
@@ -91,7 +92,7 @@ class KcTokenProviderTest : BehaviorSpec({
             val result = provider(authContextRepository, accountKeypairService, keycloakAdminClient).tokenFor(appChannel(authContextId))
 
             result.accessToken shouldBe "renewed-access-token"
-            ctx.refreshTokenHandle shouldBe "rotated-refresh"
+            ctx.refreshToken shouldBe "rotated-refresh"
             verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
             verify(exactly = 0) { accountKeypairService.keypairFor(any()) }
         }
@@ -103,7 +104,7 @@ class KcTokenProviderTest : BehaviorSpec({
             val accountId = 7L
             val authEvidenceId = UUID.randomUUID()
             val ctx = AuthContext(accountId = accountId).apply {
-                tokenHandle = "stale"; tokenExpiresAt = Instant.now().minusSeconds(5)
+                accessToken = "stale"; accessExpiresAt = Instant.now().minusSeconds(5)
                 this.authEvidenceId = authEvidenceId
             }
             val authContextRepository = mockk<AuthContextRepository>()
@@ -123,11 +124,12 @@ class KcTokenProviderTest : BehaviorSpec({
             }
             val accountService = mockk<AccountService> {
                 every { findAccount(accountId) } returns com.example.dpop.account.AccountProfile(
-                    accountId = accountId, personId = 1L, identifications = emptyList(),
+                    accountId = accountId, personId = 1L,
                     authenticationMethods = listOf(
                         com.example.dpop.account.AuthMethodView(
                             id = "m1", method = "password", active = true,
-                            createdAt = Instant.now(), enrolledUnderAcr = "loa1", details = null
+                            createdAt = Instant.now(), enrolledUnderAcr = "loa1", details = null,
+                            enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("auth_password_enrollment", "1")
                         )
                     )
                 )
@@ -137,8 +139,8 @@ class KcTokenProviderTest : BehaviorSpec({
                 .tokenFor(appChannel(authContextId))
 
             result.accessToken shouldBe "real-access-token"
-            ctx.tokenHandle shouldBe "real-access-token"
-            ctx.refreshTokenHandle shouldBe "fresh-refresh"
+            ctx.accessToken shouldBe "real-access-token"
+            ctx.refreshToken shouldBe "fresh-refresh"
             verify { keycloakAdminClient.setPublicKeyCredential(accountId, kp.publicKeyJwk, listOf("password")) }
 
             val jwt = SignedJWT.parse(assertionSlot.captured)

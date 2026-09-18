@@ -12,7 +12,7 @@ import java.time.Duration
 internal const val QR_METHOD = "qr"
 
 /** The [com.example.dpop.tool_spi.EnrollmentRef.type] enroll-qr writes - a pure opt-in marker, no secret. */
-internal const val QR_OPTIN_ENROLLMENT_TYPE = "auth_qr_optin"
+internal const val QR_OPTIN_ENROLLMENT_TYPE = "auth_qr_enrollment"
 
 /** How long a pairing request stays open (docs/07-betrieb.md #5 - not further validated). */
 internal val QR_LOGIN_TTL: Duration = Duration.ofMinutes(5)

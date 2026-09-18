@@ -9,12 +9,12 @@ import java.util.UUID
 
 /**
  * Attempt-scoped module data for toolId=auth-email. No enrollment-reference fields (unlike
- * auth_sms_use_tool_data): the confirmed email lives directly on Account, not in a module-owned
+ * auth_sms_tool_data): the confirmed email is the account's EMAIL anchor, not a module-owned
  * enrollment row, so there is nothing to reference - the controller resolves the email string
  * once at activation and this module only needs to remember the issued code.
  */
 @Entity
-@Table(name = "auth_email_use_tool_data")
+@Table(name = "auth_email_tool_data")
 class AuthEmailUseToolData(
     @Id
     @Column(name = "tool_session_id", nullable = false)

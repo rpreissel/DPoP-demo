@@ -5,7 +5,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
-import com.example.dpop.tool_spi.EnrollmentRef
+import com.example.dpop.tool_api.EMAIL_ANCHOR_ENROLLMENT
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.ClaimSource
 import io.kotest.core.spec.style.BehaviorSpec
@@ -71,7 +71,7 @@ class EnrollEmailToolHandlerTest : BehaviorSpec({
                     val outcome = handler.patch(toolSessionId, email = null, code = issued.plainCode)
 
                     outcome.shouldBeInstanceOf<ToolOutcome.Completed.Enrolled>()
-                    (outcome as ToolOutcome.Completed.Enrolled).enrollmentRef shouldBe EnrollmentRef(type = "email", id = "max@example.com")
+                    (outcome as ToolOutcome.Completed.Enrolled).enrollmentRef shouldBe EMAIL_ANCHOR_ENROLLMENT
                     outcome.auditDetails shouldBe null
                     outcome.claims shouldBe listOf(
                         Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.of(EnrollEmailDescriptor.toolId), EnrollEmailDescriptor.maxAcr)

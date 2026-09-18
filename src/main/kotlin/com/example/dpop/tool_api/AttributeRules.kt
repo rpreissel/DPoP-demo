@@ -13,11 +13,62 @@ import com.example.dpop.tool_spi.AttributeType
  */
 
 /**
+ * Who owns the current value of an attribute - the question [anchorBindingStrength] below can
+ * only answer negatively. Without it, "not a local anchor" is a single absence covering two
+ * unrelated situations: `NAME` has its truth in the master data, `PHONE_NUMBER` in a method
+ * module's own credential row. Both would read as `null` and look like the same rule.
+ *
+ * Successor to the removed `ConsolidationStrategy.ExternalLiveLookup` (docs/12-entscheidungen.md
+ * ADR-14): that taxonomy's other case became redundant when the projection columns disappeared,
+ * but this one did not, and an attribute's authority must stay a declared case rather than an
+ * inference drawn from a missing anchor rank.
+ */
+enum class AttributeAuthority {
+    /** Stored locally in `account_anchor`, which is also the uniqueness authority for it. */
+    LOCAL_ANCHOR,
+
+    /**
+     * Owned by the master-data backend and read live through [PersonDirectory] whenever it is
+     * needed - never projected into a local column, so it cannot go stale. Local
+     * `account_attribute` rows for these types are claim history (what was asserted, by whom,
+     * when), never the current truth.
+     */
+    EXT_STAMMDATEN,
+
+    /**
+     * Owned by the method module that enrolled it, in its own `<module>_enrollment` row (e.g.
+     * `auth_sms_enrollment.phone_number`). The `account` module never resolves it.
+     */
+    METHOD_MODULE
+}
+
+/**
+ * Where this attribute's current value lives. Exhaustive on purpose: a new [AttributeType]
+ * does not compile until its authority is decided, which is the whole point - the decision is
+ * not derivable from the type's name.
+ *
+ * Invariant, asserted in `AttributeRulesTest`: [LOCAL_ANCHOR][AttributeAuthority.LOCAL_ANCHOR]
+ * holds exactly for the types with a non-null [anchorBindingStrength]. Both properties stay
+ * separate because they answer different questions - "who owns it" vs. "how strongly does a
+ * match on it bind an identity" - and only the first one has an answer for every type.
+ */
+val AttributeType.authority: AttributeAuthority
+    get() = when (this) {
+        AttributeType.PERSON_ID,
+        AttributeType.EMAIL -> AttributeAuthority.LOCAL_ANCHOR
+        AttributeType.KVNR,
+        AttributeType.NAME,
+        AttributeType.VORNAME,
+        AttributeType.GEBURTSDATUM -> AttributeAuthority.EXT_STAMMDATEN
+        AttributeType.PHONE_NUMBER -> AttributeAuthority.METHOD_MODULE
+    }
+
+/**
  * The binding strength an anchor match on this attribute type carries, or `null` if this
- * attribute is no anchor at all. `PERSON_ID` outranks the others (3) - it is the strongest
- * possible identity match; `EMAIL` has rank 2. KVNR is resolved live through PersonDirectory,
- * not stored as a local account anchor. A new anchor kind is a deliberate new
- * case here, not a silently-added `if`.
+ * attribute is no anchor at all - see [authority] for what owns it instead. `PERSON_ID`
+ * outranks the others (3) - it is the strongest possible identity match; `EMAIL` has rank 2.
+ * KVNR is resolved live through PersonDirectory, not stored as a local account anchor. A new
+ * anchor kind is a deliberate new case here, not a silently-added `if`.
  */
 val AttributeType.anchorBindingStrength: Int?
     get() = when (this) {
@@ -47,12 +98,13 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
         // itself: KVNR is resolved live through PersonDirectory (docs/ideen/account-attribute-
         // und-trust-vereinheitlichen.md), never stored/looked up as a local account_anchor row.
         Kvnr.of(value)
-        error("$this is not a local account anchor - resolved live via PersonDirectory")
+        error("$this is not a local account anchor - authority is $authority, resolved live via PersonDirectory")
     }
     AttributeType.NAME,
     AttributeType.VORNAME,
     AttributeType.GEBURTSDATUM,
-    AttributeType.PHONE_NUMBER -> error("$this is not an anchor attribute, has no normalized anchor value")
+    AttributeType.PHONE_NUMBER ->
+        error("$this is not an anchor attribute (authority: $authority), has no normalized anchor value")
 }
 
 /**
@@ -71,5 +123,6 @@ val AttributeType.allowsAnchorReplacement: Boolean
         AttributeType.NAME,
         AttributeType.VORNAME,
         AttributeType.GEBURTSDATUM,
-        AttributeType.PHONE_NUMBER -> error("$this has no anchor replacement rule defined")
+        AttributeType.PHONE_NUMBER ->
+            error("$this has no anchor replacement rule defined - it is owned by $authority")
     }
