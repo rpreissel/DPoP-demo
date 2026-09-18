@@ -72,4 +72,33 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                 .check(classes)
         }
     }
+
+    given("the acting phase (JourneyActionExecutor, docs/04-orchestrierung.md #4, \"Die vier Phasen eines Uebergangs\")") {
+        then("it never depends on the driving phase (JourneyService) or on a concrete IntentStrategy") {
+            noClasses()
+                .that().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.JourneyActionExecutor")
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.JourneyService")
+                .orShould().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.journey.strategy..")
+                .because(
+                    "the executor WRITES and returns - it never advances a journey, never routes and never starts a " +
+                        "sub-journey; that one-way dependency is what keeps the recursion in JourneyService." +
+                        "applyTransition the only recursion the machine has"
+                )
+                .check(classes)
+        }
+    }
+
+    given("the routing phase (JourneyRouting)") {
+        then("it stays a pure function of (state, availableTools) - no repository, no journey writing") {
+            noClasses()
+                .that().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.JourneyRouting")
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.AuthJourneyRepository")
+                .orShould().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.AuthJourney")
+                .because(
+                    "\"next is a pure function of the state\" (docs/04-orchestrierung.md #4) is only checkable by " +
+                        "reading one small class as long as that class cannot reach the journey itself"
+                )
+                .check(classes)
+        }
+    }
 })

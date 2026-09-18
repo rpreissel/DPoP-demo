@@ -931,11 +931,34 @@ Entscheidungen dahinter:
   Fallback-Kette gar nicht formulierbar.
 - **Die Strategie bekommt nie Services**, nur einen lesenden `JourneyContext` (Account, Evidence,
   Untergrenze, Gerätebezug, Katalogabfragen). Sie entscheidet, sie wirkt nicht — auch nicht über
-  den Umweg von `Perform`: die Ausführung selbst bleibt allein bei `JourneyService`.
+  den Umweg von `Perform`: die Ausführung selbst bleibt allein bei der Maschinerie
+  (`JourneyActionExecutor`, siehe unten).
 
 Welche Tools für ein Angebot überhaupt in Frage kommen, beantwortet `CandidateTools` — abgeleitet
 aus den Descriptors, die die Module registrieren. Dort steht keine einzige `toolId`; ein neues
 Tool tritt einem Angebot bei, indem es seine Rolle deklariert.
+
+### Die vier Phasen eines Übergangs
+
+Dieselbe Trennung, die `IntentStrategy` gegenüber der Maschinerie zieht, setzt sich innerhalb der
+Maschinerie fort: Jeder Übergang durchläuft vier Phasen, und jede Phase hat genau eine zuständige
+Klasse. `JourneyService` bleibt der **Treiber**, nicht der Ausführende.
+
+| Phase | Klasse | Aufgabe |
+|---|---|---|
+| lesen | `JourneyContextFactory` | baut den lesenden `JourneyContext` aus der dauerhaften Wahrheit (Account, Evidence, Gerätebindung, Feature-Flags) |
+| entscheiden | `IntentStrategy` | macht aus (Zustand, Event, Kontext) eine `Transition` — reine Werte |
+| wirken | `JourneyActionExecutor` | führt die `Action` eines `Perform` aus (Account anlegen, Claims/Credentials schreiben, Gerät binden, widerrufen) |
+| routen | `JourneyRouting` | leitet `next`/`Step` aus dem resultierenden Zustand ab |
+
+Bei `JourneyService` bleibt, was keine dieser vier allein besitzen kann: Journey-Lebenszyklus
+(`start`/Suspend/Resume/`cancel`), die Schleife, die die Phasen sequenziert, das Versuchsbudget
+und die Abbruch-Folgen.
+
+Die Abhängigkeit ist bewusst eine Einbahnstraße: `JourneyActionExecutor` schreibt und kehrt
+zurück — er treibt keine Journey weiter, routet nicht und startet keine Sub-Journey. Nur so bleibt
+die Rekursion in `JourneyService.applyTransition` die einzige Rekursion der Maschine.
+`OrchestratorArchitectureTest` prüft das.
 
 ### RestoreData als Anfangs-Übergang
 
