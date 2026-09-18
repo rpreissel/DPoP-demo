@@ -5,6 +5,9 @@ import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
 import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.demoData
@@ -83,6 +86,14 @@ class EnrollSmsToolHandler(
                     amr = listOf(descriptor.method),
                     achievedAcr = descriptor.maxAcr,
                     factorTypes = descriptor.factorTypes,
+                    claims = listOf(
+                        Claim(
+                            attributeType = AttributeType.PHONE_NUMBER,
+                            value = decision.phoneNumber,
+                            source = ClaimSource.of(descriptor.toolId),
+                            establishedLoa = descriptor.maxAcr
+                        )
+                    ),
                     auditDetails = mapOf("smsProvider" to "sms-gw", "providerMsgId" to "MSG-$toolSessionId")
                 )
             }

@@ -1,6 +1,9 @@
 package com.example.dpop.auth_sms
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.ClaimDeclaration
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -28,6 +31,14 @@ object EnrollSmsDescriptor : ToolDescriptor {
     override val method = SMS_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION)
     override val maxAcr = AcrLevel.LOA1
+
+    // A confirmed TAN proves the subject holds this number, which is an assertion about their
+    // identity and therefore belongs in the claim log - the same treatment enroll-email gives a
+    // confirmed address. It stops there: PHONE_NUMBER is AttributeAuthority.METHOD_MODULE, so
+    // recordClaims appends provenance only and materializes no anchor. Deliberately no
+    // uniqueness - several accounts may legitimately share one number (a family phone), and the
+    // claim log has no unique constraint to violate. auth-sms-lookup never resolves by number.
+    override val claims = setOf(ClaimDeclaration(AttributeType.PHONE_NUMBER, ClaimSource.of(toolId)))
 }
 
 @Component

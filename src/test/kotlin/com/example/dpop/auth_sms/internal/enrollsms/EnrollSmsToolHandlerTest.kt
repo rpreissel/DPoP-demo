@@ -4,7 +4,14 @@ import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
 
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.ToolOutcome
+import com.example.dpop.tool_api.AttributeAuthority
+import com.example.dpop.tool_api.anchorBindingStrength
+import com.example.dpop.tool_api.authority
+import com.example.dpop.tool_spi.assertClaimsCovered
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -73,6 +80,33 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
                 enrolled.achievedAcr shouldBe EnrollSmsDescriptor.maxAcr
                 enrolled.factorTypes shouldBe EnrollSmsDescriptor.factorTypes
             }
+
+            // The confirmed number is an assertion about the subject, so it reaches the account's
+            // claim log (AccountService.recordClaims) - in its normalized form, not as typed.
+            then("it asserts the confirmed number as a PHONE_NUMBER claim") {
+                val outcome = handler.patch(toolSessionId, phoneNumber = null, tan = issued.plainTan)
+
+                val enrolled = outcome as ToolOutcome.Completed.Enrolled
+                enrolled.claims shouldBe listOf(
+                    Claim(
+                        AttributeType.PHONE_NUMBER,
+                        "+491701234567",
+                        ClaimSource.of(EnrollSmsDescriptor.toolId),
+                        EnrollSmsDescriptor.maxAcr
+                    )
+                )
+                // The same contract check JourneyService runs before adopting the outcome.
+                assertClaimsCovered(EnrollSmsDescriptor, enrolled.claims)
+            }
+        }
+    }
+
+    // A phone number is not an anchor (AttributeAuthority.METHOD_MODULE), so nothing about this
+    // claim asks for uniqueness: a family may legitimately share one number across accounts.
+    given("the claim declaration") {
+        then("it stays out of the anchor vocabulary entirely") {
+            AttributeType.PHONE_NUMBER.anchorBindingStrength shouldBe null
+            AttributeType.PHONE_NUMBER.authority shouldBe AttributeAuthority.METHOD_MODULE
         }
     }
 })
