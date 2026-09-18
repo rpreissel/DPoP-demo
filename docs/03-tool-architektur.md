@@ -75,6 +75,7 @@ fehlgeschlagen:
 | `InProgress(nextStep, data)` | läuft weiter; `data` ist client-gerichtet und wird unverändert als `stepData` durchgereicht |
 | `Failed(reason)` | Versuch fehlgeschlagen; Retry-Regel siehe [Orchestrierung](04-orchestrierung.md) |
 | `Completed.Identified(claims, ...)` | Person identifiziert; genau ein gültiger `PERSON_ID`-Claim |
+| `Completed.Attested(claims, ...)` | Attribut bezeugt; kein `enrollmentRef`, `amr` fest leer (Abschnitt „ATTEST" unten) |
 | `Completed.Enrolled(enrollmentRef, ...)` | Methode eingerichtet |
 | `Completed.Authenticated(accountId?, ...)` | Nachweis erbracht — `accountId` nur bei `-lookup`-Tools gesetzt |
 | `Completed.Approved(...)` | Ein `PEER_APPROVAL`-Tool (`confirm-qr-login`) hat eine fremde Anfrage bestätigt |
