@@ -518,6 +518,7 @@ class JourneyService(
         when (action) {
             is Action.AdoptIdentity -> performAdoptIdentity(journey, channel, action)
             is Action.ConfirmIdentity -> performConfirmIdentity(journey, channel, action)
+            is Action.AdoptAttestation -> performAdoptAttestation(journey, channel, action)
             is Action.AdoptCredential -> demoNotice = performAdoptCredential(journey, channel, action)
             is Action.AcceptProof -> performAcceptProof(journey, channel, action)
             is Action.ApplyRestoredEvidence ->
@@ -586,6 +587,33 @@ class JourneyService(
         // the figure AttributeType.anchorAcrFloor prices the PERSON_ID anchor against.
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = action.outcome.achievedAcr ?: AcrLevel.NONE)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
+        journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
+    }
+
+    /**
+     * An attested attribute (docs/12-entscheidungen.md, ADR-16 follow-up): the claims land in the
+     * account's log and consolidate their anchor, and that is all. No method instance, so
+     * confirming an address no longer makes email an authentication method by accident; no device
+     * binding, because nothing was created here that this device could later be recognized by.
+     *
+     * The outcome carries no `amr` by construction ([ToolOutcome.Completed.Attested]), so
+     * `recordToolCompletion` adds no evidence and the channel's ACR/AMR balance is untouched - an
+     * attestation says who the account is reachable as, never that someone just authenticated.
+     */
+    private fun performAdoptAttestation(journey: AuthJourney, channel: ChannelSession, action: Action.AdoptAttestation) {
+        assertClaimsCovered(action.tool, action.outcome.claims)
+        val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
+            "Attestation without a known account: ${action.tool.toolId}"
+        }
+        val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Attested without an AuthEvidence" }
+        val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
+            "AuthEvidence not found: $authEvidenceId"
+        }
+        // The same capped figure an enrollment is stamped with - an anchor write is priced by what
+        // the session actually proved (AttributeType.anchorAcrFloor), never by the tool's ceiling.
+        val environmentAcr = authPolicy.resolveAcr(evidence.toCoreEvidence(), accountService.findAccount(accountId))
+        val provenAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+        accountService.recordClaims(accountId, action.outcome.claims, provenAcr = provenAcr)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
 

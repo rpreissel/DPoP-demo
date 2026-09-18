@@ -40,6 +40,10 @@ internal object AuthEnrollCore {
         // A device-bound tool never resolves the account itself - it could only have been
         // offered once the account was already known.
         is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount = false, bindDevice = true)
+        // Claims only: the account keeps the attested value (its anchor), no credential is
+        // created and the device is NOT bound - unlike Enrolled above, nothing now lives on this
+        // device that a later login could recognize it by.
+        is ToolOutcome.Completed.Attested -> Action.AdoptAttestation(event.tool, outcome)
         is ToolOutcome.Completed.Approved -> error("${event.tool.toolId} is not offered by FAST_ACCESS/REGISTER")
     }
 

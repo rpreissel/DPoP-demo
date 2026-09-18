@@ -96,6 +96,31 @@ sealed interface ToolOutcome {
             val auditDetails: Map<String, Any?>? = null
         ) : Completed
 
+        /**
+         * An [ATTESTATION][MethodRole.ATTESTATION] tool proved the subject controls an attribute:
+         * claims, but no credential and no identity resolution. Between [Identified] (claims plus
+         * resolution) and [Enrolled] (claims plus credential).
+         *
+         * [amr] stays empty and is not overridable: a confirmed address is no authentication
+         * proof and must not raise this channel's ACR/AMR balance - the very coupling this shape
+         * exists to undo, where confirming an email used to report `amr = ["email"]` because it
+         * came back as an [Enrolled].
+         */
+        data class Attested(
+            val claims: List<Claim>,
+            override val achievedAcr: AcrLevel? = null,
+            /** Method-specific verification evidence, passed through unchanged for auditing. */
+            val auditDetails: Map<String, Any?>? = null
+        ) : Completed {
+            override val amr: List<String> = emptyList()
+            override val factorTypes: Set<FactorType> = emptySet()
+
+            init {
+                check(claims.isNotEmpty()) { "Completed.Attested without a claim attests nothing" }
+                claims.forEach { it.validateValue() }
+            }
+        }
+
         /** A [IDENTIFIED_AUTH][MethodRole.IDENTIFIED_AUTH] or [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool succeeded. */
         data class Authenticated(
             override val amr: List<String>,

@@ -59,6 +59,10 @@ class JourneyLogDetails(
             is ToolOutcome.Completed.Enrolled -> mapOf("enrollmentRef" to outcome.enrollmentRef.toString())
             is ToolOutcome.Completed.Authenticated -> mapOf("accountId" to outcome.accountId)
             is ToolOutcome.Completed.Approved -> emptyMap()
+            // The attested attribute TYPES, never their values - the log is a debug trace, and a
+            // confirmed address is exactly the kind of value that has no business in one.
+            is ToolOutcome.Completed.Attested ->
+                mapOf("attested" to outcome.claims.map { it.attributeType.wireName })
         }
         return common + specific
     }
@@ -125,7 +129,7 @@ class JourneyLogDetails(
      * [Transition.Perform] logged in [JourneyService.advance].
      */
     fun actionDetail(action: Action, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (action) {
-        is Action.AdoptIdentity, is Action.ConfirmIdentity -> emptyMap()
+        is Action.AdoptIdentity, is Action.ConfirmIdentity, is Action.AdoptAttestation -> emptyMap()
         is Action.AdoptCredential -> mapOf("bindDevice" to action.bindDevice)
         is Action.AcceptProof -> mapOf("useOutcomeAccount" to action.useOutcomeAccount, "bindDevice" to action.bindDevice)
         is Action.RecordApproval -> emptyMap()

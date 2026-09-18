@@ -118,7 +118,21 @@ enum class ToolCategory {
      * anything about its own channel/account - never contributes to the own channel's ACR/AMR
      * balance, never a candidate for closing a gap (docs/03-tool-architektur.md).
      */
-    SIDE_ACTION
+    SIDE_ACTION,
+
+    /**
+     * A tool that proves the subject CONTROLS an attribute (a code arrives there) without
+     * resolving who they are and without creating a credential - e.g. confirming an email address
+     * the account itself owns (`AttributeAuthority.LOCAL_ANCHOR`).
+     *
+     * Deliberately NOT [IDENT]: three places discriminate by category, and under [IDENT] this
+     * would be offered as an identification procedure (`CandidateTools.forIdentification`,
+     * `DefaultAuthPolicy.reIdentCandidates`) and, worse, its evidence would land on the IDENTITY
+     * axis and raise the IAL - the first of ADR-5's three caps. Confirming an address must never
+     * count as proof of identity. Like [SIDE_ACTION] it contributes nothing to its own channel's
+     * ACR/AMR balance.
+     */
+    ATTEST
 }
 
 /**
@@ -152,7 +166,14 @@ enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) 
      * docs/03-tool-architektur.md) - structurally unlike every other role, which answers
      * "who am I"/"what can I prove" for its OWN channel.
      */
-    PEER_APPROVAL(ToolCategory.SIDE_ACTION, "input")
+    PEER_APPROVAL(ToolCategory.SIDE_ACTION, "input"),
+
+    /**
+     * Attests an attribute the ACCOUNT owns (e.g. `confirm-email`): asserts claims, resolves no
+     * identity and leaves no credential behind. The counterpart of [IDENTIFICATION] for a value
+     * the subject controls rather than one the register vouches for - see [ToolCategory.ATTEST].
+     */
+    ATTESTATION(ToolCategory.ATTEST, "input")
 }
 
 /** A kind of authentication factor a method can provide. */

@@ -35,9 +35,25 @@ enum class EvidenceAxis {
     AUTHENTICATOR
 }
 
-/** [EvidenceAxis.IDENTITY] for an IDENTIFICATION-role tool, [EvidenceAxis.AUTHENTICATOR] for every other role that produces evidence (ENROLLMENT, AUTH). */
-fun ToolDescriptor.evidenceAxis(): EvidenceAxis =
-    if (role.category == ToolCategory.IDENT) EvidenceAxis.IDENTITY else EvidenceAxis.AUTHENTICATOR
+/**
+ * [EvidenceAxis.IDENTITY] for an IDENTIFICATION-role tool, [EvidenceAxis.AUTHENTICATOR] for the
+ * roles that produce evidence about the authenticator (ENROLLMENT, AUTH).
+ *
+ * Deliberately an exhaustive `when` rather than the `if (IDENT) … else AUTHENTICATOR` it used to
+ * be: a new category would silently have become AUTHENTICATOR, which is the wrong default for
+ * anything that is not an authentication act. SIDE_ACTION and ATTEST never get here in practice -
+ * their outcomes carry no `amr`, so `JourneyRecorder.recordToolCompletion` builds no
+ * [MethodEvidence] at all - but "never reached" must not be the only thing keeping them off an
+ * assurance axis they do not belong on.
+ */
+fun ToolDescriptor.evidenceAxis(): EvidenceAxis = when (role.category) {
+    ToolCategory.IDENT -> EvidenceAxis.IDENTITY
+    ToolCategory.ENROLL, ToolCategory.AUTH -> EvidenceAxis.AUTHENTICATOR
+    ToolCategory.SIDE_ACTION ->
+        error("SIDE_ACTION decides another channel's request and contributes no evidence of its own")
+    ToolCategory.ATTEST ->
+        error("ATTEST proves control over an attribute, which is neither identity nor authenticator assurance")
+}
 
 /**
  * One proven method's own evidence. Deliberately ONE record per method rather than several

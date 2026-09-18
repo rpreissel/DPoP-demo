@@ -275,6 +275,11 @@ class ToolControllerSupport(
             // pending request itself (pairingCode) is a separate concern with its own protection
             // (docs/07-betrieb.md #5), not this account's login throttle.
             ToolCategory.SIDE_ACTION -> Unit
+
+            // Same reasoning as ENROLL: the code is sent to the address being claimed, so there is
+            // no existing secret to guess your way into. The ToolSession's own retry budget bounds
+            // the guessing of that one code.
+            ToolCategory.ATTEST -> Unit
         }
     }
 

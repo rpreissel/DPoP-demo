@@ -109,7 +109,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
     private fun proofAction(event: JourneyEvent.Completed, useOutcomeAccount: Boolean): Action =
         when (val outcome = event.outcome) {
             is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount, bindDevice = false)
-            is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved ->
+            is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
                 error("${event.tool.toolId} is not offered by LOGIN_LOOKUP")
         }
 

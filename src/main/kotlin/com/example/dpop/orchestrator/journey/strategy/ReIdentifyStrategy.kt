@@ -56,7 +56,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
 
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Identified -> Action.ConfirmIdentity(event.tool, outcome)
-        is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved ->
+        is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by RE_IDENTIFY")
     }
 

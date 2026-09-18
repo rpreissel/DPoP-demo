@@ -72,7 +72,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
      */
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
-        is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Approved ->
+        is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by MANAGE")
     }
 

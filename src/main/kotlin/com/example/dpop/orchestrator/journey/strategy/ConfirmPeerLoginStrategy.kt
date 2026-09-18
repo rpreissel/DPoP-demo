@@ -83,7 +83,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
                 // clears the way to Confirming.
                 is JourneyEvent.Completed -> when (event.outcome) {
                     is ToolOutcome.Completed.Authenticated -> Transition.To(ConfirmPeerLoginState.Confirming(state.startedAuthenticated))
-                    is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved ->
+                    is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
                         error("${event.tool.toolId} is not offered by CONFIRM_PEER_LOGIN's ConfirmationRequired")
                 }
                 else -> error("ConfirmationRequired does not understand $event")
@@ -117,7 +117,8 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
 
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Approved -> Action.RecordApproval(event.tool, outcome)
-        is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Authenticated ->
+        is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled,
+        is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by CONFIRM_PEER_LOGIN")
     }
 
