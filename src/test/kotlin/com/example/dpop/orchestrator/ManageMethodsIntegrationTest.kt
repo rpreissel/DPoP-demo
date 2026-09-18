@@ -156,8 +156,14 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
                 val smsInstanceId = methods.first { it["method"] == "sms" }["id"] as String
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auth_sms.enrollment", Int::class.java) shouldBe 1
 
                 delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$smsInstanceId")
+
+                // Removing a method revokes the credential itself, not just the instance flag: the
+                // phone number is gone from the owning module, while the deactivated
+                // account.auth_method row stays so account deletion still walks every ref.
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auth_sms.enrollment", Int::class.java) shouldBe 0
 
                 // sms is a candidate again now that it was deactivated - email is already confirmed, so
                 // password is ALSO now a valid candidate, hence a selection page rather than a skip.

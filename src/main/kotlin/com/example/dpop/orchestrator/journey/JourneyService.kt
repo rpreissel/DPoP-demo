@@ -765,7 +765,13 @@ class JourneyService(
                 "Deaktivieren von '${target.method}' wuerde das Mindestniveau dieses Kanals unterschreiten"
             )
         }
-        accountService.deactivateAuthenticationMethod(accountId, methodInstanceId)
+        // revokeMethod, not the bare deactivate: a user who removes a method expects the
+        // credential itself gone, not merely unusable. It deletes the owning module's row
+        // (EnrollmentCleanup) and THEN deactivates the instance - the deactivated row stays, so
+        // account deletion still walks every ref it ever pointed at. Device rebinding already
+        // took this path (docs/09-dpop.md); the user-facing removal used to stop at the flag and
+        // left the phone number / password hash behind until the whole account went.
+        accountDeletionService.revokeMethod(accountId, methodInstanceId)
     }
 
     /**
