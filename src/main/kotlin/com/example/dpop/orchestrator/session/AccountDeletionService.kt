@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
 import com.example.dpop.tool_api.EnrollmentCleanup
 import org.springframework.stereotype.Service
@@ -101,6 +102,15 @@ class AccountDeletionService(
      */
     fun revokeMethod(accountId: Long, methodInstanceId: String) {
         accountService.enrollmentRefFor(accountId, methodInstanceId)?.let { ref -> cleanupsByType[ref.type]?.delete(ref) }
+        // The credential row is gone, so whatever only IT backed stops being a valid claim
+        // (ADR-12). Account-owned facts this method happened to assert along the way survive -
+        // the rule lives in retractClaimsOf, not here.
+        accountService.retractClaimsOf(
+            accountId,
+            methodInstanceId,
+            RetractionAnchor.ACCOUNT_MANAGEMENT,
+            reason = "method instance revoked"
+        )
         accountService.deactivateAuthenticationMethod(accountId, methodInstanceId)
     }
 

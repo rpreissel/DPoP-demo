@@ -142,6 +142,7 @@ stateDiagram-v2
 - `AccountProfile` bleibt die typisierte Leseprojektion: `personId` (optional — ein Interessent hat noch keine Bindung an eine Person, [12-entscheidungen.md](12-entscheidungen.md) ADR-10) und `email`/`emailConfirmedAt` werden aus den Ankern gelesen, nicht aus eigenen Spalten; `AttributeType.allowsAnchorReplacement` unterscheidet: `email` änderbar, `personId` nach Erstbindung unveränderlich.
 - `AccountAuthMethod` ist eine eingerichtete Methodeninstanz (`method`, `active`/`deactivatedAt`, `enrolledUnderAcr`, `label`, `details`) mit der `EnrollmentRef` als echten Spalten (`enrollment_type`, `enrollment_id`) — die einzige Stelle, an der Konto und Credential verknüpft sind. Die Credential-Zeile selbst gehört dem Methodenmodul; deaktivierte Instanzen bleiben stehen, damit die Kontolöschung jedes je referenzierte Credential erreicht. Die Methode `email` hat kein Modul-Credential: ihre Referenz ist der EMAIL-Anker (`EMAIL_ANCHOR_ENROLLMENT`).
 - `AccountIdentification` ist der Audit-Datensatz jeder Identifizierung: Verfahren, erreichtes LoA, Zeitpunkt und Nachweisanker ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1). Er ergänzt das Claim-Log, weil ein Claim seine Quelle (z. B. `ext_stammdaten`) nennt, nicht das prüfende Verfahren; für Entscheidungen wird er nie gelesen.
+- `AccountRetraction` (`account.retraction`) macht einen Wert ungültig, ohne das Log anzufassen: eine eigene Widerrufs-Zeile mit eigenem Vertrauensanker (`RetractionAnchor`: `ACCOUNT_MANAGEMENT`, `EXT_STAMMDATEN`, `OPERATOR`), Grund und Zeitpunkt ([12-entscheidungen.md](12-entscheidungen.md) ADR-12). „Aktuell gültig" ist die Subtraktion Behauptungen minus Retraktionen; der Abgleich rechnet sie mit. Das Entfernen einer Methode zieht über `auth_method_id` genau deren Behauptungen zurück — aber nur die mit `AttributeAuthority.METHOD_MODULE`, denn Anker und Stammdaten-Attribute gehören dem Konto, nicht der Methode.
 - `AccountAttribute` ist das Provenienz-Log: jede je bezeugte Behauptung (`AttributeType`, Wert, Quelle — Spalte `claim_source`, im Code `ClaimSource` —, `AcrLevel`), append-only, nie überschrieben. Eine `normalized_value`-Spalte (befüllt über einen `@PrePersist`/`@PreUpdate`-Hook) trägt die Normalisierungsregel für den lesenden Abgleich an genau einer Stelle.
 - Wo ein Attribut seine Autorität hat, ist ein deklarierter Fall, keine Ableitung: `AttributeType.authority` (`tool_api/AttributeRules.kt`) kennt `LOCAL_ANCHOR` (`PERSON_ID`, `EMAIL` — lokal in `account.anchor`), `EXT_STAMMDATEN` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `METHOD_MODULE` (`PHONE_NUMBER` — in der `<modul>_enrollment`-Zeile des Methodenmoduls). Das `when` ist exhaustiv: ein neuer Attributtyp kompiliert erst, wenn seine Herkunft entschieden ist. `anchorBindingStrength` bleibt daneben bestehen, weil es eine andere Frage beantwortet — nicht „wem gehört der Wert", sondern „wie stark bindet ein Treffer darauf eine Identität"; ein Test hält fest, dass `LOCAL_ANCHOR` genau für die Typen mit Bindungsstärke gilt.
 - `AccountAnchor` ist die Auflösungs- und Eindeutigkeits-Projektion für die lokal geführten Attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`, `EMAIL`) und zugleich deren einziger Speicherort — `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem Lookup statt einem Abgleich und ist die einzige Eindeutigkeitsautorität, `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen Wert je Konto und Attributtyp. Lokal konsolidiert wird genau, was Anker ist; alle übrigen Attribute behalten ihre Autorität in `ext_stammdaten` und werden nur geloggt. KVNR wird ausschließlich live über `ext_stammdaten` zur PersonId und anschließend zum lokalen PersonId-Anker aufgelöst; historische KVNR-Claims sind keine lokale Zuordnungsquelle. Ein Anker, der bereits einem anderen Konto gehört, wird abgewiesen, nie still übersprungen oder umgehängt ([12-entscheidungen.md](12-entscheidungen.md) ADR-11).
@@ -174,6 +175,7 @@ erDiagram
   account.account ||--o{ account.auth_method : "hat Methodeninstanz"
   account.account ||--o{ account.attribute : "bezeugt (append-only)"
   account.account ||--o{ account.identification : "identifiziert (append-only)"
+  account.account ||--o{ account.retraction : "widerruft (append-only)"
   account.auth_method }o..o| auth_sms.enrollment : "enrollment_type/_id"
   account.auth_method }o..o| auth_device.enrollment : "enrollment_type/_id"
   account.anchor }o..o| ext_stammdaten.person : "PERSON_ID-Anker"
@@ -201,7 +203,14 @@ erDiagram
     varchar attribute_value "wie bezeugt"
     varchar normalized_value "ix(attribute_type, normalized_value, account_id)"
     varchar claim_source "z.B. ext_stammdaten"
+    uuid auth_method_id "welche Methodeninstanz hat es aufgestellt"
     varchar established_loa
+  }
+  account.retraction {
+    bigint account_id FK
+    varchar attribute_type
+    varchar normalized_value "macht passende Claims ungueltig"
+    varchar trust_anchor "wer widerruft"
   }
   account.identification {
     bigint account_id FK

@@ -10,6 +10,8 @@ import com.example.dpop.account.internal.AccountAuthMethodRepository
 import com.example.dpop.account.internal.AccountIdentification
 import com.example.dpop.account.internal.AccountIdentificationRepository
 import com.example.dpop.account.internal.AccountRepository
+import com.example.dpop.account.internal.AccountRetraction
+import com.example.dpop.account.internal.AccountRetractionRepository
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.IdentityConflictException
@@ -47,6 +49,7 @@ class AccountService(
     private val accountAnchorRepository: AccountAnchorRepository,
     private val accountAuthMethodRepository: AccountAuthMethodRepository,
     private val accountIdentificationRepository: AccountIdentificationRepository,
+    private val accountRetractionRepository: AccountRetractionRepository,
     private val eventPublisher: ApplicationEventPublisher
 ) : AccountDirectory {
 
@@ -55,6 +58,50 @@ class AccountService(
     /** Single-claim convenience wrapper around [recordClaims]. */
     @Transactional
     fun recordClaim(accountId: Long, claim: Claim) = recordClaims(accountId, listOf(claim))
+
+    /**
+     * Withdraws what one method instance asserted, as its own retraction row per distinct value -
+     * the claim log itself is never touched (ADR-12, docs/12-entscheidungen.md).
+     *
+     * Retracts only claims whose [AttributeType.authority] is
+     * [AttributeAuthority.METHOD_MODULE]: the revoked module owned that value, and with its row
+     * gone nothing backs it any more. An anchor (`EMAIL`) or a master-data attribute (`NAME`)
+     * asserted along the way is an identity fact OF THE ACCOUNT, not an artifact of the method -
+     * it outlives the credential, and withdrawing it is a separate act of account management.
+     * Without that rule, removing the email method would silently strip the account's identity
+     * anchor and with it password login (`ClaimRequirement(EMAIL, PROVEN)`).
+     *
+     * @return how many retraction rows were written - 0 is the ordinary case for a method that
+     *   asserts nothing (device, password) or only account-owned facts.
+     */
+    @Transactional
+    fun retractClaimsOf(
+        accountId: Long,
+        methodInstanceId: String,
+        trustAnchor: RetractionAnchor,
+        reason: String? = null
+    ): Int {
+        val instanceId = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return 0
+        val now = Instant.now()
+        val retractable = accountAttributeRepository.findByAuthMethodId(instanceId)
+            .filter { it.accountId == accountId }
+            .filter { it.attributeType?.authority == AttributeAuthority.METHOD_MODULE }
+            .mapNotNull { claim -> claim.attributeType?.let { type -> type to claim.normalizedValue } }
+            .distinct()
+        retractable.forEach { (type, value) ->
+            accountRetractionRepository.save(
+                AccountRetraction(
+                    accountId = accountId,
+                    attributeType = type,
+                    normalizedValue = value,
+                    trustAnchor = trustAnchor,
+                    reason = reason,
+                    retractedAt = now
+                )
+            )
+        }
+        return retractable.size
+    }
 
     /**
      * The claims-log write path (docs/ideen/claims-modell-und-vertrauensanker.md) for every
@@ -67,7 +114,7 @@ class AccountService(
      * the PERSON_ID anchor, or a method module's own enrollment row) and is only logged here.
      */
     @Transactional
-    fun recordClaims(accountId: Long, claims: List<Claim>) {
+    fun recordClaims(accountId: Long, claims: List<Claim>, authMethodId: UUID? = null) {
         val seen = mutableSetOf<AttributeType>()
         claims.forEach { claim ->
             claim.validateValue()
@@ -84,6 +131,7 @@ class AccountService(
                     value = claim.value,
                     claimSource = claim.source.value,
                     establishedLoa = claim.establishedLoa?.value,
+                    authMethodId = authMethodId,
                     establishedAt = establishedAt
                 )
             )
@@ -184,7 +232,13 @@ class AccountService(
         enrolledUnderAcr: String?,
         details: Map<String, Any?>,
         allowsMultipleInstances: Boolean = false,
-        label: String? = null
+        label: String? = null,
+        /**
+         * The instance id to use, when the caller already had to know it before this call - the
+         * enrollment path generates it up front so the claims it records can point at the
+         * instance that established them (ADR-12). Defaults to a fresh one.
+         */
+        instanceId: UUID = UUID.randomUUID()
     ): AccountProfile {
         lockForUpdate(accountId)
         val now = Instant.now()
@@ -209,7 +263,7 @@ class AccountService(
                 enrolledUnderAcr = enrolledUnderAcr,
                 label = label,
                 details = details
-            ).also { it.createdAt = now }
+            ).also { it.id = instanceId; it.createdAt = now }
         )
         eventPublisher.publishEvent(AccountChanged(accountId))
         return getProfileOrThrow(accountId)

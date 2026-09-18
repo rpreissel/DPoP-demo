@@ -43,6 +43,14 @@ class AccountAttribute(
     @Column(name = "established_loa")
     var establishedLoa: String? = null,
 
+    /**
+     * The method instance whose enrollment established this claim, so revoking that method can
+     * retract exactly what it asserted (ADR-12). `null` for claims from identification tools:
+     * they produce no credential and therefore no instance to hang the claim on.
+     */
+    @Column(name = "auth_method_id")
+    var authMethodId: java.util.UUID? = null,
+
     @Column(name = "established_at", nullable = false)
     var establishedAt: Instant? = null
 ) {

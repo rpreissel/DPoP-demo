@@ -14,6 +14,10 @@ import org.aopalliance.intercept.MethodInterceptor
 import org.hibernate.exception.ConstraintViolationException
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.aop.framework.Advised
+import com.example.dpop.account.RetractionAnchor
+import com.example.dpop.tool_spi.ToolId
+import io.kotest.matchers.collections.shouldBeEmpty
+import org.springframework.data.domain.PageRequest
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.ActiveProfiles
@@ -37,7 +41,8 @@ class AccountServiceDbTest(
     private val accountService: AccountService,
     private val jdbcTemplate: JdbcTemplate,
     private val transactionManager: PlatformTransactionManager,
-    private val anchorRepository: AccountAnchorRepository
+    private val anchorRepository: AccountAnchorRepository,
+    private val attributeRepository: com.example.dpop.account.internal.AccountAttributeRepository
 ) : BehaviorSpec({
 
     beforeEach {
@@ -231,6 +236,65 @@ class AccountServiceDbTest(
                 "SELECT COUNT(*) FROM account.anchor WHERE account_id = ? AND attribute_type = 'email'",
                 Int::class.java, account.accountId
             ) shouldBe 1
+        }
+    }
+
+    // ADR-12: a retraction cancels a claim without touching the log, and the matching layer reads
+    // assertions MINUS retractions. Needs the real schema - the `not exists` subtraction is SQL.
+    given("a claim that was retracted") {
+        then("it stops matching although its log row stays") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaims(account.accountId, listOf(
+                Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN),
+                Claim(AttributeType.VORNAME, "Max", ClaimSource.EXT_STAMMDATEN),
+                Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.EXT_STAMMDATEN)
+            ))
+            fun matches() = attributeRepository.findAccountIdsMatchingAllThree(
+                AttributeType.NAME, "muster",
+                AttributeType.VORNAME, "max",
+                AttributeType.GEBURTSDATUM, "1985-06-15",
+                PageRequest.of(0, 51)
+            )
+            matches() shouldBe listOf(account.accountId)
+
+            jdbcTemplate.update(
+                """INSERT INTO account.retraction (account_id, attribute_type, normalized_value, trust_anchor, retracted_at)
+                   VALUES (?, 'name', 'muster', 'OPERATOR', CURRENT_TIMESTAMP)""",
+                account.accountId
+            )
+
+            matches().shouldBeEmpty()
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.attribute WHERE account_id = ? AND attribute_type = 'name'",
+                Int::class.java, account.accountId
+            ) shouldBe 1
+        }
+    }
+
+    given("a method instance that asserted a module-owned value and an account-owned one") {
+        then("revoking it retracts only what the module owned") {
+            val account = accountService.createUnidentifiedAccount()
+            val instanceId = java.util.UUID.randomUUID()
+            accountService.recordClaims(
+                account.accountId,
+                listOf(
+                    Claim(AttributeType.PHONE_NUMBER, "+491701234567", ClaimSource.of(ToolId("enroll-sms"))),
+                    Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.of(ToolId("enroll-sms")))
+                ),
+                authMethodId = instanceId
+            )
+
+            accountService.retractClaimsOf(
+                account.accountId, instanceId.toString(), RetractionAnchor.ACCOUNT_MANAGEMENT
+            ) shouldBe 1
+
+            // The phone number was the module's; the email is the account's own identity anchor and
+            // survives - otherwise removing the sms method would take password login with it.
+            jdbcTemplate.queryForObject(
+                "SELECT attribute_type FROM account.retraction WHERE account_id = ?",
+                String::class.java, account.accountId
+            ) shouldBe "phone_number"
+            accountService.findAccount(account.accountId)?.email shouldBe "max@example.com"
         }
     }
 })

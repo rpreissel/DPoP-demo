@@ -448,7 +448,7 @@ dagegen ein im Account-System bestätigter, wechselbarer Anker.
 
 ## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
 
-**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Umsetzung folgt): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account_retraction(account_id, attribute_type, value, trust_anchor, reason, retracted_at)`. Die Retraktion ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück (Stammdaten-Backend, Konto-Verwaltung, Operator), plus Grund und Zeitpunkt. Das Log (`account.attribute`) bleibt reine, strikt append-only Behauptungstabelle; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only, Quellen sind Konto-Verwaltung und Backend-Sync.
+**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); **umgesetzt**): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)`. Die Retraktion ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück (Stammdaten-Backend, Konto-Verwaltung, Operator), plus Grund und Zeitpunkt. Das Log (`account.attribute`) bleibt reine, strikt append-only Behauptungstabelle; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only, Quellen sind Konto-Verwaltung und Backend-Sync.
 
 **Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
 Claim-Zeile — eine Tabelle, einfachste Abfrage "gültige Werte", aber die einzige
@@ -462,6 +462,30 @@ Tool-Vertrag frei von Negativ-Formen: Tools bezeugen nur, Widerrufe sind Konto-L
 
 **Preis**: Zwei Formen statt eine — "gültiger Wert" ist immer eine Subtraktion über zwei
 Tabellen, und jeder Konsolidierungs- und Abfragepfad muss den Widerruf mitdenken.
+Heute ist das genau ein Pfad (der Attributabgleich in `IdentityMatchingService`), und die
+Subtraktion ist dort ein `not exists` über einen eigenen Index. Wird sie einmal teuer, ist die
+Antwort eine gepflegte Projektion wie `account.anchor` — nie ein Flag auf der Log-Zeile.
+
+**Nachtrag zur Umsetzung**: Der Widerruf braucht einen Anlass, der weiß, *was* er zurückzieht.
+Dafür trägt jede Claim-Zeile die `auth_method_id` der Methodeninstanz, deren Einrichtung sie
+aufgestellt hat (`null` bei Identifizierungs-Tools, die gar kein Credential erzeugen). Beim
+Entfernen einer Methode (`AccountDeletionService.revokeMethod`) zieht `retractClaimsOf` genau
+deren Behauptungen zurück — aber **nur die mit `AttributeAuthority.METHOD_MODULE`**: Ein Anker
+(`EMAIL`) oder ein Stammdaten-Attribut (`NAME`), das dieselbe Einrichtung nebenbei bezeugt hat,
+ist ein Identitätsfaktum des Kontos und überlebt das Credential. Ohne diese Regel hätte das
+Entfernen der E-Mail-Methode den E-Mail-Anker mitgerissen und damit den Passwort-Login
+(`ClaimRequirement(EMAIL, PROVEN)`) zerstört. Der Widerruf selbst ist damit
+`RetractionAnchor.ACCOUNT_MANAGEMENT` — die Vokabel ist bewusst von `ClaimSource` getrennt, weil
+ein Tool nie widerrufen darf.
+
+**Offen und bewusst nicht mitentschieden**: Die Retraktion macht einen Wert *ungültig*, sie
+*löscht* ihn nicht — und die Widerrufs-Zeile trägt den normalisierten Wert selbst, legt also eine
+zweite lesbare Kopie an. Für einen datenschutzmotivierten Widerruf ist das die falsche Richtung;
+die naheliegende Ergänzung ist eine Aufbewahrungsfrist, nach der Claim- und Retraktions-Zeile
+gemeinsam gelöscht werden (Löschen ist kein Overwrite und verletzt das Append-only-Argument
+nicht). Der Audit-Nachweis hängt nicht daran: `account.identification` hält Verfahren, LoA und
+Zeitpunkt ohne die Attributwerte fest.
+
 
 ---
 

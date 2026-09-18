@@ -164,6 +164,14 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // phone number is gone from the owning module, while the deactivated
                 // account.auth_method row stays so account deletion still walks every ref.
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auth_sms.enrollment", Int::class.java) shouldBe 0
+                // ...and what only that credential backed is withdrawn (ADR-12): a retraction row,
+                // while the claim row itself stays - the log never mutates.
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account.retraction WHERE attribute_type = 'phone_number'", Int::class.java
+                ) shouldBe 1
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account.attribute WHERE attribute_type = 'phone_number'", Int::class.java
+                ) shouldBe 1
 
                 // sms is a candidate again now that it was deactivated - email is already confirmed, so
                 // password is ALSO now a valid candidate, hence a selection page rather than a skip.

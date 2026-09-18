@@ -607,12 +607,17 @@ class JourneyService(
         // `label` is lifted into its own field rather than staying in the generic details
         // blob, so the API can surface it without clients reaching into details.
         val label = enrolled.auditDetails?.get("label") as? String
+        // Generated here rather than by addAuthenticationMethod below, because the claims are
+        // recorded FIRST (the acr computation between the two deliberately reads the account
+        // including them) and each has to name the instance that established it, so revoking the
+        // method can retract exactly that later (ADR-12).
+        val methodInstanceId = UUID.randomUUID()
         // Every claim this enrollment asserted lands in the account's identity log
         // (AccountService.recordClaims); an EMAIL claim additionally consolidates its
         // anchor and fires the AccountChanged event. Done
         // here, before this method returns, so the very next context rebuild
         // (JourneyEvent.ActionCompleted) already sees it.
-        accountService.recordClaims(accountId, enrolled.claims)
+        accountService.recordClaims(accountId, enrolled.claims, authMethodId = methodInstanceId)
         // What the environment already established BEFORE this completion (recordToolCompletion
         // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
         // session yet (REGISTER "Enrollment zuerst" with no identification at all,
@@ -655,7 +660,8 @@ class JourneyService(
                 "channel" to channel.channel?.name
             ),
             allowsMultipleInstances = action.tool.allowsMultipleInstances,
-            label = label
+            label = label,
+            instanceId = methodInstanceId
         )
         // KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
         // suppressed, not just incidentally skipped by a null bindingKeyRef.
