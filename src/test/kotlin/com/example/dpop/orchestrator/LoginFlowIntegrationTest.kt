@@ -59,7 +59,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // docs/04-orchestrierung.md #1). Two candidates -> a selection page, not a direct skip.
                 identified.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                identified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                identified.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
 
                 }
@@ -120,9 +120,10 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
+                afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
 
-                // Abandon here (never enroll email/password/device, never reach this channel's own loa2
+                // Abandon here (never confirm the address, never enroll password/device, never reach
+                // this channel's own loa2
                 // floor) -
                 // a fresh app session (new channel, plain default loa1 floor) must still recognize this
                 // device via the sms method already on file, not fall back to ident-fsc.
@@ -177,7 +178,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val thirdChannel = post("/orchestrator/api/v1/app/channels")
                 thirdChannel.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                thirdChannel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                thirdChannel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
 
                 }
@@ -242,7 +243,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$enrollTan"}""")
-                val email = enrollEmail(channelSessionId)
+                val email = confirmEmail(channelSessionId)
 
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
@@ -313,7 +314,8 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
                 )
-                val emailB = enrollEmail(channelB)
+                enrollSms(channelB)
+                val emailB = confirmEmail(channelB)
                 val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelB/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
@@ -369,7 +371,8 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-                enrollEmail(channelSessionId)
+                confirmEmail(channelSessionId)
+                enrollPassword(channelSessionId)
 
                 val logoutPrompt = post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
                 logoutPrompt.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
@@ -387,18 +390,16 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // Completing sms alone satisfies the default loa1 floor, so start an explicit loa2
                 // step-up before proving the distinct KNOWLEDGE factor by email.
                 post("/orchestrator/api/v1/channels/$loginChannelSessionId/step-ups", """{"requiredAcr":"loa2"}""")
-                val (emailTan, emailActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$loginChannelSessionId/tools/auth-email")
-                }
+                val emailActivation = post("/orchestrator/api/v1/channels/$loginChannelSessionId/tools/auth-password")
                 val authEmailToolSessionId = emailActivation.nextRaw()["toolSessionId"] as String
-                val authenticated = patch("/orchestrator/api/v1/tools/$authEmailToolSessionId/auth-email", """{"code":"$emailTan"}""")
+                val authenticated = patch("/orchestrator/api/v1/tools/$authEmailToolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val channel = get("/orchestrator/api/v1/channels/$loginChannelSessionId")
                 @Suppress("UNCHECKED_CAST")
-                channel.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("sms", "email")
+                channel.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("sms", "password")
                 @Suppress("UNCHECKED_CAST")
-                (channel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
+                (channel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "password")
 
 
                 }
@@ -409,7 +410,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("logging in via auth-email-lookup with email and code") {
                 then("it authenticates into the existing account") {
 
-                val email = registerWithEmailAndPassword()
+                // The METHOD has to be enrolled explicitly now - confirming the address no longer
+                // creates it (ADR-17), and auth-email-lookup proves that method.
+                val email = registerWithEmailAndPassword(alsoEnrollEmailMethod = true)
 
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String

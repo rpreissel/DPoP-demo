@@ -61,7 +61,7 @@ class ClaimsTest : BehaviorSpec({
             claim.establishedLoa shouldBe AcrLevel.LOA2
         }
         then("establishedLoa defaults to null") {
-            Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(ToolId("enroll-email"))).establishedLoa shouldBe null
+            Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(ToolId("confirm-email"))).establishedLoa shouldBe null
         }
         then("rejects malformed shared identity values") {
             shouldThrow<IllegalStateException> {

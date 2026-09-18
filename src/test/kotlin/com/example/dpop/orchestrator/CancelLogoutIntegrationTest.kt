@@ -80,7 +80,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 // exist, so that's a selection page, not the single auth-sms tool directly.
                 cancelled.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                cancelled.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                cancelled.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
 
                 }
@@ -117,7 +117,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 newChannelSessionId shouldNotBe channelSessionId
                 newChannel.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                newChannel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                newChannel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
                 val (tan, activation) = captureMockTan {
                     post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")

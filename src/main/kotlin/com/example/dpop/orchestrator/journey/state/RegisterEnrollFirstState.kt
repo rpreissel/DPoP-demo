@@ -33,7 +33,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstStart::class, name = "EnrollFirstStart"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrollingEmail::class, name = "EnrollFirstEnrollingEmail"),
+    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstAttestingEmail::class, name = "EnrollFirstAttestingEmail"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrollingSms::class, name = "EnrollFirstEnrollingSms"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrolling::class, name = "EnrollFirstEnrolling"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstConfirmingEmail::class, name = "EnrollFirstConfirmingEmail"),
@@ -62,18 +62,18 @@ sealed interface RegisterEnrollFirstState : JourneyState {
      * no email-method tool is available at all right now (admin-disabled) - see
      * `RegisterEnrollFirstStrategy.offerEmailEnrollment`.
      */
-    data class EnrollFirstEnrollingEmail(
+    data class EnrollFirstAttestingEmail(
         override val offered: List<ToolId>,
         override val declined: Set<ToolId> = emptySet(),
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "E-Mail als Anmeldeverfahren einrichten"
-        override val selectionDescription: String get() = "Zuerst wird E-Mail als Anmeldeverfahren eingerichtet - SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss."
+        override val selectionTitle: String get() = "E-Mail-Adresse bestätigen"
+        override val selectionDescription: String get() = "Zuerst wird Ihre E-Mail-Adresse bestätigt - Ihr Konto wird darüber gefunden. SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss."
     }
 
-    /** Forced, mandatory second step, reached only once [EnrollFirstEnrollingEmail] is discharged (or skipped, see there) - same non-skippable reasoning. */
+    /** Forced, mandatory second step, reached only once [EnrollFirstAttestingEmail] is discharged (or skipped, see there) - same non-skippable reasoning. */
     data class EnrollFirstEnrollingSms(
         override val offered: List<ToolId>,
         override val declined: Set<ToolId> = emptySet(),
@@ -110,10 +110,10 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
-        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden, damit sie als Anmeldeverfahren genutzt werden kann."
+        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
     }
 
-    /** Web-channel-only, same reasoning as [RegisterState.PasswordObligation] - just reached before, not after, any identification. */
+    /** Same reasoning as [RegisterState.PasswordObligation] - just reached before, not after, any identification. */
     data class EnrollFirstPasswordObligation(
         override val offered: List<ToolId>,
         override val declined: Set<ToolId> = emptySet(),
@@ -122,6 +122,6 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Passwort einrichten"
-        override val selectionDescription: String get() = "Für die Registrierung über das Web-Portal ist ein Passwort als Anmeldeverfahren erforderlich."
+        override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."
     }
 }

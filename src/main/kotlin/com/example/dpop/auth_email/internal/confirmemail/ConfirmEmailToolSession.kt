@@ -1,0 +1,33 @@
+package com.example.dpop.auth_email.internal.confirmemail
+
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
+import java.time.Instant
+import java.util.UUID
+
+/** Tool-session-scoped working data for toolId=confirm-email (mirrors auth_sms's EnrollSmsToolSession). */
+@Entity
+@Table(schema = "auth_email", name = "confirm_tool_session")
+class ConfirmEmailToolSession(
+    @Id
+    @Column(name = "tool_session_id", nullable = false)
+    var toolSessionId: UUID? = null,
+
+    @Column(name = "email")
+    var email: String? = null,
+
+    @Column(name = "issued_code_hash")
+    var issuedCodeHash: String? = null,
+
+    @Column(name = "code_expires_at")
+    var codeExpiresAt: Instant? = null
+) {
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant? = null
+
+    init {
+        createdAt = Instant.now()
+    }
+}

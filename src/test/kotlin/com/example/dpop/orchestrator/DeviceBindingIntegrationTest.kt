@@ -128,8 +128,9 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             // on top - so declining the device leaves genuine alternatives to choose from.
             val channelSessionId = identify()
             enrollSms(channelSessionId)
-            enrollEmail(channelSessionId)
-            // sms + confirmed email already finish the journey, so the device credential is added
+            confirmEmail(channelSessionId)
+            enrollPassword(channelSessionId)
+            // sms + password already finish the journey, so the device credential is added
             // afterwards through MANAGE - the loa2 gate is satisfied by this session's own ident-fsc.
             post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
             enrollDevice(channelSessionId)
@@ -145,7 +146,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val afterDecline = delete("/orchestrator/api/v1/tools/$toolSessionId/auth-device")
             afterDecline.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
             @Suppress("UNCHECKED_CAST")
-            afterDecline.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+            afterDecline.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
             // Cancelling the whole journey, by contrast, restarts the SAME intent - and therefore
             // legitimately lands back on the first state. The two actions are not interchangeable.

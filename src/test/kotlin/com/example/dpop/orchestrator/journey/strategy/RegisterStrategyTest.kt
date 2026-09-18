@@ -20,6 +20,9 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.core.spec.style.BehaviorSpec
@@ -134,7 +137,10 @@ class RegisterStrategyTest : BehaviorSpec({
                 to.shouldBeInstanceOf<Enrolling>()
                 to as Enrolling
                 to.emailObligation shouldBe true
-                to.offered shouldContainExactlyInAnyOrder listOf(ToolId("enroll-sms"), ToolId("enroll-email"), ToolId("enroll-device"), ToolId("enroll-qr"))
+                // confirm-email is not in here: attesting the address is its own act, offered as
+                // the obligation below, not as one more way to enroll a method. enroll-email is
+                // missing too - it requires the confirmed address that does not exist yet.
+                to.offered shouldContainExactlyInAnyOrder listOf(ToolId("enroll-sms"), ToolId("enroll-device"), ToolId("enroll-qr"))
             }
         }
     }
@@ -193,11 +199,11 @@ class RegisterStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmingEmail") {
-        val state = RegisterState.ConfirmingEmail(listOf(ToolId("enroll-email")))
+        val state = RegisterState.ConfirmingEmail(listOf(ToolId("confirm-email")))
 
         `when`("abandoned") {
             then("re-offers the same full choice - the obligation itself is never waived by backing out") {
-                strategy.transition(state, JourneyEvent.Abandoned(com.example.dpop.auth_email.EnrollEmailDescriptor), ctx()) shouldBe
+                strategy.transition(state, JourneyEvent.Abandoned(com.example.dpop.auth_email.ConfirmEmailDescriptor), ctx()) shouldBe
                     Transition.To(state.withActive(null))
             }
         }
@@ -205,12 +211,17 @@ class RegisterStrategyTest : BehaviorSpec({
         `when`("the email is confirmed, and the account now reaches the floor, on the APP channel") {
             val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1, channel = ChannelSession.Channel.APP)
-            then("adopts the credential, then finishes - the obligation is discharged, no password obligation on APP") {
-                val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
-                val event = JourneyEvent.Completed(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome)
+            then("adopts the attestation, then asks for the password - the knowledge factor is now named") {
+                val outcome = ToolOutcome.Completed.Attested(
+                    claims = listOf(Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.of(ToolId("confirm-email"))))
+                )
+                val event = JourneyEvent.Completed(com.example.dpop.auth_email.ConfirmEmailDescriptor, outcome)
+                // No credential and no device binding - the account keeps the address, nothing
+                // was created that this device could later be recognized by.
                 strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptCredential(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome, bindDevice = true), resumeState = state)
-                strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
+                    Transition.Perform(Action.AdoptAttestation(com.example.dpop.auth_email.ConfirmEmailDescriptor, outcome), resumeState = state)
+                strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                    Transition.To(RegisterState.PasswordObligation(listOf(ToolId("enroll-password"))))
             }
         }
     }
@@ -233,7 +244,7 @@ class RegisterStrategyTest : BehaviorSpec({
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.To(RegisterState.ConfirmingEmail(listOf(ToolId("enroll-email"))))
+                    Transition.To(RegisterState.ConfirmingEmail(listOf(ToolId("confirm-email"))))
             }
         }
     }
@@ -281,7 +292,7 @@ class RegisterStrategyTest : BehaviorSpec({
             strategy.transition(state, event, theCtx) shouldBe
                 Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
-                Transition.To(RegisterState.ConfirmingEmail(listOf(ToolId("enroll-email"))))
+                Transition.To(RegisterState.ConfirmingEmail(listOf(ToolId("confirm-email"))))
         }
     }
 
@@ -304,7 +315,7 @@ class RegisterStrategyTest : BehaviorSpec({
         }
     }
 
-    given("Enrolling on the APP channel - the same scenario that would trigger PasswordObligation on the Web") {
+    given("Enrolling on the APP channel - the obligation applies here too since the email split") {
         val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc,
@@ -314,12 +325,16 @@ class RegisterStrategyTest : BehaviorSpec({
         )
         val state = Enrolling(listOf(ToolId("enroll-sms"), ToolId("enroll-password")), emailObligation = false)
 
-        then("the obligation never applies on APP - finishes directly, exactly like FAST_ACCESS") {
+        // Used to finish directly: confirming the email left a KNOWLEDGE method behind, so the
+        // account already had two factor kinds. Now that attesting an address creates no method,
+        // the knowledge factor has to be asked for outright - on every channel.
+        then("the obligation applies on APP as well - the password is the named knowledge factor") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
                 Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
-            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
+            strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
+                Transition.To(RegisterState.PasswordObligation(listOf(ToolId("enroll-password"))))
         }
     }
 
@@ -351,13 +366,13 @@ class RegisterStrategyTest : BehaviorSpec({
             acrFloor = AcrLevel.LOA1,
             channel = ChannelSession.Channel.KEYCLOAK
         )
-        val state = RegisterState.ConfirmingEmail(listOf(ToolId("enroll-email")))
+        val state = RegisterState.ConfirmingEmail(listOf(ToolId("confirm-email")))
 
         then("the discharged email obligation falls through to the still-open password obligation, not straight to Authenticated") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
-            val event = JourneyEvent.Completed(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome)
+            val event = JourneyEvent.Completed(com.example.dpop.auth_email.ConfirmEmailDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(com.example.dpop.auth_email.EnrollEmailDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(com.example.dpop.auth_email.ConfirmEmailDescriptor, outcome, bindDevice = true), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterState.PasswordObligation(listOf(ToolId("enroll-password"))))
         }

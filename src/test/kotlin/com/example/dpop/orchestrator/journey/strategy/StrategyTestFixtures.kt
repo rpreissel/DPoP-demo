@@ -6,6 +6,7 @@ import com.example.dpop.auth_device.AuthDeviceDescriptor
 import com.example.dpop.auth_device.EnrollDeviceDescriptor
 import com.example.dpop.auth_email.AuthEmailLookupDescriptor
 import com.example.dpop.auth_email.AuthEmailUseDescriptor
+import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
 import com.example.dpop.auth_password.AuthPasswordUseDescriptor
@@ -43,7 +44,7 @@ object StrategyTestFixtures {
         listOf(
             IdentFscDescriptor, IdentEidDescriptor,
             EnrollSmsDescriptor, AuthSmsUseDescriptor, AuthSmsLookupDescriptor,
-            EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
+            ConfirmEmailDescriptor, EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
             EnrollPasswordDescriptor, AuthPasswordUseDescriptor, AuthPasswordLookupDescriptor,
             EnrollDeviceDescriptor, AuthDeviceDescriptor,
             EnrollQrDescriptor, AuthQrDescriptor, AuthQrLookupDescriptor, ConfirmQrLoginDescriptor

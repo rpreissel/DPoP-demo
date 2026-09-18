@@ -35,36 +35,35 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // sms alone already reaches the default loa1 floor - without the Required Action, this
             // would go straight to AUTHENTICATED.
             val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-            afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
+            afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
 
             val channelMidway = get("/orchestrator/api/v1/channels/$channelSessionId")
             channelMidway.channel()["state"] shouldBe "REGISTERING"
 
-            enrollEmail(channelSessionId)
+            confirmEmail(channelSessionId)
+            enrollPassword(channelSessionId)
 
             val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
             finalChannel.channel()["state"] shouldBe "AUTHENTICATED"
             @Suppress("UNCHECKED_CAST")
-            (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
+            (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "password")
         }
-        then("Registration choosing email first already satisfies both required actions in one step") {
+        then("Registration discharges both required actions - the address, then the password") {
             val channelSessionId = identify()
 
-            // Enroll email FIRST (its own maxAcr already reaches the default loa1 floor alone) -
-            // both Required Actions (confirmed email, sufficient login method) are satisfied by this
-            // single enrollment, so registration finishes immediately - no second forced sms step,
-            // proving the order of enrollment doesn't matter, only that both end up satisfied.
-            val enrollEmailToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
-            val email = "required-action-order-${UUID.randomUUID()}@example.com"
-            val (code, _) = captureMockTan {
-                patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"email":"$email"}""")
-            }
-            val enrolled = patch("/orchestrator/api/v1/tools/$enrollEmailToolSessionId/enroll-email", """{"code":"$code"}""")
+            // Enroll the EMAIL METHOD first. It is gated on a confirmed address
+            // (ClaimRequirement(EMAIL, PROVEN)), so the address has to be attested before it can be
+            // chosen at all - that gate, not the order of the remaining choices, is what this
+            // scenario now shows.
+            enrollSms(channelSessionId)
+            val email = confirmEmail(channelSessionId)
+            enrollPassword(channelSessionId)
+            val enrolled = get("/orchestrator/api/v1/channels/$channelSessionId")
             enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
             val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
             @Suppress("UNCHECKED_CAST")
-            (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("email")
+            (finalChannel.channel()["activeMethods"] as List<*>).methodNames() shouldContainExactlyInAnyOrder listOf("sms", "password")
         }
         then("Existing account without confirmed email can still login and add a method via manage methods") {
             // Registration WITHOUT the Required Action gate (simulates an account provisioned before
@@ -117,7 +116,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             // shouldContainAll, not exact - new enrollment methods elsewhere in the catalog
             // shouldn't force an edit here; enroll-password's exclusion is the point of this test
             // and stays an explicit assertion.
-            reIdentifiedOptions shouldContainAll listOf("enroll-email", "enroll-device", "enroll-qr")
+            reIdentifiedOptions shouldContainAll listOf("enroll-device", "enroll-qr")
             reIdentifiedOptions shouldNotContain "enroll-password"
         }
         }

@@ -11,7 +11,7 @@ interface EmailEnrollFormProps {
   demoPersons?: DemoPerson[]
 }
 
-/** toolId=enroll-email / step=enroll: registers and confirms an email address as a knowledge/possession factor. */
+/** toolId=confirm-email / step=input: confirms control over an email address - the account keeps it, no method is created. */
 export function EmailEnrollForm({ onSubmit, error, demoEmail, demoPersons }: EmailEnrollFormProps) {
   const [email, setEmail] = useState(demoEmail ?? '')
 

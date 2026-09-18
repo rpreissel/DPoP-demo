@@ -52,7 +52,7 @@ Jedes Tool bringt eine eigene, kleine Descriptor-Bean mit (`object EnrollSmsDesc
 |---|---|
 | `toolId` | z. B. `"auth-sms"` — frei vergeben, nie aus `role`/`method` abgeleitet (öffentlicher API-Vertrag) |
 | `method` | z. B. `"sms"` — verbindet `enroll-sms`/`auth-sms`/`auth-sms-lookup` |
-| `role` | `IDENTIFICATION` \| `ENROLLMENT` \| `IDENTIFIED_AUTH` \| `LOOKUP_AUTH` \| `PEER_APPROVAL`; `role.category` (`IDENT`/`ENROLL`/`AUTH`/`SIDE_ACTION`) wird direkt gelesen, nicht auf dem Descriptor dupliziert |
+| `role` | `IDENTIFICATION` \| `ATTESTATION` \| `ENROLLMENT` \| `IDENTIFIED_AUTH` \| `LOOKUP_AUTH` \| `PEER_APPROVAL`; `role.category` (`IDENT`/`ATTEST`/`ENROLL`/`AUTH`/`SIDE_ACTION`) wird direkt gelesen, nicht auf dem Descriptor dupliziert |
 | `factorTypes`, `maxAcr` | statische Obergrenzen dieses Tools |
 | `requires`, `allowsMultipleInstances` | leere Menge bzw. `false` per Default |
 
@@ -77,6 +77,28 @@ fehlgeschlagen:
 Jede `Completed`-Variante trägt zusätzlich `amr` (nachgewiesene Methoden, für
 `AuthContext.currentAmr`), `achievedAcr` und `factorTypes` (Teilmenge der `ToolDescriptor.factorTypes`).
 Die Variante *ist* die Kategorie und legt fest, was der Orchestrator tut.
+
+### `ATTEST`: ein Attribut bezeugen ist weder Identifizierung noch Anmeldung
+
+`confirm-email` weist nach, dass jemand eine Adresse **kontrolliert** — dort kommt ein Code an. Das
+ist weder „wer bist du" (das sagt das Register, `IDENT`) noch „weise ein Mittel nach" (`AUTH`) noch
+„richte ein Mittel ein" (`ENROLL`). Deshalb eine eigene Kategorie mit `MethodRole.ATTESTATION` und
+der Ergebnisform `ToolOutcome.Completed.Attested`: Claims ja, `enrollmentRef` nein, `amr`
+ausdrücklich leer — eine bestätigte Adresse darf das Niveau des Kanals nicht anheben.
+
+Unter `IDENT` einzuordnen wäre falsch gewesen, denn drei Stellen unterscheiden über die Kategorie:
+`CandidateTools.forIdentification` und `DefaultAuthPolicy.reIdentCandidates` böten das Tool als
+Identifizierungsverfahren an, und `evidenceAxis` legte seine Evidenz auf die IDENTITY-Achse — damit
+höbe eine Adressbestätigung das IAL, den ersten der drei Deckel aus ADR-5.
+
+**Wann welche Kategorie**, für das nächste Attribut: Die Antwort steht schon in zwei deklarierten
+Angaben — `ClaimSource` (wer bürgt) und `AttributeType.authority` (wem der aktuelle Wert gehört).
+Bürgt das Register (`EXT_STAMMDATEN`), ist es `IDENT`; bürgt der Austausch selbst
+(`ClaimSource.of(toolId)`) und gehört der Wert dem Konto (`LOCAL_ANCHOR`), ist es `ATTEST`; gehört
+er dem Methodenmodul (`METHOD_MODULE`), ist es `ENROLL`. Die KVNR zeigt die Grenze: Über sie lässt
+sich keine Kontrolle nachweisen, nur die Zugehörigkeit zur Person, die das Register darunter führt
+— also `IDENT`, kein `attest-kvnr`. Die Telefonnummer ebenso wenig: Sie ist nicht eindeutig, kein
+Anker, und niemand löst ein Konto über sie auf — sie bleibt Bestandteil ihres Credentials.
 
 `ToolCategory.SIDE_ACTION` (statt eines feature-spezifischen `PEER`) benennt die geteilte
 Eigenschaft von `PEER_APPROVAL`-Tools: sie tragen nichts zur ACR/AMR-Bilanz des *eigenen* Kanals

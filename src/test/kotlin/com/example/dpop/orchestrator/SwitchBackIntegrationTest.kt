@@ -66,7 +66,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 // shouldContainAll (not exact): new enrollment methods elsewhere in the catalog
                 // don't change this. enroll-password's absence is checked explicitly since it's the
                 // one deliberately excluded (unconfirmed email).
-                resultOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                resultOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr")
                 resultOptions shouldNotContain "enroll-password"
 
                 // The abandoned tool session is gone even though we re-activate the same toolId.

@@ -7,7 +7,7 @@ interface EmailCodeInputFormProps {
   demoTan?: string
 }
 
-/** Shared by enroll-email/codeInput and auth-email/auth. */
+/** Shared by confirm-email/codeInput and auth-email/auth. */
 export function EmailCodeInputForm({ onSubmit, error, demoTan }: EmailCodeInputFormProps) {
   const [code, setCode] = useState(demoTan ?? '')
 

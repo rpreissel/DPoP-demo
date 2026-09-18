@@ -27,8 +27,9 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 put("/orchestrator/api/v1/admin/registration-order", """{"enrollFirst":true}""") shouldBe org.springframework.http.HttpStatus.OK
 
                 val channelSessionId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
-                enrollEmail(channelSessionId)
+                confirmEmail(channelSessionId)
                 enrollSms(channelSessionId)
+                enrollPassword(channelSessionId)
                 // Every enrollment obligation discharged - declines the optional, closing
                 // identification offer, so the account stays personId == null.
                 val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
@@ -52,11 +53,9 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 // STEP_UP sub-journey, since loa1 (the session's own level) already suffices.
                 accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
 
-                val (code, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email")
-                }
+                val activation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password")
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val completed = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
+                val completed = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
 
                 completed.channel()["state"] shouldBe "LOGGED_OUT"
                 jdbcTemplate.queryForObject(
@@ -144,11 +143,9 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
                 val accepted = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
                 accepted.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
 
-                val (code, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email")
-                }
+                val activation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password")
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val completed = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
+                val completed = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
 
                 completed.channel()["state"] shouldBe "LOGGED_OUT"
                 completed["next"] shouldBe null

@@ -1,7 +1,7 @@
 import { submitViaPatch } from '../shared/defaultApi'
 import type { ToolRenderContext } from '../types'
 
-export function enrollEmail(ctx: ToolRenderContext, email: string) {
+export function confirmEmail(ctx: ToolRenderContext, email: string) {
   return submitViaPatch(ctx, { email })
 }
 

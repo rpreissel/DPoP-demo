@@ -1,6 +1,7 @@
 package com.example.dpop.auth_email.internal
 import com.example.dpop.auth_email.internal.authemaillookup.AuthEmailLookupToolSessionRepository
 import com.example.dpop.auth_email.internal.authemailuse.AuthEmailUseToolSessionRepository
+import com.example.dpop.auth_email.internal.confirmemail.ConfirmEmailToolSessionRepository
 import com.example.dpop.auth_email.internal.enrollemail.EnrollEmailToolSessionRepository
 
 import org.springframework.scheduling.annotation.Scheduled
@@ -12,6 +13,7 @@ import java.time.Instant
 /** Self-cleanup by age (docs/07-betrieb.md #3), mirroring AuthSmsRetentionJob. */
 @Component
 class AuthEmailRetentionJob(
+    private val confirmToolSessionRepository: ConfirmEmailToolSessionRepository,
     private val enrollToolSessionRepository: EnrollEmailToolSessionRepository,
     private val authUseToolSessionRepository: AuthEmailUseToolSessionRepository,
     private val authLookupToolSessionRepository: AuthEmailLookupToolSessionRepository
@@ -21,6 +23,7 @@ class AuthEmailRetentionJob(
     @Transactional
     fun cleanup() {
         val cutoff = Instant.now().minus(RETENTION)
+        confirmToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         enrollToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         authUseToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         authLookupToolSessionRepository.deleteByCreatedAtBefore(cutoff)

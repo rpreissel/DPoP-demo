@@ -163,7 +163,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // filters to exactly this account's own active methods - registerAndAuthenticate
                     // only ever enrolled sms+email, so password/device must never appear here even
                     // though they're both in the catalog.
-                    options shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                    options shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
                 }
             }
         }
@@ -311,7 +311,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // rest: new enrollment methods elsewhere in the catalog don't change this.
                     @Suppress("UNCHECKED_CAST")
                     val afterIdentOptions = afterIdent.stepData()["options"] as List<String>
-                    afterIdentOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                    afterIdentOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr")
                     afterIdentOptions shouldNotContain "enroll-password"
 
                     val smsToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
@@ -324,14 +324,14 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // The floor (default loa1) is already reached by sms alone, but the shared
                     // email obligation from Identifying is still open - single remaining
                     // candidate skips the selection page (docs/04-orchestrierung.md #4).
-                    afterSms.next()["toolId"] shouldBe "enroll-email"
+                    afterSms.next()["toolId"] shouldBe "confirm-email"
 
-                    val emailToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email")
+                    val emailToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/confirm-email")
                         .nextRaw()["toolSessionId"] as String
                     val (emailCode, _) = captureMockTan {
-                        kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/enroll-email", """{"email":"max@example.com"}""")
+                        kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/confirm-email", """{"email":"max@example.com"}""")
                     }
-                    val afterEmail = kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/enroll-email", """{"code":"$emailCode"}""")
+                    val afterEmail = kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/confirm-email", """{"code":"$emailCode"}""")
 
                     // Only now, with the email confirmed, does the Web-only password obligation
                     // kick in - without it this would already be AUTHENTICATED.

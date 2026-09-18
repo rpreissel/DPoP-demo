@@ -72,7 +72,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
                 "id_fsc.ident_tool_session", "id_eid.ident_tool_session",
                 "auth_sms.enroll_tool_session", "auth_sms.auth_tool_session", "auth_sms.lookup_tool_session", "auth_sms.enrollment",
                 "auth_password.enroll_tool_session", "auth_password.auth_tool_session", "auth_password.lookup_tool_session", "auth_password.enrollment",
-                "auth_email.enroll_tool_session", "auth_email.auth_tool_session", "auth_email.lookup_tool_session",
+                "auth_email.confirm_tool_session", "auth_email.enroll_tool_session", "auth_email.auth_tool_session", "auth_email.lookup_tool_session",
                 "auth_device.enroll_tool_session", "auth_device.auth_tool_session", "auth_device.enrollment",
                 "auth_qr.enroll_tool_session", "auth_qr.auth_tool_session", "auth_qr.lookup_tool_session", "auth_qr.confirm_tool_session",
                 "auth_qr.login_request", "auth_qr.enrollment",
@@ -243,15 +243,38 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
         return started
     }
 
-    /** Runs enroll-email through to Completed on the given channel, returns the confirmed email. */
-    protected fun enrollEmail(channelSessionId: String): String {
+    /**
+     * Runs confirm-email through to Completed on the given channel, returns the confirmed address.
+     *
+     * Reuses a confirm-email tool session the journey already has running instead of activating a
+     * second one - the enroll-first REGISTER variant opens it as its own mandatory first step, and
+     * a real client would likewise just follow the `next` it was handed.
+     */
+    protected fun confirmEmail(channelSessionId: String): String {
         val email = "max.mustermann+${UUID.randomUUID()}@example.com"
-        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email").nextRaw()["toolSessionId"] as String
+        val current = get("/orchestrator/api/v1/channels/$channelSessionId").nextRaw()
+        val confirmToolSessionId = (current["toolSessionId"] as? String)?.takeIf { current["toolId"] == "confirm-email" }
+            ?: post("/orchestrator/api/v1/channels/$channelSessionId/tools/confirm-email").nextRaw()["toolSessionId"] as String
         val (code, _) = captureMockTan {
-            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"email":"$email"}""")
+            patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-email", """{"email":"$email"}""")
         }
-        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-email", """{"code":"$code"}""")
+        patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-email", """{"code":"$code"}""")
         return email
+    }
+
+    /**
+     * Activates email as an authentication METHOD - a one shot, since confirm-email already proved
+     * control over the address. Separate from [confirmEmail] on purpose: confirming is account
+     * infrastructure, enrolling is a login method.
+     */
+    protected fun enrollEmailMethod(channelSessionId: String) {
+        post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email")
+    }
+
+    /** Runs enroll-password through to Completed - mandatory in every REGISTER run since the split. */
+    protected fun enrollPassword(channelSessionId: String, password: String = "correct-horse-battery") {
+        val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-password", """{"password":"$password"}""")
     }
 
     /** Runs enroll-sms through to Completed on the given channel. */
@@ -272,12 +295,19 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     protected fun registerAndAuthenticate(): String {
         val channelSessionId = identify()
         enrollSms(channelSessionId)
-        enrollEmail(channelSessionId)
+        // The obligations in their reachable order: the address first (enroll-password is gated on
+        // it), then the password, which is now required on every channel.
+        confirmEmail(channelSessionId)
+        enrollPassword(channelSessionId)
         return channelSessionId
     }
 
-    /** Registers via ident-fsc -> enroll-email -> enroll-password, returns the confirmed email. */
-    protected fun registerWithEmailAndPassword(password: String = "correct-horse-battery"): String {
+    /** Registers via ident-fsc -> enroll-sms -> confirm-email -> enroll-password, returns the confirmed email. */
+    protected fun registerWithEmailAndPassword(
+        password: String = "correct-horse-battery",
+        /** Also activate email as a LOGIN method - its own act since ADR-17, needed by auth-email*. */
+        alsoEnrollEmailMethod: Boolean = false
+    ): String {
         val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
         val channelSessionId = channelResponse.channel()["channelSessionId"] as String
         val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
@@ -285,9 +315,17 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
             """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
         )
-        val email = enrollEmail(channelSessionId)
-        val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
-        patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"$password"}""")
+        // A method first: the address is asked for after the first enrollment, not straight after
+        // the identification (AuthEnrollCore.afterEnrollment).
+        enrollSms(channelSessionId)
+        val email = confirmEmail(channelSessionId)
+        enrollPassword(channelSessionId, password)
+        if (alsoEnrollEmailMethod) {
+            // The registration journey is finished at this point, so this goes through MANAGE - the
+            // loa2 gate is satisfied by this session's own ident-fsc.
+            post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
+            enrollEmailMethod(channelSessionId)
+        }
         return email
     }
 }

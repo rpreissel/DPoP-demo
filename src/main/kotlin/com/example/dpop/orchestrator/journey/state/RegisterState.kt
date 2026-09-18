@@ -97,16 +97,16 @@ sealed interface RegisterState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
-        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden, damit sie als Anmeldeverfahren genutzt werden kann."
+        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
     }
 
     /**
-     * Web-channel-only third obligation (docs/04-orchestrierung.md #8, [RegisterStrategy]): a
-     * REGISTER run on the KEYCLOAK channel must always end up with a password credential, not just
-     * any sufficient one - unlike [Enrolling.emailObligation], this does not cross channels either
-     * (an APP REGISTER run never produces it) - it is a channel-scoped exception, applied by
-     * [RegisterStrategy] itself right after the shared `afterEnrollment` re-check would otherwise
-     * finish the run.
+     * Third obligation, on every channel (docs/04-orchestrierung.md #8, [RegisterStrategy]): a
+     * REGISTER run must always end up with a password credential, not just any sufficient one.
+     * Applies since confirming an email stopped being an enrollment - the address is account
+     * infrastructure and leaves no KNOWLEDGE method behind, so the knowledge factor is named
+     * outright instead of arriving as a side effect. Applied by [RegisterStrategy] right after the
+     * shared `afterEnrollment` re-check would otherwise finish the run.
      *
      * Ordered AFTER [ConfirmingEmail], not before: `enroll-password` itself requires a confirmed
      * account email (`ToolDescriptor.requires`, a `ClaimRequirement(EMAIL, PROVEN)`,
@@ -124,6 +124,6 @@ sealed interface RegisterState : JourneyState {
         override fun withActive(active: ToolRef?) = copy(active = active)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Passwort einrichten"
-        override val selectionDescription: String get() = "Für die Registrierung über das Web-Portal ist ein Passwort als Anmeldeverfahren erforderlich."
+        override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."
     }
 }

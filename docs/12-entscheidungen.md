@@ -638,6 +638,33 @@ eindeutig.
 
 ---
 
+## ADR-17: Adresse bestätigen und E-Mail-Login einrichten sind zwei Akte
+
+**Entscheidung**: Die Bestätigung einer E-Mail-Adresse ist ein eigenes Tool `confirm-email` mit
+eigener Kategorie `ToolCategory.ATTEST` (Rolle `ATTESTATION`) und eigener Ergebnisform
+`ToolOutcome.Completed.Attested`: Claims ja, kein `enrollmentRef`, `amr` ausdrücklich leer. Es
+erzeugt **keine** Methodeninstanz. `enroll-email` bleibt daneben bestehen, setzt aber eine bereits
+bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) und ist dadurch ein Ein-Schritt-Tool
+ohne Code-Austausch — bewiesen ist die Kontrolle ja schon. Weil damit der Wissensfaktor nicht mehr
+als Nebenprodukt der Adressbestätigung entsteht, ist **das Passwort in jeder Registrierung Pflicht**,
+nicht mehr nur im Web-Kanal; die Reihenfolge ist Adresse, Passwort, Besitzfaktor.
+
+**Erwogene Alternative**: Alles beim Alten lassen und die Kopplung nur dokumentieren — `enroll-email`
+bestätigt die Adresse *und* legt die Methode an, wie bisher.
+
+**Warum diese**: Die Adresse gehört dem Konto, nicht dem Verfahren (`AttributeType.authority ==
+LOCAL_ANCHOR`). Drei fremde Lookup-Verfahren lösen das Konto über sie auf, und
+`enroll-password` ist auf sie gegated — sie ist Infrastruktur. Solange derselbe Akt beides tat,
+konnte man weder die Adresse bestätigen, ohne E-Mail-Login zu bekommen, noch E-Mail-Login entfernen,
+ohne dass die Frage aufkam, ob die Adresse mitgeht. Die Trennung beantwortet das strukturell: Die
+Methode zu entfernen kann die Adresse gar nicht mehr mitreißen.
+
+**Preis**: Ein Schritt mehr in der Registrierung, ein Tool mehr im Katalog, und eine Reihe von
+Integrationstests musste ihre Erwartung umstellen (`sms + email` → `sms + password`). Die
+Asymmetrie „Passwort nur im Web" entfällt — sie war nirgends begründet, nur festgestellt.
+
+---
+
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 
 Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md), die

@@ -149,14 +149,14 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
      * it: the shared code already only returns [Transition.Authenticated] once any email obligation
      * is discharged, so password is necessarily checked last.
      *
-     * Web-only (docs/04-orchestrierung.md #8, [RegisterState.PasswordObligation]'s own KDoc): only
-     * the KEYCLOAK channel must always end up with a password credential in addition to the shared
-     * email obligation - `enroll-sms` stays a free choice on both channels, only `password` is
-     * unconditionally required, and only on the Web.
+     * Required on BOTH channels since email confirmation stopped being an enrollment: a confirmed
+     * address is account infrastructure and no longer leaves a KNOWLEDGE method behind as a side
+     * effect, so the knowledge factor is now named outright instead of arriving by accident. Only
+     * `password` is unconditionally required; `enroll-sms` stays a free choice.
      */
     private fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
         val base = AuthEnrollCore.afterEnrollment(ctx, emailObligation, resumeAtStart = RegisterState.Start)
-        if (base != Transition.Authenticated || ctx.channel != ChannelSession.Channel.KEYCLOAK) return base
+        if (base != Transition.Authenticated) return base
 
         val account = ctx.requireAccount()
         if (account.activeAuthenticationMethods.any { it.method == PASSWORD_METHOD }) return base

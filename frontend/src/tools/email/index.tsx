@@ -1,5 +1,5 @@
 import type { ToolModule } from '../types'
-import { enrollEmail, requestEmailLookup, submitEmailCode } from './api'
+import { confirmEmail, requestEmailLookup, submitEmailCode } from './api'
 import { EmailCodeInputForm } from './EmailCodeInputForm'
 import { EmailCodeLookupForm } from './EmailCodeLookupForm'
 import { EmailEnrollForm } from './EmailEnrollForm'
@@ -7,14 +7,14 @@ import { EmailEnrollForm } from './EmailEnrollForm'
 const ICON = '✉️'
 const LABEL = 'E-Mail'
 
-export const enrollEmailTool: ToolModule = {
-  toolId: 'enroll-email',
-  meta: { icon: ICON, label: LABEL, hint: 'Bestätigungscode an eine E-Mail-Adresse' },
+export const confirmEmailTool: ToolModule = {
+  toolId: 'confirm-email',
+  meta: { icon: ICON, label: LABEL, hint: 'E-Mail-Adresse bestätigen' },
   render(ctx) {
-    if (ctx.step === 'enroll') {
+    if (ctx.step === 'input') {
       return (
         <EmailEnrollForm
-          onSubmit={(email) => enrollEmail(ctx, email)}
+          onSubmit={(email) => confirmEmail(ctx, email)}
           error={ctx.stepData?.error}
           demoEmail={ctx.demo?.email}
           demoPersons={ctx.demo?.persons}
@@ -60,5 +60,17 @@ export const authEmailLookup: ToolModule = {
   },
 }
 
-const emailModules: ToolModule[] = [enrollEmailTool, authEmail, authEmailLookup]
+/**
+ * Turning the confirmed address into a login method is a one shot: the backend completes it on
+ * activation, so there is no step to render - confirming already proved control over the address.
+ */
+export const enrollEmailTool: ToolModule = {
+  toolId: 'enroll-email',
+  meta: { icon: ICON, label: LABEL, hint: 'E-Mail als Anmeldeverfahren aktivieren' },
+  render() {
+    return null
+  },
+}
+
+const emailModules: ToolModule[] = [confirmEmailTool, enrollEmailTool, authEmail, authEmailLookup]
 export default emailModules

@@ -51,9 +51,9 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
                 // Mandatory order: email first, and the only candidate - single-candidate auto-skip
                 // goes straight into the tool instead of a selectMethod screen.
-                channelResponse.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
+                channelResponse.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
 
-                enrollEmail(channelSessionId)
+                confirmEmail(channelSessionId)
 
                 // Email done - SMS is mandatory next, still no identification step yet, same
                 // single-candidate auto-skip.
@@ -62,9 +62,11 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
 
                 enrollSms(channelSessionId)
 
-                // Every enrollment obligation discharged (email confirmed is the only one on APP) -
-                // the account is still unidentified, so the optional RE_IDENTIFY offer follows
+                // Every obligation discharged - address attested, then the password, which is now
+                // required on every channel. The account is still unidentified, so the optional
+                // RE_IDENTIFY offer follows
                 // (its own OfferReIdent prompt, "prompt"/"confirm" - the generic AnswerableState screen).
+                enrollPassword(channelSessionId)
                 val afterSms = get("/orchestrator/api/v1/channels/$channelSessionId")
                 afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
 
@@ -74,7 +76,10 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
 
                 val account = theAccount()
                 account.personId.shouldBeNull()
-                account.authenticationMethods.single { it.method == "email" }.enrolledUnderAcr shouldBe "loa1"
+                // The address is attested, not a method - the methods this run created are sms and
+                // the mandatory password, both capped at what "Enrollment zuerst" ever proved.
+                account.email.shouldNotBeNull()
+                account.authenticationMethods.single { it.method == "password" }.enrolledUnderAcr shouldBe "loa1"
 
                 }
             }
@@ -85,8 +90,9 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 then("the account becomes identified, but the already-enrolled email keeps its original enrolledUnderAcr") {
 
                 val channelSessionId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
-                enrollEmail(channelSessionId)
+                confirmEmail(channelSessionId)
                 enrollSms(channelSessionId)
+                enrollPassword(channelSessionId)
                 get("/orchestrator/api/v1/channels/$channelSessionId").next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
 
                 // Two ident methods are registered (ident-fsc, ident-eid), so a selection page is
@@ -104,7 +110,10 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 account.personId.shouldNotBeNull()
                 // Not retroactively upgraded - frozen at enrollment time, before any identification existed
                 // (docs/04-orchestrierung.md, "IAL und AAL": the experiment makes this deliberately visible).
-                account.authenticationMethods.single { it.method == "email" }.enrolledUnderAcr shouldBe "loa1"
+                // The address is attested, not a method - the methods this run created are sms and
+                // the mandatory password, both capped at what "Enrollment zuerst" ever proved.
+                account.email.shouldNotBeNull()
+                account.authenticationMethods.single { it.method == "password" }.enrolledUnderAcr shouldBe "loa1"
 
                 }
             }
@@ -116,8 +125,9 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
 
                 // First account: enrolls, then actually identifies via ident-fsc.
                 val firstChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
-                enrollEmail(firstChannelId)
+                confirmEmail(firstChannelId)
                 enrollSms(firstChannelId)
+                enrollPassword(firstChannelId)
                 post("/orchestrator/api/v1/channels/$firstChannelId/answer", """{"answer":"accept"}""")
                 val firstIdentToolSessionId = post("/orchestrator/api/v1/channels/$firstChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
@@ -129,8 +139,9 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 // as the SAME person (same KVNR/fsc) - a merge conflict, not supported.
                 currentBindingKeyRef = "a-completely-different-binding-key"
                 val secondChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
-                enrollEmail(secondChannelId)
+                confirmEmail(secondChannelId)
                 enrollSms(secondChannelId)
+                enrollPassword(secondChannelId)
                 post("/orchestrator/api/v1/channels/$secondChannelId/answer", """{"answer":"accept"}""")
                 val secondIdentToolSessionId = post("/orchestrator/api/v1/channels/$secondChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 

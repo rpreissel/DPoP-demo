@@ -52,7 +52,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 val channelSessionId = created.channel()["channelSessionId"] as String
                 created.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                created.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                created.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
                 // The backend disables auth-sms WHILE the client is sitting on that very offer -
                 // nobody declined anything, the state in the DB is untouched.
@@ -61,7 +61,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 // A plain GET (no journey transition) already reflects it: live filtering in
                 // activatable(), not a snapshot frozen at the last state transition.
                 val afterDisable = get("/orchestrator/api/v1/channels/$channelSessionId")
-                afterDisable.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
+                afterDisable.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")
 
                 // Direct activation of the disabled tool is rejected too, not just omitted from the offer.
                 val exception = assertThrows<HttpClientErrorException> {
@@ -70,11 +70,9 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 exception.statusCode shouldBe HttpStatus.CONFLICT
 
                 // The remaining candidate still works normally.
-                val (code, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-email")
-                }
+                val activation = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password")
                 val toolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-email", """{"code":"$code"}""")
+                val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-password", """{"password":"correct-horse-battery"}""")
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 }
@@ -87,7 +85,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
 
                 registerAndAuthenticate()
                 toolAvailabilityService.disable("auth-sms", "maintenance")
-                toolAvailabilityService.disable("auth-email", "maintenance")
+                toolAvailabilityService.disable("auth-password", "maintenance")
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val next = get("/orchestrator/api/v1/channels/$channelSessionId").next()
@@ -107,7 +105,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 // availability narrows candidate OFFERS without breaking the journey itself.
                 val channelSessionId = post(
                     "/orchestrator/api/v1/app/channels",
-                    """{"availableTools":["ident-fsc","enroll-sms","enroll-email"]}"""
+                    """{"availableTools":["ident-fsc","enroll-sms","confirm-email"]}"""
                 ).channel()["channelSessionId"] as String
 
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
@@ -126,7 +124,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 offeredToolIds(afterSms) shouldNotContain "enroll-password"
                 offeredToolIds(afterSms) shouldNotContain "enroll-device"
 
-                enrollEmail(channelSessionId)
+                confirmEmail(channelSessionId)
                 val final = get("/orchestrator/api/v1/channels/$channelSessionId")
                 final.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 

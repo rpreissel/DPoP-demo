@@ -602,9 +602,12 @@ class JourneyService(
      */
     private fun performAdoptAttestation(journey: AuthJourney, channel: ChannelSession, action: Action.AdoptAttestation) {
         assertClaimsCovered(action.tool, action.outcome.claims)
-        val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
-            "Attestation without a known account: ${action.tool.toolId}"
-        }
+        // Lazily, exactly like an enrollment (see performAdoptCredential): under REGISTER
+        // "Enrollment zuerst" the address is attested as the very FIRST step, before any credential
+        // exists - so this is regularly the call that brings the account into being. A channel that
+        // never gets further leaves no orphan behind (deleteIfAbandonedUnidentified).
+        val accountId = journey.accountId ?: channel.accountId
+            ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Attested without an AuthEvidence" }
         val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
             "AuthEvidence not found: $authEvidenceId"

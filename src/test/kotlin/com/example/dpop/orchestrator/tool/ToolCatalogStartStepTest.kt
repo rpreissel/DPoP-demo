@@ -31,6 +31,7 @@ class ToolCatalogStartStepTest(toolRegistry: ToolHandlerRegistry) : BehaviorSpec
         "enroll-password" to "enroll",
         "auth-password" to "auth",
         "auth-password-lookup" to "auth",
+        "confirm-email" to "input",
         "enroll-email" to "enroll",
         "auth-email" to "auth",
         "auth-email-lookup" to "auth",

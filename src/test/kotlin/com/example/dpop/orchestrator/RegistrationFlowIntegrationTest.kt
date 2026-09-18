@@ -74,7 +74,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 // shouldContainAll (not exact) for the enrollable rest: new enrollment methods
                 // elsewhere in the catalog don't change this. enroll-password's absence is checked
                 // explicitly since it's the one deliberately excluded (unconfirmed email).
-                identifiedOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                identifiedOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr")
                 identifiedOptions shouldNotContain "enroll-password"
 
                 // 5) Activate enroll-sms
@@ -102,18 +102,21 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 // (docs/04-orchestrierung.md #2), independent of ACR - single remaining candidate, so the
                 // client is skipped straight to enroll-email rather than a selection page.
                 val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$enrollTan"}""")
-                enrolled.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
+                enrolled.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
                 enrolled.channel().shouldNotContainKeys("currentAcr", "currentAmr", "activeMethods")
 
-                // 8) Complete the required enroll-email step -> only now does registration finish.
-                enrollEmail(channelSessionId)
+                // 8) Confirm the address, then set the mandatory password -> only now does
+                // registration finish. Confirming no longer enrolls a method of its own, so the
+                // knowledge factor is asked for outright.
+                confirmEmail(channelSessionId)
+                enrollPassword(channelSessionId)
 
                 // 9) Channel now reports AUTHENTICATED with fsc+sms+email evidence
                 val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 finalChannel.channel()["state"] shouldBe "AUTHENTICATED"
                 finalChannel.channel()["currentAcr"] shouldBe "loa2"
                 @Suppress("UNCHECKED_CAST")
-                finalChannel.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("fsc", "sms", "email")
+                finalChannel.channel()["currentAmr"] as List<String> shouldContainExactlyInAnyOrder listOf("fsc", "sms", "password")
 
                 // --- Simulate a fresh app session on the SAME device (same DPoP key, no remembered
                 // channelSessionId): POST always mints a brand-new channel, but DeviceAccountLink still
@@ -124,7 +127,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 newChannelSessionId shouldNotBe channelSessionId
                 loginStart.next() shouldBe mapOf("type" to "orchestrator", "context" to "auth", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
-                loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-email")
+                loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
                 val (authTan, authActivation) = captureMockTan {
                     post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
@@ -219,7 +222,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 // TAN was needed and the phoneNumber already entered wasn't discarded. Registration isn't
                 // finished yet though: confirmed email is still an outstanding Required Action.
                 val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$enrollTan"}""")
-                enrolled.next() shouldBe mapOf("type" to "tool", "toolId" to "enroll-email", "step" to "enroll")
+                enrolled.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
 
 
                 }
@@ -287,7 +290,8 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
-                enrollEmail(channelSessionId)
+                enrollSms(channelSessionId)
+                confirmEmail(channelSessionId)
                 val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
 
                 val exception = assertThrows<HttpClientErrorException> {

@@ -29,7 +29,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
     }
 
     init {
-        given("a registered and authenticated account (fsc + sms + confirmed email)") {
+        given("a registered and authenticated account (fsc + sms + confirmed email + password)") {
             `when`("reading GET .../methods") {
                 then("it matches the channel response's activeMethods") {
 
@@ -41,7 +41,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val channelSessionId = registerAndAuthenticate()
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
-                methods.methodNames() shouldContainExactlyInAnyOrder listOf("sms", "email")
+                methods.methodNames() shouldContainExactlyInAnyOrder listOf("sms", "password")
 
                 val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 @Suppress("UNCHECKED_CAST")
@@ -52,26 +52,28 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             }
         }
 
-        given("a registered and authenticated account (fsc + sms + confirmed email)") {
+        given("a registered and authenticated account (fsc + sms + confirmed email + password)") {
             `when`("starting MANAGE on an authenticated channel") {
                 then("another method can be added") {
 
                 val channelSessionId = registerAndAuthenticate()
 
                 val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
-                // sms and email already active (email via the REGISTRATION Required Action); password and
-                // device are offered - two candidates means a selection page, not a single-candidate skip.
+                // sms and password already active from the registration; email as a login method
+                // and device are offered - two candidates means a selection page, not a skip.
                 started.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
                 val startedOptions = started.stepData()["options"] as List<String>
                 // shouldContainAll (not exact) for the enrollable rest; sms/email stay explicit
                 // exclusions since they're already active - that's the point of this scenario.
-                startedOptions shouldContainAll listOf("enroll-password", "enroll-device", "enroll-qr")
+                startedOptions shouldContainAll listOf("enroll-email", "enroll-device", "enroll-qr")
                 startedOptions shouldNotContain "enroll-sms"
-                startedOptions shouldNotContain "enroll-email"
+                startedOptions shouldNotContain "enroll-password"
+                startedOptions shouldNotContain "confirm-email"
 
-                val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
-                val enrolled = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
+                // One shot: the address was confirmed during registration, so activating the tool
+                // completes it - there is nothing left to prove.
+                val enrolled = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email")
                 // Finishes immediately after ONE enrollment, regardless of whether some higher floor was
                 // reached - unlike the identification path, MANAGE never depends on canAccountReach.
                 enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
@@ -86,16 +88,15 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             }
         }
 
-        given("a registered and authenticated account (fsc + sms + confirmed email)") {
-            `when`("starting MANAGE once sms, email and password are all active") {
+        given("a registered and authenticated account (fsc + sms + confirmed email + password)") {
+            `when`("starting MANAGE once sms, password and email are all active") {
                 then("the last remaining candidate is offered directly") {
 
-                // sms + email already active from registerAndAuthenticate (email via the REGISTRATION
-                // Required Action) - only password is missing to match this test's name.
+                // sms + password already active from registerAndAuthenticate - email as a LOGIN
+                // method is what is still missing (the address itself is confirmed).
                 val channelSessionId = registerAndAuthenticate()
                 post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
-                val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password").nextRaw()["toolSessionId"] as String
-                patch("/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password", """{"password":"correct-horse-battery"}""")
+                post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email")
                 post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 val enrollQrToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-qr").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollQrToolSessionId/enroll-qr", "{}")
@@ -115,9 +116,9 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             `when`("deactivating a method that would drop below the channel's floor") {
                 then("it is rejected") {
 
-                // sms (POSSESSION) + email (KNOWLEDGE) alone already reach loa2.
-                // Password (KNOWLEDGE) is redundant for the MFA requirement, so deactivating it is allowed.
-                // But deactivating EMAIL (the only KNOWLEDGE factor) would drop below loa2, so that's rejected.
+                // sms (POSSESSION) + password (KNOWLEDGE) reach loa2 together. Deactivating the
+                // password - the only KNOWLEDGE factor - would drop the account below the channel's
+                // floor, so the self-lockout guard rejects it.
                 val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
                 val channelSessionId = channelResponse.channel()["channelSessionId"] as String
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
@@ -130,14 +131,15 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-                enrollEmail(channelSessionId)
+                confirmEmail(channelSessionId)
+                enrollPassword(channelSessionId)
 
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
-                val emailInstanceId = methods.first { it["method"] == "email" }["id"] as String
+                val passwordInstanceId = methods.first { it["method"] == "password" }["id"] as String
 
                 val exception = assertThrows<HttpClientErrorException> {
-                    delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$emailInstanceId")
+                    delete("/orchestrator/api/v1/channels/$channelSessionId/methods/$passwordInstanceId")
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT
 
@@ -146,12 +148,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             }
         }
 
-        given("a registered and authenticated account (fsc + sms + confirmed email)") {
+        given("a registered and authenticated account (fsc + sms + confirmed email + password)") {
             `when`("deactivating a method while another still covers the floor") {
                 then("it succeeds") {
 
-                // sms+email already active from registerAndAuthenticate (email via the REGISTRATION
-                // Required Action) - email alone covers the default loa1 floor, so deactivating sms is safe.
+                // sms + password already active from registerAndAuthenticate - password alone
+                // covers the default loa1 floor, so deactivating sms is safe.
                 val channelSessionId = registerAndAuthenticate()
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
@@ -181,8 +183,9 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val startedOptions = started.stepData()["options"] as List<String>
                 // shouldContainAll (not exact) for the enrollable rest; email stays an explicit
                 // exclusion since it's already active - that's the point of this scenario.
-                startedOptions shouldContainAll listOf("enroll-sms", "enroll-password", "enroll-device", "enroll-qr")
-                startedOptions shouldNotContain "enroll-email"
+                startedOptions shouldContainAll listOf("enroll-sms", "enroll-email", "enroll-device", "enroll-qr")
+                startedOptions shouldNotContain "enroll-password"
+                startedOptions shouldNotContain "confirm-email"
 
 
                 }
@@ -207,26 +210,24 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
-                // Email is the enrolled KNOWLEDGE factor complementary to SMS (POSSESSION), so MANAGE
-                // can step up through existing authentication methods without re-identification.
+                // Password is the enrolled KNOWLEDGE factor complementary to SMS (POSSESSION), so
+                // MANAGE can step up through existing methods without re-identification.
                 val started = triggerEnrollmentStepUp(newChannelSessionId)
-                started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
-                val (emailCode, emailActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-email")
-                }
-                val emailToolSessionId = emailActivation.nextRaw()["toolSessionId"] as String
+                started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")
+                val passwordToolSessionId = post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
                 val steppedUp = patch(
-                    "/orchestrator/api/v1/tools/$emailToolSessionId/auth-email",
-                    """{"code":"$emailCode"}"""
+                    "/orchestrator/api/v1/tools/$passwordToolSessionId/auth-password",
+                    """{"password":"correct-horse-battery"}"""
                 )
                 steppedUp.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
                 val steppedUpOptions = steppedUp.stepData()["options"] as List<String>
                 // shouldContainAll (not exact) for the enrollable rest; sms/email stay explicit
                 // exclusions since they're already active - that's the point of this scenario.
-                steppedUpOptions shouldContainAll listOf("enroll-password", "enroll-device", "enroll-qr")
+                steppedUpOptions shouldContainAll listOf("enroll-email", "enroll-device", "enroll-qr")
                 steppedUpOptions shouldNotContain "enroll-sms"
-                steppedUpOptions shouldNotContain "enroll-email"
+                steppedUpOptions shouldNotContain "enroll-password"
+                steppedUpOptions shouldNotContain "confirm-email"
 
                 val afterStepUp = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterStepUp.channel()["currentAcr"] shouldBe "loa2"
@@ -250,7 +251,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
 
                 val started = post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
-                started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-email", "step" to "auth")
+                started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")
 
 
                 }

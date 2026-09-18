@@ -1,6 +1,6 @@
-package com.example.dpop.auth_sms.api.v1
+package com.example.dpop.auth_email.api.v1
 
-import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolHandler
+import com.example.dpop.auth_email.internal.confirmemail.ConfirmEmailToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
@@ -23,28 +23,28 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 
-private const val ENROLL_SMS_TOOL_ID = "enroll-sms"
+private const val CONFIRM_EMAIL_TOOL_ID = "confirm-email"
 
-data class EnrollSmsPatchRequest(
-    @field:Schema(example = "+49 170 1234567") val phoneNumber: String? = null,
-    @field:Schema(example = "123456") val tan: String? = null
+data class ConfirmEmailPatchRequest(
+    @field:Schema(example = "max.mustermann@example.com") val email: String? = null,
+    @field:Schema(example = "123456") val code: String? = null
 )
 
 /**
- * toolId=enroll-sms (docs/06-ablaeufe.md #4). One controller owns activation, PATCH and GET
- * for this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
+ * toolId=confirm-email. One controller owns activation, PATCH and GET for this tool
+ * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: SMS", description = "Registers a new phone number as a 2nd factor")
+@Tag(name = "Tool: E-Mail", description = "Confirms control over an email address - the account keeps it, no method is created")
 @SecurityRequirement(name = "dpop")
-class EnrollSmsToolController(
-    private val handler: EnrollSmsToolHandler,
+class ConfirmEmailToolController(
+    private val handler: ConfirmEmailToolHandler,
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-sms")
+    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-email")
     @Operation(
-        summary = "Activate enroll-sms",
+        summary = "Activate confirm-email",
         description = "No request body: toolId already carries kind and method.",
         responses = [
             ApiResponse(
@@ -52,7 +52,7 @@ class EnrollSmsToolController(
                 content = [Content(examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
-                      "next": {"type": "tool", "toolId": "enroll-sms", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                      "next": {"type": "tool", "toolId": "confirm-email", "step": "input", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
                     }
                 """)])]
             )
@@ -63,33 +63,33 @@ class EnrollSmsToolController(
         @BindingKey bindingKeyRef: String,
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID)
+        val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, CONFIRM_EMAIL_TOOL_ID)
         val outcome = handler.start(context.toolSessionId)
         val response = toolEndpoint.applyOutcome(context, outcome)
         val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
+    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/confirm-email")
     @Operation(
-        summary = "Supply phone number, then TAN",
-        description = "First call with phoneNumber triggers the TAN send; a second call with tan confirms it.",
+        summary = "Supply email, then the confirmation code",
+        description = "First call with email triggers the code send; a second call with code confirms it.",
         responses = [
             ApiResponse(
                 responseCode = "200",
                 content = [Content(examples = [
-                    ExampleObject(name = "After phoneNumber - TAN sent", value = """
+                    ExampleObject(name = "After email - code sent", value = """
                         {
                           "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
-                          "next": {"type": "tool", "toolId": "enroll-sms", "step": "tanInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
+                          "next": {"type": "tool", "toolId": "confirm-email", "step": "codeInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
                           "demo": {"tan": "123456"}
                         }
                     """),
-                    ExampleObject(name = "After tan - enrolled, chain continues", value = """
+                    ExampleObject(name = "After code - confirmed, chain continues", value = """
                         {
                           "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                           "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
-                          "stepData": {"options": ["confirm-email"]}
+                          "stepData": {"options": ["enroll-password"]}
                         }
                     """)
                 ])]
@@ -99,33 +99,33 @@ class EnrollSmsToolController(
     fun patch(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String,
-        @RequestBody(required = false) request: EnrollSmsPatchRequest?
+        @RequestBody(required = false) request: ConfirmEmailPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, CONFIRM_EMAIL_TOOL_ID)
         toolEndpoint.requireCurrentTool(context)
 
-        val body = request ?: EnrollSmsPatchRequest()
-        // Normalized the same way EnrollSmsFlow validates it (whitespace stripped), purely to key
+        val body = request ?: ConfirmEmailPatchRequest()
+        // Normalized the same way ConfirmEmailFlow validates it (trim+lowercase), purely to key
         // the send-throttle before the handler runs - see ToolEndpoint.isSendThrottledForContact.
-        val sendThrottled = body.phoneNumber
-            ?.replace("\\s+".toRegex(), "")?.trim()
+        val sendThrottled = body.email
+            ?.trim()?.lowercase()
             ?.let { toolEndpoint.isSendThrottledForContact(it) }
             ?: false
-        val outcome = handler.patch(toolSessionId, body.phoneNumber, body.tan, sendThrottled)
+        val outcome = handler.patch(toolSessionId, body.email, body.code, sendThrottled)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
+    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/confirm-email")
     @Operation(
-        summary = "Read the current enroll-sms state",
+        summary = "Read the current confirm-email state",
         responses = [
             ApiResponse(
                 responseCode = "200",
                 content = [Content(examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
-                      "next": {"type": "tool", "toolId": "enroll-sms", "step": "tanInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
+                      "next": {"type": "tool", "toolId": "confirm-email", "step": "codeInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
                     }
                 """)])]
             )
@@ -135,7 +135,7 @@ class EnrollSmsToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID)
+        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, CONFIRM_EMAIL_TOOL_ID)
         val outcome = if (toolEndpoint.isCurrentTool(context)) {
             checkNotNull(handler.read(toolSessionId) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"

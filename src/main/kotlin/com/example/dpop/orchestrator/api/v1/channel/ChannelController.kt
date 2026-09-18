@@ -279,7 +279,7 @@ class ChannelController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["sms", "password"]},
                       "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
-                      "stepData": {"options": ["enroll-device", "enroll-email"]}
+                      "stepData": {"options": ["enroll-device", "confirm-email"]}
                     }
                 """)])]
             )

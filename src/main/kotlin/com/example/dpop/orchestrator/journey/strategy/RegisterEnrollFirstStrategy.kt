@@ -22,7 +22,7 @@ import com.example.dpop.tool_spi.ToolOutcome
 /**
  * The "Enrollment zuerst" REGISTER experiment - see [RegisterEnrollFirstState]'s own doc for why
  * this is fully autark from [RegisterStrategy]/`AuthEnrollCore`. Mandatory order: email enrollment
- * first ([offerEmailEnrollment]/[RegisterEnrollFirstState.EnrollFirstEnrollingEmail]), then SMS
+ * first ([offerEmailConfirmation]/[RegisterEnrollFirstState.EnrollFirstAttestingEmail]), then SMS
  * ([offerSmsEnrollment]/[RegisterEnrollFirstState.EnrollFirstEnrollingSms]) - declining either one
  * only re-offers it, there is no skipping ahead - before the identification offer at the very end
  * ([offerIdentificationOrFinish]). Deliberately NOT a `@Component`:
@@ -49,10 +49,10 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 // Mandatory order: email, then SMS (see offerEmailEnrollment/offerSmsEnrollment) -
                 // only once neither is available at all does this fall back to offerEnrollment's
                 // old free-choice-among-everything behaviour.
-                else -> offerEmailEnrollment(ctx)
+                else -> offerEmailConfirmation(ctx)
             }
 
-            is RegisterEnrollFirstState.EnrollFirstEnrollingEmail -> when (event) {
+            is RegisterEnrollFirstState.EnrollFirstAttestingEmail -> when (event) {
                 is JourneyEvent.Abandoned -> reoffer(state)
                 is JourneyEvent.Completed -> Transition.Perform(adoptCredential(event), resumeState = state)
                 else -> offerSmsEnrollment(ctx)
@@ -89,13 +89,21 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
 
     private fun adoptCredential(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
-        else -> error("${event.tool.toolId} is not offered by REGISTER (Enrollment zuerst) - only ENROLLMENT tools ever are")
+        // The mandatory first step confirms the address: claims and anchor, no credential, and no
+        // device binding - nothing was created here this device could later be recognized by.
+        is ToolOutcome.Completed.Attested -> Action.AdoptAttestation(event.tool, outcome)
+        else -> error("${event.tool.toolId} is not offered by REGISTER (Enrollment zuerst) - only ENROLLMENT and ATTESTATION tools ever are")
     }
 
-    /** Mandatory step 1 - falls through to step 2 if no email-method ENROLLMENT tool is available at all right now. */
-    private fun offerEmailEnrollment(ctx: JourneyContext): Transition {
-        val candidates = enrollmentCandidatesFor(EMAIL_METHOD, ctx)
-        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingEmail(candidates)) else offerSmsEnrollment(ctx)
+    /**
+     * Mandatory step 1: CONFIRM the address, which is account infrastructure (three lookup tools
+     * resolve through it, `enroll-password` is gated on it) - not enrolling email as a login
+     * method, which stays optional. Falls through to step 2 if no attesting tool is available at
+     * all right now.
+     */
+    private fun offerEmailConfirmation(ctx: JourneyContext): Transition {
+        val candidates = CandidateTools.forEmailConfirmation(ctx)
+        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstAttestingEmail(candidates)) else offerSmsEnrollment(ctx)
     }
 
     /** Mandatory step 2 - falls through to [afterForcedEnrollment] if no SMS-method ENROLLMENT tool is available at all right now. */
@@ -150,7 +158,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
                 ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(it)) }
         }
-        if (ctx.channel == ChannelSession.Channel.KEYCLOAK && account.activeAuthenticationMethods.none { it.method == PASSWORD_METHOD }) {
+        if (account.activeAuthenticationMethods.none { it.method == PASSWORD_METHOD }) {
             passwordEnrollmentCandidates(ctx).takeIf { it.isNotEmpty() }
                 ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstPasswordObligation(it)) }
         }

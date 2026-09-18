@@ -70,13 +70,18 @@ internal object AuthEnrollCore {
      */
     fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean, resumeAtStart: JourneyState): Transition {
         val account = ctx.requireAccount()
-        val reachable = ctx.policy.reachability(account, ctx.acrFloor) is Reachability.Reachable
-        if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
-            return offerEnrollment(account, ctx, emailObligation, resumeAtStart)
-        }
+        // The address before the NEXT enrollment, but after the first one: confirming stopped
+        // being an enrollment of its own, and leaving it to the very end would dead-end a loa2 run
+        // - the remaining knowledge factor is `password`, gated on a confirmed address
+        // (`ClaimRequirement(EMAIL, PROVEN)`), so the journey would keep offering methods that
+        // cannot close the gap while the one step unlocking them was never offered.
         if (emailObligation && !account.emailConfirmed) {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
                 ?.let { return Transition.To(RegisterState.ConfirmingEmail(it)) }
+        }
+        val reachable = ctx.policy.reachability(account, ctx.acrFloor) is Reachability.Reachable
+        if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
+            return offerEnrollment(account, ctx, emailObligation = false, resumeAtStart)
         }
         return Transition.Authenticated
     }
