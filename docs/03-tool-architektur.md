@@ -18,6 +18,7 @@ Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregatio
 |---|---|---|---|---|---|
 | `ident-fsc` | `IDENTIFICATION` | `fsc` | `{possession}` | `loa2` | — |
 | `ident-eid` | `IDENTIFICATION` | `eid` | `{possession,knowledge}` | `loa3` | — |
+| `confirm-email` | `ATTESTATION` | `email` | `{}` | `loa1` | — |
 | `enroll-sms` / `auth-sms` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `sms` | `{possession}` | `loa1` | `false` |
 | `enroll-password` / `auth-password` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `password` | `{knowledge}` | `loa1` | `false` |
 | `enroll-email` / `auth-email` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `email` | `{knowledge}` | `loa1` | `false` |
