@@ -81,7 +81,7 @@ class DeviceRebindIntegrationTest : IntegrationTestSupport() {
         given("a device already linked to account A, with A's own device credential") {
             `when`("a fresh REGISTER identifies a different person B on the same device") {
                 then("asks for confirmation right after identification, before any method is offered") {
-                    val channelA = identify()
+                    val channelA = identifyAndConfirmEmail()
                     enrollDevice(channelA)
 
                     val channelB = identifyAsSecondPerson()
@@ -90,7 +90,7 @@ class DeviceRebindIntegrationTest : IntegrationTestSupport() {
                 }
 
                 then("accepting rebinds the device and revokes A's device credential") {
-                    val channelA = identify()
+                    val channelA = identifyAndConfirmEmail()
                     enrollDevice(channelA)
 
                     val channelB = identifyAsSecondPerson()
@@ -113,7 +113,7 @@ class DeviceRebindIntegrationTest : IntegrationTestSupport() {
                 }
 
                 then("declining cancels the journey outright and leaves the old binding untouched") {
-                    val channelA = identify()
+                    val channelA = identifyAndConfirmEmail()
                     enrollDevice(channelA)
                     val deviceLinkBefore = get("/orchestrator/api/v1/app/channels/device-link")
 

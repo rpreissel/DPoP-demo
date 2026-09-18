@@ -24,21 +24,6 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
 
-    private fun registerWithSms(): Long {
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
-            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-        )
-        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
-        val (tan, _) = captureMockTan {
-            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-        }
-        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-        return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account.account", Long::class.java)!!
-    }
-
     init {
         given("a cold device with no DeviceAccountLink") {
             `when`("entering with intent=confirm_peer_login") {
@@ -57,7 +42,7 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("entering with intent=confirm_peer_login") {
                 then("it gates on loa2 via the normal STEP_UP sub-journey, offering the account's own methods") {
 
-                registerWithSms()
+                registerWithSmsOnly()
 
                 val response = post("/orchestrator/api/v1/app/channels", """{"intent":"confirm_peer_login"}""")
                 response.channel()["state"] shouldBe "STEP_UP_IN_PROGRESS"
@@ -71,7 +56,7 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("the STEP_UP gate re-evaluates with no active method left to offer") {
                 then("aborts (410) instead of falling back to RE_IDENTIFY - a peer-approval must never trigger identification") {
 
-                registerWithSms()
+                registerWithSmsOnly()
 
                 val started = post("/orchestrator/api/v1/app/channels", """{"intent":"confirm_peer_login"}""")
                 val channelSessionId = started.channel()["channelSessionId"] as String

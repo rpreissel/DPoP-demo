@@ -53,21 +53,19 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
             `when`("switching away from an enroll tool") {
                 then("enrollment candidates are re-offered") {
 
-                val channelSessionId = identify()
+                val channelSessionId = identifyAndConfirmEmail()
                 val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
 
-                // Three enrollment methods are actually offerable at this point (enroll-password needs a
-                // confirmed email first), so switching away re-offers the selection page - but the OLD
-                // tool session is abandoned either way.
+                // Four enrollment methods are offerable at this point - enroll-password included,
+                // since the address was confirmed before any of them - so switching away re-offers
+                // the selection page; the OLD tool session is abandoned either way.
                 val result = delete("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms")
                 result.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
                 @Suppress("UNCHECKED_CAST")
                 val resultOptions = result.stepData()["options"] as List<String>
                 // shouldContainAll (not exact): new enrollment methods elsewhere in the catalog
-                // don't change this. enroll-password's absence is checked explicitly since it's the
-                // one deliberately excluded (unconfirmed email).
-                resultOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr")
-                resultOptions shouldNotContain "enroll-password"
+                // don't change this.
+                resultOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr", "enroll-password")
 
                 // The abandoned tool session is gone even though we re-activate the same toolId.
                 val exception = assertThrows<HttpClientErrorException> {

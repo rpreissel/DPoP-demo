@@ -25,6 +25,8 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
             `when`("reading the journey log for that device's binding key") {
                 then("every step is recorded, newest first, grouped by channel/journey") {
 
+                    // A real run, not a seeded account: this suite reads the journey LOG, which
+                    // only an actual journey writes.
                     val channelSessionId = registerAndAuthenticate()
 
                     val log = get("/orchestrator/api/v1/journey-log")
@@ -73,6 +75,8 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
             `when`("logging out") {
                 then("the logout itself still shows up in the journey log") {
 
+                    // A real run, not a seeded account: this suite reads the journey LOG, which
+                    // only an actual journey writes.
                     val channelSessionId = registerAndAuthenticate()
 
                     post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
@@ -92,6 +96,8 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
             `when`("one of them reads the journey log") {
                 then("only its own entries come back") {
 
+                    // A real run, not a seeded account: this test reads the journey LOG, which
+                    // only an actual journey writes.
                     registerAndAuthenticate()
                     val ownBindingKeyRef = currentBindingKeyRef
 

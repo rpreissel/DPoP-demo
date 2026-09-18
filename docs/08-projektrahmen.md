@@ -70,7 +70,7 @@ eines DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M10 | `id_eid` | Zweite Identifizierungsfunktionalität (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bringt den eigenen `@RestController` mit |
 | M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff nötig; bringt die eigenen `@RestController` mit |
 | M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); bringt die eigenen `@RestController` mit, keine `account`-Abhängigkeit |
-| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein echtes Orchestrator-Konto samt Demo-Passwort an (`AccountService.recordClaim`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue` über `account`, `PasswordCredentialPort`/`PersonDirectory` über `tool_api`; die PERSON_ID/EMAIL-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; Anlage und Claims in einer Transaktion); kein eigener `@RestController` |
+| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein echtes Orchestrator-Konto mit bestätigter Adresse und zwei Login-Methoden an — `password` (KNOWLEDGE) und `sms` (POSSESSION), also dem Paar, das ein Step-up auf LoA2 kombinieren kann (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; die PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; Anlage und Claims in einer Transaktion); kein eigener `@RestController` |
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -225,3 +225,32 @@ vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
 - `./gradlew bootRun` startet die Applikation auf Port 8080 (blockierend; für Verifikation eignen sich Integrationstests besser).
 - Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den vollständigen DPoP-Session-Flow.
 - `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
+
+### Vorbedingungen in Integrationstests
+
+Der Registrierungsablauf (Identifikation → E-Mail-Bestätigung → Enrollments) wird bewusst nur dort
+per HTTP durchgeklickt, wo er selbst Prüfgegenstand ist: in `RegistrationFlowIntegrationTest`
+(End-to-End-Ablauf), `RequiredActionIntegrationTest` (Reihenfolge der Pflichten) und
+`JourneyLogIntegrationTest` (das Journey-Log entsteht nur durch einen echten Durchlauf).
+
+Alle anderen Suiten brauchen den Ablauf nicht, sondern nur sein *Ergebnis* — „ein Konto mit sms und
+Passwort, an dieses Gerät gebunden". Dieses Ergebnis stellt `AccountFixtures` (Test-Sourceset) über
+die Domain-Services her, nicht über SQL: so gelten dieselben Invarianten wie im Produktivpfad
+(Anchor-Floors, Singleton-Ersetzung, Claim-Provenienz), und es können keine Konto-Zustände
+entstehen, die der Ablauf selbst nie erzeugen würde. Dasselbe Vorgehen nutzt `demo_seed`
+(`KcDemoAccountSeeder`) bereits im Produktionscode.
+
+Einstiegspunkte in `IntegrationTestSupport`:
+
+| Helper | Vorbedingung |
+| --- | --- |
+| `seedRegisteredAccount()` | Konto existiert (sms + Passwort, bestätigte Adresse, Gerät gebunden), kein Kanal |
+| `loginAsSeededAccount()` | dazu ein angemeldeter loa2-Kanal (`amr = [sms, password]`) |
+| `registerAndAuthenticate()` | echter Registrierungsdurchlauf — trägt zusätzlich eigene `fsc`-Evidenz |
+
+Der Unterschied zwischen den letzten beiden ist fachlich, nicht kosmetisch: Ein angemeldeter Kanal
+besitzt keine eigene Identifikationsevidenz. Tests, die diese brauchen (etwa das Entfernen einer
+Methode, die sonst die aktuelle Anmeldeevidenz wäre), müssen `registerAndAuthenticate()` verwenden.
+
+Dadurch ist eine Änderung an der Reihenfolge der Registrierungsschritte keine Änderung an 15
+Testdateien mehr.

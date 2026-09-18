@@ -68,8 +68,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
             `when`("cancelling mid-login") {
                 then("a fresh login attempt is offered") {
 
-                registerAndAuthenticate()
-
+                seedRegisteredAccount()
                 // Simulate a fresh app session on the same device: new channel, straight to LOGIN via the device link.
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
@@ -91,7 +90,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
             `when`("logging out of an authenticated channel") {
                 then("the channel ends for good and a new one starts a fresh login via the device link") {
 
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
                 val beforeLogout = get("/orchestrator/api/v1/channels/$channelSessionId")
                 beforeLogout.channel()["state"] shouldBe "AUTHENTICATED"
 
@@ -119,11 +118,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 newChannel.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
-                val (tan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-                }
-                val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
+                val authenticated = authenticateViaSms(newChannelSessionId)
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
@@ -138,6 +133,8 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
             `when`("logging out during active registration") {
                 then("the registration process is cancelled too") {
 
+                // Rolled out by hand: this test needs the ident-fsc toolSessionId itself to prove
+                // it is dead after the logout.
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
@@ -169,7 +166,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
             `when`("logging out with a mismatched binding key") {
                 then("it is forbidden") {
 
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
 
                 currentBindingKeyRef = "a-completely-different-binding-key"
 

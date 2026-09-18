@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldNotContain
@@ -32,7 +33,7 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 then("re-identification is offered first; declining it falls back to the already-authenticated channel") {
 
                 // Reuse the happy path up to AUTHENTICATED at loa2 with SMS and email evidence.
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
 
                 // SMS and email combine to loa2, but neither method can reach loa3. ident-eid
                 // (unused this session, maxAcr=loa3) can, so it is offered instead of dead-ending.
@@ -63,26 +64,20 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
 
                 // Channel requires loa2 up front, so registration can't stop after a single loa1-rated
                 // factor - it must chain further, differently-typed ones too.
-                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
-                val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-                patch(
-                    "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-                )
-
+                val channelSessionId = identifyAndConfirmEmail(requiredAcr = "loa2")
                 // First factor (sms): alone it's loa1, not the required loa2, so registration continues.
                 val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (smsTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 val afterSms = patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-                // The address is the next obligation: it is what unlocks enroll-password, the
-                // knowledge factor this channel's loa2 floor needs (ADR-17).
-                afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
+                // The address was already confirmed before any enrollment (ADR-17). sms alone is
+                // loa1, so more methods are offered - enroll-password among them, which is exactly
+                // the knowledge factor this channel's loa2 floor needs.
+                @Suppress("UNCHECKED_CAST")
+                (afterSms.stepData()["options"] as List<String>) shouldContain "enroll-password"
                 // Second factor: the password (KNOWLEDGE) complements sms (POSSESSION) - two
                 // different factor types, so together they reach loa2 and authentication succeeds.
-                confirmEmail(channelSessionId)
                 enrollPassword(channelSessionId)
 
                 val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
@@ -99,11 +94,7 @@ class MfaCombinationIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 loginStart.stepData()["options"] as List<String> shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
 
-                val (loginTan, smsActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-                }
-                val authSmsToolSessionId = smsActivation.nextRaw()["toolSessionId"] as String
-                val afterSmsAuth = patch("/orchestrator/api/v1/tools/$authSmsToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+                val afterSmsAuth = authenticateViaSms(newChannelSessionId)
                 // sms alone is only loa1; email is KNOWLEDGE (different type), so it's offered next
                 // for MFA to reach loa2.
                 afterSmsAuth.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")

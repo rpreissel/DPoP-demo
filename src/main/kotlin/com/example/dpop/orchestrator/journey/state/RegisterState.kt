@@ -89,6 +89,14 @@ sealed interface RegisterState : JourneyState {
         )
     }
 
+    /**
+     * FIRST mandatory step of a registration, before any enrollment is offered
+     * (`AuthEnrollCore.confirmEmail`): a confirmed address is account infrastructure, not one of
+     * the login methods competing for the user's choice, and `enroll-password` cannot even be a
+     * candidate before it (`ClaimRequirement(EMAIL, PROVEN)`, docs/03-tool-architektur.md #1).
+     * Skipped when no attesting tool is available right now; the obligation then survives into the
+     * enrollment cascade (`AuthEnrollCore.afterEnrollment`) and is retried there.
+     */
     data class ConfirmingEmail(
         override val offered: List<ToolId>,
         override val declined: Set<ToolId> = emptySet(),
@@ -113,9 +121,9 @@ sealed interface RegisterState : JourneyState {
      * account email (`ToolDescriptor.requires`, a `ClaimRequirement(EMAIL, PROVEN)`,
      * docs/03-tool-architektur.md #1) - it
      * cannot be a candidate at all before that obligation is discharged, so the only order that is
-     * actually reachable is "sufficient method, then email, then password". Choosing
-     * `enroll-password` directly in [Enrolling] is only possible once the email is already
-     * confirmed for the same reason, and discharges this obligation before it is ever reached.
+     * actually reachable is "email, then the login methods, then password". Choosing
+     * `enroll-password` directly in [Enrolling] is only possible because the email is already
+     * confirmed by then, and discharges this obligation before it is ever reached.
      */
     data class PasswordObligation(
         override val offered: List<ToolId>,

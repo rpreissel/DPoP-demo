@@ -29,7 +29,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
             `when`("repeatedly failing auth across fresh tool sessions") {
                 then("the account-level throttle locks") {
 
-                registerAndAuthenticate()
+                seedRegisteredAccount()
                 // Each iteration is a FRESH channel and therefore a fresh journey with a fresh attempt
                 // budget - which is precisely what the journey-local budget cannot catch and the
                 // account-level throttle must (docs/04-orchestrierung.md #7).
@@ -54,7 +54,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
             `when`("a successful auth follows a few failures") {
                 then("the throttle counter resets") {
 
-                registerAndAuthenticate()
+                seedRegisteredAccount()
                 // A few failures, but not enough to lock - then a genuine success should clear the counter.
                 // Each failure gets its own channel: the journey-local attempt budget would otherwise end
                 // the journey before the account-level counter is anywhere near its own threshold.
@@ -64,11 +64,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
                 }
                 val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val (tan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$freshChannelSessionId/tools/auth-sms")
-                }
-                val toolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val authenticated = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+                val authenticated = authenticateViaSms(freshChannelSessionId)
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 // Confirm the counter was actually reset, not just "not yet locked": two more fresh

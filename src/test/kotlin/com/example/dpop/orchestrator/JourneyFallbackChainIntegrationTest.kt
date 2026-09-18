@@ -29,27 +29,12 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
     }
 
     /** Registers the seeded test person with sms only and returns the resulting accountId. */
-    private fun registerWithSms(): Long {
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
-            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-        )
-        val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
-        val (tan, _) = captureMockTan {
-            patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-        }
-        patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-        return jdbcTemplate.queryForObject("SELECT MIN(id) FROM account.account", Long::class.java)!!
-    }
-
     init {
         given("the per-intent state machine's fallback chain, attempt budget, and entry intent") {
         // Fallback chain -----------------------------------------------------------
 
         then("Fast chain declining the auth state falls through to identification") {
-            registerWithSms()
+            registerWithSmsOnly()
 
             // Fresh session on the same device: the link routes straight to the existing sms method.
             val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
@@ -68,7 +53,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
         }
 
         then("Fast chain identifying after declining auth logs into the same account without registering again") {
-            val accountId = registerWithSms()
+            val accountId = registerWithSmsOnly()
 
             val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
             val authToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
@@ -91,7 +76,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
         // LOGIN_LOOKUP -------------------------------------------------------------
 
         then("Lookup login cannot be talked into an identification") {
-            registerWithSms()
+            registerWithSmsOnly()
 
             val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 .channel()["channelSessionId"] as String
@@ -107,7 +92,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
         // Attempt budget -----------------------------------------------------------
 
         then("Attempt budget spans the whole journey not a single tool") {
-            registerWithSms()
+            registerWithSmsOnly()
             val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
 
             // Two failures on one tool session, the third on a FRESH one: under a per-tool counter
@@ -126,7 +111,7 @@ class JourneyFallbackChainIntegrationTest : IntegrationTestSupport() {
         // Entry intent -------------------------------------------------------------
 
         then("Cancelling a lookup login restarts a lookup login not a registration") {
-            registerWithSms()
+            registerWithSmsOnly()
             currentBindingKeyRef = "binding-" + UUID.randomUUID()
 
             val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")

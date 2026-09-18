@@ -21,8 +21,8 @@ import com.example.dpop.tool_spi.ToolOutcome
 
 /**
  * The "Enrollment zuerst" REGISTER experiment - see [RegisterEnrollFirstState]'s own doc for why
- * this is fully autark from [RegisterStrategy]/`AuthEnrollCore`. Mandatory order: email enrollment
- * first ([offerEmailConfirmation]/[RegisterEnrollFirstState.EnrollFirstAttestingEmail]), then SMS
+ * this is fully autark from [RegisterStrategy]/`AuthEnrollCore`. Mandatory order: email
+ * confirmation first ([offerEmailConfirmation]/[RegisterEnrollFirstState.EnrollFirstAttestingEmail]), then SMS
  * ([offerSmsEnrollment]/[RegisterEnrollFirstState.EnrollFirstEnrollingSms]) - declining either one
  * only re-offers it, there is no skipping ahead - before the identification offer at the very end
  * ([offerIdentificationOrFinish]). Deliberately NOT a `@Component`:
@@ -46,7 +46,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 is JourneyEvent.SubJourneyFinished, is JourneyEvent.SubJourneyCancelled -> Transition.Authenticated
                 // Fresh journey start: no account needed yet - it's created lazily on the first
                 // completed enrollment (JourneyService's own Action.AdoptCredential handling).
-                // Mandatory order: email, then SMS (see offerEmailEnrollment/offerSmsEnrollment) -
+                // Mandatory order: email, then SMS (see offerEmailConfirmation/offerSmsEnrollment) -
                 // only once neither is available at all does this fall back to offerEnrollment's
                 // old free-choice-among-everything behaviour.
                 else -> offerEmailConfirmation(ctx)

@@ -70,38 +70,24 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
     init {
         given("an account authenticated via a single loa1-only factor (sms), no other active method") {
             then("declining the gate's own RE_IDENTIFY (nested under its STEP_UP) must NOT delete the account") {
-                // Register with sms only, then bypass the enroll-email Required Action via direct
-                // SQL - same technique RequiredActionIntegrationTest uses - to reproduce an account
-                // whose only active method is a single loa1 POSSESSION factor: nothing left for a
-                // plain step-up to combine with, so DELETE_ACCOUNT's own loa2 gate must go through
-                // STEP_UP -> RE_IDENTIFY, exactly the nested-cancel path JourneyService's
+                // An account whose only active method is a single loa1 POSSESSION factor: nothing
+                // left for a plain step-up to combine with, so DELETE_ACCOUNT's own loa2 gate must
+                // go through STEP_UP -> RE_IDENTIFY, exactly the nested-cancel path JourneyService's
                 // SUSPENDED-parent handoff has to get right twice in a row (RE_IDENTIFY -> STEP_UP,
                 // then STEP_UP -> DELETE_ACCOUNT).
-                val channelSessionId = identify()
-                val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
-                val (tan, _) = captureMockTan {
-                    patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-                }
-                patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                jdbcTemplate.update("UPDATE orchestrator.channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
-                jdbcTemplate.update("UPDATE orchestrator.auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
-
-                val accountId = jdbcTemplate.queryForObject(
-                    "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
-                    Long::class.java,
-                    channelSessionId
-                )
+                //
+                // Seeded through the domain services (AccountFixtures), which is what removed the
+                // SQL state-forcing this test used to need: registering over HTTP leaves an open
+                // registration journey demanding the remaining Required Actions, and the old
+                // workaround was to overwrite channel_session.state/auth_journey.lifecycle by hand.
+                val accountId = registerWithSmsOnly()
 
                 // A fresh channel on the same device logs in via sms alone - this session's own
                 // evidence is loa1, POSSESSION only.
                 val newChannel = post("/orchestrator/api/v1/app/channels")
                 newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
                 val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
-                val (loginTan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-                }
-                val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+                val authenticated = authenticateViaSms(newChannelSessionId)
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 // Konto löschen -> confirm -> loa2 gate not satisfied (sms alone is loa1) -> STEP_UP
@@ -130,7 +116,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
 
         given("an authenticated account deleting itself after fresh reconfirmation") {
             then("the completion response already reports LOGGED_OUT, not AUTHENTICATED") {
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
                 val accountId = jdbcTemplate.queryForObject(
                     "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
                     Long::class.java,

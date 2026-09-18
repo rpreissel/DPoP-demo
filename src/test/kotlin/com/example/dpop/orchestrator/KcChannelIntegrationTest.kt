@@ -139,7 +139,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
         Given("a step-up call naming an account Keycloak already knows") {
             When("PATCH is called with accountId and targetAcr") {
                 Then("it binds the channel to that account and offers its auth candidates") {
-                    val authenticatedChannelSessionId = registerAndAuthenticate()
+                    val authenticatedChannelSessionId = loginAsSeededAccount()
                     val accountId = jdbcTemplate.queryForObject(
                         "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
                         Long::class.java,
@@ -225,7 +225,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
         Given("a step-up channel whose account already reaches loa1 evidence natively") {
             When("PATCH is called again with amr (Mock-Keycloak: simulate a native authenticator)") {
                 Then("the merged evidence is reflected in authData and, once sufficient, authenticates") {
-                    val authenticatedChannelSessionId = registerAndAuthenticate()
+                    val authenticatedChannelSessionId = loginAsSeededAccount()
                     val accountId = jdbcTemplate.queryForObject(
                         "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
                         Long::class.java,
@@ -305,26 +305,11 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                         "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                         """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                     )
-                    // enroll-password isn't even a candidate yet - it requires a confirmed email
-                    // (ToolDescriptor.requires, EMAIL at PROVEN), which this fresh account doesn't
-                    // have (docs/03-tool-architektur.md #1). shouldContainAll (not exact) for the
-                    // rest: new enrollment methods elsewhere in the catalog don't change this.
-                    @Suppress("UNCHECKED_CAST")
-                    val afterIdentOptions = afterIdent.stepData()["options"] as List<String>
-                    afterIdentOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr")
-                    afterIdentOptions shouldNotContain "enroll-password"
-
-                    val smsToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
-                        .nextRaw()["toolSessionId"] as String
-                    val (smsTan, _) = captureMockTan {
-                        kcPatchTool("/orchestrator/api/v1/tools/$smsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-                    }
-                    val afterSms = kcPatchTool("/orchestrator/api/v1/tools/$smsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-
-                    // The floor (default loa1) is already reached by sms alone, but the shared
-                    // email obligation from Identifying is still open - single remaining
-                    // candidate skips the selection page (docs/04-orchestrierung.md #4).
-                    afterSms.next()["toolId"] shouldBe "confirm-email"
+                    // The address comes first, before any method is offered: it is account
+                    // infrastructure and is what unlocks enroll-password at all
+                    // (ToolDescriptor.requires, EMAIL at PROVEN, docs/03-tool-architektur.md #1).
+                    // Single candidate, so the selection page is skipped (docs/04-orchestrierung.md #4).
+                    afterIdent.nextRaw()["toolId"] shouldBe "confirm-email"
 
                     val emailToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/confirm-email")
                         .nextRaw()["toolSessionId"] as String
@@ -333,10 +318,25 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     }
                     val afterEmail = kcPatchTool("/orchestrator/api/v1/tools/$emailToolSessionId/confirm-email", """{"code":"$emailCode"}""")
 
-                    // Only now, with the email confirmed, does the Web-only password obligation
-                    // kick in - without it this would already be AUTHENTICATED.
-                    afterEmail.next()["toolId"] shouldBe "enroll-password"
-                    afterEmail.channel()["state"] shouldBe "REGISTERING"
+                    // Only now are login methods offered - enroll-password among them, exactly
+                    // because the address is confirmed. shouldContainAll (not exact) for the rest:
+                    // new enrollment methods elsewhere in the catalog don't change this.
+                    @Suppress("UNCHECKED_CAST")
+                    val afterEmailOptions = afterEmail.stepData()["options"] as List<String>
+                    afterEmailOptions shouldContainAll listOf("enroll-sms", "enroll-device", "enroll-qr", "enroll-password")
+
+                    val smsToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms")
+                        .nextRaw()["toolSessionId"] as String
+                    val (smsTan, _) = captureMockTan {
+                        kcPatchTool("/orchestrator/api/v1/tools/$smsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
+                    }
+                    val afterSms = kcPatchTool("/orchestrator/api/v1/tools/$smsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
+
+                    // The floor (default loa1) is already reached by sms alone, and the address is
+                    // confirmed - what's left is the Web-only password obligation; without it this
+                    // would already be AUTHENTICATED.
+                    afterSms.next()["toolId"] shouldBe "enroll-password"
+                    afterSms.channel()["state"] shouldBe "REGISTERING"
 
                     val passwordToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-password")
                         .nextRaw()["toolSessionId"] as String
@@ -355,7 +355,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
         Given("an authenticated App channel") {
             When("the channel is resumed") {
                 Then("its response never carries authData - authData is KEYCLOAK-only") {
-                    val channelSessionId = registerAndAuthenticate()
+                    val channelSessionId = loginAsSeededAccount()
 
                     get("/orchestrator/api/v1/channels/$channelSessionId").containsKey("authData") shouldBe false
                 }

@@ -64,7 +64,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
 
     /** Registers+authenticates on the APP channel, then enrolls the qr opt-in on the same, still-AUTHENTICATED channel. */
     private fun registerWithQrOptIn(): Pair<String, Long> {
-        val channelSessionId = registerAndAuthenticate()
+        val channelSessionId = loginAsSeededAccount()
         val accountId = jdbcTemplate.queryForObject(
             "SELECT id FROM account.account ORDER BY id DESC LIMIT 1", Long::class.java
         )!!
@@ -85,11 +85,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
      * it via auth-sms, same TAN pattern as every other auth-sms test in this suite.
      */
     private fun resolveReconfirmation(appChannelSessionId: String) {
-        val (tan, activation) = captureMockTan {
-            post("/orchestrator/api/v1/channels/$appChannelSessionId/tools/auth-sms")
-        }
-        val toolSessionId = activation.nextRaw()["toolSessionId"] as String
-        val resolved = patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+        val resolved = authenticateViaSms(appChannelSessionId)
         resolved.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "input")
     }
 
@@ -171,7 +167,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
                 val (webToolSessionId, pairingCode, _) = startWebLookup()
 
                 // A DIFFERENT account that never enrolled qr.
-                val noOptInChannelSessionId = registerAndAuthenticate()
+                val noOptInChannelSessionId = loginAsSeededAccount()
                 post("/orchestrator/api/v1/channels/$noOptInChannelSessionId/peer-logins")
                 resolveReconfirmation(noOptInChannelSessionId)
                 val confirmToolSessionId =

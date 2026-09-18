@@ -15,8 +15,9 @@ import org.springframework.modulith.ApplicationModule
  * instead of a live enrollment/identification run.
  *
  * `account` for `recordClaim`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue`;
- * `tool_api` for `PersonDirectory` (resolves the seeded persons) and `PasswordCredentialPort`
- * (sets the demo password without depending on `auth_password` directly).
+ * `tool_api` for `PersonDirectory` (resolves the seeded persons), `PasswordCredentialPort`
+ * (sets the demo password without depending on `auth_password` directly) and `SmsCredentialPort`
+ * (creates the sms enrollment without depending on `auth_sms` directly).
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`. Kotlin has no package
  * annotations, but `@ApplicationModule` is `@Target({PACKAGE, TYPE})` and meta-annotated

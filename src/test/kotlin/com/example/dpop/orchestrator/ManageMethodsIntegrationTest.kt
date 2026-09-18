@@ -38,7 +38,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 (get("/orchestrator/api/v1/channels/$freshChannelSessionId/methods")["methods"] as List<*>).shouldBeEmpty()
 
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
                 methods.methodNames() shouldContainExactlyInAnyOrder listOf("sms", "password")
@@ -56,7 +56,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             `when`("starting MANAGE on an authenticated channel") {
                 then("another method can be added") {
 
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
 
                 val started = post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 // sms and password already active from the registration; email as a login method
@@ -94,7 +94,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
 
                 // sms + password already active from registerAndAuthenticate - email as a LOGIN
                 // method is what is still missing (the address itself is confirmed).
-                val channelSessionId = registerAndAuthenticate()
+                val channelSessionId = loginAsSeededAccount()
                 post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
                 post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-email")
                 post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
@@ -119,19 +119,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // sms (POSSESSION) + password (KNOWLEDGE) reach loa2 together. Deactivating the
                 // password - the only KNOWLEDGE factor - would drop the account below the channel's
                 // floor, so the self-lockout guard rejects it.
-                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
-                val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-                patch(
-                    "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-                )
+                val channelSessionId = identifyAndConfirmEmail(requiredAcr = "loa2")
                 val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (smsTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-                confirmEmail(channelSessionId)
                 enrollPassword(channelSessionId)
 
                 @Suppress("UNCHECKED_CAST")
@@ -152,8 +145,10 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             `when`("deactivating a method while another still covers the floor") {
                 then("it succeeds") {
 
-                // sms + password already active from registerAndAuthenticate - password alone
-                // covers the default loa1 floor, so deactivating sms is safe.
+                // A real registration, not a seeded login: the channel needs identification
+                // evidence of its own here. After logging in WITH sms and password, both are the
+                // channel's current evidence, and dropping sms would pull the session below its
+                // own floor (409) - which is a different scenario, covered below.
                 val channelSessionId = registerAndAuthenticate()
                 @Suppress("UNCHECKED_CAST")
                 val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
@@ -199,14 +194,10 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // Register with fsc+sms in one continuous session (loa2), then simulate a completely
                 // fresh app session on the same device: DeviceAccountLink skips straight to LOGIN via
                 // auth-sms alone, never re-proving fsc, so this session's own evidence sits at loa1.
-                registerAndAuthenticate()
+                seedRegisteredAccount()
                 val loginStart = post("/orchestrator/api/v1/app/channels")
                 val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
-                val (authTan, authActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-                }
-                val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
-                patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
+                authenticateViaSms(newChannelSessionId)
                 val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
                 afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
@@ -241,14 +232,10 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
             `when`("starting MANAGE after proving only SMS") {
                 then("it uses the enrolled email before offering re-identification") {
 
-                registerAndAuthenticate()
+                seedRegisteredAccount()
                 val loginStart = post("/orchestrator/api/v1/app/channels")
                 val newChannelSessionId = loginStart.channel()["channelSessionId"] as String
-                val (authTan, authActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-                }
-                val authToolSessionId = authActivation.nextRaw()["toolSessionId"] as String
-                patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$authTan"}""")
+                authenticateViaSms(newChannelSessionId)
 
                 val started = post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")

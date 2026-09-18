@@ -82,7 +82,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             // Device A registers the account and enrolls its own key.
             val deviceAKey = ECKeyGenerator(Curve.P_256).generate()
             currentChannelKey = deviceAKey
-            val channelASessionId = identify()
+            val channelASessionId = identifyAndConfirmEmail()
             enrollDevice(channelASessionId, deviceAKey, "Laptop")
 
             // Device B: a different physical device (different bindingKeyRef, never linked before) -
@@ -90,7 +90,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             // enrolls its OWN key. Must NOT deactivate device A's credential.
             val deviceBKey = ECKeyGenerator(Curve.P_256).generate()
             currentChannelKey = deviceBKey
-            val channelBSessionId = identify()
+            val channelBSessionId = identifyAndConfirmEmail()
             enrollDevice(channelBSessionId, deviceBKey, "Handy")
 
             @Suppress("UNCHECKED_CAST")
@@ -102,7 +102,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
         then("Auth device is only offered and resolvable on the device holding the matching key") {
             val deviceAKey = ECKeyGenerator(Curve.P_256).generate()
             currentChannelKey = deviceAKey
-            val channelASessionId = identify()
+            val channelASessionId = identifyAndConfirmEmail()
             enrollDevice(channelASessionId, deviceAKey, "Laptop")
 
             // Same device (key A) again, fresh channel: DeviceAccountLink recognizes it, auth-device

@@ -113,7 +113,7 @@ class RegisterStrategyTest : BehaviorSpec({
             val acc = account(emailConfirmed = false)
             val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(listOf(ToolId("ident-fsc")))
-            then("adopts the identity, then offers enrollment, carrying the email obligation this run incurred") {
+            then("adopts the identity, then asks for the address FIRST - before any method is offered") {
                 val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
@@ -131,16 +131,32 @@ class RegisterStrategyTest : BehaviorSpec({
                     ),
                     acrFloor = AcrLevel.LOA1
                 )
-                val transition = strategy.transition(state, JourneyEvent.ActionCompleted, postIdentityCtx)
+                strategy.transition(state, JourneyEvent.ActionCompleted, postIdentityCtx) shouldBe
+                    Transition.To(RegisterState.ConfirmingEmail(listOf(ToolId("confirm-email"))))
+            }
+
+            then("offers enrollment once the address is confirmed - carrying no obligation forward") {
+                val confirmedCtx = ctx(
+                    account = account(emailConfirmed = true),
+                    evidence = AuthEvidence.from(
+                        listOf("fsc"), setOf(FactorType.POSSESSION), mapOf("fsc" to "loa2"),
+                        axis = mapOf("fsc" to EvidenceAxis.IDENTITY)
+                    ),
+                    acrFloor = AcrLevel.LOA1
+                )
+                val transition = strategy.transition(state, JourneyEvent.ActionCompleted, confirmedCtx)
                 transition.shouldBeInstanceOf<Transition.To>()
                 val to = (transition as Transition.To).state
                 to.shouldBeInstanceOf<Enrolling>()
                 to as Enrolling
                 to.emailObligation shouldBe true
-                // confirm-email is not in here: attesting the address is its own act, offered as
-                // the obligation below, not as one more way to enroll a method. enroll-email is
-                // missing too - it requires the confirmed address that does not exist yet.
-                to.offered shouldContainExactlyInAnyOrder listOf(ToolId("enroll-sms"), ToolId("enroll-device"), ToolId("enroll-qr"))
+                // confirm-email is not in here: attesting the address is its own act, already
+                // discharged above, not one more way to enroll a method. enroll-password IS a
+                // candidate now - the confirmed address is exactly what unlocks it.
+                to.offered shouldContainExactlyInAnyOrder listOf(
+                    ToolId("enroll-sms"), ToolId("enroll-device"), ToolId("enroll-qr"),
+                    ToolId("enroll-email"), ToolId("enroll-password")
+                )
             }
         }
     }

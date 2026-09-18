@@ -25,22 +25,22 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
 
     init {
         given("registration's required actions") {
-        then("Registration reaching the acr floor via sms alone still must enroll email before finishing") {
+        then("Registration demands the confirmed address before a single method is offered") {
             val channelSessionId = identify()
-            val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
-            val (tan, _) = captureMockTan {
-                patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
-            }
 
-            // sms alone already reaches the default loa1 floor - without the Required Action, this
-            // would go straight to AUTHENTICATED.
-            val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-            afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
+            // The address comes FIRST, before any enrollment: it is account infrastructure and
+            // gates enroll-password, so the journey asks for it straight after the identification.
+            val identified = get("/orchestrator/api/v1/channels/$channelSessionId")
+            identified.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
 
+            confirmEmail(channelSessionId)
+
+            // sms alone already reaches the default loa1 floor - the run still doesn't finish here,
+            // the password obligation is open.
+            enrollSms(channelSessionId)
             val channelMidway = get("/orchestrator/api/v1/channels/$channelSessionId")
             channelMidway.channel()["state"] shouldBe "REGISTERING"
 
-            confirmEmail(channelSessionId)
             enrollPassword(channelSessionId)
 
             val finalChannel = get("/orchestrator/api/v1/channels/$channelSessionId")
@@ -51,12 +51,11 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
         then("Registration discharges both required actions - the address, then the password") {
             val channelSessionId = identify()
 
-            // Enroll the EMAIL METHOD first. It is gated on a confirmed address
-            // (ClaimRequirement(EMAIL, PROVEN)), so the address has to be attested before it can be
-            // chosen at all - that gate, not the order of the remaining choices, is what this
-            // scenario now shows.
-            enrollSms(channelSessionId)
+            // The address is attested first, which is also what unlocks enroll-password at all
+            // (ClaimRequirement(EMAIL, PROVEN)) - that gate, not the order of the remaining
+            // choices, is what this scenario shows.
             val email = confirmEmail(channelSessionId)
+            enrollSms(channelSessionId)
             enrollPassword(channelSessionId)
             val enrolled = get("/orchestrator/api/v1/channels/$channelSessionId")
             enrolled.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
@@ -67,20 +66,20 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
         }
         then("Existing account without confirmed email can still login and add a method via manage methods") {
             // Registration WITHOUT the Required Action gate (simulates an account provisioned before
-            // this feature existed, or any other pre-existing state) - directly seed via device-bound
-            // enrollment only, skip enroll-email entirely by never activating it.
-            val channelSessionId = identify()
+            // this feature existed, or any other pre-existing state) - the channel simply doesn't
+            // support confirm-email, so the mandatory address step is skipped (not blocked) and the
+            // run finishes on the sms method alone.
+            val channelSessionId = post(
+                "/orchestrator/api/v1/app/channels",
+                """{"availableTools":["ident-fsc","enroll-sms"]}"""
+            ).channel()["channelSessionId"] as String
+            reIdentifyViaFsc(channelSessionId)
             val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
             val (tan, _) = captureMockTan {
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
             }
             patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-            // Registration is now stuck offering enroll-email (by design) - directly flip the account
-            // to AUTHENTICATED without it, via SQL, to reproduce a pre-existing account that predates
-            // this Required Action (the scope this test guards: a plain login and MANAGE must never
-            // retroactively enforce it).
-            jdbcTemplate.update("UPDATE orchestrator.channel_session SET state = 'AUTHENTICATED' WHERE id = ?", channelSessionId)
-            jdbcTemplate.update("UPDATE orchestrator.auth_journey SET lifecycle = 'CONSUMED' WHERE channel_session_id = ?", channelSessionId)
+            get("/orchestrator/api/v1/channels/$channelSessionId").channel()["state"] shouldBe "AUTHENTICATED"
 
             // A fresh channel on the same device recognizes the account via DeviceAccountLink and logs
             // in via the existing sms method - no email confirmation demanded.
@@ -88,11 +87,7 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
 
-            val (loginTan, activation) = captureMockTan {
-                post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-            }
-            val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
-            val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+            val authenticated = authenticateViaSms(newChannelSessionId)
             authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
             // MANAGE itself always demands loa2 session evidence first (unrelated to Required

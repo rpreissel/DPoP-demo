@@ -289,13 +289,15 @@ stateDiagram-v2
   ConfirmDeviceRebind --> Identifying: Zustimmung - Gerät umgebunden, alte Bindung revoziert
   ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
-  Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten
+  Identifying --> ConfirmingEmail: Identität festgestellt, Konto muss etwas einrichten, E-Mail-Pflicht offen
+  Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten, E-Mail bereits bestätigt
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
   AuthChoice --> Identifying: alle abgelehnt
   AuthChoice --> Finished: Nachweis reicht
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
+  ConfirmingEmail --> Enrolling: E-Mail bestätigt, Konto erreicht das Niveau noch nicht
   Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
-  Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
+  Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen (nur falls anfangs kein Bestätigungs-Tool verfügbar war)
   Enrolling --> PasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
   ConfirmingEmail --> PasswordObligation: E-Mail bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
@@ -374,8 +376,9 @@ Platzhalter-Account (`AccountProfile(accountId = -1, ...)`) — tragfähig, weil
 brandneues Konto ohnehin leer/`false` sind.
 
 **Verpflichtende Reihenfolge E-Mail → SMS**: Anders als `RegisterState`/`AuthEnrollCore` (freie
-Wahl unter allen Enrollment-Kandidaten) erzwingt diese Variante zuerst E-Mail-Enrollment
-(`EnrollFirstEnrollingEmail`), danach SMS-Enrollment (`EnrollFirstEnrollingSms`) — beides einzeln
+Wahl unter allen Enrollment-Kandidaten) erzwingt diese Variante zuerst die E-Mail-Bestätigung
+(`EnrollFirstAttestingEmail`, ein `ATTEST`-Schritt, kein Enrollment), danach SMS-Enrollment
+(`EnrollFirstEnrollingSms`) — beides einzeln
 nicht überspringbar: Ablehnen (`Abandoned`) bietet denselben Schritt erneut an, es gibt keinen
 Sprung nach vorn. Ist eines der beiden Tools gerade admin-seitig gesperrt/nicht verfügbar, wird
 genau dieser Schritt übersprungen (nicht die Journey blockiert). Erst danach greift dieselbe
@@ -393,9 +396,9 @@ wird nichts zusammengeführt.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> EnrollFirstEnrollingEmail
-  EnrollFirstEnrollingEmail --> EnrollFirstEnrollingEmail: abgelehnt - derselbe Schritt wird erneut angeboten
-  EnrollFirstEnrollingEmail --> EnrollFirstEnrollingSms: E-Mail eingerichtet, oder E-Mail-Tool nicht verfügbar
+  [*] --> EnrollFirstAttestingEmail
+  EnrollFirstAttestingEmail --> EnrollFirstAttestingEmail: abgelehnt - derselbe Schritt wird erneut angeboten
+  EnrollFirstAttestingEmail --> EnrollFirstEnrollingSms: E-Mail bestätigt, oder Bestätigungs-Tool nicht verfügbar
   EnrollFirstEnrollingSms --> EnrollFirstEnrollingSms: abgelehnt - derselbe Schritt wird erneut angeboten
   EnrollFirstEnrollingSms --> EnrollFirstEnrolling: SMS eingerichtet (oder Tool nicht verfügbar), aber Niveau reicht noch nicht
   EnrollFirstEnrollingSms --> EnrollFirstConfirmingEmail: SMS eingerichtet, Niveau erreicht, E-Mail-Pflicht noch offen
@@ -1096,15 +1099,24 @@ Pflichtzustände: „ausreichende Login-Methode eingerichtet" *ist* `Enrolling`,
 „bestätigte E-Mail" *ist* `ConfirmingEmail`. Eine offene Pflicht ist definitionsgemäß eine
 Position auf dem Weg.
 
-Die Reihenfolge der Pflichten ist die Reihenfolge der Zustände — und sie lautet: erst eine
-ausreichende Login-Methode, dann die bestätigte E-Mail. Umgekehrt würde ein bestimmtes
-Tool erzwungen, bevor der Nutzer überhaupt eines gewählt hat, obwohl `enroll-email` eine der
-Wahlmöglichkeiten ist, die beide Pflichten auf einmal erledigt.
+Die Reihenfolge der Pflichten ist die Reihenfolge der Zustände — und sie lautet: erst die
+bestätigte E-Mail, dann eine ausreichende Login-Methode. Die Bestätigung ist kein Anmeldeverfahren,
+sondern Konto-Infrastruktur (drei Lookup-Tools lösen darüber auf, `enroll-password` ist darauf
+gegated), steht also mit den Login-Methoden gar nicht in Konkurrenz. Umgekehrt hinge der eine
+Schritt, der Kandidaten überhaupt erst *freischaltet*, an einer bereits getroffenen Wahl:
+`enroll-password` könnte im ersten `Enrolling`-Angebot nicht einmal auftauchen. Das ist dieselbe
+Reihenfolge wie im Experiment „Enrollment zuerst" (`EnrollFirstAttestingEmail`).
+
+Ist im Moment des Angebots kein bestätigendes Tool verfügbar (admin-seitig gesperrt), wird der
+Schritt übersprungen, die Pflicht bleibt aber offen und wird in der Enrollment-Kaskade
+(`AuthEnrollCore.afterEnrollment`) erneut angeboten — genau dafür trägt `Enrolling.emailObligation`
+den Merker weiter.
 
 Der Geltungsbereich ergibt sich daraus, welcher Weg zu dem Zustand geführt hat: Die E-Mail-Pflicht
 gilt nur für einen Lauf, der über `Identifying` kam, also einen Account angelegt oder übernommen
 hat — festgehalten im Attribut `Enrolling.emailObligation`. Wer sich lediglich anmeldet, wird nie
-rückwirkend auf eine fehlende E-Mail-Bestätigung festgenagelt.
+rückwirkend auf eine fehlende E-Mail-Bestätigung festgenagelt: Die Bestätigung wird deshalb erst
+*nach* dem `AuthChoice`-Zweig angeboten, nicht vor ihm.
 
 Beide Pflichten sind aus vorhandenem Zustand **abgeleitet** (`authenticationMethods`,
 `emailConfirmedAt`), nicht als eigenes Account-Feld gespeichert — eine gespeicherte Liste brächte
@@ -1131,7 +1143,7 @@ noch keine aktive `password`-Methode existiert, wird stattdessen `PasswordObliga
 `ConfirmingEmail`, nicht davor — `enroll-password` selbst setzt eine bestätigte E-Mail voraus
 (`ToolDescriptor.requires` mit `ClaimRequirement(EMAIL, PROVEN)`, [Tool-Architektur](03-tool-architektur.md) Abschnitt 1);
 `enroll-password` ist vor bestätigter E-Mail nicht einmal Kandidat. Die Kette lautet deshalb
-zwingend `Enrolling → ConfirmingEmail → PasswordObligation`, unabhängig davon, welche Reihenfolge
+zwingend `ConfirmingEmail → Enrolling → PasswordObligation`, unabhängig davon, welche Reihenfolge
 fachlich naheliegender schiene.
 
 **Geltungsbereich wie bei der E-Mail-Pflicht**: Findet `Identifying` einen bereits existierenden

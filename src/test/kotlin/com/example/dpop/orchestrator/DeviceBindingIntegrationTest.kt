@@ -84,7 +84,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
     init {
         given("enroll-device and auth-device with real ECDSA signing") {
         then("Enroll device reaches loa 2 directly with geraet and access means in amr") {
-            val channelSessionId = identify()
+            val channelSessionId = identifyAndConfirmEmail()
             val deviceKey = enrollDevice(channelSessionId, userVerification = "biometric")
             deviceKey.shouldNotBeNull()
 
@@ -98,7 +98,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             (channel.channel()["activeMethods"] as List<*>).methodNames() shouldContain "device"
         }
         then("Auth device with the enrolled key recognizes the device and reaches loa 2 on a new channel") {
-            val channelSessionId = identify()
+            val channelSessionId = identifyAndConfirmEmail()
             val deviceKey = enrollDevice(channelSessionId)
 
             // Same DPoP binding key (channelKey) -> a brand-new channel recognizes the device via
@@ -126,9 +126,8 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
         then("Auth device declined on a fresh channel falls through to the remaining auth methods") {
             // Registration enrols sms (and the email obligation adds email), then a device credential
             // on top - so declining the device leaves genuine alternatives to choose from.
-            val channelSessionId = identify()
+            val channelSessionId = identifyAndConfirmEmail()
             enrollSms(channelSessionId)
-            confirmEmail(channelSessionId)
             enrollPassword(channelSessionId)
             // sms + password already finish the journey, so the device credential is added
             // afterwards through MANAGE - the loa2 gate is satisfied by this session's own ident-fsc.
@@ -154,7 +153,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             afterCancel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Auth device signed with a different key is rejected as failed not as someone elses credential") {
-            val channelSessionId = identify()
+            val channelSessionId = identifyAndConfirmEmail()
             enrollDevice(channelSessionId)
 
             val newChannel = post("/orchestrator/api/v1/app/channels")
@@ -171,7 +170,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             result.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Enroll device with an expired proof is rejected as unauthorized") {
-            val channelSessionId = identify()
+            val channelSessionId = identifyAndConfirmEmail()
             val deviceKey = ECKeyGenerator(Curve.P_256).generate()
             val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
             val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
@@ -188,14 +187,15 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             }
             exception.statusCode shouldBe HttpStatus.UNAUTHORIZED
         }
-        then("Enroll device replaying the same proof is rejected because the tool session is no longer current") {
-            // A successfully completed enroll-device tool session is done - the process has already
-            // moved on, so requireCurrentTool rejects a second PATCH before DeviceProofValidator's
-            // own jti+thumbprint replay protection would even get a chance to fire. Session lifecycle
-            // is the FIRST line of defense against replay here; the crypto-level replay check is
-            // defense-in-depth for scenarios where the URL itself could otherwise be hit twice, same
-            // posture already accepted for ordinary DPoP proofs in this app.
-            val channelSessionId = identify()
+        then("Enroll device replaying the same proof re-runs nothing - the tool session is already consumed") {
+            // A successfully completed enroll-device tool session is done. Since the address is
+            // confirmed before any enrollment, the device credential now also FINISHES the run
+            // (it carries possession, knowledge and inherence by itself), so the replay no longer
+            // hits requireCurrentTool mid-journey but the consumed journey itself: it is answered
+            // with the finished channel state and never re-enters the handler. DeviceProofValidator's
+            // own jti+thumbprint replay protection stays defense-in-depth underneath, same posture
+            // already accepted for ordinary DPoP proofs in this app.
+            val channelSessionId = identifyAndConfirmEmail()
             val deviceKey = ECKeyGenerator(Curve.P_256).generate()
             val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
             val patchUrl = "/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-device"
@@ -203,18 +203,23 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             patch(patchUrl, """{"deviceProof":"$proof"}""")
 
-            val exception = org.junit.jupiter.api.assertThrows<HttpClientErrorException> {
-                restTemplate.exchange(
-                    "http://localhost:$port$patchUrl", HttpMethod.PATCH,
-                    HttpEntity("""{"deviceProof":"$proof"}""", headers()), mapType
-                )
-            }
-            exception.statusCode shouldBe HttpStatus.CONFLICT
+            val replay = restTemplate.exchange(
+                "http://localhost:$port$patchUrl", HttpMethod.PATCH,
+                HttpEntity("""{"deviceProof":"$proof"}""", headers()), mapType
+            )
+            replay.statusCode shouldBe HttpStatus.OK
+            @Suppress("UNCHECKED_CAST")
+            (replay.body!!["next"] as Map<String, Any?>)["step"] shouldBe "authenticated"
+
+            // The point of the guarantee: exactly ONE device credential exists, the replay created none.
+            @Suppress("UNCHECKED_CAST")
+            val methods = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
+            methods.count { it["method"] == "device" } shouldBe 1
         }
         then("Manage methods enroll device requires loa 2 first even though the channel is already authenticated") {
             // Register+enroll via sms only (loa1) - deliberately NOT via enroll-device, so the
             // session's own currentAcr stays loa1 after login.
-            val channelSessionId = identify()
+            val channelSessionId = identifyAndConfirmEmail()
             val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
             val (tan, _) = captureMockTan {
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
@@ -223,11 +228,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             val newChannel = post("/orchestrator/api/v1/app/channels")
             val newChannelSessionId = newChannel.channel()["channelSessionId"] as String
-            val (loginTan, activation) = captureMockTan {
-                post("/orchestrator/api/v1/channels/$newChannelSessionId/tools/auth-sms")
-            }
-            val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
-            patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+            authenticateViaSms(newChannelSessionId)
 
             val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
             afterLogin.channel()["currentAcr"] shouldBe "loa1"

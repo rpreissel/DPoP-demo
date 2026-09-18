@@ -56,11 +56,12 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     }
 
     /**
-     * Forced, mandatory first step - only email-method ENROLLMENT tools are offered, and declining
-     * (`Abandoned`) simply re-offers the same set (see `reoffer`): there is no skipping ahead to
-     * [EnrollFirstEnrollingSms] short of actually completing an email enrollment. Only bypassed if
-     * no email-method tool is available at all right now (admin-disabled) - see
-     * `RegisterEnrollFirstStrategy.offerEmailEnrollment`.
+     * Forced, mandatory first step - only tools that ATTEST an email address are offered, and
+     * declining (`Abandoned`) simply re-offers the same set (see `reoffer`): there is no skipping
+     * ahead to [EnrollFirstEnrollingSms] short of actually confirming an address. Only bypassed if
+     * no such tool is available at all right now (admin-disabled) - see
+     * `RegisterEnrollFirstStrategy.offerEmailConfirmation`. Same first-step ordering the ident-first
+     * journey now uses as well (`AuthEnrollCore.confirmEmail`).
      */
     data class EnrollFirstAttestingEmail(
         override val offered: List<ToolId>,

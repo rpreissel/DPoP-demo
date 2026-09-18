@@ -3,6 +3,7 @@ package com.example.dpop.demo_seed.internal
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.SmsCredentialPort
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.EnrollmentRef
 import io.kotest.assertions.throwables.shouldThrow
@@ -32,12 +33,16 @@ class KcDemoAccountSeederTest(
         listOf("account.account").forEach { jdbc.update("DELETE FROM $it") }
     }
 
-    fun seed(persons: PersonDirectory, passwords: PasswordCredentialPort): ApplicationRunner {
+    fun seed(
+        persons: PersonDirectory,
+        passwords: PasswordCredentialPort,
+        sms: SmsCredentialPort
+    ): ApplicationRunner {
         val advice = TransactionInterceptor().apply {
             setTransactionManager(txManager)
             transactionAttributeSource = AnnotationTransactionAttributeSource()
         }
-        return ProxyFactory(KcDemoAccountSeeder(persons, accountService, passwords)).apply {
+        return ProxyFactory(KcDemoAccountSeeder(persons, accountService, passwords, sms)).apply {
             addAdvice(advice)
         }.proxy as ApplicationRunner
     }
@@ -46,33 +51,44 @@ class KcDemoAccountSeederTest(
         then("a restart reuses person anchors without duplicate claims or methods") {
             val persons = mockk<PersonDirectory>()
             val passwords = mockk<PasswordCredentialPort>()
+            val sms = mockk<SmsCredentialPort>()
             listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
                 every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
             }
             every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
-            val runner = seed(persons, passwords)
+            every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
+            val runner = seed(persons, passwords, sms)
             runner.run(DefaultApplicationArguments())
             val ids = accountService.allAccountIds().sorted()
             ids.size shouldBe 3
             (1L..3L).map { accountService.resolveByAnchor(AttributeType.PERSON_ID, it.toString()) } shouldBe ids
-            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 6
+            // PERSON_ID, EMAIL and PHONE_NUMBER per person - but only the first two are local
+            // anchors; PHONE_NUMBER is AttributeAuthority.METHOD_MODULE and stays claim-log only.
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 9
             jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
 
             runner.run(DefaultApplicationArguments())
             accountService.allAccountIds().sorted() shouldBe ids
-            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 6
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 9
             jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
-            ids.forEach { accountService.findAccount(it)?.activeAuthenticationMethods?.size shouldBe 2 }
+            // password (KNOWLEDGE) + sms (POSSESSION)
+            ids.forEach { profileId ->
+                accountService.findAccount(profileId)?.activeAuthenticationMethods
+                    ?.map { it.method }?.sorted() shouldBe listOf("password", "sms")
+            }
             verify(exactly = 3) { passwords.setNew(any()) }
+            verify(exactly = 3) { sms.enroll(any()) }
         }
 
         then("a failure after claim acceptance leaves no partial seed accounts") {
             val persons = mockk<PersonDirectory>()
             val passwords = mockk<PasswordCredentialPort>()
+            val sms = mockk<SmsCredentialPort>()
             every { persons.findPersonIdByKvnr("A123456789") } returns 1L
+            every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
             every { passwords.setNew(any()) } throws IllegalStateException("Demo password creation failed")
             shouldThrow<IllegalStateException> {
-                seed(persons, passwords).run(DefaultApplicationArguments())
+                seed(persons, passwords, sms).run(DefaultApplicationArguments())
             }
             accountService.allAccountIds() shouldBe emptyList()
             jdbc.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 0

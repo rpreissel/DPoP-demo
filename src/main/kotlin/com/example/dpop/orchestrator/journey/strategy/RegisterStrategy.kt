@@ -137,6 +137,14 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
             if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
         }
+        // Deliberately AFTER the AuthChoice branch above, not before it: a rediscovered, already
+        // set-up account logging in is never retroactively blocked on a missing confirmed email
+        // (docs/04-orchestrierung.md #8) - the obligation belongs to a genuine registration, which
+        // is exactly the path that continues into offerEnrollment below.
+        AuthEnrollCore.confirmEmail(account, ctx)?.let { return it }
+        // emailObligation stays true even though the address was just offered: the offer above
+        // yields nothing when no attesting tool is currently available, and the obligation then
+        // has to survive into the enrollment cascade to be retried there.
         return AuthEnrollCore.offerEnrollment(account, ctx, emailObligation = true, resumeAtStart = RegisterState.Start)
     }
 

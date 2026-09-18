@@ -43,8 +43,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
             `when`("resuming the channel after the backend disables one of them mid-journey") {
                 then("the disabled one silently disappears from the offer without any client action") {
 
-                registerAndAuthenticate()
-
+                seedRegisteredAccount()
                 // Same device, still linked: a fresh channel offers both as an AuthChoice. Options
                 // are only handed out once, at the transition that produced this state (the create
                 // response itself) - a later GET/resume never re-sends stepData.options, only `next`.
@@ -83,7 +82,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
             `when`("a fresh entry journey computes its first offer") {
                 then("the existing fallback to identification is reused, not a new dead end") {
 
-                registerAndAuthenticate()
+                seedRegisteredAccount()
                 toolAvailabilityService.disable("auth-sms", "maintenance")
                 toolAvailabilityService.disable("auth-password", "maintenance")
 
@@ -113,8 +112,13 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
-                offeredToolIds(identified) shouldNotContain "enroll-password"
-                offeredToolIds(identified) shouldNotContain "enroll-device"
+                // The address is the first obligation now, before any enrollment is offered - it is
+                // in this channel's availableTools, so the step really runs here.
+                identified.nextRaw()["toolId"] shouldBe "confirm-email"
+                confirmEmail(channelSessionId)
+                val afterConfirm = get("/orchestrator/api/v1/channels/$channelSessionId")
+                offeredToolIds(afterConfirm) shouldNotContain "enroll-password"
+                offeredToolIds(afterConfirm) shouldNotContain "enroll-device"
 
                 val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (tan, _) = captureMockTan {
@@ -124,7 +128,6 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 offeredToolIds(afterSms) shouldNotContain "enroll-password"
                 offeredToolIds(afterSms) shouldNotContain "enroll-device"
 
-                confirmEmail(channelSessionId)
                 val final = get("/orchestrator/api/v1/channels/$channelSessionId")
                 final.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 

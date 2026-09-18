@@ -60,9 +60,10 @@ internal object AuthEnrollCore {
     }
 
     /**
-     * The order of the mandatory states: a sufficient login method FIRST, the confirmed email
-     * after it. Reversing them would force one particular method before the user has chosen any,
-     * even though setting up email is one of the choices that satisfies both at once.
+     * The confirmed address comes BEFORE any enrollment (see [confirmEmail]) - so by the time this
+     * runs, [emailObligation] is normally already discharged. It is re-checked here anyway as the
+     * fallback for the one case the earlier offer could not cover: no attesting tool was available
+     * back then (admin-disabled), in which case the obligation simply stands until one is.
      *
      * [RegisterState.ConfirmingEmail] only ever actually gets produced here when [emailObligation]
      * is true - which only [RegisterStrategy] ever passes, so this branch is simply dead code when
@@ -70,20 +71,32 @@ internal object AuthEnrollCore {
      */
     fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean, resumeAtStart: JourneyState): Transition {
         val account = ctx.requireAccount()
-        // The address before the NEXT enrollment, but after the first one: confirming stopped
-        // being an enrollment of its own, and leaving it to the very end would dead-end a loa2 run
-        // - the remaining knowledge factor is `password`, gated on a confirmed address
-        // (`ClaimRequirement(EMAIL, PROVEN)`), so the journey would keep offering methods that
-        // cannot close the gap while the one step unlocking them was never offered.
-        if (emailObligation && !account.emailConfirmed) {
-            CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
-                ?.let { return Transition.To(RegisterState.ConfirmingEmail(it)) }
-        }
+        if (emailObligation) confirmEmail(account, ctx)?.let { return it }
         val reachable = ctx.policy.reachability(account, ctx.acrFloor) is Reachability.Reachable
         if (!reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
             return offerEnrollment(account, ctx, emailObligation = false, resumeAtStart)
         }
         return Transition.Authenticated
+    }
+
+    /**
+     * The confirmed address as the FIRST mandatory step of a registration, before a single
+     * enrollment is offered - `null` when there is nothing to do (address already confirmed) or
+     * nothing that could do it (no attesting tool available right now), so the caller falls
+     * through to its own next step instead of dead-ending on an obligation nothing can fulfil.
+     *
+     * Ordered first because confirming stopped being an enrollment of its own: it is account
+     * infrastructure (three lookup tools resolve through it, `enroll-password` is gated on it via
+     * `ClaimRequirement(EMAIL, PROVEN)`), not one of the login methods competing for the user's
+     * choice. Offering it after the first enrollment made the one step that UNLOCKS candidates
+     * depend on candidates already chosen - the `password` knowledge factor could not even appear
+     * in the first `Enrolling` offer. Same order the "Enrollment zuerst" experiment already uses
+     * ([RegisterEnrollFirstStrategy.offerEmailConfirmation]).
+     */
+    fun confirmEmail(account: AccountProfile, ctx: JourneyContext): Transition? {
+        if (account.emailConfirmed) return null
+        return CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
+            ?.let { Transition.To(RegisterState.ConfirmingEmail(it)) }
     }
 
     /**

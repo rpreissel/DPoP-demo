@@ -41,8 +41,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 then("auth is offered instead of enrollment") {
 
                 // First full registration: creates an account for KVNR A123456789 with an active sms method.
-                registerAndAuthenticate()
-
+                seedRegisteredAccount()
                 // A brand-new channel (e.g. a different device) identifies with the SAME KVNR -
                 // Claim-based identity resolution reuses the existing account instead of a second one.
                 currentBindingKeyRef = "binding-" + UUID.randomUUID()
@@ -70,8 +69,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("activating the same tool twice in a row") {
                 then("the first tool session is cleanly orphaned") {
 
-                registerAndAuthenticate()
-
+                seedRegisteredAccount()
                 // Simulate a fresh app session and activate auth-sms TWICE (e.g. a double client
                 // request) - each activation mints its own ToolSession with its own issued TAN.
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
@@ -115,14 +113,20 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
+                // The address is the first obligation now, before any enrollment is offered.
+                confirmEmailIfRequested(channelSessionId)
                 val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (tan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 val afterSms = patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$tan"}""")
-                afterSms.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-email", "step" to "input")
+                // sms alone is loa1, below this channel's loa2 floor, so more methods are offered -
+                // enroll-password among them, since the address was confirmed up front.
+                afterSms.next() shouldBe mapOf("type" to "orchestrator", "context" to "enrollment", "step" to "selectMethod")
+                @Suppress("UNCHECKED_CAST")
+                (afterSms.stepData()["options"] as List<String>) shouldContain "enroll-password"
 
-                // Abandon here (never confirm the address, never enroll password/device, never reach
+                // Abandon here (never enroll password/device, never reach
                 // this channel's own loa2
                 // floor) -
                 // a fresh app session (new channel, plain default loa1 floor) must still recognize this
@@ -130,11 +134,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val newChannel = post("/orchestrator/api/v1/app/channels")
                 newChannel.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
 
-                val (loginTan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/${newChannel.channel()["channelSessionId"]}/tools/auth-sms")
-                }
-                val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
-                val authenticated = patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+                val authenticated = authenticateViaSms(newChannel.channel()["channelSessionId"] as String)
                 authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
 
@@ -147,8 +147,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 then("the device link is written for that device too") {
 
                 // Register+enroll fully on binding key #1 (writes the DeviceAccountLink for key #1).
-                registerAndAuthenticate()
-
+                seedRegisteredAccount()
                 // Simulate a device whose key isn't linked yet (e.g. a fresh browser profile, or the
                 // original key was lost) - the default (no intent) correctly falls back to ident-fsc since key #2 has no
                 // link yet.
@@ -167,11 +166,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 // outcome.accountId == null (account was already known from the channel, not resolved
                 // via lookup). Without also linking here, this device's key #2 would never get a
                 // DeviceAccountLink and would be forced back through ident-fsc on every future connect.
-                val (tan, activation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
-                }
-                val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
-                patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
+                authenticateViaSms(channelSessionId)
 
                 // A third, brand-new channel on the SAME key #2 must now skip straight to LOGIN too -
                 // two active methods (sms, email) means a selection page, not a direct skip.
@@ -231,19 +226,15 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("logging in via auth-sms-lookup with email and TAN") {
                 then("it authenticates into the existing account") {
 
-                val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
-                val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-                patch(
-                    "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
-                )
+                val channelSessionId = identify(requiredAcr = "loa2")
+                // The address is the first obligation now, before any enrollment is offered - and
+                // this test needs the confirmed value itself for the lookup login below.
+                val email = confirmEmail(channelSessionId)
                 val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (enrollTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollToolSessionId/enroll-sms", """{"tan":"$enrollTan"}""")
-                val email = confirmEmail(channelSessionId)
 
                 val loginStart = post("/orchestrator/api/v1/app/channels", """{"intent":"lookup_login"}""")
                 val lookupChannelSessionId = loginStart.channel()["channelSessionId"] as String
@@ -304,7 +295,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
             `when`("a lookup login resolves a different account B on the same device") {
                 then("it asks for rebind confirmation instead of overwriting the device link silently") {
 
-                registerAndAuthenticate()
+                seedRegisteredAccount()
                 val bindingKeyA = currentBindingKeyRef
 
                 currentBindingKeyRef = "binding-" + UUID.randomUUID()
@@ -314,8 +305,8 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
                 )
-                enrollSms(channelB)
                 val emailB = confirmEmail(channelB)
+                enrollSms(channelB)
                 val enrollPasswordToolSessionId = post("/orchestrator/api/v1/channels/$channelB/tools/enroll-password").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$enrollPasswordToolSessionId/enroll-password",
@@ -365,13 +356,14 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
                 )
+                // The address is the first obligation now, before any enrollment is offered.
+                confirmEmailIfRequested(channelSessionId)
                 // Enroll sms (POSSESSION) and email (KNOWLEDGE) to reach loa2 for the next login
                 val enrollSmsToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
                 val (smsTan, _) = captureMockTan {
                     patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"phoneNumber":"+49 170 1234567"}""")
                 }
                 patch("/orchestrator/api/v1/tools/$enrollSmsToolSessionId/enroll-sms", """{"tan":"$smsTan"}""")
-                confirmEmail(channelSessionId)
                 enrollPassword(channelSessionId)
 
                 val logoutPrompt = post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
@@ -382,11 +374,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val loginStart = post("/orchestrator/api/v1/app/channels")
                 val loginChannelSessionId = loginStart.channel()["channelSessionId"] as String
                 // Both methods available; sms alone is only loa1, so email is needed for loa2
-                val (loginTan, smsActivation) = captureMockTan {
-                    post("/orchestrator/api/v1/channels/$loginChannelSessionId/tools/auth-sms")
-                }
-                val authSmsToolSessionId = smsActivation.nextRaw()["toolSessionId"] as String
-                patch("/orchestrator/api/v1/tools/$authSmsToolSessionId/auth-sms", """{"tan":"$loginTan"}""")
+                authenticateViaSms(loginChannelSessionId)
                 // Completing sms alone satisfies the default loa1 floor, so start an explicit loa2
                 // step-up before proving the distinct KNOWLEDGE factor by email.
                 post("/orchestrator/api/v1/channels/$loginChannelSessionId/step-ups", """{"requiredAcr":"loa2"}""")

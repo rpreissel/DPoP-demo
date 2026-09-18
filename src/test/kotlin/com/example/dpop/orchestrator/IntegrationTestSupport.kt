@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.example.dpop.orchestrator.support.AccountFixtures
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.ninjasquad.springmockk.MockkBean
 import com.nimbusds.jose.jwk.JWK
@@ -55,6 +56,10 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     @Autowired
     protected lateinit var toolRegistry: ToolHandlerRegistry
+
+    /** Seeds account preconditions through the domain services - see [AccountFixtures]. */
+    @Autowired
+    protected lateinit var accountFixtures: AccountFixtures
 
     // The JDK's default request factory can't send PATCH; HttpClient5 (already a test dep) can.
     protected val restTemplate = RestTemplate(HttpComponentsClientHttpRequestFactory())
@@ -208,11 +213,58 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
         return tan to response
     }
 
-    /** Runs ident-fsc through to Identified using the standard test person, returns the channelSessionId. */
-    protected fun identify(): String {
-        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+    /**
+     * Runs ident-fsc through to Identified using the standard test person, returns the
+     * channelSessionId. Does NOT discharge the address obligation REGISTER now raises immediately
+     * after the identification - use [identifyAndConfirmEmail] for the (far more common) case of a
+     * test that only wants to get to the point where methods can be enrolled.
+     *
+     * [requiredAcr]/[intent]/[availableTools] are the channel-creation options tests vary; every
+     * other caller gets the plain default channel. Spelling the whole "create a channel, activate
+     * ident-fsc, PATCH the test person" sequence out by hand is what made a change to the
+     * registration ORDER ripple through a dozen test files - it belongs here, once.
+     */
+    protected fun identify(
+        requiredAcr: String? = null,
+        intent: String? = null,
+        availableTools: List<String>? = null
+    ): String {
+        val options = buildList {
+            requiredAcr?.let { add(""""requiredAcr":"$it"""") }
+            intent?.let { add(""""intent":"$it"""") }
+            availableTools?.let { tools -> add(""""availableTools":[${tools.joinToString(",") { "\"$it\"" }}]""") }
+        }
+        val body = options.takeIf { it.isNotEmpty() }?.joinToString(",", "{", "}")
+        val channelSessionId = (
+            if (body == null) post("/orchestrator/api/v1/app/channels")
+            else post("/orchestrator/api/v1/app/channels", body)
+            ).channel()["channelSessionId"] as String
         reIdentifyViaFsc(channelSessionId)
         return channelSessionId
+    }
+
+    /**
+     * [identify] plus the mandatory address confirmation that REGISTER puts BEFORE any enrollment
+     * (docs/04-orchestrierung.md, "Pflichten sind Zustände"): the entry point for every test whose
+     * subject is what happens AFTER an account can start enrolling.
+     */
+    protected fun identifyAndConfirmEmail(
+        requiredAcr: String? = null,
+        intent: String? = null,
+        availableTools: List<String>? = null
+    ): String {
+        val channelSessionId = identify(requiredAcr, intent, availableTools)
+        confirmEmailIfRequested(channelSessionId)
+        return channelSessionId
+    }
+
+    /**
+     * Discharges the address step only if the journey is actually asking for it right now - a
+     * second run into an account that already confirmed one never gets offered it again.
+     */
+    protected fun confirmEmailIfRequested(channelSessionId: String) {
+        val current = get("/orchestrator/api/v1/channels/$channelSessionId").nextRaw()
+        if (current["toolId"] == "confirm-email") confirmEmail(channelSessionId)
     }
 
     /**
@@ -287,45 +339,103 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     }
 
     /**
-     * Runs ident-fsc + enroll-sms + enroll-email through to AUTHENTICATED, returns the
-     * channelSessionId. enroll-email is required even though sms alone already reaches the
-     * default loa1 floor: a confirmed email is a Required Action of REGISTRATION
+     * Seeds an account whose only login method is sms (loa1), bound to this test's device, and
+     * returns its account id. Built through the domain services ([AccountFixtures]), not by
+     * replaying the registration click path: these tests need the account to EXIST, they do not
+     * test how it came to be.
+     */
+    protected fun registerWithSmsOnly(): Long =
+        accountFixtures.seedAccount(
+            methods = listOf(AccountFixtures.Method.Sms()),
+            bindDeviceKeyRef = currentBindingKeyRef
+        )
+
+    /** Runs auth-sms through to Completed on the given channel and returns the final response. */
+    protected fun authenticateViaSms(channelSessionId: String): Map<String, Any?> {
+        val (tan, activation) = captureMockTan {
+            post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
+        }
+        val authToolSessionId = activation.nextRaw()["toolSessionId"] as String
+        return patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
+    }
+
+    /** Runs auth-password through to Completed on the given channel and returns the final response. */
+    protected fun authenticateViaPassword(
+        channelSessionId: String,
+        password: String = "correct-horse-battery"
+    ): Map<String, Any?> {
+        val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password")
+            .nextRaw()["toolSessionId"] as String
+        return patch("/orchestrator/api/v1/tools/$toolSessionId/auth-password", """{"password":"$password"}""")
+    }
+
+    /**
+     * Seeds the account [registerAndAuthenticate] would leave behind - sms + password, confirmed
+     * address, bound to this test's device - WITHOUT opening or authenticating a channel.
+     *
+     * For the many tests that only need the account to exist ("a returning user"), and open their
+     * own channel afterwards. Cheaper and, more importantly, independent of the registration
+     * journey's step order.
+     */
+    protected fun seedRegisteredAccount(): Long =
+        accountFixtures.seedAccount(
+            methods = listOf(AccountFixtures.Method.Sms(), AccountFixtures.Method.Password()),
+            bindDeviceKeyRef = currentBindingKeyRef
+        )
+
+    /**
+     * Seeds a registered account and logs INTO it on a fresh loa2 channel (sms + password),
+     * returning the channelSessionId - the "returning user on a known device" precondition.
+     *
+     * Note this is deliberately NOT the same channel state as [registerAndAuthenticate]: a login
+     * establishes amr [sms, password], a registration additionally carries its own `fsc`
+     * identification evidence. Tests that depend on the latter must keep using the real journey.
+     */
+    protected fun loginAsSeededAccount(): String {
+        seedRegisteredAccount()
+        val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
+            .channel()["channelSessionId"] as String
+        authenticateViaSms(channelSessionId)
+        authenticateViaPassword(channelSessionId)
+        return channelSessionId
+    }
+
+    /**
+     * Runs ident-fsc + confirm-email + enroll-sms + enroll-password through to AUTHENTICATED,
+     * returns the channelSessionId. The address is confirmed even though sms alone already reaches
+     * the default loa1 floor: a confirmed email is a Required Action of REGISTRATION
      * (docs/04-orchestrierung.md #2), not just an ACR-driven candidate.
      */
     protected fun registerAndAuthenticate(): String {
         val channelSessionId = identify()
-        enrollSms(channelSessionId)
-        // The obligations in their reachable order: the address first (enroll-password is gated on
-        // it), then the password, which is now required on every channel.
+        // The obligations in their reachable order: the address first - it is account
+        // infrastructure and gates enroll-password, so it is asked for before any method is
+        // offered (AuthEnrollCore.confirmEmail) - then a login method, then the password, which is
+        // now required on every channel.
         confirmEmail(channelSessionId)
+        enrollSms(channelSessionId)
         enrollPassword(channelSessionId)
         return channelSessionId
     }
 
-    /** Registers via ident-fsc -> enroll-sms -> confirm-email -> enroll-password, returns the confirmed email. */
+    /**
+     * Seeds an account with sms + password (plus, optionally, email as a login method) bound to
+     * this test's device, and returns its confirmed address. Domain-service seeding rather than a
+     * click path - see [AccountFixtures].
+     */
     protected fun registerWithEmailAndPassword(
         password: String = "correct-horse-battery",
         /** Also activate email as a LOGIN method - its own act since ADR-17, needed by auth-email*. */
         alsoEnrollEmailMethod: Boolean = false
     ): String {
-        val channelResponse = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""")
-        val channelSessionId = channelResponse.channel()["channelSessionId"] as String
-        val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
-        patch(
-            "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+        accountFixtures.seedAccount(
+            methods = buildList {
+                add(AccountFixtures.Method.Sms())
+                add(AccountFixtures.Method.Password(password))
+                if (alsoEnrollEmailMethod) add(AccountFixtures.Method.Email)
+            },
+            bindDeviceKeyRef = currentBindingKeyRef
         )
-        // A method first: the address is asked for after the first enrollment, not straight after
-        // the identification (AuthEnrollCore.afterEnrollment).
-        enrollSms(channelSessionId)
-        val email = confirmEmail(channelSessionId)
-        enrollPassword(channelSessionId, password)
-        if (alsoEnrollEmailMethod) {
-            // The registration journey is finished at this point, so this goes through MANAGE - the
-            // loa2 gate is satisfied by this session's own ident-fsc.
-            post("/orchestrator/api/v1/channels/$channelSessionId/enrollments")
-            enrollEmailMethod(channelSessionId)
-        }
-        return email
+        return AccountFixtures.EMAIL
     }
 }
