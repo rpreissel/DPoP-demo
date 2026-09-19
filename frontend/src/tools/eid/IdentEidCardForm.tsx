@@ -4,6 +4,8 @@ import type { DemoPerson } from '../../types'
 
 interface IdentEidCardFormProps {
   onSubmit: (fields: {
+    name: string
+    vorname: string
     geburtsdatum: string
     strasse: string
     hausnummer: string
@@ -11,12 +13,14 @@ interface IdentEidCardFormProps {
     ort: string
   }) => void
   error?: string
-  /** Demo-only: all seeded personas, offered as a picker that fills geburtsdatum/address together. */
+  /** Demo-only: all seeded personas, offered as a picker that fills the whole card at once. */
   demoPersons?: DemoPerson[]
 }
 
 /** toolId=ident-eid / step=card: simulates reading the eID card's Ausweisdaten (possession factor). */
 export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardFormProps) {
+  const [name, setName] = useState('Muster')
+  const [vorname, setVorname] = useState('Max')
   const [geburtsdatum, setGeburtsdatum] = useState('1985-06-15')
   const [strasse, setStrasse] = useState('Musterstraße')
   const [hausnummer, setHausnummer] = useState('1')
@@ -24,6 +28,8 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
   const [ort, setOrt] = useState('Musterstadt')
 
   function selectPerson(person: DemoPerson) {
+    setName(person.name)
+    setVorname(person.vorname)
     setGeburtsdatum(person.geburtsdatum)
     setStrasse(person.strasse)
     setHausnummer(person.hausnummer)
@@ -33,16 +39,27 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit({ geburtsdatum, strasse, hausnummer, plz, ort })
+    onSubmit({ name, vorname, geburtsdatum, strasse, hausnummer, plz, ort })
   }
 
   return (
     <div className="card">
       <h2>eID-Karte auflegen</h2>
-      <p>Halten Sie Ihren Personalausweis an das Lesegerät. Die ausgelesenen Ausweisdaten werden mit den Stammdaten abgeglichen.</p>
+      <p>
+        Halten Sie Ihren Personalausweis an das Lesegerät. Die Karte bezeugt, wer Sie sind - eine
+        Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.
+      </p>
       <div className="hint">Demo-Modus: Das Auslesen der Karte wird simuliert; Testdaten sind bereits vorbelegt.</div>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
+        <div className="form-group">
+          <label htmlFor="eid-name">Name</label>
+          <input id="eid-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="form-group">
+          <label htmlFor="eid-vorname">Vorname</label>
+          <input id="eid-vorname" value={vorname} onChange={(e) => setVorname(e.target.value)} required />
+        </div>
         <div className="form-group">
           <label htmlFor="eid-geburtsdatum">Geburtsdatum</label>
           <input

@@ -144,6 +144,23 @@ enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) 
     /** Resolves identity (e.g. `ident-fsc`) - never establishes a durable credential. */
     IDENTIFICATION(ToolCategory.IDENT, "input"),
 
+    /**
+     * Attaches an ALREADY attested identity to the register person it belongs to (e.g.
+     * `ident-kvnr` taking the Versichertennummer, docs/12-entscheidungen.md ADR-18). Same
+     * category as [IDENTIFICATION] - it is part of establishing who someone is and contributes
+     * to IAL - but a distinct role for the same reason [LOOKUP_AUTH] is distinct from
+     * [IDENTIFIED_AUTH]: the category alone matches both, and these two must never be
+     * interchangeable.
+     *
+     * What sets it apart is that it proves NOTHING by itself: whoever runs it supplies a mere
+     * identifier, no secret and no possession. It is therefore never offered as a way to
+     * identify, only ever after an attestation ([ToolDescriptor.requires]), and the account
+     * module verifies that the register person matches what was attested before any anchor is
+     * written. Declaring that here, rather than inferring it from an empty [FactorType] set,
+     * keeps "correlates, never proves" a stated fact instead of an incidental one.
+     */
+    CORRELATION(ToolCategory.IDENT, "input"),
+
     /** Creates a new credential for the method (e.g. `enroll-sms`). */
     ENROLLMENT(ToolCategory.ENROLL, "enroll"),
 

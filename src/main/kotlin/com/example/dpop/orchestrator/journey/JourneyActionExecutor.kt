@@ -133,6 +133,23 @@ class JourneyActionExecutor(
                     "Identifizierung mehrdeutig: ${resolution.candidateCount} Kandidaten - keine automatische Zuordnung"
                 )
         }
+        // A MethodRole.CORRELATION step (ident-kvnr, ADR-18) proves nothing about the subject
+        // itself - it only turns a typed number into a register-vouched PERSON_ID, which is
+        // exactly what that role declares. An IDENTIFICATION tool may bind on its own strength
+        // (ident-fsc's mailed code IS possession of something sent to that very person); a
+        // correlation step may not: its whole security argument is that the register's person
+        // matches what THIS account already had attested. Without the check, attesting yourself
+        // and then typing a stranger's number would bind their anchor here, whenever that
+        // stranger has no account of their own yet.
+        if (action.tool.role == MethodRole.CORRELATION) {
+            action.outcome.personId?.let { claimedPersonId ->
+                if (accountService.findAccount(accountId)?.personId == null &&
+                    !identityResolver.attestedIdentityMatches(accountId, claimedPersonId)
+                ) {
+                    throw IdentityConflictException("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet")
+                }
+            }
+        }
         bindAccount(journey, channel, accountId)
         // An identification's own achieved level IS what this session proved about the identity -
         // the figure AnchorRule.acrFloor prices the PERSON_ID anchor against.

@@ -2,10 +2,10 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.policy.CandidateContext
+import com.example.dpop.orchestrator.policy.requiresSatisfied
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolId
 
 /**
@@ -38,8 +38,27 @@ internal object CandidateTools {
             availableTools = availableTools
         )
 
-    fun forIdentification(ctx: JourneyContext): List<ToolId> =
-        ctx.filterAvailable(ctx.catalog.descriptors().filter { it.role.category == ToolCategory.IDENT }.map { it.toolId })
+    /**
+     * Identification proper - [MethodRole.IDENTIFICATION] only, never a
+     * [MethodRole.CORRELATION] step: the latter proves nothing on its own and must not show up
+     * as a way to identify (ADR-18). Matching on the role, not the category, for the same reason
+     * `authCandidates` does: `category == IDENT` alone matches both.
+     *
+     * `requires` is applied here too, not just for enrollment: a tool whose preconditions the
+     * account doesn't meet must not be offered (nor be activatable by a direct call).
+     */
+    fun forIdentification(ctx: JourneyContext): List<ToolId> = identCandidates(ctx, MethodRole.IDENTIFICATION)
+
+    /** The mirror image: the correlation steps [forIdentification] deliberately leaves out. */
+    fun forAssignment(ctx: JourneyContext): List<ToolId> = identCandidates(ctx, MethodRole.CORRELATION)
+
+    private fun identCandidates(ctx: JourneyContext, role: MethodRole): List<ToolId> =
+        ctx.filterAvailable(
+            ctx.catalog.descriptors()
+                .filter { it.role == role }
+                .filter { descriptor -> descriptor.requires.all { requiresSatisfied(it, ctx.account) } }
+                .map { it.toolId }
+        )
 
     /** Every tool that resolves the account itself from a submitted identifier. */
     fun forLookupLogin(ctx: JourneyContext): List<ToolId> =

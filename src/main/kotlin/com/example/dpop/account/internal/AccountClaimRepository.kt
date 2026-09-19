@@ -1,6 +1,8 @@
 package com.example.dpop.account.internal
 
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.ClaimSource
+import com.example.dpop.tool_spi.trustLevel
 import java.util.UUID
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -19,6 +21,31 @@ interface AccountClaimRepository : JpaRepository<AccountClaim, Long> {
 
     /** Everything one method instance ever asserted - the retraction path's only query. */
     fun findByAuthMethodId(authMethodId: UUID): List<AccountClaim>
+
+    /**
+     * What this account currently asserts about itself - assertions MINUS retractions, the same
+     * `not exists` subtraction [findAccountIdsMatchingAllThree] uses and for the same reason
+     * (ADR-12: a withdrawn value must stop counting).
+     *
+     * The two readers of this are `AccountService`, which keeps the highest trust level per
+     * attribute for `AccountProfile.establishedClaims`, and `IdentityMatchingService`, which
+     * needs the values themselves to check an attested identity against the register. Ranking
+     * stays in Kotlin because the source is deliberately stored untyped (ADR-13), so SQL has
+     * nothing to rank it by.
+     */
+    @Query(
+        """
+        select a from AccountClaim a
+        where a.accountId = :accountId
+          and not exists (
+              select r.id from AccountRetraction r
+              where r.accountId = a.accountId
+                and r.attributeType = a.attributeType
+                and r.normalizedValue = a.normalizedValue
+          )
+        """
+    )
+    fun findEstablished(@Param("accountId") accountId: Long): List<AccountClaim>
 
     /**
      * Account ids whose log contains all three of (type1, value1), (type2, value2),
@@ -59,3 +86,18 @@ interface AccountClaimRepository : JpaRepository<AccountClaim, Long> {
         pageable: Pageable
     ): List<Long>
 }
+
+/**
+ * The strongest surviving value per requested attribute from [AccountClaimRepository.findEstablished]
+ * output - trust rank first, recency only breaking ties within a level ("Rangfolge schlaegt
+ * Rezenz"). Shared by every established-claims reader (matching in [IdentityMatchingService],
+ * the [com.example.dpop.account.AccountService] value facade) so they all select identically.
+ */
+internal fun List<AccountClaim>.strongestEstablishedValues(types: Set<AttributeType>): Map<AttributeType, String> =
+    filter { it.attributeType in types && it.value != null }
+        .groupBy { it.attributeType!! }
+        .mapValues { (_, claims) ->
+            claims.maxWith(
+                compareBy<AccountClaim>({ ClaimSource(it.claimSource.orEmpty()).trustLevel.rank }, { it.establishedAt })
+            ).value!!
+        }

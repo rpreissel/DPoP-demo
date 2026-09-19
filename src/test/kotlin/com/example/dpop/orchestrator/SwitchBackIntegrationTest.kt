@@ -39,7 +39,7 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
                 // remaining candidate - single-candidate skip activates it directly rather than
                 // showing a trivial one-option selection page.
                 val result = delete("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc")
-                result.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-eid", "step" to "input")
+                result.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-eid", "step" to "card")
 
                 val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 channel.channel()["state"] shouldBe "REGISTERING"

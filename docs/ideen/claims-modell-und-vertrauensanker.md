@@ -2,12 +2,15 @@
 
 > **Status: umgesetzt.** Das hier entworfene Claims-Modell (`account.anchor` als einziger
 > Ankerspeicher, `account.claim` als append-only Log, `tool_api/AttributeRules.kt`,
-> `IdentityResolver`/`Resolution`, `ClaimRequirement`/`ClaimDeclaration` auf `ToolDescriptor`,
+> `IdentityResolver`/`Resolution`, `ClaimRequirement`/`ClaimDeclaration` auf `ToolDescriptor`
+> (seit ADR-18 generisch geprüft, nicht mehr nur für E-Mail),
 > E-Mail als generischer Anker ohne `auth_email`-Sonderabhängigkeit auf `account`) ist vollständig
 > im Code. Die drei fachlichen Grundfragen (Interessenten-Verzweigung, Merge-Verhalten,
 > Retraktionsform) sind entschieden: [ADR-10 bis ADR-12](../12-entscheidungen.md); die
 > Schema-Form: [ADR-14](../12-entscheidungen.md). `Completed.Identified` trägt `PERSON_ID` nur
-> noch als Claim, kein separates Feld mehr. Maßgeblich für den Ist-Stand ist der Code, nicht die
+> noch als Claim, kein separates Feld mehr — und seit ADR-18 gar nicht mehr zwingend: ein Tool darf
+> bezeugen, ohne jemanden aufzulösen, womit der Interessent aus ADR-10 über eID tatsächlich
+> erreichbar ist. Maßgeblich für den Ist-Stand ist der Code, nicht die
 > SQL-Entwürfe in der Git-Historie dieser Datei.
 
 Offen geblieben ist nur die Skalierungsfrage unten — sie betrifft eine Produktivgröße

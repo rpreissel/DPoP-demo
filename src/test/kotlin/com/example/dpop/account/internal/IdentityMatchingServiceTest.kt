@@ -1,6 +1,7 @@
 package com.example.dpop.account.internal
 
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.MatchedVia
 import com.example.dpop.tool_api.PersonDirectory
@@ -15,6 +16,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import java.time.Instant
+import java.time.LocalDate
 
 /**
  * Pins the resolution policy of the central identity matching (docs/ideen/claims-modell-und-
@@ -275,6 +277,59 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         `when`("resolve is called") {
             then("the resolution is a new Interessent") {
                 resolver.resolve(emptySet()) shouldBe Resolution.NewInteressent
+            }
+        }
+    }
+
+    given("attestedIdentityMatches - the guard a correlation step leans on (ADR-18)") {
+        fun claim(type: AttributeType, value: String, source: ClaimSource) = AccountClaim(
+            accountId = 1L, attributeType = type, value = value, claimSource = source.value, establishedAt = Instant.now()
+        )
+        val attested = listOf(
+            claim(AttributeType.NAME, "Muster", ClaimSource.of(ToolId("ident-eid"))),
+            claim(AttributeType.VORNAME, "Max", ClaimSource.of(ToolId("ident-eid"))),
+            claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.of(ToolId("ident-eid")))
+        )
+
+        `when`("the register's person matches what the account attested") {
+            val claimRepository = mockk<AccountClaimRepository>()
+            val personDirectory = mockk<PersonDirectory>()
+            val resolver = service(mockk(), claimRepository, personDirectory)
+            every { claimRepository.findEstablished(1L) } returns attested
+            every { personDirectory.matchesStammdaten(42L, any()) } returns true
+
+            then("it passes, carrying exactly the attested attributes into the comparison") {
+                resolver.attestedIdentityMatches(1L, 42L) shouldBe true
+                verify {
+                    personDirectory.matchesStammdaten(
+                        42L,
+                        ClaimedIdentity(name = "Muster", vorname = "Max", geburtsdatum = LocalDate.of(1985, 6, 15))
+                    )
+                }
+            }
+        }
+
+        `when`("the register's person contradicts the attested identity - somebody else's number") {
+            val claimRepository = mockk<AccountClaimRepository>()
+            val personDirectory = mockk<PersonDirectory>()
+            val resolver = service(mockk(), claimRepository, personDirectory)
+            every { claimRepository.findEstablished(1L) } returns attested
+            every { personDirectory.matchesStammdaten(99L, any()) } returns false
+
+            then("it refuses") {
+                resolver.attestedIdentityMatches(1L, 99L) shouldBe false
+            }
+        }
+
+        `when`("the account attested nothing at all") {
+            val claimRepository = mockk<AccountClaimRepository>()
+            val personDirectory = mockk<PersonDirectory>()
+            val resolver = service(mockk(), claimRepository, personDirectory)
+            every { claimRepository.findEstablished(1L) } returns emptyList()
+
+            then("it refuses without even asking - an empty ClaimedIdentity would match vacuously") {
+                resolver.attestedIdentityMatches(1L, 42L) shouldBe false
+                verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
             }
         }
     }

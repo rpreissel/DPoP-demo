@@ -12,6 +12,7 @@ import com.example.dpop.account.internal.AccountIdentificationRepository
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
+import com.example.dpop.account.internal.strongestEstablishedValues
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.IdentityConflictException
@@ -19,7 +20,10 @@ import com.example.dpop.tool_api.normalizeAnchorValue
 import com.example.dpop.tool_api.rule
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.TrustLevel
+import com.example.dpop.tool_spi.trustLevel
 import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.validateValue
 import java.time.Instant
@@ -376,6 +380,18 @@ class AccountService(
         return accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
     }
 
+    /**
+     * The established (asserted, non-retracted) claim VALUES for [types], strongest assertion per
+     * attribute - the value-reading counterpart of [AccountProfile.establishedClaims] for surfaces
+     * that need what the account had attested about itself, not just its trust level: the ID-token
+     * name of an Interessent without a register person (ADR-18) and the Keycloak user mirror both
+     * read through this instead of reaching into the log themselves. Same selection as
+     * `IdentityMatchingService`'s attested-identity view, via the shared
+     * [com.example.dpop.account.internal.strongestEstablishedValues].
+     */
+    fun establishedClaimValues(accountId: Long, types: Set<AttributeType>): Map<AttributeType, String> =
+        accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(types)
+
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.enrollmentRef
 
@@ -402,9 +418,21 @@ class AccountService(
             personId = anchors[AttributeType.PERSON_ID]?.value?.toLong(),
             authenticationMethods = accountAuthMethodRepository.findByAccountIdOrderByCreatedAt(accountId).map { it.toView() },
             email = emailAnchor?.value,
-            emailConfirmedAt = emailAnchor?.establishedAt
+            emailConfirmedAt = emailAnchor?.establishedAt,
+            establishedClaims = establishedClaims(accountId)
         )
     }
+
+    /** Assertions minus retractions, highest [TrustLevel] per attribute - see [AccountProfile.establishedClaims]. */
+    private fun establishedClaims(accountId: Long): Map<AttributeType, TrustLevel> =
+        accountClaimRepository.findEstablished(accountId)
+            .mapNotNull { claim ->
+                val type = claim.attributeType ?: return@mapNotNull null
+                val source = claim.claimSource?.let(::ClaimSource) ?: return@mapNotNull null
+                type to source.trustLevel
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, levels) -> levels.maxBy { it.rank } }
 
     private fun AccountAuthMethod.toView() = AuthMethodView(
         id = id.toString(),

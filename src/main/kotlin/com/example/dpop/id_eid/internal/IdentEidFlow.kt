@@ -6,14 +6,16 @@ import java.time.LocalDate
 
 /**
  * Pure state of the ident-eid flow (docs/03-tool-architektur.md #3, the optional Flow pattern) -
- * never leaves this file. Three stages, each its own `next.step` (input -> card -> pin) so the
- * client can show a distinct screen, unlike `ident-fsc`'s single shared step.
+ * never leaves this file. Two stages, each its own `next.step` (card -> pin) so the client can
+ * show a distinct screen, unlike `ident-fsc`'s single shared step.
+ *
+ * Everything here is what the simulated card itself carries - there is deliberately no KVNR and
+ * no person reference: a real eID card has neither, and resolving one is `ident-kvnr`'s job
+ * (docs/12-entscheidungen.md ADR-18).
  */
 internal data class IdentEidState(
-    val kvnr: String? = null,
     val name: String? = null,
     val vorname: String? = null,
-    val personId: Long? = null,
     val geburtsdatum: LocalDate? = null,
     val strasse: String? = null,
     val hausnummer: String? = null,
@@ -25,18 +27,15 @@ internal data class IdentEidState(
 /** What [IdentEidFlow.decide] concluded once a state is fully filled in. */
 internal sealed interface IdentEidDecision {
     data object Incomplete : IdentEidDecision
-    data object PersonNotFound : IdentEidDecision
-    data class Verify(val personId: Long, val claimed: ClaimedIdentity, val pinHash: String) : IdentEidDecision
+    data class Verify(val claimed: ClaimedIdentity, val pinHash: String) : IdentEidDecision
 }
 
 internal object IdentEidFlow {
 
-    /** Applies one PATCH's fields (plus a separately-resolved [personId]) on top of the current state. */
-    fun merge(state: IdentEidState, fields: EidPatchFields, personId: Long?): IdentEidState = IdentEidState(
-        kvnr = fields.kvnr ?: state.kvnr,
+    /** Applies one PATCH's fields on top of the current state. */
+    fun merge(state: IdentEidState, fields: EidPatchFields): IdentEidState = IdentEidState(
         name = fields.name ?: state.name,
         vorname = fields.vorname ?: state.vorname,
-        personId = personId ?: state.personId,
         geburtsdatum = fields.geburtsdatum ?: state.geburtsdatum,
         strasse = fields.strasse ?: state.strasse,
         hausnummer = fields.hausnummer ?: state.hausnummer,
@@ -46,8 +45,7 @@ internal object IdentEidFlow {
     )
 
     fun decide(state: IdentEidState): IdentEidDecision {
-        if (!hasLookupFields(state) || !hasCardFields(state) || state.pinHash.isNullOrBlank()) return IdentEidDecision.Incomplete
-        val personId = state.personId ?: return IdentEidDecision.PersonNotFound
+        if (!hasCardFields(state) || state.pinHash.isNullOrBlank()) return IdentEidDecision.Incomplete
         val claimed = ClaimedIdentity(
             name = state.name.orEmpty(),
             vorname = state.vorname.orEmpty(),
@@ -57,7 +55,7 @@ internal object IdentEidFlow {
             plz = state.plz.orEmpty(),
             ort = state.ort.orEmpty()
         )
-        return IdentEidDecision.Verify(personId, claimed, checkNotNull(state.pinHash))
+        return IdentEidDecision.Verify(claimed, checkNotNull(state.pinHash))
     }
 
     /** Constant-time, and against the stored hash - the PIN itself is never persisted. */
@@ -65,25 +63,22 @@ internal object IdentEidFlow {
 
     /** Same derivation for start/patch/read - one place turns a state into `next.step`/`stepData`. */
     fun describe(state: IdentEidState): Pair<String, Map<String, Any?>> = when {
-        !hasLookupFields(state) -> "input" to mapOf("missingFields" to LOOKUP_FIELDS)
         !hasCardFields(state) -> "card" to mapOf("missingFields" to CARD_FIELDS)
         else -> "pin" to mapOf("missingFields" to PIN_FIELDS)
     }
 
-    fun evidenceHash(kvnr: String, pinHash: String, documentNumber: String): String = "sha256:" + hash("$kvnr:$pinHash:$documentNumber")
-
-    private fun hasLookupFields(state: IdentEidState) =
-        !state.kvnr.isNullOrBlank() && !state.name.isNullOrBlank() && !state.vorname.isNullOrBlank()
+    fun evidenceHash(pinHash: String, documentNumber: String): String = "sha256:" + hash("$pinHash:$documentNumber")
 
     private fun hasCardFields(state: IdentEidState) =
-        state.geburtsdatum != null && !state.strasse.isNullOrBlank() && !state.hausnummer.isNullOrBlank() &&
+        !state.name.isNullOrBlank() && !state.vorname.isNullOrBlank() && state.geburtsdatum != null &&
+            !state.strasse.isNullOrBlank() && !state.hausnummer.isNullOrBlank() &&
             !state.plz.isNullOrBlank() && !state.ort.isNullOrBlank()
 
     private fun hash(value: String): String =
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
-    val LOOKUP_FIELDS = listOf("kvnr", "name", "vorname")
-    val CARD_FIELDS = listOf("geburtsdatum", "strasse", "hausnummer", "plz", "ort")
+    /** Everything the card itself shows - read in one go, nothing typed by the user beforehand. */
+    val CARD_FIELDS = listOf("name", "vorname", "geburtsdatum", "strasse", "hausnummer", "plz", "ort")
     val PIN_FIELDS = listOf("pin")
 
     /** Fixed test PIN for the mock, same role as `ident-fsc`'s `VALIDCODE` (docs/08-projektrahmen.md P-5/P-6). */

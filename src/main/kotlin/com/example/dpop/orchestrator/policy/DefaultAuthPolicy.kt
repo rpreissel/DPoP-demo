@@ -216,9 +216,16 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val requiredAcr = ctx.requiredAcr
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
         return toolRegistry.descriptors()
-            .filter { it.role.category == ToolCategory.IDENT }
+            // Role, not category: `category == IDENT` alone also matches a CORRELATION step,
+            // which must never be offered as a way to (re-)identify (its role doc, ADR-18) -
+            // typing a semi-public number is no fresh proof even when the account's `requires`
+            // claims are already established.
+            .filter { it.role == MethodRole.IDENTIFICATION }
             .filter { it.method !in usedMethods }
             .filter { AcrLevel.rank(it.maxAcr) >= AcrLevel.rank(requiredAcr) }
+            // Same gate as every other candidate path: a tool whose preconditions the account
+            // doesn't meet must not be offered here either.
+            .filter { descriptor -> descriptor.requires.all { requiresSatisfied(it, ctx.account) } }
             .map { it.toolId }
     }
 
@@ -305,7 +312,16 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
  * `ToolControllerSupport.validatePreconditions` (direct-activation defense) so the two gates
  * cannot drift apart.
  */
-internal fun requiresSatisfied(requirement: ClaimRequirement, account: AccountProfile?): Boolean =
-    requirement.attributeType == AttributeType.EMAIL &&
-        requirement.minTrustLevel.rank <= TrustLevel.PROVEN.rank &&
-        (account?.emailConfirmed == true)
+/**
+ * Whether [account] already carries what a tool declares it needs: the attribute established at
+ * no less than the required [TrustLevel], counted over assertions minus retractions
+ * (`AccountProfile.establishedClaims`, ADR-12).
+ *
+ * Generic on purpose. `ClaimRequirement(EMAIL, PROVEN)` - `enroll-password`'s gate - is now one
+ * case of this rule rather than its definition, which is what lets `ident-kvnr` require an
+ * attested name/vorname/geburtsdatum without any tool knowing which procedure attested them.
+ */
+internal fun requiresSatisfied(requirement: ClaimRequirement, account: AccountProfile?): Boolean {
+    val established = account?.establishedClaims?.get(requirement.attributeType) ?: return false
+    return established.rank >= requirement.minTrustLevel.rank
+}

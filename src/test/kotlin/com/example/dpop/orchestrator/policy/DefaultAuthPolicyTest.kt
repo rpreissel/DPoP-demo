@@ -5,10 +5,13 @@ import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.ClaimRequirement
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
+import com.example.dpop.tool_spi.TrustLevel
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -422,6 +425,61 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             then("the result stays at loa2, never bumps on to loa3") {
                 localPolicy.resolveAcr(evidence, account = null) shouldBe AcrLevel.LOA2
             }
+        }
+    }
+
+    given("requiresSatisfied - the generic ToolDescriptor.requires gate") {
+        fun profile(vararg established: Pair<AttributeType, TrustLevel>) = AccountProfile(
+            accountId = 1L, personId = null, authenticationMethods = emptyList(),
+            establishedClaims = established.toMap()
+        )
+
+        then("an attribute established at the required level satisfies it") {
+            requiresSatisfied(
+                ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
+                profile(AttributeType.NAME to TrustLevel.PROVEN)
+            ) shouldBe true
+        }
+
+        then("a stronger source satisfies a weaker requirement") {
+            requiresSatisfied(
+                ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
+                profile(AttributeType.NAME to TrustLevel.STAMMDATEN)
+            ) shouldBe true
+        }
+
+        then("a weaker source does not satisfy a stronger requirement") {
+            requiresSatisfied(
+                ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
+                profile(AttributeType.NAME to TrustLevel.SELF_REPORTED)
+            ) shouldBe false
+        }
+
+        then("an attribute the account never established does not satisfy it") {
+            requiresSatisfied(
+                ClaimRequirement(AttributeType.GEBURTSDATUM, TrustLevel.PROVEN),
+                profile(AttributeType.NAME to TrustLevel.PROVEN)
+            ) shouldBe false
+        }
+
+        // A retraction removes the claim from establishedClaims (ADR-12, the `not exists`
+        // subtraction in AccountClaimRepository.findEstablished) - so a withdrawn value stops
+        // satisfying the gate, which an emailConfirmed-style flag could never express.
+        then("a retracted attribute stops satisfying it") {
+            requiresSatisfied(ClaimRequirement(AttributeType.EMAIL, TrustLevel.PROVEN), profile()) shouldBe false
+        }
+
+        then("no account at all satisfies nothing") {
+            requiresSatisfied(ClaimRequirement(AttributeType.EMAIL, TrustLevel.PROVEN), null) shouldBe false
+        }
+
+        // enroll-password's own gate, unchanged in meaning - now one case of the general rule
+        // rather than its definition.
+        then("a confirmed email still satisfies ClaimRequirement(EMAIL, PROVEN)") {
+            requiresSatisfied(
+                ClaimRequirement(AttributeType.EMAIL, TrustLevel.PROVEN),
+                profile(AttributeType.EMAIL to TrustLevel.PROVEN)
+            ) shouldBe true
         }
     }
 })

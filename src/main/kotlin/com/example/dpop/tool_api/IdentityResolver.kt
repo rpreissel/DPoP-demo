@@ -23,6 +23,21 @@ import com.example.dpop.tool_spi.Claim
  */
 interface IdentityResolver {
     fun resolve(claims: Set<Claim>): Resolution
+
+    /**
+     * Does the register's person [personId] match what account [accountId] has already had
+     * ATTESTED about itself (name/vorname/geburtsdatum)?
+     *
+     * The guard for a correlation step like `ident-kvnr` (docs/12-entscheidungen.md ADR-18),
+     * which turns a typed number into a register-vouched `PERSON_ID`: without it, attesting your
+     * own identity and then typing a stranger's number would bind that stranger's anchor to your
+     * account, whenever that stranger has no account yet.
+     *
+     * `false` when the account attested nothing to compare - a comparison against no attributes
+     * would succeed vacuously ([ClaimedIdentity] skips `null` fields by design), which is exactly
+     * the case this must refuse.
+     */
+    fun attestedIdentityMatches(accountId: Long, personId: Long): Boolean
 }
 
 /** Result of resolving attested claims against the existing account stock. Never a boolean. */

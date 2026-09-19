@@ -11,17 +11,14 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
- * toolId=ident-eid. Resolves KVNR/name/vorname into a person, same seam as `ident-fsc`
- * (`IdentEidToolController` looks `personId` up via `PersonDirectory` since `id_eid` must not
- * depend on `ext_stammdaten` directly). Two further steps follow, each its own `nextStep` so the
- * client can show a distinct screen: a simulated eID card read that hands back the card's
- * Ausweisdaten (possession), then a PIN (knowledge) - mirroring the two factors a real eID run
- * proves in one go.
+ * toolId=ident-eid. Attests what a simulated eID card shows - nothing else. Two steps, each its
+ * own `nextStep` so the client can show a distinct screen: the card read itself (possession),
+ * then a PIN (knowledge), mirroring the two factors a real eID run proves in one go.
  *
- * Once all three are in, the handler attests what the card showed and stops there - the central
- * identity resolution (`IdentityResolver`, account module) owns the stammdaten consistency check
- * and the account question; this tool never sees accounts (docs/ideen/claims-modell-und-
- * vertrauensanker.md, "Identitaetsauflösung & Matching").
+ * Nothing is typed beforehand and nobody is looked up: the card carries neither a KVNR nor a
+ * person reference, so this tool asserts only name/vorname/geburtsdatum and stops there. Whether
+ * those attributes belong to a known account is the central identity resolution's question, and
+ * binding them to a register person is `ident-kvnr`'s (docs/12-entscheidungen.md ADR-18).
  *
  * Pure business logic; self-description lives in [IdentEidDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentEidFlow].
@@ -40,45 +37,39 @@ class IdentEidToolHandler(
     }
 
     /**
-     * [throttled] folds into the ordinary "PIN invalid" answer rather than getting an error of
-     * its own - a distinguishable lock response would turn this into a KVNR-existence oracle.
+     * A wrong PIN is bounded by this tool session's own retry budget, the same way a real card
+     * bounds PIN attempts itself - there is no account or person to throttle against here,
+     * because this run resolves neither.
      */
     @Transactional
-    fun patch(toolSessionId: UUID, fields: EidPatchFields, personId: Long?, throttled: Boolean): ToolOutcome {
+    fun patch(toolSessionId: UUID, fields: EidPatchFields): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-eid tool session: $toolSessionId" }
 
-        val merged = IdentEidFlow.merge(data.toState(), fields, personId)
+        val merged = IdentEidFlow.merge(data.toState(), fields)
         data.applyState(merged)
         repository.save(data)
 
         return when (val decision = IdentEidFlow.decide(merged)) {
             IdentEidDecision.Incomplete -> outcomeFor(merged)
 
-            IdentEidDecision.PersonNotFound -> ToolOutcome.Failed("Person zu dieser KVNR nicht gefunden")
-
             is IdentEidDecision.Verify -> {
-                if (throttled || !IdentEidFlow.pinMatchesMock(decision.pinHash)) {
-                    return ToolOutcome.Failed("eID-PIN ungueltig", attemptedPersonId = decision.personId)
+                if (!IdentEidFlow.pinMatchesMock(decision.pinHash)) {
+                    return ToolOutcome.Failed("eID-PIN ungueltig")
                 }
-                // The former stammdaten consistency check lives in the central identity
-                // resolution now (IdentityResolver): a contradiction surfaces as an
-                // IdentityConflictException in the journey, not as a tool-PATCH failure here.
-
                 val documentNumber = mockDocumentNumber(toolSessionId)
                 ToolOutcome.Completed.Identified(
                     amr = listOf(descriptor.method),
                     achievedAcr = descriptor.maxAcr,
                     factorTypes = descriptor.factorTypes,
                     claims = listOf(
-                        // An eID run is the proving tool itself: the card data was MATCHED
-                        // against the master data, but what this run asserts is what the card
-                        // showed - hence this tool's own id as the trust anchor. Address fields
-                        // (strasse/hausnummer/plz/ort) stay in the auditDetails blob: no
-                        // anchor or projection consumer exists for them, so they are not
-                        // claims (see IdentEidDescriptor.claims). geburtsdatum is an ISO date
-                        // string via LocalDate.toString().
-                        Claim(AttributeType.PERSON_ID, decision.personId.toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        // Exactly what the card showed, on this procedure's own authority
+                        // (ClaimSource.of(toolId)) - no PERSON_ID and no KVNR, because a card
+                        // carries neither. Whether these attributes belong to a known person is
+                        // the central resolution's question, and binding them to a register
+                        // person is `ident-kvnr`'s (ADR-18). Address fields stay in the
+                        // auditDetails blob: no anchor or projection consumer exists for them,
+                        // so they are not claims (see IdentEidDescriptor.claims). geburtsdatum
+                        // is an ISO date string via LocalDate.toString().
                         Claim(AttributeType.NAME, checkNotNull(decision.claimed.name), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.VORNAME, checkNotNull(decision.claimed.vorname), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
@@ -88,7 +79,11 @@ class IdentEidToolHandler(
                         "providerTxId" to "EID-$toolSessionId",
                         "methodVersion" to "1.0",
                         "documentNumber" to documentNumber,
-                        "evidenceHash" to IdentEidFlow.evidenceHash(merged.kvnr.orEmpty(), decision.pinHash, documentNumber)
+                        "strasse" to decision.claimed.strasse,
+                        "hausnummer" to decision.claimed.hausnummer,
+                        "plz" to decision.claimed.plz,
+                        "ort" to decision.claimed.ort,
+                        "evidenceHash" to IdentEidFlow.evidenceHash(decision.pinHash, documentNumber)
                     )
                 )
             }
@@ -110,13 +105,11 @@ class IdentEidToolHandler(
         "MOCK" + toolSessionId.toString().replace("-", "").take(9).uppercase()
 
     private fun IdEidToolSession.toState(): IdentEidState =
-        IdentEidState(kvnr, name, vorname, personId, geburtsdatum, strasse, hausnummer, plz, ort, pinHash)
+        IdentEidState(name, vorname, geburtsdatum, strasse, hausnummer, plz, ort, pinHash)
 
     private fun IdEidToolSession.applyState(state: IdentEidState) {
-        kvnr = state.kvnr
         name = state.name
         vorname = state.vorname
-        personId = state.personId
         geburtsdatum = state.geburtsdatum
         strasse = state.strasse
         hausnummer = state.hausnummer

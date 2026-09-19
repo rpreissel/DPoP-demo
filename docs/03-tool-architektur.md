@@ -106,6 +106,7 @@ Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregatio
 |---|---|---|---|---|---|
 | `ident-fsc` | `IDENTIFICATION` | `fsc` | `{possession}` | `loa2` | — |
 | `ident-eid` | `IDENTIFICATION` | `eid` | `{possession,knowledge}` | `loa3` | — |
+| `ident-kvnr` | `CORRELATION` | `kvnr` | `{}` | `loa2` | — |
 | `confirm-email` | `ATTESTATION` | `email` | `{}` | `loa1` | — |
 | `enroll-sms` / `auth-sms` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `sms` | `{possession}` | `loa1` | `false` |
 | `enroll-password` / `auth-password` | `ENROLLMENT` / `IDENTIFIED_AUTH` | `password` | `{knowledge}` | `loa1` | `false` |
@@ -120,10 +121,11 @@ Entscheidungen dahinter:
 - Jedes Modul liefert Kategorie/Methode/Faktorart/Niveau selbst — kein zentral zu pflegender Katalog.
 - `method` wird **nicht** aus `toolId` geparst: `enroll-sms`/`auth-sms` melden dieselbe `method`, worüber ein Auth-Tool die passende Zeile in `account.auth_method` findet.
 - `factorTypes` ist eine **Menge**, weil ein Verfahren mehrere Faktoren zugleich erbringen kann: `enroll-device`/`auth-device` meldet `loa2` und zwei Faktorarten aus einem Durchlauf (gerätegebundenes Schlüsselpaar plus System-PIN/Biometrie).
-- `requires` (bisher nur `enroll-password` mit `ClaimRequirement(EMAIL, PROVEN)`) wird doppelt geprüft — bei der Kandidatenermittlung und nochmals bei der Aktivierung (`ToolControllerSupport.validatePreconditions`) —, sonst wäre die Kandidatenliste per Direktaufruf umgehbar.
+- `requires` wird gegen die konsolidierten Claims des Kontos geprüft (`AccountProfile.establishedClaims`, Behauptungen minus Retraktionen, ADR-12) und doppelt ausgewertet — bei der Kandidatenermittlung und nochmals bei der Aktivierung (`ToolControllerSupport.validatePreconditions`) —, sonst wäre die Kandidatenliste per Direktaufruf umgehbar. Zwei Tools nutzen es heute: `enroll-password` verlangt `ClaimRequirement(EMAIL, PROVEN)`, `ident-kvnr` die bezeugten Identitätsattribute (ADR-18).
 - **Verfügbarkeit** hat zwei unabhängige Achsen, beide als `toolId`-Mengen: Der Client erklärt bei der Kanal-Erzeugung, welche Tools er rendern kann (`availableTools`, fix je Kanal); das Backend kann zusätzlich jedes Tool global zur Laufzeit sperren (`ToolAvailabilityService`). Beide werden live geschnitten (`JourneyContext.availableTools`) und an drei Stellen geprüft; bleibt nichts übrig, greift derselbe `exhausted`/Cancel-Fallback wie bei vollständig abgelehnten Kandidaten.
 - `role=ATTESTATION` (`confirm-email`) markiert einen Nachweis, der weder Ident noch Auth noch Enroll ist: die bestätigte Adresse wird Account-Attribut, kein Credential — ausführlich in Abschnitt 2 ("`ATTEST`").
 - `role=LOOKUP_AUTH` markiert die `-lookup`-Zwillinge: dieselbe `method` wie ihr `IDENTIFIED_AUTH`-Geschwister, aber Account-Auflösung über eine eingegebene E-Mail statt über den Kanal — ohne diese Unterscheidung wäre die Kandidatenermittlung mehrdeutig.
+- `role=CORRELATION` (`ident-kvnr`) markiert einen Zuordnungsschritt: Er beweist für sich nichts — eine getippte Nummer ist kein Nachweis —, ist nie Kandidat einer (Re-)Identifizierung (`forIdentification`/`reIdentCandidates` matchen auf die Rolle, nicht die Kategorie) und nur nach einer Bezeugung überhaupt aktivierbar (`requires`, ADR-18). `factorTypes = {}` ist Folge dieser Rolle, nicht ihre Definition.
 - `allowsMultipleInstances=true` (bisher nur `device`): mehrere aktive Instanzen derselben Methode dürfen gleichzeitig existieren, eine je physischem Gerät, statt der sonst üblichen "neu enrollen ersetzt die alte"-Regel. `AuthPolicy.candidateTools` filtert auf die zum anfragenden Gerät passende Instanz; `matchesCurrentOwner` prüft zusätzlich, dass das Gerät laut `DeviceAccountLink` noch an dieses Konto gebunden ist.
 - `enroll-qr`/`auth-qr`/`auth-qr-lookup` folgen demselben Enroll/Auth/Lookup-Dreiklang wie `sms`/`password`/`email`, mit einer Besonderheit: `enroll-qr` ist ein reiner Opt-in-Marker ohne Geheimnis (`factorTypes = {}`); die Opt-in-Prüfung selbst sitzt in `confirm-qr-login`.
 - `auth-qr`/`auth-qr-lookup` deklarieren `factorTypes = {possession, knowledge}`: Das bestätigende Handy muss laut `ConfirmPeerLoginStrategy.gate()` selbst erst frisch loa2 nachgewiesen haben — selbst-genügsame MFA wie bei `ident-eid`, konsistent zum `maxAcr=loa2`.
@@ -186,6 +188,15 @@ Evidenz läge auf der IDENTITY-Achse — das höbe das IAL, den ersten der drei 
 der Wert dem Konto (`LOCAL_ANCHOR`), ist es `ATTEST`; gehört er dem Methodenmodul
 (`METHOD_MODULE`), ist es `ENROLL`. Über die KVNR lässt sich keine Kontrolle nachweisen, nur die
 Zugehörigkeit zur Person — also `IDENT`, kein `attest-kvnr`.
+
+Ein dritter Fall fehlte in dieser Regel und wurde mit ADR-18 nachgetragen: **bürgt das Verfahren
+selbst (`ClaimSource.of(toolId)`) für einen Wert, den `EXT_STAMMDATEN` verwaltet, ist es `IDENT`** —
+so liegt `ident-eid`, das Name/Vorname/Geburtsdatum von der Karte bezeugt. `ATTEST` wäre dafür
+falsch, und zwar nicht wegen des Datenbesitzes, sondern weil `ATTEST` per Definition *nichts* zur
+ACR/AMR-Bilanz beiträgt (`evidenceAxis()` wirft dafür): eine eID trägt sehr wohl IAL bei. Umgekehrt
+gilt die Kategorie auch für ein Tool, das nur *korreliert* statt zu beweisen (`ident-kvnr`,
+`role = CORRELATION`) — es bleibt `IDENT`, seine Sicherheit kommt aus `requires` plus dem
+Identitätsabgleich im Account-Modul.
 
 `ToolCategory.SIDE_ACTION` benennt die geteilte Eigenschaft von `PEER_APPROVAL`-Tools: sie tragen
 nichts zur ACR/AMR-Bilanz des *eigenen* Kanals bei und sind nie Kandidat einer Lücken-Vorauswahl,

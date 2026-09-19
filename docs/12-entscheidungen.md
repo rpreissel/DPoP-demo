@@ -250,6 +250,13 @@ auf den Keycloak-User — bewusst nicht als Attribut: Proof-of-possession-Materi
 Credential-Store. Geschrieben wird er von einer eigenen
 `AdminRealmResourceProvider`-Erweiterung (`AccountPublicKeyResource`, gemountet unter
 `/admin/realms/{realm}/orchestrator-keys/{accountId}`).
+
+Der Account-Sync spiegelt daneben Namen und User-Attribute (`personId`/`kvnr`/`geburtsdatum`)
+— je Attribut der Registerwert, sonst der stärkste bezeugte Claim des Kontos (ADR-18: ein voll
+bezeugter Interessent trägt NAME/VORNAME/GEBURTSDATUM auch ohne Registerbindung); die
+Platzhalternamen bleiben nur für Konten ohne beides („Enrollment zuerst"). `personId`/`kvnr`
+existieren nur mit Registerbindung — ein Interessent zeigt sich im Fehlen beider, nie in einem
+gepflegten Status-Flag.
 Der custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
 `AccountTokenGrantType`, Keycloaks pluggable `OAuth2GrantType`-SPI in
 `keycloak-server-spi-private`) verlangt zusätzlich eine damit signierte, kurzlebige Assertion
@@ -541,6 +548,60 @@ Entfernen der Methode die Adresse gar nicht mehr mitreißen kann.
 **Preis**: Ein Schritt mehr in der Registrierung, ein Tool mehr im Katalog, und eine Reihe von
 Integrationstests musste ihre Erwartung umstellen (`sms + email` → `sms + password`). Die
 Asymmetrie „Passwort nur im Web" entfällt.
+
+---
+
+## ADR-18: Bezeugen und Zuordnen sind zwei Akte
+
+**Entscheidung**: `ident-eid` bezeugt nur noch, was die Karte trägt (Name, Vorname, Geburtsdatum,
+auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuordnung zur
+Registerperson ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer ab, löst sie
+über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit
+`ClaimSource.EXT_STAMMDATEN`, denn dort bürgt tatsächlich das Register. Dazwischen steht eine
+ausformulierte Ja/Nein-Frage (`RegisterState.OfferRegisterAssignment`); wird sie verneint oder ist
+die Nummer unbekannt, endet der Lauf als vollwertig bezeugter **Interessent** (ADR-10) statt mit
+einem Fehler.
+
+**Erwogene Alternative**: Alles in einem Tool lassen und nur die Fehlermeldung verbessern.
+
+**Warum diese**: Der bisherige Zuschnitt behauptete etwas Falsches. `IdentEidDescriptor`
+deklarierte `ClaimDeclaration(PERSON_ID, ClaimSource.of(toolId))` — das Verfahren bürgte also für
+eine PersonId, die es nie von der Karte gelesen hatte, sondern die der Controller vorab per KVNR
+nachgeschlagen hatte. Eine echte eID-Karte trägt weder KVNR noch PersonId; die KVNR musste der
+Nutzer selbst eintippen, bevor die Karte überhaupt gelesen wurde. Damit war auch der Fall "gültige
+eID, aber (noch) kein Registereintrag" nicht abbildbar: Er scheiterte hart, obwohl ADR-10 genau
+diesen Kontozustand vorsieht.
+
+`ident-eid` bleibt `IDENTIFICATION`; `ident-kvnr` trägt die eigene Rolle `MethodRole.CORRELATION` (weiterhin Kategorie `IDENT`, denn es gehört zur Identitätsfeststellung und trägt IAL bei) — dasselbe Muster wie `LOOKUP_AUTH` neben `IDENTIFIED_AUTH`: gleiche Kategorie, nie austauschbar. Die Rolle macht explizit, dass das Tool für sich nichts beweist (`factorTypes = {}` ist Folge, nicht Definition), und die Kandidatenpfade matchen auf die Rolle statt die Kategorie, damit es nie als (Re-)Identifizierungsweg angeboten wird. `ATTEST` wäre für die Bezeugung falsch — nicht wegen des
+Datenbesitzes, sondern weil diese Kategorie per Definition nichts zur ACR/AMR-Bilanz beiträgt
+(`AuthEvidence.evidenceAxis()` wirft dafür); eine eID trägt aber sehr wohl IAL bei, sonst stünde
+der stark bezeugte Interessent am Ende bei `loa1` statt `loa3`.
+
+**Sicherheitskern**: `ident-kvnr` beweist für sich **nichts** — eine getippte Nummer ist kein
+Nachweis. Zwei Dinge tragen es: `requires` (die bezeugten Identitätsattribute müssen am Konto
+vorliegen, sonst ist das Tool nicht einmal aktivierbar) und der Abgleich
+`IdentityResolver.attestedIdentityMatches`, der vor dem Ankerschreiben prüft, dass die Stammdaten
+hinter der Nummer zu der bereits bezeugten Identität passen. Ohne diesen Abgleich könnte man mit
+der eigenen eID eine fremde Versichertennummer eintippen und sich deren `PERSON_ID`-Anker aufs
+eigene Konto binden, solange diese Person noch kein Konto hat. Die bestehende Trennung bleibt
+dabei erhalten: unbekannte Nummer → Interessent (kein Konflikt), bekannte Nummer mit
+widersprechenden Daten → `409`.
+
+**Preis**: Ein Tool und ein Modul mehr im Katalog, ein Schritt mehr im Ablauf, und
+`ToolOutcome.Completed.Identified` musste seinen Pflicht-`PERSON_ID`-Claim aufgeben ("höchstens
+einer" statt "genau einer") — eine Lockerung, die jeden Aufrufer zwingt, den Null-Fall zu
+behandeln. Im Gegenzug hängt `id_eid` an keinem Auflösungs-Port mehr.
+
+**Nachtrag**: Erst dieser ADR hat `requires` überhaupt funktionsfähig gemacht.
+`DefaultAuthPolicy.requiresSatisfied` war hart auf `AttributeType.EMAIL` verdrahtet, jede andere
+Anforderung also unerfüllbar; sie prüft jetzt generisch gegen `AccountProfile.establishedClaims`
+(Behauptungen minus Retraktionen, ADR-12). `enroll-password`s E-Mail-Gate ist damit ein Fall der
+allgemeinen Regel statt ihrer Definition. Zudem filterte `CandidateTools.forIdentification` gar
+nicht auf `requires` — genau der Pfad, über den `ident-kvnr` sonst als eigenständiges
+Identifizierungsverfahren in der ersten Auswahl aufgetaucht wäre. Inzwischen matchen die
+Kandidatenpfade (`forIdentification`, `forAssignment`, `reIdentCandidates`) auf die Rolle statt
+die Kategorie — `ident-kvnr` ist damit strukturell nie ein (Re-)Identifizierungsweg, unabhängig
+davon, ob seine `requires` erfüllt sind.
 
 ---
 

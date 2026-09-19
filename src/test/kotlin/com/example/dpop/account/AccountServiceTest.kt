@@ -231,7 +231,9 @@ class AccountServiceTest : BehaviorSpec({
 
     given("the anchor read ports") {
         val accountRepository = mockk<AccountRepository>()
-        val accountClaimRepository = mockk<AccountClaimRepository>()
+        // relaxed: toProfile also reads the claim log for AccountProfile.establishedClaims, which
+        // these anchor-focused cases don't exercise.
+        val accountClaimRepository = mockk<AccountClaimRepository>(relaxed = true)
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)

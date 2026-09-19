@@ -1,0 +1,72 @@
+package com.example.dpop.id_kvnr.internal
+
+import com.example.dpop.id_kvnr.IdentKvnrDescriptor
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
+import com.example.dpop.tool_spi.ToolOutcome
+import org.springframework.data.repository.findByIdOrNull
+import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
+import java.util.UUID
+
+/**
+ * toolId=ident-kvnr. Takes the one value an attestation cannot carry - the Versichertennummer -
+ * and turns it into the register's own person reference (docs/12-entscheidungen.md ADR-18).
+ *
+ * It proves nothing on its own and is never a standalone identification: it only runs on top of
+ * an already attested identity ([IdentKvnrDescriptor.requires]), and the account module checks
+ * that the register's person actually matches what was attested before any anchor is written.
+ * This tool never sees accounts.
+ *
+ * Pure business logic; self-description lives in [IdentKvnrDescriptor].
+ */
+@Component
+class IdentKvnrToolHandler(
+    private val descriptor: IdentKvnrDescriptor,
+    private val repository: IdKvnrToolSessionRepository
+) {
+
+    @Transactional
+    fun start(toolSessionId: UUID): ToolOutcome {
+        repository.save(IdKvnrToolSession(toolSessionId = toolSessionId))
+        return inProgress()
+    }
+
+    /**
+     * [personId] is resolved by the controller via `PersonDirectory`, since `id_kvnr` must not
+     * depend on `ext_stammdaten` directly - same seam as `ident-fsc`.
+     *
+     * An unknown KVNR answers exactly like one that resolves to somebody else's person: the
+     * message never distinguishes the two, so this cannot be used to probe which numbers exist
+     * (the same reasoning that folds a throttle lock into `ident-fsc`'s ordinary failure).
+     */
+    @Transactional
+    fun patch(toolSessionId: UUID, kvnr: String?, personId: Long?): ToolOutcome {
+        val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-kvnr tool session: $toolSessionId" }
+        if (kvnr.isNullOrBlank()) return inProgress()
+        data.kvnr = kvnr
+        repository.save(data)
+
+        personId ?: return ToolOutcome.Failed("Versichertennummer konnte nicht zugeordnet werden")
+
+        return ToolOutcome.Completed.Identified(
+            amr = listOf(descriptor.method),
+            achievedAcr = descriptor.maxAcr,
+            factorTypes = descriptor.factorTypes,
+            claims = listOf(
+                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
+                Claim(AttributeType.KVNR, kvnr, ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr)
+            ),
+            auditDetails = mapOf("methodVersion" to "1.0")
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun read(toolSessionId: UUID): ToolOutcome {
+        checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-kvnr tool session: $toolSessionId" }
+        return inProgress()
+    }
+
+    private fun inProgress() = ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("kvnr")))
+}

@@ -15,6 +15,7 @@ import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
+import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.ToolId
 
 /**
@@ -74,6 +75,35 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                 }
                 is JourneyEvent.ActionCompleted -> afterIdentification(ctx)
                 else -> error("ConfirmDeviceRebind only accepts JourneyEvent.Answered")
+            }
+
+            is RegisterState.OfferRegisterAssignment -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    // Hands over to the offering state - only that one makes `next` point at the
+                    // tool. Re-resolved here rather than carried in the prompt, so a tool disabled
+                    // in the meantime simply carries on instead of dead-ending.
+                    ACCEPT -> offerAssignment(ctx) ?: continueAfterAssignment(ctx)
+                    DECLINE -> continueAfterAssignment(ctx)
+                    else -> error("OfferRegisterAssignment does not understand answer '${event.answer}'")
+                }
+                // Started: always present the prompt, unconditionally.
+                else -> Transition.To(state)
+            }
+
+            is RegisterState.Assigning -> when (event) {
+                // Backing out of the correlation is not a failure - it is the same outcome as
+                // declining the question: carry on, the account stays an Interessent.
+                is JourneyEvent.Abandoned -> continueAfterAssignment(ctx)
+                // ConfirmIdentity, never AdoptIdentity: a correlation step extends the identity of
+                // the account already in hand. AdoptIdentity would resolve the claims on their own
+                // and, for a register person who has no account yet, create a SECOND one - silently
+                // moving this journey off the account the attestation just built.
+                is JourneyEvent.Completed -> when (val outcome = event.outcome) {
+                    is ToolOutcome.Completed.Identified ->
+                        Transition.Perform(Action.ConfirmIdentity(event.tool, outcome), resumeState = state)
+                    else -> error("${event.tool.toolId} is not offered by the assignment step")
+                }
+                else -> continueAfterAssignment(ctx)
             }
 
             is RegisterState.ConfirmingEmail -> when (event) {
@@ -137,6 +167,24 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
             if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
         }
+        // An attestation proved WHO this is but bound nobody in the register (ident-eid carries no
+        // KVNR, ADR-18) - ask once whether to correlate, before any enrollment: the answer decides
+        // whether this run builds a bound account or an Interessent (ADR-10). Skipped when no
+        // correlation tool is currently offerable, which leaves the Interessent outcome as-is.
+        if (account.personId == null && CandidateTools.forAssignment(ctx).isNotEmpty()) {
+            return Transition.To(RegisterState.OfferRegisterAssignment)
+        }
+        return continueAfterAssignment(ctx)
+    }
+
+    /** The correlation offer itself, or null when nothing is offerable (tool disabled meanwhile). */
+    private fun offerAssignment(ctx: JourneyContext): Transition? =
+        CandidateTools.forAssignment(ctx).takeIf { it.isNotEmpty() }
+            ?.let { Transition.To(RegisterState.Assigning(it)) }
+
+    /** The rest of a registration, once the person-assignment question is settled either way. */
+    private fun continueAfterAssignment(ctx: JourneyContext): Transition {
+        val account = ctx.requireAccount()
         // Deliberately AFTER the AuthChoice branch above, not before it: a rediscovered, already
         // set-up account logging in is never retroactively blocked on a missing confirmed email
         // (docs/04-orchestrierung.md #8) - the obligation belongs to a genuine registration, which

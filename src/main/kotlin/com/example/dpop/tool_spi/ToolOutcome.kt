@@ -46,13 +46,15 @@ sealed interface ToolOutcome {
         val factorTypes: Set<FactorType>
 
         /**
-         * An [IDENTIFICATION][MethodRole.IDENTIFICATION] tool resolved [personId] -
-         * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, Paket 5) carried only as
-         * a [claims] entry now, no separate field: today's IDENT procedures still require
-         * exactly one valid `PERSON_ID` claim, enforced right here at construction (the "IDENT-
-         * Erfolgsvertrag") rather than pauschal on every claim set this type shares with
-         * [Enrolled] - claims-only identification (an Interessenten form with no `PERSON_ID` at
-         * all) stays out of scope for this codebase.
+         * An [IDENTIFICATION][MethodRole.IDENTIFICATION] tool established who the subject is.
+         * The person reference is carried as a [claims] entry, never as a separate field
+         * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, Paket 5).
+         *
+         * At most ONE `PERSON_ID` claim, possibly none: a procedure that attests what it read
+         * without resolving anyone - `ident-eid`, whose card carries no person reference at all -
+         * legitimately reports none, and the central resolution then decides whether those
+         * attributes match an existing account or produce an Interessent (ADR-10). Two different
+         * person references in one run stay a contract error, enforced here at construction.
          */
         data class Identified(
             override val amr: List<String> = emptyList(),
@@ -60,21 +62,20 @@ sealed interface ToolOutcome {
             override val factorTypes: Set<FactorType> = emptySet(),
             /**
              * The identifying attributes this run asserted, with their provenance - the typed
-             * counterpart to [auditDetails]. Subset of the descriptor's [ToolDescriptor.claims];
-             * must contain exactly one `PERSON_ID` claim (see [personId]).
+             * counterpart to [auditDetails]. Subset of the descriptor's [ToolDescriptor.claims].
              */
             val claims: List<Claim> = emptyList(),
             /** Method-specific verification evidence, passed through unchanged for auditing. */
             val auditDetails: Map<String, Any?>? = null
         ) : Completed {
-            /** The single mandatory `PERSON_ID` claim's value, parsed - see the class doc. */
-            val personId: Long
-                get() = claims.first { it.attributeType == AttributeType.PERSON_ID }.value.trim().toLong()
+            /** The `PERSON_ID` claim's value, parsed - `null` when this run resolved nobody. */
+            val personId: Long?
+                get() = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }?.value?.trim()?.toLong()
 
             init {
                 val personIdClaims = claims.count { it.attributeType == AttributeType.PERSON_ID }
-                check(personIdClaims == 1) {
-                    "Completed.Identified requires exactly one PERSON_ID claim, got $personIdClaims"
+                check(personIdClaims <= 1) {
+                    "Completed.Identified allows at most one PERSON_ID claim, got $personIdClaims"
                 }
                 claims.forEach { it.validateValue() }
             }

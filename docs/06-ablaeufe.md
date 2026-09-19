@@ -106,18 +106,22 @@ Fehlerfall zusätzlich zum allgemeinen Vertrag: fehlender/ungültiger `devicePro
 
 ---
 
-## 6) `ident-eid`
+## 6) `ident-eid` und `ident-kvnr`
 
 `id_eid` ist das zweite `IDENTIFICATION`-Tool neben `ident-fsc` — mock-simulierte Online-Ausweisfunktion statt Freischaltcode. Anders als `ident-fsc` erbringt es zwei Faktorarten in einem Durchlauf (`factorTypes={possession,knowledge}`, `maxAcr=loa3`): Besitz der (simulierten) eID-Karte plus Wissen der PIN.
 
-Drei `PATCH`-Schritte statt zwei, jeder mit eigenem `nextStep`, damit der Client drei unterschiedliche Bildschirme zeigen kann:
+Zwei `PATCH`-Schritte, jeder mit eigenem `nextStep`, damit der Client zwei unterschiedliche Bildschirme zeigen kann:
 
-1. **`input`**: `kvnr`/`name`/`vorname` — löst wie bei `ident-fsc` über `PersonDirectory.findPersonIdByKvnr` die Person auf (Controller, nicht Handler — `id_eid` darf `ext_stammdaten` nicht direkt kennen, [Projektrahmen](08-projektrahmen.md) Abschnitt 3).
-2. **`card`**: die simulierte eID-Karte liefert ihre vollen Ausweisdaten — `geburtsdatum`, `strasse`, `hausnummer`, `plz`, `ort`.
-3. **`pin`**: die eID-PIN (Testwert `123456`, wie `ident-fsc`s `VALIDCODE`).
+1. **`card`**: die simulierte eID-Karte liefert ihre vollen Ausweisdaten in einem Zug — `name`, `vorname`, `geburtsdatum`, `strasse`, `hausnummer`, `plz`, `ort`. Es wird **nichts** vorab eingetippt: eine Karte trägt weder KVNR noch PersonId, also gibt es auch keinen Suchschritt davor.
+2. **`pin`**: die eID-PIN (Testwert `123456`, wie `ident-fsc`s `VALIDCODE`).
 
 Wie beim allgemeinen Muster lösen alle Felder zusammen in einem einzigen `PATCH`-Aufruf ebenfalls auf; nur die fehlenden Felder müssen einzeln nachgereicht werden.
 
-Der eigentliche Unterschied zu `ident-fsc` liegt im Abgleich: `ident-fsc` prüft Name und Vorname über den Stammdaten-Port, der Freischaltcode trägt den Verfahrensnachweis. `ident-eid` prüft die als Claims übernommenen Identitätsmerkmale (Name, Vorname, Geburtsdatum) zentral über `PersonDirectory.matchesStammdaten`; Adressfelder sind nur zusätzliche Eingabeschritte und landen im Nachweis-Hash/`auditDetails`, nicht als Account-Claims. `ext_stammdaten` gibt dabei nur Ja/Nein zurück, nie die Stammdaten selbst (dieselbe Regel wie bei `findPersonIdByKvnr`) — die Entscheidung „war das eine gültige Identifizierung" bleibt bei der Datenquelle, ohne dass `ext_stammdaten` die Prozesslogik von `id_eid` kennen muss. Eine Verallgemeinerung (Vertrauensanker statt fester KVNR-Bindung) ist als Idee festgehalten, nicht umgesetzt: [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md).
+Der eigentliche Unterschied zu `ident-fsc` liegt darin, wer bürgt: Bei `ident-fsc` ist der Stammdaten-Backend die Quelle und das Tool nur sein Kanal (`ClaimSource.EXT_STAMMDATEN`), der Freischaltcode trägt den Verfahrensnachweis. `ident-eid` bezeugt dagegen auf **eigene** Autorität (`ClaimSource.of(toolId)`), was die Karte zeigt — Name, Vorname, Geburtsdatum als Claims; Adressfelder landen im Nachweis-Hash/`auditDetails`, nicht als Account-Claims. Eine PersonId behauptet es nicht (ADR-18).
 
-Fehlerfälle zusätzlich zum allgemeinen Vertrag: KVNR nicht gefunden -> `Failed("Person zu dieser KVNR nicht gefunden")`; falsche PIN -> `Failed("eID-PIN ungueltig")`; Ausweisdaten stimmen nicht mit `ext_stammdaten` überein -> `Failed("Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein")` — drei unterschiedliche, dem Nutzer erklärbare Gründe statt eines einzigen generischen Fehlschlags.
+**`ident-kvnr`** ist der zweite Akt: ein eigenes Tool mit einem Schritt (`input`, Feld `kvnr`), das die Versichertennummer über `PersonDirectory.findPersonIdByKvnr` auflöst (Controller, nicht Handler — `id_kvnr` darf `ext_stammdaten` nicht direkt kennen, [Projektrahmen](08-projektrahmen.md) Abschnitt 3) und `PERSON_ID`/`KVNR` unter `EXT_STAMMDATEN` behauptet. Es trägt die Rolle `CORRELATION` (Kategorie `IDENT`, ADR-18) — die ausdrückliche Form, dass eine getippte Nummer für sich nichts beweist (`factorTypes={}` ist Folge, nicht Definition). Getragen wird es von zwei Dingen: `requires` (die bezeugten Identitätsattribute müssen am Konto vorliegen, sonst ist es nicht einmal aktivierbar) und `IdentityResolver.attestedIdentityMatches`, das vor dem Ankerschreiben prüft, ob die Stammdaten hinter der Nummer zur bezeugten Identität passen.
+
+Zwischen beiden steht eine Ja/Nein-Frage (`RegisterState.OfferRegisterAssignment`, ein `Prompt.Confirm` wie `OfferReIdent`): „Konto Ihrer Versichertennummer zuordnen?" Zustimmung wechselt nach `Assigning`, erst dieser Angebotzustand rendert `next` auf `ident-kvnr` (derselbe Split wie `OfferReIdent` → `Identifying`); Ablehnung läuft regulär weiter und das Konto bleibt Interessent ([Orchestrierung](04-orchestrierung.md), ADR-10) — mit voll bezeugter Identität, nur ohne Registerbindung. Ein Fallback-, kein Pflichtzustand.
+
+Fehlerfälle zusätzlich zum allgemeinen Vertrag: falsche PIN -> `Failed("eID-PIN ungueltig")`; unbekannte Versichertennummer -> `Failed("Versichertennummer konnte nicht zugeordnet werden")` — bewusst dieselbe Antwort, egal ob die Nummer gar nicht existiert oder zu jemand anderem gehört, damit daraus kein KVNR-Existenz-Orakel wird; passt die Nummer zu einer anderen Person als der bezeugten, ist es ein Konflikt (`409`), kein Tool-Fehlschlag.
+

@@ -48,6 +48,10 @@ class IdentityMatchingService(
          * separate count query.
          */
         private const val CANDIDATE_LIMIT = 50
+
+        /** What an attestation can establish and the register can be checked against. */
+        private val ATTESTABLE_IDENTITY_ATTRIBUTES =
+            setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
     }
 
     override fun resolve(claims: Set<Claim>): Resolution {
@@ -59,6 +63,27 @@ class IdentityMatchingService(
         verifyToolAttestedConsistency(claims, externalPersonId)
         resolveByAnchor(claims, externalPersonId.takeIf { personClaim == null })?.let { return it }
         return resolveByAttributeCombination(claims) ?: Resolution.NewInteressent
+    }
+
+    /**
+     * The account-scoped counterpart of [verifyToolAttestedConsistency]: there, the attested
+     * identity and the kvnr arrive in the SAME claim set; here the attestation already happened
+     * in an earlier step and lives on the account, while only the person reference is new.
+     *
+     * Per attribute the strongest surviving claim wins, recency only breaking ties within a
+     * trust level ("Rangfolge schlägt Rezenz", docs/ideen/claims-modell-und-vertrauensanker.md).
+     */
+    override fun attestedIdentityMatches(accountId: Long, personId: Long): Boolean {
+        val attested = accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES)
+        if (attested.isEmpty()) return false
+        return personDirectory.matchesStammdaten(
+            personId,
+            ClaimedIdentity(
+                name = attested[AttributeType.NAME],
+                vorname = attested[AttributeType.VORNAME],
+                geburtsdatum = attested[AttributeType.GEBURTSDATUM]?.let(LocalDate::parse)
+            )
+        )
     }
 
     /**

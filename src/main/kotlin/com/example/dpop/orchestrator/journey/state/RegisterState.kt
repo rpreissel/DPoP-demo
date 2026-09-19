@@ -19,13 +19,16 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * every method has just been declined) - same idiom as the RE_IDENTIFY sub-journey. [AuthChoice]
  * and [Enrolling] are shared value types with [FastAccessState] rather than owned here, because
  * both journeys genuinely reach the same two questions once an account is in hand (see their own
- * doc) - only [Identifying], [ConfirmingEmail] and [PasswordObligation] are REGISTER-exclusive.
+ * doc) - only [Identifying], [OfferRegisterAssignment], [ConfirmingEmail] and
+ * [PasswordObligation] are REGISTER-exclusive.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(
     JsonSubTypes.Type(value = RegisterState.Start::class, name = "Start"),
     JsonSubTypes.Type(value = RegisterState.Identifying::class, name = "Identifying"),
     JsonSubTypes.Type(value = RegisterState.ConfirmDeviceRebind::class, name = "ConfirmDeviceRebind"),
+    JsonSubTypes.Type(value = RegisterState.OfferRegisterAssignment::class, name = "OfferRegisterAssignment"),
+    JsonSubTypes.Type(value = RegisterState.Assigning::class, name = "Assigning"),
     JsonSubTypes.Type(value = RegisterState.ConfirmingEmail::class, name = "ConfirmingEmail"),
     JsonSubTypes.Type(value = RegisterState.PasswordObligation::class, name = "PasswordObligation"),
     JsonSubTypes.Type(value = AuthChoice::class, name = "AuthChoice"),
@@ -87,6 +90,50 @@ sealed interface RegisterState : JourneyState {
             cancelLabel = "Abbrechen",
             destructive = true
         )
+    }
+
+    /**
+     * An attestation established WHO the subject is, but no person reference came with it
+     * (`ident-eid`: a card carries no KVNR) - so the account is bound to nobody in the register
+     * yet. Asked once, right after the attestation and before any enrollment, because the answer
+     * decides what kind of account the rest of the run is building
+     * (docs/12-entscheidungen.md ADR-18).
+     *
+     * A FALLBACK state, not an obligation: declining finishes the run on an Interessent account
+     * (ADR-10), it does not park or retry. Purely the question - saying yes moves on to
+     * [Assigning], which is what actually offers the tool, the same split as
+     * [ReIdentifyState.OfferReIdent] -> [ReIdentifyState.Identifying].
+     */
+    data object OfferRegisterAssignment : RegisterState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val prompt: Prompt get() = Prompt.Confirm(
+            title = "Konto Ihrer Versichertennummer zuordnen?",
+            description = "Ihre Identität ist nachgewiesen. Mit Ihrer Versichertennummer wird Ihr " +
+                "Konto zusätzlich Ihrem Datensatz bei der Krankenkasse zugeordnet - ohne sie " +
+                "bleibt das Konto zwar nutzbar, aber ohne diese Zuordnung.",
+            confirmLabel = "Versichertennummer angeben",
+            cancelLabel = "Ohne Zuordnung fortfahren"
+        )
+    }
+
+    /**
+     * The correlation step itself, reached from [OfferRegisterAssignment] on "yes". A separate
+     * OfferingState rather than a mode of the prompt, because only an offering state makes `next`
+     * point at the tool (or at a selection page for several candidates) - which is what the client
+     * follows. Abandoning it is no failure: the run carries on and the account stays an
+     * Interessent.
+     */
+    data class Assigning(
+        override val offered: List<ToolId>,
+        override val declined: Set<ToolId> = emptySet(),
+        override val active: ToolRef? = null
+    ) : RegisterState, OfferingState {
+        override fun withActive(active: ToolRef?) = copy(active = active)
+        override val selectionContext: String get() = "registration"
+        override val selectionTitle: String get() = "Versichertennummer angeben"
+        override val selectionDescription: String get() = "Ihr Konto wird damit Ihrem Datensatz bei der Krankenkasse zugeordnet."
     }
 
     /**

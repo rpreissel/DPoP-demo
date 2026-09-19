@@ -20,6 +20,7 @@ import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
 import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
+import com.example.dpop.id_kvnr.IdentKvnrDescriptor
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
@@ -27,8 +28,10 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
+import com.example.dpop.tool_spi.TrustLevel
 import java.time.Instant
 
 /**
@@ -42,7 +45,7 @@ object StrategyTestFixtures {
 
     val catalog = ToolHandlerRegistry(
         listOf(
-            IdentFscDescriptor, IdentEidDescriptor,
+            IdentFscDescriptor, IdentEidDescriptor, IdentKvnrDescriptor,
             EnrollSmsDescriptor, AuthSmsUseDescriptor, AuthSmsLookupDescriptor,
             ConfirmEmailDescriptor, EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
             EnrollPasswordDescriptor, AuthPasswordUseDescriptor, AuthPasswordLookupDescriptor,
@@ -55,16 +58,31 @@ object StrategyTestFixtures {
 
     const val BINDING_KEY = "test-binding-key"
 
+    /**
+     * [attestedIdentity] mirrors what an attestation (`ident-eid`) leaves on an account - the
+     * claims `ident-kvnr`'s own `requires` is checked against. Off by default, so the ordinary
+     * fixture keeps offering exactly the tools it always did.
+     */
     fun account(
         vararg methods: AuthMethodView,
         accountId: Long = 1L,
         personId: Long? = 1L,
-        emailConfirmed: Boolean = true
+        emailConfirmed: Boolean = true,
+        attestedIdentity: Boolean = false
     ) = AccountProfile(
         accountId = accountId,
         personId = personId,
         authenticationMethods = methods.toList(),
-        emailConfirmedAt = if (emailConfirmed) Instant.now() else null
+        emailConfirmedAt = if (emailConfirmed) Instant.now() else null,
+        establishedClaims = buildMap {
+            // A confirmed address IS an EMAIL claim at PROVEN - the anchor is only its projection.
+            if (emailConfirmed) put(AttributeType.EMAIL, TrustLevel.PROVEN)
+            if (attestedIdentity) {
+                put(AttributeType.NAME, TrustLevel.PROVEN)
+                put(AttributeType.VORNAME, TrustLevel.PROVEN)
+                put(AttributeType.GEBURTSDATUM, TrustLevel.PROVEN)
+            }
+        }
     )
 
     fun method(

@@ -329,7 +329,7 @@ In einem Fallback-Zustand sammelt `declined` die verworfenen Tools, in einem Pfl
 
 `REGISTER`s eigene Journey (`RegisterState`) nutzt `AuthChoice`/`Enrolling` als geteilte Werttypen
 mit `FAST_ACCESS` (s. o.) und besitzt zusätzlich `Identifying`, `ConfirmDeviceRebind`,
-`ConfirmingEmail` und `PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung,
+`OfferRegisterAssignment`, `Assigning`, `ConfirmingEmail` und `PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung,
 sobald es identifizieren müsste (s. o.).
 
 Löst die frische Identifikation ein **anderes** Konto auf, als für dieses Gerät bereits
@@ -342,6 +342,16 @@ Kontos für genau diesen `bindingKeyRef` (`AccountDeletionService.revokeMethod`)
 regulär ab — kein Fehler, dieselbe Semantik wie `DELETE .../journey` — und lässt die bestehende
 Bindung unangetastet.
 
+Hat die Identifizierung zwar bezeugt, WER jemand ist, aber niemanden im Register aufgelöst
+(`ident-eid`: eine Karte trägt keine KVNR, ADR-18), fragt `OfferRegisterAssignment` einmal nach,
+ob die Versichertennummer nachgereicht werden soll. Zustimmung wechselt nach `Assigning`, erst
+dieser Angebotzustand rendert `next` auf `ident-kvnr` — derselbe Prompt-/Angebot-Split wie
+`OfferReIdent` → `Identifying` in `RE_IDENTIFY`, denn ein `Prompt.Confirm` rendert selbst kein
+Tool. Ablehnung
+führt den Lauf regulär weiter — das Konto bleibt dann **Interessent** (ADR-10), mit voll bezeugter
+Identität, nur ohne Registerbindung. Ein Fallback-, kein Pflichtzustand; ein `ident-fsc`-Lauf
+(Register bürgt, PersonId sofort dabei) erreicht ihn nie.
+
 ```mermaid
 stateDiagram-v2
   [*] --> Identifying
@@ -350,6 +360,10 @@ stateDiagram-v2
   ConfirmDeviceRebind --> Identifying: Zustimmung - Gerät umgebunden, alte Bindung revoziert
   ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
+  Identifying --> OfferRegisterAssignment: Identität bezeugt, aber keine Registerperson zugeordnet (ident-eid)
+  OfferRegisterAssignment --> Assigning: Zustimmung - Versichertennummer nachreichen
+  Assigning --> ConfirmingEmail: Zuordnung erledigt oder abgebrochen
+  OfferRegisterAssignment --> ConfirmingEmail: Ablehnung - Interessent, Lauf läuft weiter
   Identifying --> ConfirmingEmail: Identität festgestellt, Konto muss etwas einrichten, E-Mail-Pflicht offen
   Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten, E-Mail bereits bestätigt
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig

@@ -8,7 +8,6 @@ import java.time.LocalDate
  * fields being supplied or corrected need to be sent").
  */
 data class EidPatchFields(
-    val kvnr: String? = null,
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,

@@ -20,7 +20,8 @@ internal const val EID_METHOD = "eid"
  *
  * Mock eID: reads a simulated card (possession) plus a PIN (knowledge) in one run, so
  * `maxAcr=loa3` and both factor types are claimed - unlike `ident-fsc`, which only ever proves
- * possession of the mailed code.
+ * possession of the mailed code. It resolves nobody: binding the attested identity to a register
+ * person is `ident-kvnr`'s separate act (docs/12-entscheidungen.md ADR-18).
  */
 @Component
 object IdentEidDescriptor : ToolDescriptor {
@@ -29,16 +30,15 @@ object IdentEidDescriptor : ToolDescriptor {
     override val method = EID_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
     override val maxAcr = AcrLevel.LOA3
-    // The attributes a successful run asserts, each declared with the anchor it is asserted
-    // with: the values are read from the eID card, so they rest on this procedure's own
-    // authority (ClaimSource.of(toolId)) - ext_stammdaten is only cross-checked for
-    // consistency, it is not the value's source (unlike ident-fsc, where the master-data
-    // backend IS the source and the tool is only its channel). Address fields
-    // (strasse/hausnummer/plz/ort) are deliberately not claims: no anchor or projection
-    // consumer exists for them, so they stay in the auditDetails blob.
+    // Not the role's "input": nothing is typed to begin with, the run opens on the card read.
+    override val startStep = "card"
+    // Exactly what the card carries, on this procedure's own authority
+    // (ClaimSource.of(toolId)) - unlike ident-fsc, where the master-data backend IS the source
+    // and the tool is only its channel. Deliberately no PERSON_ID and no KVNR: a real eID card
+    // holds neither, and claiming them here would mean vouching for values this procedure never
+    // read (ADR-18). Address fields (strasse/hausnummer/plz/ort) are not claims either: no
+    // anchor or projection consumer exists for them, so they stay in the auditDetails blob.
     override val claims = setOf(
-        ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.KVNR, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.NAME, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId))

@@ -10,7 +10,17 @@
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "card">
                 <p class="orchestrator-hint">Demo-Modus: Das Auslesen der Karte wird simuliert; Testdaten sind bereits vorbelegt.</p>
-                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"geburtsdatum":"geburtsdatum","strasse":"strasse","hausnummer":"hausnummer","plz":"plz","ort":"ort"}' />
+                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"name":"name","vorname":"vorname","geburtsdatum":"geburtsdatum","strasse":"strasse","hausnummer":"hausnummer","plz":"plz","ort":"ort"}' />
+                <div class="orchestrator-grid-2">
+                    <div class="${properties.kcFormGroupClass!}">
+                        <label for="name" class="${properties.kcLabelClass!}">Nachname</label>
+                        <input type="text" id="name" name="name" class="${properties.kcInputClass!}" value="Muster"/>
+                    </div>
+                    <div class="${properties.kcFormGroupClass!}">
+                        <label for="vorname" class="${properties.kcLabelClass!}">Vorname</label>
+                        <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" value="Max"/>
+                    </div>
+                </div>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="geburtsdatum" class="${properties.kcLabelClass!}">Geburtsdatum</label>
                     <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" value="1985-06-15"/>
@@ -40,23 +50,6 @@
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="pin" class="${properties.kcLabelClass!}">eID-PIN</label>
                     <input type="text" id="pin" name="pin" class="${properties.kcInputClass!}" autocomplete="off" value="123456"/>
-                </div>
-            <#else>
-                <p class="orchestrator-hint">Testdaten vorbelegt: A123456789 / Muster, Max</p>
-                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"kvnr":"kvnr","name":"name","vorname":"vorname"}' />
-                <div class="${properties.kcFormGroupClass!}">
-                    <label for="kvnr" class="${properties.kcLabelClass!}">Krankenversichertennummer</label>
-                    <input type="text" id="kvnr" name="kvnr" class="${properties.kcInputClass!}" value="A123456789"/>
-                </div>
-                <div class="orchestrator-grid-2">
-                    <div class="${properties.kcFormGroupClass!}">
-                        <label for="name" class="${properties.kcLabelClass!}">Nachname</label>
-                        <input type="text" id="name" name="name" class="${properties.kcInputClass!}" value="Muster"/>
-                    </div>
-                    <div class="${properties.kcFormGroupClass!}">
-                        <label for="vorname" class="${properties.kcLabelClass!}">Vorname</label>
-                        <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" value="Max"/>
-                    </div>
                 </div>
             </#if>
             <div class="orchestrator-actions">
