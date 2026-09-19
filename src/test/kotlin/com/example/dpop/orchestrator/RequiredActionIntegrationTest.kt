@@ -91,8 +91,9 @@ class RequiredActionIntegrationTest : IntegrationTestSupport() {
             authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
             // MANAGE itself always demands loa2 session evidence first (unrelated to Required
-            // Actions - ManageAuthMethodsStrategy.REQUIRED_ACR); this session only proved sms
-            // (loa1), so it forces a step-up via re-identification first.
+            // Actions - selfServiceAcrFloor, and this account is identified, so no loa1
+            // relaxation applies); this session only proved sms (loa1), so it forces a step-up
+            // via re-identification first.
             val started = triggerEnrollmentStepUp(newChannelSessionId)
             started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
             // Exact candidate computation is unit-tested (ReIdentifyStrategyTest) - here only the

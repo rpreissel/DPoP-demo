@@ -80,6 +80,27 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         }
     }
 
+    given("AddRequested, a never-identified account (personId == null) sitting at loa1") {
+        val acc = account(method("sms", AcrLevel.LOA1), personId = null)
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
+
+        then("selfServiceAcrFloor only demands loa1 for this account - offers enrollment candidates directly, no step-up") {
+            val transition = strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx)
+            transition.shouldBeInstanceOf<Transition.To>()
+        }
+    }
+
+    given("RemoveRequested, a never-identified account (personId == null) sitting at loa1") {
+        val acc = account(method("sms", AcrLevel.LOA1), method("password", AcrLevel.LOA1), personId = null)
+        val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
+        val state = ManageAuthMethodsState.RemoveRequested("sms-instance")
+
+        then("selfServiceAcrFloor only demands loa1 for this account - removes the method directly, no step-up") {
+            strategy.transition(state, JourneyEvent.Started, theCtx) shouldBe
+                Transition.Perform(Action.Remove("sms-instance"), resumeState = state)
+        }
+    }
+
     given("AddRequested, the session already carries loa2") {
         val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)

@@ -7,10 +7,10 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.selfServiceAcrFloor
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
-import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -22,10 +22,13 @@ import org.springframework.stereotype.Component
  * level reached - the channel was already AUTHENTICATED before it started. Adding a second method
  * means starting another journey.
  *
- * Both operations first require the CURRENT session to prove loa2, following the same
- * anti-self-escalation reasoning as the enrolledUnderAcr cap: a hijacked loa1 session must not be
- * able to add or remove credentials on its own say-so. The wish itself survives that detour: the
- * journey stays parked in [ManageAuthMethodsState.AddRequested]/[ManageAuthMethodsState.RemoveRequested] while the
+ * Both operations first require the CURRENT session to clear [selfServiceAcrFloor] - the same
+ * anti-self-escalation reasoning as the enrolledUnderAcr cap, and the same floor
+ * `DeleteAccountStrategy` uses: a hijacked loa1 session must not be able to add or remove
+ * credentials on its own say-so, but a never-identified account is only ever held to loa1, since
+ * it has no bound identity to protect beyond what its enrollment already exposed. The wish itself
+ * survives that detour: the journey stays parked in
+ * [ManageAuthMethodsState.AddRequested]/[ManageAuthMethodsState.RemoveRequested] while the
  * step-up sub-journey runs, and re-evaluating that same state afterwards both re-checks the gate
  * and carries out what was originally asked for.
  */
@@ -76,13 +79,14 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
             error("${event.tool.toolId} is not offered by MANAGE")
     }
 
-    /** Null once the session already carries loa2 and the caller may proceed. */
+    /** Null once the session already carries [selfServiceAcrFloor] and the caller may proceed. */
     private fun gate(requested: ManageAuthMethodsState, ctx: JourneyContext): Transition? {
         val account = ctx.requireAccount()
-        if (ctx.policy.isSatisfied(ctx.evidence, REQUIRED_ACR, account)) return null
+        val requiredAcr = selfServiceAcrFloor(account)
+        if (ctx.policy.isSatisfied(ctx.evidence, requiredAcr, account)) return null
         return Transition.RequireSubJourney(
             AuthIntent.STEP_UP,
-            seedWith = StepUpState.forSubJourney(REQUIRED_ACR, ctx.currentAcr),
+            seedWith = StepUpState.forSubJourney(requiredAcr, ctx.currentAcr),
             resumeWith = requested
         )
     }
@@ -96,9 +100,5 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
         } else {
             Transition.To(ManageAuthMethodsState.Enrolling(candidates))
         }
-    }
-
-    companion object {
-        val REQUIRED_ACR = AcrLevel.LOA2
     }
 }

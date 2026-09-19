@@ -664,10 +664,16 @@ Dass gewartet wird, sagen `JourneyLifecycle.SUSPENDED` und die `parentJourneyId`
 — deshalb überlebt der Wunsch den Step-up: Nach dessen Abschluss wird derselbe Zustand erneut
 ausgewertet, prüft die Vorbedingung neu und führt aus, was ursprünglich verlangt war.
 
-Die `loa2`-Vorbedingung folgt derselben Anti-Selbsteskalations-Logik wie die
-`enrolledUnderAcr`-Deckelung (Abschnitt 8): Eine gekaperte `loa1`-Session darf nicht aus eigener
-Kraft Methoden hinzufügen oder entfernen. Das Entfernen prüft zusätzlich, dass der Account
-danach die Untergrenze des Kanals noch erreichen kann (`409`, Selbstsperrschutz).
+Die Vorbedingung folgt derselben Anti-Selbsteskalations-Logik wie die `enrolledUnderAcr`-Deckelung
+(Abschnitt 8): Eine gekaperte Session darf nicht aus eigener Kraft Methoden hinzufügen oder
+entfernen. Das geforderte Niveau selbst liefert die geteilte Funktion `selfServiceAcrFloor`
+(`orchestrator/journey/IntentStrategy.kt`, auch von `DeleteAccountStrategy` genutzt): `loa2` für
+ein identifiziertes Konto, aber nur `loa1` für ein nie identifiziertes (`personId == null`, der
+"Enrollment zuerst"-Fall) — dort gibt es keine gebundene Identität, die eine gekaperte Session
+zusätzlich beschädigen könnte, und `loa2` wäre für ein solches Konto ohnehin nie erreichbar (die
+MFA-Kombinationsregel deckelt jeden Bump auf das höchste `enrolledUnderAcr` seiner Methoden, und
+das liegt bei einem nie identifizierten Konto immer bei `loa1`). Das Entfernen prüft zusätzlich,
+dass der Account danach die Untergrenze des Kanals noch erreichen kann (`409`, Selbstsperrschutz).
 
 ### `CONFIRM_PEER_LOGIN`
 
@@ -750,9 +756,8 @@ stateDiagram-v2
 ```
 
 `ConfirmPending` ist ein `AnswerableState` mit `destructive: true`-Prompt. Nach Zustimmung greift
-dasselbe Gate wie bei `MANAGE_AUTH_METHODS`, auf ein Niveau, das `Action.DeleteAccount
-.requiredAcr(account)` je Account bestimmt: loa2 für einen identifizierten Account, loa1 für einen
-nie identifizierten (`personId == null`, der "Enrollment zuerst"-Fall). Der abschließende Re-Proof
+dasselbe `selfServiceAcrFloor`-Gate wie bei `MANAGE_AUTH_METHODS` (Abschnitt 3, `Action.DeleteAccount
+.requiredAcr` delegiert an dieselbe Funktion). Der abschließende Re-Proof
 (irgendein aktiver Faktor, beliebiges Niveau) bleibt Pflicht, nie ein stiller Auto-Delete; musste
 ein Step-up laufen, zählt dessen Nachweis bereits. Der Übergang am Ende ist
 `Transition.Perform(Action.DeleteAccount(accountId), resumeState = ConfirmPending)`, aufgelöst zu
@@ -883,7 +888,7 @@ Die `Action`-Varianten:
 | `ApplyRestoredEvidence(source, methods)` | siehe „RestoreData als Anfangs-Übergang" unten |
 | `Remove(methodInstanceId)` | eine Methode deaktivieren — Selbstsperrung weist die Maschine ab, nicht die Strategie |
 | `LinkDevice(accountId)` | das aktuelle Gerät verknüpfen |
-| `DeleteAccount(accountId)` | Konto unwiderruflich löschen — `JourneyService` prüft `REQUIRED_ACR` unmittelbar vor der Ausführung gegen die aktuelle Evidence nach |
+| `DeleteAccount(accountId)` | Konto unwiderruflich löschen — `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung gegen die aktuelle Evidence nach |
 
 Die ersten vier `Action`-Varianten tragen `tool`/`outcome` selbst. Enthalten ist nur, was sich je
 Intent **unterscheidet**; alles Mechanische — `personId`, `enrollmentRef`, `amr`, `achievedAcr` —

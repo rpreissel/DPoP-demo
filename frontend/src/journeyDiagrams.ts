@@ -12,6 +12,7 @@ export const JOURNEY_DIAGRAMS: Record<
   | 'channel'
   | 'auto'
   | 'register'
+  | 'registerEnrollFirst'
   | 'login'
   | 'stepUp'
   | 'manageMethods'
@@ -48,12 +49,30 @@ export const JOURNEY_DIAGRAMS: Record<
       atIndex: 0,
       mainLabel: 'Ja',
       label: 'Nein',
-      steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Angemeldet'],
+      steps: ['Identifikation', 'E-Mail bestätigen', '2. Faktor einrichten', 'Angemeldet'],
     },
   },
   register: {
     title: 'Neues Konto registrieren',
-    steps: ['Identifikation', '2. Faktor einrichten', 'E-Mail bestätigen', 'Angemeldet'],
+    // Reihenfolge seit ADR-17 (docs/12-entscheidungen.md): die Adresse ist Konto-Infrastruktur und
+    // wird VOR jedem Anmeldeverfahren bestätigt, nicht als dessen Nebenprodukt danach
+    // (RegisterState.ConfirmingEmail's eigener KDoc: "FIRST mandatory step ... before any
+    // enrollment is offered").
+    steps: ['Identifikation', 'E-Mail bestätigen', '2. Faktor einrichten', 'Angemeldet'],
+  },
+  registerEnrollFirst: {
+    title: 'Neues Konto registrieren (Enrollment zuerst, Experiment)',
+    // RegisterEnrollFirstState (admin-umschaltbar, AdminRegistrationOrderView): komplett eigene
+    // Zustände (EnrollFirst*), keine mit RegisterState geteilten Typen außer RE_IDENTIFY am Ende.
+    // Reihenfolge ist fest: E-Mail (mandatory), SMS (mandatory), Passwort (mandatory) - erst danach
+    // optional identifizieren, nie davor (Gegenstück zum ident-first `register` oben).
+    steps: ['E-Mail bestätigen', 'SMS einrichten', 'Passwort einrichten', 'Angemeldet'],
+    branch: {
+      atIndex: 2,
+      mainLabel: 'nein',
+      label: 'optional identifizieren',
+      steps: ['Identifikation', 'Angemeldet'],
+    },
   },
   login: {
     title: 'Neu anmelden',
@@ -158,13 +177,23 @@ export const CURRENT_STEP_BY_STATE_TYPE: Partial<Record<keyof typeof JOURNEY_DIA
     PreferredAuth: { index: 1 },
     AuthChoice: { index: 1 },
     Identifying: { branch: true, index: 0 },
-    Enrolling: { branch: true, index: 1 },
-    ConfirmingEmail: { branch: true, index: 2 },
+    ConfirmingEmail: { branch: true, index: 1 },
+    Enrolling: { branch: true, index: 2 },
+    PasswordObligation: { branch: true, index: 2 },
   },
   register: {
     Identifying: { index: 0 },
-    Enrolling: { index: 1 },
-    ConfirmingEmail: { index: 2 },
+    ConfirmingEmail: { index: 1 },
+    Enrolling: { index: 2 },
+    PasswordObligation: { index: 2 },
+  },
+  registerEnrollFirst: {
+    EnrollFirstStart: { index: 0 },
+    EnrollFirstAttestingEmail: { index: 0 },
+    EnrollFirstEnrollingSms: { index: 1 },
+    EnrollFirstEnrolling: { index: 1 },
+    EnrollFirstConfirmingEmail: { index: 0 },
+    EnrollFirstPasswordObligation: { index: 2 },
   },
   login: {
     Start: { index: 0 },
@@ -208,11 +237,25 @@ export const INTENT_DIAGRAM_KEY: Record<string, keyof typeof JOURNEY_DIAGRAMS> =
 }
 
 /**
+ * REGISTER has two runtime-toggled strategies sharing one AuthIntent (AdminRegistrationOrderView,
+ * RegisterState vs. RegisterEnrollFirstState) - `intent` alone can't tell them apart, only the
+ * actually reported `stateType` can (RegisterEnrollFirstState's own states are all prefixed
+ * `EnrollFirst*`, see its class doc on why). Every other intent maps 1:1 via INTENT_DIAGRAM_KEY.
+ */
+export function diagramKeyForState(intent: string, stateType: string): keyof typeof JOURNEY_DIAGRAMS | undefined {
+  if (intent === 'REGISTER' && stateType.startsWith('EnrollFirst')) return 'registerEnrollFirst'
+  return INTENT_DIAGRAM_KEY[intent]
+}
+
+/**
  * Which JOURNEY_DIAGRAMS entry describes what's running right now, from the innermost (actually
  * active) journey in the chain - `journeyKind` (the user's own entry choice) only applies to that
- * outermost/only level; a SubJourney started later (step-up, manage-methods, ...) has its own
- * intent and overrides it. Used for both JourneyStructureView's per-level hints and App.tsx's
- * "what am I doing right now" context line, so both agree on the same label.
+ * outermost/only level, and only as a fallback: once the real `stateType` reveals the
+ * enroll-first experiment is running, that observation wins over the remembered click (which
+ * cannot distinguish the two REGISTER strategies on its own). A SubJourney started later
+ * (step-up, manage-methods, ...) has its own intent and always overrides `journeyKind`. Used for
+ * both JourneyStructureView's per-level hints and App.tsx's "what am I doing right now" context
+ * line, so both agree on the same label.
  */
 export function currentJourneyDiagramKey(
   journeys: JourneyDebugStep[] | undefined,
@@ -221,7 +264,8 @@ export function currentJourneyDiagramKey(
   if (!journeys || journeys.length === 0) return undefined
   const index = journeys.length - 1
   const innermost = journeys[index]
-  return index === 0 ? (journeyKind ?? INTENT_DIAGRAM_KEY[innermost.intent]) : INTENT_DIAGRAM_KEY[innermost.intent]
+  const byState = diagramKeyForState(innermost.intent, innermost.stateType)
+  return index === 0 ? (byState === 'registerEnrollFirst' ? byState : journeyKind ?? byState) : byState
 }
 
 /**

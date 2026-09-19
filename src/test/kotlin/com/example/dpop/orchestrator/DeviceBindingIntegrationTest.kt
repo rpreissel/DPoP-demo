@@ -233,12 +233,13 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val afterLogin = get("/orchestrator/api/v1/channels/$newChannelSessionId")
             afterLogin.channel()["currentAcr"] shouldBe "loa1"
 
-            // MANAGE with enroll-device as the goal must still force the loa2 step-up gate
-            // first (ManageAuthMethodsStrategy.REQUIRED_ACR) - the session's own loa1 evidence is
-            // not enough to add a loa2-capable credential on its own authority. sms is the only
-            // active method and it's already used this session, so no ordinary factor can close
-            // the gap - re-identification is offered instead via the shared RE_IDENTIFY sub-journey,
-            // confirmed first (ReIdentifyState.OfferReIdent).
+            // MANAGE with enroll-device as the goal must still force the loa2 step-up gate first
+            // (selfServiceAcrFloor - this account is identified, so no loa1 relaxation applies) -
+            // the session's own loa1 evidence is not enough to add a loa2-capable credential on
+            // its own authority. sms is the only active method and it's already used this
+            // session, so no ordinary factor can close the gap - re-identification is offered
+            // instead via the shared RE_IDENTIFY sub-journey, confirmed first
+            // (ReIdentifyState.OfferReIdent).
             val started = triggerEnrollmentStepUp(newChannelSessionId)
             started.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
             // Exact candidate computation is unit-tested (ReIdentifyStrategyTest) - here only the

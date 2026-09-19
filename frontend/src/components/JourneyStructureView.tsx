@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { JourneyDebugStep, Next } from '../types'
 import { shorten } from '../format'
 import { DiagramHint } from './DiagramHint'
-import { CURRENT_STEP_BY_STATE_TYPE, INTENT_DIAGRAM_KEY, JOURNEY_DIAGRAMS } from '../journeyDiagrams'
+import { CURRENT_STEP_BY_STATE_TYPE, diagramKeyForState, JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 
 interface JourneyStructureViewProps {
   channelSessionId?: string
@@ -59,7 +59,10 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
   const levels: Level[] = []
 
   journeys?.forEach((j, index) => {
-    const diagramKey = index === 0 ? (journeyKind ?? INTENT_DIAGRAM_KEY[j.intent]) : INTENT_DIAGRAM_KEY[j.intent]
+    // Same `registerEnrollFirst`-over-`journeyKind` precedence as currentJourneyDiagramKey - the
+    // real stateType wins once it reveals the enroll-first experiment is running.
+    const byState = diagramKeyForState(j.intent, j.stateType)
+    const diagramKey = index === 0 ? (byState === 'registerEnrollFirst' ? byState : journeyKind ?? byState) : byState
     // Only the innermost (actually active) journey has a "current step" to point at - a SUSPENDED
     // parent is parked waiting on its sub-journey, its own diagram has nothing to highlight.
     const isInnermost = index === journeys.length - 1

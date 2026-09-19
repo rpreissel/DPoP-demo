@@ -15,6 +15,28 @@ import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 
 /**
+ * The ACR floor for any action that only ever touches an account's OWN credentials/data, never a
+ * stranger's - anti-self-escalation (a hijacked loa1 session must not act as if it had proved
+ * more than it did) shared by every such gate ([Action.DeleteAccount.requiredAcr],
+ * `ManageAuthMethodsStrategy.gate`) so the rule has exactly one definition instead of a
+ * per-strategy constant.
+ *
+ * loa1 suffices for an account that was never identified ([AccountProfile.personId] `== null` -
+ * the "Enrollment zuerst" case, docs/04-orchestrierung.md REGISTER): there is no bound
+ * identity/Stammdaten a hijacked loa1 session could reach beyond what the enrollment itself
+ * already exposed. Every identified account still requires loa2.
+ *
+ * Keyed on `personId`, deliberately not on the account's current `acr`: a never-identified
+ * account can in fact never reach loa2 in the first place (`DefaultAuthPolicy.combinedAcr` caps
+ * any MFA bump at the highest `enrolledUnderAcr` among its methods, and every method such an
+ * account enrolls is itself capped at loa1 - there is no path to a higher `enrolledUnderAcr`
+ * without an identification first). This floor therefore never grants more than such an account
+ * could legitimately reach anyway; it only stops demanding a level it could never clear.
+ */
+fun selfServiceAcrFloor(account: AccountProfile?): AcrLevel =
+    if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevel.LOA2
+
+/**
  * The SPI each intent implements - symmetric to `tool_spi`, where tools describe themselves.
  *
  * A strategy DECIDES, it never ACTS: it gets a read-only [JourneyContext] and names an [Action]
@@ -302,17 +324,11 @@ sealed interface Action {
             /**
              * The ACR JourneyService independently re-checks right before executing this action.
              * Lives here rather than in `DeleteAccountStrategy` so the generic machine can
-             * reference it without importing a concrete [IntentStrategy] implementation.
-             *
-             * loa1 suffices for an account that was never identified ([AccountProfile.personId]
-             * `== null` - the "Enrollment zuerst" case, docs/04-orchestrierung.md REGISTER): there
-             * is no bound identity/Stammdaten a hijacked loa1 session could erase beyond what the
-             * enrollment itself already exposed, so deleting it is no more sensitive than the
-             * enrollment was. Every identified account still requires loa2, same gate as
-             * `ManageAuthMethodsStrategy`.
+             * reference it without importing a concrete [IntentStrategy] implementation. Deleting
+             * an account is no more sensitive than [selfServiceAcrFloor]'s own reasoning already
+             * covers, so this is exactly that floor, not a second definition of it.
              */
-            fun requiredAcr(account: AccountProfile?): AcrLevel =
-                if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevel.LOA2
+            fun requiredAcr(account: AccountProfile?): AcrLevel = selfServiceAcrFloor(account)
         }
     }
 }
