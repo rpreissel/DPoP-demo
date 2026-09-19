@@ -34,7 +34,10 @@ class AttributeRulesTest : BehaviorSpec({
         }
         then("master data owns the identifying attributes it is the register for") {
             AttributeType.entries.filter { it.rule.authority == AttributeAuthority.EXT_STAMMDATEN } shouldBe
-                listOf(AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                listOf(
+                    AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
+                    AttributeType.STRASSE, AttributeType.HAUSNUMMER, AttributeType.PLZ, AttributeType.ORT
+                )
         }
         then("a method module owns what it enrolled itself") {
             AttributeType.PHONE_NUMBER.rule.authority shouldBe AttributeAuthority.METHOD_MODULE

@@ -251,9 +251,11 @@ Credential-Store. Geschrieben wird er von einer eigenen
 `AdminRealmResourceProvider`-Erweiterung (`AccountPublicKeyResource`, gemountet unter
 `/admin/realms/{realm}/orchestrator-keys/{accountId}`).
 
-Der Account-Sync spiegelt daneben Namen und User-Attribute (`personId`/`kvnr`/`geburtsdatum`)
+Der Account-Sync spiegelt daneben Namen und User-Attribute
+(`personId`/`kvnr`/`geburtsdatum`/`strasse`/`hausnummer`/`plz`/`ort`)
 — je Attribut der Registerwert, sonst der stärkste bezeugte Claim des Kontos (ADR-18: ein voll
-bezeugter Interessent trägt NAME/VORNAME/GEBURTSDATUM auch ohne Registerbindung); die
+bezeugter Interessent trägt NAME/VORNAME/GEBURTSDATUM und die Adressattribute auch ohne
+Registerbindung); die
 Platzhalternamen bleiben nur für Konten ohne beides („Enrollment zuerst"). `personId`/`kvnr`
 existieren nur mit Registerbindung — ein Interessent zeigt sich im Fehlen beider, nie in einem
 gepflegten Status-Flag.
@@ -554,6 +556,8 @@ Asymmetrie „Passwort nur im Web" entfällt.
 ## ADR-18: Bezeugen und Zuordnen sind zwei Akte
 
 **Entscheidung**: `ident-eid` bezeugt nur noch, was die Karte trägt (Name, Vorname, Geburtsdatum,
+Adresse — jedes Kartenfeld ein eigener `AttributeType`, auch die Adressattribute `strasse`/
+`hausnummer`/`plz`/`ort`, die dafür aus dem `auditDetails`-Blob in echte Claims aufrückten —
 auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuordnung zur
 Registerperson ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer ab, löst sie
 über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit

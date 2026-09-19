@@ -50,13 +50,7 @@ class KeycloakAccountSyncListener(
         // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
         val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
         try {
-            val mirror = kcUserMirror(
-                profile, person,
-                accountService.establishedClaimValues(
-                    profile.accountId,
-                    setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
-                )
-            )
+            val mirror = kcUserMirror(profile, person, accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES))
             keycloakAdminClient.upsertUser(
                 profile.accountId, profile.email, profile.emailConfirmed,
                 mirror.firstName, mirror.lastName, mirror.attributes
@@ -97,6 +91,16 @@ class KeycloakAccountSyncListener(
 internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
 internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
 
+/**
+ * The attested claim types both sync paths (event-driven listener, full-reconciliation service)
+ * mirror into the Keycloak user: the person attributes an eID attestation can carry. One shared
+ * constant so the two paths can never drift apart on what "everything" means.
+ */
+internal val MIRRORED_CLAIM_TYPES = setOf(
+    AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
+    AttributeType.STRASSE, AttributeType.HAUSNUMMER, AttributeType.PLZ, AttributeType.ORT
+)
+
 /** What one account mirrors into its Keycloak user - shared by the listener's and service's sync paths. */
 internal data class KcUserMirror(
     val firstName: String,
@@ -109,10 +113,10 @@ internal data class KcUserMirror(
  * register person's value when one is bound and has it (PERSON_ID anchor, authoritative
  * stammdaten resolved live via `ext_stammdaten`), then the account's own established claim - a
  * fully attested Interessent (ADR-18: Zuordnung abgelehnt oder noch nie angeboten) carries
- * NAME/VORNAME/GEBURTSDATUM as claims even without a register binding. The placeholders remain
- * only for an account that has neither yet. `personId`/`kvnr` attributes stay register-bound by
- * design - an Interessent is visible as the absence of both, never as a hand-maintained status
- * flag.
+ * NAME/VORNAME/GEBURTSDATUM and the address fields as claims even without a register binding.
+ * The placeholders remain only for an account that has neither yet. `personId`/`kvnr` attributes
+ * stay register-bound by design - an Interessent is visible as the absence of both, never as a
+ * hand-maintained status flag.
  */
 internal fun kcUserMirror(profile: AccountProfile, person: PersonData?, attested: Map<AttributeType, String>): KcUserMirror =
     KcUserMirror(
@@ -125,12 +129,17 @@ internal fun kcUserMirror(profile: AccountProfile, person: PersonData?, attested
  * The non-anchor person attributes as plain custom user attributes. `personId`/`kvnr` are
  * resolved live from ext_stammdaten (never cached: they are asserted together with the PERSON_ID
  * anchor, so that anchor alone re-derives them on demand) and exist only for a register-bound
- * account; `geburtsdatum` falls back to the account's own attested claim for an Interessent.
- * Shared by [KeycloakAccountSyncListener] and [KeycloakAccountSyncService], the two places that
- * already run this exact live lookup.
+ * account; `geburtsdatum` and the address fields fall back to the account's own attested claim
+ * for an Interessent (gap-filling, never overriding a register value). Shared by
+ * [KeycloakAccountSyncListener] and [KeycloakAccountSyncService], the two places that already
+ * run this exact live lookup.
  */
 internal fun stammdatenAttributes(personId: Long?, person: PersonData?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
     personId?.let { put("personId", it.toString()) }
     person?.kvnr?.let { put("kvnr", it) }
     (person?.geburtsdatum?.toString() ?: attested[AttributeType.GEBURTSDATUM])?.let { put("geburtsdatum", it) }
+    (person?.strasse ?: attested[AttributeType.STRASSE])?.let { put("strasse", it) }
+    (person?.hausnummer ?: attested[AttributeType.HAUSNUMMER])?.let { put("hausnummer", it) }
+    (person?.plz ?: attested[AttributeType.PLZ])?.let { put("plz", it) }
+    (person?.ort ?: attested[AttributeType.ORT])?.let { put("ort", it) }
 }

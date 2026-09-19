@@ -48,10 +48,12 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
     }
 
     fun findPersonByKvnr(kvnr: String): PersonData? =
-        personRepository.findByKvnr(normalizeKvnr(kvnr))
-            ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname, it.geburtsdatum) }
+        personRepository.findByKvnr(normalizeKvnr(kvnr))?.toPersonData()
 
     fun findPersonById(personId: Long): PersonData? =
-        personRepository.findByIdOrNull(personId)
-            ?.let { PersonData(it.id, it.kvnr, it.name, it.vorname, it.geburtsdatum) }
+        personRepository.findByIdOrNull(personId)?.toPersonData()
+
+    private fun com.example.dpop.ext_stammdaten.internal.Person.toPersonData() = PersonData(
+        id, kvnr, name, vorname, geburtsdatum, strasse, hausnummer, plz, ort
+    )
 }

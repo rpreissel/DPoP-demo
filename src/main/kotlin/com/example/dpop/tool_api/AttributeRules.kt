@@ -73,7 +73,11 @@ val AttributeType.rule: AttributeRule
         AttributeType.KVNR,
         AttributeType.NAME,
         AttributeType.VORNAME,
-        AttributeType.GEBURTSDATUM -> AttributeRule(authority = AttributeAuthority.EXT_STAMMDATEN, anchor = null)
+        AttributeType.GEBURTSDATUM,
+        AttributeType.STRASSE,
+        AttributeType.HAUSNUMMER,
+        AttributeType.PLZ,
+        AttributeType.ORT -> AttributeRule(authority = AttributeAuthority.EXT_STAMMDATEN, anchor = null)
         AttributeType.PHONE_NUMBER -> AttributeRule(authority = AttributeAuthority.METHOD_MODULE, anchor = null)
     }
 
@@ -99,6 +103,10 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.NAME,
     AttributeType.VORNAME,
     AttributeType.GEBURTSDATUM,
+    AttributeType.STRASSE,
+    AttributeType.HAUSNUMMER,
+    AttributeType.PLZ,
+    AttributeType.ORT,
     AttributeType.PHONE_NUMBER ->
         error("$this is not an anchor attribute (authority: ${rule.authority}), has no normalized anchor value")
 }

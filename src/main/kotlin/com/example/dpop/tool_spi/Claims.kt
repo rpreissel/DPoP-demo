@@ -20,6 +20,14 @@ enum class AttributeType(val wireName: String) {
     /** ISO date, e.g. `1970-01-01`. Master-data field: delegated, never projected (ADR notes in
      *  docs/ideen/claims-modell-und-vertrauensanker.md). */
     GEBURTSDATUM("geburtsdatum"),
+    /** Address fields - the same German wire names the eID card and ext_stammdaten.person use
+     *  (strasse/hausnummer/plz/ort), so a card read's claim values map 1:1 onto register
+     *  columns. Master-data fields like GEBURTSDATUM: register-owned for bound accounts,
+     *  claim-log rows are attestation history. */
+    STRASSE("strasse"),
+    HAUSNUMMER("hausnummer"),
+    PLZ("plz"),
+    ORT("ort"),
     EMAIL("email"),
     PHONE_NUMBER("phone_number");
 

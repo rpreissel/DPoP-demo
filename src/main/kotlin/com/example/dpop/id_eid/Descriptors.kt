@@ -36,11 +36,15 @@ object IdentEidDescriptor : ToolDescriptor {
     // (ClaimSource.of(toolId)) - unlike ident-fsc, where the master-data backend IS the source
     // and the tool is only its channel. Deliberately no PERSON_ID and no KVNR: a real eID card
     // holds neither, and claiming them here would mean vouching for values this procedure never
-    // read (ADR-18). Address fields (strasse/hausnummer/plz/ort) are not claims either: no
-    // anchor or projection consumer exists for them, so they stay in the auditDetails blob.
+    // read (ADR-18). The address fields are claims like the name: the card bezeugte them, the
+    // claim log records them, and the Keycloak mirror prefers the register's value for them.
     override val claims = setOf(
         ClaimDeclaration(AttributeType.NAME, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId))
+        ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.STRASSE, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.HAUSNUMMER, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.PLZ, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId))
     )
 }

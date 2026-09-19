@@ -16,9 +16,10 @@ import java.util.UUID
  * then a PIN (knowledge), mirroring the two factors a real eID run proves in one go.
  *
  * Nothing is typed beforehand and nobody is looked up: the card carries neither a KVNR nor a
- * person reference, so this tool asserts only name/vorname/geburtsdatum and stops there. Whether
- * those attributes belong to a known account is the central identity resolution's question, and
- * binding them to a register person is `ident-kvnr`'s (docs/12-entscheidungen.md ADR-18).
+ * person reference, so this tool asserts only what the card itself shows (name, vorname,
+ * geburtsdatum, address) and stops there. Whether those attributes belong to a known account is
+ * the central identity resolution's question, and binding them to a register person is
+ * `ident-kvnr`'s (docs/12-entscheidungen.md ADR-18).
  *
  * Pure business logic; self-description lives in [IdentEidDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentEidFlow].
@@ -66,23 +67,24 @@ class IdentEidToolHandler(
                         // (ClaimSource.of(toolId)) - no PERSON_ID and no KVNR, because a card
                         // carries neither. Whether these attributes belong to a known person is
                         // the central resolution's question, and binding them to a register
-                        // person is `ident-kvnr`'s (ADR-18). Address fields stay in the
-                        // auditDetails blob: no anchor or projection consumer exists for them,
-                        // so they are not claims (see IdentEidDescriptor.claims). geburtsdatum
-                        // is an ISO date string via LocalDate.toString().
+                        // person is `ident-kvnr`'s (ADR-18). Address fields are claims like the
+                        // name: the card bezeugte them, so the claim log records them. The
+                        // auditDetails blob keeps only what no claim can carry (provider,
+                        // transaction ids, evidence hash). geburtsdatum is an ISO date string
+                        // via LocalDate.toString().
                         Claim(AttributeType.NAME, checkNotNull(decision.claimed.name), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.VORNAME, checkNotNull(decision.claimed.vorname), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
+                        Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.STRASSE, checkNotNull(decision.claimed.strasse), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.HAUSNUMMER, checkNotNull(decision.claimed.hausnummer), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.PLZ, checkNotNull(decision.claimed.plz), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.ORT, checkNotNull(decision.claimed.ort), ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
                     ),
                     auditDetails = mapOf(
                         "provider" to "eid-mock-service",
                         "providerTxId" to "EID-$toolSessionId",
                         "methodVersion" to "1.0",
                         "documentNumber" to documentNumber,
-                        "strasse" to decision.claimed.strasse,
-                        "hausnummer" to decision.claimed.hausnummer,
-                        "plz" to decision.claimed.plz,
-                        "ort" to decision.claimed.ort,
                         "evidenceHash" to IdentEidFlow.evidenceHash(decision.pinHash, documentNumber)
                     )
                 )
