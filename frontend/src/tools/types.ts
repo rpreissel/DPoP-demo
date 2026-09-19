@@ -21,6 +21,14 @@ export interface ToolRenderContext {
   onResult: (response: ChannelResponse) => void
   /** App.tsx: setError(message) */
   onError: (message: string) => void
+  /**
+   * Abandons this tool - the same backend-handled step abandon the surrounding view offers, handed
+   * to the tool itself so an OPTIONAL step can put the way out where the decision is made: next to
+   * its own submit button, not in a toolbar at the other end of the page. Only tools that declare
+   * [ToolMeta.skipLabel] render it (and then the surrounding view leaves it out, so there is
+   * exactly one of them on screen).
+   */
+  onSkip?: () => void
 }
 
 export interface ToolMeta {

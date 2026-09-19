@@ -724,6 +724,7 @@ export function AppChannelApp() {
           demo,
           onResult: (response) => applyResponse(response, next.toolId),
           onError: (message) => setError(message),
+          onSkip: activeTool ? handleAbandonTool : undefined,
         }
       : undefined
 
@@ -803,13 +804,12 @@ export function AppChannelApp() {
               )}
               {inToolMode && ((activeTool && alternativesCount > 0) || canCancel) && (
                 <div className="controls sticky-actions">
-                  {activeTool && alternativesCount > 0 && (
+                  {/* Ein Tool mit eigenem skipLabel zeichnet den Ausweg selbst, direkt neben
+                      seinem Absenden-Button (ToolRenderContext.onSkip) - hier unten waere er vom
+                      Formular weg und liesse sich zweimal auf der Seite finden. */}
+                  {activeTool && alternativesCount > 0 && !metaFor(activeTool.toolId).skipLabel && (
                     <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode). Bei einem Vorgang mit nur einem Kandidaten (z. B. confirm-qr-login) bietet das denselben Schritt einfach erneut an - dafür ist Abbrechen daneben da.">
-                      {/* Dieselbe Aktion, andere Beschriftung, wo "Anderes Verfahren" das falsche
-                          Wort wäre: ein freiwilliger Schritt (ident-kvnr) wird übersprungen, nicht
-                          gegen ein anderes Verfahren getauscht - das Tool deklariert das selbst
-                          (ToolMeta.skipLabel). */}
-                      {metaFor(activeTool.toolId).skipLabel ?? 'Anderes Verfahren'}
+                      Anderes Verfahren
                     </button>
                   )}
                   {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem

@@ -245,6 +245,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
           demo,
           onResult: setResponse,
           onError: (message) => setError(message),
+          onSkip: switchMethod,
         }
       : undefined
   // Only known-to-this-frontend tools can render a form here at all - a candidate the App
@@ -370,13 +371,15 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
       {toolCtx && toolRenderable && (
         <>
           {renderToolStep(toolCtx)}
-          <div className="form-actions">
-            <button className="secondary" onClick={switchMethod}>
-              {/* Gleiche Aktion wie im App-Kanal, gleiche Beschriftungsregel (ToolMeta.skipLabel):
-                  ein freiwilliger Schritt wird übersprungen, kein Verfahren getauscht. */}
-              {metaFor(toolCtx.toolId).skipLabel ?? 'Anderes Verfahren'}
-            </button>
-          </div>
+          {/* Wie im App-Kanal: Ein Tool mit eigenem skipLabel zeichnet den Ausweg selbst,
+              direkt an seinem Formular (ToolRenderContext.onSkip). */}
+          {!metaFor(toolCtx.toolId).skipLabel && (
+            <div className="form-actions">
+              <button className="secondary" onClick={switchMethod}>
+                Anderes Verfahren
+              </button>
+            </div>
+          )}
         </>
       )}
 

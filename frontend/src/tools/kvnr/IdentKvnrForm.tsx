@@ -4,6 +4,9 @@ import type { DemoPerson } from '../../types'
 
 interface IdentKvnrFormProps {
   onSubmit: (kvnr: string) => void
+  /** Skips the step (ToolRenderContext.onSkip) - rendered right next to the submit button, because that is where the decision is made. */
+  onSkip?: () => void
+  skipLabel: string
   error?: string
   /** Demo-only: all seeded personas, so a mismatching number is easy to try out too. */
   demoPersons?: DemoPerson[]
@@ -14,7 +17,7 @@ interface IdentKvnrFormProps {
  * identity was attested (docs/12-entscheidungen.md ADR-18) and assigns the account to that
  * person's register record - it proves nothing on its own.
  */
-export function IdentKvnrForm({ onSubmit, error, demoPersons }: IdentKvnrFormProps) {
+export function IdentKvnrForm({ onSubmit, onSkip, skipLabel, error, demoPersons }: IdentKvnrFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
 
   function handleSubmit(event: React.FormEvent) {
@@ -30,7 +33,7 @@ export function IdentKvnrForm({ onSubmit, error, demoPersons }: IdentKvnrFormPro
         Datensatz bei der Krankenkasse zugeordnet - sie muss zu der nachgewiesenen Person gehören.
       </p>
       <p className="hint">
-        Der Schritt ist freiwillig: Mit „Jetzt nicht" geht die Registrierung ohne diese Zuordnung
+        Der Schritt ist freiwillig: Mit „{skipLabel}" geht die Registrierung ohne diese Zuordnung
         weiter, das Konto bleibt nutzbar.
       </p>
       {error && <div className="hint">{error}</div>}
@@ -42,6 +45,11 @@ export function IdentKvnrForm({ onSubmit, error, demoPersons }: IdentKvnrFormPro
         </div>
         <div className="form-actions">
           <button type="submit">Zuordnen</button>
+          {onSkip && (
+            <button type="button" className="secondary" onClick={onSkip}>
+              {skipLabel}
+            </button>
+          )}
         </div>
       </form>
     </div>
