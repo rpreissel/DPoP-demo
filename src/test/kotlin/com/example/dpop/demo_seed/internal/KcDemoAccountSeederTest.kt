@@ -74,10 +74,16 @@ class KcDemoAccountSeederTest(
             accountService.allAccountIds().sorted() shouldBe ids
             jdbc.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 9
             jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
-            // password (KNOWLEDGE) + sms (POSSESSION)
+            // password (KNOWLEDGE) + sms (POSSESSION), beide unter loa2 eingerichtet: Der Seed
+            // vertritt eine abgeschlossene Identifizierung, und ein Enrollment wird mit dem
+            // bezahlt, was die Sitzung dabei bewiesen hatte (ADR-5). Mit loa1 waere die
+            // Kombination der beiden Faktoren durch maxEnrolledUnderAcr gedeckelt
+            // (DefaultAuthPolicy.combinedAcr) - das Demo-Konto kaeme nie auf loa2, obwohl genau
+            // dafuer zwei Faktorarten geseedet werden.
             ids.forEach { profileId ->
-                accountService.findAccount(profileId)?.activeAuthenticationMethods
-                    ?.map { it.method }?.sorted() shouldBe listOf("password", "sms")
+                val methods = accountService.findAccount(profileId)?.activeAuthenticationMethods.orEmpty()
+                methods.map { it.method }.sorted() shouldBe listOf("password", "sms")
+                methods.map { it.enrolledUnderAcr }.toSet() shouldBe setOf("loa2")
             }
             verify(exactly = 3) { passwords.setNew(any()) }
             verify(exactly = 3) { sms.enroll(any()) }

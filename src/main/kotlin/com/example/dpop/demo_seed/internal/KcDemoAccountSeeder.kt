@@ -109,11 +109,17 @@ internal class KcDemoAccountSeeder(
                 // as the live enroll-sms path does.
                 authMethodId = instanceId
             )
+            // Beide unter SEEDED_ACR, nicht unter der loa1-Obergrenze des jeweiligen Tools: Ein
+            // Enrollment wird mit dem bezahlt, was die Sitzung beim Einrichten bewiesen hatte
+            // (ADR-5) - und das ist hier die Identifizierung, die dieser Seed vertritt. Mit dem
+            // frueheren "loa1" konnten die beiden Faktoren genau das nicht, was der Kommentar
+            // unten verspricht: Ihre Kombination war durch maxEnrolledUnderAcr auf loa1 gedeckelt
+            // (DefaultAuthPolicy.combinedAcr), das Demo-Konto kam nie auf loa2.
             accountService.addAuthenticationMethod(
                 profile.accountId,
                 "sms",
                 enrollmentRef,
-                enrolledUnderAcr = "loa1",
+                enrolledUnderAcr = SEEDED_ACR.value,
                 details = emptyMap(),
                 instanceId = instanceId
             )
@@ -121,7 +127,7 @@ internal class KcDemoAccountSeeder(
                 profile.accountId,
                 "password",
                 passwordCredentialPort.setNew(DEMO_PASSWORD),
-                enrolledUnderAcr = "loa1",
+                enrolledUnderAcr = SEEDED_ACR.value,
                 details = emptyMap()
             )
             log.info(
@@ -145,7 +151,9 @@ internal class KcDemoAccountSeeder(
          * What the seed claims to have proven. It stands in for a completed ident-fsc run
          * (`ClaimSource.DEMO_BOOTSTRAP`, rank PROVEN), so it pays the PERSON_ID anchor's own price
          * (`AnchorRule.acrFloor`) rather than being waved through - demo data must not be held to
-         * a weaker rule than the flow it imitates.
+         * a weaker rule than the flow it imitates. The same figure stamps the two credentials:
+         * they are enrolled in that identification's own session, exactly as a real registration
+         * would (`AccountFixtures.ENROLLED_UNDER_ACR` records the same, measured from a real run).
          */
         private val SEEDED_ACR = AcrLevel.LOA2
 
