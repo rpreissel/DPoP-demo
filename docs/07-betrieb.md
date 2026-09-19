@@ -28,7 +28,7 @@ Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Ve
 - Jede relevante Transition erzeugt einen `SessionEvent` Audit-Eintrag.
 - Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) atomarisiert Journey-Übernahme, Account-Eintrag, Claim-Log und `AuthContext`-Nachweis. Das Methodenmodul schreibt seine Tool-/Enrollment-Daten bereits beim `PATCH` in einer eigenen Transaktion; scheitert die Journey-Übernahme, bleibt die Moduldatenzeile bestehen, wird aber nicht als Account-Credential aktiviert.
 - Auch neue Accounts, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung rollt der Verlierer vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`; kein automatischer Wiederholungsversuch. Unique-Verletzungen von `ux_anchor_value`/`ux_anchor_account_type` werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler.
-- Der Demo-Seed verwendet eine eigene transaktionale Klammer um Anlage und Claim-Übernahme; er löst bestehende Accounts über PersonId-Anker auf und erzeugt bei Neustarts keine zusätzlichen Bootstrap-Claims.
+- Der Demo-Seed verwendet eine eigene transaktionale Klammer um Anlage und Claim-Übernahme; er ist create-only: Eine Testperson, deren PERSON_ID- oder EMAIL-Anker bereits auf ein Konto auflöst (früherer Seed-Lauf oder ein halbfertiger Registrierungs-Interessent), wird komplett übersprungen — das bestehende Konto bleibt unverändert, es wird nichts vervollständigt. Bei Neustarts entstehen so keine zusätzlichen Bootstrap-Claims.
 - Nicht transaktional ist der SMS-Versand als externer Effekt: Ein Rollback macht eine bereits versendete SMS nicht rückgängig. Das ist ein Zustellthema, kein Konsistenzproblem — die zugehörige `issuedTanHash`-Zeile wurde mit zurückgerollt und läuft ins Leere.
 
 ## 3) Aufbewahrung und Löschung
@@ -73,7 +73,7 @@ benannter `@Service` mit eigenen Limits:
 | Service | Scope | Zählt | Antwort bei Überschreitung |
 |---|---|---|---|
 | `LoginThrottleService` | `ACCOUNT` | Fehlgeschlagene AUTH-Versuche gegen ein Konto | `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH; bei LOOKUP_AUTH in die gewöhnliche "E-Mail/Code ungültig"-Antwort gefaltet (sonst Enumeration-Oracle) |
-| `IdentThrottleService` | `PERSON` | Fehlgeschlagene IDENT-Versuche gegen eine Person (`ident-fsc`/`ident-eid` raten je ein Geheimnis; ein Treffer übernimmt das Konto) | immer in die gewöhnliche Fehlerantwort gefaltet, nie eigener Fehler |
+| `IdentThrottleService` | `PERSON` | Fehlgeschlagene IDENT-Versuche gegen eine Person (`ident-fsc` rät ein Geheimnis; ein Treffer übernimmt das Konto). Greift nur, wo der Versuch überhaupt eine Person benennt — `ident-eid` bezeugt seit ADR-18 nur die Karte und löst niemanden auf, seine PIN-Versuche begrenzt das Retry-Budget der Tool-Session | immer in die gewöhnliche Fehlerantwort gefaltet, nie eigener Fehler |
 | `ChannelCreationThrottleService` | `BINDING_KEY` | Kanaleröffnungen pro DPoP-Binding-Key (rollierendes Fenster, jeder Versuch zählt) | `429 Too Many Requests` |
 | `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | TAN-/Code-**Versendungen**, unabhängig von richtig/falsch (rollierendes Fenster, 3/10 Min) | `ACCOUNT_SEND` (LOOKUP_AUTH) in die gewöhnliche Fehlerantwort gefaltet; `CONTACT_SEND` (Self-Service-ENROLL, Subject SHA-256-gehasht statt Klartext) darf offen als eigener Fehler zurückkommen |
 

@@ -4,7 +4,10 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.SmsCredentialPort
+import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -78,6 +81,68 @@ class KcDemoAccountSeederTest(
             }
             verify(exactly = 3) { passwords.setNew(any()) }
             verify(exactly = 3) { sms.enroll(any()) }
+        }
+
+        then("a half-registered Interessent holding a person's email is left untouched, not adopted") {
+            val persons = mockk<PersonDirectory>()
+            val passwords = mockk<PasswordCredentialPort>()
+            val sms = mockk<SmsCredentialPort>()
+            listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
+                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+            }
+            every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
+            every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
+            // A demo registration against the prefilled demo address left an Interessent that
+            // holds person 1's email anchor but no PERSON_ID (KVNR correlation never ran). The
+            // seed must not complete that account - person 1 is skipped wholesale, and only
+            // persons 2 and 3 get seeded.
+            val interessentId = accountService.createUnidentifiedAccount().accountId
+            accountService.recordClaim(
+                interessentId,
+                Claim(AttributeType.EMAIL, "max.mustermann@example.com", ClaimSource.DEMO_BOOTSTRAP),
+                provenAcr = AcrLevel.LOA2
+            )
+            seed(persons, passwords, sms).run(DefaultApplicationArguments())
+            accountService.allAccountIds().size shouldBe 3
+            // The Interessent keeps its email anchor and gains nothing: no PERSON_ID, no methods.
+            accountService.resolveByAnchor(AttributeType.PERSON_ID, "1") shouldBe null
+            accountService.resolveByAnchor(AttributeType.EMAIL, "max.mustermann@example.com") shouldBe interessentId
+            accountService.findAccount(interessentId)?.activeAuthenticationMethods shouldBe emptyList()
+            verify(exactly = 2) { passwords.setNew(any()) }
+            verify(exactly = 2) { sms.enroll(any()) }
+        }
+
+        then("accounts holding the person's anchors are left untouched even in a forked state") {
+            val persons = mockk<PersonDirectory>()
+            val passwords = mockk<PasswordCredentialPort>()
+            val sms = mockk<SmsCredentialPort>()
+            listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
+                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+            }
+            every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
+            every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
+            // The forked state: person 1 already has an account via its PERSON_ID anchor, but
+            // the email anchor sits on a different account. The seed skips person 1 at the
+            // PERSON_ID hit alone - neither account is modified, no third one is created.
+            val person1Account = accountService.createUnidentifiedAccount().accountId
+            accountService.recordClaim(
+                person1Account,
+                Claim(AttributeType.PERSON_ID, "1", ClaimSource.DEMO_BOOTSTRAP),
+                provenAcr = AcrLevel.LOA2
+            )
+            val foreignId = accountService.createUnidentifiedAccount().accountId
+            accountService.recordClaim(
+                foreignId,
+                Claim(AttributeType.EMAIL, "max.mustermann@example.com", ClaimSource.DEMO_BOOTSTRAP),
+                provenAcr = AcrLevel.LOA2
+            )
+            seed(persons, passwords, sms).run(DefaultApplicationArguments())
+            accountService.allAccountIds().size shouldBe 4
+            accountService.resolveByAnchor(AttributeType.PERSON_ID, "1") shouldBe person1Account
+            accountService.resolveByAnchor(AttributeType.EMAIL, "max.mustermann@example.com") shouldBe foreignId
+            accountService.anchorValue(person1Account, AttributeType.EMAIL) shouldBe null
+            // Untouched means exactly that: no methods materialize on the pre-existing account.
+            accountService.findAccount(person1Account)?.activeAuthenticationMethods shouldBe emptyList()
         }
 
         then("a failure after claim acceptance leaves no partial seed accounts") {

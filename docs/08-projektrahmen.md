@@ -13,7 +13,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 - Ein React/TypeScript-Frontend, das einen DPoP-Proof erzeugt und mit dem Backend kommuniziert.
 - Einen `orchestrator`, der Session- und Journey-Zustände verwaltet und die fachliche Richtigkeit
   (Policy, Retry, DPoP-Bindung) durchsetzt, ohne die Methodenmodule zu kennen.
-- Mehrere fachliche Module (`id_fsc`, `id_eid`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`),
+- Mehrere fachliche Module (`id_fsc`, `id_eid`, `id_kvnr`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`),
   die ihre eigenen Tool-Endpunkte mitbringen und den Orchestrator ausschließlich über
   `tool_api` erreichen ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4).
 - Zwei Datenmodule (`account`, `ext_stammdaten`), die Konto- bzw. Personendaten halten und
@@ -65,10 +65,11 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account` |
 | M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …), `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
 | M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
-| M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); eigener `@RestController` |
+| M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bezeugt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController` |
+| M10a | `id_kvnr` | Zuordnung einer bezeugten Identität zur Registerperson (Tool `ident-kvnr`, ADR-18); eigener `@RestController` |
 | M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff; eigene `@RestController` |
 | M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine `account`-Abhängigkeit |
-| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE) und `sms` (POSSESSION) an — dem Paar für ein Step-up auf LoA2 (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); kein `@RestController` |
+| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE) und `sms` (POSSESSION) an — dem Paar für ein Step-up auf LoA2, create-only: Testpersonen mit bestehendem PERSON_ID-/EMAIL-Anker-Konto werden übersprungen (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveAccountByPersonId`/`resolveAccountByEmail` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); kein `@RestController` |
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -106,7 +107,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 ```
 
 - Kein Methodenmodul referenziert den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten"]`). Die einzige gemeinsame Kante ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
-- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package.
+- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `id_kvnr.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package.
 - Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Account-Lookups laufen über `tool_api.AccountDirectory`, Schreibungen über Claims in `ToolOutcome` und deren Übernahme durch die Journey. E-Mail-spezifische Lookup-Komfortfunktionen sind Extensions auf dem Port.
 - `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
 - Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` ist nicht nötig.

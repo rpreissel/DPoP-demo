@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.SmsCredentialPort
+import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_api.resolveAccountByPersonId
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
@@ -37,9 +38,12 @@ import java.util.UUID
  *
  * Idempotent by construction (`accountId`/`personId` come from PersonDirectory - see
  * infra/tofu/keycloak/main.tf's `orchestratorAccountId` comment for why person insertion order
- * matters here): re-running on an existing DB skips any person who already has an active "sms"
- * (or "password") method, and any address already anchored, instead of piling up deactivated
- * duplicates on every restart.
+ * matters here): the seed only ever CREATES, never modifies. A person whose PERSON_ID or EMAIL
+ * anchor already resolves to an existing account - a previous seed run, or the half-registered
+ * Interessent a demo registration against the prefilled demo address leaves behind - is skipped
+ * entirely; that account keeps whatever state it has, completed or not. Completing it would mean
+ * the seeder rewriting account state it does not own - removing or finishing such an account is
+ * the operator's call, not the boot's.
  */
 @Component
 @Profile("keycloak")
@@ -60,61 +64,66 @@ internal class KcDemoAccountSeeder(
                 log.warn("kc demo seed: no person found for kvnr {} - skipping", person.kvnr)
                 return@forEach
             }
+            // The seed only ever creates. An account that already holds one of this person's
+            // anchors - the PERSON_ID of a previous seed or identification, or the email of a
+            // half-registered Interessent (the frontend's person picker prefills these very
+            // addresses) - is left exactly as it is; completing it would be the seeder modifying
+            // account state it does not own (see class KDoc).
             val existingId = accountService.resolveAccountByPersonId(personId)
-            val profile = if (existingId == null) accountService.createUnidentifiedAccount()
-                else checkNotNull(accountService.findAccount(existingId)) { "Account not found: $existingId" }
-            if (accountService.anchorValue(profile.accountId, AttributeType.PERSON_ID) == null) {
-                accountService.recordClaim(
-                    profile.accountId,
-                    Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP),
-                    // The seed stands in for a completed identification, so it pays the same price
-                    // a real one would (AnchorRule.acrFloor) - stated here rather than waved
-                    // through, so the demo data is not held to a weaker rule than production.
-                    provenAcr = SEEDED_ACR
+                ?: accountService.resolveAccountByEmail(person.email)
+            if (existingId != null) {
+                log.info(
+                    "kc demo seed: account {} already holds an anchor of {} - leaving it untouched, not seeding",
+                    existingId, person.kvnr
                 )
+                return@forEach
             }
+            val profile = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                profile.accountId,
+                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP),
+                // The seed stands in for a completed identification, so it pays the same price
+                // a real one would (AnchorRule.acrFloor) - stated here rather than waved
+                // through, so the demo data is not held to a weaker rule than production.
+                provenAcr = SEEDED_ACR
+            )
             // The confirmed address itself, independent of any login method (ADR-17): it is the
-            // account's EMAIL anchor, which the lookup logins resolve against.
-            if (accountService.anchorValue(profile.accountId, AttributeType.EMAIL) == null) {
-                accountService.recordClaim(
-                    profile.accountId,
-                    Claim(AttributeType.EMAIL, person.email, ClaimSource.DEMO_BOOTSTRAP),
-                    provenAcr = SEEDED_ACR
-                )
-            }
-            if (profile.activeAuthenticationMethods.none { it.method == "sms" }) {
-                // POSSESSION, to complement the password's KNOWLEDGE - the two factors a step-up
-                // to loa2 needs to combine. No TAN was exchanged here, which is exactly why this
-                // goes through the port's bootstrap-only entry point.
-                val instanceId = UUID.randomUUID()
-                val enrollmentRef = smsCredentialPort.enroll(person.phoneNumber)
-                accountService.recordClaims(
-                    profile.accountId,
-                    listOf(Claim(AttributeType.PHONE_NUMBER, person.phoneNumber, ClaimSource.DEMO_BOOTSTRAP)),
-                    provenAcr = SEEDED_ACR,
-                    // The claim points at the method instance that established it (ADR-12), same
-                    // as the live enroll-sms path does.
-                    authMethodId = instanceId
-                )
-                accountService.addAuthenticationMethod(
-                    profile.accountId,
-                    "sms",
-                    enrollmentRef,
-                    enrolledUnderAcr = "loa1",
-                    details = emptyMap(),
-                    instanceId = instanceId
-                )
-            }
-            if (profile.activeAuthenticationMethods.none { it.method == "password" }) {
-                val enrollmentRef = passwordCredentialPort.setNew(DEMO_PASSWORD)
-                accountService.addAuthenticationMethod(
-                    profile.accountId,
-                    "password",
-                    enrollmentRef,
-                    enrolledUnderAcr = "loa1",
-                    details = emptyMap()
-                )
-            }
+            // account's EMAIL anchor, which the lookup logins resolve against. No other account
+            // can hold it at this point - one that does was the skip case above.
+            accountService.recordClaim(
+                profile.accountId,
+                Claim(AttributeType.EMAIL, person.email, ClaimSource.DEMO_BOOTSTRAP),
+                provenAcr = SEEDED_ACR
+            )
+            // POSSESSION, to complement the password's KNOWLEDGE - the two factors a step-up
+            // to loa2 needs to combine. No TAN was exchanged here, which is exactly why this
+            // goes through the port's bootstrap-only entry point. Fresh account, so no
+            // "already enrolled" guards either - existing accounts are skipped wholesale.
+            val instanceId = UUID.randomUUID()
+            val enrollmentRef = smsCredentialPort.enroll(person.phoneNumber)
+            accountService.recordClaims(
+                profile.accountId,
+                listOf(Claim(AttributeType.PHONE_NUMBER, person.phoneNumber, ClaimSource.DEMO_BOOTSTRAP)),
+                provenAcr = SEEDED_ACR,
+                // The claim points at the method instance that established it (ADR-12), same
+                // as the live enroll-sms path does.
+                authMethodId = instanceId
+            )
+            accountService.addAuthenticationMethod(
+                profile.accountId,
+                "sms",
+                enrollmentRef,
+                enrolledUnderAcr = "loa1",
+                details = emptyMap(),
+                instanceId = instanceId
+            )
+            accountService.addAuthenticationMethod(
+                profile.accountId,
+                "password",
+                passwordCredentialPort.setNew(DEMO_PASSWORD),
+                enrolledUnderAcr = "loa1",
+                details = emptyMap()
+            )
             log.info(
                 "kc demo seed: {} -> orchestrator accountId={} (Keycloak user attribute orchestratorAccountId, see infra/tofu/keycloak/main.tf)",
                 person.kvnr, profile.accountId
