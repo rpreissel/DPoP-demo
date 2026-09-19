@@ -6,6 +6,7 @@ import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountClaim
 import com.example.dpop.account.internal.AccountClaimRepository
 import com.example.dpop.account.internal.AccountRepository
+import com.example.dpop.account.internal.AccountRetractionRepository
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.PersonDirectory
@@ -50,6 +51,7 @@ class AccountServiceTest : BehaviorSpec({
         every { accountRepository.findForUpdate(7L) } returns account
         every { accountAnchorRepository.findByAccountIdAndAttributeType(7L, AttributeType.PERSON_ID) } returns null
         every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, any()) } returns null
+        every { accountClaimRepository.findEstablished(any()) } returns emptyList()
 
         `when`("recording a claim from an identifying tool") {
             val savedClaims = mutableListOf<AccountClaim>()
@@ -142,7 +144,11 @@ class AccountServiceTest : BehaviorSpec({
         val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+        // Relaxed mocks cannot answer JpaRepository's generic <S extends T> S save(S): the erased
+        // fabricated return cannot be cast back - so the retraction write gets a real stub.
+        val accountRetractionRepository = mockk<AccountRetractionRepository>()
+        every { accountRetractionRepository.save(any()) } answers { firstArg() }
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), accountRetractionRepository, eventPublisher)
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -154,6 +160,7 @@ class AccountServiceTest : BehaviorSpec({
         every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
         every { accountAnchorRepository.findByAccountIdAndAttributeType(7L, AttributeType.EMAIL) } returns null
         every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, any()) } returns null
+        every { accountClaimRepository.findEstablished(any()) } returns emptyList()
 
         `when`("recording an email claim") {
             service.recordClaim(
@@ -174,14 +181,14 @@ class AccountServiceTest : BehaviorSpec({
         }
 
         `when`("recording an anchor another account already holds") {
-            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "max@example.com") } returns
-                AccountAnchor(attributeType = AttributeType.EMAIL, value = "max@example.com", accountId = 99L, establishedAt = Instant.now())
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "other@example.com") } returns
+                AccountAnchor(attributeType = AttributeType.EMAIL, value = "other@example.com", accountId = 99L, establishedAt = Instant.now())
 
             then("the claim is rejected instead of silently skipping the anchor (ADR-11)") {
                 shouldThrow<IdentityConflictException> {
                     service.recordClaim(
                         accountId = 7L,
-                        claim = Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1),
+                        claim = Claim(AttributeType.EMAIL, "other@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1),
                         provenAcr = AcrLevel.LOA2
                     )
                 }

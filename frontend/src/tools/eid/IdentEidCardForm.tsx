@@ -11,6 +11,7 @@ interface IdentEidCardFormProps {
     hausnummer: string
     plz: string
     ort: string
+    restrictedId: string
   }) => void
   error?: string
   /** Demo-only: all seeded personas, offered as a picker that fills the whole card at once. */
@@ -26,6 +27,7 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
   const [hausnummer, setHausnummer] = useState('1')
   const [plz, setPlz] = useState('12345')
   const [ort, setOrt] = useState('Musterstadt')
+  const [restrictedId, setRestrictedId] = useState('T0103005K1D5S0V8T9W6UM2RTX')
 
   function selectPerson(person: DemoPerson) {
     setName(person.name)
@@ -35,11 +37,12 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
     setHausnummer(person.hausnummer)
     setPlz(person.plz)
     setOrt(person.ort)
+    setRestrictedId(person.restrictedId)
   }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit({ name, vorname, geburtsdatum, strasse, hausnummer, plz, ort })
+    onSubmit({ name, vorname, geburtsdatum, strasse, hausnummer, plz, ort, restrictedId })
   }
 
   return (
@@ -85,6 +88,17 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
         <div className="form-group">
           <label htmlFor="eid-ort">Ort</label>
           <input id="eid-ort" value={ort} onChange={(e) => setOrt(e.target.value)} required />
+        </div>
+        {/* Read-only, like the card itself: the restricted identifier is not typed by the user -
+            the card carries it, and only the demo picker (simulating a different card) changes it. */}
+        <div className="form-group">
+          <span id="eid-restricted-id-label">Restricted-ID (karteugebunden)</span>
+          <ul className="journey-log-detail-chips" aria-labelledby="eid-restricted-id-label">
+            <li>
+              <span className="journey-log-chip-label">RID</span>
+              <span className="journey-log-chip-value">{restrictedId}</span>
+            </li>
+          </ul>
         </div>
         {error && <div className="hint">{error}</div>}
         <div className="form-actions">

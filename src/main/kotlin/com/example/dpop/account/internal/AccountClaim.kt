@@ -66,9 +66,9 @@ class AccountClaim(
 
     companion object {
         /**
-         * The one place the normalization rule exists - the write-time hook above and every
-         * caller that queries by [normalizedValue] (`IdentityMatchingService`) must go through
-         * this, or the index (`ix_claim_type_value`) silently stops matching.
+         * The one place the normalization rule exists - the write-time hook above and the
+         * anti-join in [AccountClaimRepository.findEstablished]'s not-exists subtraction both
+         * depend on it, or a withdrawn value silently keeps counting (ADR-12).
          */
         fun normalize(value: String?): String? = value?.trim()?.lowercase()
     }

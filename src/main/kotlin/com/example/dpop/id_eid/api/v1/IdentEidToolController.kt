@@ -35,6 +35,7 @@ data class IdentEidPatchRequest(
     @field:Schema(example = "1") val hausnummer: String? = null,
     @field:Schema(example = "10117") val plz: String? = null,
     @field:Schema(example = "Berlin") val ort: String? = null,
+    @field:Schema(example = "T0103005T4UY6CQ1B3LN0T28WJ") val restrictedId: String? = null,
     @field:Schema(example = "123456") val pin: String? = null
 )
 
@@ -120,6 +121,7 @@ class IdentEidToolController(
             hausnummer = body.hausnummer,
             plz = body.plz,
             ort = body.ort,
+            restrictedId = body.restrictedId,
             pin = body.pin
         )
         // Folded into the handler's ordinary failure rather than raised - see

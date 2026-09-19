@@ -105,8 +105,6 @@ CREATE TABLE account.claim (
     CONSTRAINT fk_claim_account FOREIGN KEY (account_id) REFERENCES account.account (id) ON DELETE CASCADE
 );
 CREATE INDEX ix_claim_account_id ON account.claim (account_id);
--- Covers IdentityMatchingService's attribute-combination query entirely from the index.
-CREATE INDEX ix_claim_type_value ON account.claim (attribute_type, normalized_value, account_id);
 -- "What did this method instance ever assert?" - the retraction path's only query.
 CREATE INDEX ix_claim_auth_method_id ON account.claim (auth_method_id);
 
@@ -125,8 +123,9 @@ CREATE TABLE account.retraction (
     retracted_at     TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT fk_retraction_account FOREIGN KEY (account_id) REFERENCES account.account (id) ON DELETE CASCADE
 );
--- The anti-join shape of the matching query: (type, value) first, account last.
-CREATE INDEX ix_retraction_type_value ON account.retraction (attribute_type, normalized_value, account_id);
+-- The anti-join shape of findEstablished (ADR-19 left it as the only reader): the account first,
+-- then the (type, value) pair the subtraction matches on.
+CREATE INDEX ix_retraction_account_type_value ON account.retraction (account_id, attribute_type, normalized_value);
 
 -- Append-only audit record of every identification run: which procedure, at which level, when,
 -- and the proof anchors it produced (docs/06-ablaeufe.md, "dass und wie", never "was").
@@ -394,6 +393,7 @@ CREATE TABLE id_eid.ident_tool_session (
     hausnummer      VARCHAR(20),
     plz             VARCHAR(10),
     ort             VARCHAR(255),
+    restricted_id   VARCHAR(64),
     pin_hash        VARCHAR(64),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );

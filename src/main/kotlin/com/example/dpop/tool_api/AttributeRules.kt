@@ -58,13 +58,20 @@ data class AttributeRule(val authority: AttributeAuthority, val anchor: AnchorRu
  * `PERSON_ID` establishes and replaces at `loa2` - it is the strongest anchor, so both writes cost
  * the most. `EMAIL` establishes at `loa1` - a registration has proven nothing yet, so demanding
  * `loa2` there would make the first account impossible - but replaces at `loa2`, since that write
- * is what would hand someone else's account to a new address.
+ * is what would hand someone else's account to a new address. `EID_RESTRICTED_ID` establishes and
+ * replaces at `loa2` (ADR-19): the card pseudonym is only ever proven by a full eID read, and
+ * replacing it (a new card, same person) must cost exactly what establishing it did - it can
+ * change value, but never account.
  */
 val AttributeType.rule: AttributeRule
     get() = when (this) {
         AttributeType.PERSON_ID -> AttributeRule(
             authority = AttributeAuthority.LOCAL_ANCHOR,
             anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
+        )
+        AttributeType.EID_RESTRICTED_ID -> AttributeRule(
+            authority = AttributeAuthority.LOCAL_ANCHOR,
+            anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
         )
         AttributeType.EMAIL -> AttributeRule(
             authority = AttributeAuthority.LOCAL_ANCHOR,
@@ -91,6 +98,7 @@ val AttributeType.rule: AttributeRule
  */
 fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.PERSON_ID -> value.trim().toLong().toString()
+    AttributeType.EID_RESTRICTED_ID -> value.trim()
     AttributeType.EMAIL -> Email.of(value).value
     AttributeType.KVNR -> {
         // Format-validate first (Kvnr.of throws IllegalArgumentException for a malformed value,

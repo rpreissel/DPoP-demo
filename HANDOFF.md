@@ -8,6 +8,12 @@ A7-Rest, B2 (teilweise), B4 (teilweise), B6, C3, C4, D3** (vierter Durchgang) so
 explizite, im Review-Dokument begründete Zurückstellung (Architektur-/Produktionsentscheidung,
 kein kleiner Einzelbefund mehr); keiner ist übersehen.
 
+> **Stand dieses Dokuments**: Es beschreibt den Zustand zum Abschluss des Reviews. Später
+> getroffene Entscheidungen haben Teile davon überholt — insbesondere hat ADR-19 die
+> Attributkombinations-Auflösung samt `Resolution.Ambiguous`, `findAccountIdsMatchingAllThree`
+> und `ix_claim_type_value` (B1/A6) vollständig entfernt. Maßgeblich für den Ist-Stand sind
+> `docs/12-entscheidungen.md` und der Code.
+
 - Vollständige Befundliste mit aktuellem Status: [`docs/13-review-domaenen-db-modell.md`](docs/13-review-domaenen-db-modell.md)
 - Projektkontext: [`docs/00-agent-quickstart.md`](docs/00-agent-quickstart.md)
 - Kanonische Arbeitsanweisung: `AGENTS.md` (konservatives Git-Profil — nicht pushen ohne

@@ -406,7 +406,9 @@ hier nicht abbrechen. `Identified` heißt in `REGISTER` immer „finde oder übe
 Bei `Resolution.NewInteressent` entsteht zunächst ein Account ohne Personenbindung; `recordClaims`
 schreibt PersonId wie E-Mail über den gemeinsamen Claim-/Ankerpfad. Anlage, Claims und
 Journey-Zustand teilen dieselbe Transaktion; ein Konflikt rollt auch den neuen Account zurück.
-Bekannte Konten werden ausschließlich über Anker bzw. das nachrangige Attributmatching aufgelöst.
+Bekannte Konten werden ausschließlich über Anker aufgelöst ([12-entscheidungen.md](12-entscheidungen.md)
+ADR-19) — für eid-Bezeugungen ist das die karteugebundene `restricted_id`, ohne Anker-Treffer
+bleibt es beim neuen Interessenten.
 Bei `ConfirmIdentity` erzwingt die Account-Schicht Erstbindung, Unveränderlichkeit der PersonId und
 Ankerbesitz.
 

@@ -11,7 +11,9 @@
 > noch als Claim, kein separates Feld mehr — und seit ADR-18 gar nicht mehr zwingend: ein Tool darf
 > bezeugen, ohne jemanden aufzulösen, womit der Interessent aus ADR-10 über eID tatsächlich
 > erreichbar ist. Maßgeblich für den Ist-Stand ist der Code, nicht die
-> SQL-Entwürfe in der Git-Historie dieser Datei.
+> SQL-Entwürfe in der Git-Historie dieser Datei. ADR-19 hat die Auflösung danach auf Anker
+> allein gestellt (`restricted_id` als dritter lokaler Anker neben `person_id` und `email`,
+> Attributkombination als Auflösungsschicht entfernt) — auch das ist im Code maßgeblich.
 
 Offen geblieben ist nur die Skalierungsfrage unten — sie betrifft eine Produktivgröße
 (10 Mio. Konten), die diese Demo nie erreicht, und ist bewusst als Formvorgabe für den Fall

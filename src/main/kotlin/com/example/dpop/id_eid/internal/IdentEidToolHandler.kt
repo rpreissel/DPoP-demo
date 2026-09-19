@@ -17,7 +17,8 @@ import java.util.UUID
  *
  * Nothing is typed beforehand and nobody is looked up: the card carries neither a KVNR nor a
  * person reference, so this tool asserts only what the card itself shows (name, vorname,
- * geburtsdatum, address) and stops there. Whether those attributes belong to a known account is
+ * geburtsdatum, address, and the card's restricted identifier - the replaceable recognition
+ * anchor, ADR-19) and stops there. Whether those attributes belong to a known account is
  * the central identity resolution's question, and binding them to a register person is
  * `ident-kvnr`'s (docs/12-entscheidungen.md ADR-18).
  *
@@ -69,7 +70,9 @@ class IdentEidToolHandler(
                         // the central resolution's question, and binding them to a register
                         // person is `ident-kvnr`'s (ADR-18). Address fields are claims like the
                         // name: the card bezeugte them, so the claim log records them. The
-                        // auditDetails blob keeps only what no claim can carry (provider,
+                        // restricted_id claim consolidates into the replaceable local anchor that
+                        // recognizes an eid-identified Interessent on their next eid run (ADR-19).
+                        // The auditDetails blob keeps only what no claim can carry (provider,
                         // transaction ids, evidence hash). geburtsdatum is an ISO date string
                         // via LocalDate.toString().
                         Claim(AttributeType.NAME, checkNotNull(decision.claimed.name), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
@@ -78,7 +81,8 @@ class IdentEidToolHandler(
                         Claim(AttributeType.STRASSE, checkNotNull(decision.claimed.strasse), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.HAUSNUMMER, checkNotNull(decision.claimed.hausnummer), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.PLZ, checkNotNull(decision.claimed.plz), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.ORT, checkNotNull(decision.claimed.ort), ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
+                        Claim(AttributeType.ORT, checkNotNull(decision.claimed.ort), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.EID_RESTRICTED_ID, decision.restrictedId, ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
                     ),
                     auditDetails = mapOf(
                         "provider" to "eid-mock-service",
@@ -107,7 +111,7 @@ class IdentEidToolHandler(
         "MOCK" + toolSessionId.toString().replace("-", "").take(9).uppercase()
 
     private fun IdEidToolSession.toState(): IdentEidState =
-        IdentEidState(name, vorname, geburtsdatum, strasse, hausnummer, plz, ort, pinHash)
+        IdentEidState(name, vorname, geburtsdatum, strasse, hausnummer, plz, ort, restrictedId, pinHash)
 
     private fun IdEidToolSession.applyState(state: IdentEidState) {
         name = state.name
@@ -117,6 +121,7 @@ class IdentEidToolHandler(
         hausnummer = state.hausnummer
         plz = state.plz
         ort = state.ort
+        restrictedId = state.restrictedId
         pinHash = state.pinHash
     }
 }

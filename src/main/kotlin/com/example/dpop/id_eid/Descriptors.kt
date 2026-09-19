@@ -38,6 +38,8 @@ object IdentEidDescriptor : ToolDescriptor {
     // holds neither, and claiming them here would mean vouching for values this procedure never
     // read (ADR-18). The address fields are claims like the name: the card bezeugte them, the
     // claim log records them, and the Keycloak mirror prefers the register's value for them.
+    // restricted_id is the card's person-unique pseudonym - a replaceable local anchor (ADR-19),
+    // so a later eid run recognizes the Interessent it already created.
     override val claims = setOf(
         ClaimDeclaration(AttributeType.NAME, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
@@ -45,6 +47,7 @@ object IdentEidDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.STRASSE, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.HAUSNUMMER, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.PLZ, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId))
+        ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.EID_RESTRICTED_ID, ClaimSource.of(toolId))
     )
 }

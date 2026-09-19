@@ -17,8 +17,6 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.aop.framework.Advised
 import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.tool_spi.ToolId
-import io.kotest.matchers.collections.shouldBeEmpty
-import org.springframework.data.domain.PageRequest
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.ActiveProfiles
@@ -42,8 +40,7 @@ class AccountServiceDbTest(
     private val accountService: AccountService,
     private val jdbcTemplate: JdbcTemplate,
     private val transactionManager: PlatformTransactionManager,
-    private val anchorRepository: AccountAnchorRepository,
-    private val claimRepository: com.example.dpop.account.internal.AccountClaimRepository
+    private val anchorRepository: AccountAnchorRepository
 ) : BehaviorSpec({
 
     beforeEach {
@@ -239,23 +236,25 @@ class AccountServiceDbTest(
         }
     }
 
-    // ADR-12: a retraction cancels a claim without touching the log, and the matching layer reads
-    // assertions MINUS retractions. Needs the real schema - the `not exists` subtraction is SQL.
+    // ADR-12: a retraction cancels a claim without touching the log, and established-claims
+    // readers see assertions MINUS retractions. Needs the real schema - the `not exists`
+    // subtraction is SQL.
     given("a claim that was retracted") {
-        then("it stops matching although its log row stays") {
+        then("it stops counting although its log row stays") {
             val account = accountService.createUnidentifiedAccount()
             accountService.recordClaims(account.accountId, listOf(
                 Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN),
                 Claim(AttributeType.VORNAME, "Max", ClaimSource.EXT_STAMMDATEN),
                 Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.EXT_STAMMDATEN)
             ), provenAcr = AcrLevel.LOA2)
-            fun matches() = claimRepository.findAccountIdsMatchingAllThree(
-                AttributeType.NAME, "muster",
-                AttributeType.VORNAME, "max",
-                AttributeType.GEBURTSDATUM, "1985-06-15",
-                PageRequest.of(0, 51)
+            fun establishedValues() = accountService.establishedClaimValues(
+                account.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
             )
-            matches() shouldBe listOf(account.accountId)
+            establishedValues() shouldBe mapOf(
+                AttributeType.NAME to "Muster",
+                AttributeType.VORNAME to "Max",
+                AttributeType.GEBURTSDATUM to "1985-06-15"
+            )
 
             jdbcTemplate.update(
                 """INSERT INTO account.retraction (account_id, attribute_type, normalized_value, trust_anchor, retracted_at)
@@ -263,11 +262,59 @@ class AccountServiceDbTest(
                 account.accountId
             )
 
-            matches().shouldBeEmpty()
+            establishedValues() shouldBe mapOf(
+                AttributeType.VORNAME to "Max",
+                AttributeType.GEBURTSDATUM to "1985-06-15"
+            )
             jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM account.claim WHERE account_id = ? AND attribute_type = 'name'",
                 Int::class.java, account.accountId
             ) shouldBe 1
+        }
+    }
+
+    given("an eid restricted_id anchor being replaced by a new card (ADR-19)") {
+        then("the replace commits in place, like EMAIL - the account keeps exactly one") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                account.accountId,
+                Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", ClaimSource.of(ToolId("ident-eid"))),
+                provenAcr = AcrLevel.LOA2
+            )
+            accountService.recordClaim(
+                account.accountId,
+                Claim(AttributeType.EID_RESTRICTED_ID, "T0909090Z9X8Y7W6V5U4T3S2R1", ClaimSource.of(ToolId("ident-eid"))),
+                provenAcr = AcrLevel.LOA2
+            )
+
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.anchor WHERE account_id = ? AND attribute_type = 'restricted_id'",
+                Int::class.java, account.accountId
+            ) shouldBe 1
+            jdbcTemplate.queryForObject(
+                "SELECT normalized_value FROM account.anchor WHERE account_id = ? AND attribute_type = 'restricted_id'",
+                String::class.java, account.accountId
+            ) shouldBe "T0909090Z9X8Y7W6V5U4T3S2R1"
+        }
+    }
+
+    given("an eid restricted_id another account already holds") {
+        then("the cross-account write refuses - a card pseudonym is never re-pointed to a second account") {
+            val first = accountService.createUnidentifiedAccount()
+            val second = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                first.accountId,
+                Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", ClaimSource.of(ToolId("ident-eid"))),
+                provenAcr = AcrLevel.LOA2
+            )
+
+            shouldThrow<IdentityConflictException> {
+                accountService.recordClaim(
+                    second.accountId,
+                    Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", ClaimSource.of(ToolId("ident-eid"))),
+                    provenAcr = AcrLevel.LOA2
+                )
+            }
         }
     }
 
@@ -348,6 +395,63 @@ class AccountServiceDbTest(
                 "SELECT established_loa FROM account.anchor WHERE account_id = ? AND attribute_type = 'email'",
                 String::class.java, account.accountId
             ) shouldBe "loa1"
+        }
+    }
+
+    // ADR-19 / ADR-12-Nachtrag: the claim log is a change log, not a run log. ADR-18's eid runs
+    // cost 8 rows each time; re-attesting an unchanged card must cost nothing.
+    given("a claim log that already established a tool's values") {
+        then("re-attesting the same card logs nothing new (change log, not run log)") {
+            val account = accountService.createUnidentifiedAccount()
+            val eid = ClaimSource.of(ToolId("ident-eid"))
+            val card = listOf(
+                Claim(AttributeType.NAME, "Mustermann", eid, AcrLevel.LOA3),
+                Claim(AttributeType.VORNAME, "Max", eid, AcrLevel.LOA3),
+                Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", eid, AcrLevel.LOA3)
+            )
+            repeat(2) { accountService.recordClaims(account.accountId, card, provenAcr = AcrLevel.LOA2) }
+
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.claim WHERE account_id = ?", Int::class.java, account.accountId
+            ) shouldBe 3
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.anchor WHERE account_id = ?", Int::class.java, account.accountId
+            ) shouldBe 1
+        }
+    }
+
+    given("an anchor that a replacement claim re-points") {
+        then("the old value is retracted so the log agrees with the anchor (ADR-19)") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                account.accountId, Claim(AttributeType.EMAIL, "old@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA1
+            )
+            accountService.recordClaim(
+                account.accountId, Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2
+            )
+
+            accountService.establishedClaimValues(account.accountId, setOf(AttributeType.EMAIL)) shouldBe
+                mapOf(AttributeType.EMAIL to "new@example.com")
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.retraction WHERE account_id = ?", Int::class.java, account.accountId
+            ) shouldBe 1
+        }
+
+        then("a re-proven value counts again - the cycle a -> b -> a ends established on a") {
+            val account = accountService.createUnidentifiedAccount()
+            for (value in listOf("a@example.com", "b@example.com", "a@example.com")) {
+                accountService.recordClaim(
+                    account.accountId, Claim(AttributeType.EMAIL, value, ClaimSource.SELF_REPORTED), provenAcr = AcrLevel.LOA2
+                )
+            }
+
+            accountService.establishedClaimValues(account.accountId, setOf(AttributeType.EMAIL)) shouldBe
+                mapOf(AttributeType.EMAIL to "a@example.com")
+            accountService.findAccountByEmail("a@example.com")?.accountId shouldBe account.accountId
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.claim WHERE account_id = ? AND attribute_type = 'email'",
+                Int::class.java, account.accountId
+            ) shouldBe 3
         }
     }
 })

@@ -290,7 +290,7 @@ Demo-only: Der Private Key liegt unverschlüsselt in der Datenbank.
 
 ## ADR-10: Interessent ist Konto-Zustand, kein eigener AuthIntent
 
-**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bezeugte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `NewInteressent` / `Ambiguous`): Anker-Treffer bindet wie heute, Claims-only führt das Konto ohne `person_id` fort, mehrdeutig geht an die Journey-Politik.
+**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bezeugte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `NewInteressent`): Anker-Treffer bindet wie heute, ohne Anker-Treffer führt das Konto ohne `person_id` fort (seit ADR-19 gibt es keinen dritten Ausgang mehr).
 
 **Erwogene Alternative**: Ein eigener `AuthIntent` mit eigener Journey, eigenen States und eigener Strategie — begründbar, falls Interessenten eine abweichende Politik bräuchten.
 
@@ -388,6 +388,18 @@ Entfernen der E-Mail-Methode den Passwort-Login
 (`ClaimRequirement(EMAIL, PROVEN)`) zerstört. Der Widerruf selbst ist
 `RetractionAnchor.ACCOUNT_MANAGEMENT` — bewusst von `ClaimSource` getrennt, weil
 ein Tool nie widerrufen darf.
+
+**Zweiter Nachtrag zur Umsetzung**: Zwei Ergänzungen, die das Log praktikabel halten:
+Erstens ist `account.claim` ein Change-Log, kein Run-Log — `recordClaims` überspringt eine
+Behauptung, die identisch bereits gilt (gleicher Typ, normalisierter Wert, Quelle und
+Methodeninstanz); die Methodeninstanz bleibt Teil des Schlüssels, damit ein Neu-Enrollment eines
+bekannten Werts trotzdem loggt (sonst würde die Revokation der alten Instanz den Wert verlieren).
+Zweitens retrahiert seit ADR-19 auch der In-place-Ersatz eines Ankers (`EMAIL`,
+`EID_RESTRICTED_ID`) den alten Wert (`ACCOUNT_MANAGEMENT`, „anker-ersetzt") — sonst stünde ein
+ersetzter Wert für immer als gültig im Log. Der Anti-Join in `findEstablished` ist dafür
+zeitbasiert (`r.retracted_at >= a.established_at`): Eine Retraktion cancelt nur Behauptungen, die
+vor ihr liegen; ein danach neu bezeugter Wert zählt wieder (E-Mail-Zyklus a → b → a endet
+etabliert auf a).
 
 **Offen und bewusst nicht mitentschieden**: Die Retraktion macht einen Wert *ungültig*, sie
 *löscht* ihn nicht, und die Widerrufs-Zeile legt mit dem normalisierten Wert eine
@@ -606,6 +618,50 @@ Identifizierungsverfahren in der ersten Auswahl aufgetaucht wäre. Inzwischen ma
 Kandidatenpfade (`forIdentification`, `forAssignment`, `reIdentCandidates`) auf die Rolle statt
 die Kategorie — `ident-kvnr` ist damit strukturell nie ein (Re-)Identifizierungsweg, unabhängig
 davon, ob seine `requires` erfüllt sind.
+
+---
+
+## ADR-19: Auflösung nur über Anker — die eID-`restricted_id` wird einer
+
+**Entscheidung**: `IdentityMatchingService.resolve` löst eine bezeugte Identität **nur noch über
+lokale Anker** auf (`resolveByAnchor`, Rangfolge nach `AnchorRule.bindingStrength`); ohne
+Anker-Treffer ist das Ergebnis `NewInteressent`. Die bisherige zweite Schicht — normalisierte
+Attributkombination Name+Vorname+Geburtsdatum gegen die Claim-Historie mit
+`Resolution.Ambiguous` als Mehrdeutigkeits-Ergebnis — ist komplett entfernt
+(`Resolution.Ambiguous`, `MatchedVia.Attributes`, `BindingStrength.ATTRIBUTE_COMBINATION`,
+`findAccountIdsMatchingAllThree`, Index `ix_claim_type_value`). An ihre Stelle tritt die
+`restricted_id` der eID-Karte als achter Claim von `ident-eid`: ein karteugebundenes Pseudonym
+(Demo-Standin für den echten Restricted Identifier), geführt als `LOCAL_ANCHOR` mit
+`AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true` — eine neue Karte bringt einen neuen
+Wert, der den alten in-place verfallen lässt (wie `EMAIL`); hält ein anderes Konto den Wert,
+bleibt es bei der Abweisung (`IdentityConflictException`). Der ersetzte Wert verfällt seit dem
+zweiten ADR-12-Nachtrag auch im Claim-Log: Der Anker-Ersatz schreibt eine Retraktion für den
+alten Wert, damit das Log mit dem Anker übereinstimmt.
+
+Der Abgleich dreier Attribute (Name/Vorname/Geburtsdatum) bleibt genau dort, wo er
+fachlich hingehört: als **Konsistenzprüfung gegen `ext_stammdaten`**, nie als Auflösungsschicht
+über Account-Claims. `verifyToolAttestedConsistency` prüft die KVNR-aufgelöste Person gegen die
+bezeugten Attribute; `attestedIdentityMatches` vergleicht vor dem Korrelations-Anker die
+Stammdaten hinter der Nummer mit der bezeugten Identität.
+
+**Erwogene Alternative**: Die Attributkombination behalten, aber nur noch im Zusammenhang mit
+dem KVNR-Vergleich wirken lassen und ihre Werte gegen `ext_stammdaten` statt gegen den Account
+prüfen.
+
+**Warum diese**: Account-Claims sind Provenienz-Historie, keine Register-Wahrheit — ein
+Dreifach-Treffer darauf kann denselben Datensatz in fremden Konten finden und war damit schwächer
+als das, was er ersetzen sollte. Der KVNR-Abgleich gegen `ext_stammdaten` ist bereits als Guard
+vorhanden; eine zweite Matching-Schicht über Account-Historie ist redundant und erzeugt nur den
+nie sauber spezifizierten `Ambiguous`-Kanal in der Journey. Die `restricted_id` ist das fachlich
+richtige Wiedererkennungsmerkmal für eid-Interessenten: kartengebunden, mit neuem Ausweis
+ändernd, aber nie personenübergreifend — exakt die Semantik eines replacebaren Ankers. Der
+EUDI-Wegweis passt dazu: Die echte PID wird später als eigener Ankertyp einziehen.
+
+**Preis**: Bestands-Bezeugungen ohne `restricted_id` (vor diesem ADR) erkennt das System nicht
+wieder — sie laufen auf `NewInteressent` und damit auf ein neues Konto. `V1__schema.sql` ändert
+sich (`id_eid.ident_tool_session.restricted_id`, Wegfall `ix_claim_type_value`), bestehende
+Dev-Datenbanken sind neu anzulegen. Die `restricted_id` wird bewusst **nicht** nach Keycloak
+gespiegelt (kein Stammdatum, nur Wiedererkennungsanker).
 
 ---
 

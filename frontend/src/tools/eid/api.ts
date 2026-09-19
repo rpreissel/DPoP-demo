@@ -11,6 +11,7 @@ export function submitEidCard(
     hausnummer: string
     plz: string
     ort: string
+    restrictedId: string
   },
 ) {
   return submitViaPatch(ctx, fields)

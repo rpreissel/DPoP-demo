@@ -21,12 +21,13 @@ import java.time.LocalDate
 /**
  * Pins the resolution policy of the central identity matching (docs/ideen/claims-modell-und-
  * vertrauensanker.md, "Identitaetsauflösung & Matching"; docs/ideen/account-attribute-und-trust-
- * vereinheitlichen.md, "Gemeinsame Aufloesung"): the tool-attested consistency gate, the fixed
- * layer precedence (unique anchor - PERSON_ID ranked highest via anchorBindingStrength - then
- * attribute combination), and the never-guess rule for ambiguous attribute matches. No separate
- * PersonId-repository path any more: PERSON_ID resolves through the same `account.anchor` lookup
- * as every other anchor. Address fields are no longer part of the consistency check - they are
- * not claims (IdentEidDescriptor.claims).
+ * vereinheitlichen.md, "Gemeinsame Aufloesung"): the tool-attested consistency gate and
+ * anchor-only resolution (ADR-19) - unique anchor lookups through `account.anchor`, PERSON_ID
+ * ranked highest via anchorBindingStrength, the eID card pseudonym as the recognition anchor for
+ * eid attestations, and no attribute matching against the account stock at all anymore. No
+ * separate PersonId-repository path: PERSON_ID resolves through the same `account.anchor` lookup
+ * as every other anchor. The consistency gate compares only name/vorname/geburtsdatum - address
+ * fields and restricted_id are claims the register cannot confirm (IdentEidDescriptor.claims).
  */
 class IdentityMatchingServiceTest : BehaviorSpec({
 
@@ -168,7 +169,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         }
     }
 
-    given("attribute matching with a single candidate") {
+    given("an eid attestation whose restricted_id anchor an account already holds") {
         val anchorRepository = mockk<AccountAnchorRepository>()
         val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
@@ -177,74 +178,29 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val claims = setOf(
             Claim(AttributeType.NAME, "Muster", anchor),
             Claim(AttributeType.VORNAME, "Max", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
+            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor),
+            Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", anchor)
         )
         every {
-            claimRepository.findAccountIdsMatchingAllThree(
-                AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
-            )
-        } returns listOf(7L)
+            anchorRepository.findByAttributeTypeAndValue(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX")
+        } returns AccountAnchor(
+            attributeType = AttributeType.EID_RESTRICTED_ID, value = "T0103005K1D5S0V8T9W6UM2RTX", accountId = 7L, establishedAt = Instant.now()
+        )
 
         `when`("resolve is called") {
-            then("layer 2 intersects to the one account") {
+            then("the card pseudonym recognizes the account the earlier eid run created - ADR-19") {
                 resolver.resolve(claims) shouldBe Resolution.ExistingAccount(
                     7L,
-                    MatchedVia.Attributes(setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM))
+                    MatchedVia.Anchor(AttributeType.EID_RESTRICTED_ID)
                 )
+                // No attribute matching, no stammdaten round trip - the anchor alone decides.
+                verify(exactly = 0) { personDirectory.findPersonIdByKvnr(any()) }
+                verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
             }
         }
     }
 
-    given("attribute matching with two candidates") {
-        val anchorRepository = mockk<AccountAnchorRepository>()
-        val claimRepository = mockk<AccountClaimRepository>()
-        val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, claimRepository, personDirectory)
-        val anchor = ClaimSource.of(ToolId("ident-eid"))
-        val claims = setOf(
-            Claim(AttributeType.NAME, "Muster", anchor),
-            Claim(AttributeType.VORNAME, "Max", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
-        )
-        every {
-            claimRepository.findAccountIdsMatchingAllThree(
-                AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
-            )
-        } returns listOf(7L, 8L)
-
-        `when`("resolve is called") {
-            then("it never guesses - the resolution is ambiguous") {
-                resolver.resolve(claims) shouldBe Resolution.Ambiguous(2)
-            }
-        }
-    }
-
-    given("attribute matching past the candidate ceiling") {
-        val anchorRepository = mockk<AccountAnchorRepository>()
-        val claimRepository = mockk<AccountClaimRepository>()
-        val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, claimRepository, personDirectory)
-        val anchor = ClaimSource.of(ToolId("ident-eid"))
-        val claims = setOf(
-            Claim(AttributeType.NAME, "Muster", anchor),
-            Claim(AttributeType.VORNAME, "Max", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
-        )
-        val moreThanCeiling = (1L..51L).toList()
-        every {
-            claimRepository.findAccountIdsMatchingAllThree(
-                AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
-            )
-        } returns moreThanCeiling
-
-        `when`("resolve is called") {
-            then("it stays ambiguous rather than widening or guessing") {
-                resolver.resolve(claims) shouldBe Resolution.Ambiguous(moreThanCeiling.size)
-            }
-        }
-    }
-
-    given("attribute matching with no candidate") {
+    given("an eid attestation whose restricted_id no account holds yet") {
         val anchorRepository = mockk<AccountAnchorRepository>()
         val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
@@ -253,17 +209,36 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val claims = setOf(
             Claim(AttributeType.NAME, "Niemand", anchor),
             Claim(AttributeType.VORNAME, "Niemals", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
+            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor),
+            Claim(AttributeType.EID_RESTRICTED_ID, "T0909090Z9X8Y7W6V5U4T3S2R1", anchor)
         )
         every {
-            claimRepository.findAccountIdsMatchingAllThree(
-                AttributeType.NAME, "niemand", AttributeType.VORNAME, "niemals", AttributeType.GEBURTSDATUM, "1970-01-01", any()
-            )
-        } returns emptyList()
+            anchorRepository.findByAttributeTypeAndValue(AttributeType.EID_RESTRICTED_ID, "T0909090Z9X8Y7W6V5U4T3S2R1")
+        } returns null
 
         `when`("resolve is called") {
-            then("nothing matches - a new Interessent") {
+            then("nothing matches - a new Interessent, the anchor gets established by the adopting side") {
                 resolver.resolve(claims) shouldBe Resolution.NewInteressent
+            }
+        }
+    }
+
+    given("name/vorname/geburtsdatum alone - attributes, no anchor (ADR-19)") {
+        val anchorRepository = mockk<AccountAnchorRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
+        val personDirectory = mockk<PersonDirectory>()
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
+        val anchor = ClaimSource.of(ToolId("ident-eid"))
+        val claims = setOf(
+            Claim(AttributeType.NAME, "Muster", anchor),
+            Claim(AttributeType.VORNAME, "Max", anchor),
+            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
+        )
+
+        `when`("resolve is called") {
+            then("no account is matched by attribute combination - attributes never resolve") {
+                resolver.resolve(claims) shouldBe Resolution.NewInteressent
+                verify(exactly = 0) { anchorRepository.findByAttributeTypeAndValue(any(), any()) }
             }
         }
     }

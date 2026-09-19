@@ -25,6 +25,10 @@ class IdEidToolSession(
     var plz: String? = null,
     var ort: String? = null,
 
+    /** The card's restricted identifier - person-unique pseudonym, ADR-19's recognition anchor. */
+    @Column(name = "restricted_id", length = 64)
+    var restrictedId: String? = null,
+
     /** SHA-256 of the submitted PIN - the PIN itself is never persisted. */
     @Column(name = "pin_hash")
     var pinHash: String? = null

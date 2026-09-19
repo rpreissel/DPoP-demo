@@ -11,7 +11,10 @@ import java.time.LocalDate
  *
  * Everything here is what the simulated card itself carries - there is deliberately no KVNR and
  * no person reference: a real eID card has neither, and resolving one is `ident-kvnr`'s job
- * (docs/12-entscheidungen.md ADR-18).
+ * (docs/12-entscheidungen.md ADR-18). The one exception among anchor-like values is the card's
+ * restricted identifier: a person-unique pseudonym, so it IS attested as a claim - the
+ * recognition anchor for an eid-identified Interessent (ADR-19) - while still resolving nobody
+ * against the register.
  */
 internal data class IdentEidState(
     val name: String? = null,
@@ -21,13 +24,14 @@ internal data class IdentEidState(
     val hausnummer: String? = null,
     val plz: String? = null,
     val ort: String? = null,
+    val restrictedId: String? = null,
     val pinHash: String? = null
 )
 
 /** What [IdentEidFlow.decide] concluded once a state is fully filled in. */
 internal sealed interface IdentEidDecision {
     data object Incomplete : IdentEidDecision
-    data class Verify(val claimed: ClaimedIdentity, val pinHash: String) : IdentEidDecision
+    data class Verify(val claimed: ClaimedIdentity, val restrictedId: String, val pinHash: String) : IdentEidDecision
 }
 
 internal object IdentEidFlow {
@@ -41,6 +45,7 @@ internal object IdentEidFlow {
         hausnummer = fields.hausnummer ?: state.hausnummer,
         plz = fields.plz ?: state.plz,
         ort = fields.ort ?: state.ort,
+        restrictedId = fields.restrictedId ?: state.restrictedId,
         pinHash = fields.pin?.let { hash(it.trim()) } ?: state.pinHash
     )
 
@@ -55,7 +60,7 @@ internal object IdentEidFlow {
             plz = state.plz.orEmpty(),
             ort = state.ort.orEmpty()
         )
-        return IdentEidDecision.Verify(claimed, checkNotNull(state.pinHash))
+        return IdentEidDecision.Verify(claimed, checkNotNull(state.restrictedId), checkNotNull(state.pinHash))
     }
 
     /** Constant-time, and against the stored hash - the PIN itself is never persisted. */
@@ -72,13 +77,14 @@ internal object IdentEidFlow {
     private fun hasCardFields(state: IdentEidState) =
         !state.name.isNullOrBlank() && !state.vorname.isNullOrBlank() && state.geburtsdatum != null &&
             !state.strasse.isNullOrBlank() && !state.hausnummer.isNullOrBlank() &&
-            !state.plz.isNullOrBlank() && !state.ort.isNullOrBlank()
+            !state.plz.isNullOrBlank() && !state.ort.isNullOrBlank() &&
+            !state.restrictedId.isNullOrBlank()
 
     private fun hash(value: String): String =
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     /** Everything the card itself shows - read in one go, nothing typed by the user beforehand. */
-    val CARD_FIELDS = listOf("name", "vorname", "geburtsdatum", "strasse", "hausnummer", "plz", "ort")
+    val CARD_FIELDS = listOf("name", "vorname", "geburtsdatum", "strasse", "hausnummer", "plz", "ort", "restrictedId")
     val PIN_FIELDS = listOf("pin")
 
     /** Fixed test PIN for the mock, same role as `ident-fsc`'s `VALIDCODE` (docs/08-projektrahmen.md P-5/P-6). */

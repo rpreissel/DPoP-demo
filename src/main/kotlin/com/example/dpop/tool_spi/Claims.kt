@@ -15,6 +15,14 @@ enum class AttributeType(val wireName: String) {
     PERSON_ID("person_id"),
     /** Krankenversichertennummer - the anchor a person is resolved by in the master data. */
     KVNR("kvnr"),
+    /**
+     * Card-bound pseudonym from the eID read - this demo's stand-in for the real "Restricted
+     * Identifier": fixed per physical card, it changes when a new card is issued, but is never
+     * assigned to a different person. Hence the natural RECOGNITION anchor for an eid-identified
+     * Interessent: a replaceable local account anchor (ADR-19), not a master-data attribute -
+     * ext_stammdaten never stores it.
+     */
+    EID_RESTRICTED_ID("restricted_id"),
     NAME("name"),
     VORNAME("vorname"),
     /** ISO date, e.g. `1970-01-01`. Master-data field: delegated, never projected (ADR notes in

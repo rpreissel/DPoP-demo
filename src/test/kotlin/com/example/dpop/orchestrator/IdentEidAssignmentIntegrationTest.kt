@@ -28,7 +28,7 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 .nextRaw()["toolSessionId"] as String
             patch(
                 "/orchestrator/api/v1/tools/$toolSessionId/ident-eid",
-                """{"name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","strasse":"Musterstraße","hausnummer":"1","plz":"12345","ort":"Musterstadt"}"""
+                """{"name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","strasse":"Musterstraße","hausnummer":"1","plz":"12345","ort":"Musterstadt","restrictedId":"T0103005K1D5S0V8T9W6UM2RTX"}"""
             )
             return patch("/orchestrator/api/v1/tools/$toolSessionId/ident-eid", """{"pin":"123456"}""")
         }

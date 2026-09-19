@@ -14,7 +14,8 @@ class IdentEidFlowTest : BehaviorSpec({
         strasse = "Musterstr.",
         hausnummer = "1",
         plz = "12345",
-        ort = "Musterstadt"
+        ort = "Musterstadt",
+        restrictedId = "T0103005K1D5S0V8T9W6UM2RTX"
     )
     val pinField = EidPatchFields(pin = IdentEidFlow.MOCK_PIN)
 

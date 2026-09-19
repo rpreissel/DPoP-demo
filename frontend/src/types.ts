@@ -102,6 +102,8 @@ export interface DemoPerson {
   ort: string
   geburtsdatum: string
   fscCode: string
+  /** The eID card's fixed restricted identifier - person-unique, changes only with a new card. */
+  restrictedId: string
 }
 
 /** Demo-only values, never part of the production contract (docs/05-api.md #2). */

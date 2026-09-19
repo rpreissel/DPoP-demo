@@ -22,7 +22,8 @@ import java.util.UUID
  * [com.example.dpop.id_fsc.internal.IdentFscToolHandlerTest]). Deliberately no PERSON_ID and no
  * KVNR: a card carries neither, and binding one is `ident-kvnr`'s act (ADR-18). The address
  * fields are claims like the name: the card bezeugte them, so the claim log records them (and
- * the Keycloak mirror can prefer register values over them).
+ * the Keycloak mirror can prefer register values over them). The restricted_id claim
+ * consolidates into the replaceable recognition anchor for a later eid run (ADR-19).
  */
 class IdentEidToolHandlerTest : BehaviorSpec({
 
@@ -39,7 +40,8 @@ class IdentEidToolHandlerTest : BehaviorSpec({
             strasse = "Musterweg",
             hausnummer = "1",
             plz = "12345",
-            ort = "Musterstadt"
+            ort = "Musterstadt",
+            restrictedId = "T0103005K1D5S0V8T9W6UM2RTX"
         )
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
@@ -56,7 +58,8 @@ class IdentEidToolHandlerTest : BehaviorSpec({
                     Claim(AttributeType.STRASSE, "Musterweg", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.HAUSNUMMER, "1", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.PLZ, "12345", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.ORT, "Musterstadt", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr)
+                    Claim(AttributeType.ORT, "Musterstadt", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr)
                 )
             }
 

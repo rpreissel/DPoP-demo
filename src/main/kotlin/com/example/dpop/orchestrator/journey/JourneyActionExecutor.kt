@@ -99,12 +99,6 @@ class JourneyActionExecutor(
             is Resolution.ExistingAccount -> resolution.accountId
             // The account and its claims share this journey transaction, including rollback.
             Resolution.NewInteressent -> accountService.createUnidentifiedAccount().accountId
-            is Resolution.Ambiguous -> throw OrchestratorException.invalidState(
-                "Identifizierung mehrdeutig: ${resolution.candidateCount} Kandidaten - keine automatische Zuordnung"
-            )
-            // Deliberately no persistent candidate log here: this aborts the journey
-            // transaction anyway, and the real policy for ambiguous matches (offer a
-            // stronger procedure, human review) arrives with the first EUDI case.
         }
         bindAccount(journey, channel, accountId)
         // An identification's own achieved level IS what this session proved about the identity -
@@ -128,10 +122,6 @@ class JourneyActionExecutor(
             // resolution has no existing anchor to return yet; the shared recordClaims call
             // below performs the first immutable PERSON_ID binding.
             Resolution.NewInteressent -> Unit
-            is Resolution.Ambiguous ->
-                throw OrchestratorException.invalidState(
-                    "Identifizierung mehrdeutig: ${resolution.candidateCount} Kandidaten - keine automatische Zuordnung"
-                )
         }
         // A MethodRole.CORRELATION step (ident-kvnr, ADR-18) proves nothing about the subject
         // itself - it only turns a typed number into a register-vouched PERSON_ID, which is

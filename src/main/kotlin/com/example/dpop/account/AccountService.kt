@@ -110,9 +110,16 @@ class AccountService(
      * [claims] a single completed tool run asserted, applied together. Never overwrites a prior
      * claim; the log is provenance. At most one claim per [AttributeType] - the same contract
      * `assertClaimsCovered` checks upstream, re-checked here so this method is safe on its own.
-     * A locally owned attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`, `EMAIL`) is
-     * additionally consolidated into its [AccountAnchor]; every other attribute is only logged
-     * here, its authority living elsewhere (`ext_stammdaten`, or a method module's own row).
+     * A locally owned attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`,
+     * `EID_RESTRICTED_ID`, `EMAIL`) is additionally consolidated into its [AccountAnchor]; every
+     * other attribute is only logged here, its authority living elsewhere (`ext_stammdaten`, or a
+     * method module's own row).
+     *
+     * The log is a change log, not a run log: a claim whose (type, value, source, method) is
+     * already established leaves no new row - WHEN identity was re-proven is
+     * `AccountIdentification`'s story, and re-attesting the same card eight times must not cost
+     * eight log rows. The method instance is part of the key so a fresh enrollment of a known
+     * value still logs: revoking the OLD instance retracts only what THAT instance asserted.
      *
      * [provenAcr] is what the session ACTUALLY established when this run completed - the same
      * capped figure `AccountAuthMethod.enrolledUnderAcr` records, never a tool's own declared
@@ -134,19 +141,39 @@ class AccountService(
                 "recordClaims($accountId): more than one claim for ${claim.attributeType.wireName}"
             }
         }
+        val logged = accountClaimRepository.findEstablished(accountId)
+            .map { claim ->
+                EstablishedClaimKey(
+                    checkNotNull(claim.attributeType),
+                    checkNotNull(claim.normalizedValue),
+                    checkNotNull(claim.claimSource),
+                    claim.authMethodId
+                )
+            }
+            .toMutableSet()
         claims.forEach { claim ->
             val establishedAt = Instant.now()
-            accountClaimRepository.save(
-                AccountClaim(
-                    accountId = accountId,
-                    attributeType = claim.attributeType,
-                    value = claim.value,
-                    claimSource = claim.source.value,
-                    establishedLoa = claim.establishedLoa?.value,
-                    authMethodId = authMethodId,
-                    establishedAt = establishedAt
+            if (logged.add(
+                    EstablishedClaimKey(
+                        claim.attributeType,
+                        checkNotNull(AccountClaim.normalize(claim.value)),
+                        claim.source.value,
+                        authMethodId
+                    )
                 )
-            )
+            ) {
+                accountClaimRepository.save(
+                    AccountClaim(
+                        accountId = accountId,
+                        attributeType = claim.attributeType,
+                        value = claim.value,
+                        claimSource = claim.source.value,
+                        establishedLoa = claim.establishedLoa?.value,
+                        authMethodId = authMethodId,
+                        establishedAt = establishedAt
+                    )
+                )
+            }
             if (claim.attributeType.rule.authority == AttributeAuthority.LOCAL_ANCHOR) {
                 lockForUpdate(accountId)
                 recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
@@ -166,7 +193,10 @@ class AccountService(
      *
      * A rebind UPDATES the row in place rather than deleting and re-inserting: Hibernate flushes
      * insertions before deletions, so a delete-then-insert pair would briefly hold both rows and
-     * trip `ux_anchor_account_type`.
+     * trip `ux_anchor_account_type`. The same rebind also RETRACTS the old value from the claim
+     * log ([AccountRetraction], `ACCOUNT_MANAGEMENT`): the log has to agree with the anchor
+     * (ADR-19) instead of keeping a replaced value established forever. Claim-log normalization
+     * applies to the retracted value - the anchor's own differs for case-preserving types.
      *
      * Both writes are priced separately by [AnchorRule.acrFloor] and refused below it -
      * establishing binds a value to an account, replacing re-points an account that other people's
@@ -199,6 +229,19 @@ class AccountService(
                 throw IdentityConflictException("Dieser ${type.wireName}-Wert kann fuer dieses Konto nicht mehr geaendert werden")
             }
             requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.replace, write = "ersetzt")
+            // ADR-19: the replaced value verfaellt - a retraction makes the log agree with the
+            // anchor instead of keeping the old value established forever. Claim-log
+            // normalization applies (the anchor's own differs for case-preserving types).
+            accountRetractionRepository.save(
+                AccountRetraction(
+                    accountId = accountId,
+                    attributeType = type,
+                    normalizedValue = AccountClaim.normalize(existing.value),
+                    trustAnchor = RetractionAnchor.ACCOUNT_MANAGEMENT,
+                    reason = "anker-ersetzt",
+                    retractedAt = establishedAt
+                )
+            )
             existing.value = normalized
             existing.establishedLoa = provenAcr.value
             existing.establishedAt = establishedAt
@@ -445,3 +488,15 @@ class AccountService(
         label = label
     )
 }
+
+/**
+ * What makes a claim already logged: same attribute, same normalized value, same source, same
+ * method instance - the key [AccountService.recordClaims] skips on, keeping the claim log a
+ * change log instead of a run log.
+ */
+private data class EstablishedClaimKey(
+    val type: AttributeType,
+    val normalizedValue: String,
+    val source: String,
+    val authMethodId: UUID?
+)

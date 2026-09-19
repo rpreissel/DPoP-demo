@@ -17,6 +17,7 @@ class ClaimsTest : BehaviorSpec({
         then("wire names are stable - they become account.claim.attribute_type values") {
             AttributeType.PERSON_ID.wireName shouldBe "person_id"
             AttributeType.KVNR.wireName shouldBe "kvnr"
+            AttributeType.EID_RESTRICTED_ID.wireName shouldBe "restricted_id"
             AttributeType.NAME.wireName shouldBe "name"
             AttributeType.VORNAME.wireName shouldBe "vorname"
             AttributeType.GEBURTSDATUM.wireName shouldBe "geburtsdatum"

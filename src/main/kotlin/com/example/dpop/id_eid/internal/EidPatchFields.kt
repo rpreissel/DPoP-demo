@@ -15,5 +15,6 @@ data class EidPatchFields(
     val hausnummer: String? = null,
     val plz: String? = null,
     val ort: String? = null,
+    val restrictedId: String? = null,
     val pin: String? = null
 )
