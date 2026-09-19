@@ -118,6 +118,65 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        /** Runs confirm-email to completion for one specific address on an already-running journey. */
+        fun confirmAddress(channelSessionId: String, email: String): Map<String, Any?> {
+            val confirmSession = post("/orchestrator/api/v1/channels/$channelSessionId/tools/confirm-email")
+                .nextRaw()["toolSessionId"] as String
+            val (code, _) = captureMockTan {
+                patch("/orchestrator/api/v1/tools/$confirmSession/confirm-email", """{"email":"$email"}""")
+            }
+            return patch("/orchestrator/api/v1/tools/$confirmSession/confirm-email", """{"code":"$code"}""")
+        }
+
+        // ADR-20 through the EMAIL anchor: confirming an address proves possession of a value the
+        // account model resolves accounts BY, so the provisional account goes into the one that
+        // already holds it - which is how somebody who skipped the assignment step still lands on
+        // their own account instead of in a dead end at their own address.
+        given("an Interessent confirming an address that belongs to their own account") {
+            then("the provisional account goes into it, and the run continues there") {
+                val existing = accountFixtures.seedAccount(
+                    kvnr = "B987654321", name = "Beispiel", vorname = "Erika",
+                    email = "erika.beispiel@example.com",
+                    methods = listOf(AccountFixtures.Method.Sms())
+                )
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                attestAsErika(channelSessionId)
+                val provisional = checkNotNull(accountIdOf(channelSessionId)) { "the attestation created no account" }
+                delete("/orchestrator/api/v1/tools/${activateAssignment(channelSessionId)}/ident-kvnr")
+
+                confirmAddress(channelSessionId, "erika.beispiel@example.com")
+
+                accountIdOf(channelSessionId) shouldBe existing
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account.account WHERE id = ?", Int::class.java, provisional
+                ) shouldBe 0
+                // The attestation came along - her card now recognizes this account (ADR-19).
+                restrictedIdAnchorsOf(existing) shouldBe 1
+            }
+        }
+
+        given("an Interessent confirming an address that belongs to somebody else") {
+            then("it is refused - holding a mailbox does not make you that person") {
+                accountFixtures.seedAccount(
+                    kvnr = "B987654321", name = "Beispiel", vorname = "Erika",
+                    email = "erika.beispiel@example.com",
+                    methods = listOf(AccountFixtures.Method.Sms())
+                )
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                // Max's card, Erika's address.
+                attestViaEid(channelSessionId)
+                val provisional = checkNotNull(accountIdOf(channelSessionId)) { "the attestation created no account" }
+                delete("/orchestrator/api/v1/tools/${activateAssignment(channelSessionId)}/ident-kvnr")
+
+                val conflict = assertThrows<HttpClientErrorException> {
+                    confirmAddress(channelSessionId, "erika.beispiel@example.com")
+                }
+
+                conflict.statusCode shouldBe HttpStatus.CONFLICT
+                accountIdOf(channelSessionId) shouldBe provisional
+            }
+        }
+
         given("an eID attestation whose KVNR belongs to an account that already exists") {
             then("the provisional account yields, the run continues on the existing one") {
                 val existing = accountFixtures.seedAccount(

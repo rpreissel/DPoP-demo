@@ -2,7 +2,6 @@ package com.example.dpop.auth_email.internal.confirmemail
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
-import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.EMAIL_ANCHOR_ENROLLMENT
 import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_spi.AttributeType
@@ -39,7 +38,6 @@ import java.util.UUID
 class ConfirmEmailToolHandler(
     private val descriptor: ConfirmEmailDescriptor,
     private val toolDataRepository: ConfirmEmailToolSessionRepository,
-    private val accountDirectory: AccountDirectory,
     private val emailCodeGenerator: EmailCodeGenerator
 ) {
 
@@ -73,13 +71,17 @@ class ConfirmEmailToolHandler(
             is ConfirmEmailDecision.Unchanged -> outcomeFor(decision.state)
 
             is ConfirmEmailDecision.RequestCode -> {
-                // Queried through the generic anchor port - the same normalized lookup the write
-                // side uses, so "already taken" can't be raced past via case tricks; only a
-                // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port
-                // (every other method module's own account access) is enough.
-                if (accountDirectory.resolveAccountByEmail(decision.email) != null) {
-                    ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
-                } else if (sendThrottled) {
+                // Deliberately NO "is this address already taken?" check here. An address that
+                // belongs to an account is not a collision this tool can rule on - it is a
+                // RESOLUTION (docs/12-entscheidungen.md ADR-20), and one this tool has not earned
+                // yet: at this point nothing has been proven about the address, only typed. Who
+                // the confirmed address belongs to is decided once the code comes back, by the
+                // same central resolution every other anchor goes through
+                // (`JourneyActionExecutor.performAdoptAttestation`). Rejecting up front instead
+                // turned the ordinary case - somebody confirming THEIR OWN address, which already
+                // belongs to THEIR OWN account - into a dead end, and cost one of the journey's
+                // three attempts for an answer the user could not have given differently.
+                if (sendThrottled) {
                     ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")
                 } else {
                     val issued = emailCodeGenerator.issue()

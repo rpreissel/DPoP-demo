@@ -2,7 +2,6 @@ package com.example.dpop.auth_email.internal.confirmemail
 
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
-import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_api.EMAIL_ANCHOR_ENROLLMENT
@@ -26,17 +25,15 @@ import java.util.UUID
 class ConfirmEmailToolHandlerTest : BehaviorSpec({
 
     val toolDataRepository = mockk<ConfirmEmailToolSessionRepository>()
-    val accountDirectory = mockk<AccountDirectory>()
     val emailCodeGenerator = EmailCodeGenerator("test-pepper")
-    val handler = ConfirmEmailToolHandler(ConfirmEmailDescriptor, toolDataRepository, accountDirectory, emailCodeGenerator)
+    val handler = ConfirmEmailToolHandler(ConfirmEmailDescriptor, toolDataRepository, emailCodeGenerator)
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-email tool session with no email yet") {
         val data = ConfirmEmailToolSession(toolSessionId = toolSessionId)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
-        `when`("submitting an email that is not yet taken") {
-            every { accountDirectory.resolveByAnchor(AttributeType.EMAIL, "max@example.com") } returns null
+        `when`("submitting an email") {
             val saved = slot<ConfirmEmailToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
@@ -50,15 +47,6 @@ class ConfirmEmailToolHandlerTest : BehaviorSpec({
             }
         }
 
-        `when`("submitting an email that is already taken") {
-            every { accountDirectory.resolveByAnchor(AttributeType.EMAIL, "taken@example.com") } returns 42L
-
-            then("it fails without ever touching account state") {
-                val outcome = handler.patch(toolSessionId, email = "taken@example.com", code = null)
-
-                outcome shouldBe ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
-            }
-        }
     }
 
     given("an active enroll-email tool session with a pending code") {

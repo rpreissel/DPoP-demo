@@ -256,8 +256,9 @@ class JourneyActionExecutor(
         // "Enrollment zuerst" the address is attested as the very FIRST step, before any credential
         // exists - so this is regularly the call that brings the account into being. A channel that
         // never gets further leaves no orphan behind (deleteIfAbandonedUnidentified).
-        val accountId = journey.accountId ?: channel.accountId
+        val inHand = journey.accountId ?: channel.accountId
             ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
+        val accountId = accountOfAttestation(journey, channel, inHand, action)
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Attested without an AuthEvidence" }
         val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
             "AuthEvidence not found: $authEvidenceId"
@@ -268,6 +269,34 @@ class JourneyActionExecutor(
         val provenAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = provenAcr)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
+    }
+
+    /**
+     * An attested anchor value that belongs to ANOTHER account is not a collision - it is a
+     * resolution, and ADR-20's rule applies to it like to any other: the provisional account goes
+     * into the other one. A confirmed address is the case this exists for: `confirm-email` proves
+     * possession of a value the account model resolves accounts by (`resolveByAnchor`, the very
+     * lookup `auth-email-lookup` logs people in with), so somebody confirming their own address
+     * while holding a provisional account has just told us which account is theirs.
+     *
+     * The extra condition an identification does not need: the attested identity must FIT the
+     * account being resolved. Possession of an address says "this mailbox is mine", never "I am
+     * that person" - so where the target account has a register person, the identity this session
+     * attested is checked against that person's master data ([IdentityResolver.attestedIdentityMatches],
+     * the same guard ADR-18 puts in front of the correlation step). Without it, whoever controls
+     * a mailbox could hang their own eID claims on a stranger's account. A target account with no
+     * person bound has nothing to check against, and then ADR-20's own "one of them is
+     * provisional" rule is the whole gate.
+     */
+    private fun accountOfAttestation(journey: AuthJourney, channel: ChannelSession, inHand: Long, action: Action.AdoptAttestation): Long {
+        val resolved = (identityResolver.resolve(action.outcome.claims.toSet()) as? Resolution.ExistingAccount)?.accountId
+        if (resolved == null || resolved == inHand) return inHand
+        accountService.findAccount(resolved)?.personId?.let { personId ->
+            if (!identityResolver.attestedIdentityMatches(inHand, personId)) {
+                throw IdentityConflictException("Diese Adresse gehoert zu einer anderen Person")
+            }
+        }
+        return accountOf(journey, channel, inHand, resolved)
     }
 
     private fun performAdoptCredential(journey: AuthJourney, channel: ChannelSession, action: Action.AdoptCredential): Map<String, Any?>? {

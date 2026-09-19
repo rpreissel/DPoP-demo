@@ -683,6 +683,23 @@ auf welcher Seite es steht, ist egal:
 - Ist **keines** von beiden vorläufig, bleibt es beim `409`. Zwei echte Konten werden nicht
   nebenbei zusammengelegt.
 
+Dieselbe Regel gilt für eine **bestätigte Adresse**, nicht nur für eine Identifizierung:
+`confirm-email` beweist den Besitz eines Werts, über den das Kontomodell Konten auflöst
+(`resolveByAnchor` — genau der Weg, über den `auth-email-lookup` jemanden anmeldet). Wer also mit
+einem vorläufigen Konto in der Hand seine eigene Adresse bestätigt, hat damit gesagt, welches
+Konto ihm gehört. Eine Vorabprüfung „Adresse schon vergeben?" gibt es deshalb nicht mehr: Vor dem
+Code ist nichts bewiesen, sondern nur getippt, und die Ablehnung traf regelmäßig genau den
+Richtigen.
+
+Eine Bedingung kommt hier dazu, die eine Identifizierung nicht braucht: **Die bezeugte Identität
+muss zum aufgelösten Konto passen.** Der Besitz eines Postfachs sagt „dieses Postfach gehört mir",
+niemals „ich bin diese Person". Hat das Zielkonto eine Registerperson, wird die in dieser Sitzung
+bezeugte Identität gegen deren Stammdaten geprüft (`IdentityResolver.attestedIdentityMatches`,
+derselbe Wächter, den ADR-18 vor den Korrelationsschritt stellt) — sonst könnte, wer ein fremdes
+Postfach kontrolliert, seine eigenen eID-Claims an ein fremdes Konto hängen. Hat das Zielkonto
+keine Person gebunden, gibt es nichts zu prüfen, und „eines von beiden ist vorläufig" ist das ganze
+Tor.
+
 Was „vorläufig" heißt, steht als benannte Regel am `AccountProfile` und nicht als Bedingung an
 mehreren Stellen: `isProvisional` = `isUnidentified` (keine PersonId, ADR-10) **und** es wurde nie
 ein Zugangsmittel eingerichtet. Deaktivierte zählen mit — eine widerrufene Instanz trägt weiterhin
