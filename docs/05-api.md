@@ -107,9 +107,16 @@ Für `APP` entscheidet `TokenProvider` profilabhängig:
 
 **`APP`-Kanal-only**, wie das AccessToken oben — dieselbe `requireAuthenticated`-Vorbedingung.
 Fachliche (nicht in die AccessToken-Signatur codierte) Claims: `sub`/`accountId`/`personId`,
-`acr`/`amr`, `auth_time`, `email`/`email_verified`, `name` ("Vorname Name" der Person,
-`PersonDirectory.displayName`). `name` ist die einzige Stelle, an der das Frontend erfährt, WER
-angemeldet ist; es gilt derselbe `channelAccessGuard` wie überall sonst.
+`acr`/`amr`, `auth_time`, `email`/`email_verified`, `name`. `name` ist die einzige Stelle, an der
+das Frontend erfährt, WER angemeldet ist: der Registerperson-Anker entscheidet — `personId`
+vorhanden heißt "Vorname Name" der Person (`PersonDirectory.displayName`), fehlt er (Interessent,
+ADR-10/18), fällt `name` auf die eigenen bezeugten Claims des Kontos zurück (stärkster überlebender
+NAME/VORNAME-Claim, nur `null`, wenn auch davon keiner existiert). Dasselbe `personId`-Vorhandensein
+ist es, woraus das Frontend den Kontostatus ableitet (Versicherter vs. Interessent) — ein eigener
+Status-Claim wäre nur eine Redundanz desselben Ankers; es gilt derselbe `channelAccessGuard` wie
+überall sonst. Die Authenticated-Seite zeigt beides kompakt im Begrüßungstext — „Angemeldet als
+*Name* (Versicherter/Interessent)" — und die vollständigen Claims aufklappbar wie die
+AccessToken-Details.
 
 ### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)
 

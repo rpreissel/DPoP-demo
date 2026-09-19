@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.orchestrator.policy.MethodEvidence
@@ -183,6 +184,49 @@ class TokenServiceTest : BehaviorSpec({
             claims["personId"] shouldBe 55L
             claims["email"] shouldBe "max@example.test"
             claims["email_verified"] shouldBe true
+        }
+    }
+
+    given("resolving the ID-token claims for a full-attested Interessent (ADR-18: no register person)") {
+        val authContextId = UUID.randomUUID()
+        val ctx = authContext(accountId = 8L)
+        ctx.authTime = Instant.now()
+        val repository = mockk<AuthContextRepository>()
+        every { repository.findById(authContextId) } returns Optional.of(ctx)
+
+        fun accountService(attested: Map<AttributeType, String>): AccountService {
+            val accountService = mockk<AccountService>()
+            every { accountService.findAccount(8L) } returns com.example.dpop.account.AccountProfile(
+                accountId = 8L, personId = null, authenticationMethods = emptyList(),
+                email = "erika@example.test", emailConfirmedAt = Instant.now()
+            )
+            every { accountService.establishedClaimValues(8L, any()) } returns attested
+            return accountService
+        }
+
+        then("the name falls back to the account's own attested claims, personId stays absent") {
+            val personDirectory = mockk<PersonDirectory>()
+
+            val claims = service(
+                repository,
+                evidenceService(ctx.authEvidenceId, evidence(accountId = 8L)),
+                accountService = accountService(mapOf(AttributeType.VORNAME to "Erika", AttributeType.NAME to "Musterfrau")),
+                personDirectory = personDirectory
+            ).idClaims(authContextId)
+
+            claims["personId"] shouldBe null
+            claims["name"] shouldBe "Erika Musterfrau"
+            verify(exactly = 0) { personDirectory.displayName(any()) }
+        }
+
+        then("without any attested name claims either, the name is null - not a placeholder") {
+            val claims = service(
+                repository,
+                evidenceService(ctx.authEvidenceId, evidence(accountId = 8L)),
+                accountService = accountService(emptyMap())
+            ).idClaims(authContextId)
+
+            claims["name"] shouldBe null
         }
     }
 })

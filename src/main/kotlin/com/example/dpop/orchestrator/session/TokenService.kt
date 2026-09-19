@@ -1,9 +1,11 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_spi.AttributeType
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.PlainJWT
 import org.springframework.data.repository.findByIdOrNull
@@ -87,10 +89,25 @@ class TokenService(
             "auth_time" to authContext.authTime?.epochSecond,
             "accountId" to authContext.accountId,
             "personId" to account?.personId,
-            "name" to account?.personId?.let { personDirectory.displayName(it) },
+            "name" to displayName(account),
             "email" to account?.email,
             "email_verified" to (account?.emailConfirmed ?: false)
         )
+    }
+
+    /**
+     * Who is logged in: the register person's display name when one is bound; otherwise the
+     * account's own attested name/vorname (an Interessent carries both as claims since ADR-18,
+     * even without a register binding); `null` only for an account that has neither (enrollment
+     * first, nothing attested yet).
+     */
+    private fun displayName(account: AccountProfile?): String? {
+        account ?: return null
+        account.personId?.let { return personDirectory.displayName(it) }
+        val attested = accountService.establishedClaimValues(account.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME))
+        return listOfNotNull(attested[AttributeType.VORNAME], attested[AttributeType.NAME])
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(" ")
     }
 
     /** The core, policy-evaluable evidence this token context's paired [AuthEvidence] currently holds - `null` if none was ever recorded. */

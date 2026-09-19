@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.kc
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
+import com.example.dpop.tool_spi.AttributeType
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
@@ -38,10 +39,16 @@ class KeycloakAccountSyncService(
             if (profile.email == null) return@forEach
             // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
             val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
+            val mirror = kcUserMirror(
+                profile, person,
+                accountService.establishedClaimValues(
+                    profile.accountId,
+                    setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                )
+            )
             keycloakAdminClient.upsertUser(
                 accountId, profile.email, profile.emailConfirmed,
-                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME,
-                stammdatenAttributes(profile.personId, person)
+                mirror.firstName, mirror.lastName, mirror.attributes
             )
             val keypair = accountKeypairService.keypairFor(accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()

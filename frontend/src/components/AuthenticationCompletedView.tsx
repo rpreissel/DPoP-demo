@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { DpopKeyPair } from '../dpop.ts'
-import type { ActiveMethodView, DemoInfo } from '../types'
+import type { ActiveMethodView, DemoInfo, IdTokenClaims } from '../types'
 import { getIdClaims } from '../api.ts'
 import { DiagramHint } from './DiagramHint'
+import { Disclosure } from './Disclosure'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { TokenPanel } from './TokenPanel'
 
@@ -98,30 +99,47 @@ export function AuthenticationCompletedView({
   // it as a step-up target only makes sense if the channel isn't there already.
   const canStepUpToLoa2 = currentAcr !== 'loa2'
 
-  // Who is logged in - a real ID-token claim (docs/05-api.md, "ID-Token-Claims"), not the demo-only
-  // object FE-11 talks about below. Fetched once, on demand, same reasoning as the security-summary
-  // backfill (App.tsx) - not part of every response, only relevant once this screen is reached.
-  const [personName, setPersonName] = useState<string | undefined>()
+  // Who is logged in and with what claims - real ID-token claims (docs/05-api.md, "ID-Token-
+  // Claims"), not the demo-only object FE-11 talks about further down. Fetched once, on demand,
+  // same reasoning as the security-summary backfill (App.tsx) - not part of every response,
+  // only relevant once this screen is reached. A fetch failure keeps this screen alive without
+  // them (no error surfaced), same trade-off as before.
+  const [claims, setClaims] = useState<IdTokenClaims | undefined>()
   useEffect(() => {
     let active = true
     getIdClaims(dpop, channelSessionId)
-      .then((claims) => {
-        if (active) setPersonName(typeof claims.name === 'string' ? claims.name : undefined)
+      .then((idClaims) => {
+        if (active) setClaims(idClaims)
       })
       .catch(() => {
-        // Non-fatal - the rest of this screen works fine without a name, no error surfaced for it.
+        // Non-fatal - the rest of this screen works fine without the claims.
       })
     return () => {
       active = false
     }
   }, [dpop, channelSessionId])
 
+  const personName = typeof claims?.name === 'string' ? claims.name : undefined
+  // personId in the ID claims is the register binding itself: present = Versicherter, absent =
+  // Interessent (ADR-10/18 - full identity possibly attested, but no register person assigned).
+  // Shown compactly in parentheses behind the name, not as its own status row.
+  const accountStatus = claims ? (claims.personId != null ? 'Versicherter' : 'Interessent') : undefined
+
   return (
     <>
     <div className="card success-card">
       <h2>Authentifizierung erfolgreich!</h2>
       <div className="identity-row">
-        <p>{personName ? <>Angemeldet als <strong>{personName}</strong>.</> : 'Sie sind angemeldet.'}</p>
+        <p>
+          {personName ? (
+            <>
+              Angemeldet als <strong>{personName}</strong>
+              {accountStatus && ` (${accountStatus})`}.
+            </>
+          ) : (
+            <>Sie sind angemeldet{accountStatus && ` (${accountStatus})`}.</>
+          )}
+        </p>
         <button className="secondary small" onClick={onLogout}>
           Abmelden
         </button>
@@ -204,12 +222,30 @@ export function AuthenticationCompletedView({
       </div>
 
       <SectionHeading text="Konto löschen" diagram="deleteAccount" />
-      <p>Löscht Ihr Konto und alle Anmeldemethoden endgültig.</p>
+      <p>Löscht Ihr Konto und alle Anmeldeverfahren endgültig.</p>
       <div className="form-actions">
         <button className="destructive" onClick={onDeleteAccount}>
           Konto löschen
         </button>
       </div>
+
+      {/* Technical detail view, collapsed by default - same trade-off as the AccessToken claims
+          in TokenPanel: the two headline facts (name + Kontostatus) live in the identity row,
+          everything else only on demand. */}
+      {claims && (
+        <Disclosure summary="ID-Token-Claims">
+          <ul className="status-list">
+            {Object.entries(claims)
+              .filter(([, value]) => value !== null && value !== undefined)
+              .map(([key, value]) => (
+                <li key={key}>
+                  <span className="label">{key}</span>
+                  <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                </li>
+              ))}
+          </ul>
+        </Disclosure>
+      )}
     </div>
     <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />
     </>

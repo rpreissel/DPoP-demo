@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DpopKeyPair } from '../dpop.ts'
-import { getIdClaims, getToken } from '../api.ts'
-import type { IdTokenClaims, TokenResponse } from '../types'
+import { getToken } from '../api.ts'
+import type { TokenResponse } from '../types'
 import { shorten } from '../format.ts'
 import { parseJwtPayload } from '../jwt.ts'
 import { Disclosure } from './Disclosure'
@@ -31,7 +31,6 @@ function formatRemaining(expiresAt: string): string {
  */
 export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
   const [token, setToken] = useState<TokenResponse | null>(null)
-  const [claims, setClaims] = useState<IdTokenClaims | null>(null)
   const [error, setError] = useState('')
 
   // Guards the initial, effect-driven load against StrictMode's double effect-invocation in dev
@@ -58,12 +57,6 @@ export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpop, channelSessionId])
 
-  function loadClaims() {
-    getIdClaims(dpop, channelSessionId)
-      .then(setClaims)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-  }
-
   const payload = token ? parseJwtPayload(token.accessToken) : null
 
   return (
@@ -86,42 +79,24 @@ export function TokenPanel({ dpop, channelSessionId }: TokenPanelProps) {
         <button className="secondary" onClick={() => loadToken(FORCE_REFRESH_MIN_VALIDITY_SECONDS)}>
           AccessToken aktualisieren
         </button>
-        <button className="secondary" onClick={loadClaims}>
-          ID-Claims laden
-        </button>
       </div>
-      {(token || claims) && (
+      {token && (
         <Disclosure summary="Technische Details (Token, Claims)">
-          {token && (
-            <ul className="status-list">
-              <li>
-                <span className="label">AccessToken</span>
-                <span className="value" title={token.accessToken}>{shorten(token.accessToken, 12, 8)}</span>
-              </li>
-              <li>
-                <span className="label">Typ</span>
-                <span className="value">{token.tokenType}</span>
-              </li>
-            </ul>
-          )}
+          <ul className="status-list">
+            <li>
+              <span className="label">AccessToken</span>
+              <span className="value" title={token.accessToken}>{shorten(token.accessToken, 12, 8)}</span>
+            </li>
+            <li>
+              <span className="label">Typ</span>
+              <span className="value">{token.tokenType}</span>
+            </li>
+          </ul>
           {payload && (
             <>
               <h4>Geparste AccessToken-Claims</h4>
               <ul className="status-list">
                 {Object.entries(payload).map(([key, value]) => (
-                  <li key={key}>
-                    <span className="label">{key}</span>
-                    <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {claims && (
-            <>
-              <h4>ID-Claims</h4>
-              <ul className="status-list">
-                {Object.entries(claims).map(([key, value]) => (
                   <li key={key}>
                     <span className="label">{key}</span>
                     <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>

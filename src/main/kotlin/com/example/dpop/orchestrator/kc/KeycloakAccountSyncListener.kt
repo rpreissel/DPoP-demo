@@ -2,9 +2,11 @@ package com.example.dpop.orchestrator.kc
 
 import com.example.dpop.account.AccountChanged
 import com.example.dpop.account.AccountDeleted
+import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.ext_stammdaten.PersonData
+import com.example.dpop.tool_spi.AttributeType
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
@@ -48,10 +50,16 @@ class KeycloakAccountSyncListener(
         // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
         val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
         try {
+            val mirror = kcUserMirror(
+                profile, person,
+                accountService.establishedClaimValues(
+                    profile.accountId,
+                    setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                )
+            )
             keycloakAdminClient.upsertUser(
                 profile.accountId, profile.email, profile.emailConfirmed,
-                person?.vorname ?: UNIDENTIFIED_FIRST_NAME, person?.name ?: UNIDENTIFIED_LAST_NAME,
-                stammdatenAttributes(profile.personId, person)
+                mirror.firstName, mirror.lastName, mirror.attributes
             )
             val keypair = accountKeypairService.keypairFor(profile.accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
@@ -79,24 +87,50 @@ class KeycloakAccountSyncListener(
 }
 
 /**
- * Keycloak's own realm requires a non-blank first/last name on every user - an unidentified
- * account (REGISTER "Enrollment zuerst") has no [com.example.dpop.ext_stammdaten.Person] to take
- * them from yet, so this stands in until one exists. Self-healing: recording the `PERSON_ID`
- * claim (`AccountService.recordClaim`/`recordClaims`) fires its own `AccountChanged`, which
- * re-syncs and overwrites this with the real name the moment the account is identified - never a
- * value anyone needs to clean up by hand.
+ * Keycloak's own realm requires a non-blank first/last name on every user - this stands in for
+ * an account that has no [com.example.dpop.ext_stammdaten.Person] AND no attested name claims
+ * yet (REGISTER "Enrollment zuerst"). Self-healing: recording the `PERSON_ID` anchor or a
+ * name-attesting claim (`AccountService.recordClaim`/`recordClaims`) fires its own
+ * `AccountChanged`, which re-syncs and overwrites this with the real name the moment one
+ * exists - never a value anyone needs to clean up by hand.
  */
 internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
 internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
 
+/** What one account mirrors into its Keycloak user - shared by the listener's and service's sync paths. */
+internal data class KcUserMirror(
+    val firstName: String,
+    val lastName: String,
+    val attributes: Map<String, String>
+)
+
 /**
- * The non-anchor person attributes, resolved live from ext_stammdaten right here and relayed to
- * Keycloak as plain custom user attributes - never cached anywhere else: they are asserted together
- * with PERSON_ID, so that anchor alone re-derives them on demand. Shared by [KeycloakAccountSyncListener] and
- * [KeycloakAccountSyncService], the two places that already run this exact live lookup.
+ * Names and attributes for the Keycloak user mirror, per attribute in this precedence: the
+ * register person's value when one is bound and has it (PERSON_ID anchor, authoritative
+ * stammdaten resolved live via `ext_stammdaten`), then the account's own established claim - a
+ * fully attested Interessent (ADR-18: Zuordnung abgelehnt oder noch nie angeboten) carries
+ * NAME/VORNAME/GEBURTSDATUM as claims even without a register binding. The placeholders remain
+ * only for an account that has neither yet. `personId`/`kvnr` attributes stay register-bound by
+ * design - an Interessent is visible as the absence of both, never as a hand-maintained status
+ * flag.
  */
-internal fun stammdatenAttributes(personId: Long?, person: PersonData?): Map<String, String> = buildMap {
+internal fun kcUserMirror(profile: AccountProfile, person: PersonData?, attested: Map<AttributeType, String>): KcUserMirror =
+    KcUserMirror(
+        firstName = person?.vorname ?: attested[AttributeType.VORNAME] ?: UNIDENTIFIED_FIRST_NAME,
+        lastName = person?.name ?: attested[AttributeType.NAME] ?: UNIDENTIFIED_LAST_NAME,
+        attributes = stammdatenAttributes(profile.personId, person, attested)
+    )
+
+/**
+ * The non-anchor person attributes as plain custom user attributes. `personId`/`kvnr` are
+ * resolved live from ext_stammdaten (never cached: they are asserted together with the PERSON_ID
+ * anchor, so that anchor alone re-derives them on demand) and exist only for a register-bound
+ * account; `geburtsdatum` falls back to the account's own attested claim for an Interessent.
+ * Shared by [KeycloakAccountSyncListener] and [KeycloakAccountSyncService], the two places that
+ * already run this exact live lookup.
+ */
+internal fun stammdatenAttributes(personId: Long?, person: PersonData?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
     personId?.let { put("personId", it.toString()) }
     person?.kvnr?.let { put("kvnr", it) }
-    person?.geburtsdatum?.let { put("geburtsdatum", it.toString()) }
+    (person?.geburtsdatum?.toString() ?: attested[AttributeType.GEBURTSDATUM])?.let { put("geburtsdatum", it) }
 }
