@@ -42,8 +42,7 @@ SHA-256(`thumbprint:jti`) mit fester Breite (`VARCHAR(64)`), damit ein clientgew
 die Schlüssellänge sprengen noch den heißesten Index des Systems aufblähen kann. Bekannte
 Skalierungsgrenze für den Produktivstack: eine global heiße Tabelle mit einem Insert pro
 authentifiziertem Request — Zeitpartitionierung oder ein persistenter KV-Store ist eine
-Infrastrukturentscheidung, bewusst zurückgestellt (Review-Befund B5,
-[13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)).
+Infrastrukturentscheidung, bewusst zurückgestellt.
 
 ---
 

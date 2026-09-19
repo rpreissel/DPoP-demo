@@ -72,8 +72,7 @@ nur, welches Gerät spricht, nie, welche Session fortzusetzen ist; eine wiederke
 ## ADR-4: Flyway-Neubaseline statt Migration des Altcodes
 
 **Entscheidung**: `V1__schema.sql` ersetzt die komplette frühere Migrationshistorie (`V1`–`V16`
-im ursprünglichen Code) durch einen sauberen Neubau, statt sie fortzuschreiben
-([Umsetzungsplan](11-umsetzungsplan.md)).
+im ursprünglichen Code) durch einen sauberen Neubau, statt sie fortzuschreiben.
 
 **Erwogene Alternative**: Den Altcode Schritt für Schritt migrieren — `Attempt`-Terminologie zu
 `ToolSession`/`ToolOutcome`, URL-Pfade auf den Tool-Namespace, Klartext-TAN nachträglich hashen.
@@ -282,7 +281,7 @@ Demo-only: Der Private Key liegt unverschlüsselt in der Datenbank.
 
 ## ADR-10: Interessent ist Konto-Zustand, kein eigener AuthIntent
 
-**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Umsetzung folgt): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bezeugte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `NewInteressent` / `Ambiguous`): Anker-Treffer bindet wie heute, Claims-only führt das Konto ohne `person_id` fort, mehrdeutig geht an die Journey-Politik.
+**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bezeugte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `NewInteressent` / `Ambiguous`): Anker-Treffer bindet wie heute, Claims-only führt das Konto ohne `person_id` fort, mehrdeutig geht an die Journey-Politik.
 
 **Erwogene Alternative**: Ein eigener `AuthIntent` mit eigener Journey, eigenen States und eigener Strategie — begründbar, falls Interessenten eine abweichende Politik bräuchten.
 
@@ -303,28 +302,27 @@ Strategien werden dadurch konditioneller.
 
 ## ADR-11: Kontoübergreifender person_id-Konflikt ist Abweisung, Merge nie automatisiert
 
-**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); Verhalten entspricht dem heutigen Code): Beanspruchen zwei Konten denselben `person_id`-Wert, wird die zweite Bindung abgewiesen (409, "Diese Person ist bereits über ein anderes Konto registriert") und nichts adoptiert: keine Claim-Zeile, keine Konsolidierung, keine Anker-Schreibung. Ein Merge ist nie automatisiert, sondern eine operator-getriebene Fähigkeit außerhalb des Claims-Modell-Umfangs. DB-seitig sichert `UNIQUE(person_id)` (partial, `WHERE person_id IS NOT NULL`) dieselbe Semantik für alle Schreibpfade ab.
+**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Beanspruchen zwei Konten denselben `person_id`-Wert, wird die zweite Bindung abgewiesen (409, "Diese Person ist bereits über ein anderes Konto registriert") und nichts adoptiert: keine Claim-Zeile, keine Konsolidierung, keine Anker-Schreibung. Ein Merge ist nie automatisiert, sondern eine operator-getriebene Fähigkeit außerhalb des Claims-Modell-Umfangs. DB-seitig sichert `UNIQUE(person_id)` (partial, `WHERE person_id IS NOT NULL`) dieselbe Semantik für alle Schreibpfade ab.
 
 **Erwogene Alternative**: Die bezeugte Aussage trotzdem loggen und nur die Konsolidierung
 verweigern (Konflikt als abfragbarer Zustand); oder eine Review-Queue.
 
 **Warum diese**: False merge ist die teuerste Fehlerform des Modells — zwei verschiedene
 Menschen dauerhaft verknüpft — und sie zu vermeiden wiegt schwerer als der Verlust der
-bezeugten Aussage, die ephemer im Journey-Log nachweisbar bleibt
-([State-Diagramme](demo/05-state-diagramme-intents.md)). Die Konsolidierungs-Rangfolge
+bezeugten Aussage, die ephemer im Journey-Log nachweisbar bleibt. Die Konsolidierungs-Rangfolge
 (Anker-Klasse vor Rezenz) gilt innerhalb EINES Kontos; sie endet an der Kontgrenze.
 
 **Preis**: Der betroffene Nutzer kommt nicht automatisch weiter —
 bis zu einer (ungebauten) Merge-Fähigkeit bleibt der Fall ein Support-Vorgang, und die
 bezeugte Identifikation bleibt nur im ephemeren Journey-Log.
 
-**Nachtrag** (Härtung, [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)): Drei
+**Nachtrag** (Härtung): Drei
 Lücken zwischen dieser Entscheidung und ihrer Umsetzung wurden geschlossen. Erstens schrieb
 `AccountService.recordAnchor` bei einem fremden Anchor die Projektionsspalte trotz Abbruch; der
 Anchor wird jetzt **vor** der Projektionsspalte geschrieben. Zweitens
 verließ sich `IdentityMatchingService.resolveByAnchor` auf die
 zufällige Iterationsreihenfolge eines `Set` und sortiert jetzt explizit nach
-`AttributeType.anchorBindingStrength` (`tool_api/AttributeRules.kt`).
+`AttributeType.rule.anchor?.bindingStrength` (`tool_api/AttributeRules.kt`).
 Drittens fing `findOrCreateAccount` die
 `UNIQUE(person_id)`-Kollision nicht ab; das ist durch die atomare
 Claim-Übernahme unten abgelöst.
@@ -335,7 +333,7 @@ kein Sonderfall mehr, sondern ein gewöhnlicher, höchstrangiger `account.anchor
 technisch über denselben `recordAnchor`-Pfad statt über einen separaten
 `bindPersonId`/`findAccountByPersonId`-Vergleich, und
 `MatchedVia.PersonId` ist zugunsten von `MatchedVia.Anchor(PERSON_ID)` entfallen.
-Neu dazugekommen, INNERHALB eines Kontos: `AttributeType.allowsAnchorReplacement`
+Neu dazugekommen, INNERHALB eines Kontos: `AttributeType.rule.anchor?.allowsReplacement`
 ist für `PERSON_ID` `false` (anders als `email`) — ein zweiter, abweichender `person_id`-Claim für
 ein Konto wird ebenfalls per `IdentityConflictException` abgewiesen.
 
@@ -355,7 +353,7 @@ dagegen ein im Account-System bestätigter, wechselbarer Anker.
 
 ## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
 
-**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); **umgesetzt**): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only.
+**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only.
 
 **Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
 Claim-Zeile — eine Tabelle, einfachste Abfrage, aber die einzige Nicht-Append-Mutation im Log.
@@ -393,18 +391,12 @@ und Retraktions-Zeile gemeinsam gelöscht werden; der Audit-Nachweis hängt nich
 
 ## ADR-13: Account-Domänentypen über eigene `AttributeConverter`, nicht `@Enumerated`
 
-**Entscheidung** (umgesetzt, [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md)
-C2): `AccountAttribute.attributeType` (→ `AttributeType`) und `AccountAnchor.anchorType` (→
-`AnchorType`) sind über eigene JPA-`AttributeConverter` typisiert (`AttributeTypeConverter`,
-`AnchorTypeConverter`), die über `wireName` runden — nicht über `@Enumerated(EnumType.STRING)`,
-das der `orchestrator`-Modul für seine eigenen Enums nutzt. `AccountAttribute.trustAnchor` bleibt
-bewusst `String`.
-
-**Nachtrag**: `AnchorType` ist entfallen, beide Spalten heißen seit ADR-14 `attribute_type` und
-nutzen denselben `AttributeTypeConverter`; die Quelle heißt durchgängig `claim_source` /
-`AccountClaim.claimSource` (weiterhin `String`). `AccountAttribute` (oben) heißt inzwischen
-`AccountClaim`, Tabelle `account.claim` statt `account.attribute` — der treffendere Name für eine
-Zeile, die eine Behauptung mit Herkunft speichert, nicht den aktuellen Attributwert.
+**Entscheidung** (umgesetzt): `AccountClaim.attributeType` und `AccountAnchor.attributeType` sind
+über einen gemeinsamen JPA-`AttributeConverter` typisiert (`AttributeTypeConverter`), der über
+`wireName` rundet — nicht über `@Enumerated(EnumType.STRING)`, das der `orchestrator`-Modul für
+seine eigenen Enums nutzt. Die Quelle einer Behauptung heißt `AccountClaim.claimSource: String`
+(bewusst ungetypt, siehe Preis); der Widerruf trägt dagegen ein eigenes, typisiertes
+`AccountRetraction.trustAnchor: RetractionAnchor`.
 
 **Erwogene Alternativen**:
 
@@ -412,21 +404,21 @@ Zeile, die eine Behauptung mit Herkunft speichert, nicht den aktuellen Attributw
   `account.claim.attribute_type`/`account.anchor.attribute_type` seit Jahren Wire-Names in
   Kleinschreibung tragen (`person_id`, `email`), `@Enumerated(STRING)` aber den
   Enum-Konstantennamen (`PERSON_ID`) schreibt und jede Bestandszeile stumm verfehlt hätte.
-- **`trustAnchor` ebenfalls typisieren** (`TrustAnchor`, eine `@JvmInline value class`): verworfen
+- **`claimSource` ebenfalls typisieren** (eine `@JvmInline value class`): verworfen
   nach einem verifizierten Fehlschlag — Hibernate scheiterte bei jedem Schreibzugriff mit
-  `JpaSystemException: class java.lang.String cannot be cast to class TrustAnchor`, weil der
+  `JpaSystemException: class java.lang.String cannot be cast to class ...`, weil der
   Property-Access-Pfad dem Konverter eine rohe
   `String`-Instanz statt der geboxten Value Class durchreicht. `AttributeType` (ein
-  echtes Enum) und `AnchorType` (ein sealed interface aus `object`s) haben dieses Problem nicht.
+  echtes Enum) hat dieses Problem nicht.
 
 **Warum diese**: Eine Umbenennung im Wire-Format sollte ein Compilerfehler sein, keine stille
-Datenkorruption über eine Laufzeit von 10+ Jahren. Die eigenen Konverter statt `@Enumerated`
-erhalten dabei exakt das bestehende Wire-Format, ohne Migration der Bestandsdaten.
+Datenkorruption über eine Laufzeit von 10+ Jahren. Der eigene Konverter statt `@Enumerated`
+erhält dabei exakt das bestehende Wire-Format, ohne Migration der Bestandsdaten.
 
 **Preis**: Zwei verschiedene Typisierungsmuster im selben Modul (`@Convert` hier,
 `@Enumerated(STRING)` im `orchestrator`) statt eines einheitlichen — auflösbar nur durch
-Datenmigration oder Umstellung des `orchestrator`. `trustAnchor` bleibt zudem als einziges der
-drei ursprünglich benannten Felder ungetypt — eine bekannte, dokumentierte Lücke.
+Datenmigration oder Umstellung des `orchestrator`. `claimSource` bleibt ungetypt — eine bekannte,
+dokumentierte Lücke.
 
 ---
 
@@ -447,8 +439,8 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
   konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.
 - **Nachtrag**: Ihr zweiter Fall (`ExternalLiveLookup`) verschwand mit ihr, obwohl „kein lokaler
   Anker" danach Stammdaten-Hoheit (`NAME`) und Modul-Hoheit (`PHONE_NUMBER`) zugleich abdeckte;
-  er ist als `AttributeType.authority` (`LOCAL_ANCHOR`/`EXT_STAMMDATEN`/`METHOD_MODULE`,
-  exhaustiv) in `tool_api/AttributeRules.kt` zurückgeholt.
+  er ist als `AttributeRule.authority` (`LOCAL_ANCHOR`/`EXT_STAMMDATEN`/`METHOD_MODULE`,
+  exhaustiv, über `AttributeType.rule`) in `tool_api/AttributeRules.kt` zurückgeholt.
 - Fremdschlüssel nur innerhalb eines Moduls; modulübergreifende Bezüge sind indizierte Spalten.
 - Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<modul>_<tool-rolle>_data`,
   `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).
@@ -541,7 +533,7 @@ ab. Die Reihenfolge ist Adresse, Passwort, Besitzfaktor.
 **Erwogene Alternative**: Alles beim Alten lassen und die Kopplung nur dokumentieren — `enroll-email`
 bestätigt die Adresse *und* legt die Methode an.
 
-**Warum diese**: Die Adresse gehört dem Konto, nicht dem Verfahren (`AttributeType.authority ==
+**Warum diese**: Die Adresse gehört dem Konto, nicht dem Verfahren (`AttributeType.rule.authority ==
 LOCAL_ANCHOR`). Drei fremde Lookup-Verfahren lösen das Konto über sie auf, und
 `enroll-password` ist auf sie gegated — sie ist Infrastruktur. Die Trennung sorgt dafür, dass das
 Entfernen der Methode die Adresse gar nicht mehr mitreißen kann.
@@ -554,17 +546,16 @@ Asymmetrie „Passwort nur im Web" entfällt.
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 
-Befunde aus [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md), die bewusst
+Erkannte Befunde, die bewusst
 **nicht** vollständig umgesetzt sind — jeweils eine
 Architektur-/Infrastrukturentscheidung, kein lokal abschließbarer Fix:
 
-- **`orchestrator.dpop_proof_replay`-Skalierung** (B5, siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
+- **`orchestrator.dpop_proof_replay`-Skalierung** (siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
   Schlüssel ist seit ADR-14 ein fester SHA-256-Hash. Offen bleibt die Zeitpartitionierung bzw. ein
   separater persistenter KV-Store — eine Entscheidung für den Produktivstack.
-- **Konto-Lebenszyklus und Merge-Pfad** (D2): `Account` kennt keinen Status und kein
+- **Konto-Lebenszyklus und Merge-Pfad**: `Account` kennt keinen Status und kein
   `merged_into`. ADR-11 weist einen `person_id`-Konflikt
   bewusst ab, statt zu mergen — über die angestrebte Lebensdauer entsteht Merge-Bedarf aber
   zwangsläufig, und ohne `merged_into` gibt es dann keinen verlustfreien Weg dorthin.
 
-Beide verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung vorab —
-Details stehen im Review-Dokument. D1 (Methoden als eigene Tabelle) ist mit ADR-14 umgesetzt.
+Beide verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung vorab.

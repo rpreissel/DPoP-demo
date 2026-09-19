@@ -31,14 +31,11 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [08-projektrahmen.md](08-projektrahmen.md) | Aufgabenstellung, Module, Tech-Stack, Versionen, Build | Projektkontext, Einrichtung |
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
-| [11-umsetzungsplan.md](11-umsetzungsplan.md) | Phasenplan Backend/Frontend, Entscheidung zum Altcode | Umsetzung starten |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
-| [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md) | Befunde zum Domänen-/DB-Modell (Sicherheit, Skalierung, Struktur) samt Umsetzungsstatus | Offene Risiken, nächste Härtungsschritte |
 | [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md) | Die Kernideen visuell, ohne API-Detail | Schneller Einstieg für App-Frontend-Entwickler |
 | [pitches/backend-konzepte.md](pitches/backend-konzepte.md) | Zusammenspiel von Tool und Orchestrator an einem Schritt | Schneller Einstieg für Backend-Entwickler |
 | [pitches/fachexperten-konzepte.md](pitches/fachexperten-konzepte.md) | Fachliche Regeln als Ziele, Zustandsdiagramme, Niveaustufen — ohne Code | Schneller Einstieg für Fachexperten |
-| [demo/](demo/) | Agenda, Zustandsdiagramme je Intent, Moderationsskript für eine Live-Demo | Vorbereitung/Durchführung einer Präsentation |
 
 ### Lesepfade je Zielgruppe
 
@@ -81,12 +78,10 @@ Drei Session-Ebenen mit fallender Lebensdauer:
 ---
 ## Bezug zum bestehenden Code
 
-Diese Dokumentation beschreibt das **Zielbild**; Backend und Frontend wurden gemäß
-[11-umsetzungsplan.md](11-umsetzungsplan.md) vollständig darauf umgebaut, einschließlich der
-Keycloak-Anbindung ([12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Die
-verbleibenden bewussten Scope-Entscheidungen stehen in
-[11-umsetzungsplan.md](11-umsetzungsplan.md); bekannte Betriebsrisiken in
-[07-betrieb.md](07-betrieb.md) und [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md).
+Diese Dokumentation beschreibt das **Zielbild**; Backend und Frontend wurden vollständig darauf
+umgebaut, einschließlich der Keycloak-Anbindung
+([12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Bekannte Betriebsrisiken stehen
+in [07-betrieb.md](07-betrieb.md).
 
 ---
 
@@ -96,7 +91,7 @@ verbleibenden bewussten Scope-Entscheidungen stehen in
 2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool — `ident-fsc`, `ident-eid`, `enroll-sms`/`auth-sms`/`auth-sms-lookup`, `enroll-password`/`auth-password`/`auth-password-lookup`, `enroll-email`/`auth-email`/`auth-email-lookup`, `enroll-device`/`auth-device`, `enroll-qr`/`auth-qr`/`auth-qr-lookup`, `confirm-qr-login` ([03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1).
 3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Journey-Abbruch (`DELETE /channels/{channelSessionId}/journey`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
 4. **Keycloak-Fassade** ✅: `/orchestrator/api/v1/kc/...` (`KcChannelController`/`KcMeController`/`KeycloakSyncController`), inkl. Step-up und Server-zu-Server-Anbindung an Keycloaks native Credentials ([05-api.md](05-api.md) Abschnitt 3, [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9).
-5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus (siehe [11-umsetzungsplan.md](11-umsetzungsplan.md) Abschnitt 4).
+5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus.
 
 ---
 
