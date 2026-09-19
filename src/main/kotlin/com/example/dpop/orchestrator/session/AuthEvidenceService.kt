@@ -20,6 +20,28 @@ class AuthEvidenceService(
     fun getAuthEvidence(authEvidenceId: UUID): AuthEvidence? =
         authEvidenceRepository.findByIdOrNull(authEvidenceId)
 
+    /**
+     * Re-points an existing evidence trail (and the token context minted from it) at another
+     * account (ADR-20), where an assignment step resolves a different account than the
+     * provisional one the journey had in hand.
+     *
+     * The trail itself is NOT reset: what this session proved, it proved - only the account
+     * pointer moves, so the AMR/ACR balance survives the switch intact. The cached tokens do not:
+     * they were minted for the account that just yielded, so they are cleared the same way a
+     * step-up clears them ([invalidateCachedTokens]).
+     */
+    fun rebindToAccount(authEvidenceId: UUID, accountId: Long) {
+        val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
+            ?: throw IllegalArgumentException("AuthEvidence not found: $authEvidenceId")
+        evidence.accountId = accountId
+        authEvidenceRepository.save(evidence)
+        authContextRepository.findByAuthEvidenceId(authEvidenceId).forEach { authContext ->
+            authContext.accountId = accountId
+            authContextRepository.save(authContext)
+        }
+        invalidateCachedTokens(authEvidenceId)
+    }
+
     /** A single completed orchestrator tool's own proof (docs/04-orchestrierung.md #1) - a one-off event, merged via [AuthEvidence.addAmr]. Each [updates] entry carries its own `MethodEvidence.source`. */
     fun applyEvidence(authEvidenceId: UUID, updates: List<MethodEvidence>) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)

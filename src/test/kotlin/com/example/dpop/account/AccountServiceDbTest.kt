@@ -9,13 +9,17 @@ import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.shouldBe
 import org.aopalliance.intercept.MethodInterceptor
 import org.hibernate.exception.ConstraintViolationException
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.aop.framework.Advised
 import com.example.dpop.account.RetractionAnchor
+import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.http.HttpStatus
@@ -417,6 +421,118 @@ class AccountServiceDbTest(
             jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM account.anchor WHERE account_id = ?", Int::class.java, account.accountId
             ) shouldBe 1
+        }
+    }
+
+    // ADR-20: the provisional account the journey created for an attestation yields to the
+    // account the correlation step resolves. Needs the real schema - the whole point is that
+    // `ux_anchor_value` is global, so the yielding account's anchors must be gone before the
+    // very same values are written on the absorbing one.
+    given("a provisional account whose attestation resolves to another account") {
+        then("it yields: anchors, claims and the identification audit move, the account is gone") {
+            val eid = ClaimSource.of(ToolId("ident-eid"))
+            val provisional = accountService.createUnidentifiedAccount()
+            accountService.recordClaims(provisional.accountId, listOf(
+                Claim(AttributeType.NAME, "Muster", eid, AcrLevel.LOA3),
+                Claim(AttributeType.VORNAME, "Max", eid, AcrLevel.LOA3),
+                Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", eid, AcrLevel.LOA3)
+            ), provenAcr = AcrLevel.LOA2)
+            accountService.addIdentification(provisional.accountId, "eid", "loa3", mapOf("provider" to "eid-mock-service"))
+            val target = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                target.accountId, Claim(AttributeType.PERSON_ID, "1", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2
+            )
+
+            accountService.absorbProvisionalAccount(provisional.accountId, target.accountId)
+
+            accountService.findAccount(provisional.accountId).shouldBeNull()
+            accountService.findAccount(target.accountId)!!.personId shouldBe 1L
+            anchorRepository.findByAccountIdAndAttributeType(target.accountId, AttributeType.EID_RESTRICTED_ID)!!.value shouldBe
+                "T0103005K1D5S0V8T9W6UM2RTX"
+            accountService.establishedClaimValues(target.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME)) shouldBe
+                mapOf(AttributeType.NAME to "Muster", AttributeType.VORNAME to "Max")
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.identification WHERE account_id = ? AND method = 'eid'",
+                Int::class.java, target.accountId
+            ) shouldBe 1
+            jdbcTemplate.queryForObject(
+                "SELECT details FROM account.identification WHERE account_id = ? AND method = 'eid'",
+                String::class.java, target.accountId
+            )!! shouldContain "absorbedFromAccountId"
+        }
+
+        then("an anchor the absorbing account already holds with the same value is a no-op, not a conflict") {
+            val eid = ClaimSource.of(ToolId("ident-eid"))
+            val provisional = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                provisional.accountId, Claim(AttributeType.EMAIL, "max@example.com", eid), provenAcr = AcrLevel.LOA2
+            )
+            val target = accountService.createUnidentifiedAccount()
+
+            accountService.absorbProvisionalAccount(provisional.accountId, target.accountId)
+
+            accountService.findAccount(target.accountId)!!.email shouldBe "max@example.com"
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.anchor WHERE attribute_type = 'email' AND normalized_value = 'max@example.com'",
+                Int::class.java
+            ) shouldBe 1
+        }
+    }
+
+    // The mirror image, which "Enrollment zuerst" runs into: the durable account is the one in
+    // hand, and the placeholder an abandoned eID run left behind is what resolution finds. Same
+    // port, arguments the other way round - the provisional account yields either way.
+    given("a provisional leftover that an already-enrolled account identifies into") {
+        then("the leftover is absorbed into the account that holds the credentials") {
+            val eid = ClaimSource.of(ToolId("ident-eid"))
+            val leftover = accountService.createUnidentifiedAccount()
+            accountService.recordClaim(
+                leftover.accountId,
+                Claim(AttributeType.EID_RESTRICTED_ID, "T0304223A9B1N7K5D2PN1S44QE", eid, AcrLevel.LOA3),
+                provenAcr = AcrLevel.LOA2
+            )
+            val enrolled = accountService.createUnidentifiedAccount()
+            accountService.addAuthenticationMethod(
+                enrolled.accountId, "password", EnrollmentRef("auth_password", "e-3"),
+                enrolledUnderAcr = "loa1", details = emptyMap()
+            )
+
+            accountService.absorbProvisionalAccount(leftover.accountId, enrolled.accountId)
+
+            accountService.findAccount(leftover.accountId).shouldBeNull()
+            anchorRepository.findByAccountIdAndAttributeType(enrolled.accountId, AttributeType.EID_RESTRICTED_ID)!!.value shouldBe
+                "T0304223A9B1N7K5D2PN1S44QE"
+            accountService.findAccount(enrolled.accountId)!!.activeAuthenticationMethods.size shouldBe 1
+        }
+    }
+
+    given("an account that is not provisional") {
+        then("it never yields - a credential was enrolled on it, so this would be an account merge") {
+            val notProvisional = accountService.createUnidentifiedAccount()
+            accountService.addAuthenticationMethod(
+                notProvisional.accountId, "password", EnrollmentRef("auth_password", "e-1"),
+                enrolledUnderAcr = "loa1", details = emptyMap()
+            )
+            val target = accountService.createUnidentifiedAccount()
+
+            accountService.findAccount(notProvisional.accountId)!!.isProvisional shouldBe false
+            shouldThrow<IdentityConflictException> {
+                accountService.absorbProvisionalAccount(notProvisional.accountId, target.accountId)
+            }
+            accountService.findAccount(notProvisional.accountId) shouldNotBe null
+        }
+
+        then("a deactivated credential still counts - its claims\' provenance points at this account") {
+            val account = accountService.createUnidentifiedAccount()
+            val profile = accountService.addAuthenticationMethod(
+                account.accountId, "password", EnrollmentRef("auth_password", "e-2"),
+                enrolledUnderAcr = "loa1", details = emptyMap()
+            )
+            accountService.deactivateAuthenticationMethod(account.accountId, profile.authenticationMethods.first().id!!)
+
+            val reread = accountService.findAccount(account.accountId)!!
+            reread.activeAuthenticationMethods.shouldBeEmpty()
+            reread.isProvisional shouldBe false
         }
     }
 

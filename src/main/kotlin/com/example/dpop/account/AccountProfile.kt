@@ -41,4 +41,32 @@ data class AccountProfile(
      */
     val emailConfirmed: Boolean
         get() = emailConfirmedAt != null
+
+    /**
+     * No person binding yet (ADR-10) - the account may still ADOPT a freshly attested identity,
+     * because there is no second identity on it that a new attestation could silently mix with.
+     * An identified account may not: binding someone else's eID claims onto it would merge two
+     * people, which is why `JourneyActionExecutor.performAdoptIdentity` refuses it outright
+     * rather than quietly opening a second account.
+     */
+    val isUnidentified: Boolean
+        get() = personId == null
+
+    /**
+     * A **provisional** account: [isUnidentified] AND no credential was ever enrolled on it - a
+     * placeholder the running journey created for itself, to which nothing durable has ever
+     * attached. The one, named rule behind every operation that is allowed to treat an account
+     * as disposable:
+     *
+     * - `JourneyService.deleteIfAbandonedUnidentified` deletes it when its journey is abandoned.
+     * - `AccountService.absorbInteressent` lets it YIELD to the account an assignment step
+     *   resolves, taking its attestations along (ADR-20).
+     *
+     * DEACTIVATED instances count as credentials here, deliberately: a revoked instance still
+     * owns claim provenance (`account.claim.auth_method_id`, ADR-12) that cannot be carried to
+     * another account or thrown away silently. "Never had one" is the rule, not "has none right
+     * now" - the weaker reading would make the two operations above lose exactly that history.
+     */
+    val isProvisional: Boolean
+        get() = isUnidentified && authenticationMethods.isEmpty()
 }

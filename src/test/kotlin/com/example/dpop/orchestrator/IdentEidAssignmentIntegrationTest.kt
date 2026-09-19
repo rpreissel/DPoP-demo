@@ -1,8 +1,11 @@
 package com.example.dpop.orchestrator
 
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.example.dpop.orchestrator.support.AccountFixtures
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -44,6 +47,20 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
             channelSessionId
         )!!
 
+        /** The account the channel currently points at - null once it points at none. */
+        fun accountIdOf(channelSessionId: String): Long? = jdbcTemplate.queryForObject(
+            "SELECT account_id FROM orchestrator.channel_session WHERE id = CAST(? AS UUID)",
+            Long::class.java,
+            channelSessionId
+        )
+
+        /** How many restricted_id anchors this account holds - the eid attestation's own anchor (ADR-19). */
+        fun restrictedIdAnchorsOf(accountId: Long): Int = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM account.anchor WHERE account_id = ? AND attribute_type = 'restricted_id'",
+            Int::class.java,
+            accountId
+        )!!
+
         given("a fresh channel starting a registration") {
             then("the identification choice does not offer the correlation step - there is nothing attested to correlate yet") {
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
@@ -53,6 +70,45 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 @Suppress("UNCHECKED_CAST")
                 val options = get("/orchestrator/api/v1/channels/$channelSessionId").stepData()["options"] as? List<String>
                 (options ?: listOf(next["toolId"] as String)) shouldNotContain "ident-kvnr"
+            }
+        }
+
+        // ADR-20: the assignment step resolves an account that already exists, while the run
+        // holds only the placeholder the eID attestation itself created. The user did nothing
+        // wrong - the journey built its own conflict - so the placeholder yields.
+        given("an eID attestation whose KVNR belongs to an account that already exists") {
+            then("the provisional account yields, the run continues on the existing one") {
+                val existing = accountFixtures.seedAccount(
+                    kvnr = "A123456789", name = "Muster", vorname = "Max",
+                    methods = listOf(AccountFixtures.Method.Sms(), AccountFixtures.Method.Password())
+                )
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                attestViaEid(channelSessionId)
+                val provisional = checkNotNull(accountIdOf(channelSessionId)) { "the attestation created no account" }
+                provisional shouldNotBe existing
+
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-kvnr")
+                    .nextRaw()["toolSessionId"] as String
+                val assigned = patch("/orchestrator/api/v1/tools/$toolSessionId/ident-kvnr", """{"kvnr":"A123456789"}""")
+
+                // The run moved over, and the placeholder is gone rather than left as a stray.
+                accountIdOf(channelSessionId) shouldBe existing
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account.account WHERE id = ?", Int::class.java, provisional
+                ) shouldBe 0
+                // The attestation came along - the card's own anchor now recognizes this account.
+                restrictedIdAnchorsOf(existing) shouldBe 1
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account.identification WHERE account_id = ? AND method = 'eid'",
+                    Int::class.java, existing
+                ) shouldBe 1
+
+                // And it lands where every other route to an existing account lands: prove one of
+                // its methods, not enroll a new one on top (RegisterStrategy.afterIdentification).
+                @Suppress("UNCHECKED_CAST")
+                val options = get("/orchestrator/api/v1/channels/$channelSessionId").stepData()["options"] as? List<String>
+                (options ?: listOf(assigned.nextRaw()["toolId"] as String)) shouldContain "auth-sms"
             }
         }
 

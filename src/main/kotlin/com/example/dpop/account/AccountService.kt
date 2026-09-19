@@ -289,6 +289,92 @@ class AccountService(
         return AccountProfile(accountId = accountId, personId = null, authenticationMethods = emptyList())
     }
 
+    /**
+     * ADR-20 ("a provisional account is absorbed instead of the run being rejected"): moves
+     * everything a **provisional** account
+     * ([AccountProfile.isProvisional]) ever established onto [into] and deletes it. The one case
+     * this exists for: an ident-first journey attested an identity, created a placeholder account
+     * for it, and the correlation step that follows then resolves a DIFFERENT, existing account -
+     * a conflict the journey created itself, with the user having done nothing wrong.
+     *
+     * Deliberately NOT a general "move identity data between accounts": [from] must be
+     * provisional (re-checked here, so this is safe called on its own), which is exactly what
+     * makes the move harmless - nothing durable ever hung off it, no credential's provenance is
+     * torn from its account, and no second person's facts are merged in.
+     *
+     * The order is load-bearing, not an implementation detail: `account.anchor` is globally
+     * unique per (type, value) (`ux_anchor_value`), so [from]'s anchors have to be GONE before
+     * the very same values can be written on [into] - read, release, then write. The write itself
+     * goes through the ordinary [recordClaim] path, one claim at a time in the order they were
+     * originally established: every conflict check, ACR floor and retraction rule (ADR-12) then
+     * applies to the absorbing account exactly as it did to the account that yielded, and an
+     * anchor [into] already holds with the same value is the no-op [recordAnchor] already is.
+     * Claim by claim rather than batched, because the log may legitimately hold several values of
+     * the same attribute (two eID cards in one run) - replaying them in order reproduces the same
+     * end state instead of tripping the one-claim-per-attribute contract.
+     *
+     * What stays behind on purpose: retracted claims (they were withdrawn, and
+     * [AccountClaimRepository.findEstablished] never returns them) and the claim rows' original
+     * timestamps - the absorbing account records WHEN it took them on, while WHEN identity was
+     * proven stays in the [AccountIdentification] rows, which are replayed with their original
+     * `identifiedAt` and details.
+     */
+    @Transactional
+    fun absorbProvisionalAccount(from: Long, into: Long) {
+        require(from != into) { "absorbProvisionalAccount($from): an account cannot absorb itself" }
+        val source = findAccount(from) ?: throw IllegalArgumentException("Account not found: $from")
+        if (!source.isProvisional) {
+            throw IdentityConflictException("Konto $from ist kein vorlaeufiges Konto und kann nicht aufgehen")
+        }
+        checkNotNull(findAccount(into)) { "Account not found: $into" }
+
+        val anchors = accountAnchorRepository.findByAccountId(from)
+        // The price each anchor write was originally paid with (AnchorRule.acrFloor) - re-used
+        // here rather than the CURRENT session's level, so absorbing neither under- nor overpays
+        // for what was already established.
+        val anchorAcr = anchors.mapNotNull { anchor ->
+            anchor.attributeType?.let { type -> type to (anchor.establishedLoa?.let(AcrLevel::of) ?: AcrLevel.NONE) }
+        }.toMap()
+        val claims = accountClaimRepository.findEstablished(from).sortedBy { it.establishedAt }
+        val identifications = accountIdentificationRepository.findByAccountIdOrderByIdentifiedAt(from)
+
+        // Release the unique anchor values BEFORE the same values are written on `into`, and
+        // flush it: Hibernate orders insertions before deletions within one flush, so without
+        // this the re-write would trip `ux_anchor_value` against the account it is taking over
+        // from (the same ordering trap `recordAnchor`'s in-place rebind documents).
+        accountAnchorRepository.deleteAll(anchors)
+        accountAnchorRepository.flush()
+        deleteAccount(from)
+
+        claims.forEach { claim ->
+            val type = checkNotNull(claim.attributeType) { "Claim without an attribute type on account $from" }
+            recordClaim(
+                into,
+                Claim(
+                    attributeType = type,
+                    value = checkNotNull(claim.value) { "Claim without a value on account $from" },
+                    source = ClaimSource(checkNotNull(claim.claimSource) { "Claim without a source on account $from" }),
+                    establishedLoa = claim.establishedLoa?.let(AcrLevel::of)
+                ),
+                provenAcr = anchorAcr[type] ?: claim.establishedLoa?.let(AcrLevel::of) ?: AcrLevel.NONE
+            )
+        }
+        identifications.forEach { identification ->
+            accountIdentificationRepository.save(
+                AccountIdentification(
+                    accountId = into,
+                    method = identification.method,
+                    achievedLoa = identification.achievedLoa,
+                    identifiedAt = identification.identifiedAt,
+                    // The run's own audit details stay as they were - plus where it was recorded
+                    // first, so the absorbed account id stays traceable after its row is gone.
+                    details = identification.details.orEmpty() + mapOf("absorbedFromAccountId" to from)
+                )
+            )
+        }
+        log.info("Account {} absorbed provisional account {} ({} claims, {} identifications)", into, from, claims.size, identifications.size)
+    }
+
     /** Appends the audit record of one identification run - see [AccountIdentification]. */
     @Transactional
     fun addIdentification(accountId: Long, method: String, loa: String?, details: Map<String, Any?>?) {

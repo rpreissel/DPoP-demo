@@ -103,6 +103,15 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                         Transition.Perform(Action.ConfirmIdentity(event.tool, outcome), resumeState = state)
                     else -> error("${event.tool.toolId} is not offered by the assignment step")
                 }
+                // Back through afterIdentification, not straight on: the assignment may have
+                // moved this run to an account it did not have before (ADR-20), and that
+                // account has to pass the same two questions every
+                // other route to an existing account passes - is this device linked elsewhere,
+                // and can the account simply prove an existing method instead of enrolling a new
+                // one. Without a switch it costs nothing: the person binding is set by now, so
+                // the assignment offer below is not repeated and this falls through to
+                // continueAfterAssignment on its own.
+                is JourneyEvent.ActionCompleted -> afterIdentification(ctx)
                 else -> continueAfterAssignment(ctx)
             }
 

@@ -48,7 +48,7 @@ sealed interface Resolution {
     data class ExistingAccount(val accountId: Long, val matchedVia: MatchedVia) : Resolution
 
     /** Nothing in the stock matches - the identified subject has no account yet. */
-    object NewInteressent : Resolution
+    object Unresolved : Resolution
 }
 
 /**

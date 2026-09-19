@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
@@ -527,12 +528,16 @@ class JourneyService(
      * CreateUnidentifiedAccount`) is created eagerly, before the first enrollment tool even runs -
      * if the journey is then abandoned before anything durable ever attached to it, nothing should
      * be left behind. Safe as a generic check for every intent alike, not just REGISTER: no other
-     * flow ever leaves an account with neither a person nor a single authentication method.
+     * flow ever leaves a provisional account behind.
+     *
+     * "Nothing durable attached" is [AccountProfile.isProvisional], the same named rule
+     * `AccountService.absorbProvisionalAccount` (ADR-20) is allowed to let an account yield by -
+     * one rule, two consequences, rather than two hand-written conditions free to drift apart.
      */
     private fun deleteIfAbandonedUnidentified(accountId: Long?) {
         if (accountId == null) return
         val account = accountService.findAccount(accountId) ?: return
-        if (account.personId == null && account.authenticationMethods.isEmpty()) {
+        if (account.isProvisional) {
             accountService.deleteAccount(accountId)
         }
     }

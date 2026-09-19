@@ -97,8 +97,33 @@ class JourneyActionExecutor(
         val resolution = identityResolver.resolve(action.outcome.claims.toSet())
         val accountId = when (resolution) {
             is Resolution.ExistingAccount -> resolution.accountId
-            // The account and its claims share this journey transaction, including rollback.
-            Resolution.NewInteressent -> accountService.createUnidentifiedAccount().accountId
+            // Nothing resolved - the attested subject has no account yet. Which account this run
+            // then writes to is a declared rule, not a default:
+            Resolution.Unresolved -> {
+                val inHand = (journey.accountId ?: channel.accountId)?.let { accountService.findAccount(it) }
+                when {
+                    // Nothing in hand: a fresh account. It and its claims share this journey
+                    // transaction, including rollback.
+                    inHand == null -> accountService.createUnidentifiedAccount().accountId
+                    // An account without a person binding takes the attestation (ADR-10): this is
+                    // the REGISTER "Enrollment zuerst" account finally getting its identity, or a
+                    // provisional one being attested a second time. Opening a SECOND account
+                    // beside it would silently split one run across two.
+                    inHand.isUnidentified -> inHand.accountId
+                    // An identified account plus an attestation that resolves to nobody means a
+                    // DIFFERENT person. A device-recognized channel reaches this legitimately -
+                    // somebody else registering on a linked phone (docs/04-orchestrierung.md #2,
+                    // "Zweitaccount"): that run opens its own account, and the device-rebind
+                    // question follows later.
+                    journey.accountId == null -> accountService.createUnidentifiedAccount().accountId
+                    // This journey bound that identified account itself, so there is no second
+                    // account to fall back to - mixing a stranger's attested identity into it is
+                    // the one thing that must never happen quietly.
+                    else -> throw IdentityConflictException(
+                        "Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung"
+                    )
+                }
+            }
         }
         bindAccount(journey, channel, accountId)
         // An identification's own achieved level IS what this session proved about the identity -
@@ -110,19 +135,13 @@ class JourneyActionExecutor(
 
     private fun performConfirmIdentity(journey: AuthJourney, channel: ChannelSession, action: Action.ConfirmIdentity) {
         assertClaimsCovered(action.tool, action.outcome.claims)
-        val accountId = checkNotNull(journey.accountId ?: channel.accountId) {
+        val inHand = checkNotNull(journey.accountId ?: channel.accountId) {
             "Identified without a known account under ${journey.intent}"
         }
-        when (val resolution = identityResolver.resolve(action.outcome.claims.toSet())) {
-            is Resolution.ExistingAccount ->
-                if (resolution.accountId != accountId) {
-                    throw IdentityConflictException("Identification claims resolve to a different account")
-                }
-            // A known account may still be an unbound enrollment-first account. In that case
-            // resolution has no existing anchor to return yet; the shared recordClaims call
-            // below performs the first immutable PERSON_ID binding.
-            Resolution.NewInteressent -> Unit
-        }
+        // A known account may still be an unbound enrollment-first account. Resolution then has
+        // no existing anchor to return yet (`Unresolved`); the shared recordClaims call below
+        // performs the first immutable PERSON_ID binding.
+        val resolved = (identityResolver.resolve(action.outcome.claims.toSet()) as? Resolution.ExistingAccount)?.accountId
         // A MethodRole.CORRELATION step (ident-kvnr, ADR-18) proves nothing about the subject
         // itself - it only turns a typed number into a register-vouched PERSON_ID, which is
         // exactly what that role declares. An IDENTIFICATION tool may bind on its own strength
@@ -133,19 +152,92 @@ class JourneyActionExecutor(
         // stranger has no account of their own yet.
         if (action.tool.role == MethodRole.CORRELATION) {
             action.outcome.personId?.let { claimedPersonId ->
-                if (accountService.findAccount(accountId)?.personId == null &&
-                    !identityResolver.attestedIdentityMatches(accountId, claimedPersonId)
+                if (accountService.findAccount(inHand)?.personId == null &&
+                    !identityResolver.attestedIdentityMatches(inHand, claimedPersonId)
                 ) {
                     throw IdentityConflictException("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet")
                 }
             }
         }
+        // Deliberately AFTER the guard above: whether this run may move to another account at all
+        // rests on that check having passed against the account that carries the attestation.
+        val accountId = accountOf(journey, channel, inHand, resolved)
         bindAccount(journey, channel, accountId)
         // An identification's own achieved level IS what this session proved about the identity -
         // the figure AnchorRule.acrFloor prices the PERSON_ID anchor against.
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = action.outcome.achievedAcr ?: AcrLevel.NONE)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
+    }
+
+    /**
+     * Which account a confirmed identification actually writes to (ADR-20). The rule is one
+     * sentence: **the provisional account is absorbed into the other one**, whichever of the two
+     * it is; if neither is provisional, nothing moves. Declared outcomes, no default:
+     *
+     * - Resolution found nothing, or found the account already in hand: that account.
+     * - Two accounts, and the one IN HAND is provisional
+     *   ([com.example.dpop.account.AccountProfile.isProvisional]): that is the ident-first case -
+     *   the journey had to open a placeholder for an attestation that resolved nobody, and the
+     *   correlation step then found the real account. The journey moves over and takes the
+     *   attestation along.
+     * - Two accounts, and the RESOLVED one is provisional: the mirror image, which is what the
+     *   "Enrollment zuerst" registration runs into. The account in hand is the real one (it holds
+     *   the credentials this run just created); the resolved one is a placeholder an earlier,
+     *   abandoned eID run left behind, found again through its `restricted_id` anchor (ADR-19).
+     *   Without this branch that leftover would permanently block its own card from ever
+     *   identifying a durable account. Here the journey stays put and absorbs the placeholder -
+     *   no rebind, nothing to re-point.
+     * - Neither is provisional: rejected. A credential was enrolled or a person bound on both, so
+     *   two real accounts would be merging - a decision for an explicit account merge, never a
+     *   side effect of an identification step.
+     *
+     * Both provisional is the first case: moving to the resolved account keeps the anchor that
+     * did the resolving where the rest of the stock expects it.
+     */
+    private fun accountOf(journey: AuthJourney, channel: ChannelSession, inHand: Long, resolved: Long?): Long {
+        if (resolved == null || resolved == inHand) return inHand
+        val inHandAccount = accountService.findAccount(inHand)
+            ?: throw OrchestratorException.processGone("Account not found: $inHand")
+        if (inHandAccount.isProvisional) {
+            rebindAccount(journey, channel, from = inHand, to = resolved)
+            accountService.absorbProvisionalAccount(inHand, resolved)
+            return resolved
+        }
+        val resolvedAccount = accountService.findAccount(resolved)
+            ?: throw OrchestratorException.processGone("Account not found: $resolved")
+        if (resolvedAccount.isProvisional) {
+            accountService.absorbProvisionalAccount(resolved, inHand)
+            return inHand
+        }
+        throw IdentityConflictException("Identification claims resolve to a different account")
+    }
+
+    /**
+     * Moves a running channel from the provisional account it holds to the one an assignment
+     * resolved (ADR-20), BEFORE that account is absorbed and deleted - everything pointing at the
+     * old id has to be re-pointed while it still exists.
+     *
+     * The evidence trail moves with its account pointer but is NOT reset
+     * ([AuthEvidenceService.rebindToAccount]): what this session proved, it proved, so the eID
+     * run behind the attestation keeps counting. The device link moves too when it points at the
+     * yielding account - it is the one thing that outlives a journey
+     * ([JourneyService.deleteIfAbandonedUnidentified] relies on that), and leaving it behind
+     * would hand a deleted account id to the next FAST_ACCESS run.
+     */
+    private fun rebindAccount(journey: AuthJourney, channel: ChannelSession, from: Long, to: Long) {
+        journey.accountId = to
+        channel.accountId = to
+        channel.authEvidenceId?.let { authEvidenceService.rebindToAccount(it, to) }
+        if (channel.channel == ChannelSession.Channel.APP) {
+            channel.bindingKeyRef?.let { bindingKeyRef ->
+                if (sessionManagementService.findLinkedAccountId(bindingKeyRef) == from) {
+                    sessionManagementService.linkDeviceToAccount(bindingKeyRef, to)
+                }
+            }
+        }
+        sessionManagementService.updateChannelSession(channel)
+        journeyRepository.save(journey)
     }
 
     /**

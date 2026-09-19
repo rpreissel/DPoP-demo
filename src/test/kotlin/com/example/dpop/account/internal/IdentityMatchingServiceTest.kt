@@ -145,7 +145,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         `when`("resolve is called") {
             then("it does not adopt an account through the stale local kvnr anchor") {
-                resolver.resolve(claims) shouldBe Resolution.NewInteressent
+                resolver.resolve(claims) shouldBe Resolution.Unresolved
                 verify(exactly = 0) { anchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, any()) }
             }
         }
@@ -218,7 +218,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         `when`("resolve is called") {
             then("nothing matches - a new Interessent, the anchor gets established by the adopting side") {
-                resolver.resolve(claims) shouldBe Resolution.NewInteressent
+                resolver.resolve(claims) shouldBe Resolution.Unresolved
             }
         }
     }
@@ -237,7 +237,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         `when`("resolve is called") {
             then("no account is matched by attribute combination - attributes never resolve") {
-                resolver.resolve(claims) shouldBe Resolution.NewInteressent
+                resolver.resolve(claims) shouldBe Resolution.Unresolved
                 verify(exactly = 0) { anchorRepository.findByAttributeTypeAndValue(any(), any()) }
             }
         }
@@ -251,7 +251,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         `when`("resolve is called") {
             then("the resolution is a new Interessent") {
-                resolver.resolve(emptySet()) shouldBe Resolution.NewInteressent
+                resolver.resolve(emptySet()) shouldBe Resolution.Unresolved
             }
         }
     }

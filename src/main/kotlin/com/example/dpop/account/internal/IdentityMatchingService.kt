@@ -54,7 +54,7 @@ class IdentityMatchingService(
             (personClaim == null || kvnrClaim.source.trustLevel != TrustLevel.STAMMDATEN)
         ) personDirectory.findPersonIdByKvnr(normalizeKvnr(kvnrClaim.value)) else null
         verifyToolAttestedConsistency(claims, externalPersonId)
-        return resolveByAnchor(claims, externalPersonId.takeIf { personClaim == null }) ?: Resolution.NewInteressent
+        return resolveByAnchor(claims, externalPersonId.takeIf { personClaim == null }) ?: Resolution.Unresolved
     }
 
     /**

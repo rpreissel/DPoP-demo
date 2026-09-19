@@ -11,10 +11,11 @@
 
 | Heute | Vorschlag | Konkretes Missverstaendnis | Umfang bei spaeterer Freigabe |
 | --- | --- | --- | --- |
-| `Resolution.NewInteressent` | `Resolution.NoMatch` | Der Resolver hat keinen passenden Account gefunden. Daraus folgt weder, dass die Person neu ist, noch dass sie keinen Stammdatensatz hat. Die Journey kann heute gerade fuer eine vorhandene Person ein Konto anlegen. | `tool_api/IdentityResolver.kt`, Resolver, Journey und Resolver-Tests. Ergebnis bleibt identisch; kein neuer Interessenten-Flow. |
 | `createUnidentifiedAccount()` | `createUnboundAccount()` | Fehlende PersonId bedeutet genau: keine Bindung an eine Stammdaten-Person. Es kann bereits eine bestaetigte E-Mail oder andere Evidenz geben. Im spaeteren Claims-only-Zielbild waere sogar eine Identifizierung ohne Personenbindung moeglich. | AccountService, Journey, Seed und Tests. KDoc muss ausdruecklich sagen: ungebunden an eine Stammdaten-Person, nicht ungebunden an Kanal/Geraet. Kein neues Account-Zustandsfeld. |
 
-`NoMatch` ist der naheliegendste naechste Schritt; `createUnboundAccount` ist ebenfalls praeziser,
+Der erste dieser Vorschlaege ist eingeloest: `Resolution.NewInteressent` heisst seit ADR-19/ADR-20
+`Resolution.Unresolved` - benannt ist damit die Antwort des Resolvers ("kein Konto gefunden") und
+nicht mehr die Folge daraus. `createUnboundAccount` ist ebenfalls praeziser,
 braucht aber wegen der verschiedenen Bindungen im Projekt die genannte KDoc. Alternativ ist
 `createAccountWithoutPersonBinding` laenger, dafuer voellig eindeutig.
 
