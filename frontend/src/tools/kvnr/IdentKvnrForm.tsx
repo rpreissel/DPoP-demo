@@ -29,6 +29,10 @@ export function IdentKvnrForm({ onSubmit, error, demoPersons }: IdentKvnrFormPro
         Ihre Identität ist bereits nachgewiesen. Mit der Versichertennummer wird Ihr Konto Ihrem
         Datensatz bei der Krankenkasse zugeordnet - sie muss zu der nachgewiesenen Person gehören.
       </p>
+      <p className="hint">
+        Der Schritt ist freiwillig: Mit „Jetzt nicht" geht die Registrierung ohne diese Zuordnung
+        weiter, das Konto bleibt nutzbar.
+      </p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={(person) => setKvnr(person.kvnr)} />

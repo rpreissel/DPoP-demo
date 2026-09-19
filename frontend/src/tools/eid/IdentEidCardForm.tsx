@@ -89,16 +89,22 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
           <label htmlFor="eid-ort">Ort</label>
           <input id="eid-ort" value={ort} onChange={(e) => setOrt(e.target.value)} required />
         </div>
-        {/* Read-only, like the card itself: the restricted identifier is not typed by the user -
-            the card carries it, and only the demo picker (simulating a different card) changes it. */}
+        {/* Editierbar, obwohl eine echte Karte den Wert fest mitbringt: In der Demo ist das
+            Feld die einzige Möglichkeit, eine ANDERE Karte derselben Person zu simulieren
+            (ADR-19: neuer Wert, gleiches Konto) oder dieselbe Karte ein zweites Mal aufzulegen
+            (Wiedererkennung). Der Demo-Personen-Picker füllt es weiterhin mit. */}
         <div className="form-group">
-          <span id="eid-restricted-id-label">Restricted-ID (karteugebunden)</span>
-          <ul className="journey-log-detail-chips" aria-labelledby="eid-restricted-id-label">
-            <li>
-              <span className="journey-log-chip-label">RID</span>
-              <span className="journey-log-chip-value">{restrictedId}</span>
-            </li>
-          </ul>
+          <label htmlFor="eid-restricted-id">Restricted-ID (kartengebunden)</label>
+          <input
+            id="eid-restricted-id"
+            value={restrictedId}
+            onChange={(e) => setRestrictedId(e.target.value)}
+            required
+          />
+          <span className="hint">
+            Das kartengebundene Pseudonym. Eine neue Karte derselben Person bringt einen neuen Wert
+            mit - zum Ausprobieren hier änderbar.
+          </span>
         </div>
         {error && <div className="hint">{error}</div>}
         <div className="form-actions">

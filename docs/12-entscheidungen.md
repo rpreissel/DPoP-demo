@@ -573,10 +573,11 @@ Adresse — jedes Kartenfeld ein eigener `AttributeType`, auch die Adressattribu
 auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuordnung zur
 Registerperson ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer ab, löst sie
 über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit
-`ClaimSource.EXT_STAMMDATEN`, denn dort bürgt tatsächlich das Register. Dazwischen steht eine
-ausformulierte Ja/Nein-Frage (`RegisterState.OfferRegisterAssignment`); wird sie verneint oder ist
-die Nummer unbekannt, endet der Lauf als vollwertig bezeugter **Interessent** (ADR-10) statt mit
-einem Fehler.
+`ClaimSource.EXT_STAMMDATEN`, denn dort bürgt tatsächlich das Register. Der zweite Akt wird direkt
+angeboten (`RegisterState.Assigning`, `next` zeigt auf `ident-kvnr`) — ohne Ja/Nein-Frage davor,
+die nur dieselbe Frage doppelt stellen würde. Wer den Schritt abbricht („Jetzt nicht") oder eine
+unbekannte Nummer angibt, endet als vollwertig bezeugter **Interessent** (ADR-10) statt mit einem
+Fehler.
 
 **Erwogene Alternative**: Alles in einem Tool lassen und nur die Fehlermeldung verbessern.
 
@@ -630,7 +631,7 @@ Attributkombination Name+Vorname+Geburtsdatum gegen die Claim-Historie mit
 `Resolution.Ambiguous` als Mehrdeutigkeits-Ergebnis — ist komplett entfernt
 (`Resolution.Ambiguous`, `MatchedVia.Attributes`, `BindingStrength.ATTRIBUTE_COMBINATION`,
 `findAccountIdsMatchingAllThree`, Index `ix_claim_type_value`). An ihre Stelle tritt die
-`restricted_id` der eID-Karte als achter Claim von `ident-eid`: ein karteugebundenes Pseudonym
+`restricted_id` der eID-Karte als achter Claim von `ident-eid`: ein kartengebundenes Pseudonym
 (Demo-Standin für den echten Restricted Identifier), geführt als `LOCAL_ANCHOR` mit
 `AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true` — eine neue Karte bringt einen neuen
 Wert, der den alten in-place verfallen lässt (wie `EMAIL`); hält ein anderes Konto den Wert,

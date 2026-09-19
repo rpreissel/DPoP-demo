@@ -3,7 +3,7 @@ import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type Dp
 import '../../App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, DeviceLinkResponse, Next, StepData } from '../../types'
 import { getUIComponent } from '../../routing.ts'
-import { knownToolIds, renderToolStep } from '../../tools/registry'
+import { knownToolIds, metaFor, renderToolStep } from '../../tools/registry'
 import type { ToolRenderContext } from '../../tools/types'
 import {
   abandonTool,
@@ -805,7 +805,11 @@ export function AppChannelApp() {
                 <div className="controls sticky-actions">
                   {activeTool && alternativesCount > 0 && (
                     <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode). Bei einem Vorgang mit nur einem Kandidaten (z. B. confirm-qr-login) bietet das denselben Schritt einfach erneut an - dafür ist Abbrechen daneben da.">
-                      Anderes Verfahren
+                      {/* Dieselbe Aktion, andere Beschriftung, wo "Anderes Verfahren" das falsche
+                          Wort wäre: ein freiwilliger Schritt (ident-kvnr) wird übersprungen, nicht
+                          gegen ein anderes Verfahren getauscht - das Tool deklariert das selbst
+                          (ToolMeta.skipLabel). */}
+                      {metaFor(activeTool.toolId).skipLabel ?? 'Anderes Verfahren'}
                     </button>
                   )}
                   {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem

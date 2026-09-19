@@ -4,7 +4,14 @@ import { IdentKvnrForm } from './IdentKvnrForm'
 
 export const identKvnr: ToolModule = {
   toolId: 'ident-kvnr',
-  meta: { icon: '🗂️', label: 'Versichertennummer', hint: 'Konto der Registerperson zuordnen' },
+  meta: {
+    icon: '🗂️',
+    label: 'Versichertennummer',
+    hint: 'Konto der Registerperson zuordnen',
+    // Kein Verfahrenswechsel, sondern ein optionaler Schritt: Wer abbricht, registriert
+    // weiter - das Konto bleibt Interessent (ADR-10/ADR-18).
+    skipLabel: 'Jetzt nicht',
+  },
   render(ctx) {
     if (ctx.step === 'input') {
       return (

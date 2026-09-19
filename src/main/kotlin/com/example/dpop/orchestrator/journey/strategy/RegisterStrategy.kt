@@ -77,22 +77,10 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                 else -> error("ConfirmDeviceRebind only accepts JourneyEvent.Answered")
             }
 
-            is RegisterState.OfferRegisterAssignment -> when (event) {
-                is JourneyEvent.Answered -> when (event.answer) {
-                    // Hands over to the offering state - only that one makes `next` point at the
-                    // tool. Re-resolved here rather than carried in the prompt, so a tool disabled
-                    // in the meantime simply carries on instead of dead-ending.
-                    ACCEPT -> offerAssignment(ctx) ?: continueAfterAssignment(ctx)
-                    DECLINE -> continueAfterAssignment(ctx)
-                    else -> error("OfferRegisterAssignment does not understand answer '${event.answer}'")
-                }
-                // Started: always present the prompt, unconditionally.
-                else -> Transition.To(state)
-            }
-
             is RegisterState.Assigning -> when (event) {
-                // Backing out of the correlation is not a failure - it is the same outcome as
-                // declining the question: carry on, the account stays an Interessent.
+                // Backing out of the correlation is not a failure, it is the way to say "jetzt
+                // nicht": the run carries on and the account stays an Interessent (ADR-10). This
+                // is why the step needs no prompt in front of it - abandoning IS the "no".
                 is JourneyEvent.Abandoned -> continueAfterAssignment(ctx)
                 // ConfirmIdentity, never AdoptIdentity: a correlation step extends the identity of
                 // the account already in hand. AdoptIdentity would resolve the claims on their own
@@ -177,11 +165,14 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
         }
         // An attestation proved WHO this is but bound nobody in the register (ident-eid carries no
-        // KVNR, ADR-18) - ask once whether to correlate, before any enrollment: the answer decides
-        // whether this run builds a bound account or an Interessent (ADR-10). Skipped when no
-        // correlation tool is currently offerable, which leaves the Interessent outcome as-is.
-        if (account.personId == null && CandidateTools.forAssignment(ctx).isNotEmpty()) {
-            return Transition.To(RegisterState.OfferRegisterAssignment)
+        // KVNR, ADR-18) - so offer the correlation step itself, before any enrollment. No Ja/Nein
+        // prompt in front of it: the question "darf ich die Nummer haben?" and the form that asks
+        // for it are the same question asked twice, and the form already says what it is for.
+        // Skipping is the tool's ordinary Abandoned path (see the Assigning state above), which
+        // leaves the Interessent outcome as-is (ADR-10) - as does having no correlation tool
+        // offerable at all right now.
+        if (account.personId == null) {
+            offerAssignment(ctx)?.let { return it }
         }
         return continueAfterAssignment(ctx)
     }

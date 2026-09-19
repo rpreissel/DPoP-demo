@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { abandonKcTool, activateKcTool, fetchKcRestoreData, resumeKcChannel, upsertKcChannel, type AmrEntry } from '../kcApi'
 import { getOrFetchKcSigningKey, type KcSigningKey } from '../kcSigning'
 import { describeError } from '../api'
-import { knownToolIds, renderToolStep } from '../tools/registry'
+import { knownToolIds, renderToolStep, metaFor } from '../tools/registry'
 import type { ToolRenderContext } from '../tools/types'
 import type { AuthData, ChannelResponse, DemoInfo, Next, StepData } from '../types'
 import { SelectMethodView } from './SelectMethodView'
@@ -372,7 +372,9 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
           {renderToolStep(toolCtx)}
           <div className="form-actions">
             <button className="secondary" onClick={switchMethod}>
-              Anderes Verfahren
+              {/* Gleiche Aktion wie im App-Kanal, gleiche Beschriftungsregel (ToolMeta.skipLabel):
+                  ein freiwilliger Schritt wird übersprungen, kein Verfahren getauscht. */}
+              {metaFor(toolCtx.toolId).skipLabel ?? 'Anderes Verfahren'}
             </button>
           </div>
         </>

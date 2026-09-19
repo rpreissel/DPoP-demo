@@ -329,7 +329,7 @@ In einem Fallback-Zustand sammelt `declined` die verworfenen Tools, in einem Pfl
 
 `REGISTER`s eigene Journey (`RegisterState`) nutzt `AuthChoice`/`Enrolling` als geteilte Werttypen
 mit `FAST_ACCESS` (s. o.) und besitzt zusätzlich `Identifying`, `ConfirmDeviceRebind`,
-`OfferRegisterAssignment`, `Assigning`, `ConfirmingEmail` und `PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung,
+`Assigning`, `ConfirmingEmail` und `PasswordObligation` exklusiv. `FAST_ACCESS` läuft sie als Voraussetzung,
 sobald es identifizieren müsste (s. o.).
 
 Löst die frische Identifikation ein **anderes** Konto auf, als für dieses Gerät bereits
@@ -343,14 +343,14 @@ regulär ab — kein Fehler, dieselbe Semantik wie `DELETE .../journey` — und 
 Bindung unangetastet.
 
 Hat die Identifizierung zwar bezeugt, WER jemand ist, aber niemanden im Register aufgelöst
-(`ident-eid`: eine Karte trägt keine KVNR, ADR-18), fragt `OfferRegisterAssignment` einmal nach,
-ob die Versichertennummer nachgereicht werden soll. Zustimmung wechselt nach `Assigning`, erst
-dieser Angebotzustand rendert `next` auf `ident-kvnr` — derselbe Prompt-/Angebot-Split wie
-`OfferReIdent` → `Identifying` in `RE_IDENTIFY`, denn ein `Prompt.Confirm` rendert selbst kein
-Tool. Ablehnung
-führt den Lauf regulär weiter — das Konto bleibt dann **Interessent** (ADR-10), mit voll bezeugter
-Identität, nur ohne Registerbindung. Ein Fallback-, kein Pflichtzustand; ein `ident-fsc`-Lauf
-(Register bürgt, PersonId sofort dabei) erreicht ihn nie.
+(`ident-eid`: eine Karte trägt keine KVNR, ADR-18), geht es direkt nach `Assigning` — `next` zeigt
+also gleich auf `ident-kvnr`. Eine Ja/Nein-Frage davor gibt es bewusst nicht: „Darf ich die Nummer
+haben?" und das Formular, das nach ihr fragt, sind dieselbe Frage zweimal, und das Formular sagt
+selbst, wofür die Nummer gut ist. Das Nein ist der normale Abbruch des Schritts
+(`DELETE .../tools/{toolSessionId}/ident-kvnr`, im Frontend als „Jetzt nicht" beschriftet): Der
+Lauf läuft weiter, das Konto bleibt **Interessent** (ADR-10) mit voll bezeugter Identität, nur ohne
+Registerbindung. Ein Fallback-, kein Pflichtzustand; ein `ident-fsc`-Lauf (Register bürgt, PersonId
+sofort dabei) erreicht ihn nie.
 
 ```mermaid
 stateDiagram-v2
@@ -360,10 +360,8 @@ stateDiagram-v2
   ConfirmDeviceRebind --> Identifying: Zustimmung - Gerät umgebunden, alte Bindung revoziert
   ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
-  Identifying --> OfferRegisterAssignment: Identität bezeugt, aber keine Registerperson zugeordnet (ident-eid)
-  OfferRegisterAssignment --> Assigning: Zustimmung - Versichertennummer nachreichen
-  Assigning --> ConfirmingEmail: Zuordnung erledigt oder abgebrochen
-  OfferRegisterAssignment --> ConfirmingEmail: Ablehnung - Interessent, Lauf läuft weiter
+  Identifying --> Assigning: Identität bezeugt, aber keine Registerperson zugeordnet (ident-eid)
+  Assigning --> ConfirmingEmail: Zuordnung erledigt oder übersprungen ("Jetzt nicht" - Interessent)
   Identifying --> ConfirmingEmail: Identität festgestellt, Konto muss etwas einrichten, E-Mail-Pflicht offen
   Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten, E-Mail bereits bestätigt
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
@@ -410,7 +408,7 @@ Zweitaccount-Fall, Abschnitt 2), bekommt der Lauf sein eigenes Konto, sonst wird
 `recordClaims` schreibt PersonId wie E-Mail über den gemeinsamen Claim-/Ankerpfad. Anlage, Claims und
 Journey-Zustand teilen dieselbe Transaktion; ein Konflikt rollt auch den neuen Account zurück.
 Bekannte Konten werden ausschließlich über Anker aufgelöst ([12-entscheidungen.md](12-entscheidungen.md)
-ADR-19) — für eid-Bezeugungen ist das die karteugebundene `restricted_id`, ohne Anker-Treffer
+ADR-19) — für eid-Bezeugungen ist das die kartengebundene `restricted_id`, ohne Anker-Treffer
 bleibt es beim neuen Interessenten.
 Bei `ConfirmIdentity` erzwingt die Account-Schicht Erstbindung, Unveränderlichkeit der PersonId und
 Ankerbesitz. Findet der Schritt ein **anderes** Konto als das, mit dem die Journey arbeitet, geht

@@ -191,7 +191,7 @@ Zugehörigkeit zur Person — also `IDENT`, kein `attest-kvnr`.
 
 Ein dritter Fall fehlte in dieser Regel und wurde mit ADR-18 nachgetragen: **bürgt das Verfahren
 selbst (`ClaimSource.of(toolId)`) für einen Wert, den `EXT_STAMMDATEN` verwaltet, ist es `IDENT`** —
-so liegt `ident-eid`, das Name/Vorname/Geburtsdatum, die Adresse und die karteugebundene `restricted_id` von der Karte bezeugt. `ATTEST` wäre dafür
+so liegt `ident-eid`, das Name/Vorname/Geburtsdatum, die Adresse und die kartengebundene `restricted_id` von der Karte bezeugt. `ATTEST` wäre dafür
 falsch, und zwar nicht wegen des Datenbesitzes, sondern weil `ATTEST` per Definition *nichts* zur
 ACR/AMR-Bilanz beiträgt (`evidenceAxis()` wirft dafür): eine eID trägt sehr wohl IAL bei. Umgekehrt
 gilt die Kategorie auch für ein Tool, das nur *korreliert* statt zu beweisen (`ident-kvnr`,
