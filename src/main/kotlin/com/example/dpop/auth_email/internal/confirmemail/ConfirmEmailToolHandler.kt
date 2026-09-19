@@ -78,7 +78,30 @@ class ConfirmEmailToolHandler(
                 // yes/no uniqueness check, so the narrow `tool_api.AccountDirectory` port
                 // (every other method module's own account access) is enough.
                 if (accountDirectory.resolveAccountByEmail(decision.email) != null) {
-                    ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
+                    // Deliberately NOT ToolOutcome.Failed: a Failed costs one of the journey's
+                    // attempts (JourneyService.chargeAttempt), and three of them end the run - but
+                    // there is nothing being guessed here. Submitting an address that turns out to
+                    // belong to someone is a correct answer to a question the user could not have
+                    // known the answer to, and it regularly happens to the RIGHT person: after an
+                    // eID attestation whose assignment step was skipped, the account in hand is a
+                    // fresh Interessent while the user's own address already belongs to their own,
+                    // existing account (docs/12-entscheidungen.md ADR-18/ADR-20). Burning the
+                    // budget on that turned a solvable situation into a dead run.
+                    //
+                    // So the step simply stays where it is, with the address form and a message
+                    // saying what to do instead. Enumeration is not made any easier by this: the
+                    // answer was already visible before (the same message, just at the cost of an
+                    // attempt), and `auth-email-lookup` answers the same question by design. What
+                    // does the real protecting here is `sendThrottled` below, which is about
+                    // sending mail, not about guessing.
+                    val (step, fields) = ConfirmEmailState.AwaitingEmail.describe()
+                    ToolOutcome.InProgress(
+                        nextStep = step,
+                        data = fields + mapOf(
+                            "error" to "Zu dieser Adresse gibt es bereits ein Konto. Melden Sie sich damit an, " +
+                                "oder verwenden Sie eine andere Adresse."
+                        )
+                    )
                 } else if (sendThrottled) {
                     ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")
                 } else {

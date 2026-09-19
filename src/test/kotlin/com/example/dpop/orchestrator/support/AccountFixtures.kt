@@ -86,11 +86,23 @@ class AccountFixtures(
         vorname: String = VORNAME,
         email: String? = EMAIL,
         methods: List<Method> = emptyList(),
-        bindDeviceKeyRef: String? = null
+        bindDeviceKeyRef: String? = null,
+        /**
+         * The eID card anchor this person carries (ADR-19), as the `keycloak` demo seed writes it
+         * for its own accounts - `null` for an account that has never been attested by a card.
+         */
+        restrictedId: String? = null
     ): Long {
         val accountId = accountService.createUnidentifiedAccount().accountId
         identify(accountId, kvnr, name, vorname)
         if (email != null) confirmEmail(accountId, email)
+        if (restrictedId != null) {
+            accountService.recordClaims(
+                accountId,
+                listOf(Claim(AttributeType.EID_RESTRICTED_ID, restrictedId, ClaimSource.DEMO_BOOTSTRAP, IDENT_ACR)),
+                provenAcr = IDENT_ACR
+            )
+        }
         methods.forEach { addMethod(accountId, it) }
         if (bindDeviceKeyRef != null) sessionManagementService.linkDeviceToAccount(bindDeviceKeyRef, accountId)
         return accountId

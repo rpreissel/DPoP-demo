@@ -65,15 +65,16 @@ class KcDemoAccountSeederTest(
             val ids = accountService.allAccountIds().sorted()
             ids.size shouldBe 3
             (1L..3L).map { accountService.resolveByAnchor(AttributeType.PERSON_ID, it.toString()) } shouldBe ids
-            // PERSON_ID, EMAIL and PHONE_NUMBER per person - but only the first two are local
-            // anchors; PHONE_NUMBER is AttributeAuthority.METHOD_MODULE and stays claim-log only.
-            jdbc.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 9
-            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
+            // PERSON_ID, EMAIL, EID_RESTRICTED_ID and PHONE_NUMBER per person - but only the
+            // first three are local anchors; PHONE_NUMBER is AttributeAuthority.METHOD_MODULE and
+            // stays claim-log only.
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 12
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 9
 
             runner.run(DefaultApplicationArguments())
             accountService.allAccountIds().sorted() shouldBe ids
-            jdbc.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 9
-            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 6
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 12
+            jdbc.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 9
             // password (KNOWLEDGE) + sms (POSSESSION)
             ids.forEach { profileId ->
                 accountService.findAccount(profileId)?.activeAuthenticationMethods
