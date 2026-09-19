@@ -16,20 +16,20 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
- * toolId=confirm-email: registers a confirmed email address as a knowledge factor,
- * mirroring enroll-sms (docs/06-ablaeufe.md #4) - a mock confirmation code stands in for a real
- * mail send, exactly like the mock SMS gateway.
+ * toolId=confirm-email, role=ATTESTATION: proves control of an address, mirroring enroll-sms's
+ * code exchange (docs/06-ablaeufe.md #4) - a mock confirmation code stands in for a real mail
+ * send, exactly like the mock SMS gateway.
  *
- * Unlike enroll-sms/enroll-password, the confirmed value is NOT stored in a module-owned
- * enrollment table - it is the account's EMAIL anchor, referenced as [EMAIL_ANCHOR_ENROLLMENT],
- * the first anchor-role application of the claims model (docs/ideen/
- * claims-modell-und-vertrauensanker.md). It is therefore asserted as a typed EMAIL claim on
- * `Completed.Enrolled`, which `JourneyService`'s generic `Action.AdoptCredential` handling
- * records via `AccountService.recordClaim` - consolidating the anchor and firing AccountChanged. This is what lets REGISTER "Enrollment zuerst"
- * (docs/04-orchestrierung.md) create the account lazily, on first `AdoptCredential`, instead of
- * needing one to already exist before this tool's own PATCH can even run - this was the ONE enroll
- * handler in the whole catalog that needed an account mid-PATCH; every other one already operates
- * purely on its own tool-session data.
+ * The confirmed value is NOT stored in a module-owned enrollment table - it is the account's
+ * EMAIL anchor, referenced as [EMAIL_ANCHOR_ENROLLMENT], the first anchor-role application of the
+ * claims model (docs/ideen/claims-modell-und-vertrauensanker.md). It is therefore asserted as a
+ * typed EMAIL claim on `Completed.Attested`, which `JourneyActionExecutor.performAdoptAttestation`
+ * records via `AccountService.recordClaims` - consolidating the anchor and firing AccountChanged,
+ * but creating no method instance and no device binding (docs/03-tool-architektur.md "ATTEST").
+ * This is what lets REGISTER "Enrollment zuerst" (docs/04-orchestrierung.md) create the account
+ * lazily, on this very first step, instead of needing one to already exist beforehand - this was
+ * the ONE handler in the whole catalog that needed an account mid-PATCH; every other one already
+ * operates purely on its own tool-session data.
  *
  * Pure business logic; self-description lives in [ConfirmEmailDescriptor].
  * Delegates the actual step logic to [ConfirmEmailFlow]; this class only translates its
