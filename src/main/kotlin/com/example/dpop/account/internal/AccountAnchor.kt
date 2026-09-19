@@ -11,13 +11,12 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * The one current value an account holds for a locally owned attribute
- * (`AttributeType.authority == LOCAL_ANCHOR`), in its normalized form - at most one per
- * (account, attribute type).
+ * The one current value an account holds for a locally owned attribute (`AttributeRule.authority
+ * == LOCAL_ANCHOR`), in its normalized form - at most one per (account, attribute type).
  * `UNIQUE(attribute_type, normalized_value)` makes resolving an identity a lookup instead of a
  * match and is the only uniqueness authority for that value. First writer wins across accounts - a
  * cross-account conflict is an upstream rejection (ADR-11, docs/12-entscheidungen.md), never a
- * re-assignment. Provenance stays in [AccountAttribute].
+ * re-assignment. Provenance stays in [AccountClaim].
  */
 @Entity
 @Table(schema = "account", name = "anchor")
@@ -25,7 +24,7 @@ class AccountAnchor(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,
 
-    // Same converter as account.attribute.attribute_type: both columns hold AttributeType.wireName.
+    // Same converter as account.claim.attribute_type: both columns hold AttributeType.wireName.
     @Convert(converter = AttributeTypeConverter::class)
     @Column(name = "attribute_type", nullable = false)
     var attributeType: AttributeType? = null,

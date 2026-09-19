@@ -30,15 +30,15 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     fun service(
         anchorRepository: AccountAnchorRepository,
-        attributeRepository: AccountAttributeRepository,
+        claimRepository: AccountClaimRepository,
         personDirectory: PersonDirectory
-    ) = IdentityMatchingService(anchorRepository, attributeRepository, personDirectory)
+    ) = IdentityMatchingService(anchorRepository, claimRepository, personDirectory)
 
     given("a tool-attested kvnr whose claims contradict the stammdaten on file") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val claims = setOf(
             Claim(AttributeType.KVNR, "A123456789", ClaimSource.of(ToolId("ident-eid"))),
             Claim(AttributeType.NAME, "Anders", ClaimSource.of(ToolId("ident-eid"))),
@@ -58,9 +58,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("a tool-attested kvnr with consistent claims and an existing person_id anchor") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.PERSON_ID, "7", anchor),
@@ -83,9 +83,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("stammdaten-attested claims (ident-fsc form)") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val claims = setOf(
             Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN),
             Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN),
@@ -105,9 +105,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("a live kvnr-to-person mapping, no person claim") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.KVNR, "A123456789", anchor),
@@ -128,9 +128,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("both a person_id and a kvnr claim, with only a stale local kvnr anchor") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.EXT_STAMMDATEN
         val claims = setOf(
             Claim(AttributeType.PERSON_ID, "7", anchor),
@@ -168,9 +168,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("attribute matching with a single candidate") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.NAME, "Muster", anchor),
@@ -178,7 +178,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
         every {
-            attributeRepository.findAccountIdsMatchingAllThree(
+            claimRepository.findAccountIdsMatchingAllThree(
                 AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns listOf(7L)
@@ -195,9 +195,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("attribute matching with two candidates") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.NAME, "Muster", anchor),
@@ -205,7 +205,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
         every {
-            attributeRepository.findAccountIdsMatchingAllThree(
+            claimRepository.findAccountIdsMatchingAllThree(
                 AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns listOf(7L, 8L)
@@ -219,9 +219,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("attribute matching past the candidate ceiling") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.NAME, "Muster", anchor),
@@ -230,7 +230,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         )
         val moreThanCeiling = (1L..51L).toList()
         every {
-            attributeRepository.findAccountIdsMatchingAllThree(
+            claimRepository.findAccountIdsMatchingAllThree(
                 AttributeType.NAME, "muster", AttributeType.VORNAME, "max", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns moreThanCeiling
@@ -244,9 +244,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("attribute matching with no candidate") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.NAME, "Niemand", anchor),
@@ -254,7 +254,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
         every {
-            attributeRepository.findAccountIdsMatchingAllThree(
+            claimRepository.findAccountIdsMatchingAllThree(
                 AttributeType.NAME, "niemand", AttributeType.VORNAME, "niemals", AttributeType.GEBURTSDATUM, "1970-01-01", any()
             )
         } returns emptyList()
@@ -268,9 +268,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
     given("no claims at all") {
         val anchorRepository = mockk<AccountAnchorRepository>()
-        val attributeRepository = mockk<AccountAttributeRepository>()
+        val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, attributeRepository, personDirectory)
+        val resolver = service(anchorRepository, claimRepository, personDirectory)
 
         `when`("resolve is called") {
             then("the resolution is a new Interessent") {

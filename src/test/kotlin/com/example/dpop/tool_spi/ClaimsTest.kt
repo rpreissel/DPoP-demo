@@ -14,7 +14,7 @@ import io.kotest.matchers.string.shouldContain
  */
 class ClaimsTest : BehaviorSpec({
     given("AttributeType") {
-        then("wire names are stable - they become account.attribute.attribute_type values") {
+        then("wire names are stable - they become account.claim.attribute_type values") {
             AttributeType.PERSON_ID.wireName shouldBe "person_id"
             AttributeType.KVNR.wireName shouldBe "kvnr"
             AttributeType.NAME.wireName shouldBe "name"

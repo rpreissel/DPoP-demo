@@ -14,7 +14,7 @@ import java.time.Instant
  * Append-only audit record of one identification run: which procedure ([method]), at which level,
  * when, and the proof anchors it produced ([details]: provider, provider transaction id, method
  * version, evidence hash, channel, journey - "dass und wie", never "was", docs/06-ablaeufe.md #1).
- * Complements [AccountAttribute]: a claim names its source register (e.g. `ext_stammdaten`), not
+ * Complements [AccountClaim]: a claim names its source register (e.g. `ext_stammdaten`), not
  * the procedure that checked it. Never read for a decision - `AuthEvidence` is re-proven per session.
  */
 @Entity

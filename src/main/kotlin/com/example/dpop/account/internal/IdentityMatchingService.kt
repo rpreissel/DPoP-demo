@@ -1,16 +1,16 @@
 package com.example.dpop.account.internal
 
 import com.example.dpop.tool_api.AttributeAuthority
+import com.example.dpop.tool_api.BindingStrength
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
 import com.example.dpop.tool_api.MatchedVia
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.Resolution
-import com.example.dpop.tool_api.anchorBindingStrength
-import com.example.dpop.tool_api.authority
 import com.example.dpop.tool_api.normalizeAnchorValue
 import com.example.dpop.tool_api.normalizeKvnr
+import com.example.dpop.tool_api.rule
 import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -27,8 +27,8 @@ import java.time.LocalDate
  * docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").
  *
  * Layer precedence is fixed: unique anchor values first (PERSON_ID ranks highest among them via
- * [AttributeType.anchorBindingStrength] - the same technical `account.anchor` lookup as every
- * other anchor, no separate person_id repository path), then attribute matching. Attribute
+ * [AnchorRule.bindingStrength] - the same technical `account.anchor` lookup as every other
+ * anchor, no separate person_id repository path), then attribute matching. Attribute
  * matching is the only layer that can be ambiguous, and the most expensive error it can
  * make is a false merge, so it never guesses. A future EUDI-Wallet case slots in without a
  * policy fork: an issuer-scoped PID identifier arrives as its own anchor type, and
@@ -37,7 +37,7 @@ import java.time.LocalDate
 @Service
 class IdentityMatchingService(
     private val accountAnchorRepository: AccountAnchorRepository,
-    private val accountAttributeRepository: AccountAttributeRepository,
+    private val accountClaimRepository: AccountClaimRepository,
     private val personDirectory: PersonDirectory
 ) : IdentityResolver {
 
@@ -88,16 +88,13 @@ class IdentityMatchingService(
 
     /**
      * Layer 1: anchor values - unique, error-free lookups via `account.anchor`'s UNIQUE
-     * constraint, PERSON_ID included (anchored exactly like EMAIL,
-     * docs/ideen/account-attribute-und-trust-vereinheitlichen.md). KVNR instead resolves live to the external person ID and then to that
-     * person's anchor; a historical local KVNR anchor is never consulted.
-     * Ranks claims by [AttributeType.anchorBindingStrength] before iterating,
-     * so the strongest anchor (PERSON_ID) is always consulted first when several are present -
-     * deliberately NOT the claims' [TrustLevel] (docs/ideen/account-attribute-und-trust-
-     * vereinheitlichen.md: binding strength and trust level are different axes; a PERSON_ID match
-     * outranks an EMAIL match regardless of which tool supplied the claims) and not whatever
-     * `Set` implementation a caller happens to pass in (a plain `HashSet` gives no iteration-order
-     * guarantee at all).
+     * constraint, PERSON_ID included. KVNR instead resolves live to the external person ID and
+     * then to that person's anchor; a historical local KVNR anchor is never consulted. Ranks
+     * claims by [AnchorRule.bindingStrength] before iterating, so the strongest anchor
+     * (PERSON_ID) is always consulted first - deliberately NOT the claims' [TrustLevel] (a
+     * different axis: a PERSON_ID match outranks an EMAIL match regardless of which tool supplied
+     * the claims) and not whatever `Set` implementation a caller happens to pass in (a plain
+     * `HashSet` gives no iteration-order guarantee at all).
      */
     private fun resolveByAnchor(claims: Set<Claim>, externalPersonId: Long?): Resolution.ExistingAccount? {
         val matches = mutableListOf<Resolution.ExistingAccount>()
@@ -105,8 +102,8 @@ class IdentityMatchingService(
             accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, personId.toString())
                 ?.accountId?.let { matches.add(Resolution.ExistingAccount(it, MatchedVia.Anchor(AttributeType.PERSON_ID))) }
         }
-        for (claim in claims.sortedByDescending { it.attributeType.anchorBindingStrength ?: 0 }) {
-            val attributeType = claim.attributeType.takeIf { it.authority == AttributeAuthority.LOCAL_ANCHOR } ?: continue
+        for (claim in claims.sortedByDescending { it.attributeType.rule.anchor?.bindingStrength ?: BindingStrength.ATTRIBUTE_COMBINATION }) {
+            val attributeType = claim.attributeType.takeIf { it.rule.authority == AttributeAuthority.LOCAL_ANCHOR } ?: continue
             val anchor = accountAnchorRepository.findByAttributeTypeAndValue(
                 attributeType,
                 attributeType.normalizeAnchorValue(claim.value)
@@ -123,25 +120,24 @@ class IdentityMatchingService(
     /**
      * Layer 2, weakest: normalized attribute matching over the identity log. One real
      * combination today - name + vorname + geburtsdatum, matched in a single sargable query
-     * (`ix_attribute_type_value`) - deliberately the most
-     * discriminant triple the log carries; further combinations (and their rank order) arrive
-     * with the procedures that need them. 0 hits falls through to NewInteressent; hitting the
-     * candidate ceiling - like more than one hit - is Ambiguous, never a guess: "lieber gar
-     * nicht als falsch zusammenführen" doesn't allow softening the ceiling into a best-effort
-     * top-N.
+     * (`ix_claim_type_value`) - deliberately the most discriminant triple the log carries;
+     * further combinations (and their rank order) arrive with the procedures that need them. 0
+     * hits falls through to NewInteressent; hitting the candidate ceiling - like more than one
+     * hit - is Ambiguous, never a guess: "lieber gar nicht als falsch zusammenführen" doesn't
+     * allow softening the ceiling into a best-effort top-N.
      */
     private fun resolveByAttributeCombination(claims: Set<Claim>): Resolution? {
         val name = claims.claimValue(AttributeType.NAME) ?: return null
         val vorname = claims.claimValue(AttributeType.VORNAME) ?: return null
         val geburtsdatum = claims.claimValue(AttributeType.GEBURTSDATUM) ?: return null
 
-        val candidates = accountAttributeRepository.findAccountIdsMatchingAllThree(
+        val candidates = accountClaimRepository.findAccountIdsMatchingAllThree(
             type1 = AttributeType.NAME,
-            value1 = AccountAttribute.normalize(name)!!,
+            value1 = AccountClaim.normalize(name)!!,
             type2 = AttributeType.VORNAME,
-            value2 = AccountAttribute.normalize(vorname)!!,
+            value2 = AccountClaim.normalize(vorname)!!,
             type3 = AttributeType.GEBURTSDATUM,
-            value3 = AccountAttribute.normalize(geburtsdatum)!!,
+            value3 = AccountClaim.normalize(geburtsdatum)!!,
             pageable = PageRequest.of(0, CANDIDATE_LIMIT + 1)
         )
         return when {

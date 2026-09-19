@@ -43,7 +43,7 @@ class AccountServiceDbTest(
     private val jdbcTemplate: JdbcTemplate,
     private val transactionManager: PlatformTransactionManager,
     private val anchorRepository: AccountAnchorRepository,
-    private val attributeRepository: com.example.dpop.account.internal.AccountAttributeRepository
+    private val claimRepository: com.example.dpop.account.internal.AccountClaimRepository
 ) : BehaviorSpec({
 
     beforeEach {
@@ -64,7 +64,7 @@ class AccountServiceDbTest(
                 }
             }
             accountService.allAccountIds() shouldBe listOf(holder.accountId)
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 1
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 1
             jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 1
             accountService.resolveByAnchor(AttributeType.PERSON_ID, "555").shouldBeNull()
         }
@@ -81,7 +81,7 @@ class AccountServiceDbTest(
                 }
             }
             accountService.allAccountIds() shouldBe emptyList()
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 0
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 0
             jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 0
         }
     }
@@ -120,7 +120,7 @@ class AccountServiceDbTest(
                     OrchestratorExceptionHandler().handleConstraintViolation(violation).statusCode shouldBe HttpStatus.CONFLICT
                     accountService.allAccountIds() shouldBe listOf(winnerId)
                     accountService.resolveByAnchor(type, value) shouldBe winnerId
-                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 1
+                    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 1
                     jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 1
                     val winner = checkNotNull(accountService.findAccount(winnerId))
                     when (type) {
@@ -157,7 +157,7 @@ class AccountServiceDbTest(
             // the PERSON_ID claim already processed earlier in the SAME call, not just stop
             // applying further ones.
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account.attribute WHERE account_id = ?", Int::class.java, subject.accountId
+                "SELECT COUNT(*) FROM account.claim WHERE account_id = ?", Int::class.java, subject.accountId
             ) shouldBe 0
             jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM account.anchor WHERE account_id = ?", Int::class.java, subject.accountId
@@ -197,7 +197,7 @@ class AccountServiceDbTest(
                 accountService.resolveByAnchor(AttributeType.EMAIL, "shared@example.com") shouldBe winner
                 accountService.findAccount(loser)?.email shouldBe "old${ids.indexOf(loser) + 1}@example.com"
                 accountService.allAccountIds().sorted() shouldBe ids.sorted()
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.attribute", Int::class.java) shouldBe 3
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 3
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 2
             } finally {
                 executor.shutdownNow()
@@ -249,7 +249,7 @@ class AccountServiceDbTest(
                 Claim(AttributeType.VORNAME, "Max", ClaimSource.EXT_STAMMDATEN),
                 Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.EXT_STAMMDATEN)
             ), provenAcr = AcrLevel.LOA2)
-            fun matches() = attributeRepository.findAccountIdsMatchingAllThree(
+            fun matches() = claimRepository.findAccountIdsMatchingAllThree(
                 AttributeType.NAME, "muster",
                 AttributeType.VORNAME, "max",
                 AttributeType.GEBURTSDATUM, "1985-06-15",
@@ -265,7 +265,7 @@ class AccountServiceDbTest(
 
             matches().shouldBeEmpty()
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account.attribute WHERE account_id = ? AND attribute_type = 'name'",
+                "SELECT COUNT(*) FROM account.claim WHERE account_id = ? AND attribute_type = 'name'",
                 Int::class.java, account.accountId
             ) shouldBe 1
         }

@@ -13,7 +13,7 @@ import java.time.Instant
 
 /**
  * One withdrawn (account, attribute type, value) triple. Cancels every matching row in
- * [AccountAttribute] without touching it: the claim log stays strictly append-only, and
+ * [AccountClaim] without touching it: the claim log stays strictly append-only, and
  * "currently valid" is the subtraction of these rows from it (`IdentityMatchingService`).
  * Matched on [normalizedValue] for the same reason the log is - the raw spelling stays readable
  * in the claim rows themselves.

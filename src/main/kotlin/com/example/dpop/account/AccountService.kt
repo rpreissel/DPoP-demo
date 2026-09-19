@@ -3,8 +3,8 @@ package com.example.dpop.account
 import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountAnchor
 import com.example.dpop.account.internal.AccountAnchorRepository
-import com.example.dpop.account.internal.AccountAttribute
-import com.example.dpop.account.internal.AccountAttributeRepository
+import com.example.dpop.account.internal.AccountClaim
+import com.example.dpop.account.internal.AccountClaimRepository
 import com.example.dpop.account.internal.AccountAuthMethod
 import com.example.dpop.account.internal.AccountAuthMethodRepository
 import com.example.dpop.account.internal.AccountIdentification
@@ -14,11 +14,9 @@ import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
-import com.example.dpop.tool_api.anchorAcrFloor
 import com.example.dpop.tool_api.IdentityConflictException
-import com.example.dpop.tool_api.allowsAnchorReplacement
-import com.example.dpop.tool_api.authority
 import com.example.dpop.tool_api.normalizeAnchorValue
+import com.example.dpop.tool_api.rule
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -47,7 +45,7 @@ data class AccountDeleted(val accountId: Long)
 @Service
 class AccountService(
     private val accountRepository: AccountRepository,
-    private val accountAttributeRepository: AccountAttributeRepository,
+    private val accountClaimRepository: AccountClaimRepository,
     private val accountAnchorRepository: AccountAnchorRepository,
     private val accountAuthMethodRepository: AccountAuthMethodRepository,
     private val accountIdentificationRepository: AccountIdentificationRepository,
@@ -66,13 +64,10 @@ class AccountService(
      * Withdraws what one method instance asserted, as its own retraction row per distinct value -
      * the claim log itself is never touched (ADR-12, docs/12-entscheidungen.md).
      *
-     * Retracts only claims whose [AttributeType.authority] is
-     * [AttributeAuthority.METHOD_MODULE]: the revoked module owned that value, and with its row
-     * gone nothing backs it any more. An anchor (`EMAIL`) or a master-data attribute (`NAME`)
-     * asserted along the way is an identity fact OF THE ACCOUNT, not an artifact of the method -
-     * it outlives the credential, and withdrawing it is a separate act of account management.
-     * Without that rule, removing the email method would silently strip the account's identity
-     * anchor and with it password login (`ClaimRequirement(EMAIL, PROVEN)`).
+     * Retracts only claims whose [AttributeRule.authority] is [AttributeAuthority.METHOD_MODULE]:
+     * an anchor (`EMAIL`) or master-data attribute (`NAME`) is an identity fact OF THE ACCOUNT,
+     * not an artifact of the method, and outlives the credential - otherwise removing the email
+     * method would silently strip the account's identity anchor and with it password login.
      *
      * @return how many retraction rows were written - 0 is the ordinary case for a method that
      *   asserts nothing (device, password) or only account-owned facts.
@@ -86,9 +81,9 @@ class AccountService(
     ): Int {
         val instanceId = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return 0
         val now = Instant.now()
-        val retractable = accountAttributeRepository.findByAuthMethodId(instanceId)
+        val retractable = accountClaimRepository.findByAuthMethodId(instanceId)
             .filter { it.accountId == accountId }
-            .filter { it.attributeType?.authority == AttributeAuthority.METHOD_MODULE }
+            .filter { it.attributeType?.rule?.authority == AttributeAuthority.METHOD_MODULE }
             .mapNotNull { claim -> claim.attributeType?.let { type -> type to claim.normalizedValue } }
             .distinct()
         retractable.forEach { (type, value) ->
@@ -112,15 +107,14 @@ class AccountService(
      * claim; the log is provenance. At most one claim per [AttributeType] - the same contract
      * `assertClaimsCovered` checks upstream, re-checked here so this method is safe on its own.
      * A locally owned attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`, `EMAIL`) is
-     * additionally consolidated into its [AccountAnchor]; every other attribute keeps its
-     * authority where [AttributeType.authority] says it lives (`ext_stammdaten`, reachable via
-     * the PERSON_ID anchor, or a method module's own enrollment row) and is only logged here.
+     * additionally consolidated into its [AccountAnchor]; every other attribute is only logged
+     * here, its authority living elsewhere (`ext_stammdaten`, or a method module's own row).
      *
-     * [provenAcr] is what the session had ACTUALLY established when this run completed - the same
+     * [provenAcr] is what the session ACTUALLY established when this run completed - the same
      * capped figure `AccountAuthMethod.enrolledUnderAcr` records, never a tool's own declared
-     * ceiling. It is the price an anchor write is paid with ([AttributeType.anchorAcrFloor]) and
-     * what the anchor row then remembers. The log itself is never gated: a claim below the floor
-     * is still provenance, it just does not get to move the anchor.
+     * ceiling. It is the price an anchor write is paid with ([AnchorRule.acrFloor]); the log
+     * itself is never gated - a claim below the floor is still provenance, it just does not move
+     * the anchor.
      */
     @Transactional
     fun recordClaims(
@@ -138,8 +132,8 @@ class AccountService(
         }
         claims.forEach { claim ->
             val establishedAt = Instant.now()
-            accountAttributeRepository.save(
-                AccountAttribute(
+            accountClaimRepository.save(
+                AccountClaim(
                     accountId = accountId,
                     attributeType = claim.attributeType,
                     value = claim.value,
@@ -149,7 +143,7 @@ class AccountService(
                     establishedAt = establishedAt
                 )
             )
-            if (claim.attributeType.authority == AttributeAuthority.LOCAL_ANCHOR) {
+            if (claim.attributeType.rule.authority == AttributeAuthority.LOCAL_ANCHOR) {
                 lockForUpdate(accountId)
                 recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
                 eventPublisher.publishEvent(AccountChanged(accountId))
@@ -160,16 +154,17 @@ class AccountService(
     /**
      * Materializes an anchor row. Idempotent when this account already holds the value. A value
      * held by ANOTHER account is rejected outright ([IdentityConflictException]), never
-     * re-assigned and never silently skipped: ADR-11 makes a cross-account conflict an upstream
-     * rejection, and throwing rolls the whole claim back, log entry included. A new value for
-     * THIS account's own anchor re-binds it only if [AttributeType.allowsAnchorReplacement] says
-     * so (`EMAIL`); for `PERSON_ID` (immutable after first binding) it is rejected the same way.
+     * re-assigned: ADR-11 makes a cross-account conflict an upstream rejection, and throwing rolls
+     * the whole claim back, log entry included. A new value for THIS account's own anchor
+     * re-binds it only if [AnchorRule.allowsReplacement] says so (`EMAIL`); `PERSON_ID` (immutable
+     * after first binding) is rejected the same way. Only ever called from the `LOCAL_ANCHOR`
+     * branch of [recordClaims] - [type] is guaranteed to have an [AnchorRule].
      *
      * A rebind UPDATES the row in place rather than deleting and re-inserting: Hibernate flushes
      * insertions before deletions, so a delete-then-insert pair would briefly hold both rows and
      * trip `ux_anchor_account_type`.
      *
-     * Both writes are priced separately by [AttributeType.anchorAcrFloor] and refused below it -
+     * Both writes are priced separately by [AnchorRule.acrFloor] and refused below it -
      * establishing binds a value to an account, replacing re-points an account that other people's
      * lookups already resolve through, which is the write worth protecting.
      */
@@ -180,6 +175,7 @@ class AccountService(
         establishedAt: Instant,
         provenAcr: AcrLevel
     ) {
+        val anchor = checkNotNull(type.rule.anchor) { "$type is not a local anchor attribute" }
         val normalized = type.normalizeAnchorValue(value)
         accountAnchorRepository.findByAttributeTypeAndValue(type, normalized)?.let { held ->
             if (held.accountId == accountId) return
@@ -191,21 +187,21 @@ class AccountService(
         }
         val existing = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)
         if (existing != null) {
-            if (!type.allowsAnchorReplacement) {
+            if (!anchor.allowsReplacement) {
                 log.warn(
                     "Anchor conflict: {} for account {} is immutable, already bound to {}, rejected new value",
                     type.wireName, accountId, existing.value
                 )
                 throw IdentityConflictException("Dieser ${type.wireName}-Wert kann fuer dieses Konto nicht mehr geaendert werden")
             }
-            requireAnchorAcr(type, provenAcr, floor = type.anchorAcrFloor?.replace, write = "ersetzt")
+            requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.replace, write = "ersetzt")
             existing.value = normalized
             existing.establishedLoa = provenAcr.value
             existing.establishedAt = establishedAt
             accountAnchorRepository.save(existing)
             return
         }
-        requireAnchorAcr(type, provenAcr, floor = type.anchorAcrFloor?.establish, write = "gesetzt")
+        requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.establish, write = "gesetzt")
         accountAnchorRepository.save(
             AccountAnchor(
                 accountId = accountId,
@@ -222,8 +218,8 @@ class AccountService(
      * the claim without its anchor: a caller that believed it bound an identity must not proceed on
      * a false premise (ADR-11's line - reject, never quietly skip).
      */
-    private fun requireAnchorAcr(type: AttributeType, provenAcr: AcrLevel, floor: AcrLevel?, write: String) {
-        if (floor == null || AcrLevel.rank(provenAcr) >= AcrLevel.rank(floor)) return
+    private fun requireAnchorAcr(type: AttributeType, provenAcr: AcrLevel, floor: AcrLevel, write: String) {
+        if (AcrLevel.rank(provenAcr) >= AcrLevel.rank(floor)) return
         log.warn(
             "Anchor floor: {} may only be {} at {} or above, session proved {}",
             type.wireName, write, floor.value, provenAcr.value
@@ -376,7 +372,7 @@ class AccountService(
         accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value))?.accountId
 
     override fun anchorValue(accountId: Long, type: AttributeType): String? {
-        check(type.authority == AttributeAuthority.LOCAL_ANCHOR) { "$type is not a local account anchor, it is owned by ${type.authority}" }
+        check(type.rule.authority == AttributeAuthority.LOCAL_ANCHOR) { "$type is not a local account anchor, it is owned by ${type.rule.authority}" }
         return accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
     }
 

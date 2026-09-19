@@ -11,7 +11,7 @@ import java.time.Instant
 /**
  * Identity key and optimistic-lock root of an account - nothing else. Current state lives in rows
  * keyed by it ([AccountAnchor], [AccountAuthMethod]); history in append-only logs
- * ([AccountAttribute], [AccountIdentification]).
+ * ([AccountClaim], [AccountIdentification]).
  *
  * [version] serializes changes to the CURRENT state: `AccountService` loads the row with
  * `OPTIMISTIC_FORCE_INCREMENT` before touching anchors or methods, so two concurrent writers for

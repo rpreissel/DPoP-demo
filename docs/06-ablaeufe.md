@@ -20,7 +20,7 @@ classDiagram
     string normalizedValue
     Instant establishedAt
   }
-  class AccountAttribute {
+  class AccountClaim {
     AttributeType attributeType
     string value
     string claimSource
@@ -47,7 +47,7 @@ classDiagram
   }
 
   Account "1" --> "0..*" AccountAnchor : aktueller Wert je Ankertyp
-  Account "1" --> "0..*" AccountAttribute : Claim-Log (append-only)
+  Account "1" --> "0..*" AccountClaim : Claim-Log (append-only)
   Account "1" --> "0..*" AccountIdentification : Nachweis-Log (append-only)
   Account "1" --> "0..*" AccountAuthMethod : Methodeninstanzen
   AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms.enrollment, id)

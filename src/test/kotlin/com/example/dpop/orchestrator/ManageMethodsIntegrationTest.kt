@@ -167,7 +167,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                     "SELECT COUNT(*) FROM account.retraction WHERE attribute_type = 'phone_number'", Int::class.java
                 ) shouldBe 1
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account.attribute WHERE attribute_type = 'phone_number'", Int::class.java
+                    "SELECT COUNT(*) FROM account.claim WHERE attribute_type = 'phone_number'", Int::class.java
                 ) shouldBe 1
 
                 // sms is a candidate again now that it was deactivated - email is already confirmed, so

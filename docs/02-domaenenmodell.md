@@ -135,17 +135,17 @@ stateDiagram-v2
 
 ## 6) Konto-Identität: Claims, Anker, Konsolidierung
 
-- `Account` ist nur Identitätsschlüssel und Sperrwurzel (`id`, `createdAt`, `version`). Aktueller Zustand liegt in eigenen, kontobezogenen Zeilen (`AccountAnchor`, `AccountAuthMethod`); jede Änderung daran lädt die Kontozeile mit `OPTIMISTIC_FORCE_INCREMENT` (`409 CONCURRENT_MODIFICATION` bei konkurrierenden Schreibern). Historie ist append-only (`AccountAttribute`, `AccountIdentification`) und erhöht die Version nie.
-- `AccountProfile` bleibt die typisierte Leseprojektion: `personId` (optional, [12-entscheidungen.md](12-entscheidungen.md) ADR-10) und `email`/`emailConfirmedAt` werden aus den Ankern gelesen, nicht aus eigenen Spalten; `AttributeType.allowsAnchorReplacement` unterscheidet: `email` änderbar, `personId` nach Erstbindung unveränderlich.
+- `Account` ist nur Identitätsschlüssel und Sperrwurzel (`id`, `createdAt`, `version`). Aktueller Zustand liegt in eigenen, kontobezogenen Zeilen (`AccountAnchor`, `AccountAuthMethod`); jede Änderung daran lädt die Kontozeile mit `OPTIMISTIC_FORCE_INCREMENT` (`409 CONCURRENT_MODIFICATION` bei konkurrierenden Schreibern). Historie ist append-only (`AccountClaim`, `AccountIdentification`) und erhöht die Version nie.
+- `AccountProfile` bleibt die typisierte Leseprojektion: `personId` (optional, [12-entscheidungen.md](12-entscheidungen.md) ADR-10) und `email`/`emailConfirmedAt` werden aus den Ankern gelesen, nicht aus eigenen Spalten; `AnchorRule.allowsReplacement` unterscheidet: `email` änderbar, `personId` nach Erstbindung unveränderlich.
 - `AccountAuthMethod` ist eine eingerichtete Methodeninstanz (`method`, `active`/`deactivatedAt`, `enrolledUnderAcr`, `label`, `details`) mit der `EnrollmentRef` als echten Spalten (`enrollment_type`, `enrollment_id`) — die einzige Stelle, an der Konto und Credential verknüpft sind. Die Credential-Zeile gehört dem Methodenmodul; deaktivierte Instanzen bleiben stehen. Die Methode `email` hat kein Modul-Credential: ihre Referenz ist der EMAIL-Anker (`EMAIL_ANCHOR_ENROLLMENT`).
 - `AccountIdentification` ist der Audit-Datensatz jeder Identifizierung: Verfahren, erreichtes LoA, Zeitpunkt und Nachweisanker ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1); für Entscheidungen wird er nie gelesen.
 - `AccountRetraction` (`account.retraction`) macht einen Wert ungültig: eine Widerrufs-Zeile mit eigenem Vertrauensanker (`RetractionAnchor`: `ACCOUNT_MANAGEMENT`, `EXT_STAMMDATEN`, `OPERATOR`), Grund und Zeitpunkt ([12-entscheidungen.md](12-entscheidungen.md) ADR-12). „Aktuell gültig" ist Behauptungen minus Retraktionen. Das Entfernen einer Methode zieht über `auth_method_id` deren Behauptungen zurück — nur die mit `AttributeAuthority.METHOD_MODULE`.
-- `AccountAttribute` ist das Provenienz-Log: jede je bezeugte Behauptung (`AttributeType`, Wert, Quelle — Spalte `claim_source`, im Code `ClaimSource` —, `AcrLevel`), append-only. Eine `normalized_value`-Spalte (`@PrePersist`/`@PreUpdate`) trägt die Normalisierungsregel an genau einer Stelle.
-- Wo ein Attribut seine Autorität hat, ist ein deklarierter Fall: `AttributeType.authority` (`tool_api/AttributeRules.kt`) kennt `LOCAL_ANCHOR` (`PERSON_ID`, `EMAIL` — lokal in `account.anchor`), `EXT_STAMMDATEN` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `METHOD_MODULE` (`PHONE_NUMBER` — in der `<modul>_enrollment`-Zeile des Methodenmoduls). `anchorBindingStrength` beantwortet daneben, wie stark ein Treffer darauf eine Identität bindet.
-- Ein Ankerschreibvorgang hat einen **Preis**: `AttributeType.anchorAcrFloor` deklariert je Attributtyp, welches Niveau das *Erstbinden* (`establish`) und welches das *Ersetzen* (`replace`) mindestens verlangt. `EMAIL` bindet bei `loa1`, ersetzt aber erst ab `loa2`. `PERSON_ID` verlangt schon zum Erstbinden `loa2`; `allowsAnchorReplacement = false` bleibt daneben die führende Regel. Geprüft wird an der einzigen Schreibstelle (`AccountService.recordAnchor`), Unterschreitung ist eine Abweisung (`409`).
+- `AccountClaim` ist das Provenienz-Log: jede je bezeugte Behauptung (`AttributeType`, Wert, Quelle — Spalte `claim_source`, im Code `ClaimSource` —, `AcrLevel`), append-only. Eine `normalized_value`-Spalte (`@PrePersist`/`@PreUpdate`) trägt die Normalisierungsregel an genau einer Stelle.
+- Wo ein Attribut seine Autorität hat, ist ein deklarierter Fall: `AttributeType.rule.authority` (`tool_api/AttributeRules.kt`) kennt `LOCAL_ANCHOR` (`PERSON_ID`, `EMAIL` — lokal in `account.anchor`), `EXT_STAMMDATEN` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `METHOD_MODULE` (`PHONE_NUMBER` — in der `<modul>_enrollment`-Zeile des Methodenmoduls). `AnchorRule.bindingStrength` beantwortet daneben, wie stark ein Treffer darauf eine Identität bindet.
+- Ein Ankerschreibvorgang hat einen **Preis**: `AnchorRule.acrFloor` deklariert je Attributtyp, welches Niveau das *Erstbinden* (`establish`) und welches das *Ersetzen* (`replace`) mindestens verlangt. `EMAIL` bindet bei `loa1`, ersetzt aber erst ab `loa2`. `PERSON_ID` verlangt schon zum Erstbinden `loa2`; `allowsReplacement = false` bleibt daneben die führende Regel. Geprüft wird an der einzigen Schreibstelle (`AccountService.recordAnchor`), Unterschreitung ist eine Abweisung (`409`).
 - `account.anchor.established_loa` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`: das **tatsächlich bewiesene**, nach ADR-5 gedeckelte Niveau.
 - `AccountAnchor` ist die Auflösungs- und Eindeutigkeits-Projektion für die lokal geführten Attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`, `EMAIL`) und zugleich deren einziger Speicherort: `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem Lookup, `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen Wert je Konto und Attributtyp. KVNR wird ausschließlich live über `ext_stammdaten` zur PersonId und anschließend zum lokalen PersonId-Anker aufgelöst. Ein Anker, der bereits einem anderen Konto gehört, wird abgewiesen ([12-entscheidungen.md](12-entscheidungen.md) ADR-11).
-- `IdentityMatchingService.resolve` beantwortet „gehört diese bezeugte Identität zu einem bestehenden Konto?" in fester Schichtfolge: (1) eindeutiger Anker (`PERSON_ID` rangiert am höchsten, Reihenfolge nach `AttributeType.anchorBindingStrength`), (2) normalisierte Attributkombination (Name+Vorname+Geburtsdatum, eine sargable Abfrage mit harter Kandidaten-Obergrenze). Wird die Obergrenze überschritten oder passen mehrere Konten, ist das Ergebnis `Ambiguous`, nie ein Treffer.
+- `IdentityMatchingService.resolve` beantwortet „gehört diese bezeugte Identität zu einem bestehenden Konto?" in fester Schichtfolge: (1) eindeutiger Anker (`PERSON_ID` rangiert am höchsten, Reihenfolge nach `AnchorRule.bindingStrength`), (2) normalisierte Attributkombination (Name+Vorname+Geburtsdatum, eine sargable Abfrage mit harter Kandidaten-Obergrenze). Wird die Obergrenze überschritten oder passen mehrere Konten, ist das Ergebnis `Ambiguous`, nie ein Treffer.
 - Herleitung und noch nicht umgesetzte Ausbaustufen (Konto-Merge): [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md); Entscheidungen: [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-11/ADR-12/ADR-13; Härtung: [13-review-domaenen-db-modell.md](13-review-domaenen-db-modell.md); Vereinheitlichung von `personId` und `email` auf denselben Claim-/Anker-Pfad: [ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md).
 
 ---
@@ -169,7 +169,7 @@ Bezug: eine indizierte Spalte ohne Constraint, aufgeräumt über die API des bes
 erDiagram
   account.account ||--o{ account.anchor : "hat aktuellen Ankerwert"
   account.account ||--o{ account.auth_method : "hat Methodeninstanz"
-  account.account ||--o{ account.attribute : "bezeugt (append-only)"
+  account.account ||--o{ account.claim : "bezeugt (append-only)"
   account.account ||--o{ account.identification : "identifiziert (append-only)"
   account.account ||--o{ account.retraction : "widerruft (append-only)"
   account.auth_method }o..o| auth_sms.enrollment : "enrollment_type/_id"
@@ -194,10 +194,10 @@ erDiagram
     varchar enrollment_id
     boolean active "ck: active = (deactivated_at IS NULL)"
   }
-  account.attribute {
+  account.claim {
     bigint account_id FK
     varchar attribute_type
-    varchar attribute_value "wie bezeugt"
+    varchar claim_value "wie bezeugt"
     varchar normalized_value "ix(attribute_type, normalized_value, account_id)"
     varchar claim_source "z.B. ext_stammdaten"
     uuid auth_method_id "welche Methodeninstanz hat es aufgestellt"

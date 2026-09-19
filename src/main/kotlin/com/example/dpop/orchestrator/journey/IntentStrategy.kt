@@ -237,7 +237,7 @@ sealed interface Action {
      * An attribute the ACCOUNT owns was attested (e.g. a confirmed email address): record the
      * claims, materialize the anchor - but create no method instance and bind no device. The
      * counterpart to [AdoptCredential] for a value that is account infrastructure rather than a
-     * credential (docs/12-entscheidungen.md, `AttributeType.authority`).
+     * credential (docs/12-entscheidungen.md, `AttributeRule.authority`).
      */
     data class AdoptAttestation(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Attested) : Action
 

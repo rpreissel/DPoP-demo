@@ -9,16 +9,16 @@ import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 
 /**
- * Append-only identity log; written by `AccountService.recordClaim`, read only by
+ * Append-only identity log; written by `AccountService.recordClaims`, read only by
  * `IdentityMatchingService`'s attribute-matching layer (normalized comparisons against
- * [AccountAttribute.normalizedValue], written once at persist time - see its `@PrePersist`
- * hook - and served entirely from `ix_attribute_type_value`).
+ * [AccountClaim.normalizedValue], written once at persist time - see its `@PrePersist` hook -
+ * and served entirely from `ix_claim_type_value`).
  */
 @Repository
-interface AccountAttributeRepository : JpaRepository<AccountAttribute, Long> {
+interface AccountClaimRepository : JpaRepository<AccountClaim, Long> {
 
     /** Everything one method instance ever asserted - the retraction path's only query. */
-    fun findByAuthMethodId(authMethodId: UUID): List<AccountAttribute>
+    fun findByAuthMethodId(authMethodId: UUID): List<AccountClaim>
 
     /**
      * Account ids whose log contains all three of (type1, value1), (type2, value2),
@@ -34,7 +34,7 @@ interface AccountAttributeRepository : JpaRepository<AccountAttribute, Long> {
      */
     @Query(
         """
-        select a.accountId from AccountAttribute a
+        select a.accountId from AccountClaim a
         where ((a.attributeType = :type1 and a.normalizedValue = :value1)
             or (a.attributeType = :type2 and a.normalizedValue = :value2)
             or (a.attributeType = :type3 and a.normalizedValue = :value3))

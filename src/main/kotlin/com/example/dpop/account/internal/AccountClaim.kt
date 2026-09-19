@@ -14,14 +14,14 @@ import java.time.Instant
 
 /**
  * One claim about an account's identity, with its source and the LOA it was established at -
- * never overwritten, only appended to (docs/ideen/claims-modell-und-vertrauensanker.md). The
- * current value of an anchor attribute is consolidated into [AccountAnchor]; attribute matching
- * (`IdentityMatchingService`) reads [normalizedValue]. Consolidation precedence: anchor class
- * first, recency only as tiebreaker (ADR-11, docs/12-entscheidungen.md).
+ * never overwritten, only appended to. The current value of an anchor attribute is consolidated
+ * into [AccountAnchor]; attribute matching (`IdentityMatchingService`) reads [normalizedValue].
+ * Consolidation precedence: anchor class first, recency only as tiebreaker (ADR-11,
+ * docs/12-entscheidungen.md).
  */
 @Entity
-@Table(schema = "account", name = "attribute")
-class AccountAttribute(
+@Table(schema = "account", name = "claim")
+class AccountClaim(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null,
 
@@ -29,7 +29,7 @@ class AccountAttribute(
     @Column(name = "attribute_type", nullable = false)
     var attributeType: AttributeType? = null,
 
-    @Column(name = "attribute_value", nullable = false)
+    @Column(name = "claim_value", nullable = false)
     var value: String? = null,
 
     @Column(name = "normalized_value", nullable = false)
@@ -68,8 +68,7 @@ class AccountAttribute(
         /**
          * The one place the normalization rule exists - the write-time hook above and every
          * caller that queries by [normalizedValue] (`IdentityMatchingService`) must go through
-         * this, or the index (`ix_attribute_type_value`) silently
-         * stops matching.
+         * this, or the index (`ix_claim_type_value`) silently stops matching.
          */
         fun normalize(value: String?): String? = value?.trim()?.lowercase()
     }

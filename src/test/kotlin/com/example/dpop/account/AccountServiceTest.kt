@@ -3,8 +3,8 @@ package com.example.dpop.account
 import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountAnchor
 import com.example.dpop.account.internal.AccountAnchorRepository
-import com.example.dpop.account.internal.AccountAttribute
-import com.example.dpop.account.internal.AccountAttributeRepository
+import com.example.dpop.account.internal.AccountClaim
+import com.example.dpop.account.internal.AccountClaimRepository
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.IdentityConflictException
@@ -29,23 +29,21 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 
 /**
- * Pure unit test: no Spring context, repositories mocked with MockK. Covers the claims-log write
- * (docs/ideen/claims-modell-und-vertrauensanker.md Phase 1; docs/ideen/account-attribute-und-
- * trust-vereinheitlichen.md Paket 4): account.attribute is the append-only provenance record
- * every Completed.Identified/Completed.Enrolled claim lands in; PERSON_ID and EMAIL are both
- * consolidated into their account.anchor - same technical path, `AttributeType.allowsAnchorReplacement` is what actually differs
- * (personId is immutable after first binding, email is re-provable). Mocks are created fresh per
- * `given` block (not shared at spec level) so call-count assertions in one scenario never see
- * invocations from another.
+ * Pure unit test: no Spring context, repositories mocked with MockK. Covers the claims-log write:
+ * `account.claim` is the append-only provenance record every claim lands in; PERSON_ID and EMAIL
+ * are both consolidated into their `account.anchor` - same technical path,
+ * `AnchorRule.allowsReplacement` is what actually differs (personId is immutable after first
+ * binding, email is re-provable). Mocks are created fresh per `given` block (not shared at spec
+ * level) so call-count assertions in one scenario never see invocations from another.
  */
 class AccountServiceTest : BehaviorSpec({
 
     given("an unidentified account receiving a person_id claim") {
         val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -54,8 +52,8 @@ class AccountServiceTest : BehaviorSpec({
         every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, any()) } returns null
 
         `when`("recording a claim from an identifying tool") {
-            val savedAttributes = mutableListOf<AccountAttribute>()
-            every { accountAttributeRepository.save(capture(savedAttributes)) } answers { savedAttributes.last() }
+            val savedClaims = mutableListOf<AccountClaim>()
+            every { accountClaimRepository.save(capture(savedClaims)) } answers { savedClaims.last() }
             val savedAnchors = mutableListOf<AccountAnchor>()
             every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
 
@@ -66,13 +64,13 @@ class AccountServiceTest : BehaviorSpec({
             )
 
             then("the claim lands in the log and its anchor consolidates") {
-                savedAttributes shouldHaveSize 1
-                savedAttributes.single().accountId shouldBe 7L
-                savedAttributes.single().attributeType shouldBe AttributeType.PERSON_ID
-                savedAttributes.single().value shouldBe "42"
-                savedAttributes.single().claimSource shouldBe "ext_stammdaten"
-                savedAttributes.single().establishedLoa shouldBe "loa2"
-                savedAttributes.single().establishedAt.shouldNotBeNull()
+                savedClaims shouldHaveSize 1
+                savedClaims.single().accountId shouldBe 7L
+                savedClaims.single().attributeType shouldBe AttributeType.PERSON_ID
+                savedClaims.single().value shouldBe "42"
+                savedClaims.single().claimSource shouldBe "ext_stammdaten"
+                savedClaims.single().establishedLoa shouldBe "loa2"
+                savedClaims.single().establishedAt.shouldNotBeNull()
                 savedAnchors shouldHaveSize 1
                 savedAnchors.single().attributeType shouldBe AttributeType.PERSON_ID
                 savedAnchors.single().value shouldBe "42"
@@ -84,15 +82,15 @@ class AccountServiceTest : BehaviorSpec({
 
     given("an account already bound to a person_id") {
         val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>(relaxed = true)
+        val accountClaimRepository = mockk<AccountClaimRepository>(relaxed = true)
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
         every { accountRepository.findForUpdate(7L) } returns account
-        every { accountAttributeRepository.save(any()) } answers { firstArg() }
+        every { accountClaimRepository.save(any()) } answers { firstArg() }
         val existingAnchor = AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 7L, establishedAt = Instant.now())
 
         `when`("re-asserting the same person_id") {
@@ -121,10 +119,10 @@ class AccountServiceTest : BehaviorSpec({
 
     given("no account exists yet") {
         val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
 
         every { accountRepository.save(any()) } answers { firstArg<Account>().apply { id = 7L } }
 
@@ -141,17 +139,17 @@ class AccountServiceTest : BehaviorSpec({
 
     given("an account with an anchor-role claim") {
         val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
         every { accountRepository.findForUpdate(7L) } returns account
 
-        val savedAttributes = mutableListOf<AccountAttribute>()
-        every { accountAttributeRepository.save(capture(savedAttributes)) } answers { savedAttributes.last() }
+        val savedClaims = mutableListOf<AccountClaim>()
+        every { accountClaimRepository.save(capture(savedClaims)) } answers { savedClaims.last() }
         val savedAnchors = mutableListOf<AccountAnchor>()
         every { accountAnchorRepository.save(capture(savedAnchors)) } answers { savedAnchors.last() }
         every { accountAnchorRepository.findByAccountIdAndAttributeType(7L, AttributeType.EMAIL) } returns null
@@ -165,7 +163,7 @@ class AccountServiceTest : BehaviorSpec({
             )
 
             then("the claim is logged raw, its anchor materializes normalized") {
-                savedAttributes.single().value shouldBe "  Max@Example.COM "
+                savedClaims.single().value shouldBe "  Max@Example.COM "
                 verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
                 savedAnchors shouldHaveSize 1
                 savedAnchors.single().accountId shouldBe 7L
@@ -190,7 +188,7 @@ class AccountServiceTest : BehaviorSpec({
                 // No second anchor. Undoing the already-appended log row is the surrounding
                 // transaction's job, not this service's - hence the attribute count still moving here.
                 savedAnchors shouldHaveSize 1
-                savedAttributes shouldHaveSize 2
+                savedClaims shouldHaveSize 2
             }
         }
 
@@ -233,10 +231,10 @@ class AccountServiceTest : BehaviorSpec({
 
     given("the anchor read ports") {
         val accountRepository = mockk<AccountRepository>()
-        val accountAttributeRepository = mockk<AccountAttributeRepository>()
+        val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountAttributeRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
 
         then("KVNR changes follow ext_stammdaten without creating or reading a local KVNR anchor") {
             val persons = mockk<PersonDirectory>()
@@ -257,9 +255,9 @@ class AccountServiceTest : BehaviorSpec({
         }
 
         then("a KVNR claim records provenance only, not a local binding") {
-            every { accountAttributeRepository.save(any()) } answers { firstArg() }
+            every { accountClaimRepository.save(any()) } answers { firstArg() }
             service.recordClaim(7L, Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
-            verify(exactly = 1) { accountAttributeRepository.save(match { it.attributeType == AttributeType.KVNR }) }
+            verify(exactly = 1) { accountClaimRepository.save(match { it.attributeType == AttributeType.KVNR }) }
             verify(exactly = 0) { accountAnchorRepository.save(any()) }
             verify(exactly = 0) { accountRepository.save(any()) }
         }

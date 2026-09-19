@@ -145,10 +145,9 @@ Die folgenden Befunde stammen aus den gelesenen Domain-Typen und ihren unmittelb
 | Heute | Vorschlag | Konkretes Missverstaendnis | Umfang bei spaeterer Freigabe |
 | --- | --- | --- | --- |
 | `Resolution.NewInteressent` | `Resolution.NoMatch` | Der Resolver hat keinen passenden Account gefunden. Daraus folgt weder, dass die Person neu ist, noch dass sie keinen Stammdatensatz hat. Die Journey kann heute gerade fuer eine vorhandene Person ein Konto anlegen. | `tool_api/IdentityResolver.kt`, Resolver, Journey und Resolver-Tests. Ergebnis bleibt identisch; kein neuer Interessenten-Flow. |
-| `AccountAttribute` | `AccountClaim` | Die Entity speichert eine historische Behauptung mit Herkunft und Zeitpunkt, nicht den aktuell gueltigen Attributwert. Der aktuelle Wert steht in der Projektion. | Entity und Repository im Account-Modul sowie Service/Tests. Tabelle `account.attribute` unveraendert lassen; vom SPI-Wertobjekt `Claim` durch den Account-Bezug unterscheiden. |
 | `createUnidentifiedAccount()` | `createUnboundAccount()` | Fehlende PersonId bedeutet genau: keine Bindung an eine Stammdaten-Person. Es kann bereits eine bestaetigte E-Mail oder andere Evidenz geben. Im spaeteren Claims-only-Zielbild waere sogar eine Identifizierung ohne Personenbindung moeglich. | AccountService, Journey, Seed und Tests. KDoc muss ausdruecklich sagen: ungebunden an eine Stammdaten-Person, nicht ungebunden an Kanal/Geraet. Kein neues Account-Zustandsfeld. |
 
-Empfehlung: `NoMatch` und `AccountClaim` zuerst entscheiden; sie beseitigen konkrete semantische Verwechslungen. `createUnboundAccount` ist ebenfalls praeziser, braucht aber wegen der verschiedenen Bindungen im Projekt die genannte KDoc. Alternativ ist `createAccountWithoutPersonBinding` laenger, dafuer voellig eindeutig.
+`AccountAttribute` → `AccountClaim` ist bereits umgesetzt. Von den verbleibenden zwei ist `NoMatch` der naheliegendste nächste Schritt; `createUnboundAccount` ist ebenfalls praeziser, braucht aber wegen der verschiedenen Bindungen im Projekt die genannte KDoc. Alternativ ist `createAccountWithoutPersonBinding` laenger, dafuer voellig eindeutig.
 
 ### Sinnvoll, aber als separater Terminologie-Schritt
 

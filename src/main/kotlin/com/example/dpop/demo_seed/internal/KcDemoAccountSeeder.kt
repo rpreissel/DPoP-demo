@@ -68,8 +68,8 @@ internal class KcDemoAccountSeeder(
                     profile.accountId,
                     Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP),
                     // The seed stands in for a completed identification, so it pays the same price
-                    // a real one would (AttributeType.anchorAcrFloor) - stated here rather than
-                    // waved through, so the demo data is not held to a weaker rule than production.
+                    // a real one would (AnchorRule.acrFloor) - stated here rather than waved
+                    // through, so the demo data is not held to a weaker rule than production.
                     provenAcr = SEEDED_ACR
                 )
             }
@@ -135,8 +135,8 @@ internal class KcDemoAccountSeeder(
         /**
          * What the seed claims to have proven. It stands in for a completed ident-fsc run
          * (`ClaimSource.DEMO_BOOTSTRAP`, rank PROVEN), so it pays the PERSON_ID anchor's own price
-         * (`AttributeType.anchorAcrFloor`) rather than being waved through - demo data must not be
-         * held to a weaker rule than the flow it imitates.
+         * (`AnchorRule.acrFloor`) rather than being waved through - demo data must not be held to
+         * a weaker rule than the flow it imitates.
          */
         private val SEEDED_ACR = AcrLevel.LOA2
 

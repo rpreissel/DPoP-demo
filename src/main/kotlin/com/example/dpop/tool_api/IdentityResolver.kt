@@ -43,29 +43,40 @@ sealed interface Resolution {
 }
 
 /**
- * How a resolution matched, with its binding strength: anchor (`person_id` ranks highest among
- * anchors, docs/ideen/account-attribute-und-trust-vereinheitlichen.md) > attributes. Binding
- * strength is the upgrade basis - a later, stronger identification may lift a weak binding,
- * never the other way around.
+ * How strongly a resolution match binds an identity - the upgrade basis a later, stronger
+ * identification may lift, never the other way. Each case names the property that sets it apart
+ * from the next, not the concrete attribute types behind it: an anchor beats a mere attribute
+ * combination (uniqueness), and among anchors, one nothing can ever replace beats one a later,
+ * equally strong proof may re-point ([AnchorRule.bindingStrength] derives this directly from
+ * [AnchorRule.allowsReplacement] - not a second, independently chosen rank).
  */
-sealed interface MatchedVia {
-    val bindingStrength: Int
+enum class BindingStrength {
+    /** A normalized attribute combination (e.g. name+vorname+geburtsdatum) - ambiguous, no unique anchor at all. */
+    ATTRIBUTE_COMBINATION,
+    /** A unique anchor whose value a later, equally strong proof may replace (e.g. EMAIL). */
+    REPLACEABLE_ANCHOR,
+    /** A unique anchor that, once bound, is never replaced (e.g. PERSON_ID) - the strongest possible match. */
+    IMMUTABLE_ANCHOR;
 
-    /**
-     * A unique anchor value (`person_id`, `email`) matched via `account.anchor` - its
-     * strength is [AttributeType.anchorBindingStrength], the SAME rule the resolver itself
-     * ranks candidate anchors by; there is no separate `person_id`-specific case any more
-     * (docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").
-     */
+    companion object {
+        fun anchor(allowsReplacement: Boolean) = if (allowsReplacement) REPLACEABLE_ANCHOR else IMMUTABLE_ANCHOR
+    }
+}
+
+/** How a resolution matched, carrying its [BindingStrength] for [Resolution.ExistingAccount]. */
+sealed interface MatchedVia {
+    val bindingStrength: BindingStrength
+
+    /** A unique anchor value (`person_id`, `email`) matched via `account.anchor`. */
     data class Anchor(val attributeType: AttributeType) : MatchedVia {
-        override val bindingStrength = checkNotNull(attributeType.anchorBindingStrength) {
+        override val bindingStrength = checkNotNull(attributeType.rule.anchor) {
             "$attributeType is not an anchor attribute, has no binding strength"
-        }
+        }.bindingStrength
     }
 
     /** Normalized attribute combination (e.g. name + vorname + geburtsdatum) matched. */
     data class Attributes(val combination: Set<AttributeType>) : MatchedVia {
-        override val bindingStrength = 1
+        override val bindingStrength = BindingStrength.ATTRIBUTE_COMBINATION
     }
 }
 

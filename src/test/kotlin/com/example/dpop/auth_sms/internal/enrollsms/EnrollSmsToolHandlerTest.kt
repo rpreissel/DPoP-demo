@@ -9,8 +9,7 @@ import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_api.AttributeAuthority
-import com.example.dpop.tool_api.anchorBindingStrength
-import com.example.dpop.tool_api.authority
+import com.example.dpop.tool_api.rule
 import com.example.dpop.tool_spi.assertClaimsCovered
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -105,8 +104,8 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
     // claim asks for uniqueness: a family may legitimately share one number across accounts.
     given("the claim declaration") {
         then("it stays out of the anchor vocabulary entirely") {
-            AttributeType.PHONE_NUMBER.anchorBindingStrength shouldBe null
-            AttributeType.PHONE_NUMBER.authority shouldBe AttributeAuthority.METHOD_MODULE
+            AttributeType.PHONE_NUMBER.rule.anchor shouldBe null
+            AttributeType.PHONE_NUMBER.rule.authority shouldBe AttributeAuthority.METHOD_MODULE
         }
     }
 })

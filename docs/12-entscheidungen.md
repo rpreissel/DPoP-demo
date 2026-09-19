@@ -355,7 +355,7 @@ dagegen ein im Account-System bestätigter, wechselbarer Anker.
 
 ## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
 
-**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); **umgesetzt**): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.attribute`) bleibt strikt append-only; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only.
+**Entscheidung** (Zielbild Claims-Modell, [Idee](ideen/claims-modell-und-vertrauensanker.md); **umgesetzt**): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only.
 
 **Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
 Claim-Zeile — eine Tabelle, einfachste Abfrage, aber die einzige Nicht-Append-Mutation im Log.
@@ -402,12 +402,14 @@ bewusst `String`.
 
 **Nachtrag**: `AnchorType` ist entfallen, beide Spalten heißen seit ADR-14 `attribute_type` und
 nutzen denselben `AttributeTypeConverter`; die Quelle heißt durchgängig `claim_source` /
-`AccountAttribute.claimSource` (weiterhin `String`).
+`AccountClaim.claimSource` (weiterhin `String`). `AccountAttribute` (oben) heißt inzwischen
+`AccountClaim`, Tabelle `account.claim` statt `account.attribute` — der treffendere Name für eine
+Zeile, die eine Behauptung mit Herkunft speichert, nicht den aktuellen Attributwert.
 
 **Erwogene Alternativen**:
 
 - **`@Enumerated(EnumType.STRING)`**, konsistent mit dem `orchestrator`-Modul: verworfen, weil
-  `account.attribute.attribute_type`/`account.anchor.attribute_type` seit Jahren Wire-Names in
+  `account.claim.attribute_type`/`account.anchor.attribute_type` seit Jahren Wire-Names in
   Kleinschreibung tragen (`person_id`, `email`), `@Enumerated(STRING)` aber den
   Enum-Konstantennamen (`PERSON_ID`) schreibt und jede Bestandszeile stumm verfehlt hätte.
 - **`trustAnchor` ebenfalls typisieren** (`TrustAnchor`, eine `@JvmInline value class`): verworfen
@@ -439,7 +441,7 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
 
 - Aktueller Zustand liegt in Zeilen je Fakt: `account.anchor` (einziger Speicherort von PersonId und
   bestätigter E-Mail), `account.auth_method` (eine Zeile je Methodeninstanz, `EnrollmentRef` als
-  Spalten). Historie ist append-only: `account.attribute`, `account.identification`.
+  Spalten). Historie ist append-only: `account.claim`, `account.identification`.
   Die JSON-Listen `identifications`/`authentication_methods`, die Projektionsspalten
   `person_id`/`email`/`email_confirmed_at` und `ConsolidationStrategy` entfallen, weil „lokal
   konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.

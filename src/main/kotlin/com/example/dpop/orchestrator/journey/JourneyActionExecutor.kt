@@ -108,7 +108,7 @@ class JourneyActionExecutor(
         }
         bindAccount(journey, channel, accountId)
         // An identification's own achieved level IS what this session proved about the identity -
-        // the figure AttributeType.anchorAcrFloor prices the PERSON_ID anchor against.
+        // the figure AnchorRule.acrFloor prices the PERSON_ID anchor against.
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = action.outcome.achievedAcr ?: AcrLevel.NONE)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
@@ -135,7 +135,7 @@ class JourneyActionExecutor(
         }
         bindAccount(journey, channel, accountId)
         // An identification's own achieved level IS what this session proved about the identity -
-        // the figure AttributeType.anchorAcrFloor prices the PERSON_ID anchor against.
+        // the figure AnchorRule.acrFloor prices the PERSON_ID anchor against.
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = action.outcome.achievedAcr ?: AcrLevel.NONE)
         journeyRecorder.recordIdentification(journey, channel, action.tool, action.outcome)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
@@ -164,7 +164,7 @@ class JourneyActionExecutor(
             "AuthEvidence not found: $authEvidenceId"
         }
         // The same capped figure an enrollment is stamped with - an anchor write is priced by what
-        // the session actually proved (AttributeType.anchorAcrFloor), never by the tool's ceiling.
+        // the session actually proved (AnchorRule.acrFloor), never by the tool's ceiling.
         val environmentAcr = authPolicy.resolveAcr(evidence.toCoreEvidence(), accountService.findAccount(accountId))
         val provenAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = provenAcr)
@@ -221,7 +221,7 @@ class JourneyActionExecutor(
         val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
         val enrolledUnderAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
         // Recorded AFTER the level is known, because an anchor write is priced against it
-        // (AttributeType.anchorAcrFloor) and the anchor row remembers it. Safe to order this way:
+        // (AnchorRule.acrFloor) and the anchor row remembers it. Safe to order this way:
         // resolveAcr computes purely from the evidence - its `account` argument is not read - so
         // the figure is the same whether the claims have landed yet or not.
         accountService.recordClaims(
