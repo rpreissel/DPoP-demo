@@ -115,6 +115,11 @@ export function AppChannelApp() {
   // ("Zur Startseite" doesn't render while inToolMode, and AuthenticationCompletedView - the only
   // place "Abmelden" lives - doesn't render then either).
   const [alternativesCount, setAlternativesCount] = useState(0)
+  // Rückfrage vor dem Verwerfen einer Registrierung: Abbrechen beendet nicht nur den Schritt,
+  // sondern die Journey - der Kanal fällt auf ANONYMOUS zurück und das vorläufige Konto wird
+  // gelöscht (JourneyService.fallBack -> deleteIfAbandonedUnidentified), mitsamt einer eID-
+  // Bezeugung, die schon darin steckt. Das darf nicht ein Klick nebenbei sein.
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [error, setError] = useState('')
   // Only takes effect on the next channel-creating action (Verbinden/Login ohne DPoP/Registrieren
   // below) - needed to reach enroll-password at all: it requires a confirmed email first, but a
@@ -206,6 +211,8 @@ export function AppChannelApp() {
     // over - without this the banner of a rejected step (e.g. an address that belonged to
     // somebody else) stayed on screen through every following step of the run.
     setError('')
+    // Eine offene Verwerfen-Rückfrage gehört zu dem Schritt, auf dem sie gestellt wurde.
+    setConfirmingDiscard(false)
     setChannelSessionId(response.channel.channelSessionId)
     storeChannelSessionId(response.channel.channelSessionId)
     setRememberedChannelSessionId(response.channel.channelSessionId)
@@ -711,6 +718,11 @@ export function AppChannelApp() {
   // context-free (e.g. "Verfahren wählen" alone doesn't say for what). Undefined once nothing is
   // running (e.g. idle AUTHENTICATED with no journey), same as journeys being empty - no banner then.
   const journeyContextKey = currentJourneyDiagramKey(demo?.journeys, journeyKind)
+  // Nur die Registrierung baut etwas auf, das ein Abbruch wegwirft (das vorläufige Konto samt
+  // Bezeugung). Ein Step-Up oder eine Bestätigung auf einem bestehenden Konto lässt nichts
+  // zurück, dort bleibt es beim schlichten "Abbrechen".
+  const discardsRegistration =
+    (journeyContextKey === 'register' || journeyContextKey === 'registerEnrollFirst') && channelState !== 'AUTHENTICATED'
   // Same box the innermost journey's own hint highlights in JourneyStructureView (JourneyDebugStep.stateType) - the context banner's diagram popover marks it too, not just the shape.
   const journeyContextCurrentStep = journeyContextKey ? CURRENT_STEP_BY_STATE_TYPE[journeyContextKey]?.[demo?.journeys?.at(-1)?.stateType ?? ''] : undefined
 
@@ -822,10 +834,28 @@ export function AppChannelApp() {
                       das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Anderes Verfahren" bei einem
                       Ein-Kandidaten-Tool wie confirm-qr-login der einzige (aber wirkungslose, da es denselben Schritt nur
                       erneut anbietet) Fluchtweg - "Zur Startseite"/"Abmelden" rendern beide bewusst nicht während inToolMode. */}
-                  {canCancel && (
+                  {/* In einer laufenden Registrierung ist das kein "Abbrechen" im Sinne von
+                      "diesen Schritt lassen": Die Journey endet, und was sie bis dahin aufgebaut
+                      hat - bis hin zur nachgewiesenen Identität - wird weggeworfen. Also heißt der
+                      Knopf, was er tut, und fragt einmal nach. */}
+                  {canCancel && !discardsRegistration && (
                     <button className="secondary" onClick={handleCancel} title="Bricht diesen Vorgang vollständig ab.">
                       Abbrechen
                     </button>
+                  )}
+                  {canCancel && discardsRegistration && !confirmingDiscard && (
+                    <button className="secondary" onClick={() => setConfirmingDiscard(true)} title="Beendet die Registrierung. Alles, was dieser Vorgang bisher aufgebaut hat - auch eine bereits nachgewiesene Identität - wird verworfen.">
+                      Registrierung verwerfen
+                    </button>
+                  )}
+                  {canCancel && discardsRegistration && confirmingDiscard && (
+                    <>
+                      <span className="hint">Alles aus diesem Vorgang geht verloren, auch die nachgewiesene Identität.</span>
+                      <button className="secondary" onClick={() => { setConfirmingDiscard(false); handleCancel() }}>
+                        Verwerfen
+                      </button>
+                      <button onClick={() => setConfirmingDiscard(false)}>Weitermachen</button>
+                    </>
                   )}
                 </div>
               )}
