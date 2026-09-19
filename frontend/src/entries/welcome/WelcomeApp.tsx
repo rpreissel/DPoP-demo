@@ -65,15 +65,21 @@ export function WelcomeApp() {
             </a>
           </li>
           <li>
+            <span className="label">Beispiel-Story</span>
+            <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/11-beispiel-story.md" target="_blank" rel="noreferrer">
+              docs/11-beispiel-story.md
+            </a>
+          </li>
+          <li>
             <span className="label">Konzepte für Frontend-Entwickler</span>
-            <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/pitches/frontend-konzepte.md" target="_blank" rel="noreferrer">
-              docs/pitches/frontend-konzepte.md
+            <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/10-frontend.md#einstieg-wie-next-die-app-steuert" target="_blank" rel="noreferrer">
+              docs/10-frontend.md (Einstieg)
             </a>
           </li>
           <li>
             <span className="label">Konzepte für Backend-Entwickler</span>
-            <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/pitches/backend-konzepte.md" target="_blank" rel="noreferrer">
-              docs/pitches/backend-konzepte.md
+            <a className="value" href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/03-tool-architektur.md#einstieg-zusammenspiel-an-einem-schritt" target="_blank" rel="noreferrer">
+              docs/03-tool-architektur.md (Einstieg)
             </a>
           </li>
         </ul>
@@ -118,7 +124,7 @@ export function WelcomeApp() {
           Details zu allem oben im{' '}
           <a href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/02-domaenenmodell.md" target="_blank" rel="noreferrer">
             Domänenmodell
-          </a>, den Aufbau dahinter erklären die Konzepte-Pitches oben.
+          </a>, den Aufbau dahinter erklären die Einstiegsabschnitte und die Beispiel-Story oben.
         </p>
       </div>
     </div>
