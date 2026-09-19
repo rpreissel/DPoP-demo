@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { DpopKeyPair } from '../dpop'
 import { knownToolIds, metaFor, renderToolStep } from './registry'
@@ -69,5 +69,20 @@ describe('renderToolStep', () => {
     expect(renderToolStep(baseCtx({ toolId: 'enroll-device', step: 'enroll' }))).toBeNull()
     render(renderToolStep(baseCtx({ toolId: 'enroll-device', step: 'enroll', toolSessionId: 'ts-1' })))
     expect(screen.getByRole('heading', { name: 'Gerät benennen' })).toBeInTheDocument()
+  })
+
+  // Ohne diesen Weg war der Code-Schritt eine Sackgasse: Wer die Adresse vertippt hat - oder eine
+  // angegeben hat, die der Backend erst nach dem Code ablehnt - konnte nur den ganzen Lauf
+  // abbrechen. confirm-email nimmt eine neue Adresse in jedem Zustand an (ConfirmEmailFlow).
+  it('offers a way back to the address from confirm-email/codeInput', () => {
+    render(renderToolStep(baseCtx({ toolId: 'confirm-email', step: 'codeInput' })))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Andere Adresse' }))
+    expect(screen.getByLabelText('Andere E-Mail-Adresse')).toBeInTheDocument()
+  })
+
+  it('does not offer it where the flow has no address to change (auth-email)', () => {
+    render(renderToolStep(baseCtx({ toolId: 'auth-email', step: 'auth' })))
+    expect(screen.queryByRole('button', { name: 'Andere Adresse' })).toBeNull()
   })
 })

@@ -22,7 +22,17 @@ export const confirmEmailTool: ToolModule = {
       )
     }
     if (ctx.step === 'codeInput') {
-      return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={ctx.stepData?.error} demoTan={ctx.demo?.tan} />
+      return (
+        <EmailCodeInputForm
+          onSubmit={(code) => submitEmailCode(ctx, code)}
+          // Nur hier: ConfirmEmailFlow nimmt eine neue Adresse in JEDEM Zustand an und faengt
+          // damit von vorn an (auth-email hat keine Adresse zum Wechseln, auth-email-lookup
+          // trennt Adress- und Code-Schritt im Backend).
+          onChangeAddress={(email) => confirmEmail(ctx, email)}
+          error={ctx.stepData?.error}
+          demoTan={ctx.demo?.tan}
+        />
+      )
     }
     return null
   },

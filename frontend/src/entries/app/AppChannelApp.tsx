@@ -202,6 +202,10 @@ export function AppChannelApp() {
    * actually activate it (no request ever fires, no TAN issued).
    */
   function applyResponse(response: ChannelResponse, actedToolId?: string) {
+    // Every response that got this far is a successful one, so whatever went wrong before is
+    // over - without this the banner of a rejected step (e.g. an address that belonged to
+    // somebody else) stayed on screen through every following step of the run.
+    setError('')
     setChannelSessionId(response.channel.channelSessionId)
     storeChannelSessionId(response.channel.channelSessionId)
     setRememberedChannelSessionId(response.channel.channelSessionId)
