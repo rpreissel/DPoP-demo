@@ -7,6 +7,80 @@ Die zugrundeliegende API beschreibt [05-api.md](05-api.md), die Schlüsselerzeug
 
 ---
 
+## Einstieg: Wie `next` die App steuert
+
+```mermaid
+flowchart LR
+  subgraph App["App"]
+    NE["Orchestrator-Engine"]
+    UI1["SMS-UI"]
+    UI2["Passwort-UI"]
+    UI3["Geräte-UI"]
+  end
+
+  subgraph Backend["Orchestrator-Modulith"]
+    O["Orchestrator<br/>next / stepData / Journey"]
+    AC["account"]
+    M1["auth_sms"]
+    M2["auth_password"]
+    M3["auth_device"]
+  end
+
+  KC["Keycloak"]
+  EXT1["externer SMS-Versand"]
+  KC ~~~ EXT1
+
+  NE --> O
+  O --> KC
+  O --> AC
+  AC --> KC
+
+  UI1 --> M1
+  UI2 --> M2
+  UI3 --> M3
+
+  M1 -.-> EXT1
+```
+
+Jedes Verfahren hat auf beiden Seiten eine eigene, gleichnamige, kleine Einheit: im Backend ein
+Tool-Modul, das seine Beschreibung und seinen Ablauf selbst mitbringt; in der App eine eigene
+UI-Komponente dafür. Was die App **nicht** selbst hat, ist die Logik, *wann* welches Verfahren
+dran ist — das entscheidet ausschließlich das Backend über `next`; die Orchestrator-Engine
+startet ein Tool nur darüber und übergibt dann an dessen UI-Komponente.
+
+Ein Tool wird der Journey dabei nur angeboten, wenn es **beide** Seiten erlauben: die App muss es
+überhaupt rendern können (`availableTools`, beim Kanaleinstieg gemeldet), und das Backend darf es
+nicht gesperrt haben — kein Versions-Handshake, nur diese eine Liste. Das hält alte
+App-Versionen funktionsfähig: ein Tool, das eine App nicht kennt, wird ihr schlicht nie
+angeboten, statt zu einem Fehler zu führen.
+
+Zwei Ergänzungen aus der Praxis:
+
+- Ab dem Start spricht die Tool-UI direkt mit ihrem gleichnamigen Backend-Tool, nicht mehr
+  generisch über die Orchestrator-Engine — jedes Tool bringt seine eigenen Endpunkte mit. Manche
+  brauchen dafür aus technischen Gründen ohnehin ein eigenes Protokoll statt des üblichen
+  Anfrage/Antwort-Schemas (WebAuthn, eID-Redirect), bleiben aber auf diese eine UI-Komponente
+  begrenzt.
+- Den OIDC-Tokenfluss gegen Keycloak führt ausschließlich der Orchestrator — dafür gibt es in
+  der App keinen eigenen, direkten Weg. Ein eigenes `account`-Modul im Backend legt Accounts an
+  und hält sie mit Keycloak synchron; auch das bleibt vollständig hinter dem Orchestrator
+  verborgen.
+
+Daraus folgt für dich als Frontend-Entwickler:
+
+- **Abläufe ändern sich, ohne dass die App angepasst werden muss** — welche Schritte eine
+  Journey verlangt und in welcher Reihenfolge, steht nur im Backend.
+- **Neue Tools lassen sich einfach integrieren** — ein neues Modul bringt seine Beschreibung
+  mit; die App braucht dafür eine neue UI-Komponente plus einen Eintrag in der
+  Routing-Tabelle, aber keine neue Ablaufsteuerung.
+- **Die App hält praktisch keinen eigenen Zustand** — nur die `channelSessionId` (dauerhaft)
+  und, solange ein Tool läuft, die `toolSessionId` (kommt aus `next`). Jeder Ablauf (Login,
+  Registrierung, Niveau anheben, Verfahren verwalten, Account löschen) bewegt denselben Kanal
+  durch dasselbe kleine Zustandsmodell (`ANONYMOUS` -> `AUTHENTICATED` -> ...) — kein eigener
+  State-Automat pro Ablauf im Frontend.
+
+---
+
 ## 0) Drei eigenständige Apps
 
 Das Frontend ist **kein** einzelnes SPA, sondern drei eigene React-Apps mit eigenem

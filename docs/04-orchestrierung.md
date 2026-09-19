@@ -7,6 +7,112 @@ Vorausgesetzt wird der `ToolOutcome`-Vertrag aus [03-tool-architektur.md](03-too
 
 ---
 
+## Einstieg für Fachexperten
+
+Jeder Ablauf, den ein Nutzer durchläuft, heißt nach seinem *Ziel*, nicht nach seinem technischen
+Ablauf:
+
+| Ziel aus fachlicher Sicht | Heißt im System |
+|---|---|
+| Möglichst reibungslos anmelden, mit Rückfallebenen | `FAST_ACCESS` |
+| Bewusst neu identifizieren, auch auf einem bekannten Gerät | `REGISTER` |
+| Klassischer Login ohne Gerätebindung | `LOOKUP_LOGIN` |
+| Vertrauensniveau anheben (z. B. für eine sensible Aktion) | `STEP_UP` |
+| Anmeldeverfahren hinzufügen oder entfernen | `MANAGE_AUTH_METHODS` |
+| Konto unwiderruflich löschen | `DELETE_ACCOUNT` |
+| Eine QR-Anmeldung auf einem anderen Gerät bestätigen | `CONFIRM_PEER_LOGIN` |
+| Erneute Identifizierung, wenn nichts anderes mehr greift | `RE_IDENTIFY` |
+
+Wer eine fachliche Frage stellt — „darf man X löschen, ohne sich frisch auszuweisen?" — findet
+die Antwort in genau *einem* dieser Bausteine (Abschnitt 3), nicht verstreut über mehrere
+Code-Ebenen. Für jedes Ziel gibt es ein vollständiges Zustandsdiagramm — jeder Zustand, jeder
+Übergang, jede Bedingung ist darin sichtbar. Ausschnitt aus `FAST_ACCESS`:
+
+```mermaid
+stateDiagram-v2
+  state "«Fallback» PreferredAuth" as PreferredAuth
+  state "«Fallback» AuthChoice" as AuthChoice
+  state "«Pflicht» Enrolling" as Enrolling
+
+  [*] --> Start
+  Start --> PreferredAuth: verknüpftes Gerät mit Device-Methode
+  Start --> AuthChoice: Account bekannt, andere Methoden vorhanden
+  Start --> REGISTER: nichts Vorhandenes greift
+
+  PreferredAuth --> AuthChoice: abgelehnt
+  AuthChoice --> REGISTER: alle abgelehnt
+
+  PreferredAuth --> Finished: Nachweis reicht für das geforderte Niveau
+  AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
+
+  Enrolling --> Enrolling: abgelehnt, Anforderung bleibt bestehen
+  Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
+  Finished --> [*]
+
+  note right of REGISTER
+    Eigenes Ziel (Tabelle oben),
+    hier nur als Voraussetzung
+    mitgenutzt.
+  end note
+```
+
+Wichtig für die fachliche Prüfung: Das System unterscheidet zwei Sorten von Zustand, und diese
+Unterscheidung ist erzwungen, nicht optional — im Bild oben direkt an den Notizen ablesbar:
+
+- **Fallback**: Ablehnen führt zum nächsten, aufwendigeren Weg (z. B. Gerät abgelehnt → andere
+  Methode anbieten). Bequemlichkeit für den Nutzer, solange das Sicherheitsniveau am Ende
+  trotzdem erreicht wird.
+- **Pflicht**: Ablehnen führt nirgendwohin — die Anforderung bleibt bestehen, bis sie erfüllt
+  ist. Für alles, was nicht verhandelbar ist (z. B. das geforderte Vertrauensniveau).
+
+Ein fachlicher Fehler — „das sollte doch Pflicht sein, nicht Fallback" — lässt sich damit an
+*diesem* Bild klären, ohne Entwickler zu Rate zu ziehen.
+
+Manche Anforderungen tauchen in mehreren Zielen auf — „erneut identifizieren, wenn nichts anderes
+mehr greift" gehört sowohl zu `FAST_ACCESS` als auch zu anderen Abläufen, und im Diagramm oben
+ist sogar ein komplettes eigenes Ziel (`REGISTER`) nur die Voraussetzung für ein anderes. Das
+System modelliert beides als eigenständige **Sub-Journey** (`RE_IDENTIFY`, `REGISTER`, Abschnitt
+5), die von mehreren Zielen aus angestoßen wird, aber nur einmal definiert ist. Ändert sich die
+fachliche Regel für Re-Identifizierung oder Registrierung, ändert sie sich an *einer* Stelle für
+alle Abläufe, die sie nutzen.
+
+Jede Aktion verlangt außerdem ein bestimmtes Niveau (`loa1`/`loa2`/`loa3`, Abschnitt 8) — je
+sensibler die Aktion, desto höher die Hürde:
+
+```mermaid
+flowchart LR
+  L1["loa1<br/>Basis"] --> L2["loa2<br/>Methoden verwalten,<br/>QR-Login bestätigen"]
+  L2 --> L3["loa3<br/>stärkere Identifikation"]
+```
+
+Konto löschen verlangt aktuell `loa2` **und** einen frischen Faktor, nicht `loa3`. Das ist an
+genau der Stelle im Modell festgelegt, an der das jeweilige Ziel beschrieben ist — eine fachliche
+Entscheidung wie „QR-Bestätigung braucht künftig einen frischen Nachweis, kein altes Niveau" ist
+damit eine punktuelle, nachvollziehbare Änderung an der Beschreibung dieses einen Ziels.
+
+Schließlich: Jeder Schritt, den ein Nutzer durchläuft, wird protokolliert und ist im Journey-Log
+einsehbar — welches Verfahren wann angeboten, angenommen oder abgelehnt wurde, und welches
+Niveau am Ende erreicht war. Für eine fachliche oder revisionsrelevante Frage („warum konnte
+dieser Nutzer sein Konto ohne erneute Prüfung löschen?") braucht es damit keine Rekonstruktion
+aus verteilten Systemlogs.
+
+Ein konkretes Beispiel, das eine Person durch mehrere dieser Ziele führt:
+[11-beispiel-story.md](11-beispiel-story.md). Was daraus insgesamt folgt:
+
+- **Fachliche Regeln sind an einer Stelle beschrieben, nicht im Code verstreut** — jedes Ziel
+  hat sein eigenes, vollständiges Zustandsdiagramm, das sich unabhängig von der Implementierung
+  prüfen lässt.
+- **Ausnahmen sind sichtbar, nicht implizit** — Fallback vs. Pflicht, welches Niveau eine
+  Aktion verlangt, welche Wege zu einer Re-Identifizierung führen: alles steht explizit im
+  Modell.
+- **Wiederverwendete Abläufe bleiben eine einzige fachliche Wahrheit** — eine Regeländerung an
+  einer Sub-Journey wirkt überall dort, wo sie eingebunden ist, ohne Abweichungsrisiko.
+- **A/B-Tests werden möglich** — weil ein Ziel wie `FAST_ACCESS` ein eigenständiges, in sich
+  geschlossenes Modell ist, lässt sich für denselben Intent eine zweite Journey-Variante
+  danebenstellen und im laufenden Betrieb ausspielen.
+
+---
+
 ## 1) Begriffe
 
 Sieben Wörter haben in diesem Kapitel eine feste Bedeutung:

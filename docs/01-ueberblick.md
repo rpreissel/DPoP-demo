@@ -4,6 +4,29 @@ Die tragenden Konzepte in Kurzform. Jeder Abschnitt verweist auf das Dokument, d
 
 ---
 
+## Worum es eigentlich geht
+
+```mermaid
+flowchart LR
+  N["Neuer Nutzer"] -- einmalig --> R["Registrierung"]
+  R --> L
+  B["Wiederkehrender Nutzer"] --> L["Login"]
+  L --> T["AccessToken"]
+  T -- "direkt, ohne Orchestrator" --> F["Fachlichkeit / Microservices"]
+```
+
+Das eigentliche Ziel ist immer dasselbe: ein `AccessToken`, mit dem die App danach die
+Fachlichkeit — Microservices, andere Backends — **direkt** aufruft, ohne Umweg über den
+Orchestrator. Registrierung ist kein eigener Zweck, sondern nur die einmalige Voraussetzung
+dafür, dass ein neuer Nutzer danach einloggen kann. Das `AccessToken` selbst stammt aus einem
+Standard-OIDC-Tokenfluss gegen Keycloak, den der Orchestrator serverseitig abwickelt — das
+Frontend bekommt nur das Ergebnis, nie eigene Refresh-Logik.
+
+Ein konkretes Beispiel, das genau diesen Weg an einer einzelnen Person durchspielt:
+[11-beispiel-story.md](11-beispiel-story.md).
+
+---
+
 ## Drei Session-Ebenen
 
 Der Kern des Modells sind drei ineinander geschachtelte Sessions mit fallender Lebensdauer:

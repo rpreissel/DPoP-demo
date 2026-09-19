@@ -31,11 +31,9 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [08-projektrahmen.md](08-projektrahmen.md) | Aufgabenstellung, Module, Tech-Stack, Versionen, Build | Projektkontext, Einrichtung |
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
+| [11-beispiel-story.md](11-beispiel-story.md) | Eine Person durchläuft Registrierung, Login, Step-up, Löschung | Konzepte an einem konkreten Beispiel statt abstrakt |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
-| [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md) | Die Kernideen visuell, ohne API-Detail | Schneller Einstieg für App-Frontend-Entwickler |
-| [pitches/backend-konzepte.md](pitches/backend-konzepte.md) | Zusammenspiel von Tool und Orchestrator an einem Schritt | Schneller Einstieg für Backend-Entwickler |
-| [pitches/fachexperten-konzepte.md](pitches/fachexperten-konzepte.md) | Fachliche Regeln als Ziele, Zustandsdiagramme, Niveaustufen — ohne Code | Schneller Einstieg für Fachexperten |
 
 ### Lesepfade je Zielgruppe
 
@@ -52,12 +50,14 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
   [04](04-orchestrierung.md) -> [06](06-ablaeufe.md) -> [09](09-dpop.md) ->
   [07](07-betrieb.md) -> [08](08-projektrahmen.md), [12](12-entscheidungen.md) bei Bedarf für das
   Warum einer bestehenden Entscheidung. Überspringen: 10 (reines Frontend-Kapitel). Für einen
-  schnellen visuellen Einstieg vorab: [pitches/backend-konzepte.md](pitches/backend-konzepte.md).
+  schnellen visuellen Einstieg vorab: der Abschnitt "Einstieg: Zusammenspiel an einem Schritt" in
+  [03-tool-architektur.md](03-tool-architektur.md).
 - **App-Frontend-Entwickler** — hauptsächlich die APIs, kein Domänenmodell-Detail:
   [01](01-ueberblick.md) -> [05](05-api.md) -> [10](10-frontend.md). Bei Bedarf ergänzend
   [README.md](README.md#begriffe) für die Session-Begriffe, die 05 voraussetzt. Überspringen: 02,
   03, 04, 06, 07, 09 — das sind Backend-interne Konzepte, die die API bereits gekapselt hat. Für
-  einen schnellen visuellen Einstieg vorab: [pitches/frontend-konzepte.md](pitches/frontend-konzepte.md).
+  einen schnellen visuellen Einstieg vorab: der Abschnitt "Einstieg: Wie `next` die App steuert"
+  in [10-frontend.md](10-frontend.md).
 
 ---
 

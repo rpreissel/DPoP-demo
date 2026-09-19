@@ -8,6 +8,91 @@ Was der Orchestrator mit diesen Meldungen macht, steht in [04-orchestrierung.md]
 
 ---
 
+## Einstieg: Zusammenspiel an einem Schritt
+
+Aus Backend-Sicht ist der Orchestrator ein Modulith mit eigenen Tool-Modulen; einzelne Module
+delegieren ihrerseits an externe Dienste:
+
+```mermaid
+flowchart LR
+  subgraph App["App"]
+    NE["Orchestrator-Engine"]
+    UI1["SMS-UI"]
+    UI2["Passwort-UI"]
+    UI3["Geräte-UI"]
+  end
+
+  subgraph Backend["Orchestrator-Modulith"]
+    O["Orchestrator<br/>next / stepData / Journey"]
+    AC["account"]
+    M1["auth_sms"]
+    M2["auth_password"]
+    M3["auth_device"]
+  end
+
+  KC["Keycloak"]
+  EXT1["externer SMS-Versand"]
+  KC ~~~ EXT1
+
+  NE --> O
+  O --> KC
+  O --> AC
+  AC --> KC
+
+  UI1 --> M1
+  UI2 --> M2
+  UI3 --> M3
+
+  M1 -.-> EXT1
+```
+
+So spielen Orchestrator und ein Tool-Modul wie `auth_sms` an einem konkreten Schritt zusammen:
+
+```mermaid
+sequenceDiagram
+  participant TC as ToolController (Methodenmodul)
+  participant TH as ToolHandler
+  participant JS as JourneyService
+  participant IS as IntentStrategy
+  participant AC as account
+  participant KC as Keycloak
+
+  TC->>TH: Eingabe verarbeiten (z.B. TAN prüfen)
+  TH-->>TC: ToolOutcome.Completed
+
+  TC->>JS: applyOutcome(context, ToolOutcome.Completed)
+  JS->>IS: interpret(state, tool, outcome) : Effect
+  IS-->>JS: Effect
+  JS->>AC: Effect ausführen (Account finden/anlegen, Methode eintragen)
+  AC->>KC: Account anlegen/syncen
+  AC-->>JS: JourneyContext aktualisiert
+  JS->>IS: decide(state, Completed(...), ctx) : Decision
+  IS-->>JS: Decision
+  JS-->>TC: ChannelResponse (next/stepData)
+```
+
+Was `ToolHandler` intern tut, um zu diesem `ToolOutcome` zu kommen, ist bewusst nicht Teil dieses
+Bildes: eigene, tool-spezifische Fachlogik gegen ein eigenes Schema (`ToolDB`), auf das nichts
+außerhalb des Moduls zugreift.
+
+Daraus folgt für dich als Backend-Entwickler:
+
+- **Dein Modul bleibt dein Modul** — ein Tool-Modul wie `auth_sms` hat sein eigenes Schema
+  (`ToolDB`), auf das nichts außerhalb zugreift. Du kannst darin fachliche Logik ändern, ohne
+  Journey oder andere Module überhaupt lesen zu müssen.
+- **Der Vertrag ist klein und stabil** — dein `ToolHandler` liefert nur einen `ToolOutcome`;
+  was das für Journey/Zustand/nächsten Schritt bedeutet, entscheidet ausschließlich die
+  `IntentStrategy`. Du musst beim Schreiben eines Tools nie die volle Zustandsmaschine im Kopf
+  haben.
+- **App- und Web-Kanal sind für dich identisch** — Journey, Tool und `next` laufen für beide
+  Fassaden gleich ([05-api.md](05-api.md)); du schreibst keine kanalspezifischen Sonderfälle in
+  dein Modul.
+- **Der Tokenfluss ist kein Baustellen-Code** — Standard-OIDC gegen Keycloak, serverseitig
+  einmal implementiert; dein Modul liefert nur das Ergebnis eines Verfahrens, nie ein Token
+  selbst.
+
+---
+
 ## 1) Tool-Katalog
 
 `ToolSession` ist die dritte, kurzlebigste Ebene (`ChannelSession` → `AuthJourney` → `ToolSession`)
