@@ -66,6 +66,8 @@ Entscheidungen, die an diesem Modell hängen:
 
 Regel für `account.identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören Nachweisanker (`provider`, `providerTxId`), Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext oder Geheimnisse.
 
+Ein Lauf kann **zwei** Zeilen hinterlassen, weil ADR-18 die Identifizierung in zwei Akte teilt: bezeugen (`ident-eid`) und zuordnen (`ident-kvnr`). Beide werden protokolliert — die Zuordnung besonders, denn das ist der Moment, in dem der `PERSON_ID`-Anker entsteht. Welcher Akt eine Zeile war, steht als `role` in `details` (`IDENTIFICATION` oder `CORRELATION`) und wird nicht aus dem Verfahrensnamen erraten: Ein Korrelationsschritt trägt das Niveau der Bezeugung, auf der er aufsetzt, und eine Zeile „kvnr / loa2" ohne weiteren Hinweis läse sich wie ein Verfahren, das dieses Niveau allein erreicht hat. Zeilen desselben Laufs teilen sich ihre `journeyId`.
+
 ---
 
 ## 2) `ident-fsc`

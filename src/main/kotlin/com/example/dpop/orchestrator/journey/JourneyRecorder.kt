@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -104,6 +105,20 @@ class JourneyRecorder(
         )
     }
 
+    /**
+     * The audit row for one act of establishing identity - BOTH acts ADR-18 splits an
+     * identification into, not just the attesting one: `ident-eid` proving who somebody is, and
+     * `ident-kvnr` binding that person to the register. The correlation act is the one an audit
+     * needs most - it is the moment the PERSON_ID anchor came to exist - so leaving it out would
+     * record the proof and hide the binding.
+     *
+     * Which act a row was is therefore written down rather than left to be inferred from the
+     * method name ([MethodRole], in `details`): a correlation step carries the achieved level of
+     * the identification it rests on (`IdentKvnrDescriptor.maxAcr` - typing a number proves
+     * nothing by itself, the assurance comes from `requires` plus the master-data match), and a
+     * row saying `kvnr / loa2` with nothing else would read like a procedure that reached loa2 on
+     * its own. The two rows of one run are tied together by their shared `journeyId`.
+     */
     fun recordIdentification(
         journey: AuthJourney,
         channel: ChannelSession,
@@ -115,6 +130,7 @@ class JourneyRecorder(
             tool.method,
             outcome.achievedAcr?.value,
             outcome.auditDetails.orEmpty() + mapOf(
+                "role" to tool.role.name,
                 "channel" to channel.channel?.name,
                 "journeyId" to journey.journeyId.toString()
             )

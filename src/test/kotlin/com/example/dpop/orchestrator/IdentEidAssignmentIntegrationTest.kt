@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.support.AccountFixtures
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain as shouldContainText
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import org.junit.jupiter.api.assertThrows
@@ -241,6 +242,27 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$toolSessionId/ident-kvnr", """{"kvnr":"A123456789"}""")
 
                     personAnchorsOf(channelSessionId) shouldBe 1
+                    // Both acts are audited, and each row says which act it was - a correlation
+                    // step carries the attestation's level, so without the role a `kvnr / loa2`
+                    // row would read like a procedure that reached loa2 by itself.
+                    jdbcTemplate.queryForList(
+                        """
+                        SELECT i.method FROM account.identification i
+                        JOIN orchestrator.channel_session cs ON cs.account_id = i.account_id
+                        WHERE cs.id = CAST(? AS UUID) ORDER BY i.identified_at
+                        """,
+                        String::class.java,
+                        channelSessionId
+                    ) shouldBe listOf("eid", "kvnr")
+                    jdbcTemplate.queryForObject(
+                        """
+                        SELECT i.details FROM account.identification i
+                        JOIN orchestrator.channel_session cs ON cs.account_id = i.account_id
+                        WHERE cs.id = CAST(? AS UUID) AND i.method = 'kvnr'
+                        """,
+                        String::class.java,
+                        channelSessionId
+                    )!! shouldContainText "CORRELATION"
                 }
             }
 

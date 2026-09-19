@@ -11,11 +11,19 @@ import org.hibernate.type.SqlTypes
 import java.time.Instant
 
 /**
- * Append-only audit record of one identification run: which procedure ([method]), at which level,
- * when, and the proof anchors it produced ([details]: provider, provider transaction id, method
- * version, evidence hash, channel, journey - "dass und wie", never "was", docs/06-ablaeufe.md #1).
- * Complements [AccountClaim]: a claim names its source register (e.g. `ext_stammdaten`), not
- * the procedure that checked it. Never read for a decision - `AuthEvidence` is re-proven per session.
+ * Append-only audit record of one act of establishing identity: which procedure ([method]), at
+ * which level, when, and the proof anchors it produced ([details]: role, provider, provider
+ * transaction id, method version, evidence hash, channel, journey - "dass und wie", never "was",
+ * docs/06-ablaeufe.md #1). Complements [AccountClaim]: a claim names its source register (e.g.
+ * `ext_stammdaten`), not the procedure that checked it. Never read for a decision - `AuthEvidence`
+ * is re-proven per session.
+ *
+ * One run can leave TWO rows, because ADR-18 splits an identification into two acts: attesting who
+ * somebody is (`ident-eid`) and binding that person to the register (`ident-kvnr`). Both are
+ * recorded - the binding especially, since it is the moment the PERSON_ID anchor came to exist.
+ * `details.role` says which act a row was ([com.example.dpop.tool_spi.MethodRole]), so a
+ * correlation row is not mistaken for a procedure that reached its level on its own; rows of the
+ * same run share their `journeyId`.
  */
 @Entity
 @Table(schema = "account", name = "identification")
