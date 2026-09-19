@@ -11,7 +11,6 @@ import com.example.dpop.tool_spi.ClaimSource
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
@@ -54,17 +53,10 @@ class ConfirmEmailToolHandlerTest : BehaviorSpec({
         `when`("submitting an email that is already taken") {
             every { accountDirectory.resolveByAnchor(AttributeType.EMAIL, "taken@example.com") } returns 42L
 
-            // Deliberately NOT ToolOutcome.Failed: that would cost one of the journey's three
-            // attempts for something the user could not have guessed differently, and the right
-            // person regularly lands here (an Interessent whose own address already belongs to
-            // their own account). The form stays open with a message instead.
-            then("the address form stays open with a message, without ever touching account state") {
+            then("it fails without ever touching account state") {
                 val outcome = handler.patch(toolSessionId, email = "taken@example.com", code = null)
 
-                outcome.shouldBeInstanceOf<ToolOutcome.InProgress>()
-                outcome.nextStep shouldBe "input"
-                val message = outcome.data?.get("error") as? String
-                checkNotNull(message) shouldContain "bereits ein Konto"
+                outcome shouldBe ToolOutcome.Failed("E-Mail-Adresse bereits vergeben")
             }
         }
     }

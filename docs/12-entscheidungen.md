@@ -659,10 +659,7 @@ richtige Wiedererkennungsmerkmal für eid-Interessenten: kartengebunden, mit neu
 EUDI-Wegweis passt dazu: Die echte PID wird später als eigener Ankertyp einziehen.
 
 **Preis**: Bestands-Bezeugungen ohne `restricted_id` (vor diesem ADR) erkennt das System nicht
-wieder — sie laufen auf `Unresolved` und damit auf ein neues Konto. Für die Demo-Konten ist das
-behoben: `KcDemoAccountSeeder` schreibt jeder Demo-Person auch ihren Karten-Anker, sonst legt der
-erste eID-Klick ein zweites Konto neben dem bestehenden an und läuft danach in die eigene, schon
-belegte E-Mail-Adresse. `V1__schema.sql` ändert
+wieder — sie laufen auf `Unresolved` und damit auf ein neues Konto. `V1__schema.sql` ändert
 sich (`id_eid.ident_tool_session.restricted_id`, Wegfall `ix_claim_type_value`), bestehende
 Dev-Datenbanken sind neu anzulegen. Die `restricted_id` wird bewusst **nicht** nach Keycloak
 gespiegelt (kein Stammdatum, nur Wiedererkennungsanker).

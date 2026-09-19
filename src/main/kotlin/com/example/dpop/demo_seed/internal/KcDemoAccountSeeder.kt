@@ -6,12 +6,10 @@ import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.SmsCredentialPort
 import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_api.resolveAccountByPersonId
-import com.example.dpop.tool_api.resolveAccountByRestrictedId
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
-import com.example.dpop.tool_spi.DEMO_PERSONS
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -73,12 +71,6 @@ internal class KcDemoAccountSeeder(
             // account state it does not own (see class KDoc).
             val existingId = accountService.resolveAccountByPersonId(personId)
                 ?: accountService.resolveAccountByEmail(person.email)
-                // Also the card anchor (ADR-19): an eID demo run that stopped short of the
-                // assignment step leaves an Interessent holding exactly this person's
-                // restricted_id. Without checking it here the seed would try to write that anchor
-                // onto a second account and fail the whole boot with an IdentityConflictException
-                // - and the account it would be fighting over is this very person's own.
-                ?: accountService.resolveAccountByRestrictedId(person.restrictedId)
             if (existingId != null) {
                 log.info(
                     "kc demo seed: account {} already holds an anchor of {} - leaving it untouched, not seeding",
@@ -101,17 +93,6 @@ internal class KcDemoAccountSeeder(
             accountService.recordClaim(
                 profile.accountId,
                 Claim(AttributeType.EMAIL, person.email, ClaimSource.DEMO_BOOTSTRAP),
-                provenAcr = SEEDED_ACR
-            )
-            // The eID card this demo person carries (ADR-19). Seeded for the same reason the
-            // PERSON_ID is: these accounts stand in for people who have been through an
-            // identification, and this person's card is part of that. Without it, an eID run for
-            // a seeded person resolves nobody, registers a fresh Interessent alongside their real
-            // account, and then runs into their own address being taken at confirm-email - a dead
-            // end the demo reaches on its very first eID click.
-            accountService.recordClaim(
-                profile.accountId,
-                Claim(AttributeType.EID_RESTRICTED_ID, person.restrictedId, ClaimSource.DEMO_BOOTSTRAP),
                 provenAcr = SEEDED_ACR
             )
             // POSSESSION, to complement the password's KNOWLEDGE - the two factors a step-up
@@ -150,18 +131,7 @@ internal class KcDemoAccountSeeder(
         }
     }
 
-    /**
-     * [phoneNumber] is this seed's own (no demo tool prefills one); [email] and [restrictedId]
-     * are read from the shared [DEMO_PERSONS] catalog by kvnr, so the seeded account and the
-     * values the demo person picker fills into the forms can never drift apart.
-     */
-    private data class TestPerson(val kvnr: String, val phoneNumber: String) {
-        private val demoPerson get() = checkNotNull(DEMO_PERSONS.firstOrNull { it.kvnr == kvnr }) {
-            "No DEMO_PERSONS entry for kvnr $kvnr - see tool_spi/Demo.kt"
-        }
-        val email: String get() = demoPerson.email
-        val restrictedId: String get() = demoPerson.restrictedId
-    }
+    private data class TestPerson(val kvnr: String, val email: String, val phoneNumber: String)
 
     companion object {
         // Demo-only shared default - a real onboarding flow would never hand out a shared
@@ -184,9 +154,9 @@ internal class KcDemoAccountSeeder(
         // infra/tofu/keycloak/main.tf's keycloak_user resources hardcode the resulting ids
         // (1/2/3) as each user's orchestratorAccountId attribute.
         private val TEST_PERSONS = listOf(
-            TestPerson("A123456789", "+491700000001"),
-            TestPerson("B987654321", "+491700000002"),
-            TestPerson("C111111111", "+491700000003")
+            TestPerson("A123456789", "max.mustermann@example.com", "+491700000001"),
+            TestPerson("B987654321", "erika.beispiel@example.com", "+491700000002"),
+            TestPerson("C111111111", "jane.doe@example.com", "+491700000003")
         )
     }
 }

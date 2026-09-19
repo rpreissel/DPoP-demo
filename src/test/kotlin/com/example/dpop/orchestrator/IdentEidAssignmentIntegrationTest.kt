@@ -5,7 +5,6 @@ import com.example.dpop.orchestrator.support.AccountFixtures
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.string.shouldContain as shouldContainText
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import org.junit.jupiter.api.assertThrows
@@ -93,10 +92,9 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
         // ADR-20: the assignment step resolves an account that already exists, while the run
         // holds only the placeholder the eID attestation itself created. The user did nothing
         // wrong - the journey built its own conflict - so the placeholder yields.
-        // The demo seed gives every demo person their card anchor (KcDemoAccountSeeder), so an
-        // eID run by someone who already has an account is a recognition, not a registration -
-        // without it the run built a second, parallel account and then walked into its own
-        // address being taken at confirm-email.
+        // ADR-19's recognition seen from the journey: once an account holds a card's
+        // restricted_id, the next run with that card resolves onto it instead of registering a
+        // second, parallel account beside it.
         given("a card whose restricted_id an existing account already holds") {
             then("the run is recognized onto that account instead of registering a new one") {
                 val existing = accountFixtures.seedAccount(
@@ -117,41 +115,6 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 val offered = options ?: listOf(get("/orchestrator/api/v1/channels/$channelSessionId").nextRaw()["toolId"] as String)
                 offered shouldContain "auth-sms"
                 offered shouldNotContain "ident-kvnr"
-            }
-        }
-
-        // An Interessent whose own address already belongs to their own account: the address form
-        // has to stay usable instead of burning the journey's attempt budget on a question the
-        // user could not have answered differently.
-        given("an Interessent confirming an address that belongs to another account") {
-            then("the step stays put with a message, and another address still gets through") {
-                accountFixtures.seedAccount(
-                    kvnr = "B987654321", name = "Beispiel", vorname = "Erika",
-                    email = "erika.beispiel@example.com",
-                    methods = listOf(AccountFixtures.Method.Sms())
-                )
-                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                attestAsErika(channelSessionId)
-                val assignSession = activateAssignment(channelSessionId)
-                delete("/orchestrator/api/v1/tools/$assignSession/ident-kvnr")
-
-                val confirmSession = post("/orchestrator/api/v1/channels/$channelSessionId/tools/confirm-email")
-                    .nextRaw()["toolSessionId"] as String
-                // Three attempts is the whole journey budget - each one must leave the form alive.
-                repeat(3) {
-                    val taken = patch(
-                        "/orchestrator/api/v1/tools/$confirmSession/confirm-email",
-                        """{"email":"erika.beispiel@example.com"}"""
-                    )
-                    taken.nextRaw()["step"] shouldBe "input"
-                    "${taken.stepData()["error"]}" shouldContainText "bereits ein Konto"
-                }
-
-                val accepted = patch(
-                    "/orchestrator/api/v1/tools/$confirmSession/confirm-email",
-                    """{"email":"erika.zweitadresse@example.com"}"""
-                )
-                accepted.nextRaw()["step"] shouldBe "codeInput"
             }
         }
 
