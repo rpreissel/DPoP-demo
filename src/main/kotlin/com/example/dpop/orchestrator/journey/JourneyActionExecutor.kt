@@ -98,7 +98,20 @@ class JourneyActionExecutor(
         assertClaimsCovered(action.tool, action.outcome.claims)
         val resolution = identityResolver.resolve(action.outcome.claims.toSet())
         val accountId = when (resolution) {
-            is Resolution.ExistingAccount -> resolution.accountId
+            // `Identifying` is usually the very first state (nothing in hand yet - plain adopt),
+            // but `RegisterState` has a re-entry edge (`AuthChoice -> Identifying: alle
+            // abgelehnt`): decline every offered proof for the account a first identification
+            // already bound, and a SECOND identification can run with an account already in
+            // hand. Without routing that case through the same [accountOf] rule
+            // [performConfirmIdentity] uses, two real, already-credentialed accounts could merge
+            // as a side effect of this identification step - exactly what [accountOf]'s own doc
+            // says must never happen quietly. Still requires a STRONG identification
+            // (ident-fsc/ident-eid) either way, unlike the attestation gap this mirrors the fix
+            // of - so this only closes a consistency gap, not a weak-evidence takeover.
+            is Resolution.ExistingAccount -> {
+                val inHand = journey.accountId ?: channel.accountId
+                if (inHand == null) resolution.accountId else accountOf(journey, channel, inHand, resolution.accountId)
+            }
             // Nothing resolved - the attested subject has no account yet. Which account this run
             // then writes to is a declared rule, not a default:
             Resolution.Unresolved -> {

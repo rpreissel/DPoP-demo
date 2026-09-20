@@ -1,7 +1,10 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.example.dpop.orchestrator.support.AccountFixtures
 import com.ninjasquad.springmockk.MockkBean
+import org.springframework.beans.factory.annotation.Autowired
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -28,6 +31,9 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
 
     @MockkBean
     private lateinit var jwkThumbprintService: JwkThumbprintService
+
+    @Autowired
+    private lateinit var accountService: AccountService
 
     init {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
@@ -341,6 +347,57 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 }
                 exception.statusCode shouldBe HttpStatus.UNAUTHORIZED
 
+
+                }
+            }
+        }
+
+        given("a channel that already identified as one real, credentialed account, then declined its only auth method") {
+            `when`("re-identifying via ident-fsc as a SECOND, different real, credentialed account") {
+                then("it is rejected as a conflict, the journey stays on the first account") {
+
+                val first = accountFixtures.seedAccount(
+                    kvnr = "A123456789", name = "Muster", vorname = "Max",
+                    email = "max.muster@example.com",
+                    methods = listOf(AccountFixtures.Method.Sms())
+                )
+                accountFixtures.seedAccount(
+                    kvnr = "B987654321", name = "Beispiel", vorname = "Erika",
+                    email = "erika.beispiel@example.com",
+                    methods = listOf(AccountFixtures.Method.Sms())
+                )
+
+                val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""").channel()["channelSessionId"] as String
+                val firstIdentToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+                val afterFirstIdent = patch(
+                    "/orchestrator/api/v1/tools/$firstIdentToolSessionId/ident-fsc",
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                )
+                // Max's account already has sms and a confirmed email - AuthChoice, not Enrolling.
+                afterFirstIdent.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
+                val afterFirstIdentRaw = afterFirstIdent.nextRaw()
+                val authSmsToolSessionId = (afterFirstIdentRaw["toolSessionId"] as? String)
+                    ?: post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
+
+                // Decline the only offered auth tool - RegisterStrategy.afterAuthDeclined falls
+                // back to offerIdentification, re-entering Identifying with an account (Max's)
+                // already bound to this journey.
+                val afterDecline = delete("/orchestrator/api/v1/tools/$authSmsToolSessionId/auth-sms")
+                @Suppress("UNCHECKED_CAST")
+                (afterDecline.stepData()["options"] as List<String>) shouldContainAll listOf("ident-fsc", "ident-eid")
+
+                val secondIdentToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+
+                val exception = assertThrows<HttpClientErrorException> {
+                    patch(
+                        "/orchestrator/api/v1/tools/$secondIdentToolSessionId/ident-fsc",
+                        """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
+                    )
+                }
+                exception.statusCode shouldBe HttpStatus.CONFLICT
+
+                // Neither account was touched by the rejected second identification.
+                accountService.findAccount(first)!!.activeAuthenticationMethods.map { it.method }.toSet() shouldBe setOf("sms")
 
                 }
             }
