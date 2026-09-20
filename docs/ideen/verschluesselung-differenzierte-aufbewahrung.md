@@ -154,12 +154,26 @@ dauerhaft unlesbares Chiffrat. Das schließt genau die Lücke, die ADR-12 offen 
 Entscheidung zur physischen Massenlöschung warten zu müssen.
 
 **eID-Daten, max. 1 Jahr.** Ein `ident-eid`-Lauf schreibt 8 Claims mit gemeinsamer `claim_batch_id`
-in einem `recordClaims`-Aufruf. Ein `RetentionJob` löscht die `claim_batch_key`-Zeile, sobald das
-älteste `established_at` der zugehörigen Claims 1 Jahr überschreitet — ein Löschvorgang deckt den
-gesamten Scan ab, eine spätere Neuidentifizierung (neue Karte, neue `claim_batch_id`) bekommt ihre
-eigene, unabhängige Frist. Strukturell dasselbe Muster, das schon produktiv läuft (`*RetentionJob`,
-`07-betrieb.md:40-55`) — der Job löscht nur eine kleine DEK-Zeile statt der (größeren,
-PII-tragenden) Nutzdatenzeilen selbst.
+in einem `recordClaims`-Aufruf. Reines DEK-Löschen reicht hier **nicht**: „Aktuell gültig" wird im
+bestehenden Modell als „Behauptungen minus Retraktionen" berechnet (`02-domaenenmodell.md:142`) —
+rein über `AccountRetraction`-Zeilen, unabhängig von Lesbarkeit. Ohne Retraction hielte die
+Konsolidierungslogik (`findEstablished`, `AccountProfile.establishedClaims`, der Dedup-Check in
+`recordClaims`) die Claims weiterhin für gültig, während sie tatsächlich unlesbares Chiffrat sind —
+ein stiller Widerspruch zwischen Logik- und Krypto-Zustand, potenziell ein Entschlüsselungsfehler
+an Stellen, die von „vorhanden" ausgehen.
+
+Der `RetentionJob` muss deshalb **in einer Transaktion** zwei Dinge tun: (a) für jeden betroffenen
+Attributtyp des Batches eine `AccountRetraction`-Zeile schreiben, (b) die `claim_batch_key`-Zeile
+löschen. Für (a) fehlt aktuell ein passender `RetractionAnchor`-Fall: die bestehenden drei
+(`ACCOUNT_MANAGEMENT`, `EXT_STAMMDATEN`, `OPERATOR` — Letzterer laut Code-Kommentar explizit „a
+human operator, with a reason") decken einen automatisch fristbasierten Widerruf nicht ab; ein
+vierter Fall (`RETENTION_POLICY`) wäre nötig, damit „wer widerruft" für einen Scheduled Job nicht
+fälschlich als menschliche Operator-Aktion erscheint.
+
+Eine spätere Neuidentifizierung (neue Karte, neue `claim_batch_id`) bekommt ihre eigene,
+unabhängige Frist. Im Kern strukturell dasselbe Muster, das schon produktiv läuft (`*RetentionJob`,
+`07-betrieb.md:40-55`) — nur dass der Job hier zusätzlich die Retraction-Buchhaltung übernimmt, die
+bei einer nutzerausgelösten Retraktion (E-Mail-Beispiel oben) der auslösende Vorgang selbst liefert.
 
 ---
 
@@ -175,6 +189,8 @@ PII-tragenden) Nutzdatenzeilen selbst.
   analog zu `PasswordHasher.kt`.
 - Für den Tool-Session-Pfad: `account.retention_class_key`-Tabelle plus Lookup in den
   betroffenen Modulen.
+- Neuer `RetractionAnchor.RETENTION_POLICY`-Fall, damit ein fristbasierter, automatischer Widerruf
+  nicht fälschlich als menschliche `OPERATOR`-Aktion erscheint (Abschnitt 4).
 
 **Wiederverwendet, unverändert:**
 - Eigenes Schema pro Modul (bleibt im `account`-Schema).
@@ -268,4 +284,5 @@ Offene Anschlussfragen, falls dieses Vorhaben weiterverfolgt wird: (1) AMK-Verwa
 (Abschnitt 6), (2) ob Claim-Batch-DEKs für *alle* Attributtypen oder nur für die sensiblen
 (EID_*, EMAIL) eingeführt werden, (3) Migrationsstrategie für bereits im Klartext bestehende
 Claims, (4) ob die 1-Jahres-Frist für eID-Daten auch die `EID_RESTRICTED_ID`-Anker-Zeile treffen
-soll und die damit verbundene Wiedererkennungs-Konsequenz (Abschnitt 3a).
+soll und die damit verbundene Wiedererkennungs-Konsequenz (Abschnitt 3a), (5) Einführung von
+`RetractionAnchor.RETENTION_POLICY` für automatisch fristbasierte Widerrufe (Abschnitt 4).
