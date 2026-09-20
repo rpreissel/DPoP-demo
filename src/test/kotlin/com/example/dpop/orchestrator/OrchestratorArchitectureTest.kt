@@ -138,8 +138,8 @@ class OrchestratorArchitectureTest : BehaviorSpec({
     // moved on is requireCurrentTool: it matches BOTH toolId and toolSessionId against the state's
     // own active ToolRef, so a superseded session is refused rather than silently honoured.
     // All 18 tool controllers call it today - this keeps the 19th from being the exception.
-    given("a tool controller's write endpoint (@PatchMapping)") {
-        then("it authorizes the tool session against the journey's current one") {
+    given("a tool controller's write endpoint on an EXISTING tool session") {
+        then("it authorizes that session against the journey's current one") {
             val allClasses = ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                 .importPackages("com.example.dpop")
@@ -147,25 +147,41 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                 clazz.directDependenciesFromSelf.any { it.targetClass.name == "com.example.dpop.tool_api.ToolEndpoint" }
             }
 
-            val guardsItsPatch = object : ArchCondition<JavaClass>("call requireCurrentTool from every @PatchMapping method") {
+            // Deliberately NOT "every @PatchMapping": PATCH is only today's regular case.
+            // docs/05-api.md lets each tool shape everything under /tools/{toolSessionId}/{toolId}
+            // itself, "eigene Sub-Ressourcen und frei gewählte HTTP-Methoden" - and one tool
+            // already differs (EnrollEmailToolController is a one-shot with no PATCH at all).
+            // What actually decides is whether the endpoint ADDRESSES AN EXISTING SESSION, i.e.
+            // carries {toolSessionId} in its path, and writes. An activation POST goes to
+            // /channels/{channelSessionId}/tools/{toolId} and creates the session it is about, so
+            // there is nothing yet to authorize; a GET reads and uses isCurrentTool as a condition
+            // instead, to answer a superseded resume cleanly rather than with a 409.
+            val writingMappings = setOf("PostMapping", "PutMapping", "PatchMapping", "DeleteMapping", "RequestMapping")
+            fun addressesExistingSession(m: com.tngtech.archunit.core.domain.JavaMethod): Boolean =
+                m.annotations.any { a ->
+                    a.rawType.name.substringAfterLast('.') in writingMappings &&
+                        ((a.get("value").orElse(null) as? Array<*>)?.filterIsInstance<String>() ?: emptyList())
+                            .any { path -> "{toolSessionId}" in path }
+                }
+
+            val guardsSessionWrites = object : ArchCondition<JavaClass>("authorize every write to an existing tool session") {
                 override fun check(clazz: JavaClass, events: ConditionEvents) {
-                    clazz.methods
-                        .filter { m -> m.annotations.any { it.rawType.name == "org.springframework.web.bind.annotation.PatchMapping" } }
-                        .forEach { m ->
-                            val guarded = m.methodCallsFromSelf.any { it.target.name == "requireCurrentTool" }
-                            events.add(
-                                SimpleConditionEvent(
-                                    m, guarded,
-                                    "${clazz.simpleName}.${m.name} does not call requireCurrentTool - a superseded " +
-                                        "tool session could then complete against a journey that has moved on"
-                                )
+                    clazz.methods.filter(::addressesExistingSession).forEach { m ->
+                        val guarded = m.methodCallsFromSelf.any { it.target.name == "requireCurrentTool" }
+                        events.add(
+                            SimpleConditionEvent(
+                                m, guarded,
+                                "${clazz.simpleName}.${m.name} writes to an existing tool session without calling " +
+                                    "requireCurrentTool - a superseded session could then complete against a " +
+                                    "journey that has since moved on"
                             )
-                        }
+                        )
+                    }
                 }
             }
             com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                 .that(isToolController)
-                .should(guardsItsPatch)
+                .should(guardsSessionWrites)
                 .check(allClasses)
         }
     }
