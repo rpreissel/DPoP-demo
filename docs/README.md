@@ -34,6 +34,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [11-beispiel-story.md](11-beispiel-story.md) | Eine Person durchläuft Registrierung, Login, Step-up, Geräte-Verfahren, QR-Login am Browser, Löschung | Konzepte an einem konkreten Beispiel statt abstrakt |
 | [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
+| [glossar/](glossar/) | Externes Begriffs-Glossar samt Abgleich gegen dieses Projekt | Prüfen, ob das Domänenmodell fremde Begriffsdefinitionen unterstützt/nachbildet |
 
 ### Lesepfade je Zielgruppe
 
