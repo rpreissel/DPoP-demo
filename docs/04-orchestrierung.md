@@ -944,6 +944,32 @@ Die ersten vier `Action`-Varianten tragen `tool`/`outcome` selbst. Enthalten ist
 Intent **unterscheidet**; alles Mechanische — `personId`, `enrollmentRef`, `amr`, `achievedAcr` —
 liest die Maschinerie direkt vom mitgeführten `outcome` ab.
 
+### Ein Angebot darf veralten, die Ausführung muss live prüfen
+
+Die Regel hinter allen obigen Punkten, und die Frage, an der sich ein künftiger Zweifelsfall
+entscheidet. Ein festgehaltener Wert ist **richtig**, wenn er eine Vergangenheit festhält, die
+später nicht mehr feststellbar ist (`ConfirmPeerLoginState.startedAuthenticated`,
+`StepUpState.startingAcr`, `MethodEvidence` als Nachweis, Log-Felder). Er ist **falsch**, wenn er
+eine Gegenwart einfriert, die zur Ausführungszeit neu gelesen werden müsste — genau daraus
+entstanden die strategiegesetzten Gates, die toten `accountId`-Felder und das
+`useOutcomeAccount`-Flag.
+
+Angebote (`OfferingState.offered`) fallen bewusst in die erste Gruppe: `activatable()` schneidet
+sie beim Rendern nur gegen `availableTools` (Client-Fähigkeit plus Admin-Sperre), **nicht** gegen
+die aktuelle Kontolage — `next` soll eine reine Funktion des Zustands bleiben und dafür keine
+Datenbank brauchen. Ein zwischenzeitlich entfallenes Verfahren kann deshalb noch angeboten
+werden. Das ist ein Fehlerpfad, aber kein Sicherheitsproblem, weil die Prüfung bei der
+**Ausführung** liegt und dort ausnahmslos live ist:
+
+- AUTH: `performAcceptProof` liest `findActiveMethod(accountId, method)` frisch und deckelt mit
+  `min(achievedAcr, enrolledUnderAcr)` — fehlt die Methode, schlägt der Lauf fehl.
+- ENROLL: `performAdoptCredential` berechnet `enrolledUnderAcr` aus der Evidence von **jetzt**,
+  nie aus der Lage, in der das Angebot entstand (ADR-5).
+
+`AuthPolicy`/`CandidateTools` sind dafür zustandslos: beide rechnen ausschließlich aus dem
+übergebenen `JourneyContext`, den `JourneyService.advance` bei **jedem** Übergang neu aufbaut —
+auch nach jeder Action, per rekursivem `ActionCompleted`-Durchlauf.
+
 **Gerätebindung trägt keine Action mehr.** Sie war als `bindDevice`-Flag auf zwei Actions
 geführt, variierte aber nie *innerhalb* eines Intents — also eine Intent-Konstante, die an jeder
 Action neu gesetzt (und falsch gesetzt) werden konnte. Heute zwei unabhängige Fragen, jede dort
