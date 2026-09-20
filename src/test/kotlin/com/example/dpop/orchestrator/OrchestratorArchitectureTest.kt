@@ -5,6 +5,9 @@ import com.tngtech.archunit.core.domain.JavaCall
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
+import com.tngtech.archunit.lang.ArchCondition
+import com.tngtech.archunit.lang.ConditionEvents
+import com.tngtech.archunit.lang.SimpleConditionEvent
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
 import io.kotest.core.spec.style.BehaviorSpec
 import org.springframework.stereotype.Repository
@@ -126,6 +129,44 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                         "exactly the shape of both account-takeover bugs found in this codebase"
                 )
                 .check(classes)
+        }
+    }
+
+    // A tool session outlives its activation by real time (a TAN being typed, an eID redirect) and
+    // carries resolved snapshots while it waits - the account a lookup resolved, the enrollment an
+    // auth tool was pointed at. What keeps those from being used against a journey that has since
+    // moved on is requireCurrentTool: it matches BOTH toolId and toolSessionId against the state's
+    // own active ToolRef, so a superseded session is refused rather than silently honoured.
+    // All 18 tool controllers call it today - this keeps the 19th from being the exception.
+    given("a tool controller's write endpoint (@PatchMapping)") {
+        then("it authorizes the tool session against the journey's current one") {
+            val allClasses = ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("com.example.dpop")
+            val isToolController = DescribedPredicate.describe<JavaClass>("tool controllers (they use ToolEndpoint)") { clazz ->
+                clazz.directDependenciesFromSelf.any { it.targetClass.name == "com.example.dpop.tool_api.ToolEndpoint" }
+            }
+
+            val guardsItsPatch = object : ArchCondition<JavaClass>("call requireCurrentTool from every @PatchMapping method") {
+                override fun check(clazz: JavaClass, events: ConditionEvents) {
+                    clazz.methods
+                        .filter { m -> m.annotations.any { it.rawType.name == "org.springframework.web.bind.annotation.PatchMapping" } }
+                        .forEach { m ->
+                            val guarded = m.methodCallsFromSelf.any { it.target.name == "requireCurrentTool" }
+                            events.add(
+                                SimpleConditionEvent(
+                                    m, guarded,
+                                    "${clazz.simpleName}.${m.name} does not call requireCurrentTool - a superseded " +
+                                        "tool session could then complete against a journey that has moved on"
+                                )
+                            )
+                        }
+                }
+            }
+            com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
+                .that(isToolController)
+                .should(guardsItsPatch)
+                .check(allClasses)
         }
     }
 
