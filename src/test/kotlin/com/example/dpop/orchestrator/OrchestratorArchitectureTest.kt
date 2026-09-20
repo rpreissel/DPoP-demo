@@ -113,11 +113,23 @@ class OrchestratorArchitectureTest : BehaviorSpec({
     // them - can reach a takeover path that skips the gate.
     val gate = "com.example.dpop.orchestrator.journey.JourneyActionExecutor"
 
+    // Scanned across the WHOLE application, not just `orchestrator` like the layering rules above:
+    // the point of these three is that nobody anywhere reaches a takeover path, and a tool module
+    // (auth_email, id_eid, ...) injecting IdentityResolver for itself is exactly the case the
+    // narrow scope would have missed.
+    val everything = ClassFileImporter()
+        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+        .importPackages("com.example.dpop")
+
     given("identity resolution (IdentityResolver - \"does this attested identity belong to an existing account?\")") {
         then("only the acting phase can ask, so the answer can never be acted on without its gate") {
             noClasses()
                 .that().doNotHaveFullyQualifiedName(gate)
-                .and().resideOutsideOfPackage("com.example.dpop.tool_api..")
+                // The port's own declaration site and its single implementation must know it;
+                // named individually rather than exempting all of tool_api/account, so a SECOND
+                // class in either package cannot quietly inherit the exemption.
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.tool_api.IdentityResolver")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.account.internal.IdentityMatchingService")
                 .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.tool_api.IdentityResolver")
                 .because(
                     "resolving claims to an existing account is the first half of a takeover; the second half " +
@@ -125,7 +137,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                         "strategy that could resolve for itself could act on the answer before that gate - " +
                         "exactly the shape of both account-takeover bugs found in this codebase"
                 )
-                .check(classes)
+                .check(everything)
         }
     }
 
@@ -157,7 +169,29 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                         "already hold. Keeping them in one class is what makes \"a takeover always passes " +
                         "accountOf\" checkable by reading one file instead of trusting every caller"
                 )
-                .check(classes)
+                .check(everything)
+        }
+    }
+
+    given("the DeviceAccountLink table itself") {
+        then("only the service that owns the rebind rule may write it - not the repository directly") {
+            // Closes the way AROUND the rule above: it watches calls to linkDeviceToAccount, but
+            // DeviceAccountLinkRepository sits in an ordinary package, so injecting it and calling
+            // save(DeviceAccountLink(key, accountId)) would bind a device with no rebind check and
+            // no revocation of the previous account's device credentials - and the call-based rule
+            // would not see it, because the service was never called.
+            noClasses()
+                .that().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.session.SessionManagementService")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.session.AccountDeletionService")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.session.DeviceAccountLinkRepository")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("com.example.dpop.orchestrator.session.DeviceAccountLinkRepository")
+                .because(
+                    "SessionManagementService.linkDeviceToAccount is where the 1:1 device->account invariant " +
+                        "lives (docs/09-dpop.md #3) and AccountDeletionService is the one legitimate bulk " +
+                        "remover; anything else reaching the table directly would bypass both"
+                )
+                .check(everything)
         }
     }
 })
