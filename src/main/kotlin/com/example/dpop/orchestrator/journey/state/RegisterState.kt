@@ -63,6 +63,7 @@ sealed interface RegisterState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "registration"
         override val selectionStep: String get() = "selectIdentificationMethod"
         override val selectionTitle: String get() = "Identifikation erforderlich"
@@ -114,6 +115,7 @@ sealed interface RegisterState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "registration"
         override val selectionTitle: String get() = "Versichertennummer angeben"
         override val selectionDescription: String get() = "Ihr Konto wird damit Ihrem Datensatz bei der Krankenkasse zugeordnet."
@@ -133,6 +135,7 @@ sealed interface RegisterState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
         override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
@@ -161,6 +164,7 @@ sealed interface RegisterState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Passwort einrichten"
         override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."

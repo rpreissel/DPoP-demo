@@ -64,7 +64,7 @@ enum class AuthIntent {
      * ever reached as another intent's [Transition.RequireSubJourney] once no active method can
      * close its own ACR gap (FAST_ACCESS/LOOKUP_LOGIN/STEP_UP alike) - one shared implementation
      * instead of three near-identical ones. What a fresh identification may mean here is not this
-     * intent's decision at all: `Action.Identified`'s single handler always re-reads the account
+     * intent's decision at all: `Action.RecordIdentification`'s single handler always re-reads the account
      * in hand and gates any move to another one through `accountOf` (see [ReIdentifyStrategy]).
      */
     RE_IDENTIFY;

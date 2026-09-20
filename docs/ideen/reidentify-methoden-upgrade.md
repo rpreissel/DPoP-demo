@@ -50,8 +50,8 @@ erbracht hat.
 `RE_IDENTIFY` ([`ReIdentifyStrategy.kt`](../../src/main/kotlin/com/example/dpop/orchestrator/journey/strategy/ReIdentifyStrategy.kt),
 Zustände in `ReIdentifyState.kt`) ist nie ein Entry-Intent, sondern wird ausschließlich über
 `Transition.RequireSubJourney` erreicht. Der `Identifying`-Zustand läuft heute nach einem
-erfolgreichen `Completed(Identified)` direkt in `Action.Identified` und danach unbedingt in
-`Transition.Authenticated`. Genau an dieser Stelle — nachdem `Action.Identified` bereits gelaufen
+erfolgreichen `Completed(Identified)` direkt in `Action.RecordIdentification` und danach unbedingt in
+`Transition.Authenticated`. Genau an dieser Stelle — nachdem `Action.RecordIdentification` bereits gelaufen
 ist, aber bevor `Transition.Authenticated` zurückgegeben wird — müsste ein neuer, dritter Zustand
 (`OfferMethodUpgrade`, ein `AnswerableState` wie das bereits bestehende `OfferReIdent`) eingefügt
 werden, der die betroffenen Methoden auflistet und fragt.
@@ -79,7 +79,7 @@ neuen Prüfung sollte trotzdem nicht `state.targetAcr` verwendet werden: das ist
 Manage-Trigger z. B. bewusst `loa1`, damit `ident-fsc` als Kandidat nicht herausgefiltert wird —
 und kann damit niedriger sein als das tatsächlich erreichte Niveau. Robuster ist `ctx.currentAcr`
 (`JourneyContext.currentAcr = policy.resolveAcr(evidence, account)`) an der Stelle, an der
-`Identifying`s `ActionCompleted` nach dem `Action.Identified`-Perform wieder eintrifft — zu diesem
+`Identifying`s `ActionCompleted` nach dem `Action.RecordIdentification`-Perform wieder eintrifft — zu diesem
 Zeitpunkt hat `recordToolCompletion` die neue `MethodEvidence` (mit `loa = achievedAcr`) bereits
 angewendet, und der Kontext für den Folgeaufruf wird frisch aufgebaut, sodass `ctx.currentAcr`
 exakt das erreichte Niveau widerspiegelt.
@@ -133,7 +133,7 @@ jeder Methode gedeckelt) von der sonst geltenden "nie rückwirkend"-Regel abgren
 
 1. Entscheidung einholen, ob die ADR-5-Ausnahme (Punkt 6.1) so gewollt ist.
 2. Neuer Zustand `ReIdentifyState.OfferMethodUpgrade` + Anpassung von `ReIdentifyStrategy`
-   (zentrale Prüfung nach `Action.Identified`).
+   (zentrale Prüfung nach `Action.RecordIdentification`).
 3. Neue `Action.UpgradeMethods` (`IntentStrategy.kt`) + Ausführung in `JourneyService` (Deckelung
    pro Methode auf deren `maxAcr`) + `AccountService.upgradeMethods(...)`.
 4. Neuer `ManageAuthMethodsState.IdentifyRequested` + Verdrahtung in `ManageAuthMethodsStrategy`

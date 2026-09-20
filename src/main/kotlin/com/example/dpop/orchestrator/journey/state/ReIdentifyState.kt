@@ -93,6 +93,7 @@ sealed interface ReIdentifyState : JourneyState {
         override val wording: Wording? = null
     ) : ReIdentifyState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = wording?.selectionTitle ?: "Erneute Identifikation erforderlich"
         override val selectionDescription: String get() = wording?.selectionDescription

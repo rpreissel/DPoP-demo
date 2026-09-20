@@ -69,7 +69,7 @@ class JourneyActionExecutor(
     fun perform(journey: AuthJourney, channel: ChannelSession, action: Action): Map<String, Any?>? {
         var demoNotice: Map<String, Any?>? = null
         when (action) {
-            is Action.Identified -> performIdentified(journey, channel, action)
+            is Action.RecordIdentification -> performRecordIdentification(journey, channel, action)
             is Action.AdoptAttestation -> performAdoptAttestation(journey, channel, action)
             is Action.AdoptCredential -> demoNotice = performAdoptCredential(journey, channel, action)
             is Action.AcceptProof -> performAcceptProof(journey, channel, action)
@@ -91,7 +91,7 @@ class JourneyActionExecutor(
     /**
      * Central identity resolution (docs/ideen/claims-modell-und-vertrauensanker.md,
      * "Identitaetsauflösung & Matching"): the account module owns the matching policy, this
-     * service only governs the consequences. THE single handler for [Action.Identified], covering
+     * service only governs the consequences. THE single handler for [Action.RecordIdentification], covering
      * both origins two separate action types used to split (formerly `AdoptIdentity`/
      * `ConfirmIdentity`, now collapsed into one): "nothing bound yet, adopt or create" and
      * "something already bound, may only extend/merge under [accountOf]'s rule" are not a
@@ -100,7 +100,7 @@ class JourneyActionExecutor(
      * no future combination of tools/order a strategy might run them in, can construct a variant
      * that skips the merge-safety check ([accountOf]) whenever an account is already in hand.
      */
-    private fun performIdentified(journey: AuthJourney, channel: ChannelSession, action: Action.Identified) {
+    private fun performRecordIdentification(journey: AuthJourney, channel: ChannelSession, action: Action.RecordIdentification) {
         assertClaimsCovered(action.tool, action.outcome.claims)
         val inHand = journey.accountId ?: channel.accountId
         // A MethodRole.CORRELATION step (ident-kvnr, ADR-18) proves nothing about the subject

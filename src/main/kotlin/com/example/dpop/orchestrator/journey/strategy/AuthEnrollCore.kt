@@ -33,7 +33,7 @@ internal object AuthEnrollCore {
     fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         // The account may be brand new or an existing one found again by KVNR; both are the
         // same decision here, which is why registration needs no state of its own.
-        is ToolOutcome.Completed.Identified -> Action.Identified(event.tool, outcome)
+        is ToolOutcome.Completed.Identified -> Action.RecordIdentification(event.tool, outcome)
         // A real credential now exists on this device, so recognizing the device costs
         // nothing and saves the next login: bind it.
         is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome)

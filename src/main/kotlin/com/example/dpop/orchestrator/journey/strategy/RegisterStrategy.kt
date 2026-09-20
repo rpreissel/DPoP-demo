@@ -1,6 +1,9 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
+import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -45,7 +48,8 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             }
 
             is RegisterState.Identifying -> when (event) {
-                is JourneyEvent.Abandoned -> giveUpOrReoffer(state, event)
+                // Abandoning the last identification offer is giving up on the journey, not an error.
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 // Deliberately never checks isSatisfied: identification evidence alone (amr=fsc)
                 // trivially clears most floors, which would let a run finish without a single
@@ -69,8 +73,8 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
 
             is RegisterState.ConfirmDeviceRebind -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
-                    DECLINE -> Transition.Cancel
+                    ANSWER_ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
+                    ANSWER_DECLINE -> Transition.Cancel
                     else -> error("ConfirmDeviceRebind does not understand answer '${event.answer}'")
                 }
                 is JourneyEvent.ActionCompleted -> afterIdentification(ctx)
@@ -82,12 +86,12 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                 // nicht": the run carries on and the account stays an Interessent (ADR-10). This
                 // is why the step needs no prompt in front of it - abandoning IS the "no".
                 is JourneyEvent.Abandoned -> continueAfterAssignment(ctx)
-                // Action.Identified - performIdentified reads the account already in hand from
+                // Action.RecordIdentification - performRecordIdentification reads the account already in hand from
                 // context at execution time (this state is only ever reached with one already
                 // bound, MethodRole.CORRELATION's own invariant), never a strategy-picked variant.
                 is JourneyEvent.Completed -> when (val outcome = event.outcome) {
                     is ToolOutcome.Completed.Identified ->
-                        Transition.Perform(Action.Identified(event.tool, outcome), resumeState = state)
+                        Transition.Perform(Action.RecordIdentification(event.tool, outcome), resumeState = state)
                     else -> error("${event.tool.toolId} is not offered by the assignment step")
                 }
                 // Back through afterIdentification, not straight on: the assignment may have
@@ -247,22 +251,8 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             .map { it.toolId }
             .filter { it in ctx.availableTools }
 
-    /** Abandoning the last fallback state is giving up on the journey, not an error. */
-    private fun giveUpOrReoffer(state: OfferingState, event: JourneyEvent.Abandoned): Transition {
-        val declined = state.declined + event.tool.toolId
-        val remaining = state.offered.toSet() - declined
-        return if (remaining.isEmpty()) {
-            Transition.Cancel
-        } else {
-            Transition.To(RegisterState.Identifying(state.offered, declined))
-        }
-    }
-
     private companion object {
         const val PASSWORD_METHOD = "password"
 
-        /** The two answers [RegisterState.ConfirmDeviceRebind] understands (see JourneyEvent.Answered). */
-        const val ACCEPT = "accept"
-        const val DECLINE = "decline"
     }
 }

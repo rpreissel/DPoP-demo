@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -86,9 +87,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
 
             is DeleteAccountState.ConfirmationRequired -> when (event) {
                 is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
-                    else Transition.To(state.copy(declined = declined, active = null))
+                    declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 }
                 // Any active factor, at any level, is sufficient (CandidateTools.forReconfirmation)
                 // - there is no further step once one was proven, straight to the delete (see

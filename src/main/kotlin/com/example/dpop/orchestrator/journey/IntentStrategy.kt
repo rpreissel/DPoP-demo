@@ -269,7 +269,7 @@ sealed interface Transition {
  * **Trust levels, made explicit on purpose:** [Identified] and [AdoptAttestation] are the only two
  * variants whose account resolution can ever land on an account OTHER than the one already bound
  * to this journey/channel - every strategy that constructs either one funnels through the exact
- * same gate in `JourneyActionExecutor` (`accountOf`, called from `performIdentified` and
+ * same gate in `JourneyActionExecutor` (`accountOf`, called from `performRecordIdentification` and
  * `performAdoptAttestation` alike), never a per-caller reimplementation. This used to be two
  * separate variants (`AdoptIdentity`/`ConfirmIdentity`, collapsed into [Identified]) that let a
  * strategy pick which safety rule applied by picking which Action to construct - exactly the kind
@@ -282,12 +282,12 @@ sealed interface Action {
     /**
      * A completed IDENTIFICATION ([MethodRole.category] `IDENT`, e.g. `ident-fsc`/`ident-eid`) or
      * CORRELATION (`ident-kvnr`) tool resolved (or extended) an identity. One handler
-     * (`performIdentified`) for both origins that used to be separate actions
+     * (`performRecordIdentification`) for both origins that used to be separate actions
      * (`AdoptIdentity`/`ConfirmIdentity`): whether an account is already known from context or not
      * is read from the journey/channel at execution time, never pre-decided by the caller - so no
      * strategy can construct "the version that skips the merge-safety check" by choosing wrong.
      */
-    data class Identified(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
+    data class RecordIdentification(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
 
     /**
      * An attribute the ACCOUNT owns was attested (e.g. a confirmed email address): record the

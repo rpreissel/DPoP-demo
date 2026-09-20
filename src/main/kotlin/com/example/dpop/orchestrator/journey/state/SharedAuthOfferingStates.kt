@@ -17,6 +17,7 @@ data class AuthChoice(
     override val active: ToolRef? = null
 ) : FastAccessState, RegisterState, OfferingState {
     override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
     override val selectionContext: String get() = "auth"
     override val selectionTitle: String get() = "Anmeldung – Verfahren wählen"
     override val selectionDescription: String get() = "Für Ihr Konto sind mehrere Anmeldeverfahren hinterlegt. Wählen Sie aus, wie Sie sich anmelden möchten."
@@ -41,6 +42,7 @@ data class Enrolling(
     val emailObligation: Boolean = false
 ) : FastAccessState, RegisterState, OfferingState {
     override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
     override val selectionContext: String get() = "enrollment"
     override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
     override val selectionDescription: String get() = "Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein."

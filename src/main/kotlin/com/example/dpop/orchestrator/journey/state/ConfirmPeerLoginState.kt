@@ -63,6 +63,7 @@ sealed interface ConfirmPeerLoginState : JourneyState {
         override val active: ToolRef? = null
     ) : ConfirmPeerLoginState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Web-Login bestätigen – Identität erneut bestätigen"
         override val selectionDescription: String?
@@ -82,6 +83,7 @@ sealed interface ConfirmPeerLoginState : JourneyState {
     ) : ConfirmPeerLoginState, OfferingState {
         override val offered: List<ToolId> get() = listOf(ToolId("confirm-qr-login"))
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Web-Login bestätigen"
         override val selectionDescription: String

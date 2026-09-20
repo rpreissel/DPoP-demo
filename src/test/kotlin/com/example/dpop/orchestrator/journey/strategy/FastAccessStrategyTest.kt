@@ -59,7 +59,7 @@ class FastAccessStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)
         }
 
         then("Enrolled binds the device - a fresh credential on this device is worth remembering") {

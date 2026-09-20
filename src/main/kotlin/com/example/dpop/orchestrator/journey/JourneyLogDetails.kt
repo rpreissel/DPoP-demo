@@ -134,7 +134,7 @@ class JourneyLogDetails(
      * [JourneyService.advance].
      */
     fun actionDetail(action: Action, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (action) {
-        is Action.Identified, is Action.AdoptAttestation -> emptyMap()
+        is Action.RecordIdentification, is Action.AdoptAttestation -> emptyMap()
         is Action.AdoptCredential -> emptyMap()
         is Action.AcceptProof -> emptyMap()
         is Action.RecordApproval -> emptyMap()

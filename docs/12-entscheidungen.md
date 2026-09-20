@@ -298,7 +298,7 @@ Demo-only: Der Private Key liegt unverschlüsselt in der Datenbank.
 ([AuthIntent.kt](../src/main/kotlin/com/example/dpop/orchestrator/journey/AuthIntent.kt)) ein Ziel
 samt Strategie, nie eine Beschreibung dessen, was ein Lauf geworden ist. Der
 Journey-Verlauf ist für beide Ausgänge strukturell identisch, nur die Konto-Auflösung
-selbst unterscheidet sich. Der heutige `Action.Identified`-Handler behandelt den Fall `personId == null`
+selbst unterscheidet sich. Der heutige `Action.RecordIdentification`-Handler behandelt den Fall `personId == null`
 bereits als Verzweigung innerhalb der bestehenden Journey (REGISTER "Enrollment zuerst",
 [Orchestrierung](04-orchestrierung.md) Abschnitt 2). Ein eigener Intent verdoppelte
 zudem jede künftige Politik-Gabel (`STEP_UP`, `RE_IDENTIFY` auf Interessenten-Konten).

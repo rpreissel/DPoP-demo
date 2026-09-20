@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -48,13 +49,8 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
 
             is StepUpState.AuthChoice -> when (event) {
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
-                is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) {
-                        offerReIdentOrGiveUp(state.targetAcr, state.startingAcr, state.allowReIdentification, ctx, whenNone = Transition.Cancel)
-                    } else {
-                        Transition.To(state.copy(declined = declined, active = null))
-                    }
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) {
+                    offerReIdentOrGiveUp(state.targetAcr, state.startingAcr, state.allowReIdentification, ctx, whenNone = Transition.Cancel)
                 }
                 // ActionCompleted: re-check with the fresh, post-proof context.
                 else -> finishOrContinue(state.targetAcr, state.startingAcr, state.allowReIdentification, state.reason, ctx)

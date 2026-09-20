@@ -90,6 +90,21 @@ sealed interface OfferingState : JourneyState {
      * exactly why every caller of [exhausted] falls back through the same chain as a decline would.
      */
     fun exhausted(availableTools: Set<ToolId>): Boolean = activatable(availableTools).isEmpty()
+
+    /**
+     * This state with [toolId] added to [declined] and no tool running - the one narrowing step a
+     * decline performs. Declared per state for the same reason [withActive] is: a `data class`
+     * cannot inherit `copy`, and making every state say it explicitly is what lets the decline
+     * itself live in ONE place ([com.example.dpop.orchestrator.journey.declineTool]).
+     *
+     * That matters beyond tidiness: "is anything left after this decline?" used to be answered by
+     * each strategy on its own, and had already drifted into two different answers - six call
+     * sites asked `(offered - declined).isEmpty()`, which ignores availability, while three asked
+     * [exhausted]. The first kind cannot see a last remaining offer that an admin switch has made
+     * unavailable, so it narrows into a state that renders an empty selection and sends the user
+     * straight back to it instead of down the fallback chain.
+     */
+    fun declining(toolId: ToolId): OfferingState
 }
 
 /**

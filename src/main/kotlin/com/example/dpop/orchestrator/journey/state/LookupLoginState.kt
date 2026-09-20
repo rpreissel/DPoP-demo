@@ -35,6 +35,7 @@ sealed interface LookupLoginState : JourneyState {
         override val active: ToolRef? = null
     ) : LookupLoginState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Anmeldung – Konto bestätigen"
         override val selectionDescription: String get() = "Geben Sie Ihre Zugangsdaten ein, um sich mit Ihrem bestehenden Konto anzumelden."
@@ -56,6 +57,7 @@ sealed interface LookupLoginState : JourneyState {
         override val active: ToolRef? = null
     ) : LookupLoginState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Zusätzlicher Faktor erforderlich"
         override val selectionDescription: String get() = "Ihre bisherige Anmeldung reicht für das geforderte Sicherheitsniveau nicht aus. Bitte bestätigen Sie einen weiteren Faktor."

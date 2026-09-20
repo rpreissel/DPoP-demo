@@ -1,6 +1,9 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
+import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -74,9 +77,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
 
             is ConfirmPeerLoginState.ConfirmationRequired -> when (event) {
                 is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
-                    else Transition.To(state.copy(declined = declined, active = null))
+                    declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 }
                 // Any active factor, at any level, is sufficient (CandidateTools.forReconfirmation)
                 // - the re-proof itself is never recorded as MethodEvidence (class doc), it just
@@ -105,8 +106,8 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
 
             is ConfirmPeerLoginState.OfferLogout -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Logout
-                    DECLINE -> Transition.Authenticated
+                    ANSWER_ACCEPT -> Transition.Logout
+                    ANSWER_DECLINE -> Transition.Authenticated
                     else -> error("OfferLogout does not understand answer '${event.answer}'")
                 }
                 else -> error("OfferLogout only accepts JourneyEvent.Answered")
@@ -157,9 +158,6 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
     companion object {
         val REQUIRED_ACR = AcrLevel.LOA2
 
-        /** The two answers [ConfirmPeerLoginState.OfferLogout] understands (see JourneyEvent.Answered). */
-        const val ACCEPT = "accept"
-        const val DECLINE = "decline"
 
         /**
          * [StepUpState.forSubJourney]'s `reason` for the gate's own STEP_UP - a named constant so

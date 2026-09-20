@@ -33,6 +33,7 @@ sealed interface KcSelectMethodState : JourneyState {
         override val active: ToolRef? = null
     ) : KcSelectMethodState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Anmeldeverfahren wählen"
         override val logDetail: Map<String, Any?> get() = mapOf("accountAlreadyKnown" to accountAlreadyKnown)

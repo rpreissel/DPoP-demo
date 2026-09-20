@@ -100,6 +100,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Adresse bestätigen"
         override val selectionDescription: String get() = "Zuerst wird Ihre E-Mail-Adresse bestätigt - Ihr Konto wird darüber gefunden. SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss."
@@ -112,6 +113,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "SMS als Anmeldeverfahren einrichten"
         override val selectionDescription: String get() = "Danach wird SMS als zweites Anmeldeverfahren eingerichtet - die Identifikation ist optional und kommt erst zum Schluss."
@@ -129,6 +131,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
         override val selectionDescription: String get() = "Richten Sie ein Anmeldeverfahren ein - die Identifikation ist optional und folgt erst danach."
@@ -140,6 +143,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
         override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
@@ -152,6 +156,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override val active: ToolRef? = null
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Passwort einrichten"
         override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."

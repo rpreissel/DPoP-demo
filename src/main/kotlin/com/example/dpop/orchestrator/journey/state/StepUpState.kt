@@ -81,6 +81,7 @@ sealed interface StepUpState : JourneyState {
         val additionalFactorRound: Boolean = false
     ) : StepUpState, OfferingState {
         override fun withActive(active: ToolRef?) = copy(active = active)
+        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Erhöhte Sicherheit erforderlich"
         override val selectionDescription: String get() {

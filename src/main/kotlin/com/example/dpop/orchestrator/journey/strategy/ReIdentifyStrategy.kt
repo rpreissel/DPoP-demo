@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Component
  * LOOKUP_LOGIN/STEP_UP (docs/04-orchestrierung.md #3, #6) - never an entry intent, only ever
  * reached via [Transition.RequireSubJourney] once no active method can close the caller's own gap.
  * One implementation instead of three near-identical ones. What a fresh identification is allowed
- * to mean is NOT decided here though: [Action.Identified]'s single handler re-reads the account
+ * to mean is NOT decided here though: [Action.RecordIdentification]'s single handler re-reads the account
  * this journey already holds and gates any move to a different one through its own `accountOf`
  * rule - so a session that merely proved a lower level cannot smuggle in someone else's identity,
  * no matter which strategy asked for the sub-journey.
@@ -44,11 +45,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
             }
 
             is ReIdentifyState.Identifying -> when (event) {
-                is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
-                    else Transition.To(state.copy(declined = declined, active = null))
-                }
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 // Identity confirmed - this identification's own maxAcr already IS the achieved level.
                 else -> Transition.Authenticated
@@ -56,7 +53,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
         }
 
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
-        is ToolOutcome.Completed.Identified -> Action.Identified(event.tool, outcome)
+        is ToolOutcome.Completed.Identified -> Action.RecordIdentification(event.tool, outcome)
         is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by RE_IDENTIFY")
     }

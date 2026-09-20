@@ -1,6 +1,9 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
+import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
 import com.example.dpop.orchestrator.journey.Action
+import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
@@ -56,11 +59,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             // disagrees with one already held - so this state cannot widen it by accident.
             is LookupLoginState.Credential -> when (event) {
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
-                is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
-                    else Transition.To(state.copy(declined = declined, active = null))
-                }
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 else -> settleOrRaise(ctx)
             }
 
@@ -68,22 +67,18 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             // like every other intent - enforced in the executor, not by this state.
             is LookupLoginState.AdditionalFactor -> when (event) {
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
-                is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    // Giving up here cannot mean "finish anyway": the floor is still unmet, and
-                    // finishing would put the channel in AUTHENTICATED below its own level.
-                    if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
-                    else Transition.To(state.copy(declined = declined, active = null))
-                }
+                // Giving up here cannot mean "finish anyway": the floor is still unmet, and
+                // finishing would put the channel in AUTHENTICATED below its own level.
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 else -> settleOrRaise(ctx)
             }
 
             // The client answers this via JourneyService.answer; the journey ends here either way,
-            // but only ACCEPT asks the machine to actually link the device.
+            // but only ANSWER_ACCEPT asks the machine to actually link the device.
             is LookupLoginState.OfferBinding -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
-                    DECLINE -> Transition.Authenticated
+                    ANSWER_ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
+                    ANSWER_DECLINE -> Transition.Authenticated
                     else -> error("OfferBinding does not understand answer '${event.answer}'")
                 }
                 is JourneyEvent.ActionCompleted -> Transition.Authenticated
@@ -92,8 +87,8 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
 
             is LookupLoginState.ConfirmDeviceRebind -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
-                    DECLINE -> Transition.Authenticated
+                    ANSWER_ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
+                    ANSWER_DECLINE -> Transition.Authenticated
                     else -> error("ConfirmDeviceRebind does not understand answer '${event.answer}'")
                 }
                 is JourneyEvent.ActionCompleted -> Transition.Authenticated
@@ -124,7 +119,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
      * EXISTING account in from an unpaired device, so an account that cannot reach the floor with
      * what it already has must not grow new credentials on an unproven device. Re-identification
      * stays available: it adds no lasting credential, only re-confirms the same account at a
-     * higher trust level (`RE_IDENTIFY`'s `Action.Identified`, whose handler gates any move to a
+     * higher trust level (`RE_IDENTIFY`'s `Action.RecordIdentification`, whose handler gates any move to a
      * different account through `accountOf`).
      */
     private fun settleOrRaise(ctx: JourneyContext): Transition {
@@ -152,8 +147,5 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
     }
 
     companion object {
-        /** The two answers [LookupLoginState.OfferBinding] understands (see JourneyEvent.Answered). */
-        const val ACCEPT = "accept"
-        const val DECLINE = "decline"
     }
 }

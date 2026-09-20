@@ -662,7 +662,7 @@ Kanal war nicht authentifiziert (`FAST_ACCESS`/`LOOKUP_LOGIN`) → `ANONYMOUS`; 
 heißt `AUTHENTICATED` (`STEP_UP`) → das bleibt er auch, eine abgelehnte Re-Identifizierung meldet
 keine laufende Session ab.
 
-`transition()` liefert für ein erfolgreiches `Identified` immer dieselbe `Action.Identified`; weil hier stets ein Konto gebunden ist, wirkt sie als Bestätigung, nie als
+`transition()` liefert für ein erfolgreiches `Identified` immer dieselbe `Action.RecordIdentification`; weil hier stets ein Konto gebunden ist, wirkt sie als Bestätigung, nie als
 Übernahme: Die identifizierte Person muss zum bereits bekannten Account passen (`409` bei
 Abweichung), unabhängig davon, welcher Intent die SubJourney angefordert hat.
 
@@ -917,7 +917,7 @@ Die `Action`-Varianten:
 
 | Action | Bedeutung |
 |---|---|
-| `Identified(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal — die Strategie wählt das nicht mehr über die Action-Variante |
+| `RecordIdentification(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal — die Strategie wählt das nicht mehr über die Action-Variante |
 | `AdoptCredential(tool, outcome)` | eine neue Methode wurde eingerichtet |
 | `AcceptProof(tool, outcome)` | ein Nachweis wurde erbracht. Ob das Tool den Account selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` plus der Live-Bindung ab; ein genannter Account, der einem bereits gebundenen widerspricht, ist `409` |
 | `AdoptAttestation(tool, outcome)` | ein Konto-eigenes Attribut wurde bezeugt (z. B. bestätigte E-Mail) — darf allein nie auf ein *anderes* Konto wechseln, dafür braucht es eine echte Identifizierung in derselben Sitzung |

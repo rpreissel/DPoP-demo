@@ -1,6 +1,8 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.account.AccountProfile
+import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
+import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
@@ -88,10 +90,10 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
 
             is RegisterEnrollFirstState.EnrollFirstConfirmDeviceRebind -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
+                    ANSWER_ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
                     // Declining costs the registration nothing: the account stays fully usable
                     // through the lookup tools, it just will not be recognized on this device.
-                    DECLINE -> Transition.Authenticated
+                    ANSWER_DECLINE -> Transition.Authenticated
                     else -> error("EnrollFirstConfirmDeviceRebind does not understand answer '${event.answer}'")
                 }
                 is JourneyEvent.ActionCompleted -> Transition.Authenticated
@@ -253,8 +255,6 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
     private fun reoffer(state: JourneyState): Transition = Transition.To(state.withActive(null))
 
     private companion object {
-        const val ACCEPT = "accept"
-        const val DECLINE = "decline"
         const val PASSWORD_METHOD = "password"
         const val EMAIL_METHOD = "email"
         const val SMS_METHOD = "sms"
