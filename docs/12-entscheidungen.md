@@ -298,7 +298,7 @@ Demo-only: Der Private Key liegt unverschlüsselt in der Datenbank.
 ([AuthIntent.kt](../src/main/kotlin/com/example/dpop/orchestrator/journey/AuthIntent.kt)) ein Ziel
 samt Strategie, nie eine Beschreibung dessen, was ein Lauf geworden ist. Der
 Journey-Verlauf ist für beide Ausgänge strukturell identisch, nur die Konto-Auflösung
-selbst unterscheidet sich. Das heutige `ConfirmIdentity` behandelt den Fall `personId == null`
+selbst unterscheidet sich. Der heutige `Action.Identified`-Handler behandelt den Fall `personId == null`
 bereits als Verzweigung innerhalb der bestehenden Journey (REGISTER "Enrollment zuerst",
 [Orchestrierung](04-orchestrierung.md) Abschnitt 2). Ein eigener Intent verdoppelte
 zudem jede künftige Politik-Gabel (`STEP_UP`, `RE_IDENTIFY` auf Interessenten-Konten).
@@ -674,7 +674,7 @@ auf welcher Seite es steht, ist egal:
 
 - Ist das Konto **der Journey** vorläufig, wechselt die Journey zum gefundenen Konto und nimmt die
   Bezeugung mit. Das ist der ident-first-Fall: `ident-eid` bezeugt, findet niemanden,
-  `performAdoptIdentity` legt dafür ein Konto an — und der `ident-kvnr`-Schritt danach findet das
+  `performIdentified` legt dafür ein Konto an — und der `ident-kvnr`-Schritt danach findet das
   echte Konto.
 - Ist das **gefundene** Konto vorläufig, bleibt die Journey, wo sie ist, und übernimmt dessen
   Daten. Das ist der Fall bei „Enrollment zuerst": Die Journey arbeitet mit dem echten Konto, in

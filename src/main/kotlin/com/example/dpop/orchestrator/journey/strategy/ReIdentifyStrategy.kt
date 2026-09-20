@@ -17,10 +17,11 @@ import org.springframework.stereotype.Component
  * "No active method reaches the target - re-identify instead?" Shared by FAST_ACCESS/
  * LOOKUP_LOGIN/STEP_UP (docs/04-orchestrierung.md #3, #6) - never an entry intent, only ever
  * reached via [Transition.RequireSubJourney] once no active method can close the caller's own gap.
- * One implementation instead of three near-identical ones means exactly one place decides what a
- * fresh identification is allowed to mean here: it always CONFIRMS the account the caller already
- * resolved (`ConfirmIdentity`), never adopts a different one - a session that merely proved a
- * lower level must not be able to smuggle in someone else's identity.
+ * One implementation instead of three near-identical ones. What a fresh identification is allowed
+ * to mean is NOT decided here though: [Action.Identified]'s single handler re-reads the account
+ * this journey already holds and gates any move to a different one through its own `accountOf`
+ * rule - so a session that merely proved a lower level cannot smuggle in someone else's identity,
+ * no matter which strategy asked for the sub-journey.
  */
 @Component
 class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
@@ -55,7 +56,7 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
         }
 
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
-        is ToolOutcome.Completed.Identified -> Action.ConfirmIdentity(event.tool, outcome)
+        is ToolOutcome.Completed.Identified -> Action.Identified(event.tool, outcome)
         is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by RE_IDENTIFY")
     }

@@ -398,8 +398,10 @@ stateDiagram-v2
 `Identifying` ist gleichzeitig Login-Notausgang (für `FAST_ACCESS`, per Sub-Journey) und
 Registrierungseinstieg. Eine `REGISTRATION`/`LOGIN`-Trennung gibt es nicht: Welches von beidem es
 war, entscheidet erst die Claim-basierte Account-Auflösung danach; eine leere Kandidatenliste darf
-hier nicht abbrechen. `Identified` heißt in `REGISTER` immer „finde oder übernimm den Account"
-(`AdoptIdentity`), in `RE_IDENTIFY` dagegen `ConfirmIdentity`.
+hier nicht abbrechen. Ein `Identified`-Ergebnis heißt hier „finde oder übernimm den Account" — aber
+das ist keine Eigenschaft von `REGISTER`: Es folgt daraus, dass an dieser Stelle noch kein Konto
+gebunden ist. Ist eines gebunden (`RE_IDENTIFY`, oder `Identifying` nach `AuthChoice`), gilt
+dieselbe Action mit derselben Prüfung, nur mit anderem Ausgang.
 
 Bei `Resolution.Unresolved` schreibt der Lauf auf das Konto, das er schon hat, solange dieses noch
 keine PersonId trägt; sonst entsteht ein neues Konto ohne Personenbindung. Ein bereits
@@ -410,7 +412,7 @@ Journey-Zustand teilen dieselbe Transaktion; ein Konflikt rollt auch den neuen A
 Bekannte Konten werden ausschließlich über Anker aufgelöst ([12-entscheidungen.md](12-entscheidungen.md)
 ADR-19) — für eid-Bezeugungen ist das die kartengebundene `restricted_id`, ohne Anker-Treffer
 bleibt es beim neuen Interessenten.
-Bei `ConfirmIdentity` erzwingt die Account-Schicht Erstbindung, Unveränderlichkeit der PersonId und
+Bei einem `Identified` auf ein bereits gebundenes Konto erzwingt die Account-Schicht Erstbindung, Unveränderlichkeit der PersonId und
 Ankerbesitz. Findet der Schritt ein **anderes** Konto als das, mit dem die Journey arbeitet, geht
 das vorläufige der beiden im anderen auf ([12-entscheidungen.md](12-entscheidungen.md) ADR-20) —
 gemeint ist das Konto ohne PersonId, auf dem nie ein Zugangsmittel eingerichtet wurde. Ist es das
@@ -648,8 +650,8 @@ Kanal war nicht authentifiziert (`FAST_ACCESS`/`LOOKUP_LOGIN`) → `ANONYMOUS`; 
 heißt `AUTHENTICATED` (`STEP_UP`) → das bleibt er auch, eine abgelehnte Re-Identifizierung meldet
 keine laufende Session ab.
 
-`transition()` liefert für ein erfolgreiches `Identified` immer `ConfirmIdentity`, nie
-`AdoptIdentity`: Die identifizierte Person muss zum bereits bekannten Account passen (`409` bei
+`transition()` liefert für ein erfolgreiches `Identified` immer dieselbe `Action.Identified`; weil hier stets ein Konto gebunden ist, wirkt sie als Bestätigung, nie als
+Übernahme: Die identifizierte Person muss zum bereits bekannten Account passen (`409` bei
 Abweichung), unabhängig davon, welcher Intent die SubJourney angefordert hat.
 
 ### `MANAGE_AUTH_METHODS`
@@ -903,14 +905,28 @@ Die `Action`-Varianten:
 
 | Action | Bedeutung |
 |---|---|
-| `AdoptIdentity(tool, outcome)` | `FAST_ACCESS`/`REGISTER`: Account finden oder anlegen, dauerhafte Identifikations-Historie |
-| `ConfirmIdentity(tool, outcome)` | `STEP_UP`/`MANAGE_AUTH_METHODS`/`RE_IDENTIFY`: muss zum bereits bekannten Account passen, sonst `409` |
+| `Identified(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal — die Strategie wählt das nicht mehr über die Action-Variante |
 | `AdoptCredential(tool, outcome, bindDevice)` | eine neue Methode wurde eingerichtet |
-| `AcceptProof(tool, outcome, useOutcomeAccount, bindDevice)` | ein Nachweis wurde erbracht; `useOutcomeAccount` nur für `LOOKUP_LOGIN`/`KC_SELECT_METHOD` bei noch unbekanntem Account |
+| `AcceptProof(tool, outcome, bindDevice)` | ein Nachweis wurde erbracht. Ob das Tool den Account selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` plus der Live-Bindung ab; ein genannter Account, der einem bereits gebundenen widerspricht, ist `409` |
+| `AdoptAttestation(tool, outcome)` | ein Konto-eigenes Attribut wurde bezeugt (z. B. bestätigte E-Mail) — darf allein nie auf ein *anderes* Konto wechseln, dafür braucht es eine echte Identifizierung in derselben Sitzung |
 | `ApplyRestoredEvidence(source, methods)` | siehe „RestoreData als Anfangs-Übergang" unten |
 | `Remove(methodInstanceId)` | eine Methode deaktivieren — Selbstsperrung weist die Maschine ab, nicht die Strategie |
 | `LinkDevice(accountId)` | das aktuelle Gerät verknüpfen |
 | `DeleteAccount(accountId)` | Konto unwiderruflich löschen — `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung gegen die aktuelle Evidence nach |
+
+**Sicherheitsprüfungen gehören nie in die Strategie.** Drei Kontoübernahme-Lücken sind genau so
+entstanden, dass die *Prüfung* pro Action-Handler lag, während die *Wahl* des Handlers (bzw. eines
+Flags darauf) der Strategie gehörte. Konsequenz, heute strukturell:
+
+- Identitätsauflösung (`IdentityResolver`), Konto-Absorption (`absorbProvisionalAccount`) und
+  Geräte-Bindung (`linkDeviceToAccount`) sind aus **genau einer** Klasse erreichbar
+  (`JourneyActionExecutor`) — per ArchUnit-Regel erzwungen, nicht per Review.
+- Jede Bindung an ein *anderes* Konto als das bereits gehaltene läuft durch dieselbe Funktion
+  (`accountOf`), unabhängig davon, welche Strategie sie ausgelöst hat.
+- Geräte-Bindung hat **eine** Implementierung (`linkDeviceTo`), die immer auch die
+  Geräte-Credentials des vorher verknüpften Kontos widerruft. Vorher gab es zwei Varianten, und
+  welche lief, hing an der Action — `RegisterEnrollFirstStrategy` hat mangels
+  `ConfirmDeviceRebind`-Zustand die nicht-widerrufende erwischt.
 
 Die ersten vier `Action`-Varianten tragen `tool`/`outcome` selbst. Enthalten ist nur, was sich je
 Intent **unterscheidet**; alles Mechanische — `personId`, `enrollmentRef`, `amr`, `achievedAcr` —

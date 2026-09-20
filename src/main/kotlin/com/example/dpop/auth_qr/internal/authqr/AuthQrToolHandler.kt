@@ -61,7 +61,7 @@ class AuthQrToolHandler(
                 )
             request.status == QrLoginStatus.APPROVED ->
                 // A different account confirmed than the one this WEB session already knows -
-                // never silently take over (same reasoning as ConfirmIdentity's account check).
+                // never silently take over (same reasoning as Action.Identified's account check).
                 ToolOutcome.Failed("Bestätigung passt nicht zu diesem Konto")
             request.status == QrLoginStatus.DENIED -> ToolOutcome.Failed("Vom Nutzer abgelehnt")
             else -> ToolOutcome.Failed("QR-Code abgelaufen")

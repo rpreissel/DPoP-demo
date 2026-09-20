@@ -52,7 +52,7 @@ class StepUpStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, useOutcomeAccount = false, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
         }
 
         then("Identified is not offered by this intent") {
@@ -218,7 +218,7 @@ class StepUpStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("password"))
             val event = JourneyEvent.Completed(AuthPasswordUseDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthPasswordUseDescriptor, outcome, useOutcomeAccount = false, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthPasswordUseDescriptor, outcome, bindDevice = true), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
         }
     }

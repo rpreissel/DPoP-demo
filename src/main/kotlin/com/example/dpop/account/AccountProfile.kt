@@ -46,8 +46,8 @@ data class AccountProfile(
      * No person binding yet (ADR-10) - the account may still ADOPT a freshly attested identity,
      * because there is no second identity on it that a new attestation could silently mix with.
      * An identified account may not: binding someone else's eID claims onto it would merge two
-     * people, which is why `JourneyActionExecutor.performAdoptIdentity` refuses it outright
-     * rather than quietly opening a second account.
+     * people, which is why `JourneyActionExecutor.performIdentified` refuses it outright rather
+     * than quietly opening a second account.
      */
     val isUnidentified: Boolean
         get() = personId == null

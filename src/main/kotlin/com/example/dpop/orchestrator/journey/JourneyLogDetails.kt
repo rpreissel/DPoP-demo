@@ -121,17 +121,18 @@ class JourneyLogDetails(
     }
 
     /**
-     * What an [Action] carries worth keeping in the log - the four tool-outcome actions'
-     * `useOutcomeAccount`/`bindDevice` (fachlich verschiedene Fälle wie "Account neu aufgelöst"
-     * vs. "nur bestätigt" sind sonst trotz identischem `toolId`/`outcome` ununterscheidbar), and
-     * for [Action.Remove] which method/account it actually names - the class name alone
-     * ("Remove") doesn't say which one. Shared between the "Entry" seedAction log line and every
-     * [Transition.Perform] logged in [JourneyService.advance].
+     * What an [Action] carries worth keeping in the log - the tool-outcome actions' `bindDevice`,
+     * and for [Action.Remove] which method/account it actually names (the class name alone,
+     * "Remove", doesn't say which one). Whether a run adopted a fresh account or merely confirmed
+     * one it already held is deliberately NOT logged from the action any more: that is no longer
+     * decided when the action is built (see [Action.Identified]), so the journey's own
+     * account binding is the honest record of it. Shared between the "Entry" seedAction log line
+     * and every [Transition.Perform] logged in [JourneyService.advance].
      */
     fun actionDetail(action: Action, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (action) {
-        is Action.AdoptIdentity, is Action.ConfirmIdentity, is Action.AdoptAttestation -> emptyMap()
+        is Action.Identified, is Action.AdoptAttestation -> emptyMap()
         is Action.AdoptCredential -> mapOf("bindDevice" to action.bindDevice)
-        is Action.AcceptProof -> mapOf("useOutcomeAccount" to action.useOutcomeAccount, "bindDevice" to action.bindDevice)
+        is Action.AcceptProof -> mapOf("bindDevice" to action.bindDevice)
         is Action.RecordApproval -> emptyMap()
         is Action.ApplyRestoredEvidence -> mapOf("source" to action.source, "methods" to methodEvidenceDetail(action.methods))
         is Action.Remove -> {

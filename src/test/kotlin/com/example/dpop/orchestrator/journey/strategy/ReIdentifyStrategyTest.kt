@@ -51,7 +51,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.ConfirmIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
         }
 
         then("Authenticated is not offered by this intent") {
@@ -144,7 +144,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
                 val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
                 val completed = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, completed, theCtx) shouldBe
-                    Transition.Perform(Action.ConfirmIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                    Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
             }
         }

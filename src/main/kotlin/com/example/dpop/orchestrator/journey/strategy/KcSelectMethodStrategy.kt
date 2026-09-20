@@ -63,15 +63,16 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
     /**
      * A lookup-login tool resolves its own account on the FIRST proof only (no account known
      * yet); once the channel already has one (step-up), a proof must confirm THAT account, never
-     * name a different one - same rule as [LookupLoginStrategy]. Neither identification nor
-     * enrollment is ever offered here (see [candidatesFor]) - reaching either would mean the state
-     * machine let through a tool it never offered.
+     * name a different one. That rule is no longer restated here (it used to be
+     * `useOutcomeAccount = !state.accountAlreadyKnown`, a snapshot taken when this state was
+     * built): `performAcceptProof` derives it from the tool's role and the live binding, so it
+     * holds for every intent alike and cannot go stale. Neither identification nor enrollment is
+     * ever offered here (see [candidatesFor]) - reaching either would mean the state machine let
+     * through a tool it never offered.
      */
     private fun proofAction(state: KcSelectMethodState.SelectMethod, event: JourneyEvent.Completed): Action =
         when (val outcome = event.outcome) {
-            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(
-                event.tool, outcome, useOutcomeAccount = !state.accountAlreadyKnown, bindDevice = false
-            )
+            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, bindDevice = false)
             is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
                 error("${event.tool.toolId} is not offered by KC_SELECT_METHOD")
         }

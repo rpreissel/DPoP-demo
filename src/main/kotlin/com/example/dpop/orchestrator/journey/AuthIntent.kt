@@ -58,9 +58,9 @@ enum class AuthIntent {
      * "No active method reaches the target - re-identify instead?" Never an entry intent, only
      * ever reached as another intent's [Transition.RequireSubJourney] once no active method can
      * close its own ACR gap (FAST_ACCESS/LOOKUP_LOGIN/STEP_UP alike) - one shared implementation
-     * instead of three near-identical ones, so there is exactly one place that decides what a
-     * fresh identification is allowed to mean here (always `ConfirmIdentity`, never `AdoptIdentity`
-     * - see [ReIdentifyStrategy]).
+     * instead of three near-identical ones. What a fresh identification may mean here is not this
+     * intent's decision at all: `Action.Identified`'s single handler always re-reads the account
+     * in hand and gates any move to another one through `accountOf` (see [ReIdentifyStrategy]).
      */
     RE_IDENTIFY;
 

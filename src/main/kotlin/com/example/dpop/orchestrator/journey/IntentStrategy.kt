@@ -243,23 +243,45 @@ sealed interface Transition {
 /**
  * A named side effect a strategy decided, for [JourneyService] to actually execute - the strategy
  * never acts itself (see [IntentStrategy]'s own class doc). Two origins share this one
- * vocabulary: the first four variants answer "what did a just-completed tool establish" (carried
+ * vocabulary: the first three variants answer "what did a just-completed tool establish" (carried
  * by a [Transition.Perform] returned in reaction to [JourneyEvent.Completed], with the very
  * [ToolDescriptor]/[ToolOutcome] that arrived with it); the rest are a strategy's own actions,
  * likewise wrapped in [Transition.Perform].
+ *
+ * **Trust levels, made explicit on purpose:** [Identified] and [AdoptAttestation] are the only two
+ * variants whose account resolution can ever land on an account OTHER than the one already bound
+ * to this journey/channel - every strategy that constructs either one funnels through the exact
+ * same gate in `JourneyActionExecutor` (`accountOf`, called from `performIdentified` and
+ * `performAdoptAttestation` alike), never a per-caller reimplementation. This used to be two
+ * separate variants (`AdoptIdentity`/`ConfirmIdentity`, collapsed into [Identified]) that let a
+ * strategy pick which safety rule applied by picking which Action to construct - exactly the kind
+ * of strategy-dependent gap that must not exist: which account a resolution may land on is a
+ * property of the EVIDENCE (tool category, `EvidenceAxis`), never of which code path happened to
+ * call it. Every other variant below only ever acts on the account already known from context -
+ * structurally incapable of crossing to a different one, not merely by convention.
  */
 sealed interface Action {
-    /** Find or create the account for the identified person and record the identification. */
-    data class AdoptIdentity(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
-
-    /** The identified person must match the already-known account, else 409. */
-    data class ConfirmIdentity(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
+    /**
+     * A completed IDENTIFICATION ([MethodRole.category] `IDENT`, e.g. `ident-fsc`/`ident-eid`) or
+     * CORRELATION (`ident-kvnr`) tool resolved (or extended) an identity. One handler
+     * (`performIdentified`) for both origins that used to be separate actions
+     * (`AdoptIdentity`/`ConfirmIdentity`): whether an account is already known from context or not
+     * is read from the journey/channel at execution time, never pre-decided by the caller - so no
+     * strategy can construct "the version that skips the merge-safety check" by choosing wrong.
+     */
+    data class Identified(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Identified) : Action
 
     /**
      * An attribute the ACCOUNT owns was attested (e.g. a confirmed email address): record the
      * claims, materialize the anchor - but create no method instance and bind no device. The
      * counterpart to [AdoptCredential] for a value that is account infrastructure rather than a
      * credential (docs/12-entscheidungen.md, `AttributeRule.authority`).
+     *
+     * Deliberately weaker than [Identified]: an attestation alone can extend the account already
+     * in hand, but may only land on a DIFFERENT existing account when this session has already
+     * proven a real [Identified] evidence this same journey (`EvidenceAxis.IDENTITY` - checked
+     * inside `performAdoptAttestation`, not left to the caller). Possession of a mailbox is never,
+     * by itself, proof of who owns the account that mailbox is already confirmed on.
      */
     data class AdoptAttestation(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Attested) : Action
 
@@ -273,14 +295,22 @@ sealed interface Action {
     ) : Action
 
     /**
-     * [useOutcomeAccount] is what makes lookup-based login safe: only an intent that expects a
-     * tool to resolve the account itself accepts `outcome.accountId`. Everywhere else the account
-     * must already be known from channel or journey.
+     * A credential was proven. Whether the tool is allowed to NAME the account it proved (a
+     * lookup login, where nothing else could know it yet) is deliberately NOT a field here: it is
+     * derived in `performAcceptProof` from [MethodRole.LOOKUP_AUTH] - the one role whose whole
+     * contract is "resolves the account itself from a submitted identifier" - plus the live
+     * journey/channel binding, and a named account that disagrees with one already bound is a
+     * `409`, never a silent switch.
+     *
+     * It used to be a `useOutcomeAccount` flag each strategy passed from its own state snapshot.
+     * Two strategies implemented that rule correctly and independently, which is exactly the
+     * problem: the safety of "a tool may not name any account it likes" rested on every caller
+     * getting it right, and on a snapshot (`accountAlreadyKnown`) computed when the state was
+     * built rather than when the action runs.
      */
     data class AcceptProof(
         val tool: ToolDescriptor,
         val outcome: ToolOutcome.Completed.Authenticated,
-        val useOutcomeAccount: Boolean,
         val bindDevice: Boolean
     ) : Action
 

@@ -50,10 +50,12 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 }
             }
 
-            // The only intent that trusts a tool to resolve the account itself - but only on the
-            // FIRST proof, which is the one that has no account yet.
+            // The only intent whose FIRST proof has no account yet, so a lookup tool resolves it.
+            // That permission is not granted from here though: `performAcceptProof` derives it
+            // from MethodRole.LOOKUP_AUTH plus the live binding, and refuses a named account that
+            // disagrees with one already held - so this state cannot widen it by accident.
             is LookupLoginState.Credential -> when (event) {
-                is JourneyEvent.Completed -> Transition.Perform(proofAction(event, useOutcomeAccount = true), resumeState = state)
+                is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     if ((state.offered.toSet() - declined).isEmpty()) Transition.Cancel
@@ -63,9 +65,9 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             }
 
             // Any further factor runs against the account already bound by the first one, exactly
-            // like every other intent, so it must not be able to name a different one.
+            // like every other intent - enforced in the executor, not by this state.
             is LookupLoginState.AdditionalFactor -> when (event) {
-                is JourneyEvent.Completed -> Transition.Perform(proofAction(event, useOutcomeAccount = false), resumeState = state)
+                is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 is JourneyEvent.Abandoned -> {
                     val declined = state.declined + event.tool.toolId
                     // Giving up here cannot mean "finish anyway": the floor is still unmet, and
@@ -106,9 +108,9 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
      * offered by any state of this intent; reaching here would mean the state machine let through
      * a tool it never offered.
      */
-    private fun proofAction(event: JourneyEvent.Completed, useOutcomeAccount: Boolean): Action =
+    private fun proofAction(event: JourneyEvent.Completed): Action =
         when (val outcome = event.outcome) {
-            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount, bindDevice = false)
+            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, bindDevice = false)
             is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
                 error("${event.tool.toolId} is not offered by LOGIN_LOOKUP")
         }
@@ -122,7 +124,8 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
      * EXISTING account in from an unpaired device, so an account that cannot reach the floor with
      * what it already has must not grow new credentials on an unproven device. Re-identification
      * stays available: it adds no lasting credential, only re-confirms the same account at a
-     * higher trust level (`RE_IDENTIFY`'s `ConfirmIdentity`).
+     * higher trust level (`RE_IDENTIFY`'s `Action.Identified`, whose handler gates any move to a
+     * different account through `accountOf`).
      */
     private fun settleOrRaise(ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()

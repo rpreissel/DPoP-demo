@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator
 
 import com.tngtech.archunit.base.DescribedPredicate
+import com.tngtech.archunit.core.domain.JavaCall
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
@@ -97,6 +98,55 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                 .because(
                     "\"next is a pure function of the state\" (docs/04-orchestrierung.md #4) is only checkable by " +
                         "reading one small class as long as that class cannot reach the journey itself"
+                )
+                .check(classes)
+        }
+    }
+
+    // The account-takeover class of bug: a session ending up bound to an account it never proved
+    // it owns. Two real ones were found and fixed (a bare confirm-email absorbing a stranger's
+    // established account; AdoptIdentity bypassing accountOf's two-real-accounts rule). Both were
+    // possible because the SAFETY CHECK lived per Action-handler while the CHOICE of which
+    // handler ran was a strategy's to make. The rules below make that structural instead of
+    // reviewed: identity resolution, account absorption and device linking are reachable from
+    // exactly one class, so no strategy - and no future combination of tools or reordering of
+    // them - can reach a takeover path that skips the gate.
+    val gate = "com.example.dpop.orchestrator.journey.JourneyActionExecutor"
+
+    given("identity resolution (IdentityResolver - \"does this attested identity belong to an existing account?\")") {
+        then("only the acting phase can ask, so the answer can never be acted on without its gate") {
+            noClasses()
+                .that().doNotHaveFullyQualifiedName(gate)
+                .and().resideOutsideOfPackage("com.example.dpop.tool_api..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.tool_api.IdentityResolver")
+                .because(
+                    "resolving claims to an existing account is the first half of a takeover; the second half " +
+                        "(actually binding the session to it) is gated in JourneyActionExecutor.accountOf. A " +
+                        "strategy that could resolve for itself could act on the answer before that gate - " +
+                        "exactly the shape of both account-takeover bugs found in this codebase"
+                )
+                .check(classes)
+        }
+    }
+
+    given("absorbing one account into another and linking a device to an account") {
+        then("both happen in the acting phase only - never from a strategy, a controller or a tool") {
+            val crossesAccounts = DescribedPredicate.describe<JavaCall<*>>(
+                "absorb an account into another, or link a device to an account"
+            ) { call ->
+                val target = call.target
+                (target.owner.fullName == "com.example.dpop.account.AccountService" &&
+                    target.name == "absorbProvisionalAccount") ||
+                    (target.owner.fullName == "com.example.dpop.orchestrator.session.SessionManagementService" &&
+                        target.name == "linkDeviceToAccount")
+            }
+            noClasses()
+                .that().doNotHaveFullyQualifiedName(gate)
+                .should().callMethodWhere(crossesAccounts)
+                .because(
+                    "these two are the only writes that move a session/device onto an account it did not " +
+                        "already hold. Keeping them in one class is what makes \"a takeover always passes " +
+                        "accountOf\" checkable by reading one file instead of trusting every caller"
                 )
                 .check(classes)
         }

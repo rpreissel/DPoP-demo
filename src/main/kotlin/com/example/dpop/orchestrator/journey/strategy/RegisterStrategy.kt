@@ -82,13 +82,12 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                 // nicht": the run carries on and the account stays an Interessent (ADR-10). This
                 // is why the step needs no prompt in front of it - abandoning IS the "no".
                 is JourneyEvent.Abandoned -> continueAfterAssignment(ctx)
-                // ConfirmIdentity, never AdoptIdentity: a correlation step extends the identity of
-                // the account already in hand. AdoptIdentity would resolve the claims on their own
-                // and, for a register person who has no account yet, create a SECOND one - silently
-                // moving this journey off the account the attestation just built.
+                // Action.Identified - performIdentified reads the account already in hand from
+                // context at execution time (this state is only ever reached with one already
+                // bound, MethodRole.CORRELATION's own invariant), never a strategy-picked variant.
                 is JourneyEvent.Completed -> when (val outcome = event.outcome) {
                     is ToolOutcome.Completed.Identified ->
-                        Transition.Perform(Action.ConfirmIdentity(event.tool, outcome), resumeState = state)
+                        Transition.Perform(Action.Identified(event.tool, outcome), resumeState = state)
                     else -> error("${event.tool.toolId} is not offered by the assignment step")
                 }
                 // Back through afterIdentification, not straight on: the assignment may have

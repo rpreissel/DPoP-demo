@@ -29,17 +29,17 @@ import com.example.dpop.tool_spi.ToolOutcome
  */
 internal object AuthEnrollCore {
 
-    /** State-independent: the same outcome always means the same thing here (unlike e.g. RE_IDENTIFY's ConfirmIdentity). */
+    /** State-independent: an outcome maps to one Action, full stop - what that Action then MEANS (adopt, extend, or refuse a cross-account move) is decided by its single handler from live context, never varied per caller here. */
     fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         // The account may be brand new or an existing one found again by KVNR; both are the
         // same decision here, which is why registration needs no state of its own.
-        is ToolOutcome.Completed.Identified -> Action.AdoptIdentity(event.tool, outcome)
+        is ToolOutcome.Completed.Identified -> Action.Identified(event.tool, outcome)
         // A real credential now exists on this device, so recognizing the device costs
         // nothing and saves the next login: bind it.
         is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
         // A device-bound tool never resolves the account itself - it could only have been
         // offered once the account was already known.
-        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, useOutcomeAccount = false, bindDevice = true)
+        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, bindDevice = true)
         // Claims only: the account keeps the attested value (its anchor), no credential is
         // created and the device is NOT bound - unlike Enrolled above, nothing now lives on this
         // device that a later login could recognize it by.

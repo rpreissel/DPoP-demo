@@ -103,7 +103,7 @@ class RegisterStrategyTest : BehaviorSpec({
                 val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                    Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.To(AuthChoice(listOf(ToolId("auth-sms"))))
             }
@@ -117,9 +117,9 @@ class RegisterStrategyTest : BehaviorSpec({
                 val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                    Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
 
-                // Mirrors what JourneyService really rebuilds after Action.AdoptIdentity:
+                // Mirrors what JourneyService really rebuilds after Action.Identified:
                 // recordToolCompletion writes fresh IDENTITY-axis evidence at ident-fsc's own loa2 -
                 // AuthEnrollCore.offerEnrollment's own loa2 floor (its own doc) needs that already
                 // satisfied before it will offer Enrolling at all, exactly like production.
@@ -172,7 +172,7 @@ class RegisterStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterState.ConfirmDeviceRebind(acc.accountId))
         }

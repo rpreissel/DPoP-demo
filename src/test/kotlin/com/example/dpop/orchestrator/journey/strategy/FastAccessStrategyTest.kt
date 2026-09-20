@@ -59,7 +59,7 @@ class FastAccessStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AdoptIdentity(IdentFscDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
         }
 
         then("Enrolled binds the device - a fresh credential on this device is worth remembering") {
@@ -73,7 +73,7 @@ class FastAccessStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, useOutcomeAccount = false, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
         }
     }
 
@@ -140,7 +140,7 @@ class FastAccessStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("device"))
             val event = JourneyEvent.Completed(AuthDeviceDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthDeviceDescriptor, outcome, useOutcomeAccount = false, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthDeviceDescriptor, outcome, bindDevice = true), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
         }
     }
@@ -195,7 +195,7 @@ class FastAccessStrategyTest : BehaviorSpec({
                 val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, useOutcomeAccount = false, bindDevice = true), resumeState = state)
+                    Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.RE_IDENTIFY,
