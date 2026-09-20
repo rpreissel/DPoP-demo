@@ -2,7 +2,9 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.AcrLevels
@@ -258,39 +260,58 @@ class JourneyActionExecutor(
         // never gets further leaves no orphan behind (deleteIfAbandonedUnidentified).
         val inHand = journey.accountId ?: channel.accountId
             ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
-        val accountId = accountOfAttestation(journey, channel, inHand, action)
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Attested without an AuthEvidence" }
         val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
             "AuthEvidence not found: $authEvidenceId"
         }
+        val coreEvidence = evidence.toCoreEvidence()
+        val accountId = accountOfAttestation(journey, channel, inHand, action, coreEvidence)
         // The same capped figure an enrollment is stamped with - an anchor write is priced by what
         // the session actually proved (AnchorRule.acrFloor), never by the tool's ceiling.
-        val environmentAcr = authPolicy.resolveAcr(evidence.toCoreEvidence(), accountService.findAccount(accountId))
+        val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
         val provenAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = provenAcr)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
 
     /**
-     * An attested anchor value that belongs to ANOTHER account is not a collision - it is a
-     * resolution, and ADR-20's rule applies to it like to any other: the provisional account goes
-     * into the other one. A confirmed address is the case this exists for: `confirm-email` proves
-     * possession of a value the account model resolves accounts by (`resolveByAnchor`, the very
-     * lookup `auth-email-lookup` logs people in with), so somebody confirming their own address
-     * while holding a provisional account has just told us which account is theirs.
+     * An attested anchor value that resolves to ANOTHER account may move this session there ONLY
+     * if THIS session has already proven a real Identification (ident-fsc/ident-eid -
+     * [EvidenceAxis.IDENTITY] evidence, [DefaultAuthPolicy]'s own IAL/AAL split) earlier in the
+     * SAME journey - never on the strength of the attestation alone. A mere attestation (e.g.
+     * `confirm-email`) is deliberately weaker than an identification - the glossary's own
+     * "unbescheinigtes/schwaches Identifizierungsmittel" distinction for email applies here
+     * directly - and must never by itself be enough to move a session onto another account.
      *
-     * The extra condition an identification does not need: the attested identity must FIT the
-     * account being resolved. Possession of an address says "this mailbox is mine", never "I am
-     * that person" - so where the target account has a register person, the identity this session
-     * attested is checked against that person's master data ([IdentityResolver.attestedIdentityMatches],
-     * the same guard ADR-18 puts in front of the correlation step). Without it, whoever controls
-     * a mailbox could hang their own eID claims on a stranger's account. A target account with no
-     * person bound has nothing to check against, and then ADR-20's own "one of them is
-     * provisional" rule is the whole gate.
+     * This is what makes REGISTER "Enrollment zuerst" safe: its very FIRST step is `confirm-email`,
+     * before any identification ever ran, so [hasIdentification] is false and this always rejects -
+     * closing the account-takeover gap where a brand-new session could re-confirm somebody else's
+     * already-established address and get silently bound to their account, credentials and all,
+     * without ever proving possession of any of them.
+     *
+     * Once an identification DID run this session (the eID-with-no-register-match case, ADR-18:
+     * `ident-eid` attests an identity but finds no KVNR, and `confirm-email` is then used to locate
+     * the durable account that identity belongs to), the extra condition an identification alone
+     * does not need still applies: the attested identity must FIT the account being resolved.
+     * Possession of an address says "this mailbox is mine", never "I am that person" - so where the
+     * target account has a register person, the identity this session attested is checked against
+     * that person's master data ([IdentityResolver.attestedIdentityMatches], the same guard ADR-18
+     * puts in front of the correlation step). Without it, whoever controls a mailbox could hang
+     * their own eID claims on a stranger's account.
      */
-    private fun accountOfAttestation(journey: AuthJourney, channel: ChannelSession, inHand: Long, action: Action.AdoptAttestation): Long {
+    private fun accountOfAttestation(
+        journey: AuthJourney,
+        channel: ChannelSession,
+        inHand: Long,
+        action: Action.AdoptAttestation,
+        evidence: AuthEvidence
+    ): Long {
         val resolved = (identityResolver.resolve(action.outcome.claims.toSet()) as? Resolution.ExistingAccount)?.accountId
         if (resolved == null || resolved == inHand) return inHand
+        val hasIdentification = evidence.factors.any { it.axis == EvidenceAxis.IDENTITY }
+        if (!hasIdentification) {
+            throw IdentityConflictException("Diese Adresse gehoert bereits zu einem anderen Konto")
+        }
         accountService.findAccount(resolved)?.personId?.let { personId ->
             if (!identityResolver.attestedIdentityMatches(inHand, personId)) {
                 throw IdentityConflictException("Diese Adresse gehoert zu einer anderen Person")

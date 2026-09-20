@@ -11,6 +11,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
+import java.util.UUID
 
 /**
  * The REGISTER "Enrollment zuerst" experiment (docs/04-orchestrierung.md, `RegisterEnrollFirstStrategy`):
@@ -152,6 +153,44 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                     )
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT
+
+                }
+            }
+        }
+
+        given("an account already registered enroll-first and fully set up, on a different device") {
+            `when`("confirming the SAME already-confirmed email address, with no other proof of that account") {
+                then("it is rejected as a conflict, the second device never gets bound to the first account") {
+
+                // First account, first device: confirms an email, enrolls sms+password - a real,
+                // credentialed account with no person behind it (enroll-first never requires eID).
+                val firstChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
+                val sharedEmail = confirmEmail(firstChannelId)
+                enrollSms(firstChannelId)
+                enrollPassword(firstChannelId)
+                post("/orchestrator/api/v1/channels/$firstChannelId/answer", """{"answer":"decline"}""")
+                val firstAccountId = accountService.allAccountIds().single()
+
+                // A different device: fresh DPoP binding key, nothing shared with the first device
+                // except knowledge of the same email address.
+                currentBindingKeyRef = "binding-" + UUID.randomUUID()
+                val secondChannelId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
+                val secondNext = get("/orchestrator/api/v1/channels/$secondChannelId").nextRaw()
+                val confirmToolSessionId = (secondNext["toolSessionId"] as? String)?.takeIf { secondNext["toolId"] == "confirm-email" }
+                    ?: post("/orchestrator/api/v1/channels/$secondChannelId/tools/confirm-email").nextRaw()["toolSessionId"] as String
+                val (code, _) = captureMockTan {
+                    patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-email", """{"email":"$sharedEmail"}""")
+                }
+
+                val exception = assertThrows<HttpClientErrorException> {
+                    patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-email", """{"code":"$code"}""")
+                }
+                exception.statusCode shouldBe HttpStatus.CONFLICT
+
+                // The first, already-credentialed account is untouched: still the only account,
+                // still exactly the two methods the FIRST device enrolled.
+                accountService.allAccountIds() shouldBe setOf(firstAccountId)
+                accountService.findAccount(firstAccountId)!!.authenticationMethods.map { it.method }.toSet() shouldBe setOf("sms", "password")
 
                 }
             }
