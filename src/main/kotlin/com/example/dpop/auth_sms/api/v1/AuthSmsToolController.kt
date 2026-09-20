@@ -99,8 +99,7 @@ class AuthSmsToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthSmsPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_SMS_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_SMS_TOOL_ID)
 
         val body = request ?: AuthSmsPatchRequest()
         val outcome = handler.patch(toolSessionId, body.tan)

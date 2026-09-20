@@ -104,8 +104,7 @@ class AuthEmailLookupToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthEmailLookupPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_EMAIL_LOOKUP_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_EMAIL_LOOKUP_TOOL_ID)
 
         val body = request ?: AuthEmailLookupPatchRequest()
         // email wins over a code submitted in the same call: a (re-)submitted email restarts the

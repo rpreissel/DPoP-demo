@@ -18,6 +18,7 @@ import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
+import com.example.dpop.tool_api.AuthorizedToolContext
 import com.example.dpop.tool_api.ToolContext
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
@@ -71,7 +72,7 @@ class ToolControllerSupport(
         val bindingKeyRef: String,
         override val journeyAccountId: Long?,
         override val channelAccountId: Long?
-    ) : ToolContext
+    ) : AuthorizedToolContext
 
     override fun activationLocation(context: ToolContext, baseUri: URI): URI =
         UriComponentsBuilder.fromUri(baseUri)
@@ -140,6 +141,17 @@ class ToolControllerSupport(
         }
     }
 
+    /**
+     * The write path: same load as [loadContext], plus the authorization that [applyOutcome]'s
+     * parameter type demands. Callers cannot get an [AuthorizedToolContext] for an existing
+     * session any other way, so the check is structural rather than remembered.
+     */
+    override fun loadCurrent(toolSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
+        val context = loadContext(toolSessionId, bindingKeyRef, toolId)
+        requireCurrentTool(context)
+        return context
+    }
+
     override fun loadContext(toolSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
         val toolSession = sessionManagementService.findToolSessionById(toolSessionId)
             ?: throw OrchestratorException.notFound("Tool session not found: $toolSessionId")
@@ -157,7 +169,7 @@ class ToolControllerSupport(
         )
     }
 
-    override fun requireCurrentTool(context: ToolContext) {
+    private fun requireCurrentTool(context: ToolContext) {
         if (!isCurrentTool(context)) {
             throw OrchestratorException.invalidState("${context.toolId} is not the currently active tool for this journey")
         }
@@ -174,7 +186,7 @@ class ToolControllerSupport(
      * re-offered candidate can be the same toolId as the one being abandoned, so toolId matching
      * alone can't tell the abandoned session and a freshly re-activated one apart.
      */
-    override fun abandon(context: ToolContext): ChannelResponse {
+    override fun abandon(context: AuthorizedToolContext): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)
@@ -193,7 +205,7 @@ class ToolControllerSupport(
      * [ChannelResponse] envelope as every other endpoint (docs/05-api.md #2). The context carries
      * stable ids only; entities are resolved fresh in this method's own transaction.
      */
-    override fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse {
+    override fun applyOutcome(context: AuthorizedToolContext, outcome: ToolOutcome): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)

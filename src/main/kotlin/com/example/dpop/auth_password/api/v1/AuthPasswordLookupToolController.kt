@@ -97,8 +97,7 @@ class AuthPasswordLookupToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthPasswordLookupPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_PASSWORD_LOOKUP_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_PASSWORD_LOOKUP_TOOL_ID)
 
         val body = request ?: AuthPasswordLookupPatchRequest()
         // Resolved HERE, at the call site - auth_password may not depend on `account`

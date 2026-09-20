@@ -5,9 +5,6 @@ import com.tngtech.archunit.core.domain.JavaCall
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
-import com.tngtech.archunit.lang.ArchCondition
-import com.tngtech.archunit.lang.ConditionEvents
-import com.tngtech.archunit.lang.SimpleConditionEvent
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
 import io.kotest.core.spec.style.BehaviorSpec
 import org.springframework.stereotype.Repository
@@ -132,59 +129,14 @@ class OrchestratorArchitectureTest : BehaviorSpec({
         }
     }
 
-    // A tool session outlives its activation by real time (a TAN being typed, an eID redirect) and
-    // carries resolved snapshots while it waits - the account a lookup resolved, the enrollment an
-    // auth tool was pointed at. What keeps those from being used against a journey that has since
-    // moved on is requireCurrentTool: it matches BOTH toolId and toolSessionId against the state's
-    // own active ToolRef, so a superseded session is refused rather than silently honoured.
-    // All 18 tool controllers call it today - this keeps the 19th from being the exception.
-    given("a tool controller's write endpoint on an EXISTING tool session") {
-        then("it authorizes that session against the journey's current one") {
-            val allClasses = ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("com.example.dpop")
-            val isToolController = DescribedPredicate.describe<JavaClass>("tool controllers (they use ToolEndpoint)") { clazz ->
-                clazz.directDependenciesFromSelf.any { it.targetClass.name == "com.example.dpop.tool_api.ToolEndpoint" }
-            }
-
-            // Deliberately NOT "every @PatchMapping": PATCH is only today's regular case.
-            // docs/05-api.md lets each tool shape everything under /tools/{toolSessionId}/{toolId}
-            // itself, "eigene Sub-Ressourcen und frei gewählte HTTP-Methoden" - and one tool
-            // already differs (EnrollEmailToolController is a one-shot with no PATCH at all).
-            // What actually decides is whether the endpoint ADDRESSES AN EXISTING SESSION, i.e.
-            // carries {toolSessionId} in its path, and writes. An activation POST goes to
-            // /channels/{channelSessionId}/tools/{toolId} and creates the session it is about, so
-            // there is nothing yet to authorize; a GET reads and uses isCurrentTool as a condition
-            // instead, to answer a superseded resume cleanly rather than with a 409.
-            val writingMappings = setOf("PostMapping", "PutMapping", "PatchMapping", "DeleteMapping", "RequestMapping")
-            fun addressesExistingSession(m: com.tngtech.archunit.core.domain.JavaMethod): Boolean =
-                m.annotations.any { a ->
-                    a.rawType.name.substringAfterLast('.') in writingMappings &&
-                        ((a.get("value").orElse(null) as? Array<*>)?.filterIsInstance<String>() ?: emptyList())
-                            .any { path -> "{toolSessionId}" in path }
-                }
-
-            val guardsSessionWrites = object : ArchCondition<JavaClass>("authorize every write to an existing tool session") {
-                override fun check(clazz: JavaClass, events: ConditionEvents) {
-                    clazz.methods.filter(::addressesExistingSession).forEach { m ->
-                        val guarded = m.methodCallsFromSelf.any { it.target.name == "requireCurrentTool" }
-                        events.add(
-                            SimpleConditionEvent(
-                                m, guarded,
-                                "${clazz.simpleName}.${m.name} writes to an existing tool session without calling " +
-                                    "requireCurrentTool - a superseded session could then complete against a " +
-                                    "journey that has since moved on"
-                            )
-                        )
-                    }
-                }
-            }
-            com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
-                .that(isToolController)
-                .should(guardsSessionWrites)
-                .check(allClasses)
-        }
-    }
+    // A tool session outlives its activation by real time (a TAN being typed, an eID redirect)
+    // and carries resolved snapshots while it waits - the account a lookup resolved, the
+    // enrollment an auth tool was pointed at. What keeps those from being used against a journey
+    // that has since moved on is no longer a rule here but the TYPE SYSTEM: applyOutcome/abandon
+    // take an AuthorizedToolContext, obtainable only from beginActivation (which creates the
+    // session) or loadCurrent (which verifies it against the journey's active ToolRef). A write
+    // path that skips the check does not compile, so there is nothing left for an ArchUnit rule
+    // to catch - see tool_api/ToolEndpoint.kt.
 
     given("absorbing one account into another and linking a device to an account") {
         then("both happen in the acting phase only - never from a strategy, a controller or a tool") {

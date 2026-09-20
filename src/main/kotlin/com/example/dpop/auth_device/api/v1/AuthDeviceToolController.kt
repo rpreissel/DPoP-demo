@@ -102,8 +102,7 @@ class AuthDeviceToolController(
         @RequestBody(required = false) request: DeviceProofPatchRequest?,
         httpRequest: HttpServletRequest
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_DEVICE_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_DEVICE_TOOL_ID)
 
         val proof = deviceProofs.validate(request?.deviceProof, "PATCH", buildRequestUrl(httpRequest))
         val outcome = handler.patch(toolSessionId, proof.publicKey, proof.userVerification)

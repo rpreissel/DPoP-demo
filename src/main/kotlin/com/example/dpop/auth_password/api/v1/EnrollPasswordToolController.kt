@@ -90,8 +90,7 @@ class EnrollPasswordToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: EnrollPasswordPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_PASSWORD_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, ENROLL_PASSWORD_TOOL_ID)
 
         val body = request ?: EnrollPasswordPatchRequest()
         val outcome = handler.patch(toolSessionId, body.password)

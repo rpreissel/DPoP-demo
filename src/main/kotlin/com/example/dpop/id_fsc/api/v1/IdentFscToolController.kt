@@ -98,8 +98,7 @@ class IdentFscToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: IdentFscPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, IDENT_FSC_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, IDENT_FSC_TOOL_ID)
 
         val body = request ?: IdentFscPatchRequest()
         val personId = body.kvnr?.let { personDirectory.findPersonIdByKvnr(normalizeKvnr(it)) }

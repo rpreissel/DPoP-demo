@@ -101,8 +101,7 @@ class EnrollSmsToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: EnrollSmsPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID)
 
         val body = request ?: EnrollSmsPatchRequest()
         // Normalized the same way EnrollSmsFlow validates it (whitespace stripped), purely to key

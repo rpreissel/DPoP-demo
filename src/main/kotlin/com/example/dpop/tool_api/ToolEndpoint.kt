@@ -20,14 +20,34 @@ interface ToolContext {
 }
 
 /**
+ * A [ToolContext] that is allowed to CHANGE the journey - the only kind [ToolEndpoint.applyOutcome]
+ * accepts. There are exactly two ways to obtain one, and both establish the authorization rather
+ * than assume it:
+ *
+ * - [ToolEndpoint.beginActivation] creates the tool session it is about, so there is nothing older
+ *   to be superseded by.
+ * - [ToolEndpoint.loadCurrent] verifies an EXISTING session against the journey's active
+ *   [com.example.dpop.orchestrator.journey.state.ToolRef] (toolId *and* toolSessionId) and throws
+ *   otherwise.
+ *
+ * [ToolEndpoint.loadContext] deliberately returns the weaker [ToolContext]: it is the read path,
+ * where a superseded session must produce a clean answer rather than a 409. Because the write path
+ * needs this type, a controller cannot reach [ToolEndpoint.applyOutcome] with an unverified
+ * session at all - the compiler refuses it. That replaces the older arrangement, where every
+ * controller had to remember a separate `requireCurrentTool` call between loading and applying,
+ * and nothing but review stopped the nineteenth one from forgetting.
+ */
+interface AuthorizedToolContext : ToolContext
+
+/**
  * The API a tool controller uses instead of talking to the orchestrator directly: activation,
  * binding checks, journey transitions and the response envelope.
  *
  * Inject this into a tool controller's constructor. A typical controller:
- * 1. calls [beginActivation] (POST) or [loadContext] (PATCH/GET) to get a [ToolContext],
- * 2. optionally calls [requireCurrentTool] to reject a stale/wrong tool session,
- * 3. runs its own tool-specific logic to produce a [ToolOutcome],
- * 4. calls [applyOutcome] to turn that outcome into a [ChannelResponse].
+ * 1. calls [beginActivation] (activation) or [loadCurrent] (any later write) for an
+ *    [AuthorizedToolContext], or [loadContext] for the read path,
+ * 2. runs its own tool-specific logic to produce a [ToolOutcome],
+ * 3. calls [applyOutcome] (writes - needs the authorized context) or [buildReadResponse] (reads).
  */
 interface ToolEndpoint {
     /**
@@ -39,7 +59,7 @@ interface ToolEndpoint {
      * @throws RuntimeException if the channel/binding is invalid, or if the journey does not
      * currently offer [toolId].
      */
-    fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): ToolContext
+    fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): AuthorizedToolContext
 
     /**
      * Loads the context for an existing tool session, for a PATCH or GET call.
@@ -64,7 +84,13 @@ interface ToolEndpoint {
     /**
      * @throws RuntimeException if [context]'s toolId is not the journey's current tool.
      */
-    fun requireCurrentTool(context: ToolContext)
+    /**
+     * The write-path counterpart to [loadContext]: loads an EXISTING tool session and verifies it
+     * is the one the journey currently authorizes, throwing otherwise. Returns the
+     * [AuthorizedToolContext] that [applyOutcome] requires, so the check cannot be skipped by
+     * forgetting a separate call.
+     */
+    fun loadCurrent(toolSessionId: UUID, bindingKeyRef: String, toolId: String): AuthorizedToolContext
 
     /** @return whether [context]'s toolId is still the journey's current tool. */
     fun isCurrentTool(context: ToolContext): Boolean
@@ -74,7 +100,7 @@ interface ToolEndpoint {
      * to another candidate, narrowing a mandatory offer, or ending the journey - is decided by the
      * journey's current state, not by the caller.
      */
-    fun abandon(context: ToolContext): ChannelResponse
+    fun abandon(context: AuthorizedToolContext): ChannelResponse
 
     /**
      * Applies a tool's [outcome] to the journey and builds the resulting response.
@@ -82,7 +108,7 @@ interface ToolEndpoint {
      * Call this after running the tool's own logic, regardless of whether the outcome is
      * `InProgress`, `Failed`, or `Completed` - each is handled accordingly.
      */
-    fun applyOutcome(context: ToolContext, outcome: ToolOutcome): ChannelResponse
+    fun applyOutcome(context: AuthorizedToolContext, outcome: ToolOutcome): ChannelResponse
 
     /**
      * Whether [accountId] is currently locked out by the account-level brute-force throttle.

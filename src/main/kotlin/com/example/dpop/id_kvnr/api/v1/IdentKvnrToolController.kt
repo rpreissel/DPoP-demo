@@ -92,8 +92,7 @@ class IdentKvnrToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: IdentKvnrPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, IDENT_KVNR_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, IDENT_KVNR_TOOL_ID)
 
         val kvnr = (request ?: IdentKvnrPatchRequest()).kvnr
         val personId = kvnr?.let { personDirectory.findPersonIdByKvnr(normalizeKvnr(it)) }

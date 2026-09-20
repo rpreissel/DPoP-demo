@@ -95,8 +95,7 @@ class AuthEmailToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthEmailPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_EMAIL_TOOL_ID)
 
         val body = request ?: AuthEmailPatchRequest()
         val outcome = handler.patch(toolSessionId, body.code)

@@ -101,8 +101,7 @@ class ConfirmEmailToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: ConfirmEmailPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, CONFIRM_EMAIL_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, CONFIRM_EMAIL_TOOL_ID)
 
         val body = request ?: ConfirmEmailPatchRequest()
         // Normalized the same way ConfirmEmailFlow validates it (trim+lowercase), purely to key

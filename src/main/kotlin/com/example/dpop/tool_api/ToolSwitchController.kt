@@ -50,8 +50,7 @@ class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {
         @PathVariable toolId: String,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, toolId)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, toolId)
         return ResponseEntity.ok(toolEndpoint.abandon(context))
     }
 }

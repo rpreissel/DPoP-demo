@@ -75,8 +75,7 @@ class ConfirmQrLoginToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: ConfirmQrLoginPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, CONFIRM_QR_LOGIN_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, CONFIRM_QR_LOGIN_TOOL_ID)
 
         val body = request ?: ConfirmQrLoginPatchRequest()
         val accountId = checkNotNull(context.channelAccountId) { "confirm-qr-login on a channel without an accountId" }

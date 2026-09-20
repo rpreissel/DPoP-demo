@@ -100,8 +100,7 @@ class AuthPasswordToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: AuthPasswordPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_PASSWORD_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_PASSWORD_TOOL_ID)
 
         val body = request ?: AuthPasswordPatchRequest()
         val outcome = handler.patch(toolSessionId, body.password)

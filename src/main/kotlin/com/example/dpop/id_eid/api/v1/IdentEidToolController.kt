@@ -109,8 +109,7 @@ class IdentEidToolController(
         @BindingKey bindingKeyRef: String,
         @RequestBody(required = false) request: IdentEidPatchRequest?
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, IDENT_EID_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, IDENT_EID_TOOL_ID)
 
         val body = request ?: IdentEidPatchRequest()
         val fields = EidPatchFields(

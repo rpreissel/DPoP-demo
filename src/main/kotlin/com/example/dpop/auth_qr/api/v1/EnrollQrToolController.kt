@@ -52,8 +52,7 @@ class EnrollQrToolController(
         @PathVariable toolSessionId: UUID,
         @BindingKey bindingKeyRef: String
     ): ResponseEntity<ChannelResponse> {
-        val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, ENROLL_QR_TOOL_ID)
-        toolEndpoint.requireCurrentTool(context)
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, ENROLL_QR_TOOL_ID)
         val outcome = handler.patch(toolSessionId)
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
