@@ -74,9 +74,13 @@ sealed interface RegisterState : JourneyState {
      * names for this device (docs/04-orchestrierung.md #2, "Zweitaccount"). Reached only once, as
      * early as possible - immediately after identification, before any method is offered - never
      * silently overwritten. [accountId] is the newly identified account, not the one about to be
-     * displaced.
+     * displaced.     *
+     * Carries no accountId: it used to, and that value was read for the device link until
+     * `Action.LinkDevice` started taking the account from the live session instead. A state field
+     * nobody reads is worse than none - it survives serialization looking authoritative and
+     * invites exactly the stale-snapshot use it was just removed from.
      */
-    data class ConfirmDeviceRebind(val accountId: Long) : RegisterState, AnswerableState {
+    data object ConfirmDeviceRebind : RegisterState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null

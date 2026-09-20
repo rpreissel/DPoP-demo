@@ -131,9 +131,9 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
             return if (ctx.linkedAccountId != null && ctx.linkedAccountId != account.accountId) {
-                Transition.To(LookupLoginState.ConfirmDeviceRebind(account.accountId))
+                Transition.To(LookupLoginState.ConfirmDeviceRebind)
             } else {
-                Transition.To(LookupLoginState.OfferBinding(account.accountId))
+                Transition.To(LookupLoginState.OfferBinding)
             }
         }
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)

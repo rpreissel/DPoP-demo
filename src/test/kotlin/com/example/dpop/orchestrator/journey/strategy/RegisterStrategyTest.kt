@@ -174,13 +174,13 @@ class RegisterStrategyTest : BehaviorSpec({
             strategy.transition(state, event, theCtx) shouldBe
                 Transition.Perform(Action.Identified(IdentFscDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
-                Transition.To(RegisterState.ConfirmDeviceRebind(acc.accountId))
+                Transition.To(RegisterState.ConfirmDeviceRebind)
         }
     }
 
     given("ConfirmDeviceRebind") {
         val acc = account(method("sms", AcrLevel.LOA1))
-        val state = RegisterState.ConfirmDeviceRebind(acc.accountId)
+        val state = RegisterState.ConfirmDeviceRebind
 
         `when`("accepted") {
             then("links the device, then re-runs afterIdentification - now without a conflict") {

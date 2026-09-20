@@ -155,7 +155,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         // and before any method is offered. Checked first, unconditionally: every later step in
         // this journey runs only after this has already been resolved once.
         if (ctx.linkedAccountId != null && ctx.linkedAccountId != account.accountId) {
-            return Transition.To(RegisterState.ConfirmDeviceRebind(account.accountId))
+            return Transition.To(RegisterState.ConfirmDeviceRebind)
         }
         // An account found again by KVNR may already have everything it needs - offering an
         // existing method to prove beats an enrollment list that would come back empty.

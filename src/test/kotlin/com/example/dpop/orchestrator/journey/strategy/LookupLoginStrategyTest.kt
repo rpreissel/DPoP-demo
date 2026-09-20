@@ -101,7 +101,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("delegates to the same settle-or-raise check as any other proof") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel.LOA2)
-                strategy.transition(LookupLoginState.Start, event, theCtx) shouldBe Transition.To(LookupLoginState.OfferBinding(acc.accountId))
+                strategy.transition(LookupLoginState.Start, event, theCtx) shouldBe Transition.To(LookupLoginState.OfferBinding)
             }
         }
 
@@ -137,7 +137,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
             then("offers the optional device-binding prompt") {
                 strategy.transition(LookupLoginState.Credential(listOf(ToolId("auth-sms-lookup"))), JourneyEvent.ActionCompleted, theCtx) shouldBe
-                    Transition.To(LookupLoginState.OfferBinding(acc.accountId))
+                    Transition.To(LookupLoginState.OfferBinding)
             }
         }
 
@@ -180,7 +180,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
     }
 
     given("OfferBinding") {
-        val state = LookupLoginState.OfferBinding(accountId = 7L)
+        val state = LookupLoginState.OfferBinding
 
         then("accepting links the device, then finishes once resumed") {
             strategy.transition(state, JourneyEvent.Answered("accept"), ctx()) shouldBe
