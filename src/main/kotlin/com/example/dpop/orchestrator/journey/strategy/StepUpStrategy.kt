@@ -64,7 +64,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
     override fun cancelledTo(state: StepUpState): ChannelState = ChannelState.AUTHENTICATED
 
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
-        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, bindDevice = true)
+        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome)
         is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by STEP_UP")
     }

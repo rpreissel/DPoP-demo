@@ -51,7 +51,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
         }
 
         then("Identified is not offered by this intent") {
@@ -97,7 +97,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         then("selfServiceAcrFloor only demands loa1 for this account - removes the method directly, no step-up") {
             strategy.transition(state, JourneyEvent.Started, theCtx) shouldBe
-                Transition.Perform(Action.Remove("sms-instance"), resumeState = state)
+                Transition.Perform(Action.RevokeAuthMethod("sms-instance"), resumeState = state)
         }
     }
 
@@ -156,7 +156,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         then("removes the method directly, then finishes once resumed - the machine, not this strategy, rejects self-lockout") {
             strategy.transition(state, JourneyEvent.Started, theCtx) shouldBe
-                Transition.Perform(Action.Remove("sms-instance"), resumeState = state)
+                Transition.Perform(Action.RevokeAuthMethod("sms-instance"), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
         }
     }
@@ -185,7 +185,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
                 val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
                 val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
                 strategy.transition(state, event, ctx()) shouldBe
-                    Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+                    Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, ctx()) shouldBe Transition.Authenticated
             }
         }

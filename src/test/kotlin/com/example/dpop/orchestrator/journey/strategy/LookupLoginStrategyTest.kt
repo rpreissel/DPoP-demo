@@ -50,7 +50,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"), accountId = 42L)
             val event = JourneyEvent.Completed(AuthSmsLookupDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthSmsLookupDescriptor, outcome, bindDevice = false), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthSmsLookupDescriptor, outcome), resumeState = state)
         }
 
         then("on AdditionalFactor (any further proof) never trusts a submitted account") {
@@ -58,7 +58,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
             val event = JourneyEvent.Completed(AuthSmsLookupDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthSmsLookupDescriptor, outcome, bindDevice = false), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthSmsLookupDescriptor, outcome), resumeState = state)
         }
 
         then("Identified is not offered by any state of this intent") {
@@ -184,7 +184,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         then("accepting links the device, then finishes once resumed") {
             strategy.transition(state, JourneyEvent.Answered("accept"), ctx()) shouldBe
-                Transition.Perform(Action.LinkDevice(7L), resumeState = state)
+                Transition.Perform(Action.LinkDevice, resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, ctx()) shouldBe Transition.Authenticated
         }
 

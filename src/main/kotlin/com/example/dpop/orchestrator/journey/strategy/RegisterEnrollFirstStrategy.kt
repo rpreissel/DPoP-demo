@@ -29,6 +29,16 @@ import com.example.dpop.tool_spi.ToolOutcome
  * it is never registered under [AuthIntent.REGISTER] directly, only ever reached through
  * `RegisterDispatchStrategy`, the single bean actually registered for that intent (Spring only
  * allows one `IntentStrategy` per [AuthIntent]).
+ *
+ * **Device rebinding is asked at the END, not where it would happen.** [RegisterStrategy] can ask
+ * as soon as it identifies, because it identifies FIRST - the question then has two nameable
+ * sides ("this device belongs to account X - move it to Y?"). This variant binds at its first
+ * enrollment, when the account has only just been created lazily and has no identity at all, so
+ * there is nothing to put in the question yet. Hence the split: nothing rebinds implicitly
+ * (`JourneyActionExecutor.linkDeviceIfIntentImplies` refuses a device linked elsewhere), and
+ * [finishOrOfferRebind] asks once at the very end, after the optional identification has run or
+ * been declined. Declining finishes the registration without a device link - the account stays
+ * fully usable through the lookup tools, it is only not recognized on this device.
  */
 class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
 
@@ -43,7 +53,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 // back - accepted-and-succeeded, declined, or abandoned: either way, this journey
                 // is done. A later identification remains reachable at any time via a step-up's
                 // own RE_IDENTIFY, this is not the only chance.
-                is JourneyEvent.SubJourneyFinished, is JourneyEvent.SubJourneyCancelled -> Transition.Authenticated
+                is JourneyEvent.SubJourneyFinished, is JourneyEvent.SubJourneyCancelled -> finishOrOfferRebind(ctx)
                 // Fresh journey start: no account needed yet - it's created lazily on the first
                 // completed enrollment (JourneyService's own Action.AdoptCredential handling).
                 // Mandatory order: email, then SMS (see offerEmailConfirmation/offerSmsEnrollment) -
@@ -76,6 +86,18 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 else -> afterEnrollment(ctx, emailObligation = false)
             }
 
+            is RegisterEnrollFirstState.EnrollFirstConfirmDeviceRebind -> when (event) {
+                is JourneyEvent.Answered -> when (event.answer) {
+                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
+                    // Declining costs the registration nothing: the account stays fully usable
+                    // through the lookup tools, it just will not be recognized on this device.
+                    DECLINE -> Transition.Authenticated
+                    else -> error("EnrollFirstConfirmDeviceRebind does not understand answer '${event.answer}'")
+                }
+                is JourneyEvent.ActionCompleted -> Transition.Authenticated
+                else -> error("EnrollFirstConfirmDeviceRebind only accepts JourneyEvent.Answered")
+            }
+
             is RegisterEnrollFirstState.EnrollFirstPasswordObligation -> when (event) {
                 is JourneyEvent.Abandoned -> reoffer(state)
                 is JourneyEvent.Completed -> Transition.Perform(adoptCredential(event), resumeState = state)
@@ -88,7 +110,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
     override fun cancelledTo(state: RegisterEnrollFirstState): ChannelState = ChannelState.ANONYMOUS
 
     private fun adoptCredential(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
-        is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
+        is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome)
         // The mandatory first step confirms the address: claims and anchor, no credential, and no
         // device binding - nothing was created here this device could later be recognized by.
         is ToolOutcome.Completed.Attested -> Action.AdoptAttestation(event.tool, outcome)
@@ -193,8 +215,30 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 resumeWith = RegisterEnrollFirstState.EnrollFirstStart
             )
         } else {
+            finishOrOfferRebind(ctx)
+        }
+
+    /**
+     * The last question of this journey, and deliberately the last: this device is durably linked
+     * to ANOTHER account, so nothing bound it implicitly on the way here
+     * (`JourneyActionExecutor.linkDeviceIfIntentImplies` never rebinds - see
+     * [RegisterEnrollFirstState.EnrollFirstConfirmDeviceRebind]). Asked here rather than at the
+     * first enrollment, where the binding would otherwise have happened, because by now the
+     * optional identification has run or been declined - at that earlier point the account had
+     * just been created lazily and had no identity to put in the question at all.
+     *
+     * Nothing to ask on a KEYCLOAK channel: it has no device, so `linkedAccountId` is null there
+     * and this falls straight through.
+     */
+    private fun finishOrOfferRebind(ctx: JourneyContext): Transition {
+        val accountId = ctx.account?.accountId
+        val linkedElsewhere = ctx.linkedAccountId != null && ctx.linkedAccountId != accountId
+        return if (accountId != null && linkedElsewhere) {
+            Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmDeviceRebind)
+        } else {
             Transition.Authenticated
         }
+    }
 
     /** ENROLLMENT-role tools for one hardcoded method name, e.g. "email"/"sms"/"password" - same reasoning as `RegisterStrategy.passwordEnrollmentCandidates`. */
     private fun enrollmentCandidatesFor(method: String, ctx: JourneyContext): List<ToolId> =
@@ -209,6 +253,8 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
     private fun reoffer(state: JourneyState): Transition = Transition.To(state.withActive(null))
 
     private companion object {
+        const val ACCEPT = "accept"
+        const val DECLINE = "decline"
         const val PASSWORD_METHOD = "password"
         const val EMAIL_METHOD = "email"
         const val SMS_METHOD = "sms"

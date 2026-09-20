@@ -70,7 +70,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 is JourneyEvent.SubJourneyFinished -> {
                     val account = ctx.requireAccount()
                     if (event.intent == AuthIntent.STEP_UP && AcrLevel.rank(event.achievedAcr) >= AcrLevel.rank(Action.DeleteAccount.requiredAcr(account))) {
-                        Transition.Perform(Action.DeleteAccount(account.accountId), resumeState = state)
+                        Transition.Perform(Action.DeleteAccount, resumeState = state)
                     } else {
                         Transition.Cancel
                     }
@@ -95,7 +95,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 // class doc for why this skips Action.AcceptProof).
                 is JourneyEvent.Completed -> when (event.outcome) {
                     is ToolOutcome.Completed.Authenticated ->
-                        Transition.Perform(Action.DeleteAccount(ctx.requireAccount().accountId), resumeState = state)
+                        Transition.Perform(Action.DeleteAccount, resumeState = state)
                     is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
                         error("${event.tool.toolId} is not offered by DELETE_ACCOUNT")
                 }

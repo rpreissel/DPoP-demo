@@ -82,7 +82,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
             // but only ACCEPT asks the machine to actually link the device.
             is LookupLoginState.OfferBinding -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice(state.accountId), resumeState = state)
+                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
                     DECLINE -> Transition.Authenticated
                     else -> error("OfferBinding does not understand answer '${event.answer}'")
                 }
@@ -92,7 +92,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
 
             is LookupLoginState.ConfirmDeviceRebind -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice(state.accountId), resumeState = state)
+                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
                     DECLINE -> Transition.Authenticated
                     else -> error("ConfirmDeviceRebind does not understand answer '${event.answer}'")
                 }
@@ -110,7 +110,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
      */
     private fun proofAction(event: JourneyEvent.Completed): Action =
         when (val outcome = event.outcome) {
-            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, bindDevice = false)
+            is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome)
             is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
                 error("${event.tool.toolId} is not offered by LOGIN_LOOKUP")
         }

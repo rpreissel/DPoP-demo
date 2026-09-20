@@ -121,27 +121,34 @@ class JourneyLogDetails(
     }
 
     /**
-     * What an [Action] carries worth keeping in the log - the tool-outcome actions' `bindDevice`,
-     * and for [Action.Remove] which method/account it actually names (the class name alone,
-     * "Remove", doesn't say which one). Whether a run adopted a fresh account or merely confirmed
-     * one it already held is deliberately NOT logged from the action any more: that is no longer
-     * decided when the action is built (see [Action.Identified]), so the journey's own
-     * account binding is the honest record of it. Shared between the "Entry" seedAction log line
-     * and every [Transition.Perform] logged in [JourneyService.advance].
+     * What an [Action] carries worth keeping in the log - mainly, for [Action.RevokeAuthMethod],
+     * which method/account it actually names (the class name alone doesn't say which instance).
+     *
+     * The tool-outcome actions contribute nothing of their own any more. What used to be logged
+     * here - `bindDevice`, `useOutcomeAccount`, and which of the two identity actions was chosen -
+     * were all fields a strategy filled in when it BUILT the action, and none of them decide
+     * anything today: the executor derives each from the journey intent and the live binding at
+     * the moment it acts. Logging them would have meant logging an intention rather than an
+     * outcome, and the journey's own account/device state already records what actually happened.
+     * Shared between the "Entry" seedAction log line and every [Transition.Perform] logged in
+     * [JourneyService.advance].
      */
     fun actionDetail(action: Action, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (action) {
         is Action.Identified, is Action.AdoptAttestation -> emptyMap()
-        is Action.AdoptCredential -> mapOf("bindDevice" to action.bindDevice)
-        is Action.AcceptProof -> mapOf("bindDevice" to action.bindDevice)
+        is Action.AdoptCredential -> emptyMap()
+        is Action.AcceptProof -> emptyMap()
         is Action.RecordApproval -> emptyMap()
         is Action.ApplyRestoredEvidence -> mapOf("source" to action.source, "methods" to methodEvidenceDetail(action.methods))
-        is Action.Remove -> {
+        is Action.RevokeAuthMethod -> {
             val accountId = journey.accountId ?: channel.accountId
             val target = accountId?.let { accountService.findAccount(it) }
                 ?.authenticationMethods?.firstOrNull { it.id == action.methodInstanceId }
             mapOf("methodInstanceId" to action.methodInstanceId, "method" to target?.method, "label" to target?.label)
         }
-        is Action.LinkDevice -> mapOf("accountId" to action.accountId)
-        is Action.DeleteAccount -> mapOf("accountId" to action.accountId)
+        // The account these two act on is the session's own (they carry none of their own any
+        // more, see Action.LinkDevice) - logged from the same place the executor reads it, so the
+        // log says what actually happened rather than what a strategy once intended.
+        is Action.LinkDevice, is Action.DeleteAccount ->
+            mapOf("accountId" to (journey.accountId ?: channel.accountId))
     }
 }

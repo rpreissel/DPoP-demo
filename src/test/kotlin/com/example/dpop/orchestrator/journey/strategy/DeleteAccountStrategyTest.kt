@@ -130,7 +130,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             then("deletes right away - that fresh proof already IS the re-confirmation, no second one demanded") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.STEP_UP, achievedAcr = AcrLevel.LOA2)
                 strategy.transition(DeleteAccountState.ConfirmPending, event, theCtx) shouldBe
-                    Transition.Perform(Action.DeleteAccount(acc.accountId), resumeState = DeleteAccountState.ConfirmPending)
+                    Transition.Perform(Action.DeleteAccount, resumeState = DeleteAccountState.ConfirmPending)
             }
         }
 
@@ -190,7 +190,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
         then("goes straight to deleting - one proof, at any level, is always sufficient here, and is never itself recorded as MethodEvidence") {
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
-            strategy.transition(state, event, theCtx) shouldBe Transition.Perform(Action.DeleteAccount(acc.accountId), resumeState = state)
+            strategy.transition(state, event, theCtx) shouldBe Transition.Perform(Action.DeleteAccount, resumeState = state)
         }
     }
 

@@ -36,10 +36,10 @@ internal object AuthEnrollCore {
         is ToolOutcome.Completed.Identified -> Action.Identified(event.tool, outcome)
         // A real credential now exists on this device, so recognizing the device costs
         // nothing and saves the next login: bind it.
-        is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
+        is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome)
         // A device-bound tool never resolves the account itself - it could only have been
         // offered once the account was already known.
-        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome, bindDevice = true)
+        is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome)
         // Claims only: the account keeps the attested value (its anchor), no credential is
         // created and the device is NOT bound - unlike Enrolled above, nothing now lives on this
         // device that a later login could recognize it by.

@@ -286,12 +286,13 @@ sealed interface Action {
     data class AdoptAttestation(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Attested) : Action
 
     /**
-     * A new credential was enrolled; [bindDevice] says whether it should also link this device.
+     * A new credential was enrolled. Whether this also links the device is NOT a field here:
+     * it follows from the journey's own [AuthIntent.bindsDeviceImplicitly] (and, for a KEYCLOAK
+     * channel, from there being no device at all).
      */
     data class AdoptCredential(
         val tool: ToolDescriptor,
-        val outcome: ToolOutcome.Completed.Enrolled,
-        val bindDevice: Boolean
+        val outcome: ToolOutcome.Completed.Enrolled
     ) : Action
 
     /**
@@ -310,8 +311,7 @@ sealed interface Action {
      */
     data class AcceptProof(
         val tool: ToolDescriptor,
-        val outcome: ToolOutcome.Completed.Authenticated,
-        val bindDevice: Boolean
+        val outcome: ToolOutcome.Completed.Authenticated
     ) : Action
 
     /**
@@ -333,32 +333,49 @@ sealed interface Action {
     data class RecordApproval(val tool: ToolDescriptor, val outcome: ToolOutcome.Completed.Approved) : Action
 
     /**
-     * Deactivate a method instance. Not a tool run; the strategy decides it, the machine executes
-     * it (rejecting self-lockout).
+     * Revoke ONE authentication method of the account this session holds - the credential itself
+     * goes, not just an active flag (`AccountDeletionService.revokeMethod`). Not a tool run; the
+     * strategy decides it, the machine executes it (rejecting self-lockout).
+     *
+     * Named for what it destroys, next to [DeleteAccount] which destroys the whole account: the
+     * two are deliberately not near-synonyms ("Remove" said neither what was removed nor how it
+     * differed from deleting everything). Names the method, never the account: which account that
+     * instance has to belong to is read from the live session, so a stale or wrong id cannot
+     * reach into another account's methods.
      */
-    data class Remove(val methodInstanceId: String) : Action
+    data class RevokeAuthMethod(val methodInstanceId: String) : Action
 
     /**
-     * Link the current device to [accountId] - the action an accepted device-binding offer asks
-     * for (see [JourneyEvent.Answered]).
+     * Link the current device to the account this session holds - the action an accepted
+     * device-binding offer asks for (see [JourneyEvent.Answered]).
+     *
+     * Deliberately carries NO accountId. It used to take one, which every caller filled from its
+     * own state (`state.accountId`) - a value persisted in the journey's JSON when that state was
+     * built and read back when the user finally answers. Binding a physical device is the single
+     * most durable thing this machine does (`DeviceAccountLink` outlives every journey and sends
+     * the next `FAST_ACCESS` straight into that account), so it must follow the session's own
+     * current binding, never an id a strategy stored earlier.
      */
-    data class LinkDevice(val accountId: Long) : Action
+    data object LinkDevice : Action
 
     /**
-     * Delete the account and everything it owns. An irreversible action, so [JourneyService]
-     * independently re-checks [requiredAcr] against the CURRENT evidence right before executing
-     * it, exactly like it independently re-checks self-lockout before [Remove].
+     * Delete the account this session holds, and everything it owns. An irreversible action, so
+     * `JourneyActionExecutor` independently re-checks [requiredAcr] against the CURRENT evidence
+     * right before executing it, exactly like it independently re-checks self-lockout before
+     * [RevokeAuthMethod].
+     *
+     * Carries no accountId for the same reason [LinkDevice] does not - and here it was outright
+     * inconsistent: the permission check ran against the session's account while the deletion
+     * targeted the action's own field, so the two could name different accounts.
      */
-    data class DeleteAccount(val accountId: Long) : Action {
-        companion object {
-            /**
-             * The ACR JourneyService independently re-checks right before executing this action.
-             * Lives here rather than in `DeleteAccountStrategy` so the generic machine can
-             * reference it without importing a concrete [IntentStrategy] implementation. Deleting
-             * an account is no more sensitive than [selfServiceAcrFloor]'s own reasoning already
-             * covers, so this is exactly that floor, not a second definition of it.
-             */
-            fun requiredAcr(account: AccountProfile?): AcrLevel = selfServiceAcrFloor(account)
-        }
+    data object DeleteAccount : Action {
+        /**
+         * The ACR JourneyService independently re-checks right before executing this action.
+         * Lives here rather than in `DeleteAccountStrategy` so the generic machine can
+         * reference it without importing a concrete [IntentStrategy] implementation. Deleting
+         * an account is no more sensitive than [selfServiceAcrFloor]'s own reasoning already
+         * covers, so this is exactly that floor, not a second definition of it.
+         */
+        fun requiredAcr(account: AccountProfile?): AcrLevel = selfServiceAcrFloor(account)
     }
 }

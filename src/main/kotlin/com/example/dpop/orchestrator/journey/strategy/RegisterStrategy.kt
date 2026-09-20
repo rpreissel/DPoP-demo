@@ -69,7 +69,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
 
             is RegisterState.ConfirmDeviceRebind -> when (event) {
                 is JourneyEvent.Answered -> when (event.answer) {
-                    ACCEPT -> Transition.Perform(Action.LinkDevice(state.accountId), resumeState = state)
+                    ACCEPT -> Transition.Perform(Action.LinkDevice, resumeState = state)
                     DECLINE -> Transition.Cancel
                     else -> error("ConfirmDeviceRebind does not understand answer '${event.answer}'")
                 }

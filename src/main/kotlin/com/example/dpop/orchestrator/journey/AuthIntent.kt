@@ -16,7 +16,12 @@ enum class AuthIntent {
     /** Deliberately fresh identification, even on an already linked device. */
     REGISTER,
 
-    /** Log into an existing account without a paired device (classic web login). */
+    /**
+     * Log into an existing account without a paired device (classic web login) - the one intent
+     * that does NOT link the device as a side effect of succeeding
+     * ([bindsDeviceImplicitly]); it asks first (`LookupLoginState.OfferBinding`), because it is
+     * chosen precisely by people who do not want to be recognized next time.
+     */
     LOOKUP_LOGIN,
 
     /**
@@ -71,6 +76,34 @@ enum class AuthIntent {
      */
     val isEntryIntent: Boolean
         get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN || this == KC_SELECT_METHOD || this == CONFIRM_PEER_LOGIN
+
+    /**
+     * Whether succeeding on an APP channel links this device to the account as a side effect
+     * (`DeviceAccountLink`, docs/09-dpop.md #3), or whether the intent asks the user first.
+     * Only [LOOKUP_LOGIN] asks - see its own doc.
+     *
+     * An intent-level property rather than a `bindDevice` flag on each Action, which is what it
+     * used to be: it never varied WITHIN an intent, only between them, so every strategy just
+     * restated its intent's own constant at each Action it built - a value that can be set, and
+     * therefore set wrongly, where nothing ever legitimately varies. It matters more since device
+     * linking became one shared implementation: a link that moves to another account now also
+     * revokes that account's device credentials for this key, so an accidental `true` is
+     * destructive rather than merely convenient.
+     *
+     * Answers only "does this intent WANT to bind", never "is there a device to bind" - not as a
+     * convenience, but because it could not answer the second question even if it tried: the same
+     * intent runs on both channel types ([REGISTER] is an entry intent on APP and on KEYCLOAK
+     * alike, docs/04-orchestrierung.md), so "binds" would stop being a constant of the intent and
+     * become a function of the channel - exactly the per-case variability that made the old flag
+     * settable, and therefore wrongly settable.
+     *
+     * The channel question is also the broader one: it applies to the EXPLICIT binding too (a
+     * user who agrees on a KEYCLOAK channel still has no device), so it lives once in
+     * `JourneyActionExecutor.linkDeviceTo`, which both paths go through. Two independent
+     * questions, each answered where its information lives, combined in exactly one place.
+     */
+    val bindsDeviceImplicitly: Boolean
+        get() = this != LOOKUP_LOGIN
 
     companion object {
         /**

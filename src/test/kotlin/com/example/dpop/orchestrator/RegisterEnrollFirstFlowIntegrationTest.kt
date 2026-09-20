@@ -3,10 +3,13 @@ package com.example.dpop.orchestrator
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+import com.example.dpop.orchestrator.support.AccountFixtures
 import com.ninjasquad.springmockk.MockkBean
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -195,5 +198,62 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 }
             }
         }
+
+        given("a device already durably linked to somebody else's account, registering enroll-first") {
+            `when`("the run finishes and the closing rebind prompt is declined") {
+                then("the other account keeps both the device link and its device credential") {
+
+                // Somebody else's account owns this physical device key.
+                val otherAccountId = accountFixtures.seedAccount(bindDeviceKeyRef = currentBindingKeyRef)
+
+                val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""").channel()["channelSessionId"] as String
+                confirmEmail(channelSessionId)
+                enrollSms(channelSessionId)
+                enrollPassword(channelSessionId)
+                // The optional identification offer comes first - decline it.
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+
+                // Only NOW is the rebind asked, which is the whole point: the enrollments above
+                // deliberately did not take this device from the other account on their own.
+                val rebindPrompt = get("/orchestrator/api/v1/channels/$channelSessionId")
+                rebindPrompt.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
+
+                val declined = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+                declined.channel()["state"] shouldBe "AUTHENTICATED"
+
+                linkedAccountId() shouldBe otherAccountId
+                }
+            }
+        }
+
+        given("a device already durably linked to somebody else's account, registering enroll-first") {
+            `when`("the closing rebind prompt is accepted") {
+                then("the device moves to the newly registered account") {
+
+                val otherAccountId = accountFixtures.seedAccount(bindDeviceKeyRef = currentBindingKeyRef)
+
+                val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""").channel()["channelSessionId"] as String
+                confirmEmail(channelSessionId)
+                enrollSms(channelSessionId)
+                enrollPassword(channelSessionId)
+                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"decline"}""")
+
+                val accepted = post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                accepted.channel()["state"] shouldBe "AUTHENTICATED"
+
+                // The link moved off the seeded account onto the one this run created.
+                val linked = linkedAccountId()
+                linked shouldNotBe otherAccountId
+                accountService.allAccountIds() shouldContain linked
+                }
+            }
+        }
     }
+
+    /** Which account this test's physical device key currently resolves to, if any. */
+    private fun linkedAccountId(): Long? =
+        jdbcTemplate.queryForList(
+            "SELECT account_id FROM orchestrator.device_account_link WHERE binding_key_ref = ?",
+            Long::class.java, currentBindingKeyRef
+        ).firstOrNull()
 }

@@ -53,7 +53,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
                 is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
                 // The removal just ran.
                 is JourneyEvent.ActionCompleted -> Transition.Authenticated
-                else -> gate(state, ctx) ?: Transition.Perform(Action.Remove(state.methodInstanceId), resumeState = state)
+                else -> gate(state, ctx) ?: Transition.Perform(Action.RevokeAuthMethod(state.methodInstanceId), resumeState = state)
             }
 
             is ManageAuthMethodsState.Enrolling -> when (event) {
@@ -74,7 +74,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
      * credential reachable next time.
      */
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
-        is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome, bindDevice = true)
+        is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome)
         is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by MANAGE")
     }

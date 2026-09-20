@@ -485,10 +485,22 @@ stateDiagram-v2
   EnrollFirstConfirmingEmail --> IdentifizierungAnbieten: E-Mail bestätigt, keine weitere Pflicht offen
   EnrollFirstPasswordObligation --> IdentifizierungAnbieten: Passwort eingerichtet
 
+  IdentifizierungAnbieten --> EnrollFirstConfirmDeviceRebind: fertig, aber dieses Gerät gehört einem ANDEREN Konto
   IdentifizierungAnbieten --> Finished: Zustimmung + erfolgreich identifiziert, oder Ablehnung/nichts anzubieten
   IdentifizierungAnbieten --> [*]: identifizierte Person gehört bereits zu anderem Konto - Abbruch
+  EnrollFirstConfirmDeviceRebind --> Finished: zugestimmt - Gerät umgebunden, altes Geräte-Credential widerrufen
+  EnrollFirstConfirmDeviceRebind --> Finished: abgelehnt - angemeldet, aber ohne Gerätebindung
   Finished --> [*]
 
+  note right of EnrollFirstConfirmDeviceRebind
+    Bewusst hier am ENDE, nicht dort,
+    wo die Bindung sonst entstünde:
+    beim ersten Enrollment ist das Konto
+    gerade erst lazy angelegt und hat
+    noch keine Identität, die in der
+    Frage vorkommen könnte. Implizit
+    wird nie umgebunden.
+  end note
   note right of IdentifizierungAnbieten
     Sub-Journey RE_IDENTIFY,
     optional - Konto bleibt bei
@@ -784,7 +796,7 @@ dasselbe `selfServiceAcrFloor`-Gate wie bei `MANAGE_AUTH_METHODS` (Abschnitt 3, 
 .requiredAcr` delegiert an dieselbe Funktion). Der abschließende Re-Proof
 (irgendein aktiver Faktor, beliebiges Niveau) bleibt Pflicht, nie ein stiller Auto-Delete; musste
 ein Step-up laufen, zählt dessen Nachweis bereits. Der Übergang am Ende ist
-`Transition.Perform(Action.DeleteAccount(accountId), resumeState = ConfirmPending)`, aufgelöst zu
+`Transition.Perform(Action.DeleteAccount, resumeState = ConfirmPending)`, aufgelöst zu
 `Transition.Logout` sobald die Journey mit `ActionCompleted` fortgesetzt wird: Account löschen,
 Kanal beenden. `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung erneut
 nach (wie beim Selbst-Aussperr-Check vor `Action.Remove`).
@@ -906,13 +918,13 @@ Die `Action`-Varianten:
 | Action | Bedeutung |
 |---|---|
 | `Identified(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal — die Strategie wählt das nicht mehr über die Action-Variante |
-| `AdoptCredential(tool, outcome, bindDevice)` | eine neue Methode wurde eingerichtet |
-| `AcceptProof(tool, outcome, bindDevice)` | ein Nachweis wurde erbracht. Ob das Tool den Account selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` plus der Live-Bindung ab; ein genannter Account, der einem bereits gebundenen widerspricht, ist `409` |
+| `AdoptCredential(tool, outcome)` | eine neue Methode wurde eingerichtet |
+| `AcceptProof(tool, outcome)` | ein Nachweis wurde erbracht. Ob das Tool den Account selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` plus der Live-Bindung ab; ein genannter Account, der einem bereits gebundenen widerspricht, ist `409` |
 | `AdoptAttestation(tool, outcome)` | ein Konto-eigenes Attribut wurde bezeugt (z. B. bestätigte E-Mail) — darf allein nie auf ein *anderes* Konto wechseln, dafür braucht es eine echte Identifizierung in derselben Sitzung |
 | `ApplyRestoredEvidence(source, methods)` | siehe „RestoreData als Anfangs-Übergang" unten |
-| `Remove(methodInstanceId)` | eine Methode deaktivieren — Selbstsperrung weist die Maschine ab, nicht die Strategie |
-| `LinkDevice(accountId)` | das aktuelle Gerät verknüpfen |
-| `DeleteAccount(accountId)` | Konto unwiderruflich löschen — `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung gegen die aktuelle Evidence nach |
+| `RevokeAuthMethod(methodInstanceId)` | **ein Anmeldeverfahren** widerrufen (Credential selbst, nicht nur ein Flag) — Selbstsperrung weist die Maschine ab, nicht die Strategie. Benannt nach dem, was es zerstört, neben `DeleteAccount`, das das ganze Konto zerstört |
+| `LinkDevice` | das aktuelle Gerät mit dem Konto **dieser Sitzung** verknüpfen — der einzige Weg, der auch *um*binden darf, weil ihm eine Zustimmung vorausgeht |
+| `DeleteAccount` | **das ganze Konto** dieser Sitzung unwiderruflich löschen — der Executor prüft `requiredAcr(account)` unmittelbar vor der Ausführung gegen die aktuelle Evidence nach |
 
 **Sicherheitsprüfungen gehören nie in die Strategie.** Drei Kontoübernahme-Lücken sind genau so
 entstanden, dass die *Prüfung* pro Action-Handler lag, während die *Wahl* des Handlers (bzw. eines
@@ -932,9 +944,24 @@ Die ersten vier `Action`-Varianten tragen `tool`/`outcome` selbst. Enthalten ist
 Intent **unterscheidet**; alles Mechanische — `personId`, `enrollmentRef`, `amr`, `achievedAcr` —
 liest die Maschinerie direkt vom mitgeführten `outcome` ab.
 
-`bindDevice` macht die Gerätewiedererkennung zu einer sichtbaren Entscheidung je Intent:
-`FAST_ACCESS`/`REGISTER` setzen `true`, `LOOKUP_LOGIN` setzt `false` bis zur Zustimmung im
-`OfferBinding`-Zustand (dort dann per `Perform(LinkDevice(accountId), resumeState = OfferBinding)`).
+**Gerätebindung trägt keine Action mehr.** Sie war als `bindDevice`-Flag auf zwei Actions
+geführt, variierte aber nie *innerhalb* eines Intents — also eine Intent-Konstante, die an jeder
+Action neu gesetzt (und falsch gesetzt) werden konnte. Heute zwei unabhängige Fragen, jede dort
+beantwortet, wo ihre Information liegt, zusammengeführt an genau einer Stelle:
+
+- **Will dieser Ablauf binden?** `AuthIntent.bindsDeviceImplicitly` — nur `LOOKUP_LOGIN` nicht, weil
+  genau dieser Intent von Leuten gewählt wird, die nicht wiedererkannt werden wollen; er fragt
+  stattdessen (`OfferBinding` → `Perform(LinkDevice, …)`). Die Eigenschaft kann die Kanalfrage gar
+  nicht mitbeantworten: `REGISTER` läuft auf APP *und* KEYCLOAK, wäre also keine Konstante mehr.
+- **Gibt es hier ein Gerät?** Kanalfrage, einmal im Executor — sie gilt auch für den expliziten
+  Weg, denn auf einem KEYCLOAK-Kanal gibt es auch nach Zustimmung nichts zu binden.
+
+Getrennt wird zusätzlich nach **Destruktivität**, nicht nach Strategie: Implizites Binden greift
+nur, wenn das Gerät frei ist oder schon diesem Konto gehört — es bindet **nie** still um und
+widerruft nie fremde Credentials. Erfolg in einem Ablauf ist Einverständnis, von *diesem* Konto
+wiedererkannt zu werden, nicht Einverständnis, das Gerät einem anderen wegzunehmen. Umbinden kann
+nur der explizite Weg nach einem Prompt (`ConfirmDeviceRebind`). Das schließt den Fall, den
+`RegisterEnrollFirstStrategy` mangels eigenem `ConfirmDeviceRebind`-Zustand sonst still mitnähme.
 
 Zentral und für Strategien nicht erreichbar bleiben: Nachweis in den `AuthContext` übernehmen,
 `SessionEvent`/Journey-Log schreiben, und die Deckelung `min(achievedAcr, enrolledUnderAcr)`.

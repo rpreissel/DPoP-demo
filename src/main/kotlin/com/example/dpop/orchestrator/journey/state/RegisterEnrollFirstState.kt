@@ -37,7 +37,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrollingSms::class, name = "EnrollFirstEnrollingSms"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrolling::class, name = "EnrollFirstEnrolling"),
     JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstConfirmingEmail::class, name = "EnrollFirstConfirmingEmail"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstPasswordObligation::class, name = "EnrollFirstPasswordObligation")
+    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstPasswordObligation::class, name = "EnrollFirstPasswordObligation"),
+    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstConfirmDeviceRebind::class, name = "EnrollFirstConfirmDeviceRebind")
 )
 sealed interface RegisterEnrollFirstState : JourneyState {
 
@@ -53,6 +54,36 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val selectionContext: String get() = "enrollment"
+    }
+
+    /**
+     * This device is durably linked to a DIFFERENT account, so the implicit binding every other
+     * REGISTER run gets was deliberately skipped: `JourneyActionExecutor.linkDeviceIfIntentImplies`
+     * never rebinds on its own, because succeeding at a flow is consent to be recognized by THIS
+     * account - never consent to take the device away from another one, which also revokes that
+     * account's device credentials.
+     *
+     * So this journey asks, at the very END rather than where the binding would have happened:
+     * by then the optional identification has already run (or been declined), which is exactly the
+     * information the question needs - at the first enrollment the account had only just been
+     * created lazily and had no identity to name at all. Same shape and same destructive wording
+     * as [LookupLoginState.ConfirmDeviceRebind]; declining simply finishes the registration
+     * without a device link (logging in still works through the lookup tools).
+     */
+    data object EnrollFirstConfirmDeviceRebind : RegisterEnrollFirstState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val prompt: Prompt get() = Prompt.Confirm(
+            title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
+            description = "Wenn Sie fortfahren, wird dieses Gerät künftig nur noch Ihrem neuen Konto " +
+                "zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem " +
+                "Gerät erneut identifizieren. Ohne Zuordnung bleibt Ihr neues Konto nutzbar - Sie " +
+                "melden sich dann künftig über E-Mail und Passwort an.",
+            confirmLabel = "Gerät neu zuordnen",
+            cancelLabel = "Ohne Zuordnung fortfahren",
+            destructive = true
+        )
     }
 
     /**

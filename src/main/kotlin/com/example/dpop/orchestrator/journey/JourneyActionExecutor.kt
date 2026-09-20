@@ -81,9 +81,9 @@ class JourneyActionExecutor(
             // ToolOutcome.Completed.Approved's own doc), so this never changes what the channel's
             // own evidence says it has proven.
             is Action.RecordApproval -> journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
-            is Action.Remove -> removeMethod(journey, channel, action.methodInstanceId)
-            is Action.LinkDevice -> performLinkDevice(channel, action)
-            is Action.DeleteAccount -> performDeleteAccount(journey, channel, action)
+            is Action.RevokeAuthMethod -> removeMethod(journey, channel, action.methodInstanceId)
+            is Action.LinkDevice -> performLinkDevice(journey, channel)
+            is Action.DeleteAccount -> performDeleteAccount(journey, channel)
         }
         return demoNotice
     }
@@ -407,7 +407,7 @@ class JourneyActionExecutor(
             label = label,
             instanceId = methodInstanceId
         )
-        if (action.bindDevice) linkDeviceTo(channel, accountId)
+        linkDeviceIfIntentImplies(journey, channel, accountId)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, enrolled, enrolled.achievedAcr)
         return demoNotice
     }
@@ -438,7 +438,7 @@ class JourneyActionExecutor(
         val authenticated = action.outcome
         val accountId = accountOfProof(journey, channel, action)
         bindAccount(journey, channel, accountId)
-        if (action.bindDevice) linkDeviceTo(channel, accountId)
+        linkDeviceIfIntentImplies(journey, channel, accountId)
         val used = checkNotNull(accountService.findActiveMethod(accountId, action.tool.method)) {
             "No active method '${action.tool.method}' for account $accountId"
         }
@@ -446,18 +446,49 @@ class JourneyActionExecutor(
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, authenticated, effectiveAcr)
     }
 
-    private fun performLinkDevice(channel: ChannelSession, action: Action.LinkDevice) =
-        linkDeviceTo(channel, action.accountId)
+    /**
+     * The device link that follows from SUCCEEDING, as opposed to the one a user explicitly asked
+     * for ([performLinkDevice]): whether it happens is the journey intent's own property
+     * ([AuthIntent.bindsDeviceImplicitly]), never a per-Action flag a strategy filled in.
+     */
+    private fun linkDeviceIfIntentImplies(journey: AuthJourney, channel: ChannelSession, accountId: Long) {
+        val intent = checkNotNull(journey.intent) { "Journey without an intent" }
+        if (!intent.bindsDeviceImplicitly) return
+        // Never REBIND implicitly. Succeeding at an ordinary flow is consent to be recognized by
+        // THIS account next time; it is not consent to take the device away from another one,
+        // which additionally revokes that account's device credentials (see [linkDeviceTo]).
+        // Rebinding is destructive, so it only ever happens down the explicit route, after the
+        // user answered a prompt that says so (RegisterState/LookupLoginState.ConfirmDeviceRebind).
+        //
+        // Checked here rather than left to each strategy to ask first: RegisterStrategy does ask,
+        // RegisterEnrollFirstStrategy has no such state at all - the same "every caller must
+        // remember" shape as the flags this replaced. A strategy that WANTS the rebind still gets
+        // it, by asking and then naming Action.LinkDevice.
+        val bindingKeyRef = channel.bindingKeyRef
+        if (bindingKeyRef != null) {
+            val linkedTo = sessionManagementService.findLinkedAccountId(bindingKeyRef)
+            if (linkedTo != null && linkedTo != accountId) return
+        }
+        linkDeviceTo(channel, accountId)
+    }
+
+    /** The account this session currently holds - never one a strategy stored in its state earlier (see [Action.LinkDevice]). */
+    private fun performLinkDevice(journey: AuthJourney, channel: ChannelSession) {
+        val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "LinkDevice without a known account" }
+        linkDeviceTo(channel, accountId)
+    }
 
     /**
-     * THE one way a device becomes linked to an account - every caller (an explicit
-     * [Action.LinkDevice] after the user agreed, and the `bindDevice` side of an enrollment or a
-     * proof alike) goes through here, so the revocation below can never be skipped by picking a
-     * different Action. It used to be three call sites: [Action.LinkDevice]'s handler revoked the
-     * previous account's device credentials, while the two `bindDevice` paths just overwrote the
-     * link - meaning the SAME rebind either did or did not revoke, depending on which strategy's
-     * Action carried it there (`RegisterEnrollFirstStrategy` has no `ConfirmDeviceRebind` state at
-     * all, so its enrollments took the non-revoking path).
+     * THE one way a device becomes linked to an account - both the implicit route
+     * ([linkDeviceIfIntentImplies]) and the explicit one ([performLinkDevice], after the user
+     * agreed) go through here, so the revocation below can never be skipped by picking a
+     * different Action. It used to be three call sites with two different behaviours: only
+     * [Action.LinkDevice]'s handler revoked the previous account's device credentials, while the
+     * two `bindDevice` paths just overwrote the link - the SAME rebind either did or did not
+     * revoke, depending on which strategy's Action carried it there.
+     *
+     * Reaching here with a device currently linked ELSEWHERE therefore means a deliberate,
+     * user-confirmed rebind: the implicit route refuses that case before calling in (see there).
      *
      * KEYCLOAK has no device to link (docs/02-domaenenmodell.md Abschnitt 1) - actively
      * suppressed rather than left to a null bindingKeyRef, so a KEYCLOAK channel never
@@ -483,16 +514,22 @@ class JourneyActionExecutor(
         }
     }
 
-    private fun performDeleteAccount(journey: AuthJourney, channel: ChannelSession, action: Action.DeleteAccount) {
+    /**
+     * The account is taken from the freshly derived context and NOTHING else - the same one the
+     * permission check below runs against. It used to come from an `Action.DeleteAccount`
+     * accountId field while the check ran against the session's account, so the two could in
+     * principle name different accounts: checked on A, deleted B.
+     */
+    private fun performDeleteAccount(journey: AuthJourney, channel: ChannelSession) {
         // Independent re-check against freshly derived context, not the strategy's own
-        // state - same reasoning as the self-lockout check before Action.Remove.
+        // state - same reasoning as the self-lockout check before Action.RevokeAuthMethod.
         val freshCtx = contextFactory.contextFor(journey, channel)
         val account = checkNotNull(freshCtx.account) { "DeleteAccount without a resolved account" }
         val requiredAcr = Action.DeleteAccount.requiredAcr(account)
         check(authPolicy.isSatisfied(freshCtx.evidence, requiredAcr, account)) {
             "${journey.intent} decided Action.DeleteAccount without satisfying $requiredAcr"
         }
-        accountDeletionService.deleteAccount(action.accountId)
+        accountDeletionService.deleteAccount(account.accountId)
     }
 
     /**

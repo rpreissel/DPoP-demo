@@ -88,7 +88,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
             val event = JourneyEvent.Completed(ConfirmEmailDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(ConfirmEmailDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(ConfirmEmailDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingSms(listOf(ToolId("enroll-sms"))))
         }
@@ -111,7 +111,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(listOf(ToolId("confirm-email"))))
         }
@@ -151,7 +151,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(listOf(ToolId("confirm-email"))))
         }
@@ -191,7 +191,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("email", "ref"))
             val event = JourneyEvent.Completed(ConfirmEmailDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(ConfirmEmailDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(ConfirmEmailDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterEnrollFirstState.EnrollFirstPasswordObligation(listOf(ToolId("enroll-password"))))
         }
@@ -210,7 +210,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("password", "ref"))
             val event = JourneyEvent.Completed(EnrollPasswordDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(EnrollPasswordDescriptor, outcome, bindDevice = true), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(EnrollPasswordDescriptor, outcome), resumeState = state)
             val transition = strategy.transition(state, JourneyEvent.ActionCompleted, theCtx)
             transition.shouldBeInstanceOf<Transition.RequireSubJourney>()
             (transition as Transition.RequireSubJourney).intent shouldBe AuthIntent.RE_IDENTIFY
