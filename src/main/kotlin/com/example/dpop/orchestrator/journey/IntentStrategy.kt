@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.state.JourneyState
+import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
@@ -210,7 +211,24 @@ sealed interface Transition {
         val intent: AuthIntent,
         val seedWith: JourneyState,
         val resumeWith: JourneyState
-    ) : Transition
+    ) : Transition {
+        init {
+            // [resumeWith] is persisted and only reactivated once the whole sub-journey has run -
+            // minutes later, with new evidence, possibly a different account and different active
+            // methods. A candidate list frozen into it would be re-offered as if it were current;
+            // worse, the sub-journey exists precisely BECAUSE the situation was insufficient, so
+            // its result is the one thing that must be re-read. Resume at a state that recomputes
+            // (a Start-like one), never at an offer.
+            //
+            // Enforced rather than documented: every caller happens to get this right today, and
+            // "every caller gets it right" is exactly what the strategy-owned gates and the dead
+            // accountId snapshots each looked like right before they did not.
+            require(resumeWith !is OfferingState) {
+                "resumeWith must not be an OfferingState (${resumeWith::class.simpleName}): a sub-journey's " +
+                    "whole point is that the situation changed, so the offer has to be recomputed on return"
+            }
+        }
+    }
 
     /** Goal reached: consume the journey, the channel becomes AUTHENTICATED. */
     data object Authenticated : Transition
