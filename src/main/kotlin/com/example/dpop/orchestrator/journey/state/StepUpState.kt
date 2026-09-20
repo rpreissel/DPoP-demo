@@ -63,10 +63,8 @@ sealed interface StepUpState : JourneyState {
     data class AuthChoice(
         override val targetAcr: AcrLevel,
         val startingAcr: AcrLevel,
-        override val offered: List<ToolId>,
+        override val offer: Offer,
         val allowReIdentification: Boolean = true,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null,
         /** See [StepUpState.forSubJourney]'s own doc. */
         val reason: String? = null,
         /**
@@ -80,8 +78,7 @@ sealed interface StepUpState : JourneyState {
          */
         val additionalFactorRound: Boolean = false
     ) : StepUpState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Erhöhte Sicherheit erforderlich"
         override val selectionDescription: String get() {

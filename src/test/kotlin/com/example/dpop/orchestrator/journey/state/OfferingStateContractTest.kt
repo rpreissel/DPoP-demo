@@ -30,16 +30,19 @@ import kotlin.reflect.full.primaryConstructor
 class OfferingStateContractTest : BehaviorSpec({
 
     /**
-     * A value for a constructor parameter the state needs but this contract does not care about -
-     * EXCEPT [ToolRef], which it very much cares about: `active` is an optional parameter, so
-     * leaving it out would build a sample that already has `active == null` and make the
-     * "clears the active tool" assertion below pass no matter what `declining` does. (It did, until
-     * a mutation showed the test staying green against a deliberately broken implementation.)
+     * The sample [Offer] every state under test is built around. It deliberately HAS a running
+     * tool: `active` is nullable, so an offer without one would make the "clears the active tool"
+     * assertion below pass no matter what `declining` does. (It did, until a mutation showed the
+     * test staying green against a deliberately broken implementation.)
      */
+    val sampleOffer = Offer(
+        offered = listOf(ToolId("probe-a"), ToolId("probe-b")),
+        active = ToolRef(ToolId("probe-a"), UUID.randomUUID(), "input")
+    )
+
+    /** A value for a constructor parameter the state needs but this contract does not care about. */
     fun sampleFor(parameter: KParameter): Any? = when (parameter.type.classifier) {
-        ToolRef::class -> ToolRef(ToolId("probe-a"), UUID.randomUUID(), "input")
-        List::class -> listOf(ToolId("probe-a"), ToolId("probe-b"))
-        Set::class -> emptySet<ToolId>()
+        Offer::class -> sampleOffer
         AcrLevel::class -> AcrLevel.LOA1
         Boolean::class -> false
         String::class -> "probe"

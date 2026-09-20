@@ -7,6 +7,8 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.declineTool
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.KcSelectMethodState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolId
@@ -35,7 +37,7 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
     override val intent = AuthIntent.KC_SELECT_METHOD
 
     override fun initialState(ctx: JourneyContext): KcSelectMethodState =
-        KcSelectMethodState.SelectMethod(candidatesFor(ctx), accountAlreadyKnown = ctx.account != null)
+        KcSelectMethodState.SelectMethod(Offer(candidatesFor(ctx)), accountAlreadyKnown = ctx.account != null)
 
     override fun transition(state: KcSelectMethodState, event: JourneyEvent, ctx: JourneyContext): Transition =
         when (state) {
@@ -46,11 +48,7 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
                 // `state`, it must re-check exactly like any other proof.
                 is JourneyEvent.Started -> afterProof(ctx)
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(state, event), resumeState = state)
-                is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    val remaining = state.copy(declined = declined, active = null)
-                    if (remaining.exhausted(ctx.availableTools)) Transition.Cancel else Transition.To(remaining)
-                }
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
                 // EvidenceReported (a simulated native authenticator, Mock-Keycloak, merged fresh
                 // evidence) and ActionCompleted (resumed after a proof/seed just applied) both
                 // re-check the same way.
@@ -80,7 +78,7 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
     private fun afterProof(ctx: JourneyContext): Transition {
         val account = ctx.account
         if (account != null && ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) return Transition.Authenticated
-        return Transition.To(KcSelectMethodState.SelectMethod(candidatesFor(ctx), accountAlreadyKnown = account != null))
+        return Transition.To(KcSelectMethodState.SelectMethod(Offer(candidatesFor(ctx)), accountAlreadyKnown = account != null))
     }
 
     /**

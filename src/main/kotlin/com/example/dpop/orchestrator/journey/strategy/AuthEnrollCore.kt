@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.toEnrollAbortMessage
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.JourneyState
@@ -53,7 +54,7 @@ internal object AuthEnrollCore {
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) return Transition.Authenticated
 
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
-        if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
+        if (candidates.isNotEmpty()) return Transition.To(AuthChoice(Offer(candidates)))
         // No email obligation on this path: an existing account that merely logs in is never
         // retroactively blocked on a missing confirmed email (docs/04-orchestrierung.md #8).
         return offerEnrollment(account, ctx, emailObligation = false, resumeAtStart)
@@ -96,7 +97,7 @@ internal object AuthEnrollCore {
     fun confirmEmail(account: AccountProfile, ctx: JourneyContext): Transition? {
         if (account.emailConfirmed) return null
         return CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
-            ?.let { Transition.To(RegisterState.ConfirmingEmail(it)) }
+            ?.let { Transition.To(RegisterState.ConfirmingEmail(Offer(it))) }
     }
 
     /**
@@ -135,7 +136,7 @@ internal object AuthEnrollCore {
 
         val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
         if (candidates.isNotEmpty()) {
-            return Transition.To(Enrolling(candidates, emailObligation = emailObligation))
+            return Transition.To(Enrolling(Offer(candidates), emailObligation = emailObligation))
         }
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
             Transition.RequireSubJourney(

@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
@@ -65,6 +66,6 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
     private fun offerIdentifying(targetAcr: AcrLevel, startingAcr: AcrLevel, wording: ReIdentifyState.Wording?, ctx: JourneyContext): Transition? {
         val candidates = CandidateTools.forReIdentification(targetAcr, ctx)
         return candidates.takeIf { it.isNotEmpty() }
-            ?.let { Transition.To(ReIdentifyState.Identifying(targetAcr, startingAcr, it, wording = wording)) }
+            ?.let { Transition.To(ReIdentifyState.Identifying(targetAcr, startingAcr, Offer(it), wording = wording)) }
     }
 }

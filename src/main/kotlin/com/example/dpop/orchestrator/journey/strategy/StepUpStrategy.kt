@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.toAuthAbortMessage
 import com.example.dpop.orchestrator.journey.state.StepUpState
@@ -80,7 +81,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             // for an ADDITIONAL factor, not the first one - see AuthChoice.additionalFactorRound's
             // own doc for why that needs saying out loud.
             val additionalFactorRound = ctx.evidence.factors.any { it.axis == EvidenceAxis.AUTHENTICATOR }
-            return Transition.To(StepUpState.AuthChoice(targetAcr, startingAcr, candidates, allowReIdentification, reason = reason, additionalFactorRound = additionalFactorRound))
+            return Transition.To(StepUpState.AuthChoice(targetAcr, startingAcr, Offer(candidates), allowReIdentification, reason = reason, additionalFactorRound = additionalFactorRound))
         }
         return offerReIdentOrGiveUp(
             targetAcr, startingAcr, allowReIdentification, ctx,

@@ -58,12 +58,9 @@ sealed interface RegisterState : JourneyState {
      * claim-based identity resolution, which is exactly why a single state covers both.
      */
     data class Identifying(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "registration"
         override val selectionStep: String get() = "selectIdentificationMethod"
         override val selectionTitle: String get() = "Identifikation erforderlich"
@@ -110,12 +107,9 @@ sealed interface RegisterState : JourneyState {
      * (ADR-10) with a fully attested identity, just without the register binding.
      */
     data class Assigning(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "registration"
         override val selectionTitle: String get() = "Versichertennummer angeben"
         override val selectionDescription: String get() = "Ihr Konto wird damit Ihrem Datensatz bei der Krankenkasse zugeordnet."
@@ -130,12 +124,9 @@ sealed interface RegisterState : JourneyState {
      * enrollment cascade (`AuthEnrollCore.afterEnrollment`) and is retried there.
      */
     data class ConfirmingEmail(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
         override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
@@ -159,12 +150,9 @@ sealed interface RegisterState : JourneyState {
      * confirmed by then, and discharges this obligation before it is ever reached.
      */
     data class PasswordObligation(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Passwort einrichten"
         override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."

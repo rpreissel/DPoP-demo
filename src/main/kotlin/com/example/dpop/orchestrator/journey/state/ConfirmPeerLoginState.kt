@@ -58,12 +58,9 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      */
     data class ConfirmationRequired(
         val startedAuthenticated: Boolean,
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : ConfirmPeerLoginState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Web-Login bestätigen – Identität erneut bestätigen"
         override val selectionDescription: String?
@@ -78,12 +75,11 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      */
     data class Confirming(
         val startedAuthenticated: Boolean,
-        override val active: ToolRef? = null,
-        override val declined: Set<ToolId> = emptySet()
+        // The offer here is fixed (this state exists to run exactly confirm-qr-login), so it is a
+        // default rather than something a caller supplies.
+        override val offer: Offer = Offer(listOf(ToolId("confirm-qr-login")))
     ) : ConfirmPeerLoginState, OfferingState {
-        override val offered: List<ToolId> get() = listOf(ToolId("confirm-qr-login"))
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Web-Login bestätigen"
         override val selectionDescription: String

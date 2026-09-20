@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
@@ -126,7 +127,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
         return if (candidates.isEmpty()) {
             Transition.Abort("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar")
         } else {
-            Transition.To(DeleteAccountState.ConfirmationRequired(candidates))
+            Transition.To(DeleteAccountState.ConfirmationRequired(Offer(candidates)))
         }
     }
 }

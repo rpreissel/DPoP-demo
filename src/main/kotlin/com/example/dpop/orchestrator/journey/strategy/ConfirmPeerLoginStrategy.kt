@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
@@ -93,7 +94,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
             is ConfirmPeerLoginState.Confirming -> when (event) {
                 // Backing out of confirm-qr-login is not declining the wish - the only candidate
                 // comes back, exactly like ManageAuthMethodsStrategy.Enrolling.
-                is JourneyEvent.Abandoned -> Transition.To(state.copy(active = null))
+                is JourneyEvent.Abandoned -> Transition.To(state.withActive(null))
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 // The approval just ran. A channel that was already authenticated before this
                 // journey started stays that way; one that authenticated ONLY for this single
@@ -151,7 +152,7 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
         return if (candidates.isEmpty()) {
             Transition.Abort("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar")
         } else {
-            Transition.To(ConfirmPeerLoginState.ConfirmationRequired(startedAuthenticated, candidates))
+            Transition.To(ConfirmPeerLoginState.ConfirmationRequired(startedAuthenticated, Offer(candidates)))
         }
     }
 

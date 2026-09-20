@@ -95,12 +95,9 @@ sealed interface RegisterEnrollFirstState : JourneyState {
      * journey now uses as well (`AuthEnrollCore.confirmEmail`).
      */
     data class EnrollFirstAttestingEmail(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterEnrollFirstState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Adresse bestätigen"
         override val selectionDescription: String get() = "Zuerst wird Ihre E-Mail-Adresse bestätigt - Ihr Konto wird darüber gefunden. SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss."
@@ -108,12 +105,9 @@ sealed interface RegisterEnrollFirstState : JourneyState {
 
     /** Forced, mandatory second step, reached only once [EnrollFirstAttestingEmail] is discharged (or skipped, see there) - same non-skippable reasoning. */
     data class EnrollFirstEnrollingSms(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterEnrollFirstState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "SMS als Anmeldeverfahren einrichten"
         override val selectionDescription: String get() = "Danach wird SMS als zweites Anmeldeverfahren eingerichtet - die Identifikation ist optional und kommt erst zum Schluss."
@@ -126,24 +120,18 @@ sealed interface RegisterEnrollFirstState : JourneyState {
      * case this is where it started from instead, see `RegisterEnrollFirstStrategy.offerEnrollment`).
      */
     data class EnrollFirstEnrolling(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterEnrollFirstState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
         override val selectionDescription: String get() = "Richten Sie ein Anmeldeverfahren ein - die Identifikation ist optional und folgt erst danach."
     }
 
     data class EnrollFirstConfirmingEmail(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterEnrollFirstState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
         override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
@@ -151,12 +139,9 @@ sealed interface RegisterEnrollFirstState : JourneyState {
 
     /** Same reasoning as [RegisterState.PasswordObligation] - just reached before, not after, any identification. */
     data class EnrollFirstPasswordObligation(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : RegisterEnrollFirstState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Passwort einrichten"
         override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."

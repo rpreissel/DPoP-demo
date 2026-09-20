@@ -30,12 +30,9 @@ sealed interface LookupLoginState : JourneyState {
     }
 
     data class Credential(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : LookupLoginState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Anmeldung – Konto bestätigen"
         override val selectionDescription: String get() = "Geben Sie Ihre Zugangsdaten ein, um sich mit Ihrem bestehenden Konto anzumelden."
@@ -52,12 +49,9 @@ sealed interface LookupLoginState : JourneyState {
      * AUTHENTICATED under its own required level.
      */
     data class AdditionalFactor(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : LookupLoginState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Zusätzlicher Faktor erforderlich"
         override val selectionDescription: String get() = "Ihre bisherige Anmeldung reicht für das geforderte Sicherheitsniveau nicht aus. Bitte bestätigen Sie einen weiteren Faktor."

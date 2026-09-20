@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.selfServiceAcrFloor
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.session.ChannelState
@@ -59,7 +60,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
             is ManageAuthMethodsState.Enrolling -> when (event) {
                 // Backing out here means picking a different method, not abandoning the wish -
                 // the full choice comes back. Giving up entirely is DELETE .../journey.
-                is JourneyEvent.Abandoned -> Transition.To(state.copy(active = null))
+                is JourneyEvent.Abandoned -> Transition.To(state.withActive(null))
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(event), resumeState = state)
                 // The enrollment just ran - one successful enrollment ends this intent.
                 else -> Transition.Authenticated
@@ -98,7 +99,7 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
             // disrupted flows, not an expectable "you already have everything").
             Transition.Authenticated
         } else {
-            Transition.To(ManageAuthMethodsState.Enrolling(candidates))
+            Transition.To(ManageAuthMethodsState.Enrolling(Offer(candidates)))
         }
     }
 }

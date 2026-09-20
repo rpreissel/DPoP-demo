@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
@@ -127,13 +128,13 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
      */
     private fun offerEmailConfirmation(ctx: JourneyContext): Transition {
         val candidates = CandidateTools.forEmailConfirmation(ctx)
-        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstAttestingEmail(candidates)) else offerSmsEnrollment(ctx)
+        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstAttestingEmail(Offer(candidates))) else offerSmsEnrollment(ctx)
     }
 
     /** Mandatory step 2 - falls through to [afterForcedEnrollment] if no SMS-method ENROLLMENT tool is available at all right now. */
     private fun offerSmsEnrollment(ctx: JourneyContext): Transition {
         val candidates = enrollmentCandidatesFor(SMS_METHOD, ctx)
-        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingSms(candidates)) else afterForcedEnrollment(ctx)
+        return if (candidates.isNotEmpty()) Transition.To(RegisterEnrollFirstState.EnrollFirstEnrollingSms(Offer(candidates))) else afterForcedEnrollment(ctx)
     }
 
     /**
@@ -152,7 +153,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         val blankAccount = AccountProfile(accountId = -1, personId = null, authenticationMethods = emptyList())
         val candidates = CandidateTools.forEnrollment(blankAccount, ctx.acrFloor, ctx)
         return if (candidates.isNotEmpty()) {
-            Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(candidates))
+            Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(Offer(candidates)))
         } else {
             Transition.Abort("Kein Anmeldeverfahren verfuegbar")
         }
@@ -169,7 +170,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         if (reachability !is Reachability.Reachable || !ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
             val candidates = CandidateTools.forEnrollment(account, ctx.acrFloor, ctx)
             return if (candidates.isNotEmpty()) {
-                Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(candidates))
+                Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(Offer(candidates)))
             } else {
                 // Reachability.NotReachable: that reason's own explanation applies. Reachable:
                 // forEnrollment came back empty anyway for a channel-local reason (e.g.
@@ -180,11 +181,11 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         }
         if (emailObligation && !account.emailConfirmed) {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
-                ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(it)) }
+                ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(Offer(it))) }
         }
         if (account.activeAuthenticationMethods.none { it.method == PASSWORD_METHOD }) {
             passwordEnrollmentCandidates(ctx).takeIf { it.isNotEmpty() }
-                ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstPasswordObligation(it)) }
+                ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstPasswordObligation(Offer(it))) }
         }
         return offerIdentificationOrFinish(ctx)
     }

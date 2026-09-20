@@ -41,12 +41,9 @@ sealed interface DeleteAccountState : JourneyState {
      * for why this is not the ordinary step-up candidate set.
      */
     data class ConfirmationRequired(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : DeleteAccountState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         // "auth" like every other state offering IDENTIFIED_AUTH candidates (AuthChoice,
         // LookupLoginState.Credential, StepUpState.AuthChoice) - selectionContext names the KIND of
         // offer, not the intent, so the client's existing select-method routing needs no new entry.

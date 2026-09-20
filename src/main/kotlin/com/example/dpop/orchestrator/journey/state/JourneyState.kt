@@ -63,10 +63,45 @@ sealed interface JourneyState {
  */
 data class ToolRef(val toolId: ToolId, val toolSessionId: UUID, val step: String)
 
+/**
+ * What a state currently offers: the candidates, what was already declined, and which tool is
+ * running right now.
+ *
+ * Its own type rather than three fields repeated on each of the twenty offering states, because
+ * the RULES over those fields ("declining adds to declined and stops the running tool", "only
+ * what is neither declined nor unavailable can be activated") were repeated with them - and a
+ * rule that exists twenty times is a rule that can hold nineteen times. They live here once now;
+ * a state only says which [Offer] it holds and how to put a new one back ([OfferingState.withOffer]),
+ * which carries no rule at all.
+ */
+data class Offer(
+    val offered: List<ToolId>,
+    val declined: Set<ToolId> = emptySet(),
+    val active: ToolRef? = null
+) {
+    fun withActive(active: ToolRef?): Offer = copy(active = active)
+
+    /**
+     * [toolId] declined: recorded, and the running tool stopped. The second half is the one that
+     * would be easy to forget in a per-state copy - it is what keeps an abandoned tool from
+     * staying addressable after the journey has moved past it.
+     */
+    fun declining(toolId: ToolId): Offer = copy(declined = declined + toolId, active = null)
+
+    fun activatable(availableTools: Set<ToolId>): Set<ToolId> = (offered.toSet() - declined) intersect availableTools
+}
+
 /** Shared shape of every state that offers a set of tools and remembers what was declined. */
 sealed interface OfferingState : JourneyState {
-    val offered: List<ToolId>
-    val declined: Set<ToolId>
+    val offer: Offer
+
+    /** This state holding [offer] instead - the only thing a state still has to say for itself, and it says nothing about the rules. */
+    fun withOffer(offer: Offer): OfferingState
+
+    // Read-through, so every caller keeps saying `state.offered` rather than `state.offer.offered`.
+    val offered: List<ToolId> get() = offer.offered
+    val declined: Set<ToolId> get() = offer.declined
+    override val active: ToolRef? get() = offer.active
 
     /**
      * Backend-authored heading for the selection screen shown when more than one candidate is
@@ -80,7 +115,9 @@ sealed interface OfferingState : JourneyState {
     val selectionTitle: String
     val selectionDescription: String? get() = null
 
-    override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = (offered.toSet() - declined) intersect availableTools
+    override fun withActive(active: ToolRef?): JourneyState = withOffer(offer.withActive(active))
+
+    override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = offer.activatable(availableTools)
 
     /**
      * True once every offer here has been declined OR none of what's left is available. Only
@@ -91,20 +128,8 @@ sealed interface OfferingState : JourneyState {
      */
     fun exhausted(availableTools: Set<ToolId>): Boolean = activatable(availableTools).isEmpty()
 
-    /**
-     * This state with [toolId] added to [declined] and no tool running - the one narrowing step a
-     * decline performs. Declared per state for the same reason [withActive] is: a `data class`
-     * cannot inherit `copy`, and making every state say it explicitly is what lets the decline
-     * itself live in ONE place ([com.example.dpop.orchestrator.journey.declineTool]).
-     *
-     * That matters beyond tidiness: "is anything left after this decline?" used to be answered by
-     * each strategy on its own, and had already drifted into two different answers - six call
-     * sites asked `(offered - declined).isEmpty()`, which ignores availability, while three asked
-     * [exhausted]. The first kind cannot see a last remaining offer that an admin switch has made
-     * unavailable, so it narrows into a state that renders an empty selection and sends the user
-     * straight back to it instead of down the fallback chain.
-     */
-    fun declining(toolId: ToolId): OfferingState
+    /** See [Offer.declining] - the rule itself lives there, this only puts the result back. */
+    fun declining(toolId: ToolId): OfferingState = withOffer(offer.declining(toolId))
 }
 
 /**

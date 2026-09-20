@@ -12,12 +12,9 @@ import com.example.dpop.tool_spi.ToolId
  * and transition function, they merely land on the same value here.
  */
 data class AuthChoice(
-    override val offered: List<ToolId>,
-    override val declined: Set<ToolId> = emptySet(),
-    override val active: ToolRef? = null
+    override val offer: Offer
 ) : FastAccessState, RegisterState, OfferingState {
-    override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+    override fun withOffer(offer: Offer) = copy(offer = offer)
     override val selectionContext: String get() = "auth"
     override val selectionTitle: String get() = "Anmeldung – Verfahren wählen"
     override val selectionDescription: String get() = "Für Ihr Konto sind mehrere Anmeldeverfahren hinterlegt. Wählen Sie aus, wie Sie sich anmelden möchten."
@@ -36,13 +33,10 @@ data class AuthChoice(
  * which method to set up.
  */
 data class Enrolling(
-    override val offered: List<ToolId>,
-    override val declined: Set<ToolId> = emptySet(),
-    override val active: ToolRef? = null,
+    override val offer: Offer,
     val emailObligation: Boolean = false
 ) : FastAccessState, RegisterState, OfferingState {
-    override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+    override fun withOffer(offer: Offer) = copy(offer = offer)
     override val selectionContext: String get() = "enrollment"
     override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
     override val selectionDescription: String get() = "Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein."

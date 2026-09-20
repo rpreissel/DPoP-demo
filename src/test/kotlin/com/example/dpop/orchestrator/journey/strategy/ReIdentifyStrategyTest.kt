@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
@@ -45,7 +46,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
     }
 
     given("Identifying, a completed tool") {
-        val state = ReIdentifyState.Identifying(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("ident-fsc")))
+        val state = ReIdentifyState.Identifying(AcrLevel.LOA2, AcrLevel.LOA1, Offer(listOf(ToolId("ident-fsc"))))
 
         then("Identified always confirms the caller's already-known account, never adopts a different one") {
             val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
@@ -123,17 +124,17 @@ class ReIdentifyStrategyTest : BehaviorSpec({
     given("Identifying, more than one candidate offered") {
         val acc = account(method("sms", AcrLevel.LOA2))
         val theCtx = ctx(account = acc)
-        val state = ReIdentifyState.Identifying(AcrLevel.LOA2, AcrLevel.LOA1, listOf(ToolId("ident-fsc"), ToolId("ident-eid")))
+        val state = ReIdentifyState.Identifying(AcrLevel.LOA2, AcrLevel.LOA1, Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid"))))
 
         `when`("one is abandoned but another remains") {
             then("advances, marking only that one declined") {
                 strategy.transition(state, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe
-                    Transition.To(state.copy(declined = setOf(ToolId("ident-fsc")), active = null))
+                    Transition.To(state.declining(ToolId("ident-fsc")))
             }
         }
 
         `when`("the last remaining candidate is abandoned too") {
-            val exhausted = state.copy(declined = setOf(ToolId("ident-eid")))
+            val exhausted = state.withOffer(state.offer.copy(declined = setOf(ToolId("ident-eid"))))
             then("cancels - giving up here is not an error") {
                 strategy.transition(exhausted, JourneyEvent.Abandoned(IdentFscDescriptor), theCtx) shouldBe Transition.Cancel
             }

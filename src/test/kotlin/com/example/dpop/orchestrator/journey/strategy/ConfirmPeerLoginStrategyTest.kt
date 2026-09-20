@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
@@ -128,22 +129,22 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmationRequired, more than one offered candidate") {
-        val state = ConfirmPeerLoginState.ConfirmationRequired(false, listOf(ToolId("auth-sms"), ToolId("auth-password")))
+        val state = ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("auth-sms"), ToolId("auth-password"))))
         then("abandoning one keeps the choice among the rest") {
             strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
-                Transition.To(state.copy(declined = setOf(ToolId("auth-sms")), active = null))
+                Transition.To(state.declining(ToolId("auth-sms")))
         }
     }
 
     given("ConfirmationRequired, the last offered candidate is abandoned") {
-        val state = ConfirmPeerLoginState.ConfirmationRequired(false, listOf(ToolId("auth-sms")))
+        val state = ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("auth-sms"))))
         then("cancels - the peer login is never confirmed just because every re-proof option was declined") {
             strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Transition.Cancel
         }
     }
 
     given("ConfirmationRequired, any active factor is re-proven") {
-        val state = ConfirmPeerLoginState.ConfirmationRequired(true, listOf(ToolId("auth-sms")))
+        val state = ConfirmPeerLoginState.ConfirmationRequired(true, Offer(listOf(ToolId("auth-sms"))))
         then("moves on to Confirming - one proof, at any level, is always sufficient here") {
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
             strategy.transition(state, event, ctx()) shouldBe Transition.To(ConfirmPeerLoginState.Confirming(true))
@@ -151,7 +152,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmationRequired, an outcome this state never offers") {
-        val state = ConfirmPeerLoginState.ConfirmationRequired(false, listOf(ToolId("ident-fsc")))
+        val state = ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("ident-fsc"))))
         then("fails loudly rather than silently confirming") {
             shouldThrow<IllegalStateException> {
                 strategy.transition(
@@ -177,7 +178,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
     given("onCancel") {
         then("always falls back to AUTHENTICATED - the shared loa2 gate only ever runs on a known account") {
             strategy.cancelledTo(ConfirmPeerLoginState.Requested(false)) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(ConfirmPeerLoginState.ConfirmationRequired(false, listOf(ToolId("auth-sms")))) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("auth-sms"))))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

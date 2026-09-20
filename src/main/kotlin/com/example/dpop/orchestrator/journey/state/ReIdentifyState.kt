@@ -87,13 +87,10 @@ sealed interface ReIdentifyState : JourneyState {
     data class Identifying(
         override val targetAcr: AcrLevel,
         override val startingAcr: AcrLevel,
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null,
+        override val offer: Offer,
         override val wording: Wording? = null
     ) : ReIdentifyState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = wording?.selectionTitle ?: "Erneute Identifikation erforderlich"
         override val selectionDescription: String get() = wording?.selectionDescription

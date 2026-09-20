@@ -10,6 +10,7 @@ import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.toAuthAbortMessage
@@ -49,7 +50,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                     // needs a resolved account, which by definition does not exist yet.
                     val tools = CandidateTools.forLookupLogin(ctx)
                     if (tools.isEmpty()) Transition.Abort("Kein Login-Verfahren ohne Geraetebindung verfuegbar")
-                    else Transition.To(LookupLoginState.Credential(tools))
+                    else Transition.To(LookupLoginState.Credential(Offer(tools)))
                 }
             }
 
@@ -133,7 +134,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
         }
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
         if (candidates.isNotEmpty()) {
-            return Transition.To(LookupLoginState.AdditionalFactor(candidates))
+            return Transition.To(LookupLoginState.AdditionalFactor(Offer(candidates)))
         }
         return if (CandidateTools.forReIdentification(ctx.acrFloor, ctx).isNotEmpty()) {
             Transition.RequireSubJourney(

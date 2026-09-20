@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
@@ -45,7 +46,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     }
 
     given("Enrolling, a completed tool") {
-        val state = ManageAuthMethodsState.Enrolling(listOf(ToolId("enroll-sms")))
+        val state = ManageAuthMethodsState.Enrolling(Offer(listOf(ToolId("enroll-sms"))))
 
         then("Enrolled binds the device - it's already known, so this is a harmless no-op that keeps it reachable") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
@@ -171,12 +172,12 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
     }
 
     given("Enrolling") {
-        val state = ManageAuthMethodsState.Enrolling(listOf(ToolId("enroll-sms"), ToolId("enroll-password")))
+        val state = ManageAuthMethodsState.Enrolling(Offer(listOf(ToolId("enroll-sms"), ToolId("enroll-password"))))
 
         `when`("a tool is abandoned") {
             then("stays in Enrolling with the full choice back - not a decline, just picking differently") {
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
-                    Transition.To(state.copy(active = null))
+                    Transition.To(state.withActive(null))
             }
         }
 

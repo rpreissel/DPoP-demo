@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
@@ -43,7 +44,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmationRequired, an outcome this intent never offers") {
-        val state = DeleteAccountState.ConfirmationRequired(listOf(ToolId("ident-fsc")))
+        val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("ident-fsc"))))
         then("Identified fails loudly rather than silently deleting") {
             shouldThrow<IllegalStateException> {
                 strategy.transition(
@@ -169,15 +170,15 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     }
 
     given("ConfirmationRequired, more than one offered candidate") {
-        val state = DeleteAccountState.ConfirmationRequired(listOf(ToolId("auth-sms"), ToolId("auth-password")))
+        val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"), ToolId("auth-password"))))
         then("abandoning one keeps the choice among the rest") {
             strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
-                Transition.To(state.copy(declined = setOf(ToolId("auth-sms")), active = null))
+                Transition.To(state.declining(ToolId("auth-sms")))
         }
     }
 
     given("ConfirmationRequired, the last offered candidate is abandoned") {
-        val state = DeleteAccountState.ConfirmationRequired(listOf(ToolId("auth-sms")))
+        val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))
         then("cancels - the account is never deleted just because every option was declined") {
             strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Transition.Cancel
         }
@@ -186,7 +187,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, any active factor is re-proven") {
         val acc = account(method("sms", AcrLevel.LOA1))
         val theCtx = ctx(account = acc)
-        val state = DeleteAccountState.ConfirmationRequired(listOf(ToolId("auth-sms")))
+        val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))
 
         then("goes straight to deleting - one proof, at any level, is always sufficient here, and is never itself recorded as MethodEvidence") {
             val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
@@ -196,7 +197,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
 
     given("ConfirmationRequired, the delete just ran (ActionCompleted)") {
         then("ends the channel for good") {
-            val state = DeleteAccountState.ConfirmationRequired(listOf(ToolId("auth-sms")))
+            val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))
             strategy.transition(state, JourneyEvent.ActionCompleted, ctx()) shouldBe Transition.Logout
         }
     }
@@ -204,7 +205,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("onCancel") {
         then("always falls back to AUTHENTICATED - this intent only ever runs on an already-authenticated channel") {
             strategy.cancelledTo(DeleteAccountState.ConfirmPending) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(DeleteAccountState.ConfirmationRequired(listOf(ToolId("auth-sms")))) shouldBe ChannelState.AUTHENTICATED
+            strategy.cancelledTo(DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

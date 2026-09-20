@@ -27,13 +27,10 @@ sealed interface KcSelectMethodState : JourneyState {
     val accountAlreadyKnown: Boolean
 
     data class SelectMethod(
-        override val offered: List<ToolId>,
-        override val accountAlreadyKnown: Boolean,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer,
+        override val accountAlreadyKnown: Boolean
     ) : KcSelectMethodState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
         override val selectionTitle: String get() = "Anmeldeverfahren wählen"
         override val logDetail: Map<String, Any?> get() = mapOf("accountAlreadyKnown" to accountAlreadyKnown)

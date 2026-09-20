@@ -39,12 +39,9 @@ sealed interface ManageAuthMethodsState : JourneyState {
     }
 
     data class Enrolling(
-        override val offered: List<ToolId>,
-        override val declined: Set<ToolId> = emptySet(),
-        override val active: ToolRef? = null
+        override val offer: Offer
     ) : ManageAuthMethodsState, OfferingState {
-        override fun withActive(active: ToolRef?) = copy(active = active)
-        override fun declining(toolId: ToolId) = copy(declined = declined + toolId, active = null)
+        override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
         override val selectionTitle: String get() = "Neues Anmeldeverfahren hinzufügen"
         override val selectionDescription: String get() = "Sie möchten ein weiteres Verfahren einrichten. Wählen Sie aus, welches Sie hinzufügen möchten."

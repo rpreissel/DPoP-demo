@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.tool_spi.ToolId
@@ -16,7 +17,7 @@ class RequireSubJourneyInvariantTest : BehaviorSpec({
                     Transition.RequireSubJourney(
                         intent = AuthIntent.RE_IDENTIFY,
                         seedWith = FastAccessState.Start,
-                        resumeWith = AuthChoice(offered = listOf(ToolId("auth-sms")))
+                        resumeWith = AuthChoice(Offer(listOf(ToolId("auth-sms"))))
                     )
                 }
                 e.message shouldContain "recomputed"

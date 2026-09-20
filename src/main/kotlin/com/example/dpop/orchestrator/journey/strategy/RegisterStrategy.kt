@@ -12,6 +12,7 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.Enrolling
+import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.policy.Reachability
@@ -58,11 +59,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
             }
 
             is AuthChoice -> when (event) {
-                is JourneyEvent.Abandoned -> {
-                    val declined = state.declined + event.tool.toolId
-                    val remaining = state.copy(declined = declined, active = null)
-                    if (remaining.exhausted(ctx.availableTools)) afterAuthDeclined(ctx, declined) else Transition.To(remaining)
-                }
+                is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { afterAuthDeclined(ctx, it) }
                 is JourneyEvent.Completed -> Transition.Perform(AuthEnrollCore.proofAction(event), resumeState = state)
                 // Deliberately never wrapped with the password obligation below: a rediscovered,
                 // already-set-up account finishing here is treated as an ordinary login, not a
@@ -136,7 +133,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         return if (idents.isEmpty()) {
             Transition.Abort("Kein Identifizierungsverfahren verfuegbar")
         } else {
-            Transition.To(RegisterState.Identifying(idents))
+            Transition.To(RegisterState.Identifying(Offer(idents)))
         }
     }
 
@@ -146,7 +143,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         if (account != null) {
             val remaining = CandidateTools.forAuth(account, ctx.acrFloor, ctx) - alreadyDeclined
             if (remaining.isNotEmpty()) {
-                return Transition.To(AuthChoice(remaining, declined = emptySet()))
+                return Transition.To(AuthChoice(Offer(remaining)))
             }
         }
         return offerIdentification(ctx)
@@ -165,7 +162,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         // existing method to prove beats an enrollment list that would come back empty.
         if (ctx.policy.reachability(account, ctx.acrFloor) is Reachability.Reachable) {
             val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
-            if (candidates.isNotEmpty()) return Transition.To(AuthChoice(candidates))
+            if (candidates.isNotEmpty()) return Transition.To(AuthChoice(Offer(candidates)))
         }
         // An attestation proved WHO this is but bound nobody in the register (ident-eid carries no
         // KVNR, ADR-18) - so offer the correlation step itself, before any enrollment. No Ja/Nein
@@ -183,7 +180,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
     /** The correlation offer itself, or null when nothing is offerable (tool disabled meanwhile). */
     private fun offerAssignment(ctx: JourneyContext): Transition? =
         CandidateTools.forAssignment(ctx).takeIf { it.isNotEmpty() }
-            ?.let { Transition.To(RegisterState.Assigning(it)) }
+            ?.let { Transition.To(RegisterState.Assigning(Offer(it))) }
 
     /** The rest of a registration, once the person-assignment question is settled either way. */
     private fun continueAfterAssignment(ctx: JourneyContext): Transition {
@@ -234,7 +231,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
         // what hands those out.
         if (account.activeAuthenticationMethods.any { it.method == PASSWORD_METHOD }) return base
         val candidates = passwordEnrollmentCandidates(ctx)
-        return if (candidates.isNotEmpty()) Transition.To(RegisterState.PasswordObligation(candidates)) else base
+        return if (candidates.isNotEmpty()) Transition.To(RegisterState.PasswordObligation(Offer(candidates))) else base
     }
 
     /**
