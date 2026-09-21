@@ -60,11 +60,11 @@ sealed interface LookupLoginState : JourneyState {
     /**
      * Explicit and optional: "recognize this device for future logins?". The device link is a
      * durable device -> account assignment and must not arise as a side effect of a login the
-     * user chose precisely because they wanted no device binding.     *
-     * Carries no accountId: it used to, and that value was read for the device link until
-     * `Action.LinkDevice` started taking the account from the live session instead. A state field
-     * nobody reads is worse than none - it survives serialization looking authoritative and
-     * invites exactly the stale-snapshot use it was just removed from.
+     * user chose precisely because they wanted no device binding.
+     *
+     * Carries no accountId: `Action.LinkDevice` reads the account from the live session. A
+     * persisted field nobody reads would still survive serialization looking authoritative, and
+     * invite exactly that stale-snapshot use.
      */
     data object OfferBinding : LookupLoginState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this
@@ -84,11 +84,11 @@ sealed interface LookupLoginState : JourneyState {
     /**
      * A lookup login resolved a different account than the one this device is already bound to.
      * Accepting here actively overwrites that durable link, so the prompt must make the impact
-     * explicit while still allowing a successful login without rebinding.     *
-     * Carries no accountId: it used to, and that value was read for the device link until
-     * `Action.LinkDevice` started taking the account from the live session instead. A state field
-     * nobody reads is worse than none - it survives serialization looking authoritative and
-     * invites exactly the stale-snapshot use it was just removed from.
+     * explicit while still allowing a successful login without rebinding.
+     *
+     * Carries no accountId: `Action.LinkDevice` reads the account from the live session. A
+     * persisted field nobody reads would still survive serialization looking authoritative, and
+     * invite exactly that stale-snapshot use.
      */
     data object ConfirmDeviceRebind : LookupLoginState, AnswerableState {
         override fun withActive(active: ToolRef?): JourneyState = this

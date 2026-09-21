@@ -1,6 +1,7 @@
 package com.example.dpop.auth_device
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.CallerKeyBinding
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -11,9 +12,9 @@ import org.springframework.stereotype.Component
 internal const val DEVICE_METHOD = "device"
 
 /**
- * The `details` map key [AuthDeviceDescriptor.matchesCaller] reads and
+ * The `details` map key [AuthDeviceDescriptor.keyBinding] reads and
  * [com.example.dpop.auth_device.internal.EnrollDeviceToolHandler] writes - private to this
- * module, never referenced by tool_spi or the orchestrator (see [ToolDescriptor.matchesCaller]).
+ * module, never referenced by tool_spi or the orchestrator (see [ToolDescriptor.keyBinding]).
  */
 internal const val DEVICE_BINDING_KEY_REF = "deviceBindingKeyRef"
 
@@ -43,15 +44,20 @@ object AuthDeviceDescriptor : ToolDescriptor {
     override val allowsMultipleInstances = true
 
     /**
+     * The credential is a non-extractable key on one physical device: it only ever works from that
+     * device and must be revoked once the key is rebound to another account
+     * ([ToolDescriptor.keyBinding]) - declared here by supplying the rule that tells the instances
+     * apart, never inferred from [allowsMultipleInstances].
+     *
      * Reads [DEVICE_BINDING_KEY_REF], the same key
      * [com.example.dpop.auth_device.internal.EnrollDeviceToolHandler] writes into `auditDetails`.
-     * Generic multi-instance resolution (CandidateTools/DefaultAuthPolicy) calls this without
-     * ever knowing the key name itself.
+     * Generic resolution (CandidateTools/DefaultAuthPolicy/JourneyActionExecutor) asks this without
+     * ever knowing the key name itself. A null caller (WEB, no device) never matches a real,
+     * device-enrolled instance - the equality already gets that right, no extra branch needed.
      */
-    override fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean =
-        // A null caller (WEB, no device) never matches a real, device-enrolled instance - this
-        // equality already gets that right, no extra branch needed.
-        details?.get(DEVICE_BINDING_KEY_REF) == callerBindingKeyRef
+    override val keyBinding = CallerKeyBinding { instanceDetails, callerBindingKeyRef ->
+        instanceDetails?.get(DEVICE_BINDING_KEY_REF) == callerBindingKeyRef
+    }
 }
 
 /**

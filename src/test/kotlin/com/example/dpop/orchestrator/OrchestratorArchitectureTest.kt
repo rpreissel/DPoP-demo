@@ -104,10 +104,8 @@ class OrchestratorArchitectureTest : BehaviorSpec({
     }
 
     // The account-takeover class of bug: a session ending up bound to an account it never proved
-    // it owns. Two real ones were found and fixed (a bare confirm-email absorbing a stranger's
-    // established account; AdoptIdentity bypassing accountOf's two-real-accounts rule). Both were
-    // possible because the SAFETY CHECK lived per Action-handler while the CHOICE of which
-    // handler ran was a strategy's to make. The rules below make that structural instead of
+    // it owns. It arises whenever the SAFETY CHECK lives per Action-handler while the CHOICE of
+    // which handler runs is a strategy's to make. The rules below make that structural instead of
     // reviewed: identity resolution, account absorption and device linking are reachable from
     // exactly one class, so no strategy - and no future combination of tools or reordering of
     // them - can reach a takeover path that skips the gate.

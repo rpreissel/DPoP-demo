@@ -25,8 +25,11 @@ data class Next(
     val toolSessionId: UUID? = null
 ) {
     companion object {
+        /** Addresses a running tool: the client calls `/tools/{toolSessionId}/{toolId}` next. */
         fun tool(toolId: String, step: String, toolSessionId: UUID? = null) =
             Next(type = "tool", toolId = toolId, step = step, toolSessionId = toolSessionId)
+
+        /** Addresses an orchestrator-served page (a selection or completion screen), which has no tool session yet. */
         fun orchestrator(context: String, step: String) = Next(type = "orchestrator", context = context, step = step)
 
         /**

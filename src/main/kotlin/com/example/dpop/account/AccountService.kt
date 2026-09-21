@@ -524,8 +524,8 @@ class AccountService(
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.enrollmentRef
 
-    override fun activeInstanceEnrollment(accountId: Long, method: String, matchesCaller: (Map<String, Any?>?) -> Boolean): EnrollmentRef? =
-        findActiveMethods(accountId, method).firstOrNull { matchesCaller(it.details) }?.enrollmentRef
+    override fun activeInstanceEnrollment(accountId: Long, method: String, livesOnCallerKey: (instanceDetails: Map<String, Any?>?) -> Boolean): EnrollmentRef? =
+        findActiveMethods(accountId, method).firstOrNull { livesOnCallerKey(it.details) }?.enrollmentRef
 
     private fun lockForUpdate(accountId: Long): Account =
         accountRepository.findForUpdate(accountId) ?: throw IllegalArgumentException("Account not found: $accountId")

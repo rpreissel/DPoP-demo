@@ -78,39 +78,80 @@ interface ToolDescriptor {
         get() = false
 
     /**
-     * For an [allowsMultipleInstances] method: does the given active instance's `details` blob
-     * belong to the caller identified by [callerBindingKeyRef]? Generic infrastructure that
-     * iterates every multi-instance credential uniformly (`orchestrator.journey.CandidateTools`,
-     * `orchestrator.policy.DefaultAuthPolicy`) calls this to pick "the" matching instance without
-     * knowing HOW a concrete tool tells its instances apart - only the tool itself knows that
-     * (`auth_device`'s own `"deviceBindingKeyRef"` detail key is private to that module, never
-     * referenced outside it). tool_spi stays generic over every method exactly as
-     * docs/03-tool-architektur.md #1 already requires for the rest of [ToolDescriptor]: "kein
-     * toolId ist hier je ausgeschrieben" applies just as much to a concrete detail-map key.
+     * Non-`null` if this method's credential lives on ONE physical caller key and structurally
+     * cannot exist anywhere else (a non-extractable device key) - so it is only ever usable from
+     * the caller it was enrolled under, and becomes worthless the moment that key is bound to
+     * another account (docs/09-dpop.md).
      *
-     * Default `true`: irrelevant for a tool that isn't actually multi-instance
-     * ([allowsMultipleInstances] `false`), where callers never call this at all.
+     * A separate question from [allowsMultipleInstances], even though `device` happens to answer
+     * both today. That one governs a storage rule ("does a new enrollment replace the previous
+     * active one, or coexist with it"); this one governs offering and revocation ("may this
+     * credential be offered here at all, and must it be revoked when the key moves"). Reading the
+     * first as if it meant the second holds only while `device` is the one multi-instance method:
+     * a future method that merely allows several parallel instances without being tied to a key
+     * would silently inherit device semantics it never asked for.
+     *
+     * Deliberately a [CallerKeyBinding] rather than a `Boolean` beside an overridable predicate:
+     * key-boundness is only meaningful together with the rule that tells the instances apart, so
+     * declaring the one IS supplying the other. A flag could be set without the rule (every
+     * instance would then count as living on every key alike - offering would stop filtering and a
+     * rebind would revoke indiscriminately), or the rule written without the flag (never
+     * consulted, since callers ask the flag first). Neither is expressible here.
      */
-    fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean = true
+    val keyBinding: CallerKeyBinding?
+        get() = null
 
     /**
-     * The full "is this multi-instance credential still usable right now" check every caller
-     * needs: [matchesCaller] (does the physical key match - descriptor-specific, e.g. `auth_device`'s
-     * own detail key) AND the account-ownership invariant every multi-instance method shares alike -
-     * a device can only ever be actively bound to ONE account at a time
+     * The full "is this credential usable by this caller right now" check every caller needs.
+     * A method that is not [keyBinding]-bound has nothing to restrict, so it is simply usable;
+     * a key-bound one must satisfy both halves: the physical key must match (descriptor-specific,
+     * only the owning module can say how) AND the account-ownership invariant every key-bound
+     * method shares alike - a device can only ever be actively bound to ONE account at a time
      * ([com.example.dpop.orchestrator.session.DeviceAccountLink]), so a credential only counts as
-     * usable while that link still names the SAME account it belongs to (docs/09-dpop.md). The
-     * second half is never descriptor-specific, so it lives here once, not re-implemented by every
-     * multi-instance [ToolDescriptor] - only [matchesCaller] is meant to be overridden.
+     * usable while that link still names the SAME account it belongs to (docs/09-dpop.md).
+     *
+     * The second half is never descriptor-specific, so it lives here once rather than in every
+     * [CallerKeyBinding].
      */
-    fun matchesCurrentOwner(details: Map<String, Any?>?, callerBindingKeyRef: String?, linkedAccountId: Long?, accountId: Long): Boolean =
-        matchesCaller(details, callerBindingKeyRef) && linkedAccountId == accountId
+    fun usableByCaller(instanceDetails: Map<String, Any?>?, callerBindingKeyRef: String?, linkedAccountId: Long?, accountId: Long): Boolean {
+        val binding = keyBinding ?: return true
+        return binding.livesOn(instanceDetails, callerBindingKeyRef) && linkedAccountId == accountId
+    }
+}
+
+/**
+ * How a tool tells its own credential instances apart by the physical caller key each one lives
+ * on - see [ToolDescriptor.keyBinding].
+ *
+ * Generic infrastructure that iterates key-bound credentials uniformly
+ * (`orchestrator.journey.CandidateTools`, `orchestrator.policy.DefaultAuthPolicy`,
+ * `orchestrator.journey.JourneyActionExecutor`) asks this to pick "the" instance on the key in
+ * hand, without knowing HOW a concrete tool tells them apart - only the tool itself knows that
+ * (`auth_device`'s own `"deviceBindingKeyRef"` detail key is private to that module, never
+ * referenced outside it). tool_spi stays generic over every method exactly as
+ * docs/03-tool-architektur.md #1 already requires for the rest of [ToolDescriptor]: "kein toolId
+ * ist hier je ausgeschrieben" applies just as much to a concrete detail-map key.
+ */
+fun interface CallerKeyBinding {
+    /**
+     * Does the one active instance described by [instanceDetails] live on [callerBindingKeyRef]?
+     *
+     * [instanceDetails] is the blob the owning module itself wrote about THAT instance when it was
+     * enrolled - opaque to everyone else, which is exactly why this question cannot be answered
+     * anywhere but here. An instance with no details at all lives on no particular key.
+     */
+    fun livesOn(instanceDetails: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean
 }
 
 /** Coarse grouping of a tool. See [MethodRole.category]. */
 enum class ToolCategory {
+    /** Establishes WHO the subject is, raising the identity axis (IAL) - never a credential. */
     IDENT,
+
+    /** Creates a durable credential the account can authenticate with later. */
     ENROLL,
+
+    /** Proves an existing credential, raising the authenticator axis (AAL). */
     AUTH,
 
     /**

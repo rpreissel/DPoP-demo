@@ -34,10 +34,9 @@ sealed interface ConfirmPeerLoginState : JourneyState {
      * identification/registration.
      *
      * Deliberately no separate "do you want to confirm this?" gate ahead of the security checks
-     * below (an earlier version of this class had one, `OfferApproval` - removed again: an extra
-     * tap before the checks even start was net friction for no real gain, since the STEP_UP screen
-     * a missing-loa2 case lands on already both explains WHY it's asking and offers "Abbrechen" as
-     * the way out). Instead, [StepUpStrategy]'s own [reason][com.example.dpop.orchestrator.journey.
+     * below: an extra tap before the checks even start is net friction for no gain, since the
+     * STEP_UP screen a missing-loa2 case lands on already both explains WHY it's asking and offers
+     * "Abbrechen" as the way out. Instead, [StepUpStrategy]'s own [reason][com.example.dpop.orchestrator.journey.
      * state.StepUpState.forSubJourney] text carries that context on the FIRST screen actually
      * shown - see [ConfirmPeerLoginStrategy]'s `STEP_UP_REASON`.
      */

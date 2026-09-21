@@ -64,7 +64,7 @@ class AccountFixtures(
 
         /**
          * The `device` method plus its auth_device enrollment row. [thumbprint] must be the one
-         * the test's own DPoP key presents, otherwise the descriptor's `matchesCaller` will not
+         * the test's own DPoP key presents, otherwise the descriptor's `keyBinding` will not
          * offer it.
          */
         data class Device(val thumbprint: String, val label: String? = null) : Method

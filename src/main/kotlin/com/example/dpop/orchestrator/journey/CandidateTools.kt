@@ -73,17 +73,17 @@ internal object CandidateTools {
         ctx.filterAvailable(ctx.catalog.descriptors().filter { it.claims.any { c -> c.attributeType == AttributeType.EMAIL } }.map { it.toolId })
 
     /**
-     * The device-bound AUTH tool for a credential that lives on THIS physical device, if the
-     * account has one. A multi-instance credential (a non-extractable device key) structurally
-     * cannot exist anywhere else, so this is both the fastest and the only offer that can succeed
-     * without further input.
+     * The AUTH tool for a credential that lives on THIS physical device, if the account has one
+     * ([ToolDescriptor.keyBinding]). Such a credential structurally cannot exist anywhere
+     * else, so this is both the fastest and the only offer that can succeed without further
+     * input.
      */
     fun preferredDeviceAuth(account: AccountProfile, ctx: JourneyContext): ToolId? {
         val deviceAuthTools = ctx.catalog.descriptors()
-            .filter { it.role == MethodRole.IDENTIFIED_AUTH && it.allowsMultipleInstances }
+            .filter { it.role == MethodRole.IDENTIFIED_AUTH && it.keyBinding != null }
         val preferred = deviceAuthTools.firstOrNull { descriptor ->
             account.activeAuthenticationMethods.any {
-                it.method == descriptor.method && descriptor.matchesCurrentOwner(it.details, ctx.bindingKeyRef, ctx.linkedAccountId, account.accountId)
+                it.method == descriptor.method && descriptor.usableByCaller(it.details, ctx.bindingKeyRef, ctx.linkedAccountId, account.accountId)
             }
         }?.toolId
         return preferred?.takeIf { it in ctx.availableTools }
@@ -110,11 +110,9 @@ internal object CandidateTools {
                     // Same device-binding rule as ordinary candidate resolution: a non-extractable
                     // device key structurally cannot exist anywhere else than the device it was
                     // enrolled on (docs/03-tool-architektur.md). Delegated to the descriptor
-                    // itself (ToolDescriptor.matchesCaller) - this generic layer never reads a
+                    // itself (ToolDescriptor.keyBinding) - this generic layer never reads a
                     // concrete tool's own detail-map key.
-                    if (descriptor.allowsMultipleInstances &&
-                        !descriptor.matchesCurrentOwner(method.details, ctx.bindingKeyRef, ctx.linkedAccountId, account.accountId)
-                    ) {
+                    if (!descriptor.usableByCaller(method.details, ctx.bindingKeyRef, ctx.linkedAccountId, account.accountId)) {
                         return@mapNotNull null
                     }
                     descriptor.toolId

@@ -6,9 +6,19 @@ package com.example.dpop.tool_spi
  */
 sealed interface ToolOutcome {
 
-    /** The tool is still running. [data] is client-facing and passed through as `stepData` unchanged. */
+    /** The tool is still running and expects another call. */
     data class InProgress(
+        /**
+         * What the client must do next, as this tool's own step vocabulary (e.g. `"code"`,
+         * `"waitForApp"`). Surfaces as `next.step`; the FIRST one a fresh session reports must
+         * equal the tool's declared [ToolDescriptor.startStep].
+         */
         val nextStep: String,
+        /**
+         * Whatever this step needs the client to see (a pairing code, a masked address).
+         * Client-facing and passed through as `stepData` unchanged - the orchestrator never reads
+         * into it, so a tool may shape it freely.
+         */
         val data: Map<String, Any?>? = null
     ) : ToolOutcome
 
@@ -81,8 +91,13 @@ sealed interface ToolOutcome {
             }
         }
 
-        /** An [ENROLLMENT][MethodRole.ENROLLMENT] tool created [enrollmentRef]. */
+        /** An [ENROLLMENT][MethodRole.ENROLLMENT] tool created a durable credential. */
         data class Enrolled(
+            /**
+             * Points at the credential row the tool's own module just wrote - the only handle
+             * anyone outside that module ever holds on it, used to authenticate against it later
+             * and to delete it on account deletion ([com.example.dpop.tool_api.EnrollmentCleanup]).
+             */
             val enrollmentRef: EnrollmentRef,
             override val amr: List<String> = emptyList(),
             override val achievedAcr: AcrLevel? = null,
@@ -103,11 +118,14 @@ sealed interface ToolOutcome {
          * resolution) and [Enrolled] (claims plus credential).
          *
          * [amr] stays empty and is not overridable: a confirmed address is no authentication
-         * proof and must not raise this channel's ACR/AMR balance - the very coupling this shape
-         * exists to undo, where confirming an email used to report `amr = ["email"]` because it
-         * came back as an [Enrolled].
+         * proof and must not raise this channel's ACR/AMR balance. Reporting one as an [Enrolled]
+         * would do exactly that, which is why attestation has a variant of its own.
          */
         data class Attested(
+            /**
+             * What the subject just proved control of, with its provenance. Never empty - an
+             * attestation asserting nothing is a contract error, enforced below.
+             */
             val claims: List<Claim>,
             override val achievedAcr: AcrLevel? = null,
             /** Method-specific verification evidence, passed through unchanged for auditing. */

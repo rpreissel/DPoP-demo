@@ -22,7 +22,7 @@ internal const val EMAIL_METHOD = "email"
  * (Spring Framework 5.3+). This lets the handlers stay pure business logic and move to
  * `internal`.
  *
- * Two tools where there used to be one (ADR-17): [ConfirmEmailDescriptor] establishes the address
+ * Two tools rather than one (ADR-17): [ConfirmEmailDescriptor] establishes the address
  * as account infrastructure, [EnrollEmailDescriptor] turns it into a login method.
  */
 

@@ -37,6 +37,11 @@ interface PersonDirectory {
     fun displayName(personId: Long): String?
 }
 
+/**
+ * The canonical form a KVNR is compared and looked up in: trimmed and uppercased. Every caller of
+ * [PersonDirectory.findPersonIdByKvnr] goes through this, so a user typing `" a123456789 "` finds
+ * the same person as one typing `"A123456789"`. Shape validation is [Kvnr]'s job, not this one's.
+ */
 fun normalizeKvnr(kvnr: String): String = kvnr.trim().uppercase()
 
 /**

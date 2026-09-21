@@ -29,10 +29,17 @@ data class DevicePublicKey(
  * @property wireValue the value as it appears in the proof JWT's `userVerification` claim.
  */
 enum class UserVerification(val wireValue: String) {
+    /** A PIN or passphrase - counts as [com.example.dpop.tool_spi.FactorType.KNOWLEDGE]. */
     PIN("pin"),
+    /** A biometric unlock - counts as [com.example.dpop.tool_spi.FactorType.INHERENCE]. */
     BIOMETRIC("biometric");
 
     companion object {
+        /**
+         * Reverse of [wireValue] for a value arriving from the untyped border. `null` for an
+         * absent or unrecognized claim - the caller then treats the proof as carrying possession
+         * only, never guessing at a stronger unlock than was actually attested.
+         */
         fun fromWireValue(value: String?): UserVerification? = entries.find { it.wireValue == value }
     }
 }

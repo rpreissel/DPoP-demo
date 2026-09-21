@@ -9,8 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * REGISTER journey, toggled at runtime via `FeatureFlagService`, that enrolls a login method
  * (and, on KEYCLOAK, a password) BEFORE any identification - completely autark from
  * [RegisterState]/`AuthEnrollCore` (its own states, its own transition function, no shared types
- * beyond ones that already existed before this experiment, like `RE_IDENTIFY`): the two journeys
- * answer genuinely different questions ("who is this, then what can they use to log in?" vs. "what
+ * beyond `RE_IDENTIFY`): the two journeys answer genuinely different questions ("who is this, then what can they use to log in?" vs. "what
  * can they use to log in, and do we even know who they are?") and must stay independently readable.
  *
  * Every state name is prefixed `EnrollFirst*`, even though [JourneyStateCodec]'s own `@JsonTypeInfo`
@@ -27,8 +26,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * the pre-existing `RE_IDENTIFY` sub-journey (`ReIdentifyState.forSubJourney`) - both from the
  * explicit offer at the end of this chain ([EnrollFirstStart]'s own `SubJourneyFinished`/
  * `SubJourneyCancelled` handling) and from any later step-up that needs a higher IAL. Its own
- * `OfferReIdent` prompt ("Erneut identifizieren?") already asks exactly the accept/decline question
- * this experiment needs - no separate confirmation state is added here for it.
+ * `OfferReIdent` prompt ("Erneut identifizieren?") already asks the accept/decline question, so
+ * this journey adds no confirmation state of its own for it.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
 @JsonSubTypes(

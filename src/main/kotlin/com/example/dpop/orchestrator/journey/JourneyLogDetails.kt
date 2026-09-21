@@ -124,14 +124,11 @@ class JourneyLogDetails(
      * What an [Action] carries worth keeping in the log - mainly, for [Action.RevokeAuthMethod],
      * which method/account it actually names (the class name alone doesn't say which instance).
      *
-     * The tool-outcome actions contribute nothing of their own any more. What used to be logged
-     * here - `bindDevice`, `useOutcomeAccount`, and which of the two identity actions was chosen -
-     * were all fields a strategy filled in when it BUILT the action, and none of them decide
-     * anything today: the executor derives each from the journey intent and the live binding at
-     * the moment it acts. Logging them would have meant logging an intention rather than an
-     * outcome, and the journey's own account/device state already records what actually happened.
-     * Shared between the "Entry" seedAction log line and every [Transition.Perform] logged in
-     * [JourneyService.advance].
+     * The tool-outcome actions contribute nothing of their own: device binding and account choice
+     * are derived by the executor from the journey intent and the live binding at the moment it
+     * acts, so an action carries no such decision to log - and the journey's own account/device
+     * state already records what actually happened. Shared between the "Entry" seedAction log line
+     * and every [Transition.Perform] logged in [JourneyService.advance].
      */
     fun actionDetail(action: Action, journey: AuthJourney, channel: ChannelSession): Map<String, Any?> = when (action) {
         is Action.RecordIdentification, is Action.AdoptAttestation -> emptyMap()

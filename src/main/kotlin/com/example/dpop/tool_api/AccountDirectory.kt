@@ -39,20 +39,20 @@ interface AccountDirectory {
     fun activeEnrollment(accountId: Long, method: String): EnrollmentRef?
 
     /**
-     * The account's active credential for [method] whose `details` blob satisfies [matchesCaller]
-     * - use this instead of [activeEnrollment] for methods that can have multiple simultaneous
-     * active instances (e.g. `"device"`), where more than one instance may exist and only one is
-     * a valid match for the calling device.
+     * The account's active credential for [method] whose own instance details satisfy
+     * [livesOnCallerKey] - use this instead of [activeEnrollment] for methods that can have
+     * multiple simultaneous active instances (e.g. `"device"`), where more than one instance may
+     * exist and only one belongs to the calling device.
      *
-     * [matchesCaller] is supplied by the caller (typically `ToolDescriptor.matchesCaller` bound to
-     * its own binding key), not this port itself: `account` stores every method's `details` as an
-     * opaque blob and must stay generic over what "matches" means for a given method - it never
-     * hardcodes a concrete tool's own detail-map key (e.g. `"deviceBindingKeyRef"`, private to
-     * `auth_device`).
+     * [livesOnCallerKey] is supplied by the caller (typically `ToolDescriptor.keyBinding` bound to
+     * its own binding key), not this port itself: `account` stores every instance's details as an
+     * opaque blob and must stay generic over what "lives on this key" means for a given method -
+     * it never hardcodes a concrete tool's own detail-map key (e.g. `"deviceBindingKeyRef"`,
+     * private to `auth_device`).
      *
-     * @return the enrollment reference of the first active instance [matchesCaller] accepts, or `null`.
+     * @return the enrollment reference of the first active instance [livesOnCallerKey] accepts, or `null`.
      */
-    fun activeInstanceEnrollment(accountId: Long, method: String, matchesCaller: (Map<String, Any?>?) -> Boolean): EnrollmentRef?
+    fun activeInstanceEnrollment(accountId: Long, method: String, livesOnCallerKey: (instanceDetails: Map<String, Any?>?) -> Boolean): EnrollmentRef?
 }
 
 /**

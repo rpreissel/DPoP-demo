@@ -89,11 +89,9 @@ data class AmrEntry(
  * running start (docs/05-api.md Abschnitt 3) - not just evidence, deliberately general:
  * whatever this channel accumulated that a LATER, unrelated `ChannelSession` row (a fresh flow
  * run, e.g. a step-up) should be able to resume from without re-proving it. [evidence] is the
- * REAL `AuthEvidence` this channel accumulated - not a hand-rolled, lossy duplicate of it (an
- * earlier version of this type used its own `List<AmrEntry>`; restoring through that shape instead
- * of the actual evidence type risked drifting out of sync with whatever `AuthEvidence` itself
- * grows next) - so a restored channel's evidence is exactly what the original channel had, not an
- * approximation of it.
+ * REAL `AuthEvidence` this channel accumulated, not a hand-rolled duplicate of it: restoring
+ * through a lossy shape of its own would drift out of sync with whatever `AuthEvidence` grows
+ * next, so a restored channel's evidence is exactly what the original had.
  *
  * Fetched via its own explicit endpoint (`GET .../kc/channels/{channelSessionId}/restore-data`),
  * never bundled into the regular upsert response - the Authenticator's end-of-flow lifecycle hook

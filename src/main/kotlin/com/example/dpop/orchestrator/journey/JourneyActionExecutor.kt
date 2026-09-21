@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
@@ -91,14 +92,12 @@ class JourneyActionExecutor(
     /**
      * Central identity resolution (docs/ideen/claims-modell-und-vertrauensanker.md,
      * "Identitaetsauflösung & Matching"): the account module owns the matching policy, this
-     * service only governs the consequences. THE single handler for [Action.RecordIdentification], covering
-     * both origins two separate action types used to split (formerly `AdoptIdentity`/
-     * `ConfirmIdentity`, now collapsed into one): "nothing bound yet, adopt or create" and
-     * "something already bound, may only extend/merge under [accountOf]'s rule" are not a
-     * strategy's choice of which Action to build - they are read from [journey]/[channel] right
-     * here, every single time - so no strategy, and
-     * no future combination of tools/order a strategy might run them in, can construct a variant
-     * that skips the merge-safety check ([accountOf]) whenever an account is already in hand.
+     * service only governs the consequences. THE single handler for [Action.RecordIdentification],
+     * covering both origins: "nothing bound yet, adopt or create" and "something already bound,
+     * may only extend/merge under [accountOf]'s rule" are not a strategy's choice of which Action
+     * to build - they are read from [journey]/[channel] right here, every single time. So neither
+     * a strategy nor any combination of tools and order it might run them in can construct a
+     * variant that skips the merge-safety check ([accountOf]) when an account is already in hand.
      */
     private fun performRecordIdentification(journey: AuthJourney, channel: ChannelSession, action: Action.RecordIdentification) {
         assertClaimsCovered(action.tool, action.outcome.claims)
@@ -482,10 +481,8 @@ class JourneyActionExecutor(
      * THE one way a device becomes linked to an account - both the implicit route
      * ([linkDeviceIfIntentImplies]) and the explicit one ([performLinkDevice], after the user
      * agreed) go through here, so the revocation below can never be skipped by picking a
-     * different Action. It used to be three call sites with two different behaviours: only
-     * [Action.LinkDevice]'s handler revoked the previous account's device credentials, while the
-     * two `bindDevice` paths just overwrote the link - the SAME rebind either did or did not
-     * revoke, depending on which strategy's Action carried it there.
+     * different Action - the same rebind must not revoke or not revoke depending on which
+     * strategy's Action carried it there.
      *
      * Reaching here with a device currently linked ELSEWHERE therefore means a deliberate,
      * user-confirmed rebind: the implicit route refuses that case before calling in (see there).
@@ -505,20 +502,35 @@ class JourneyActionExecutor(
         // keep working (docs/09-dpop.md); Phase 1's matching guard already hides them, this
         // additionally removes them outright.
         if (previousAccountId != null && previousAccountId != accountId) {
-            accountService.findAccount(previousAccountId)?.activeAuthenticationMethods
-                ?.filter { m ->
-                    val descriptor = toolRegistry.descriptors().firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
-                    descriptor != null && descriptor.allowsMultipleInstances && descriptor.matchesCaller(m.details, bindingKeyRef)
-                }
-                ?.forEach { accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" }) }
+            credentialsLivingOn(bindingKeyRef, previousAccountId).forEach {
+                accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" })
+            }
         }
     }
 
     /**
+     * The active methods of [accountId] whose credential physically lives on the key
+     * [bindingKeyRef] - i.e. exactly those that stop being usable when that key moves to another
+     * account. A method with no [ToolDescriptor.keyBinding] is not tied to a key at all and can
+     * never be in this list; one that has a binding answers, per instance, whether THIS one is the
+     * one on THIS key - a question only the owning module can answer.
+     *
+     * The descriptor is resolved by `(method, IDENTIFIED_AUTH)`, the pair that names one concrete
+     * procedure - never by method name alone, which would match this method's enrollment tool just
+     * as well and answer from the wrong declaration.
+     */
+    private fun credentialsLivingOn(bindingKeyRef: String, accountId: Long): List<AuthMethodView> =
+        accountService.findAccount(accountId)?.activeAuthenticationMethods.orEmpty().filter { method ->
+            val binding = toolRegistry.descriptors()
+                .firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == method.method }
+                ?.keyBinding
+            binding != null && binding.livesOn(method.details, bindingKeyRef)
+        }
+
+    /**
      * The account is taken from the freshly derived context and NOTHING else - the same one the
-     * permission check below runs against. It used to come from an `Action.DeleteAccount`
-     * accountId field while the check ran against the session's account, so the two could in
-     * principle name different accounts: checked on A, deleted B.
+     * permission check below runs against, so no second source can name a different account and
+     * turn this into "checked on A, deleted B".
      */
     private fun performDeleteAccount(journey: AuthJourney, channel: ChannelSession) {
         // Independent re-check against freshly derived context, not the strategy's own

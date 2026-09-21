@@ -24,6 +24,20 @@ import com.example.dpop.tool_spi.Claim
  * receives - a subset can only ever bind weakly.
  */
 interface IdentityResolver {
+    /**
+     * Which account, if any, the just-attested [claims] already belong to.
+     *
+     * Only anchor-bearing claims take part (`PERSON_ID`, `EID_RESTRICTED_ID`, `EMAIL`); the rest
+     * are carried along as attributes and never matched on. The verdict says how strongly the set
+     * binds, so the caller can tell "this IS that account" from "this looks like it" without
+     * re-deriving the rule - see [Resolution].
+     *
+     * @param claims everything one completed run asserted, anchors and attributes alike.
+     * @return [Resolution.ExistingAccount] when an anchor resolved, [Resolution.Unresolved] when
+     * none did - the caller then creates an account. Claims that contradict the person record
+     * behind their own anchor do not come back as a verdict at all: they throw
+     * [IdentityConflictException], so a contradiction can never be mistaken for a match.
+     */
     fun resolve(claims: Set<Claim>): Resolution
 
     /**
@@ -67,12 +81,18 @@ enum class BindingStrength {
     IMMUTABLE_ANCHOR;
 
     companion object {
+        /**
+         * Derives the strength from the anchor rule's own [AnchorRule.allowsReplacement], so the
+         * two can never disagree - the rank is read off the existing rule, never chosen a second
+         * time alongside it.
+         */
         fun anchor(allowsReplacement: Boolean) = if (allowsReplacement) REPLACEABLE_ANCHOR else IMMUTABLE_ANCHOR
     }
 }
 
 /** How a resolution matched, carrying its [BindingStrength] for [Resolution.ExistingAccount]. */
 sealed interface MatchedVia {
+    /** How strongly this particular match binds - what an upgrade decision is made on. */
     val bindingStrength: BindingStrength
 
     /** A unique anchor value (`person_id`, `email`, `restricted_id`) matched via `account.anchor`. */

@@ -111,10 +111,9 @@ internal class KcDemoAccountSeeder(
             )
             // Beide unter SEEDED_ACR, nicht unter der loa1-Obergrenze des jeweiligen Tools: Ein
             // Enrollment wird mit dem bezahlt, was die Sitzung beim Einrichten bewiesen hatte
-            // (ADR-5) - und das ist hier die Identifizierung, die dieser Seed vertritt. Mit dem
-            // frueheren "loa1" konnten die beiden Faktoren genau das nicht, was der Kommentar
-            // unten verspricht: Ihre Kombination war durch maxEnrolledUnderAcr auf loa1 gedeckelt
-            // (DefaultAuthPolicy.combinedAcr), das Demo-Konto kam nie auf loa2.
+            // (ADR-5) - hier die Identifizierung, die dieser Seed vertritt. Unter loa1 waere ihre
+            // Kombination durch maxEnrolledUnderAcr gedeckelt (DefaultAuthPolicy.combinedAcr) und
+            // das Demo-Konto kaeme nie auf loa2.
             accountService.addAuthenticationMethod(
                 profile.accountId,
                 "sms",

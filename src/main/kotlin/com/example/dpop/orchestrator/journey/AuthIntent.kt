@@ -82,20 +82,17 @@ enum class AuthIntent {
      * (`DeviceAccountLink`, docs/09-dpop.md #3), or whether the intent asks the user first.
      * Only [LOOKUP_LOGIN] asks - see its own doc.
      *
-     * An intent-level property rather than a `bindDevice` flag on each Action, which is what it
-     * used to be: it never varied WITHIN an intent, only between them, so every strategy just
-     * restated its intent's own constant at each Action it built - a value that can be set, and
-     * therefore set wrongly, where nothing ever legitimately varies. It matters more since device
-     * linking became one shared implementation: a link that moves to another account now also
-     * revokes that account's device credentials for this key, so an accidental `true` is
-     * destructive rather than merely convenient.
+     * An intent-level property rather than a flag on each Action: it never varies WITHIN an
+     * intent, only between them, so a per-Action flag would be a value that can be set - and
+     * therefore set wrongly - where nothing legitimately varies. Since device linking is one
+     * shared implementation, a link that moves to another account also revokes that account's
+     * device credentials for this key, so an accidental `true` is destructive, not just
+     * convenient.
      *
-     * Answers only "does this intent WANT to bind", never "is there a device to bind" - not as a
-     * convenience, but because it could not answer the second question even if it tried: the same
-     * intent runs on both channel types ([REGISTER] is an entry intent on APP and on KEYCLOAK
-     * alike, docs/04-orchestrierung.md), so "binds" would stop being a constant of the intent and
-     * become a function of the channel - exactly the per-case variability that made the old flag
-     * settable, and therefore wrongly settable.
+     * Answers only "does this intent WANT to bind", never "is there a device to bind" - it could
+     * not answer the second question even if it tried: the same intent runs on both channel types
+     * ([REGISTER] is an entry intent on APP and on KEYCLOAK alike, docs/04-orchestrierung.md), so
+     * "binds" would stop being a constant of the intent and become a function of the channel.
      *
      * The channel question is also the broader one: it applies to the EXPLICIT binding too (a
      * user who agrees on a KEYCLOAK channel still has no device), so it lives once in

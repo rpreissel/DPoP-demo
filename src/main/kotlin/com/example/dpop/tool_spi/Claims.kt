@@ -23,20 +23,33 @@ enum class AttributeType(val wireName: String) {
      * ext_stammdaten never stores it.
      */
     EID_RESTRICTED_ID("restricted_id"),
+    /** Family name. Master-data field for a bound account, attested history in the claim log. */
     NAME("name"),
+    /** Given name(s). Master-data field, same rule as [NAME]. */
     VORNAME("vorname"),
     /** ISO date, e.g. `1970-01-01`. Master-data field: delegated, never projected (ADR notes in
      *  docs/ideen/claims-modell-und-vertrauensanker.md). */
     GEBURTSDATUM("geburtsdatum"),
-    /** Address fields - the same German wire names the eID card and ext_stammdaten.person use
-     *  (strasse/hausnummer/plz/ort), so a card read's claim values map 1:1 onto register
-     *  columns. Master-data fields like GEBURTSDATUM: register-owned for bound accounts,
-     *  claim-log rows are attestation history. */
+    /**
+     * Street name, first of the four address fields ([STRASSE], [HAUSNUMMER], [PLZ], [ORT]) - the
+     * same German wire names the eID card and `ext_stammdaten.person` use, so a card read's claim
+     * values map 1:1 onto register columns. All four are master-data fields like [GEBURTSDATUM]:
+     * register-owned for bound accounts, claim-log rows are attestation history.
+     */
     STRASSE("strasse"),
+    /** House number, kept apart from [STRASSE] because the eID card delivers it as its own field. */
     HAUSNUMMER("hausnummer"),
+    /** Postal code. */
     PLZ("plz"),
+    /** City/town. */
     ORT("ort"),
+    /**
+     * E-mail address. Unlike every other attribute here, a LOCAL_ANCHOR the account owns rather
+     * than a master-data field: `confirm-email` establishes it, three lookup tools resolve an
+     * account through it, and a retraction deletes its anchor row outright (ADR-12).
+     */
     EMAIL("email"),
+    /** Mobile number, established by an `enroll-sms` run - the address a TAN is delivered to. */
     PHONE_NUMBER("phone_number");
 
     companion object {
@@ -106,14 +119,25 @@ val ClaimSource.trustLevel: TrustLevel
  * claims-modell-und-vertrauensanker.md).
  */
 data class Claim(
+    /** Which attribute is being asserted. */
     val attributeType: AttributeType,
+    /** The asserted value, unnormalized - normalization for anchor lookups happens in `account`. */
     val value: String,
+    /** Who vouches for [value] - decides the [TrustLevel] via [ClaimSource.trustLevel]. */
     val source: ClaimSource,
+    /**
+     * The level the session had proven when this claim was established (ADR-5). `null` when the
+     * asserting run could not determine one - the claim still counts, it just carries no
+     * assurance of its own and can never raise a level by itself.
+     */
     val establishedLoa: AcrLevel? = null
 )
 
 /**
- * Validates shared claim invariants before resolution or persistence.
+ * The invariants every [Claim] must satisfy whatever asserted it, checked before resolution or
+ * persistence: a non-blank [Claim.value], a positive integer for `PERSON_ID`, and an ISO date for
+ * `GEBURTSDATUM`. A violation is descriptor/handler drift, so it throws rather than returning a
+ * verdict - see [assertClaimsCovered], which calls this for every reported claim.
  */
 fun Claim.validateValue() {
     check(value.isNotBlank()) {

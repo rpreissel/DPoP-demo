@@ -61,10 +61,9 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
     /**
      * A lookup-login tool resolves its own account on the FIRST proof only (no account known
      * yet); once the channel already has one (step-up), a proof must confirm THAT account, never
-     * name a different one. That rule is no longer restated here (it used to be
-     * `useOutcomeAccount = !state.accountAlreadyKnown`, a snapshot taken when this state was
-     * built): `performAcceptProof` derives it from the tool's role and the live binding, so it
-     * holds for every intent alike and cannot go stale. Neither identification nor enrollment is
+     * name a different one. That rule is not restated here: `performAcceptProof` derives it from
+     * the tool's role and the live binding, so it holds for every intent alike and cannot go
+     * stale on a snapshot taken when this state was built. Neither identification nor enrollment is
      * ever offered here (see [candidatesFor]) - reaching either would mean the state machine let
      * through a tool it never offered.
      */

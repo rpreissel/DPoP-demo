@@ -19,5 +19,10 @@ interface EnrollmentCleanup {
     /** Matches [EnrollmentRef.type] as written by this module's own enrollment handler. */
     val enrollmentType: String
 
+    /**
+     * Deletes the credential row [enrollmentRef] points at. Must be idempotent: account deletion
+     * dispatches to every matching module, and a row already gone is a normal outcome, not an
+     * error.
+     */
     fun delete(enrollmentRef: EnrollmentRef)
 }

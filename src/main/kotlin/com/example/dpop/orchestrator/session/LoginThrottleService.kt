@@ -17,8 +17,8 @@ import java.time.Duration
  *   constant-shape failure is built to deny. Those callers ask [isLocked] and fold a `true` into
  *   their ordinary "E-Mail oder ... ungueltig" outcome instead (see the LOOKUP_AUTH controllers).
  *
- * Before this, lookup login was counted by nothing at all: both the check and the recording hung
- * on `channel.accountId`, which stays null for that whole flow until a proof SUCCEEDS.
+ * Both paths key on the resolved account rather than `channel.accountId`, which stays null
+ * throughout a lookup login until a proof SUCCEEDS - and would therefore count nothing.
  */
 @Service
 @Transactional

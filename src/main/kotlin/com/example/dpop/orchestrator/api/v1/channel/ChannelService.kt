@@ -444,7 +444,7 @@ class ChannelService(
      * side by side (docs/09-dpop.md). Deliberately reaches into `auth_device`'s own detail-key
      * constant rather than a generic `ToolDescriptor` accessor: this is throwaway debug output,
      * not part of the real API contract, so it doesn't warrant widening the SPI the way
-     * [com.example.dpop.tool_spi.ToolDescriptor.matchesCaller] genuinely needed to.
+     * [com.example.dpop.tool_spi.ToolDescriptor.keyBinding] genuinely needed to.
      */
     private fun deviceAuthKeyRef(accountId: Long, bindingKeyRef: String): String? =
         accountService.findAccount(accountId)?.activeAuthenticationMethods

@@ -5,6 +5,7 @@ import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.CallerKeyBinding
 import com.example.dpop.tool_spi.ClaimRequirement
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.FactorType
@@ -179,7 +180,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             }
         }
 
-        `when`("resolving candidate AUTH tools for a multi-instance (device-bound) method") {
+        `when`("resolving candidate AUTH tools for a key-bound method") {
             val deviceAuth = object : ToolDescriptor {
                 override val toolId = ToolId("auth-device")
                 override val role = MethodRole.IDENTIFIED_AUTH
@@ -187,8 +188,9 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 override val factorTypes = setOf(FactorType.POSSESSION)
                 override val maxAcr = AcrLevel.LOA2
                 override val allowsMultipleInstances = true
-                override fun matchesCaller(details: Map<String, Any?>?, callerBindingKeyRef: String?): Boolean =
-                    details?.get("deviceBindingKeyRef") == callerBindingKeyRef
+                override val keyBinding = CallerKeyBinding { instanceDetails, callerBindingKeyRef ->
+                    instanceDetails?.get("deviceBindingKeyRef") == callerBindingKeyRef
+                }
             }
             val deviceRegistry = ToolHandlerRegistry(listOf(deviceAuth))
             val devicePolicy = DefaultAuthPolicy(deviceRegistry)

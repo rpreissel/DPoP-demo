@@ -30,9 +30,20 @@ value class AcrLevel(val value: String) : Comparable<AcrLevel> {
         /** All known levels, lowest first - the single ordering everything below derives from. */
         val KNOWN = listOf("none", "loa1", "loa2", "loa3")
 
+        /** Nothing established - an anonymous channel, and what [of] dampens anything unknown to. */
         val NONE = AcrLevel("none")
+
+        /** One factor proven, e.g. an SMS code or a password on its own. */
         val LOA1 = AcrLevel("loa1")
+
+        /**
+         * Two distinct factors of distinct [FactorType]s, or one tool that reaches it alone
+         * (`auth-device`, `ident-fsc`). The gate for anything that changes the account itself -
+         * managing methods, confirming a peer login, deleting the account.
+         */
         val LOA2 = AcrLevel("loa2")
+
+        /** The highest level; no tool in this demo reaches it, so it only ever appears as a target. */
         val LOA3 = AcrLevel("loa3")
 
         /**

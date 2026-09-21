@@ -39,9 +39,9 @@ enum class EvidenceAxis {
  * [EvidenceAxis.IDENTITY] for an IDENTIFICATION-role tool, [EvidenceAxis.AUTHENTICATOR] for the
  * roles that produce evidence about the authenticator (ENROLLMENT, AUTH).
  *
- * Deliberately an exhaustive `when` rather than the `if (IDENT) … else AUTHENTICATOR` it used to
- * be: a new category would silently have become AUTHENTICATOR, which is the wrong default for
- * anything that is not an authentication act. SIDE_ACTION and ATTEST never get here in practice -
+ * Deliberately an exhaustive `when` rather than `if (IDENT) … else AUTHENTICATOR`: under the
+ * latter a new category would silently become AUTHENTICATOR, the wrong default for anything that
+ * is not an authentication act. SIDE_ACTION and ATTEST never get here in practice -
  * their outcomes carry no `amr`, so `JourneyRecorder.recordToolCompletion` builds no
  * [MethodEvidence] at all - but "never reached" must not be the only thing keeping them off an
  * assurance axis they do not belong on.

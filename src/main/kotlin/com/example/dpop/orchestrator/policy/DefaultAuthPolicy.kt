@@ -172,13 +172,13 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
                 .firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == m.method }
                 ?: return@mapNotNull null
             if (availableTools != null && descriptor.toolId !in availableTools) return@mapNotNull null
-            // A multi-instance method's AUTH tool must only ever be offered on the exact physical
+            // A key-bound method's AUTH tool must only ever be offered on the exact physical
             // device that holds the matching credential AND while that device is still linked to
-            // THIS account (ToolDescriptor.matchesCurrentOwner) - a non-extractable device key
+            // THIS account (ToolDescriptor.usableByCaller) - a non-extractable device key
             // structurally cannot exist anywhere else, and a device is only ever actively bound to
             // one account at a time, so either mismatch would guarantee failure (docs/04-
             // orchestrierung.md, docs/09-dpop.md).
-            if (descriptor.allowsMultipleInstances && !descriptor.matchesCurrentOwner(m.details, bindingKeyRef, linkedAccountId, account.accountId)) {
+            if (!descriptor.usableByCaller(m.details, bindingKeyRef, linkedAccountId, account.accountId)) {
                 return@mapNotNull null
             }
             m to descriptor
@@ -243,9 +243,8 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * Correctness depends on the CALLER having already excluded [EvidenceAxis.IDENTITY] entries
      * from [evidence] - this function itself does not filter by axis. [authenticatorAssuranceLevel]
      * does that filtering before calling this; an identification like `ident-fsc` DOES produce a
-     * real `amr` entry (`ToolOutcome.Completed.Identified.amr`, contrary to what an earlier version
-     * of this doc claimed) and would otherwise be free to combine with one unrelated auth factor
-     * into a false MFA bump - exactly the double-counting this split exists to prevent (see class
+     * real `amr` entry (`ToolOutcome.Completed.Identified.amr`) and would otherwise be free to
+     * combine with one unrelated auth factor into a false MFA bump - exactly the double-counting this split exists to prevent (see class
      * doc: an identification already prices its own trust into its own loa and is never
      * re-presented at the moment of authentication, so it must not also buy MFA credit).
      *

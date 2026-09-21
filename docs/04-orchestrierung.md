@@ -333,7 +333,7 @@ mit `FAST_ACCESS` (s. o.) und besitzt zusätzlich `Identifying`, `ConfirmDeviceR
 sobald es identifizieren müsste (s. o.).
 
 Löst die frische Identifikation ein **anderes** Konto auf, als für dieses Gerät bereits
-`DeviceAccountLink` hinterlegt ist ("Zweitaccount"), wird das nicht mehr still überschrieben:
+`DeviceAccountLink` hinterlegt ist ("Zweitaccount"), wird das nicht still überschrieben:
 `afterIdentification` erkennt den Konflikt als Allererstes, noch bevor ein Anmeldeverfahren
 angeboten wird, und wechselt nach `ConfirmDeviceRebind`. Zustimmung (`accept`) bindet das Gerät um
 (`Action.LinkDevice`), widerruft dabei das Geräte-Credential (`enroll-device`) des bisherigen
@@ -799,7 +799,7 @@ ein Step-up laufen, zählt dessen Nachweis bereits. Der Übergang am Ende ist
 `Transition.Perform(Action.DeleteAccount, resumeState = ConfirmPending)`, aufgelöst zu
 `Transition.Logout` sobald die Journey mit `ActionCompleted` fortgesetzt wird: Account löschen,
 Kanal beenden. `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung erneut
-nach (wie beim Selbst-Aussperr-Check vor `Action.Remove`).
+nach (wie beim Selbst-Aussperr-Check vor `Action.RevokeAuthMethod`).
 Der Nachweis in `ConfirmationRequired` läuft direkt in `Action.DeleteAccount`, nie über
 `Action.AcceptProof` — er autorisiert genau diese eine Löschung, nie eine dauerhafte
 `MethodEvidence` (Abschnitt 5).
@@ -872,9 +872,8 @@ Kanal bei Abbruch zurückfällt). Eine Sub-Journey mit vorgegebenem Zielniveau b
 SPI, sondern über die Companion-Factory des jeweiligen Zustands (`StepUpState.forSubJourney(...)`,
 `ReIdentifyState.forSubJourney(...)`) — nur `STEP_UP`/`RE_IDENTIFY` sind als Sub-Journey gemeint.
 
-Die frühere Trennung in `interpret()` und `decide()` ist entfallen
-(docs/ideen/journey-strategie-vereinheitlichung.md); `transition()` ist die einzige Methode, die
-überhaupt entscheidet.
+`transition()` ist die einzige Methode, die überhaupt entscheidet
+(docs/ideen/journey-strategie-vereinheitlichung.md).
 
 Ein `JourneyEvent` ist, was der Journey gerade passiert ist:
 
@@ -902,12 +901,12 @@ Eine `Transition` ist, was als Nächstes passieren soll:
 `Perform` trennt Entscheidung von Wirkung: `JourneyService` führt `action` aus, leitet den
 `JourneyContext` danach frisch her und ruft `transition(resumeState, ActionCompleted, frischerCtx)`
 erneut auf — selbst rekursiv, solange eine Strategie ihrerseits wieder `Perform` liefert. Diese
-Rekursion ersetzt alle früheren Sonderpfade:
+Rekursion trägt alle Sonderpfade:
 
 - Ein abgeschlossenes Tool: `is Completed -> Perform(actionFürOutcome, resumeState = state)`,
   gefolgt von `is ActionCompleted -> <Nachfolgelogik>` im selben Zustand — dieselbe Zwei-Schritt-
   Form für jeden Intent, der Tools anbietet.
-- `Action.LinkDevice`/`Action.Remove`/`Action.DeleteAccount`: eine Strategie liefert `Perform`
+- `Action.LinkDevice`/`Action.RevokeAuthMethod`/`Action.DeleteAccount`: eine Strategie liefert `Perform`
   statt selbst zu binden/zu löschen (`LookupLoginState.OfferBinding`, `ManageAuthMethodsState.
   RemoveRequested`, `DeleteAccountState.ConfirmationRequired`).
 - RestoreData ([05-api.md](05-api.md) Abschnitt 3): kein `JourneyEvent`, sondern der
@@ -917,7 +916,7 @@ Die `Action`-Varianten:
 
 | Action | Bedeutung |
 |---|---|
-| `RecordIdentification(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal — die Strategie wählt das nicht mehr über die Action-Variante |
+| `RecordIdentification(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal, die Strategie wählt das nicht über die Action-Variante |
 | `AdoptCredential(tool, outcome)` | eine neue Methode wurde eingerichtet |
 | `AcceptProof(tool, outcome)` | ein Nachweis wurde erbracht. Ob das Tool den Account selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` plus der Live-Bindung ab; ein genannter Account, der einem bereits gebundenen widerspricht, ist `409` |
 | `AdoptAttestation(tool, outcome)` | ein Konto-eigenes Attribut wurde bezeugt (z. B. bestätigte E-Mail) — darf allein nie auf ein *anderes* Konto wechseln, dafür braucht es eine echte Identifizierung in derselben Sitzung |
@@ -950,9 +949,8 @@ Die Regel hinter allen obigen Punkten, und die Frage, an der sich ein künftiger
 entscheidet. Ein festgehaltener Wert ist **richtig**, wenn er eine Vergangenheit festhält, die
 später nicht mehr feststellbar ist (`ConfirmPeerLoginState.startedAuthenticated`,
 `StepUpState.startingAcr`, `MethodEvidence` als Nachweis, Log-Felder). Er ist **falsch**, wenn er
-eine Gegenwart einfriert, die zur Ausführungszeit neu gelesen werden müsste — genau daraus
-entstanden die strategiegesetzten Gates, die toten `accountId`-Felder und das
-`useOutcomeAccount`-Flag.
+eine Gegenwart einfriert, die zur Ausführungszeit neu gelesen werden müsste. Strategiegesetzte
+Gates und `accountId`-Felder in Zuständen fallen ausnahmslos in die zweite Gruppe.
 
 Angebote (`OfferingState.offered`) fallen bewusst in die erste Gruppe: `activatable()` schneidet
 sie beim Rendern nur gegen `availableTools` (Client-Fähigkeit plus Admin-Sperre), **nicht** gegen
@@ -970,10 +968,10 @@ werden. Das ist ein Fehlerpfad, aber kein Sicherheitsproblem, weil die Prüfung 
 übergebenen `JourneyContext`, den `JourneyService.advance` bei **jedem** Übergang neu aufbaut —
 auch nach jeder Action, per rekursivem `ActionCompleted`-Durchlauf.
 
-**Gerätebindung trägt keine Action mehr.** Sie war als `bindDevice`-Flag auf zwei Actions
-geführt, variierte aber nie *innerhalb* eines Intents — also eine Intent-Konstante, die an jeder
-Action neu gesetzt (und falsch gesetzt) werden konnte. Heute zwei unabhängige Fragen, jede dort
-beantwortet, wo ihre Information liegt, zusammengeführt an genau einer Stelle:
+**Gerätebindung trägt keine Action.** Sie variiert nie *innerhalb* eines Intents — ein Flag an
+jeder Action wäre eine Intent-Konstante, die überall neu (und falsch) gesetzt werden könnte.
+Stattdessen zwei unabhängige Fragen, jede dort beantwortet, wo ihre Information liegt,
+zusammengeführt an genau einer Stelle:
 
 - **Will dieser Ablauf binden?** `AuthIntent.bindsDeviceImplicitly` — nur `LOOKUP_LOGIN` nicht, weil
   genau dieser Intent von Leuten gewählt wird, die nicht wiedererkannt werden wollen; er fragt
