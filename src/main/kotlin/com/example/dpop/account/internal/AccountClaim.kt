@@ -40,8 +40,8 @@ class AccountClaim(
     @Column(name = "claim_source", nullable = false)
     var claimSource: String? = null,
 
-    @Column(name = "established_loa")
-    var establishedLoa: String? = null,
+    @Column(name = "established_acr")
+    var establishedAcr: String? = null,
 
     /**
      * The method instance whose enrollment established this claim, so revoking that method can

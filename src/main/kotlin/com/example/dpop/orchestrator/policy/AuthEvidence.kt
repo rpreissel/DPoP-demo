@@ -123,7 +123,7 @@ data class AuthEvidence(
      */
     val factorTypes: Set<FactorType> get() = factors.flatMap { it.factorTypes }.toSet()
 
-    fun loaFor(method: MethodName): AcrLevel? = factors.find { it.method == method }?.loa
+    fun acrFor(method: MethodName): AcrLevel? = factors.find { it.method == method }?.loa
 
     companion object {
         /**
@@ -142,7 +142,7 @@ data class AuthEvidence(
         fun from(
             amr: List<String>,
             factorTypes: Set<FactorType>,
-            methodLoa: Map<String, String> = emptyMap(),
+            methodAcr: Map<String, String> = emptyMap(),
             enrolledUnderAcr: Map<String, String> = emptyMap(),
             source: Map<String, String> = emptyMap(),
             amrSourceId: Map<String, String> = emptyMap(),
@@ -151,7 +151,7 @@ data class AuthEvidence(
             amr.distinct().map { m ->
                 MethodEvidence(
                     MethodName(m),
-                    methodLoa[m]?.let(AcrLevel::of) ?: AcrLevel.NONE,
+                    methodAcr[m]?.let(AcrLevel::of) ?: AcrLevel.NONE,
                     enrolledUnderAcr[m]?.let(AcrLevel::of),
                     factorTypes,
                     // Defaults to the stronger claim when a caller (mostly test fixtures) has no

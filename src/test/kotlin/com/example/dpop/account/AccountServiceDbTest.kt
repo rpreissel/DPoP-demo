@@ -396,7 +396,7 @@ class AccountServiceDbTest(
             )
 
             jdbcTemplate.queryForObject(
-                "SELECT established_loa FROM account.anchor WHERE account_id = ? AND attribute_type = 'email'",
+                "SELECT established_acr FROM account.anchor WHERE account_id = ? AND attribute_type = 'email'",
                 String::class.java, account.accountId
             ) shouldBe "loa1"
         }

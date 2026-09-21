@@ -71,7 +71,7 @@ class AccountServiceTest : BehaviorSpec({
                 savedClaims.single().attributeType shouldBe AttributeType.PERSON_ID
                 savedClaims.single().value shouldBe "42"
                 savedClaims.single().claimSource shouldBe "ext_stammdaten"
-                savedClaims.single().establishedLoa shouldBe "loa2"
+                savedClaims.single().establishedAcr shouldBe "loa2"
                 savedClaims.single().establishedAt.shouldNotBeNull()
                 savedAnchors shouldHaveSize 1
                 savedAnchors.single().attributeType shouldBe AttributeType.PERSON_ID

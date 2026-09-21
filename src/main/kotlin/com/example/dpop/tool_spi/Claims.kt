@@ -113,7 +113,7 @@ val ClaimSource.trustLevel: TrustLevel
 
 /**
  * One attribute value a completed tool run asserts about its subject, with its provenance: WHO
- * established it ([source]) and at what assurance ([establishedLoa]). The typed claims-
+ * established it ([source]) and at what assurance ([establishedAcr]). The typed claims-
  * model counterpart to the untyped `auditDetails` blob - a subset of the declaring descriptor's
  * [ToolDescriptor.claims], at most one per [AttributeType] (docs/ideen/
  * claims-modell-und-vertrauensanker.md).
@@ -130,7 +130,7 @@ data class Claim(
      * asserting run could not determine one - the claim still counts, it just carries no
      * assurance of its own and can never raise a level by itself.
      */
-    val establishedLoa: AcrLevel? = null
+    val establishedAcr: AcrLevel? = null
 )
 
 /**
@@ -170,7 +170,7 @@ data class ClaimRequirement(
  * a successful run asserts it with. The OFFER side of the claims vocabulary (mirroring
  * [FactorType]'s two-sided contract): consumers can ask "what can this tool assert, on whose
  * authority?" without any run having happened. What is constant per tool lives here; what
- * varies per run - the value and its [Claim.establishedLoa] - stays on the [Claim]. The
+ * varies per run - the value and its [Claim.establishedAcr] - stays on the [Claim]. The
  * [TrustLevel] is deliberately NOT declared: it is derived via [ClaimSource.trustLevel], and
  * the source-to-level precedence is global policy (ADR-11), not per-tool knowledge.
  */

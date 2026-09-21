@@ -168,7 +168,7 @@ class AccountService(
                         attributeType = claim.attributeType,
                         value = claim.value,
                         claimSource = claim.source.value,
-                        establishedLoa = claim.establishedLoa?.value,
+                        establishedAcr = claim.establishedAcr?.value,
                         authMethodId = authMethodId,
                         establishedAt = establishedAt
                     )
@@ -243,7 +243,7 @@ class AccountService(
                 )
             )
             existing.value = normalized
-            existing.establishedLoa = provenAcr.value
+            existing.establishedAcr = provenAcr.value
             existing.establishedAt = establishedAt
             accountAnchorRepository.save(existing)
             return
@@ -254,7 +254,7 @@ class AccountService(
                 accountId = accountId,
                 attributeType = type,
                 value = normalized,
-                establishedLoa = provenAcr.value,
+                establishedAcr = provenAcr.value,
                 establishedAt = establishedAt
             )
         )
@@ -333,7 +333,7 @@ class AccountService(
         // here rather than the CURRENT session's level, so absorbing neither under- nor overpays
         // for what was already established.
         val anchorAcr = anchors.mapNotNull { anchor ->
-            anchor.attributeType?.let { type -> type to (anchor.establishedLoa?.let(AcrLevel::of) ?: AcrLevel.NONE) }
+            anchor.attributeType?.let { type -> type to (anchor.establishedAcr?.let(AcrLevel::of) ?: AcrLevel.NONE) }
         }.toMap()
         val claims = accountClaimRepository.findEstablished(from).sortedBy { it.establishedAt }
         val identifications = accountIdentificationRepository.findByAccountIdOrderByIdentifiedAt(from)
@@ -354,9 +354,9 @@ class AccountService(
                     attributeType = type,
                     value = checkNotNull(claim.value) { "Claim without a value on account $from" },
                     source = ClaimSource(checkNotNull(claim.claimSource) { "Claim without a source on account $from" }),
-                    establishedLoa = claim.establishedLoa?.let(AcrLevel::of)
+                    establishedAcr = claim.establishedAcr?.let(AcrLevel::of)
                 ),
-                provenAcr = anchorAcr[type] ?: claim.establishedLoa?.let(AcrLevel::of) ?: AcrLevel.NONE
+                provenAcr = anchorAcr[type] ?: claim.establishedAcr?.let(AcrLevel::of) ?: AcrLevel.NONE
             )
         }
         identifications.forEach { identification ->
@@ -364,7 +364,7 @@ class AccountService(
                 AccountIdentification(
                     accountId = into,
                     method = identification.method,
-                    achievedLoa = identification.achievedLoa,
+                    achievedAcr = identification.achievedAcr,
                     identifiedAt = identification.identifiedAt,
                     // The run's own audit details stay as they were - plus where it was recorded
                     // first, so the absorbed account id stays traceable after its row is gone.
@@ -382,7 +382,7 @@ class AccountService(
             AccountIdentification(
                 accountId = accountId,
                 method = method,
-                achievedLoa = loa,
+                achievedAcr = loa,
                 identifiedAt = Instant.now(),
                 details = details
             )

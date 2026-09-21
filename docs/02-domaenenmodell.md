@@ -143,7 +143,7 @@ stateDiagram-v2
 - `AccountClaim` ist das Provenienz-Log: jede je bezeugte *Änderung* (`AttributeType`, Wert, Quelle — Spalte `claim_source`, im Code `ClaimSource` —, `AcrLevel`), append-only. Es ist ein Change-Log, kein Run-Log: eine Behauptung, die identisch bereits gilt (gleicher Typ, Wert, Quelle und Methodeninstanz), wird nicht erneut geschrieben — ein eid-Lauf auf unveränderter Karte kostet keine 8 Zeilen. Eine `normalized_value`-Spalte (`@PrePersist`/`@PreUpdate`) trägt die Normalisierungsregel an genau einer Stelle.
 - Wo ein Attribut seine Autorität hat, ist ein deklarierter Fall: `AttributeType.rule.authority` (`tool_api/AttributeRules.kt`) kennt `LOCAL_ANCHOR` (`PERSON_ID`, `EID_RESTRICTED_ID`, `EMAIL` — lokal in `account.anchor`), `EXT_STAMMDATEN` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE`, `HAUSNUMMER`, `PLZ`, `ORT` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `METHOD_MODULE` (`PHONE_NUMBER` — in der `<modul>_enrollment`-Zeile des Methodenmoduls). `AnchorRule.bindingStrength` beantwortet daneben, wie stark ein Treffer darauf eine Identität bindet.
 - Ein Ankerschreibvorgang hat einen **Preis**: `AnchorRule.acrFloor` deklariert je Attributtyp, welches Niveau das *Erstbinden* (`establish`) und welches das *Ersetzen* (`replace`) mindestens verlangt. `EMAIL` bindet bei `loa1`, ersetzt aber erst ab `loa2`. `PERSON_ID` verlangt schon zum Erstbinden `loa2`; `allowsReplacement = false` bleibt daneben die führende Regel. Geprüft wird an der einzigen Schreibstelle (`AccountService.recordAnchor`), Unterschreitung ist eine Abweisung (`409`).
-- `account.anchor.established_loa` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`: das **tatsächlich bewiesene**, nach ADR-5 gedeckelte Niveau.
+- `account.anchor.established_acr` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`: das **tatsächlich bewiesene**, nach ADR-5 gedeckelte Niveau.
 - `AccountAnchor` ist die Auflösungs- und Eindeutigkeits-Projektion für die lokal geführten Attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`, `EID_RESTRICTED_ID`, `EMAIL`) und zugleich deren einziger Speicherort: `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem Lookup, `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen Wert je Konto und Attributtyp. KVNR wird ausschließlich live über `ext_stammdaten` zur PersonId und anschließend zum lokalen PersonId-Anker aufgelöst. Ein Anker, der bereits einem anderen Konto gehört, wird abgewiesen ([12-entscheidungen.md](12-entscheidungen.md) ADR-11).
 - `IdentityMatchingService.resolve` beantwortet „gehört diese bezeugte Identität zu einem bestehenden Konto?" **ausschließlich über Anker** (ADR-19): `resolveByAnchor` prüft die Anker-Claims in Reihenfolge ihrer `AnchorRule.bindingStrength`, ohne Treffer bleibt nur `Unresolved`. Attributkombinationen über die Claim-Historie sind kein Auflösungsweg mehr; Name/Vorname/Geburtsdatum werden nur noch als Konsistenzprüfung gegen `ext_stammdaten` herangezogen (`verifyToolAttestedConsistency`, `attestedIdentityMatches`).
 - Herleitung und noch nicht umgesetzte Ausbaustufen (Konto-Merge): [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md); Entscheidungen: [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-11/ADR-12/ADR-13/ADR-19; Vereinheitlichung von `personId` und `email` auf denselben Claim-/Anker-Pfad: [ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md).
@@ -184,7 +184,7 @@ erDiagram
     bigint account_id FK
     varchar attribute_type UK "ux(account_id, attribute_type)"
     varchar normalized_value UK "ux(attribute_type, normalized_value)"
-    varchar established_loa "tatsaechlich bewiesenes Niveau, gedeckelt"
+    varchar established_acr "tatsaechlich bewiesenes Niveau, gedeckelt"
   }
   account.auth_method {
     uuid id PK "adressiert von DELETE .../methods/{id}"
@@ -201,7 +201,7 @@ erDiagram
     varchar normalized_value "ix(attribute_type, normalized_value, account_id)"
     varchar claim_source "z.B. ext_stammdaten"
     uuid auth_method_id "welche Methodeninstanz hat es aufgestellt"
-    varchar established_loa
+    varchar established_acr
   }
   account.retraction {
     bigint account_id FK
@@ -212,7 +212,7 @@ erDiagram
   account.identification {
     bigint account_id FK
     varchar method "welches Verfahren"
-    varchar achieved_loa
+    varchar achieved_acr
     json details "Nachweisanker"
   }
   auth_sms.enrollment {

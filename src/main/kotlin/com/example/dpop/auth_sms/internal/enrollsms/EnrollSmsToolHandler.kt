@@ -91,7 +91,7 @@ class EnrollSmsToolHandler(
                             attributeType = AttributeType.PHONE_NUMBER,
                             value = decision.phoneNumber,
                             source = ClaimSource.of(descriptor.toolId),
-                            establishedLoa = descriptor.maxAcr
+                            establishedAcr = descriptor.maxAcr
                         )
                     ),
                     auditDetails = mapOf("smsProvider" to "sms-gw", "providerMsgId" to "MSG-$toolSessionId")

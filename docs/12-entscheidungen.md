@@ -94,7 +94,7 @@ zusammengeführt — mit Modellbereinigung, siehe ADR-14.
 ## ADR-5: Dreifache Deckelung des Sicherheitsniveaus
 
 **Entscheidung**: Das erreichbare Sicherheitsniveau wird an drei unabhängigen Stellen gedeckelt:
-`account.identification.achieved_loa` begrenzt, was ein Account je erreichen kann;
+`account.identification.achieved_acr` begrenzt, was ein Account je erreichen kann;
 `account.auth_method.enrolled_under_acr` begrenzt, was eine einzelne Methode beisteuern darf;
 `achievedAcr` einer Session ist das Minimum aus tatsächlich Nachgewiesenem und dem, was die
 verwendete Methode laut ihrem `enrolledUnderAcr` tragen darf
@@ -111,7 +111,7 @@ Person über starke Auth-Methoden ein Niveau erreicht, das ihre Identifizierung 
 
 **Preis**: Drei Stellen, an denen ein Niveau sinken kann, statt einer; welche gerade greift,
 muss über `AuthContext`, `account.auth_method.enrolled_under_acr` und
-`account.identification.achieved_loa` gemeinsam nachvollzogen werden.
+`account.identification.achieved_acr` gemeinsam nachvollzogen werden.
 
 **Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet den ersten Deckel inzwischen als eigene
 Größe (IAL, `identityAssuranceLevel`), getrennt von der Authentifizierungsstärke (AAL,

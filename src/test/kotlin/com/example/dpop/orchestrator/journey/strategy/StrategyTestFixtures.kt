@@ -107,7 +107,7 @@ object StrategyTestFixtures {
      * method in [amr] - only needed for scenarios that actually exercise the MFA-combination bump.
      */
     fun evidence(amr: List<String>, factorTypes: Set<FactorType>, account: AccountProfile? = null): AuthEvidence {
-        val methodLoa = amr.associateWith { m ->
+        val methodAcr = amr.associateWith { m ->
             catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevel.rank(it.maxAcr) }?.maxAcr?.value ?: AcrLevel.NONE.value
         }
         val enrolledUnderAcr = account?.authenticationMethods
@@ -115,7 +115,7 @@ object StrategyTestFixtures {
             ?.mapNotNull { m -> m.enrolledUnderAcr?.let { m.method to it } }
             ?.toMap()
             ?: emptyMap()
-        return AuthEvidence.from(amr, factorTypes, methodLoa, enrolledUnderAcr)
+        return AuthEvidence.from(amr, factorTypes, methodAcr, enrolledUnderAcr)
     }
 
     fun ctx(

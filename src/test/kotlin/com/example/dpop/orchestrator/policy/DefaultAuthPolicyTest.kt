@@ -65,7 +65,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
     given("a synthetic catalog of ident-fsc/enroll-sms/auth-sms plus a hypothetical passkey pair") {
 
         `when`("evidence proves only sms - a single possession factor, below loa3") {
-            val evidence = AuthEvidence.from(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION), methodLoa = mapOf("sms" to AcrLevel.LOA2.value))
+            val evidence = AuthEvidence.from(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION), methodAcr = mapOf("sms" to AcrLevel.LOA2.value))
 
             then("isSatisfied only requires the level, not MFA") {
                 policy.isSatisfied(evidence, AcrLevel.LOA2, account = null) shouldBe true
@@ -75,12 +75,12 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
         `when`("checking isSatisfied at loa3") {
             then("a single factor type is not enough") {
-                val singleFactor = AuthEvidence.from(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION), methodLoa = mapOf("sms" to AcrLevel.LOA2.value))
+                val singleFactor = AuthEvidence.from(amr = listOf("sms"), factorTypes = setOf(FactorType.POSSESSION), methodAcr = mapOf("sms" to AcrLevel.LOA2.value))
                 policy.isSatisfied(singleFactor, AcrLevel.LOA3, account = null) shouldBe false
             }
 
             then("two distinct factor types proven by one tool are enough") {
-                val twoFactors = AuthEvidence.from(amr = listOf("passkey"), factorTypes = setOf(FactorType.POSSESSION, FactorType.INHERENCE), methodLoa = mapOf("passkey" to AcrLevel.LOA3.value))
+                val twoFactors = AuthEvidence.from(amr = listOf("passkey"), factorTypes = setOf(FactorType.POSSESSION, FactorType.INHERENCE), methodAcr = mapOf("passkey" to AcrLevel.LOA3.value))
                 policy.isSatisfied(twoFactors, AcrLevel.LOA3, account = null) shouldBe true
             }
         }
@@ -90,7 +90,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 val evidence = AuthEvidence.from(
                     amr = listOf("sms", "someOtherPossessionMethod"),
                     factorTypes = setOf(FactorType.POSSESSION),
-                    methodLoa = mapOf("sms" to AcrLevel.LOA2.value, "someOtherPossessionMethod" to AcrLevel.LOA2.value)
+                    methodAcr = mapOf("sms" to AcrLevel.LOA2.value, "someOtherPossessionMethod" to AcrLevel.LOA2.value)
                 )
                 policy.isSatisfied(evidence, AcrLevel.LOA3, account = null) shouldBe false
             }
@@ -306,7 +306,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
                 val evidence = AuthEvidence.from(
                     amr = listOf("fsc", "password"),
                     factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
-                    methodLoa = mapOf("fsc" to AcrLevel.LOA2.value, "password" to AcrLevel.LOA1.value),
+                    methodAcr = mapOf("fsc" to AcrLevel.LOA2.value, "password" to AcrLevel.LOA1.value),
                     enrolledUnderAcr = mapOf("password" to AcrLevel.LOA3.value),
                     axis = mapOf("fsc" to EvidenceAxis.IDENTITY, "password" to EvidenceAxis.AUTHENTICATOR)
                 )
@@ -325,7 +325,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
         // own evidence matching what it wants that claim to say, same as a real caller (JourneyService)
         // would resolve it from the account's own enrollment record before calling resolveAcr.
         fun evidence(enrolledUnderAcr: Map<String, String>) =
-            AuthEvidence.from(amr = listOf("a", "b"), factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), methodLoa = mapOf("a" to AcrLevel.LOA1.value, "b" to AcrLevel.LOA1.value), enrolledUnderAcr = enrolledUnderAcr)
+            AuthEvidence.from(amr = listOf("a", "b"), factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), methodAcr = mapOf("a" to AcrLevel.LOA1.value, "b" to AcrLevel.LOA1.value), enrolledUnderAcr = enrolledUnderAcr)
 
         `when`("both were enrolled in a loa1-only session") {
             val bothWeak = account(method("a", enrolledUnderAcr = AcrLevel.LOA1), method("b", enrolledUnderAcr = AcrLevel.LOA1))
@@ -373,7 +373,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val evidence = AuthEvidence.from(
                 amr = listOf("sms", "password"),
                 factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
-                methodLoa = mapOf("sms" to AcrLevel.LOA1.value, "password" to AcrLevel.LOA1.value),
+                methodAcr = mapOf("sms" to AcrLevel.LOA1.value, "password" to AcrLevel.LOA1.value),
                 enrolledUnderAcr = mapOf("sms" to AcrLevel.LOA2.value, "password" to AcrLevel.LOA2.value)
             )
 
@@ -418,7 +418,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             val evidence = AuthEvidence.from(
                 amr = listOf("a", "b"),
                 factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
-                methodLoa = mapOf("a" to AcrLevel.LOA2.value, "b" to AcrLevel.LOA2.value),
+                methodAcr = mapOf("a" to AcrLevel.LOA2.value, "b" to AcrLevel.LOA2.value),
                 // Deliberately claims loa3 enrolledUnderAcr on both - even if nothing else would
                 // cap the bump, the NIST ceiling must still hold it at loa2.
                 enrolledUnderAcr = mapOf("a" to AcrLevel.LOA3.value, "b" to AcrLevel.LOA3.value)

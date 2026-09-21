@@ -34,8 +34,8 @@ class AccountIdentification(
     @Column(name = "method", nullable = false)
     var method: String? = null,
 
-    @Column(name = "achieved_loa")
-    var achievedLoa: String? = null,
+    @Column(name = "achieved_acr")
+    var achievedAcr: String? = null,
 
     @Column(name = "identified_at", nullable = false)
     var identifiedAt: Instant? = null,

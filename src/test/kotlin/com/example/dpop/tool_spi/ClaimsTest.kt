@@ -53,16 +53,16 @@ class ClaimsTest : BehaviorSpec({
             attributeType = AttributeType.KVNR,
             value = "A123456789",
             source = ClaimSource.EXT_STAMMDATEN,
-            establishedLoa = AcrLevel.LOA2
+            establishedAcr = AcrLevel.LOA2
         )
         then("carries value, provenance and assurance") {
             claim.attributeType shouldBe AttributeType.KVNR
             claim.value shouldBe "A123456789"
             claim.source shouldBe ClaimSource.EXT_STAMMDATEN
-            claim.establishedLoa shouldBe AcrLevel.LOA2
+            claim.establishedAcr shouldBe AcrLevel.LOA2
         }
-        then("establishedLoa defaults to null") {
-            Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(ToolId("confirm-email"))).establishedLoa shouldBe null
+        then("establishedAcr defaults to null") {
+            Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(ToolId("confirm-email"))).establishedAcr shouldBe null
         }
         then("rejects malformed shared identity values") {
             shouldThrow<IllegalStateException> {

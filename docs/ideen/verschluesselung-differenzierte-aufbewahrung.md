@@ -148,7 +148,7 @@ bleiben unbegrenzt im Klartext liegen (`07-betrieb.md:52`, Frist „noch nicht e
 EMAIL-`recordClaims`-Aufruf ist typischerweise ein Batch mit nur einer Zeile — die
 Batch-Granularität kostet hier nichts. Mit Claim-Batch-DEKs: dieselbe Retraktion löscht zusätzlich
 den DEK dieses Batches (sofort oder nach einer Karenz-/Audit-Frist). Die Zeile selbst kann
-strukturell erhalten bleiben — `attribute_type`, `claim_source`, `established_loa`, Zeitstempel
+strukturell erhalten bleiben — `attribute_type`, `claim_source`, `established_acr`, Zeitstempel
 bleiben unverschlüsselte Metadaten für Audit-Zwecke — nur `claim_value`/`normalized_value` werden
 dauerhaft unlesbares Chiffrat. Das schließt genau die Lücke, die ADR-12 offen lässt, ohne auf eine
 Entscheidung zur physischen Massenlöschung warten zu müssen.

@@ -46,7 +46,7 @@ class AuthEvidence(
      * #1). Deliberately ONE JSON column of records rather than several parallel Method->X columns
      * (the same reasoning as `AuthEvidence.MethodEvidence` in `orchestrator.policy`, which this
      * mirrors at the persistence layer): nothing then lets a method appear in one collection but
-     * not another. [currentAmr], [currentAmrSource], [methodLoa], [enrolledUnderAcr],
+     * not another. [currentAmr], [currentAmrSource], [methodAcr], [enrolledUnderAcr],
      * [currentFactorTypes] below are derived views over this, kept only so every existing read
      * site can stay unchanged.
      */
@@ -74,7 +74,7 @@ class AuthEvidence(
      * a native Keycloak authenticator's self-reported one; neither this field nor the policy that
      * reads it needs to know which.
      */
-    val methodLoa: Map<String, String> get() = amrEvidence.associate { it.method to it.loa }
+    val methodAcr: Map<String, String> get() = amrEvidence.associate { it.method to it.loa }
 
     /**
      * Each entry in [currentAmr]'s own ceiling for an MFA combination involving it (docs/06-
