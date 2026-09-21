@@ -57,6 +57,13 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
                 else -> gate(state, ctx) ?: Transition.Perform(Action.RevokeAuthMethod(state.methodInstanceId), resumeState = state)
             }
 
+            // Same shape as RemoveRequested: gate first, then act, then finish.
+            is ManageAuthMethodsState.RetractAttributeRequested -> when (event) {
+                is JourneyEvent.SubJourneyCancelled -> Transition.Cancel
+                is JourneyEvent.ActionCompleted -> Transition.Authenticated
+                else -> gate(state, ctx) ?: Transition.Perform(Action.RetractAttribute(state.attributeType), resumeState = state)
+            }
+
             is ManageAuthMethodsState.Enrolling -> when (event) {
                 // Backing out here means picking a different method, not abandoning the wish -
                 // the full choice comes back. Giving up entirely is DELETE .../journey.

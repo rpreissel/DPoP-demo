@@ -204,11 +204,11 @@ export function AuthenticationCompletedView({
             <li key={method.id}>
               <span className="label">
                 {labelFor(method)}
-                {(acrDetailLabel(method) || factorTypesLabel(method)) && (
-                  <span className="method-detail-hint">
-                    {[acrDetailLabel(method), factorTypesLabel(method)].filter(Boolean).join(' · ')}
-                  </span>
-                )}
+                {/* The method itself, not only the name: a user-chosen label ("Mein Handy") says
+                    nothing about WHICH procedure it is, and several methods can be device-bound. */}
+                <span className="method-detail-hint">
+                  {[method.method, acrDetailLabel(method), factorTypesLabel(method)].filter(Boolean).join(' · ')}
+                </span>
               </span>
               <button className="secondary" onClick={() => onDeactivateMethod(method.id)}>
                 Deaktivieren

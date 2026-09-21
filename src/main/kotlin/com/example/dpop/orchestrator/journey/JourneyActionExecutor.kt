@@ -1,6 +1,8 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
+import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.policy.AuthEvidence
@@ -19,7 +21,9 @@ import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
 import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.MethodRole
+import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.assertClaimsCovered
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -83,6 +87,7 @@ class JourneyActionExecutor(
             // own evidence says it has proven.
             is Action.RecordApproval -> journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
             is Action.RevokeAuthMethod -> removeMethod(journey, channel, action.methodInstanceId)
+            is Action.RetractAttribute -> performRetractAttribute(journey, channel, action.attributeType)
             is Action.LinkDevice -> performLinkDevice(journey, channel)
             is Action.DeleteAccount -> performDeleteAccount(journey, channel)
         }
@@ -570,14 +575,19 @@ class JourneyActionExecutor(
         val target = account.authenticationMethods.firstOrNull { it.active && it.id == methodInstanceId }
             ?: throw OrchestratorException.notFound("No active method '$methodInstanceId' for this account")
 
+        val dependents = dependentsOf(account, target)
+        val falling = (listOf(target) + dependents).map { it.id }.toSet()
+
         val afterRemoval = account.copy(
             authenticationMethods = account.authenticationMethods.map {
-                if (it.id == methodInstanceId) it.copy(active = false) else it
+                if (it.id in falling) it.copy(active = false) else it
             }
         )
         if (authPolicy.reachability(afterRemoval, contextFactory.acrFloorOf(channel)) !is Reachability.Reachable) {
+            val alsoFalling = dependents.map { it.method }.distinct()
+            val because = if (alsoFalling.isEmpty()) "" else " (zusammen mit ${alsoFalling.joinToString(", ")})"
             throw OrchestratorException.invalidState(
-                "Deaktivieren von '${target.method}' wuerde das Mindestniveau dieses Kanals unterschreiten"
+                "Deaktivieren von '${target.method}'$because wuerde das Mindestniveau dieses Kanals unterschreiten"
             )
         }
         // revokeMethod, not the bare deactivate: a user who removes a method expects the
@@ -586,7 +596,115 @@ class JourneyActionExecutor(
         // account deletion still walks every ref it ever pointed at. Device rebinding already
         // took this path (docs/09-dpop.md); the user-facing removal used to stop at the flag and
         // left the phone number / password hash behind until the whole account went.
+        //
+        // Dependents first, then the method that carried them: the reverse order would leave a
+        // window in which a dependent credential exists without what it depends on.
+        dependents.forEach { accountDeletionService.revokeMethod(accountId, checkNotNull(it.id)) }
         accountDeletionService.revokeMethod(accountId, methodInstanceId)
+    }
+
+    /**
+     * Withdraws one account attribute and takes with it everything that required it - which is
+     * how a confirmed address can finally be lost at all (`AccountService.retractAttribute`).
+     *
+     * The consequence is not listed anywhere: `enroll-password` requires a proven EMAIL and
+     * `enroll-kobil` requires the password's own claim, so retracting the address removes both,
+     * found by the same fixpoint a method revocation uses. The floor check runs on the full
+     * projection first, so this refuses rather than leaving the channel below its own minimum.
+     */
+    private fun performRetractAttribute(journey: AuthJourney, channel: ChannelSession, attributeType: AttributeType) {
+        val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Retract without a known account" }
+        val account = accountService.findAccount(accountId)
+            ?: throw OrchestratorException.processGone("Account not found: $accountId")
+
+        // Refuse rather than treat it as a no-op: without this, withdrawing something the account
+        // never established would still run the cascade below and revoke whatever names that
+        // attribute in its `requires` - a destructive act triggered by a request that withdraws
+        // nothing at all.
+        if (attributeType !in account.establishedClaims) {
+            throw OrchestratorException.notFound("'${attributeType.wireName}' ist fuer dieses Konto nicht bestaetigt")
+        }
+
+        val falling = dependentsOfLostClaims(account, lost = setOf(attributeType), falling = emptyList())
+        val fallingIds = falling.mapNotNull { it.id }.toSet()
+        val afterRetraction = account.copy(
+            authenticationMethods = account.authenticationMethods.map {
+                if (it.id in fallingIds) it.copy(active = false) else it
+            }
+        )
+        if (authPolicy.reachability(afterRetraction, contextFactory.acrFloorOf(channel)) !is Reachability.Reachable) {
+            val alsoFalling = falling.map { it.method }.distinct()
+            val because = if (alsoFalling.isEmpty()) "" else " (zusammen mit ${alsoFalling.joinToString(", ")})"
+            throw OrchestratorException.invalidState(
+                "Zuruecknehmen von '${attributeType.wireName}'$because wuerde das Mindestniveau dieses Kanals unterschreiten"
+            )
+        }
+
+        falling.forEach { accountDeletionService.revokeMethod(accountId, checkNotNull(it.id)) }
+        accountService.retractAttribute(accountId, attributeType, RetractionAnchor.ACCOUNT_MANAGEMENT, reason = "attribute withdrawn")
+    }
+
+    /**
+     * The active credentials that cannot outlive [target] - transitively.
+     *
+     * Nobody declares this dependency as such: it is read off the `requires` gates that are
+     * already there. Revoking a method retracts the METHOD_MODULE claims it asserted
+     * (`AccountService.retractClaimsOf`), and any method whose `requires` named one of those
+     * loses its own precondition - so it cannot stand either, and its claims are then gone in
+     * turn. Hence the fixpoint rather than a single pass, even though the catalog today happens
+     * to hold only chains of length two.
+     *
+     * A requirement on a claim that no method instance asserted needs its own trigger, and has
+     * one: `enroll-password` requires a confirmed EMAIL, but `confirm-email` is an ATTESTATION -
+     * it writes its claim with no `authMethodId` (`performAdoptAttestation`), and EMAIL is a
+     * LOCAL_ANCHOR besides, so no method revocation can ever reach it. That is why
+     * [performRetractAttribute] exists and calls this same fixpoint: losing an address takes the
+     * password with it, and the password takes a kobil credential (ADR-24).
+     *
+     * This is where `requires` stops being merely an offering gate and becomes a standing
+     * precondition (see [ToolDescriptor.requires]). A claim that survives the revocation - an
+     * account-owned anchor like EMAIL, or one another active method also asserts - keeps its
+     * dependents alive, which is why [stillClaimed] is subtracted rather than assumed empty.
+     */
+    private fun dependentsOf(account: AccountProfile, target: AuthMethodView): List<AuthMethodView> {
+        val lost = claimedTypes(account, listOf(target)) -
+            claimedTypes(account, account.activeAuthenticationMethods.filter { it.id != target.id })
+        return dependentsOfLostClaims(account, lost, falling = listOf(target))
+    }
+
+    private fun claimedTypes(account: AccountProfile, instances: List<AuthMethodView>): Set<AttributeType> =
+        instances.flatMap { accountService.claimedTypesOf(account.accountId, checkNotNull(it.id)) }.toSet()
+
+    /**
+     * The fixpoint itself, shared by both causes of a claim going away: a revoked credential that
+     * asserted it, or an attribute withdrawn outright. [falling] is what is already known to go
+     * (empty for a retraction, the revoked instance for a revocation); the result adds every
+     * active credential whose `requires` just stopped being satisfied, and keeps going while each
+     * new casualty takes its own claims with it.
+     */
+    private fun dependentsOfLostClaims(
+        account: AccountProfile,
+        lost: Set<AttributeType>,
+        falling: List<AuthMethodView>
+    ): List<AuthMethodView> {
+        val casualties = falling.toMutableList()
+        var lostSoFar = lost
+        while (true) {
+            val fallingIds = casualties.mapNotNull { it.id }.toSet()
+            val standing = account.activeAuthenticationMethods.filter { it.id !in fallingIds }
+            val next = standing.filter { instance ->
+                toolRegistry.descriptors()
+                    .filter { it.method == instance.method && it.role.category == ToolCategory.ENROLL }
+                    .any { descriptor -> descriptor.requires.any { it.attributeType in lostSoFar } }
+            }
+            if (next.isEmpty()) return casualties.drop(falling.size)
+            casualties += next
+            // A casualty takes its own METHOD_MODULE claims with it - unless something still
+            // standing asserts the same type, which is why this is recomputed rather than unioned.
+            val stillStanding = account.activeAuthenticationMethods
+                .filter { it.id !in casualties.mapNotNull { c -> c.id }.toSet() }
+            lostSoFar = lostSoFar + (claimedTypes(account, casualties) - claimedTypes(account, stillStanding))
+        }
     }
 
     /**

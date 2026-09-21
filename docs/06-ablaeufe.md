@@ -129,3 +129,126 @@ Zwischen beiden steht keine Ja/Nein-Frage mehr: Nach der Bezeugung zeigt `next` 
 
 Fehlerfälle zusätzlich zum allgemeinen Vertrag: falsche PIN -> `Failed("eID-PIN ungueltig")`; unbekannte Versichertennummer -> `Failed("Versichertennummer konnte nicht zugeordnet werden")` — bewusst dieselbe Antwort, egal ob die Nummer gar nicht existiert oder zu jemand anderem gehört, damit daraus kein KVNR-Existenz-Orakel wird; passt die Nummer zu einer anderen Person als der bezeugten, ist es ein Konflikt (`409`), kein Tool-Fehlschlag.
 
+
+---
+
+## 7) `enroll-kobil` / `auth-kobil`
+
+Gerätebindung über den externen Dienstleister **KOBIL** — das erste Verfahren, dessen Nachweis
+nicht durch den Client läuft. Der Client trägt nur eine Einmalkennung (OTP); die Geräte-Assertion
+holt sich das Backend selbst beim Anbieter. Ein manipulierter Client kann eine Kennung
+zurückhalten oder wiederholen, ein Ergebnis behaupten kann er nicht.
+
+Zweite Abweichung, bewusst gegen den KOBIL-Standardweg: **der PIN liegt im Tool-Backend**, nicht
+beim Nutzer. Er wird dort erzeugt und pro Anmeldung freigegeben, nachdem der Client sich lokal
+entsperrt hat (ADR-21, ADR-22).
+
+Die **Biometrie ist freiwillig**: Nur bei Zustimmung entsteht überhaupt ein Gerätegeheimnis, und
+nur dann speichert der Server dessen Hash. Welche Entsperrwege ein konkretes Credential später hat,
+rechnet der Server daraus aus — siehe „Nutzung" unten.
+
+Der Anbieter ist simuliert: das Modul `kobil_mock` mit eigenem Schema, eigener HTTP-Fassade für die
+App (`/mock-kobil/*`, das Pendant zum MC SDK) und der Schnittstelle `KobilSsms` für unser Backend.
+Kein Spring-Profil, keine zweite Implementierung — der Mock *ist* KOBIL. Seine Operationen heißen
+nach dem, was SSMS tut (Nutzer anlegen, Aktivierungscode ausstellen, PIN setzen, Nutzergeräte
+abfragen, OTP am Services-Knoten verifizieren), nicht nach unserem Ablauf; die echten Wire-Formate
+sind für die Demo nicht das Thema.
+
+### Vier Geheimnisse, vier verschiedene Aussagen
+
+| Ding | Wo es liegt | Was es dem Server beweist |
+|---|---|---|
+| KOBIL-PIN | Tool-Backend, pro Lauf freigegeben | **Nichts über den Nutzer** — er kennt ihn nicht |
+| Lokales, biometriegeschütztes Gerätegeheimnis | nur im Client | Das Zugangsmittel zum Credential |
+| Kontopasswort | `auth_password.enrollment` | Dasselbe Zugangsmittel, andere Ausprägung |
+| Assertion + Gerätekennung | KOBIL, serverseitig per OTP eingelöst | **Besitz, echt** — der Server prüft, statt zu glauben |
+
+### Einrichtung (`enroll-kobil`, Schritt `activate`)
+
+1. Aktivierung des Tools: Das Backend legt bei KOBIL einen Nutzer an, lässt einen Aktivierungscode
+   ausstellen, erzeugt den PIN und setzt ihn dort. `stepData` trägt `tenantId`, `kobilUserId`,
+   `activationCode`, `pin` und ein frisch erzeugtes `unlockSecret`.
+2. Der Client ruft damit direkt KOBIL auf (SDK-`ActivateEvent`). Dabei entsteht bei KOBIL die
+   **Gerätekennung**. Das `unlockSecret` legt der Client — nur bei Zustimmung — lokal hinter
+   seiner Biometrie ab; andernfalls verwirft er es.
+3. `PATCH {activated, biometricConsent, label}`: Das Backend fragt die Kennung bei KOBIL ab —
+   niemals beim Client, denn sie ist der Vergleichsanker jeder späteren Anmeldung — und schreibt
+   das Credential (Kennung, PIN, DPoP-`bindingKeyRef`, und **nur bei Zustimmung** den Hash des
+   Unlock-Secrets). `Completed.Enrolled` mit `amr = [kobil, pin|biometric]`, wobei das
+   Zugangsmittel aus der Zustimmung abgeleitet wird und keine zweite Eingabe ist.
+
+`biometricConsent` hat keinen Default: Eine Zustimmung, die man nicht gegeben hat, gibt es nicht.
+Ohne sie bleibt `unlock_secret_hash` NULL, und „Biometrie erlaubt" ist damit kein Flag neben einem
+Geheimnis, sondern dessen Vorhandensein.
+
+Ein `activated` ohne Gerät bei KOBIL ist **kein** Fehlschlag, sondern `Unchanged`: Wer die Seite
+neu geladen hat, hat nichts geraten, also wird auch kein Versuchsbudget belastet. Deshalb gibt der
+Schritt seine Werte bei jedem Lesen erneut heraus — solange die Einrichtung läuft, muss der Client
+sie noch entgegennehmen können.
+
+### Nutzung (`auth-kobil`, Schritte `unlock` und `otp`)
+
+| Schritt | Wer | Was |
+|---|---|---|
+| `unlock` | Client | Entsperrt lokal: `POST .../auth-kobil/pin-releases` mit dem Gerätegeheimnis **oder** dem Kontopasswort — angeboten wird nur, was es wirklich gibt (`stepData.unlockOptions`) |
+| — | Backend | Prüft, gibt den PIN frei — in **dieser einen Antwort**, Schritt wird `otp` |
+| `otp` | Client | SDK-`LoginEvent` mit dem PIN bei KOBIL, erhält einen OTP zurück |
+| — | Client | `PATCH {otp}` |
+| — | Backend | Löst den OTP bei KOBIL ein, vergleicht Kennung, bewertet Risiken |
+
+Die Freigabe ist eine **eigene Sub-Ressource**, nicht Teil des PATCH — das erste Tool, das den in
+[API](05-api.md) Abschnitt 1 zugesagten eigenen URL-Namespace wirklich nutzt. Drei Gründe, alle
+strukturell: Der PIN darf nicht wieder abrufbar sein (`buildReadResponse` baut `stepData` bei jedem
+GET neu auf, also darf er dort nicht stehen); eine Freigabe ist eine Erzeugung, nicht ein Patch
+(einmalig, befristet, nicht idempotent); und zwei verschiedene Akte werden besser durch die URL
+unterschieden als durch „welche nullable Felder sind gerade gesetzt". Der Body ist ein echtes
+Entweder-Oder (`sealed interface KobilUnlockCredential`) — beides oder nichts ist nicht
+konstruierbar, und damit folgt die gemeldete Faktorart aus dem Typ statt aus einem Flag.
+
+Das Kontopasswort ist auf diesem Weg das Zugangsmittel zum KOBIL-Credential, kein eigener
+Anmeldeschritt: geprüft wird es über `PasswordCredentialPort`, gemeldet wird `pin` — nie
+`password`, weil das dem Lauf die echte Passwortmethode anhängen und sie doppelt zählen würde.
+Eine wiederholte Freigabe ist erlaubt: wessen Freigabefenster abgelaufen ist, entsperrt einfach
+erneut.
+
+### Was geprüft wird, und was bei Abweichung passiert
+
+- Kein gültiges Freigabefenster -> `Failed("Entsperren erforderlich")`, zurück zu `unlock`.
+- OTP unbekannt oder verbraucht -> `Failed("Bestaetigung nicht erkannt")`. Unbekannt, verbraucht
+  und fremd sind bei KOBIL bewusst dieselbe Antwort.
+- Kennung weicht ab -> `Failed("Geraet nicht erkannt")` — wortgleich zu `auth-device`, verrät nicht,
+  welches Gerät erwartet wurde.
+- Gemeldetes Risiko in der konfigurierten Sperrmenge (`dpop.kobil.blocking-risks`) ->
+  `Failed("Geraet als unsicher gemeldet")`. Bewusst ein eigener Grund: Das ist kein Tippfehler des
+  Nutzers, sondern eine Aussage über das Gerät; im „nicht erkannt" verschwände ein echter Befund.
+  Kein Score, sondern eine benannte Menge — ein Score müsste erfunden werden und läse sich als
+  Messung. Da beide Seiten geschlossene Enums sind, ist ein unbekanntes Signal kein zu prüfender
+  Fall, sondern nicht konstruierbar.
+- Falsches Gerätegeheimnis, falsches Passwort und gar kein Passwort-Credential ->
+  **eine** Formulierung (`Failed("Entsperren fehlgeschlagen")`), damit daraus kein Orakel wird, ob
+  das Konto ein Passwort hat.
+
+Alle Fehlschläge sind der gewöhnliche Retry-Fall (`200` mit `stepData.error`, Versuchsbudget der
+Journey), kein Fehlerstatus. Sie belasten über `chargeThrottles` den bestehenden
+`LoginThrottleService` — auch die Risiko-Ablehnung, was heißt: ein gerootetes Telefon kann seinen
+Besitzer aussperren. Bewusst in Kauf genommen, statt eine Sonderbehandlung einzuführen.
+
+### Welche Entsperrwege es gibt, entscheidet nicht der Client
+
+`unlockOptions` ist abgeleitet, nicht fest: `biometric` genau dann, wenn ein
+`unlock_secret_hash` existiert (also jemand zugestimmt hat), `password` genau dann, wenn das Konto
+noch ein Passwort hält. Einen Weg anzubieten, den es nicht gibt, hätte nur einen möglichen Ausgang
+— einen Fehlversuch, der den Login-Throttle belastet.
+
+Der Preis, den das kostet: Die Antwort verrät dem Aufrufer, ob das Konto ein Passwort hat. Das ist
+hier vertretbar, weil `auth-kobil` überhaupt nur für einen Aufrufer läuft, dessen Schlüssel bereits
+zu einem eingetragenen Credential **dieses** Kontos passt (`keyBinding`) — und derselbe Aufrufer
+sieht `activeMethods`, sobald er fertig ist.
+
+Eine leere Liste ist möglich und wird als solche angezeigt: ein Credential ohne Biometrie-Zustimmung
+auf einem Konto, das sein Passwort verloren hat, ist nicht mehr benutzbar. Der Client sagt das,
+statt eine Schaltfläche anzubieten, die nicht funktionieren kann.
+
+Nicht gebaut: eine `-lookup`-Variante (das Credential ist schlüsselgebunden) und ein
+`WebToolRenderer` für den Keycloak-Kanal (ein Telefon-SDK lässt sich aus einer Loginmaske nicht
+ansprechen) — siehe [API](05-api.md) Abschnitt 3.

@@ -231,6 +231,22 @@ export function getTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string
   return call(dpop, 'GET', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`)
 }
 
+/**
+ * A POST to a resource a tool defines under its own URL namespace (docs/05-api.md: everything
+ * below `/tools/{toolSessionId}/{toolId}` is the tool's own design). Generic on purpose - the
+ * sub-path belongs to the tool's own api.ts, not to this shared client, which only knows how to
+ * sign and how to read a ChannelResponse back.
+ */
+export function postToolSubResource(
+  dpop: DpopKeyPair,
+  toolSessionId: string,
+  toolId: string,
+  subPath: string,
+  body: Record<string, unknown>
+): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}/${subPath}`, body)
+}
+
 export interface ToolAvailabilityEntry {
   toolId: string
   method: string

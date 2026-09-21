@@ -4,6 +4,8 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.auth_device.AuthDeviceDescriptor
 import com.example.dpop.auth_device.EnrollDeviceDescriptor
+import com.example.dpop.auth_kobil.AuthKobilDescriptor
+import com.example.dpop.auth_kobil.EnrollKobilDescriptor
 import com.example.dpop.auth_email.AuthEmailLookupDescriptor
 import com.example.dpop.auth_email.AuthEmailUseDescriptor
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
@@ -50,6 +52,7 @@ object StrategyTestFixtures {
             ConfirmEmailDescriptor, EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
             EnrollPasswordDescriptor, AuthPasswordUseDescriptor, AuthPasswordLookupDescriptor,
             EnrollDeviceDescriptor, AuthDeviceDescriptor,
+            EnrollKobilDescriptor, AuthKobilDescriptor,
             EnrollQrDescriptor, AuthQrDescriptor, AuthQrLookupDescriptor, ConfirmQrLoginDescriptor
         )
     )

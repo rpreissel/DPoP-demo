@@ -76,6 +76,78 @@ class AccountService(
      * @return how many retraction rows were written - 0 is the ordinary case for a method that
      *   asserts nothing (device, password) or only account-owned facts.
      */
+    /**
+     * Which attribute types this one method instance asserted and would take with it when
+     * revoked - i.e. exactly what [retractClaimsOf] would retract, asked without retracting.
+     *
+     * Exists so a caller can work out the consequences of a removal BEFORE writing anything
+     * (`JourneyActionExecutor.removeMethod` projects the account's state after the removal to
+     * check it against the channel's floor). Deliberately the same query and the same
+     * METHOD_MODULE filter as the retraction itself rather than a second, independently derived
+     * answer - a projection that disagreed with the write it predicts would be worse than none.
+     */
+    @Transactional(readOnly = true)
+    fun claimedTypesOf(accountId: Long, methodInstanceId: String): Set<AttributeType> {
+        val instanceId = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return emptySet()
+        return accountClaimRepository.findByAuthMethodId(instanceId)
+            .filter { it.accountId == accountId }
+            .filter { it.attributeType?.rule?.authority == AttributeAuthority.METHOD_MODULE }
+            .mapNotNull { it.attributeType }
+            .toSet()
+    }
+
+    /**
+     * Withdraws ONE attribute of this account outright - the act [retractClaimsOf] deliberately
+     * cannot perform: that one only ever drops what a revoked credential itself asserted, and
+     * an anchor like EMAIL is an account-owned fact no method may take with it.
+     *
+     * Until this existed, a confirmed address could never be lost: `confirm-email` writes its
+     * claim as an ATTESTATION, i.e. with no `authMethodId` at all, so no method revocation could
+     * ever reach it. It is therefore the retraction itself that has to be a first-class act -
+     * and the caller's job to deal with what depended on the attribute
+     * (`JourneyActionExecutor.performRetractAttribute`).
+     *
+     * Follows ADR-12 for anchors: the retraction row makes the claim log stop establishing the
+     * value, and the anchor row is deleted outright, so nothing resolves an account by it
+     * afterwards.
+     *
+     * @return true if something was actually established and is now withdrawn.
+     */
+    @Transactional
+    fun retractAttribute(
+        accountId: Long,
+        attributeType: AttributeType,
+        trustAnchor: RetractionAnchor,
+        reason: String? = null
+    ): Boolean {
+        // Only what still counts: a value already withdrawn needs no second retraction row, and
+        // findEstablished is the same "assertions minus retractions" view every reader uses.
+        val established = accountClaimRepository.findEstablished(accountId)
+            .filter { it.attributeType == attributeType }
+            .map { it.normalizedValue }
+            .distinct()
+        if (established.isEmpty()) return false
+
+        val now = Instant.now()
+        established.forEach { value ->
+            accountRetractionRepository.save(
+                AccountRetraction(
+                    accountId = accountId,
+                    attributeType = attributeType,
+                    normalizedValue = value,
+                    trustAnchor = trustAnchor,
+                    reason = reason,
+                    retractedAt = now
+                )
+            )
+        }
+        if (attributeType.rule.authority == AttributeAuthority.LOCAL_ANCHOR) {
+            accountAnchorRepository.findByAccountIdAndAttributeType(accountId, attributeType)
+                ?.let { accountAnchorRepository.delete(it) }
+        }
+        return true
+    }
+
     @Transactional
     fun retractClaimsOf(
         accountId: Long,

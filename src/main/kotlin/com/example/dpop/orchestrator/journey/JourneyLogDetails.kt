@@ -142,6 +142,9 @@ class JourneyLogDetails(
                 ?.authenticationMethods?.firstOrNull { it.id == action.methodInstanceId }
             mapOf("methodInstanceId" to action.methodInstanceId, "method" to target?.method, "label" to target?.label)
         }
+        // Names the attribute; what falls with it is not known until the executor works it out
+        // from the catalog, and the resulting revocations log themselves.
+        is Action.RetractAttribute -> mapOf("attribute" to action.attributeType.wireName)
         // The account these two act on is the session's own (they carry none of their own any
         // more, see Action.LinkDevice) - logged from the same place the executor reads it, so the
         // log says what actually happened rather than what a strategy once intended.

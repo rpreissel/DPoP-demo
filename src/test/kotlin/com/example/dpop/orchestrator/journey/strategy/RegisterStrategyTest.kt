@@ -155,7 +155,7 @@ class RegisterStrategyTest : BehaviorSpec({
                 // discharged above, not one more way to enroll a method. enroll-password IS a
                 // candidate now - the confirmed address is exactly what unlocks it.
                 to.offered shouldContainExactlyInAnyOrder listOf(
-                    ToolId("enroll-sms"), ToolId("enroll-device"), ToolId("enroll-qr"),
+                    ToolId("enroll-sms"), ToolId("enroll-device"), ToolId("enroll-kobil"), ToolId("enroll-qr"),
                     ToolId("enroll-email"), ToolId("enroll-password")
                 )
             }

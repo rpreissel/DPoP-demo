@@ -30,6 +30,9 @@ import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.tool_api.ActiveMethodView
 import com.example.dpop.tool_api.AuthData
 import com.example.dpop.tool_api.ChannelBlock
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_api.AttributeAuthority
+import com.example.dpop.tool_api.rule
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
@@ -332,6 +335,27 @@ class ChannelService(
      */
     fun deactivateMethod(channelSessionId: UUID, bindingKeyRef: String, methodInstanceId: String): ChannelResponse =
         startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.RemoveRequested(methodInstanceId))
+
+    /**
+     * Withdraws an account-owned attribute, through the same journey and the same gate as
+     * removing a method - it is the same kind of destructive self-service act, and it can take
+     * credentials with it (`JourneyActionExecutor.performRetractAttribute`).
+     *
+     * Only attributes an account actually owns locally may be withdrawn: a master-data field is
+     * not ours to retract, and a method-owned one goes with its method. The wire name is resolved
+     * here rather than passed through as a string, so an unknown one is a 400 instead of a silent
+     * no-op deep inside the journey.
+     */
+    fun retractAttribute(channelSessionId: UUID, bindingKeyRef: String, attribute: String): ChannelResponse {
+        val attributeType = AttributeType.fromWireName(attribute)
+            ?: throw OrchestratorException.invalidState("Unbekanntes Attribut: $attribute")
+        if (attributeType.rule.authority != AttributeAuthority.LOCAL_ANCHOR) {
+            throw OrchestratorException.invalidState(
+                "'$attribute' gehoert nicht dem Konto (${attributeType.rule.authority}) und kann hier nicht zurueckgenommen werden"
+            )
+        }
+        return startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.RetractAttributeRequested(attributeType))
+    }
 
     private fun startManage(channelSessionId: UUID, bindingKeyRef: String, wish: ManageAuthMethodsState): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)

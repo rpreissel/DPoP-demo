@@ -383,6 +383,39 @@ class ChannelController(
         return ResponseEntity.ok(channelService.deactivateMethod(channelSessionId, bindingKeyRef, methodInstanceId))
     }
 
+    @DeleteMapping("/{channelSessionId}/attributes/{attribute}")
+    @Operation(
+        summary = "Withdraw a confirmed account attribute",
+        description = "Sibling of the methods endpoint, for what is NOT a credential: an account-owned fact, " +
+            "today only the confirmed address (`email`). Same gate, and the same refusal (409) when the " +
+            "consequences would drop the account below this channel's required level - consequences being the " +
+            "point: every credential that required the attribute is withdrawn with it, transitively. Removing " +
+            "the address therefore also removes a password enrolled against it, and a KOBIL binding that in " +
+            "turn required that password.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The address was withdrawn; nothing required it.",
+                content = [Content(examples = [ExampleObject(value = """
+                    {
+                      "channel": {
+                        "channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED",
+                        "currentAcr": "loa2", "currentAmr": ["fsc"]
+                      },
+                      "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
+                    }
+                """)])]
+            )
+        ]
+    )
+    fun retractAttribute(
+        @PathVariable channelSessionId: UUID,
+        @PathVariable attribute: String,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<ChannelResponse> {
+        return ResponseEntity.ok(channelService.retractAttribute(channelSessionId, bindingKeyRef, attribute))
+    }
+
     @GetMapping("/{channelSessionId}/token")
     @Operation(
         summary = "Get the mock Keycloak AccessToken",

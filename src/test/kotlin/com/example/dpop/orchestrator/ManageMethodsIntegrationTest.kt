@@ -101,6 +101,12 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 val enrollQrToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-qr").nextRaw()["toolSessionId"] as String
                 patch("/orchestrator/api/v1/tools/$enrollQrToolSessionId/enroll-qr", "{}")
 
+                // Two device-bound methods remain in the catalog, and kobil cannot be enrolled from
+                // here: its activation needs a real SDK run against the provider (that path is
+                // KobilBindingIntegrationTest's job). Switched off so this case stays about the
+                // single-candidate skip rather than about how many device methods exist.
+                put("/orchestrator/api/v1/admin/tools/enroll-kobil/availability", """{"enabled":false,"reason":"single-candidate case"}""")
+
                 // sms, email, password and qr are now active - enroll-device is the one remaining
                 // catalog candidate (single-candidate skip goes straight to it; the "nothing left"
                 // message is covered once device is also enrolled, see DeviceBindingIntegrationTest).
@@ -239,6 +245,48 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
 
                 val started = post("/orchestrator/api/v1/channels/$newChannelSessionId/enrollments")
                 started.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-password", "step" to "auth")
+
+
+                }
+            }
+        }
+
+        given("a password that was enrolled against a confirmed address") {
+            `when`("the address itself is withdrawn") {
+                then("the password goes with it - nobody declared that, its own requires did") {
+
+                // A real registration: sms and password, both against the confirmed address.
+                val channelSessionId = registerAndAuthenticate()
+                @Suppress("UNCHECKED_CAST")
+                val before = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
+                before.map { it["method"] } shouldContainAll listOf("sms", "password")
+
+                delete("/orchestrator/api/v1/channels/$channelSessionId/attributes/email")
+
+                // enroll-password requires ClaimRequirement(EMAIL, PROVEN), and `requires` is a
+                // STANDING precondition (ADR-24): what a credential needed to come into existence
+                // it needs to keep existing. sms required nothing and stays.
+                @Suppress("UNCHECKED_CAST")
+                val after = get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>
+                after.map { it["method"] } shouldNotContain "password"
+                after.map { it["method"] } shouldContain "sms"
+                // The credential row itself is gone, not merely flagged - same as any revocation.
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auth_password.enrollment", Int::class.java) shouldBe 0
+
+
+                }
+            }
+
+            `when`("the address was never confirmed on this account") {
+                then("withdrawing it is refused instead of silently revoking what required it") {
+
+                val channelSessionId = registerAndAuthenticate()
+                delete("/orchestrator/api/v1/channels/$channelSessionId/attributes/email")
+
+                val refused = assertThrows<HttpClientErrorException> {
+                    delete("/orchestrator/api/v1/channels/$channelSessionId/attributes/email")
+                }
+                refused.statusCode shouldBe HttpStatus.NOT_FOUND
 
 
                 }

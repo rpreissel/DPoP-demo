@@ -749,6 +749,155 @@ steht weiterhin in den `account.identification`-Zeilen; die wandern mit ihrem ur
 
 ---
 
+## ADR-21: Der KOBIL-PIN liegt im Backend — und das Zugangsmittel zählt trotzdem
+
+**Entscheidung** (**umgesetzt**): Beim Verfahren `kobil` wird der PIN nicht vom Nutzer vergeben und
+nicht von ihm eingetippt, sondern vom Tool-Backend erzeugt, dort verwahrt und pro Anmeldung
+freigegeben, nachdem der Client sich lokal entsperrt hat — per biometriegeschütztem Gerätegeheimnis
+oder per Kontopasswort. Der Entsperrweg ist das `userVerification` dieses Verfahrens (`pin` bzw.
+`biometric`), kein zweiter Nachweis; beide Wege erreichen `loa2`, genau wie bei `auth_device`.
+
+**Keiner der beiden Wege ist Pflicht, und welche existieren, rechnet der Server aus.** Die
+Biometrie entsteht nur bei Zustimmung (dann gibt es einen `unlock_secret_hash`, sonst NULL), das
+Passwort nur, solange das Konto eines hält. `auth-kobil` nennt im `stepData` die tatsächlich
+vorhandenen Wege (`unlockOptions`), statt beide anzubieten: Ein Weg, den es nicht gibt, hätte genau
+einen möglichen Ausgang — einen Fehlversuch, der den Login-Throttle belastet. Preis: Die Antwort
+verrät, ob das Konto ein Passwort hat. Vertretbar, weil dieser Schritt nur für einen Aufrufer läuft,
+dessen Schlüssel schon zu einem Credential dieses Kontos passt, und weil derselbe Aufrufer direkt
+danach `activeMethods` sieht. Eine leere Liste ist möglich und wird benannt, statt kaschiert.
+
+**Erwogene Alternative**: Den KOBIL-Standardweg beibehalten, also den Nutzer einen PIN vergeben und
+eingeben lassen. Verworfen, weil das Verfahren hier gerade zeigen soll, wie ein Gerätebindungs-
+Dienstleister eingebunden wird, ohne dem Nutzer ein weiteres Geheimnis aufzubürden.
+
+**Zweite erwogene Alternative**: `docs/04-orchestrierung.md` Abschnitt 8 wörtlich nehmen („nur
+Faktoren melden, die dem Server nachweisbar sind") und nur `{possession}` melden, womit der
+Biometrie-Weg bei `loa1` landete. Verworfen, obwohl sie strenger und in einem Punkt richtiger ist:
+Wie entsperrt wurde, kann kein Server sehen. Der Preis der Strenge wäre aber, dass dieselbe Geste
+in zwei Verfahren unterschiedlich viel kostet, ohne dass der Nutzer den Grund sieht — und dass
+`auth_device`, das seit immer `inherence` aus derselben Selbstauskunft meldet, zum unbenannten
+Ausreißer würde.
+
+**Preis, ausgesprochen**: Die Ausnahme von der „nur nachweisbare Faktoren"-Regel gilt damit für
+zwei Verfahren. Sie steht deshalb dort als **Ausnahme** notiert, nicht als zwei Einzelfälle. Was
+bei `kobil` dagegen stärker belegt ist als überall sonst: der Besitzfaktor ruht auf einer
+Assertion, die das Backend selbst beim Anbieter einlöst, nicht auf einer Client-Signatur (ADR-23).
+
+Zwei Dinge, die aus dieser Entscheidung folgen und im Code als Typ stehen, nicht als Kommentar:
+`KobilUnlockCredential` ist ein `sealed interface` (Gerätegeheimnis **oder** Passwort — beides oder
+nichts ist nicht konstruierbar) und trägt seine Faktorart selbst; und das Kontopasswort meldet
+`pin`, nie `password`, weil ein amr-Eintrag dieses Namens dem Lauf über
+`findActiveMethod(accountId, "password")` den Enrollment-Datensatz der echten Passwortmethode
+anhängen und sie doppelt zählen würde.
+
+---
+
+## ADR-22: Der verwahrte PIN liegt im Klartext — Demo-Rahmen, benannt statt kaschiert
+
+**Entscheidung** (**umgesetzt**): `auth_kobil.enrollment.pin` ist eine Klartextspalte. Ein Hash ist
+ausgeschlossen, weil der Wert herausgegeben werden muss; verschlüsselt wird er nicht.
+
+**Erwogene Alternative**: AES-256-GCM unter einem in `dpop.secrets` konfigurierten Schlüssel.
+Verworfen für diese Demo: Sie schützt gegen einen gestohlenen Datenbankstand, nicht gegen Zugriff
+auf den Anwendungsprozess — und der simulierte Anbieter (`kobil_mock`) hält denselben PIN ohnehin im
+Klartext, so wie das echte KOBIL es tun müsste. Verschlüsselung auf nur einer der beiden Seiten
+wäre Auftritt, nicht Schutz.
+
+**Zweite erwogene Alternative**: Den PIN pro Anmeldung neu setzen (KOBIL kann das) und danach
+verwerfen. Reizvoll, weil dann nichts ruht, aber es hängt jeden Login an den
+Management-Pfad des Anbieters und öffnet ein Fenster, in dem PIN-Wechsel und SDK-Login sich
+überholen.
+
+**Preis**: Die H2-Konsole bleibt im Projekt bewusst offen, und ihr Kommentar zählt auf, was dort
+lesbar ist. Diese Liste wächst um „jeder lebende KOBIL-PIN". Vertretbar nur, solange es so
+dasteht. Präzedenz im Projekt: `AccountKeycloakKeypair.privateKeyJwk` („Demo-only: plaintext, not
+encrypted at rest"). Verwandt, aber nicht dasselbe: `docs/ideen/verschluesselung-differenzierte-aufbewahrung.md`
+entwirft Envelope Encryption für das Claim-Log — ein Vorhaben, das hier nicht vorgegriffen wird.
+
+Zusätzlich liegen während einer laufenden Einrichtung PIN **und** Unlock-Secret im Klartext in
+`auth_kobil.enroll_tool_session` — dort absichtlich, damit ein Reload den Ablauf nicht abschneidet,
+und mit der 24-Stunden-Frist des `AuthKobilRetentionJob` als Gegengewicht.
+
+---
+
+## ADR-23: Der Client trägt eine Einmalkennung, nicht die Assertion
+
+**Entscheidung** (**umgesetzt**): Bei `auth-kobil` läuft der Nachweis nicht durch den Client. Die
+App erhält vom KOBIL-SDK nur ein One-Time-Password; die Geräte-Assertion samt Gerätekennung und
+Risikosignalen löst das Backend selbst beim Anbieter ein.
+
+**Erwogene Alternative**: Die Assertion (signiert) durch den Client weiterreichen und serverseitig
+prüfen — das Muster von `auth_device`s `device-proof+jwt`. Funktioniert, verlangt aber ein
+Vertrauensanker- und Signaturformat, das die öffentliche KOBIL-Dokumentation nicht offenlegt; es
+hier zu erfinden hieße, ein Format zu bauen und als das echte auszugeben.
+
+**Preis / Gewinn**: Eine Server-zu-Server-Abhängigkeit im Anmeldepfad — ist der Anbieter nicht
+erreichbar, ist das Verfahren nicht nutzbar. Dafür kann ein manipulierter Client hier nichts
+behaupten: Er kann eine Kennung zurückhalten oder wiederholen, und beides endet in derselben
+Antwort („Bestaetigung nicht erkannt"), weil eine Assertion genau einmal einlösbar ist.
+
+Zwei Folgen, die im Ablauf sichtbar sind: Die Gerätekennung wird **bei KOBIL erfragt**, nie vom
+Client übernommen — sie ist der Vergleichsanker jeder späteren Anmeldung. Und eine Risiko-Ablehnung
+trägt einen **eigenen** Fehlergrund („Geraet als unsicher gemeldet"), weil das keine Verwechslung
+des Nutzers ist, sondern eine Aussage über das Gerät; im „nicht erkannt" verschwände ein echter
+Befund. Bewusst in Kauf genommen: Diese Ablehnung belastet den Login-Throttle wie ein falsches
+Passwort, ein gerootetes Telefon kann seinen Besitzer also aussperren.
+
+---
+
+## ADR-24: Eine Methode hängt von einer anderen ab, indem sie deren Behauptung verlangt
+
+**Entscheidung** (**umgesetzt**): Abhängigkeiten zwischen Verfahren bekommen keine eigene
+Vokabel. Ein Modul behauptet beim Einrichten einen Claim, ein anderes verlangt ihn per
+`ClaimRequirement` — und `requires` wird damit von einer reinen **Angebots**schranke zu einer
+**stehenden Voraussetzung**: Fällt die Behauptung weg, fällt das Credential, das sie verlangte,
+mit. Transitiv, als Fixpunkt (`JourneyActionExecutor.dependentsOfLostClaims`).
+
+Die heute lebende Kette ist die Adresse: `enroll-password` verlangt `ClaimRequirement(EMAIL,
+PROVEN)`, also nimmt eine zurückgenommene Adresse das Passwort mit. `enroll-password` behauptet
+zusätzlich `PASSWORD_EXISTS` — ein Claim, den derzeit **niemand** verlangt. Er bleibt trotzdem
+deklariert: Er ist die Sprache, in der eine Abhängigkeit vom Passwort formuliert würde, und die
+Alternative wäre, beim nächsten Bedarf einen zweiten Mechanismus danebenzustellen.
+
+Damit das überhaupt greifen kann, wurde die Retraktion um einen dritten Auslöser ergänzt: ein
+Attribut lässt sich jetzt **direkt** zurücknehmen (`AccountService.retractAttribute`,
+`DELETE /channels/{id}/attributes/{attribute}`). Vorher konnte eine bestätigte Adresse gar nicht
+verloren gehen — `confirm-email` schreibt seine Behauptung als ATTESTATION, also ohne
+`auth_method_id`, und EMAIL ist `LOCAL_ANCHOR`; kein Methodenwiderruf erreichte sie.
+
+**Erwogene Alternative**: Eine eigene Descriptor-Eigenschaft `dependsOnMethods: Set<String>`, die
+Methodennamen nennt. Zuerst so gebaut und wieder zurückgenommen. Sie hätte dasselbe für den
+direkten Fall geleistet, aber eine zweite Abhängigkeitssprache neben dem Claim-Modell eingeführt —
+und die Kette über die Adresse hätte sie gar nicht erfasst, weil dort keine Methode beteiligt ist.
+
+**Zurückgenommen**: `enroll-kobil` verlangte zunächst `PASSWORD_EXISTS`, das Kontopasswort war also
+Pflicht für eine KOBIL-Bindung. Das war eine Verfahrensentscheidung, keine technische — und die
+falsche: Es machte ein Verfahren von einem anderen abhängig, ohne dass der Ablauf das verlangt, und
+sperrte KOBIL aus jeder Registrierung aus, die noch kein Passwort angelegt hatte. Der Mechanismus
+blieb, die Kopplung fiel. Was an ihre Stelle trat, steht in ADR-21: `auth-kobil` bietet nur die
+Entsperrwege an, die es für dieses Credential wirklich gibt.
+
+**Zweite erwogene Alternative**: Beim Widerruf einfach alle aktiven Methoden neu gegen ihr
+`requires` prüfen. Das ist genau der Fixpunkt — allerdings musste die Projektion dafür ehrlich
+sein: Welche Typen eine widerrufene Instanz mitnimmt, wird über `AccountService.claimedTypesOf`
+mit **derselben** Abfrage und demselben `METHOD_MODULE`-Filter ermittelt wie die Retraktion selbst.
+Eine Vorhersage, die mit dem Schreibvorgang uneins ist, wäre schlimmer als keine.
+
+**Preis, ausgesprochen:**
+- `requires` bedeutet jetzt mehr als vorher. Jede bestehende Angabe erbt die neue Semantik —
+  heute unkritisch, weil die einzige Angabe auf einen Anker (`EMAIL`) nur über den neuen,
+  ausdrücklichen Rücknahme-Endpunkt verloren gehen kann, nie versehentlich. Der Ankertausch
+  („anker-ersetzt") behauptet im selben Zug neu und löst deshalb nichts aus.
+- Ein Attribut zurückzunehmen ist damit ein weitreichender Akt: die Adresse nimmt das Passwort
+  mit. Das ist gewollt und wird vorher geprüft — die
+  Mindestniveau-Prüfung läuft gegen die Projektion **inklusive** der Mitgerissenen und benennt sie
+  in der Ablehnung.
+- `AttributeType` trägt mit `PASSWORD_EXISTS` erstmals eine Aussage, die nichts über die **Person**
+  sagt, sondern über die Credentials des Kontos. Bewusst dort und nicht in einem zweiten
+  Mechanismus: die Lebensdauer, die das Claim-Log ohnehin verwaltet, ist genau die gesuchte.
+
+---
+
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 
 Erkannte Befunde, die bewusst

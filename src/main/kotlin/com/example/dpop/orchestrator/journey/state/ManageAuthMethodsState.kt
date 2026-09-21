@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -32,6 +33,18 @@ sealed interface ManageAuthMethodsState : JourneyState {
     }
 
     data class RemoveRequested(val methodInstanceId: String) : ManageAuthMethodsState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val selectionContext: String get() = "enrollment"
+    }
+
+    /**
+     * The wish to withdraw an account attribute (a confirmed address), gated exactly like
+     * [RemoveRequested] - it is the same kind of destructive self-service act, and it can take
+     * credentials with it (`JourneyActionExecutor.performRetractAttribute`).
+     */
+    data class RetractAttributeRequested(val attributeType: AttributeType) : ManageAuthMethodsState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null

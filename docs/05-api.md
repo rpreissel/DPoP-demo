@@ -66,6 +66,7 @@ Tool-Namespace:
 
 - Die Aktivierung bleibt Orchestrator-Hoheit und ist für alle Tools gleich — nur dort entsteht die `toolSessionId`.
 - Alles unterhalb von `/tools/{toolSessionId}/{toolId}` gestaltet das Tool selbst: eigene Sub-Ressourcen und frei gewählte HTTP-Methoden. `PATCH`/`GET` sind Regelfall, keine Pflicht — nicht jedes Verfahren passt in "Felder nachliefern" (WebAuthn, eID).
+- Bislang genutzt von genau einem Tool: `POST .../tools/{toolSessionId}/auth-kobil/pin-releases` gibt den backend-verwahrten KOBIL-PIN frei ([Abläufe](06-ablaeufe.md) Abschnitt 7). Warum keine Erweiterung des `PATCH`: Der PIN darf **nicht wieder abrufbar** sein, und `stepData` wird bei jedem `GET` einer lebenden Tool-Session neu aufgebaut — was dort steht, kommt wieder heraus. Außerdem ist eine Freigabe eine Erzeugung (einmalig, befristet, nicht idempotent), und zwei verschiedene Akte trennt eine URL sauberer als die Frage, welche nullable Felder gerade gesetzt sind. Der Body ist ein typisiertes Entweder-Oder (Gerätegeheimnis **oder** Kontopasswort); die Antwort ist `201` mit dem PIN im `stepData` oder — bei fehlgeschlagenem Entsperren — `200` mit dem gewöhnlichen `stepData.error`, weil ein falsches Geheimnis ein Retry-Fall ist und kein Fehlerstatus.
 - Der garantierte Resume-Einstieg ist **nicht** die Tool-Ressource (deren `GET` ein Tool weglassen darf), sondern `GET /channels/{channelSessionId}`.
 - **Implementierungsnote:** `POST`/`PATCH`/`GET` liegen je Tool in einem eigenen Controller mit typisiertem Request-DTO ([Tool-Architektur](03-tool-architektur.md) Abschnitt 2). `DELETE` ist die einzige Ausnahme.
 
@@ -125,7 +126,8 @@ Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst 
 - `GET .../methods` liest den aktiven Methodenbestand als eigenständige Collection (`{"methods": [{"id","method","label"}]}`) — dieselben Daten wie `ChannelResponse.activeMethods`, nie `fsc`. Leere Liste statt Fehler, solange kein Account bekannt ist.
 - `POST .../enrollments` bietet dieselben Kandidaten/Enroll-Tools wie `REGISTER` an und startet ein Enrollment. Nichts mehr zu enrollen ist kein Fehler: `200` mit `{"message": "Keine weiteren Mittel verfuegbar"}`.
 - `DELETE .../methods/{methodInstanceId}` widerruft eine aktive Methoden-*Instanz*: Die Credential-Zeile des besitzenden Moduls wird gelöscht (`EnrollmentCleanup`), die Instanzzeile bleibt deaktiviert stehen. Adressiert per `id` aus `GET .../methods` — nie per Methodenname, da eine Methode mehrere aktive Instanzen haben kann (`docs/03-tool-architektur.md`, `allowsMultipleInstances`). `409`, falls der Account danach das kanaleigene `requiredAcr` nicht mehr erreichen könnte (Selbstsperrschutz). Nicht auf Instanzen des aufrufenden Geräts beschränkt.
-- `POST .../enrollments` und `DELETE .../methods/{methodInstanceId}` verlangen zusätzlich, dass die aktuelle Session bereits `loa2` erreicht hat; reicht es nicht, liefert die Antwort statt der Aktion einen Step-up-Schritt; danach ruft der Client den Endpunkt erneut auf.
+- `DELETE .../attributes/{attribute}` nimmt ein **kontoeigenes Attribut** zurück statt eines Credentials — heute nur die bestätigte Adresse (`email`). Geschwister-Endpunkt zu `DELETE .../methods/{id}`, mit demselben Gate. Der Unterschied ist die Folgenkette: Jedes Credential, das dieses Attribut per `requires` verlangte, wird mitentzogen — transitiv. Eine zurückgenommene Adresse nimmt damit ein darauf eingerichtetes Passwort mit (`enroll-password` verlangt `ClaimRequirement(EMAIL, PROVEN)`) — und alles, was seinerseits daran hinge (ADR-24). `409`, wenn genau diese Folge den Account unter das kanaleigene `requiredAcr` drücken würde; die Meldung benennt die Mitgerissenen. Nur `LOCAL_ANCHOR`-Attribute sind zurücknehmbar: ein Stammdatenfeld gehört uns nicht, ein methodeneigenes geht mit seiner Methode.
+- `POST .../enrollments`, `DELETE .../methods/{methodInstanceId}` und `DELETE .../attributes/{attribute}` verlangen zusätzlich, dass die aktuelle Session bereits `loa2` erreicht hat; reicht es nicht, liefert die Antwort statt der Aktion einen Step-up-Schritt; danach ruft der Client den Endpunkt erneut auf.
 
 ### Das `Prompt`-Objekt
 
@@ -323,6 +325,12 @@ Der Web-Kanal kennt kein Gerät — `DeviceAccountLink` bleibt APP-only
 eigenen Entry-Intent `KC_SELECT_METHOD` ([04-orchestrierung.md](04-orchestrierung.md) Abschnitt 3),
 Registrierung über `REGISTER` (`intent=register`, s. o.); `ident-fsc`/`ident-eid`/`enroll-*` laufen über dieselben
 `WebToolRenderer`.
+
+Eine Lücke, die benannt gehört statt stillschweigend zu bestehen: **`enroll-kobil`/`auth-kobil`
+haben keinen `WebToolRenderer`** und fehlen damit im Web-Kanal. Das Verfahren braucht ein
+Telefon-SDK; aus einer servergerenderten Loginmaske ist es nicht ansprechbar. Das Theme deklariert
+die beiden `toolId`s folglich nicht in `availableTools`, und damit werden sie dort nie angeboten —
+derselbe Mechanismus, der alte App-Versionen funktionsfähig hält, trägt auch diesen Fall.
 
 **Offen:** Die Logout-Semantik im Web-Kanal ist noch nicht entschieden — ob `DELETE
 /channels/{id}` für `KEYCLOAK`-Kanäle clientseitig aufrufbar sein soll, oder ausschließlich

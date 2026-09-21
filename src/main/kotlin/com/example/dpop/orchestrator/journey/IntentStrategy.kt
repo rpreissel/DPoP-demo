@@ -11,6 +11,7 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
@@ -373,6 +374,15 @@ sealed interface Action {
      * reach into another account's methods.
      */
     data class RevokeAuthMethod(val methodInstanceId: String) : Action
+
+    /**
+     * Withdraw one account attribute - today only a confirmed address. Its own action rather
+     * than a variant of [RevokeAuthMethod] because it destroys something else entirely: an
+     * account-owned fact, not a credential. What DID depend on it falls as a consequence, worked
+     * out at execution time from the catalog's own `requires` declarations, never listed here
+     * (`JourneyActionExecutor.performRetractAttribute`).
+     */
+    data class RetractAttribute(val attributeType: AttributeType) : Action
 
     /**
      * Link the current device to the account this session holds - the action an accepted

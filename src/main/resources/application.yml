@@ -31,7 +31,9 @@ spring:
       # web-allow-others=false, der Zugriffe auf localhost begrenzt. Wer den auf true setzt,
       # oeffnet jedem, der den Port erreicht, vollen Lese-/Schreibzugriff auf die Datei-DB -
       # inklusive Passwort-Hashes (auth_password), Geraeteschluesseln (auth_device_enrollment),
-      # Freischaltcodes (id_fsc_code) und allen Sessions. Also: nicht setzen.
+      # Freischaltcodes (id_fsc_code), jedem lebenden KOBIL-PIN im Klartext (auth_kobil.enrollment,
+      # ADR-22 - der einzige Eintrag dieser Liste, der kein Hash und kein Derivat ist) und allen
+      # Sessions. Also: nicht setzen.
       enabled: true
       path: /h2-console
 
@@ -72,3 +74,13 @@ dpop:
     # A restart then invalidates codes still in flight (they live five minutes) and two instances
     # cannot verify each other's, so set this explicitly for any multi-instance deployment.
     otp-pepper: ""
+  kobil:
+    # Der Mandant, unter dem dieses System seine Nutzer bei KOBIL fuehrt.
+    tenant-id: dpop-demo
+    pin-length: 8
+    # Wie lange eine PIN-Freigabe gilt. Kurz, weil sie genau einen SDK-Aufruf tragen muss.
+    pin-release-ttl-seconds: 120
+    # Welche vom Geraet gemeldeten Signale eine Anmeldung verhindern. Eine benannte Menge statt
+    # eines Scores: ein Score muesste erfunden werden und laese sich als Messung. OS_OUTDATED
+    # fehlt bewusst - veraltet ist nicht kompromittiert.
+    blocking-risks: ROOTED,EMULATOR,DEBUGGER_ATTACHED,APP_TAMPERED

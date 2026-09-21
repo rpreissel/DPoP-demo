@@ -50,7 +50,23 @@ enum class AttributeType(val wireName: String) {
      */
     EMAIL("email"),
     /** Mobile number, established by an `enroll-sms` run - the address a TAN is delivered to. */
-    PHONE_NUMBER("phone_number");
+    PHONE_NUMBER("phone_number"),
+
+    /**
+     * "This account holds a password credential" - established by an `enroll-password` run and
+     * retracted with it, like any other METHOD_MODULE attribute.
+     *
+     * The one member of this taxonomy that is not a fact about the PERSON but about the account's
+     * credentials, and it is here on purpose rather than as a second mechanism beside the claim
+     * log: a dependency between methods is then simply a `requires`, and the existing retraction
+     * machinery makes it fall away by itself when the password goes. Nothing requires it at the
+     * moment - it is the vocabulary such a dependency would be written in, kept because the
+     * alternative (inventing a second dependency mechanism when one is next needed) is worse.
+     *
+     * Carries no useful value - it is the assertion itself that matters - so its claim is written
+     * with a constant marker rather than a secret or a digest of one.
+     */
+    PASSWORD_EXISTS("password_exists");
 
     companion object {
         /** Reverse of [wireName] - the JPA persistence converter's only caller (C2, account.internal.AttributeTypeConverter). */
@@ -110,6 +126,9 @@ val ClaimSource.trustLevel: TrustLevel
         ClaimSource.SELF_REPORTED -> TrustLevel.SELF_REPORTED
         else -> TrustLevel.PROVEN
     }
+
+/** The only value a [AttributeType.PASSWORD_EXISTS] claim ever carries - the claim IS the statement. */
+const val PASSWORD_EXISTS_MARKER = "true"
 
 /**
  * One attribute value a completed tool run asserts about its subject, with its provenance: WHO

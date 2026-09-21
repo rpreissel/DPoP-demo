@@ -85,7 +85,11 @@ val AttributeType.rule: AttributeRule
         AttributeType.HAUSNUMMER,
         AttributeType.PLZ,
         AttributeType.ORT -> AttributeRule(authority = AttributeAuthority.EXT_STAMMDATEN, anchor = null)
-        AttributeType.PHONE_NUMBER -> AttributeRule(authority = AttributeAuthority.METHOD_MODULE, anchor = null)
+        AttributeType.PHONE_NUMBER,
+        // METHOD_MODULE is what makes the dependency work: retractClaimsOf retracts exactly these
+        // when the owning method instance is revoked, so "the account has a password" stops being
+        // established the moment the password does.
+        AttributeType.PASSWORD_EXISTS -> AttributeRule(authority = AttributeAuthority.METHOD_MODULE, anchor = null)
     }
 
 /**
@@ -115,6 +119,7 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.HAUSNUMMER,
     AttributeType.PLZ,
     AttributeType.ORT,
-    AttributeType.PHONE_NUMBER ->
+    AttributeType.PHONE_NUMBER,
+    AttributeType.PASSWORD_EXISTS ->
         error("$this is not an anchor attribute (authority: ${rule.authority}), has no normalized anchor value")
 }

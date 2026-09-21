@@ -62,9 +62,25 @@ interface ToolDescriptor {
      * [ClaimRequirement] is an [AttributeType] established at no less than its
      * [TrustLevel], checked against the account's consolidated value including
      * retractions (ADR-12). The mirror direction of [claims] - colloquially, "confirmed
-     * email" is `ClaimRequirement(EMAIL, PROVEN)`. OFFERING gate only - it does not say the
-     * tool consumes the value at run time (that is an anchor read), nor that a channel/journey
-     * policy wants it (that is REGISTER's `emailObligation`, which keeps its own declarant).
+     * email" is `ClaimRequirement(EMAIL, PROVEN)`.
+     *
+     * A STANDING precondition, not merely an offering gate: what a credential needed to come into
+     * existence, it needs to keep existing. Revoking a method retracts the METHOD_MODULE claims it
+     * asserted, and `JourneyActionExecutor.removeMethod` therefore also revokes every active
+     * credential whose requirement just stopped being established - transitively (ADR-24). That
+     * is how a method states a dependency without any second vocabulary: one module asserts a
+     * claim when it enrolls, another requires it, and the claim log makes it fall away by itself.
+     * The live example today is `enroll-password`, which requires a confirmed EMAIL and therefore
+     * cannot outlive the address it was set up against.
+     *
+     * The reach of that is exactly the reach of the retraction underneath it: only METHOD_MODULE
+     * claims of a revoked instance are retracted, so a requirement on an account-owned anchor
+     * (EMAIL) is still only an offering gate in practice - nothing can currently take that
+     * address away. See `JourneyActionExecutor.dependentsOf`.
+     *
+     * It still does not say the tool consumes the value at run time (that is an anchor read), nor
+     * that a channel/journey policy wants it (that is REGISTER's `emailObligation`, which keeps
+     * its own declarant).
      */
     val requires: Set<ClaimRequirement>
         get() = emptySet()

@@ -38,6 +38,10 @@ class ToolCatalogStartStepTest(toolRegistry: ToolHandlerRegistry) : BehaviorSpec
         "auth-email-lookup" to "auth",
         "enroll-device" to "enroll",
         "auth-device" to "auth",
+        "enroll-kobil" to "activate",
+        // Not the AUTH role default "auth": the client first unlocks locally so the PIN can be
+        // released, and only the step after that carries the proof.
+        "auth-kobil" to "unlock",
         "enroll-qr" to "enroll",
         "auth-qr" to "waitForApp",
         "auth-qr-lookup" to "waitForApp",

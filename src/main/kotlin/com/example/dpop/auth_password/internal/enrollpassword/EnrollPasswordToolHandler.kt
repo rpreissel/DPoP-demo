@@ -5,7 +5,11 @@ import com.example.dpop.auth_password.internal.AuthPasswordEnrollment
 
 import com.example.dpop.auth_password.PASSWORD_ENROLLMENT_TYPE
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
+import com.example.dpop.tool_spi.PASSWORD_EXISTS_MARKER
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -50,7 +54,17 @@ class EnrollPasswordToolHandler(
                     enrollmentRef = EnrollmentRef(type = PASSWORD_ENROLLMENT_TYPE, id = enrollment.id.toString()),
                     amr = listOf(descriptor.method),
                     achievedAcr = descriptor.maxAcr,
-                    factorTypes = descriptor.factorTypes
+                    factorTypes = descriptor.factorTypes,
+                    // Not the password, not a digest of it - the claim IS the statement that one
+                    // exists, so that a dependent method can require it (EnrollPasswordDescriptor).
+                    claims = listOf(
+                        Claim(
+                            attributeType = AttributeType.PASSWORD_EXISTS,
+                            value = PASSWORD_EXISTS_MARKER,
+                            source = ClaimSource.of(descriptor.toolId),
+                            establishedAcr = descriptor.maxAcr
+                        )
+                    )
                 )
             }
         }

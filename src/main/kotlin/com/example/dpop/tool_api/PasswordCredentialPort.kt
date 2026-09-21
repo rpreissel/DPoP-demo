@@ -18,4 +18,17 @@ interface PasswordCredentialPort {
 
     /** Hashes and stores [password] as a brand-new enrollment, returning its reference. */
     fun setNew(password: String): EnrollmentRef
+
+    companion object {
+        /**
+         * The method name the password credential is filed under, declared by its owner at the
+         * port rather than left as a string every caller spells out for itself.
+         *
+         * A caller that has to resolve the enrollment first (`AccountDirectory.activeEnrollment`)
+         * needs this name, and until there was a second such caller it could stay private to
+         * `auth_password`. Now there is one (`auth_kobil`, whose alternative unlock is the
+         * account password), and a copied literal would be a second place where the name lives.
+         */
+        const val METHOD = "password"
+    }
 }

@@ -76,7 +76,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
         then("falls back to the old free-choice-among-everything offer instead of crashing on a missing account") {
             val theCtx = ctx(account = null, availableTools = StrategyTestFixtures.allToolIds - ToolId("confirm-email") - ToolId("enroll-sms"))
             strategy.transition(RegisterEnrollFirstState.EnrollFirstStart, JourneyEvent.Started, theCtx)
-                .shouldBeEnrollingWith("enroll-device", "enroll-qr")
+                .shouldBeEnrollingWith("enroll-device", "enroll-kobil", "enroll-qr")
         }
     }
 

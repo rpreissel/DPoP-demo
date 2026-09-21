@@ -1109,6 +1109,15 @@ Wichtige Einschränkung: Ein Tool darf nur Faktoren melden, die es dem Server ge
 **nachweisen** kann. Für eine nur lokal geprüfte App-PIN gehört nur `{possession}` in den
 Descriptor.
 
+**Zwei benannte Ausnahmen davon**, `device` und `kobil`: Beide melden `knowledge` bzw. `inherence`
+aus dem Zugangsmittel, mit dem der Nutzer das Credential entsperrt hat — und wie er das getan hat,
+kann der Server nicht sehen, sondern nur die Selbstauskunft des Clients lesen
+(`tool_api.DeviceProofs`, `UserVerification`). Das ist hier als **Ausnahme** notiert, nicht als
+zwei Einzelfälle: Sobald dasselbe Zugangsmittel in zwei Verfahren unterschiedlich gewertet würde,
+kostete dieselbe Geste je Tool unterschiedlich viel, ohne dass der Nutzer den Grund sähe (ADR-21).
+Bei `kobil` ist die andere Hälfte dafür stärker belegt als anderswo: der Besitz ruht auf einer
+Assertion, die das Backend selbst beim Anbieter einlöst, nicht auf einer Client-Signatur.
+
 ### IAL und AAL: zwei Fragen, eine `acr`-Zahl
 
 `resolveAcr` beantwortet zwei unabhängige Fragen (NIST 800-63: IAL vs. AAL) und kombiniert sie erst

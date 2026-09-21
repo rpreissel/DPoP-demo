@@ -114,14 +114,16 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
     given("AddRequested, loa2 satisfied but nothing left to enroll") {
         val acc = account(
-            method("sms", AcrLevel.LOA2), method("password", AcrLevel.LOA2), method("email", AcrLevel.LOA2), method("device", AcrLevel.LOA2), method("qr", AcrLevel.LOA2)
+            method("sms", AcrLevel.LOA2), method("password", AcrLevel.LOA2), method("email", AcrLevel.LOA2),
+            method("device", AcrLevel.LOA2), method("kobil", AcrLevel.LOA2), method("qr", AcrLevel.LOA2)
         )
         val theCtx = ctx(account = acc, evidence = evidence(listOf("fsc"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
 
-        then("finishes - not an error, just nothing more to add (device stays offered since it allows multiple instances, so this really only fires once every singleton method is active)") {
-            // device (allowsMultipleInstances) is deliberately still offered even with one active
-            // instance, so this case is only reachable by ALSO backend-disabling it.
-            val transition = strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx.copy(availableTools = theCtx.availableTools - ToolId("enroll-device")))
+        then("finishes - not an error, just nothing more to add (the device-bound methods stay offered since they allow multiple instances, so this really only fires once every singleton method is active)") {
+            // device and kobil (allowsMultipleInstances) are deliberately still offered even with
+            // one active instance, so this case is only reachable by ALSO backend-disabling them.
+            val disabled = theCtx.availableTools - ToolId("enroll-device") - ToolId("enroll-kobil")
+            val transition = strategy.transition(ManageAuthMethodsState.AddRequested, JourneyEvent.Started, theCtx.copy(availableTools = disabled))
             transition shouldBe Transition.Authenticated
         }
     }
