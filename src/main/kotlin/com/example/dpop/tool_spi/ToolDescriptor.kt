@@ -194,11 +194,29 @@ enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) 
      * interchangeable.
      *
      * What sets it apart is that it proves NOTHING by itself: whoever runs it supplies a mere
-     * identifier, no secret and no possession. It is therefore never offered as a way to
-     * identify, only ever after an attestation ([ToolDescriptor.requires]), and the account
-     * module verifies that the register person matches what was attested before any anchor is
-     * written. Declaring that here, rather than inferring it from an empty [FactorType] set,
-     * keeps "correlates, never proves" a stated fact instead of an incidental one.
+     * identifier, no secret and no possession. Declaring that here, rather than inferring it from
+     * an empty [FactorType] set, keeps "correlates, never proves" a stated fact instead of an
+     * incidental one.
+     *
+     * Three different things keep that from becoming a way in, and it is worth knowing which
+     * carries what:
+     * - It is never offered as a way to identify: `CandidateTools.forIdentification` and
+     *   `DefaultAuthPolicy.reIdentCandidates` both filter on the ROLE, since the category alone
+     *   would match this too.
+     * - [ToolDescriptor.requires] gates the offer on attested attributes being present - but
+     *   against the ACCOUNT's persisted claims, which may date from an earlier session. It
+     *   guarantees there is something to match against, NOT that an attestation just happened.
+     * - `JourneyActionExecutor.performRecordIdentification` refuses the act outright once the
+     *   account has a person bound (attaching a second one is a change of identity, and no typed
+     *   number could make it legitimate), and otherwise requires - unconditionally - that the
+     *   register person matches what the account had attested, through
+     *   `IdentityResolver.attestedIdentityMatches`. Both live with the act rather than with the
+     *   strategy that offers it, so a future strategy cannot reopen either.
+     *
+     * It also contributes NO assurance: `ToolDescriptor.evidenceAxis()` answers `null` for this
+     * role, so a completed run records no evidence and cannot move an ACR however it reports
+     * itself. That matters because [ToolDescriptor.maxAcr] may well read `loa2` here - the number
+     * describes the attestation the step rests on, not what typing an identifier proved.
      */
     CORRELATION(ToolCategory.IDENT, "input"),
 

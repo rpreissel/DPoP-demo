@@ -85,7 +85,13 @@ class JourneyRecorder(
     ) {
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "AuthEvidence missing after ${tool.toolId}" }
         val accountId = channel.accountId
-        val updates = outcome.amr.map { method ->
+        // A role that contributes to neither axis proves nothing about THIS session, so it leaves
+        // no evidence behind - whatever it reported as amr/achievedAcr. Decided here, centrally,
+        // rather than by each such tool remembering to report an empty amr: a tool that forgets
+        // would otherwise mint assurance its role explicitly denies (see ToolDescriptor.evidenceAxis).
+        // The completion is still audited below either way - it happened, it just proved nothing.
+        val axis = tool.evidenceAxis()
+        val updates = if (axis == null) emptyList() else outcome.amr.map { method ->
             MethodEvidence(
                 method = MethodName(method),
                 // This run's own achieved/capped level if it has one, else the tool's own declared ceiling.
@@ -96,10 +102,10 @@ class JourneyRecorder(
                 factorTypes = outcome.factorTypes,
                 source = AmrSource.ORCHESTRATOR,
                 amrSourceId = tool.toolId.value,
-                axis = tool.evidenceAxis(),
+                axis = axis,
             )
         }
-        authEvidenceService.applyEvidence(authEvidenceId, updates)
+        if (updates.isNotEmpty()) authEvidenceService.applyEvidence(authEvidenceId, updates)
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "TOOL_COMPLETED:${tool.toolId}", "orchestrator"
         )

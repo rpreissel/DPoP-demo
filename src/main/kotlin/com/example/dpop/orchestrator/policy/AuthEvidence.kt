@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.policy
 import com.example.dpop.orchestrator.session.AmrSource
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
 
@@ -36,23 +37,39 @@ enum class EvidenceAxis {
 }
 
 /**
- * [EvidenceAxis.IDENTITY] for an IDENTIFICATION-role tool, [EvidenceAxis.AUTHENTICATOR] for the
- * roles that produce evidence about the authenticator (ENROLLMENT, AUTH).
+ * Which assurance axis a completed run of this tool contributes to, or `null` when it contributes
+ * to NEITHER - the declared answer to "does finishing this raise what the session has proven".
+ * `null` is a full answer, not a gap: `JourneyRecorder.recordToolCompletion` records no
+ * [MethodEvidence] at all for it, so such a tool cannot move an ACR however it reports its run.
  *
- * Deliberately an exhaustive `when` rather than `if (IDENT) … else AUTHENTICATOR`: under the
- * latter a new category would silently become AUTHENTICATOR, the wrong default for anything that
- * is not an authentication act. SIDE_ACTION and ATTEST never get here in practice -
- * their outcomes carry no `amr`, so `JourneyRecorder.recordToolCompletion` builds no
- * [MethodEvidence] at all - but "never reached" must not be the only thing keeping them off an
- * assurance axis they do not belong on.
+ * Keyed on [MethodRole], not [ToolCategory]: `IDENT` alone matches both a real identification and
+ * a [MethodRole.CORRELATION] step, and those two differ on exactly this question - the same reason
+ * `CandidateTools.forIdentification` and `DefaultAuthPolicy.authCandidates` match on the role.
+ *
+ * Exhaustive on purpose: a new role must state its axis here rather than inherit a plausible
+ * default. AUTHENTICATOR would be the wrong one for anything that is not an authentication act,
+ * and IDENTITY the wrong one for anything that does not prove who someone is.
  */
-fun ToolDescriptor.evidenceAxis(): EvidenceAxis = when (role.category) {
-    ToolCategory.IDENT -> EvidenceAxis.IDENTITY
-    ToolCategory.ENROLL, ToolCategory.AUTH -> EvidenceAxis.AUTHENTICATOR
-    ToolCategory.SIDE_ACTION ->
-        error("SIDE_ACTION decides another channel's request and contributes no evidence of its own")
-    ToolCategory.ATTEST ->
-        error("ATTEST proves control over an attribute, which is neither identity nor authenticator assurance")
+fun ToolDescriptor.evidenceAxis(): EvidenceAxis? = when (role) {
+    // Proves who the subject is - the only role that may raise the IAL.
+    MethodRole.IDENTIFICATION -> EvidenceAxis.IDENTITY
+    // Attaches an already attested identity to a register person. It proves nothing itself (its
+    // own role doc), so it must not lift either axis - otherwise typing a semi-public number
+    // would buy the assurance the attestation ahead of it was supposed to supply.
+    MethodRole.CORRELATION -> null
+    // Evidence about the authenticator - the AAL side.
+    MethodRole.ENROLLMENT, MethodRole.IDENTIFIED_AUTH, MethodRole.LOOKUP_AUTH -> EvidenceAxis.AUTHENTICATOR
+    // Decides ANOTHER channel's pending request; says nothing about this one.
+    MethodRole.PEER_APPROVAL -> null
+    // Does prove something real - `confirm-email` demands a code from the mailbox, materially the
+    // same act its AUTH sibling `auth-email` performs on the very same method. What separates them
+    // is WHAT the proof attaches to: here the address is still being CLAIMED (there may be no
+    // account yet), so the act establishes an anchor; `auth-email` re-proves one the account
+    // already holds, and that one counts. Letting an attestation count too would mean a
+    // self-chosen address raising the level of the account it is at that moment creating.
+    // `ToolOutcome.Completed.Attested` already hard-codes an empty `amr` for the same reason, so
+    // this branch restates that rule where the axes are decided rather than adding a new one.
+    MethodRole.ATTESTATION -> null
 }
 
 /**
@@ -97,7 +114,13 @@ data class MethodEvidence(
      * [MethodEvidence] knows exactly which of these three cases it is in.
      */
     val amrSourceId: String,
-    /** Which trust question this entry answers - see [EvidenceAxis]. Defaults to [EvidenceAxis.AUTHENTICATOR], the common case for every AUTH/ENROLL tool; only an IDENTIFICATION-role tool's outcome sets [EvidenceAxis.IDENTITY] (`JourneyService.recordToolCompletion`, via [evidenceAxis]). */
+    /**
+     * Which trust question this entry answers - see [EvidenceAxis]. Defaults to
+     * [EvidenceAxis.AUTHENTICATOR], the common case for every AUTH/ENROLL tool; only an
+     * IDENTIFICATION-role tool's outcome sets [EvidenceAxis.IDENTITY]. A role that answers
+     * neither question never reaches this type at all - `JourneyRecorder.recordToolCompletion`
+     * builds no entry for it (see [evidenceAxis]).
+     */
     val axis: EvidenceAxis = EvidenceAxis.AUTHENTICATOR,
 )
 

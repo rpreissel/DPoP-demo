@@ -6,6 +6,7 @@ import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain as shouldContainText
+import io.kotest.matchers.string.shouldNotContain as shouldNotContainText
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import org.junit.jupiter.api.assertThrows
@@ -61,6 +62,21 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
             WHERE cs.id = CAST(? AS UUID) AND an.attribute_type = 'person_id'
             """,
             Int::class.java,
+            channelSessionId
+        )!!
+
+        /**
+         * The raw `amr_evidence` JSON this channel has accumulated - what `resolveAcr` prices
+         * from. Read from the evidence row rather than a response field so the assertion holds
+         * whatever a given endpoint chooses to surface.
+         */
+        fun evidenceJsonOf(channelSessionId: String): String = jdbcTemplate.queryForObject(
+            """
+            SELECT ae.amr_evidence FROM orchestrator.auth_evidence ae
+            JOIN orchestrator.channel_session cs ON cs.auth_evidence_id = ae.id
+            WHERE cs.id = CAST(? AS UUID)
+            """,
+            String::class.java,
             channelSessionId
         )!!
 
@@ -263,6 +279,43 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                         String::class.java,
                         channelSessionId
                     )!! shouldContainText "CORRELATION"
+                }
+            }
+
+            then("the correlation step leaves no session evidence - it proves nothing, so it prices nothing") {
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                attestViaEid(channelSessionId)
+                val toolSessionId = activateAssignment(channelSessionId)
+                patch("/orchestrator/api/v1/tools/$toolSessionId/ident-kvnr", """{"kvnr":"A123456789"}""")
+
+                // The attestation ahead of it is on the IDENTITY axis and stays there; the
+                // correlation adds nothing of its own. Were `kvnr` recorded, its own loa2 would
+                // become an assurance level bought by typing a semi-public number
+                // (ToolDescriptor.evidenceAxis) - and on a path where the attestation reached
+                // less than loa2, it would be the level the session rests on.
+                val evidence = evidenceJsonOf(channelSessionId)
+                evidence shouldContainText "eid"
+                evidence shouldNotContainText "kvnr"
+                personAnchorsOf(channelSessionId) shouldBe 1
+            }
+
+            `when`("the account already has a person bound") {
+                then("the correlation step is not offered a second time") {
+                    val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                    attestViaEid(channelSessionId)
+                    val first = activateAssignment(channelSessionId)
+                    patch("/orchestrator/api/v1/tools/$first/ident-kvnr", """{"kvnr":"A123456789"}""")
+                    personAnchorsOf(channelSessionId) shouldBe 1
+
+                    // Attaching a person to an account that already has one is a change of
+                    // identity bought with no proof at all, so the step stops being offered the
+                    // moment the anchor exists. This asserts the offer layer, which is as far as
+                    // a client can get: JourneyActionExecutor refuses the same case a second time,
+                    // but only as a backstop for a future strategy that might offer it anyway -
+                    // unreachable, and deliberately so, while this 409 stands.
+                    val refused = assertThrows<HttpClientErrorException> { activateAssignment(channelSessionId) }
+                    refused.statusCode shouldBe HttpStatus.CONFLICT
+                    personAnchorsOf(channelSessionId) shouldBe 1
                 }
             }
 

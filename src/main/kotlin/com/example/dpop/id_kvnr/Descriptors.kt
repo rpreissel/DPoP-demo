@@ -23,11 +23,15 @@ internal const val KVNR_METHOD = "kvnr"
  * tool is only its channel - the same relationship `ident-fsc` has to the master data.
  *
  * [MethodRole.CORRELATION] states what this is: [maxAcr] is `loa2` although typing a KVNR proves
- * nothing by itself. The assurance comes from
- * [requires] plus the identity match the account module performs before the anchor is written -
- * the same shape as `enroll-password`, which leans on `ClaimRequirement(EMAIL, PROVEN)` instead
- * of proving the address itself. The session's own IAL is unaffected either way: an attestation
- * that reached `loa3` keeps it, because `resolveAcr` takes the maximum over the IDENTITY axis.
+ * nothing by itself. The assurance behind that number comes from [requires] plus the identity
+ * match performed before the anchor is written - the same shape as `enroll-password`, which leans
+ * on `ClaimRequirement(EMAIL, PROVEN)` instead of proving the address itself.
+ *
+ * [maxAcr] is `loa2` because that is the weight the correlated anchor carries once written - NOT
+ * a level this run proves. The two cannot be confused any more: [MethodRole.CORRELATION] answers
+ * `null` for its evidence axis, so a completed run leaves no session evidence at all and this
+ * number never reaches `resolveAcr`. The session keeps exactly the IAL the attestation ahead of
+ * it established.
  */
 @Component
 object IdentKvnrDescriptor : ToolDescriptor {

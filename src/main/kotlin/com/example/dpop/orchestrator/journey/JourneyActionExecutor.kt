@@ -114,12 +114,27 @@ class JourneyActionExecutor(
         // that is somehow violated rather than silently opening a fresh account for it.
         if (action.tool.role == MethodRole.CORRELATION) {
             val correlatingAccount = checkNotNull(inHand) { "Correlation without a known account under ${journey.intent}" }
-            action.outcome.personId?.let { claimedPersonId ->
-                if (accountService.findAccount(correlatingAccount)?.personId == null &&
-                    !identityResolver.attestedIdentityMatches(correlatingAccount, claimedPersonId)
-                ) {
-                    throw IdentityConflictException("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet")
-                }
+            val account = checkNotNull(accountService.findAccount(correlatingAccount)) {
+                "Correlation against an account that does not exist: $correlatingAccount"
+            }
+            // Attaching a person to an account that ALREADY has one is not a correlation, it is a
+            // change of identity - and one bought with no proof at all. Refused outright rather
+            // than matched: there is no value of the typed number that would make it legitimate.
+            // Today only RegisterStrategy offers the step, and only while personId is null; this
+            // makes that a property of the act instead of of the strategy that happens to offer it.
+            if (account.personId != null) {
+                throw IdentityConflictException("Dieses Konto ist bereits einer Person zugeordnet")
+            }
+            // Unconditional, and the reason the step is allowed to exist: its whole security
+            // argument is that the register's person matches what THIS account already had
+            // attested. Without it, attesting yourself and then typing a stranger's number would
+            // bind their anchor here whenever that stranger has no account of their own yet.
+            // A run that resolves nobody has nothing to correlate and must not pass silently.
+            val claimedPersonId = checkNotNull(action.outcome.personId) {
+                "${action.tool.toolId} completed as a correlation without resolving a person"
+            }
+            if (!identityResolver.attestedIdentityMatches(correlatingAccount, claimedPersonId)) {
+                throw IdentityConflictException("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet")
             }
         }
         val resolution = identityResolver.resolve(action.outcome.claims.toSet())
