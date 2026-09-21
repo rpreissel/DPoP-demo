@@ -72,14 +72,22 @@ export interface ChannelBlock {
 }
 
 /** GET /app/channels/device-link - whether this device is already linked to an account, no channel/journey created. */
+/** One key-bound credential on this device - see DeviceLinkResponse.boundCredentials. */
+export interface BoundCredentialView {
+  method: string
+  reference: string
+}
+
 export interface DeviceLinkResponse {
   linked: boolean
   accountId?: number
   personName?: string
-  /** Demo-only: the linked account's own active device-bound credential key for this device, if any - distinct from the DPoP channel key shown separately. */
-  deviceAuthKeyRef?: string
-  /** Demo-only: the identifier KOBIL assigned to this device, if an active kobil credential lives on this key. Absent means there is no such binding - and any locally stored unlock secret is stale. */
-  kobilDeviceId?: string
+  /**
+   * Demo-only: what else this device is known by - one entry per key-bound credential living on
+   * this key, each with the reference its own method discloses. Absence is meaningful: local data
+   * for a method that is no longer listed is stale (see tools/kobil/localData.ts).
+   */
+  boundCredentials?: BoundCredentialView[]
 }
 
 /** One journey in the running chain for a channel - see backend `JourneyDebugStep`. */

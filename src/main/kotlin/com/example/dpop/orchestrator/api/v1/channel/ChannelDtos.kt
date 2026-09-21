@@ -74,6 +74,12 @@ data class TokenResponse(
         "docs/02-domaenenmodell.md #1) - a pure read, no channel/journey created. Lets the entry screen show " +
         "\"this device belongs to X\" before the user picks how to start."
 )
+/** One key-bound credential living on the calling device - see [DeviceLinkResponse.boundCredentials]. */
+data class BoundCredentialView(
+    @field:Schema(example = "kobil") val method: String,
+    @field:Schema(example = "dev-1a2b3c4d5e6f") val reference: String
+)
+
 data class DeviceLinkResponse(
     val linked: Boolean,
     @field:Schema(example = "42")
@@ -81,19 +87,11 @@ data class DeviceLinkResponse(
     @field:Schema(example = "Max Muster", description = "Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.")
     val personName: String? = null,
     @field:Schema(
-        description = "Demo-only: the physical key of the linked account's own active `device`-bound " +
-            "credential for THIS device, if any - distinct from the DPoP channel key the client " +
-            "already shows on its own (docs/09-dpop.md). Read before any channel/journey exists, so " +
-            "the entry screen can show both keys side by side from the start.",
-        example = "aGVsbG8td29ybGQ"
+        description = "Demo-only: what else this device is known by - one entry per key-bound " +
+            "credential of the linked account living on THIS key, with the reference its own " +
+            "method discloses (docs/09-dpop.md). The `device` method names its credential key, " +
+            "`kobil` the identifier the provider gave this phone. Absence is meaningful: a client " +
+            "that holds local data for a method no longer listed here is holding something stale."
     )
-    val deviceAuthKeyRef: String? = null,
-    @field:Schema(
-        description = "Demo-only: the identifier KOBIL assigned to THIS device, if the linked " +
-            "account has an active `kobil` credential on this key. The provider's own side of the " +
-            "binding - and the client's signal that a locally stored unlock secret is stale once " +
-            "it disappears (docs/06-ablaeufe.md Abschnitt 7).",
-        example = "dev-1a2b3c4d5e6f"
-    )
-    val kobilDeviceId: String? = null
+    val boundCredentials: List<BoundCredentialView> = emptyList()
 )

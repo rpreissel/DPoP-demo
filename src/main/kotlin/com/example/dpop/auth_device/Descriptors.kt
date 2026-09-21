@@ -3,6 +3,7 @@ package com.example.dpop.auth_device
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.CallerKeyBinding
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.InstanceDisclosure
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
@@ -58,6 +59,13 @@ object AuthDeviceDescriptor : ToolDescriptor {
     override val keyBinding = CallerKeyBinding { instanceDetails, callerBindingKeyRef ->
         instanceDetails?.get(DEVICE_BINDING_KEY_REF) == callerBindingKeyRef
     }
+
+    /**
+     * The credential key itself - the second key this device carries next to its DPoP channel key
+     * (docs/09-dpop.md). Reads [DEVICE_BINDING_KEY_REF], which stays private to this module: the
+     * orchestrator asks this function, never the map.
+     */
+    override val instanceDisclosure = InstanceDisclosure { it?.get(DEVICE_BINDING_KEY_REF) as? String }
 }
 
 /**

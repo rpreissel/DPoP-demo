@@ -3,6 +3,7 @@ package com.example.dpop.auth_kobil
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.CallerKeyBinding
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.InstanceDisclosure
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
@@ -42,6 +43,15 @@ private val KOBIL_KEY_BINDING = CallerKeyBinding { instanceDetails, callerBindin
 }
 
 /**
+ * What this method shows about one of its instances: the identifier KOBIL gave that phone - the
+ * provider's own side of the binding, which the client cannot learn any other way (it never
+ * travels through an assertion the client gets to see). Reads [KOBIL_DEVICE_ID], which stays
+ * private to this module; the orchestrator asks this function, never the detail map
+ * ([ToolDescriptor.instanceDisclosure]).
+ */
+private val KOBIL_INSTANCE_DISCLOSURE = InstanceDisclosure { it?.get(KOBIL_DEVICE_ID) as? String }
+
+/**
  * Self-description for every auth_kobil tool (docs/03-tool-architektur.md #1), one bean per
  * toolId.
  *
@@ -60,6 +70,7 @@ object EnrollKobilDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA2
     override val allowsMultipleInstances = true
     override val keyBinding = KOBIL_KEY_BINDING
+    override val instanceDisclosure = KOBIL_INSTANCE_DISCLOSURE
 }
 
 /**
@@ -88,4 +99,5 @@ object AuthKobilDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA2
     override val allowsMultipleInstances = true
     override val keyBinding = KOBIL_KEY_BINDING
+    override val instanceDisclosure = KOBIL_INSTANCE_DISCLOSURE
 }

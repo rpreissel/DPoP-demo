@@ -2,11 +2,6 @@ package com.example.dpop.orchestrator.api.v1.channel
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
-import com.example.dpop.auth_device.DEVICE_BINDING_KEY_REF
-import com.example.dpop.auth_device.DEVICE_METHOD
-import com.example.dpop.auth_kobil.KOBIL_BINDING_KEY_REF
-import com.example.dpop.auth_kobil.KOBIL_DEVICE_ID
-import com.example.dpop.auth_kobil.KOBIL_METHOD
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.Action
@@ -34,6 +29,7 @@ import com.example.dpop.tool_api.ActiveMethodView
 import com.example.dpop.tool_api.AuthData
 import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.rule
 import com.example.dpop.tool_api.ChannelResponse
@@ -134,8 +130,7 @@ class ChannelService(
             linked = true,
             accountId = accountId,
             personName = personName,
-            deviceAuthKeyRef = deviceAuthKeyRef(accountId, bindingKeyRef),
-            kobilDeviceId = kobilDeviceId(accountId, bindingKeyRef)
+            boundCredentials = boundCredentials(accountId, bindingKeyRef)
         )
     }
 
@@ -466,39 +461,31 @@ class ChannelService(
     }
 
     /**
-     * Demo-only: the raw physical key of [accountId]'s own active `device`-bound credential for
-     * THIS device, next to the DPoP channel key the client already shows on its own - lets the
-     * entry screen (`DeviceLinkResponse`, read before any channel/journey exists) show both keys
-     * side by side (docs/09-dpop.md). Deliberately reaches into `auth_device`'s own detail-key
-     * constant rather than a generic `ToolDescriptor` accessor: this is throwaway debug output,
-     * not part of the real API contract, so it doesn't warrant widening the SPI the way
-     * [com.example.dpop.tool_spi.ToolDescriptor.keyBinding] genuinely needed to.
-     */
-    private fun deviceAuthKeyRef(accountId: Long, bindingKeyRef: String): String? =
-        accountService.findAccount(accountId)?.activeAuthenticationMethods
-            ?.firstOrNull { it.method == DEVICE_METHOD && it.details?.get(DEVICE_BINDING_KEY_REF) == bindingKeyRef }
-            ?.details?.get(DEVICE_BINDING_KEY_REF) as? String
-
-    /**
-     * The identifier KOBIL itself assigned to THIS device, if the linked account has an active
-     * kobil credential living on this key - the provider's side of the binding, which the client
-     * cannot see any other way (docs/06-ablaeufe.md Abschnitt 7).
+     * What else this device is known by, besides the DPoP channel key the client already shows:
+     * for every key-bound credential of [accountId] that lives on [bindingKeyRef], the reference
+     * its own method chooses to disclose ([ToolDescriptor.instanceDisclosure]) - the `device`
+     * method's credential key, the identifier KOBIL gave this phone.
      *
-     * It answers two questions with one value, and the second is the load-bearing one: the entry
-     * screen SHOWS the binding, and the client uses its ABSENCE to know that its locally stored
-     * unlock secret is stale - after a rebind the credential is revoked server-side, and a secret
-     * for a binding that no longer exists must not linger in the browser.
+     * Generic all the way through: which instance lives on this key is answered by the method's
+     * own [ToolDescriptor.keyBinding], and what may be shown about it by its own disclosure. No
+     * concrete method name or detail-map key appears here - this file used to name four of them,
+     * which only compiled because `internal const val` is inlined and therefore left no module
+     * edge behind.
      *
-     * Reaches into `auth_kobil`'s own detail-key constants, exactly as [deviceAuthKeyRef] does for
-     * `auth_device`, and for the same stated reason: demo output, not an API contract worth
-     * widening `ToolDescriptor` for. Both are `internal const val`, so the compiler inlines them
-     * and no module edge remains - which is why `ApplicationModules.verify` stays quiet about a
-     * dependency that is, in the source, real. Worth knowing rather than relying on.
+     * Resolved by `(method, IDENTIFIED_AUTH)`, the pair that names one concrete procedure - the
+     * same rule `JourneyActionExecutor.credentialsLivingOn` uses, and for the same reason: by
+     * method name alone an enrollment tool would answer just as readily, from the wrong
+     * declaration.
      */
-    private fun kobilDeviceId(accountId: Long, bindingKeyRef: String): String? =
-        accountService.findAccount(accountId)?.activeAuthenticationMethods
-            ?.firstOrNull { it.method == KOBIL_METHOD && it.details?.get(KOBIL_BINDING_KEY_REF) == bindingKeyRef }
-            ?.details?.get(KOBIL_DEVICE_ID) as? String
+    private fun boundCredentials(accountId: Long, bindingKeyRef: String): List<BoundCredentialView> =
+        accountService.findAccount(accountId)?.activeAuthenticationMethods.orEmpty().mapNotNull { instance ->
+            val descriptor = toolRegistry.descriptors()
+                .firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == instance.method }
+                ?: return@mapNotNull null
+            if (descriptor.keyBinding?.livesOn(instance.details, bindingKeyRef) != true) return@mapNotNull null
+            descriptor.instanceDisclosure?.referenceOf(instance.details)
+                ?.let { BoundCredentialView(method = instance.method, reference = it) }
+        }
 
     /**
      * The channel-level block shared by every response, channel- and tool-level alike

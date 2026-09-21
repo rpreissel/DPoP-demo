@@ -5,7 +5,6 @@ import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldNotContain
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -89,6 +88,12 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
      * setup here starts from a channel that has one. requiredAcr=loa2 keeps the registration open
      * for the second enrollment.
      */
+    /** The methods whose key-bound credential lives on THIS device, as device-link lists them. */
+    @Suppress("UNCHECKED_CAST")
+    private fun boundMethods(): List<String> =
+        (get("/orchestrator/api/v1/app/channels/device-link")["boundCredentials"] as List<Map<String, Any?>>)
+            .map { it["method"] as String }
+
     @Suppress("UNCHECKED_CAST")
     private fun activeMethodId(channelSessionId: String, method: String): String =
         (get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>)
@@ -151,7 +156,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
 
                 // The identifier KOBIL assigned, which the client cannot learn any other way: it
                 // never travels through an assertion the client gets to see.
-                (get("/orchestrator/api/v1/app/channels/device-link")["kobilDeviceId"] as String?).shouldNotBeNull()
+                boundMethods() shouldContain "kobil"
 
                 // Removing it needs a session that has proven loa2 - this one has, through kobil.
                 val toolSessionId = startAuth(loginChannel)
@@ -162,7 +167,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
                 // Gone with the credential - and that absence is exactly the signal the client
                 // uses to drop its locally stored unlock secret (AppChannelApp's device-link
                 // effect): a secret for a binding that no longer exists.
-                get("/orchestrator/api/v1/app/channels/device-link")["kobilDeviceId"].shouldBeNull()
+                boundMethods() shouldNotContain "kobil"
             }
 
             then("the biometric unlock authenticates and reaches loa2") {

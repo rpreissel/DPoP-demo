@@ -118,6 +118,28 @@ interface ToolDescriptor {
         get() = null
 
     /**
+     * Non-`null` if this method can name the instance living on a caller's key in a way worth
+     * showing - the `device` method's own credential key, the identifier KOBIL assigned to the
+     * phone. Only meaningful together with [keyBinding], which is what picks the instance in the
+     * first place.
+     *
+     * Exists so the orchestrator can show "what else is this device known by" without knowing a
+     * single concrete detail-map key: the blob a module writes about its own instances is opaque
+     * to everyone else (see [CallerKeyBinding]), so the only party that can pull a showable value
+     * out of it is the module itself. Before this, the one caller that needed it reached into
+     * `auth_device`'s and `auth_kobil`'s private constants directly - which compiled only because
+     * `internal const val` is inlined, leaving no module edge for `ApplicationModules.verify` to
+     * object to. A dependency that exists in the source but not in the bytecode is worse than
+     * either an honest edge or none.
+     *
+     * Deliberately a value the module CHOOSES to disclose, not the details map itself: that map
+     * holds whatever a method needs for its own bookkeeping (hashes, binding keys), and handing
+     * it out wholesale would leak every future field by default.
+     */
+    val instanceDisclosure: InstanceDisclosure?
+        get() = null
+
+    /**
      * The full "is this credential usable by this caller right now" check every caller needs.
      * A method that is not [keyBinding]-bound has nothing to restrict, so it is simply usable;
      * a key-bound one must satisfy both halves: the physical key must match (descriptor-specific,
@@ -148,6 +170,20 @@ interface ToolDescriptor {
  * docs/03-tool-architektur.md #1 already requires for the rest of [ToolDescriptor]: "kein toolId
  * ist hier je ausgeschrieben" applies just as much to a concrete detail-map key.
  */
+/**
+ * How a method turns its own instance details into one showable reference - see
+ * [ToolDescriptor.instanceDisclosure].
+ */
+fun interface InstanceDisclosure {
+    /**
+     * A short, human-showable reference for the instance described by [instanceDetails], or
+     * `null` when this instance has nothing to show. Demo/diagnostic output, never a credential:
+     * whatever comes back here is handed to a client that has proven possession of the key this
+     * instance lives on, and nothing more.
+     */
+    fun referenceOf(instanceDetails: Map<String, Any?>?): String?
+}
+
 fun interface CallerKeyBinding {
     /**
      * Does the one active instance described by [instanceDetails] live on [callerBindingKeyRef]?

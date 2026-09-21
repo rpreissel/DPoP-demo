@@ -208,12 +208,16 @@ gebunden ist (`DeviceAccountLink`, [Domänenmodell](02-domaenenmodell.md) Abschn
 Channel/Journey an. `{"linked": true, "accountId": 42, "personName": "Max Muster"}` bzw.
 `{"linked": false}`.
 
-Dazu zwei Demo-Felder über die Kennungen dieses Geräts, beide nur gesetzt, wenn es sie gibt:
-`deviceAuthKeyRef` (der Schlüssel des `device`-Credentials) und `kobilDeviceId` (die Kennung, die
-**KOBIL** diesem Gerät gegeben hat). Letztere trägt zwei Aufgaben, und die zweite ist die
-wichtigere: Die Einstiegsseite **zeigt** die Bindung, und ihr **Verschwinden** ist für den Client
-das Signal, sein lokal gespeichertes Gerätegeheimnis zu löschen — nach einem Umbinden ist das
-Credential serverseitig widerrufen, ein Geheimnis dafür hat im Browser nichts mehr verloren
+Dazu ein Demo-Feld `boundCredentials`: je ein Eintrag `{method, reference}` für jedes
+schlüsselgebundene Credential des verknüpften Kontos, das auf **diesem** Schlüssel lebt — die
+`device`-Methode nennt ihren Credential-Schlüssel, `kobil` die Kennung, die der Anbieter diesem
+Telefon gegeben hat. Was gezeigt wird, entscheidet jedes Modul selbst
+(`ToolDescriptor.instanceDisclosure`, [03-tool-architektur.md](03-tool-architektur.md)); der
+Orchestrator kennt dafür keinen einzigen Methodennamen.
+
+Die Abwesenheit eines Eintrags ist dabei genauso aussagekräftig wie seine Anwesenheit: Ein Client,
+der lokale Daten zu einer hier nicht mehr gelisteten Methode hält, hält etwas Abgelaufenes. Genau
+daran erkennt das KOBIL-Frontend, dass es sein Gerätegeheimnis löschen muss
 ([09-dpop.md](09-dpop.md) Abschnitt 3).
 
 ### `POST /channels/{channelSessionId}/step-ups`: Step-up-Auslöser

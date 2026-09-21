@@ -7,7 +7,7 @@ describe('forgetAllUnlockSecrets', () => {
   it('drops every KOBIL secret this browser holds', () => {
     // Several because a browser can have been through more than one setup; all of them belonged
     // to a binding on this one key, so once that key carries none, none of them is good for
-    // anything (AppChannelApp calls this when device-link reports no kobilDeviceId).
+    // anything (tools/kobil/localData.ts calls this when device-link lists no kobil binding).
     storeUnlockSecret('kob-1', 'one')
     storeUnlockSecret('kob-2', 'two')
 

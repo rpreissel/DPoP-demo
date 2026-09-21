@@ -35,7 +35,7 @@ import {
   storeChannelSessionId,
   storePendingPairingCode,
 } from '../../session.ts'
-import { forgetAllUnlockSecrets } from '../../kobilUnlockSecret'
+import { dropStaleKobilData } from '../../tools/kobil/localData'
 import { shorten } from '../../format.ts'
 import { AppChannelFrame } from '../../components/AppChannelFrame'
 import { AuthenticationCompletedView } from '../../components/AuthenticationCompletedView'
@@ -266,12 +266,9 @@ export function AppChannelApp() {
       .then((link) => {
         if (!active) return
         setDeviceLink(link)
-        // A KOBIL unlock secret only ever belonged to a binding on THIS key. Once the backend
-        // reports none - rebound to another account, or the credential revoked - the secret is a
-        // key to a changed lock, so it goes. The server-side half of that revocation already
-        // happens in JourneyActionExecutor.linkDeviceTo (docs/09-dpop.md); this is the local half,
-        // which no backend can do for us.
-        if (!link.kobilDeviceId) forgetAllUnlockSecrets()
+        // Local data whose binding is gone has to go with it - the rule itself belongs to the
+        // owning tool module, not here.
+        dropStaleKobilData(link.boundCredentials)
       })
       .catch(() => {
         // Non-fatal - DeviceIdentityCard just shows "…" a bit longer, no error banner for this.

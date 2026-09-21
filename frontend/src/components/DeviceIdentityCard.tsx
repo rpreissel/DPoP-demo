@@ -15,19 +15,19 @@ interface DeviceIdentityCardProps {
  * the read-only `GET .../device-link` - so the entry screen answers "whose device is this" before
  * the user even picks how to start, not just after.
  *
- * Two further, demo-only values are shown alongside the DPoP key when present:
- * `deviceLink.deviceAuthKeyRef` (the `device` method's own credential key) and
- * `deviceLink.kobilDeviceId` (the identifier the external provider assigned to this device).
- * The first of those: the two are deliberately distinct concepts (channel binding vs. a `device`-method
- * credential) - see docs/09-dpop.md. Read from the SAME `device-link` response as `deviceLink`
+ * Below the DPoP key, one row per further binding this device carries
+ * (`deviceLink.boundCredentials`): the `device` method's own credential key, the identifier KOBIL
+ * gave this phone. Rendered generically from what the backend lists - each method decides what it
+ * discloses, this card only prints it, so a new key-bound method needs no change here. They are
+ * deliberately distinct concepts from the channel binding - see docs/09-dpop.md. Read from the
+ * SAME `device-link` response as `deviceLink`
  * itself rather than from `demo` (which only ever exists once a channel/journey is running) -
  * this card renders precisely BEFORE any channel exists, so it needs data available at that
  * point too. Kept current automatically since `device-link` is re-fetched after every rebind/
  * enrollment/revocation that could change it (see the entry-screen refetch effect).
  */
 export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }: DeviceIdentityCardProps) {
-  const deviceAuthKeyRef = deviceLink?.deviceAuthKeyRef
-  const kobilDeviceId = deviceLink?.kobilDeviceId
+  const boundCredentials = deviceLink?.boundCredentials ?? []
   return (
     <div className="card device-identity-card">
       <ul className="status-list">
@@ -46,28 +46,14 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
             </button>
           </span>
         </li>
-        {deviceAuthKeyRef && (
-          <li>
-            <span className="label">Geräte-Anmeldeverfahren (Schlüssel)</span>
-            <span className="value" title={deviceAuthKeyRef}>
-              {shorten(deviceAuthKeyRef)}
+        {boundCredentials.map((credential) => (
+          <li key={credential.method}>
+            <span className="label">Gerätebindung ({credential.method})</span>
+            <span className="value" title={credential.reference}>
+              {shorten(credential.reference)}
             </span>
           </li>
-        )}
-        {/*
-          The provider's own side of the binding: KOBIL assigned this identifier to this device,
-          and the backend compares every redeemed assertion against it. Shown next to the two
-          local keys because it is the third thing this device is known by - and the only one
-          this application did not create itself.
-        */}
-        {kobilDeviceId && (
-          <li>
-            <span className="label">KOBIL-Gerätebindung</span>
-            <span className="value" title={kobilDeviceId}>
-              {shorten(kobilDeviceId)}
-            </span>
-          </li>
-        )}
+        ))}
         <li>
           <span className="label">Gebunden an</span>
           <span className="value">
