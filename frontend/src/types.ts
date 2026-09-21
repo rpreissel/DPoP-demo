@@ -78,6 +78,8 @@ export interface DeviceLinkResponse {
   personName?: string
   /** Demo-only: the linked account's own active device-bound credential key for this device, if any - distinct from the DPoP channel key shown separately. */
   deviceAuthKeyRef?: string
+  /** Demo-only: the identifier KOBIL assigned to this device, if an active kobil credential lives on this key. Absent means there is no such binding - and any locally stored unlock secret is stale. */
+  kobilDeviceId?: string
 }
 
 /** One journey in the running chain for a channel - see backend `JourneyDebugStep`. */

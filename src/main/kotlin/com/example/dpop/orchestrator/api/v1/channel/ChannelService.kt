@@ -4,6 +4,9 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.auth_device.DEVICE_BINDING_KEY_REF
 import com.example.dpop.auth_device.DEVICE_METHOD
+import com.example.dpop.auth_kobil.KOBIL_BINDING_KEY_REF
+import com.example.dpop.auth_kobil.KOBIL_DEVICE_ID
+import com.example.dpop.auth_kobil.KOBIL_METHOD
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
 import com.example.dpop.orchestrator.api.v1.OrchestratorException
 import com.example.dpop.orchestrator.journey.Action
@@ -131,7 +134,8 @@ class ChannelService(
             linked = true,
             accountId = accountId,
             personName = personName,
-            deviceAuthKeyRef = deviceAuthKeyRef(accountId, bindingKeyRef)
+            deviceAuthKeyRef = deviceAuthKeyRef(accountId, bindingKeyRef),
+            kobilDeviceId = kobilDeviceId(accountId, bindingKeyRef)
         )
     }
 
@@ -474,6 +478,27 @@ class ChannelService(
         accountService.findAccount(accountId)?.activeAuthenticationMethods
             ?.firstOrNull { it.method == DEVICE_METHOD && it.details?.get(DEVICE_BINDING_KEY_REF) == bindingKeyRef }
             ?.details?.get(DEVICE_BINDING_KEY_REF) as? String
+
+    /**
+     * The identifier KOBIL itself assigned to THIS device, if the linked account has an active
+     * kobil credential living on this key - the provider's side of the binding, which the client
+     * cannot see any other way (docs/06-ablaeufe.md Abschnitt 7).
+     *
+     * It answers two questions with one value, and the second is the load-bearing one: the entry
+     * screen SHOWS the binding, and the client uses its ABSENCE to know that its locally stored
+     * unlock secret is stale - after a rebind the credential is revoked server-side, and a secret
+     * for a binding that no longer exists must not linger in the browser.
+     *
+     * Reaches into `auth_kobil`'s own detail-key constants, exactly as [deviceAuthKeyRef] does for
+     * `auth_device`, and for the same stated reason: demo output, not an API contract worth
+     * widening `ToolDescriptor` for. Both are `internal const val`, so the compiler inlines them
+     * and no module edge remains - which is why `ApplicationModules.verify` stays quiet about a
+     * dependency that is, in the source, real. Worth knowing rather than relying on.
+     */
+    private fun kobilDeviceId(accountId: Long, bindingKeyRef: String): String? =
+        accountService.findAccount(accountId)?.activeAuthenticationMethods
+            ?.firstOrNull { it.method == KOBIL_METHOD && it.details?.get(KOBIL_BINDING_KEY_REF) == bindingKeyRef }
+            ?.details?.get(KOBIL_DEVICE_ID) as? String
 
     /**
      * The channel-level block shared by every response, channel- and tool-level alike

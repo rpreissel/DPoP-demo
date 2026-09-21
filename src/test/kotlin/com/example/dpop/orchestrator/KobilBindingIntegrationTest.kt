@@ -5,6 +5,7 @@ import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -88,6 +89,11 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
      * setup here starts from a channel that has one. requiredAcr=loa2 keeps the registration open
      * for the second enrollment.
      */
+    @Suppress("UNCHECKED_CAST")
+    private fun activeMethodId(channelSessionId: String, method: String): String =
+        (get("/orchestrator/api/v1/channels/$channelSessionId/methods")["methods"] as List<Map<String, Any?>>)
+            .first { it["method"] == method }["id"] as String
+
     private fun passwordEnrolledChannel(): String {
         val channelSessionId = identifyAndConfirmEmail(requiredAcr = "loa2")
         enrollPassword(channelSessionId)
@@ -140,6 +146,25 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
         }
 
         given("an enrolled KOBIL credential and a fresh channel") {
+            then("the provider's own binding is readable from the device link - and vanishes with the credential") {
+                val (device, loginChannel) = enrolledDeviceOnFreshChannel()
+
+                // The identifier KOBIL assigned, which the client cannot learn any other way: it
+                // never travels through an assertion the client gets to see.
+                (get("/orchestrator/api/v1/app/channels/device-link")["kobilDeviceId"] as String?).shouldNotBeNull()
+
+                // Removing it needs a session that has proven loa2 - this one has, through kobil.
+                val toolSessionId = startAuth(loginChannel)
+                val pin = releasePin(toolSessionId, biometric(device)).stepData()["kobilPin"] as String
+                redeem(toolSessionId, sdkLogin(device, pin))
+                delete("/orchestrator/api/v1/channels/$loginChannel/methods/${activeMethodId(loginChannel, "kobil")}")
+
+                // Gone with the credential - and that absence is exactly the signal the client
+                // uses to drop its locally stored unlock secret (AppChannelApp's device-link
+                // effect): a secret for a binding that no longer exists.
+                get("/orchestrator/api/v1/app/channels/device-link")["kobilDeviceId"].shouldBeNull()
+            }
+
             then("the biometric unlock authenticates and reaches loa2") {
                 val (device, loginChannel) = enrolledDeviceOnFreshChannel()
                 val toolSessionId = startAuth(loginChannel)

@@ -20,3 +20,18 @@ export function storeUnlockSecret(kobilUserId: string, secret: string): void {
 export function loadUnlockSecret(kobilUserId: string): string | null {
   return localStorage.getItem(KEY_PREFIX + kobilUserId)
 }
+
+/**
+ * Drops every secret this browser holds - what to do when the backend reports no KOBIL binding
+ * for this device any more.
+ *
+ * All of them, not a selected one: the store is per browser, and the browser IS the device. A
+ * secret here can only ever have belonged to a binding on this very key, so once that key carries
+ * no binding (rebound to another account, credential revoked), none of them is good for anything.
+ * Leaving a dead secret lying around would be keeping a key to a lock that was changed.
+ */
+export function forgetAllUnlockSecrets(): void {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith(KEY_PREFIX))
+    .forEach((key) => localStorage.removeItem(key))
+}

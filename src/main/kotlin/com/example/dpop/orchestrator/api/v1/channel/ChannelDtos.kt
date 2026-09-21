@@ -87,5 +87,13 @@ data class DeviceLinkResponse(
             "the entry screen can show both keys side by side from the start.",
         example = "aGVsbG8td29ybGQ"
     )
-    val deviceAuthKeyRef: String? = null
+    val deviceAuthKeyRef: String? = null,
+    @field:Schema(
+        description = "Demo-only: the identifier KOBIL assigned to THIS device, if the linked " +
+            "account has an active `kobil` credential on this key. The provider's own side of the " +
+            "binding - and the client's signal that a locally stored unlock secret is stale once " +
+            "it disappears (docs/06-ablaeufe.md Abschnitt 7).",
+        example = "dev-1a2b3c4d5e6f"
+    )
+    val kobilDeviceId: String? = null
 )

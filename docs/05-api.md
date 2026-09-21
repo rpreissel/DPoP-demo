@@ -208,6 +208,14 @@ gebunden ist (`DeviceAccountLink`, [Domänenmodell](02-domaenenmodell.md) Abschn
 Channel/Journey an. `{"linked": true, "accountId": 42, "personName": "Max Muster"}` bzw.
 `{"linked": false}`.
 
+Dazu zwei Demo-Felder über die Kennungen dieses Geräts, beide nur gesetzt, wenn es sie gibt:
+`deviceAuthKeyRef` (der Schlüssel des `device`-Credentials) und `kobilDeviceId` (die Kennung, die
+**KOBIL** diesem Gerät gegeben hat). Letztere trägt zwei Aufgaben, und die zweite ist die
+wichtigere: Die Einstiegsseite **zeigt** die Bindung, und ihr **Verschwinden** ist für den Client
+das Signal, sein lokal gespeichertes Gerätegeheimnis zu löschen — nach einem Umbinden ist das
+Credential serverseitig widerrufen, ein Geheimnis dafür hat im Browser nichts mehr verloren
+([09-dpop.md](09-dpop.md) Abschnitt 3).
+
 ### `POST /channels/{channelSessionId}/step-ups`: Step-up-Auslöser
 
 Hebt die geforderte Untergrenze des Kanals an (auf der kc-Seite derselbe Endpunkt, Abschnitt 3). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `AuthJourney(STEP_UP)` und liefert den fälligen Schritt als `ChannelResponse`; reicht es bereits, zeigt `next` sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Reicht keine vorhandene Methode für das geforderte Niveau, aber eine Re-Identifizierung (`ident-fsc`/`ident-eid`) könnte es allein erreichen, fragt die Journey das erst per `stepData.prompt` (`context: "prompt", step: "confirm"`) — bei Zustimmung folgt die Auswahl, bei Ablehnung endet der Step-up ohne Fehler. Nur wenn selbst das nicht möglich ist, bricht die Journey mit `410` ab ([Orchestrierung](04-orchestrierung.md)).

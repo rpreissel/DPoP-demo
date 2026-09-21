@@ -15,8 +15,10 @@ interface DeviceIdentityCardProps {
  * the read-only `GET .../device-link` - so the entry screen answers "whose device is this" before
  * the user even picks how to start, not just after.
  *
- * A second, demo-only key (`deviceLink.deviceAuthKeyRef`) is shown alongside the DPoP key when
- * present: the two are deliberately distinct concepts (channel binding vs. a `device`-method
+ * Two further, demo-only values are shown alongside the DPoP key when present:
+ * `deviceLink.deviceAuthKeyRef` (the `device` method's own credential key) and
+ * `deviceLink.kobilDeviceId` (the identifier the external provider assigned to this device).
+ * The first of those: the two are deliberately distinct concepts (channel binding vs. a `device`-method
  * credential) - see docs/09-dpop.md. Read from the SAME `device-link` response as `deviceLink`
  * itself rather than from `demo` (which only ever exists once a channel/journey is running) -
  * this card renders precisely BEFORE any channel exists, so it needs data available at that
@@ -25,6 +27,7 @@ interface DeviceIdentityCardProps {
  */
 export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }: DeviceIdentityCardProps) {
   const deviceAuthKeyRef = deviceLink?.deviceAuthKeyRef
+  const kobilDeviceId = deviceLink?.kobilDeviceId
   return (
     <div className="card device-identity-card">
       <ul className="status-list">
@@ -48,6 +51,20 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
             <span className="label">Geräte-Anmeldeverfahren (Schlüssel)</span>
             <span className="value" title={deviceAuthKeyRef}>
               {shorten(deviceAuthKeyRef)}
+            </span>
+          </li>
+        )}
+        {/*
+          The provider's own side of the binding: KOBIL assigned this identifier to this device,
+          and the backend compares every redeemed assertion against it. Shown next to the two
+          local keys because it is the third thing this device is known by - and the only one
+          this application did not create itself.
+        */}
+        {kobilDeviceId && (
+          <li>
+            <span className="label">KOBIL-Gerätebindung</span>
+            <span className="value" title={kobilDeviceId}>
+              {shorten(kobilDeviceId)}
             </span>
           </li>
         )}
