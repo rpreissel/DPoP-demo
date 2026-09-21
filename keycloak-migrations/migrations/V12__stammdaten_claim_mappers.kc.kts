@@ -29,6 +29,34 @@ val stammdatenClaims = listOf(
     "ort" to "ort",
 )
 
+// Ohne diesen Schritt waeren die Mapper unten wirkungslos: Keycloaks deklaratives User Profile
+// (seit 24.x Default) verwirft JEDES nicht deklarierte User-Attribut - die Admin-API nimmt den
+// Schreibvorgang an, persistiert ihn aber nicht. Genau daran scheiterten die Stammdaten bisher
+// unbemerkt: KeycloakAccountSyncListener schrieb sie auf jedem AccountChanged mit, und Keycloak
+// warf sie jedes Mal weg. V1 dokumentiert die Falle bereits fuer orchestratorAccountId.
+//
+// upConfig() ist NICHT additiv, sondern beschreibt das gesamte Profil - orchestratorAccountId aus
+// V1 muss deshalb hier mit aufgezaehlt werden, sonst verschwindet es und der Account-Sync findet
+// seine eigenen User nicht mehr wieder (findUserId sucht ueber genau dieses Attribut).
+//
+// Nur "admin": geschrieben wird ausschliesslich vom Account-Sync ueber den Service-Account,
+// gelesen wird ueber die Mapper unten - der Nutzer selbst soll seine Stammdaten im Konto-Formular
+// weder sehen noch aendern koennen, sie gehoeren dem Register.
+step("stammdaten im user profile deklarieren") {
+    up {
+        users().userProfile().update(
+            upConfig(
+                *(listOf("orchestratorAccountId") + stammdatenClaims.map { it.first })
+                    .map { it to setOf("admin") }
+                    .toTypedArray()
+            )
+        )
+    }
+    down {
+        users().userProfile().update(upConfig("orchestratorAccountId" to setOf("admin")))
+    }
+}
+
 step("stammdaten mapper anlegen") {
     up {
         val mappers = clientScopes().get(scopeDbId("orchestrator-claims")).protocolMappers

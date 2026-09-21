@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import org.springframework.web.util.UriComponentsBuilder
@@ -73,15 +74,47 @@ class KeycloakAdminClient(
      * like `orchestratorAccountId` already is - never cached here either, just relayed each sync.
      */
     fun upsertUser(accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String> = emptyMap()) {
-        val existingUserId = findUserId(accountId)
+        val existingUserId = findMirror(accountId, email)
         if (existingUserId == null) {
             val username = uniqueUsername(email, firstName, lastName, accountId)
             val userId = createUser(accountId, username, email, emailConfirmed, firstName, lastName, attributes)
             log.info("Keycloak account sync: created user {} ({}) for accountId={}", userId, username, accountId)
         } else {
-            updateUser(accountId, existingUserId, email, emailConfirmed, attributes)
+            writeUser(accountId, existingUserId, email, emailConfirmed, firstName, lastName, attributes)
             log.info("Keycloak account sync: updated user {} for accountId={}", existingUserId, accountId)
         }
+    }
+
+    /**
+     * This account's Keycloak user, resolved BY E-MAIL FIRST and only then by
+     * `orchestratorAccountId`.
+     *
+     * The order is what matters. EMAIL is a unique account anchor, so whoever wears the address
+     * in Keycloak is this account's mirror or nobody's - while the attribute can be missing
+     * (a user minted by `OrchestratorAuthenticator` on first login, before any sync ran) or stale
+     * (a leftover from a previous incarnation of the orchestrator database, whose account ids
+     * started over at 1). Resolving by the attribute first is what used to make the sync write an
+     * address a DIFFERENT user already held, which Keycloak rejects with
+     * `409 "User exists with same email"`. Since the sync is deliberately best-effort, that 409
+     * was swallowed and the account simply kept a Keycloak user with no e-mail, no name and none
+     * of the mirrored stammdaten attributes - none of which then appear as token claims.
+     *
+     * An account whose e-mail changed still resolves: no user wears the new address yet, so the
+     * attribute lookup takes over and the update re-points it.
+     */
+    private fun findMirror(accountId: Long, email: String?): String? =
+        email?.let(::findUserIdByEmail) ?: findUserId(accountId)
+
+    /** The user wearing [email] right now, whatever account (if any) it is currently attributed to. */
+    private fun findUserIdByEmail(email: String): String? {
+        val uri = UriComponentsBuilder.fromPath("/admin/realms/{realm}/users")
+            .queryParam("email", email)
+            .queryParam("exact", "true")
+            .buildAndExpand(realm)
+            .toUriString()
+        return authorized().get().uri(uri).retrieve()
+            .body<List<Map<String, Any?>>>().orEmpty()
+            .firstOrNull()?.get("id") as? String
     }
 
     /**
@@ -249,18 +282,35 @@ class KeycloakAdminClient(
     }
 
     /**
+     * Writes this account's whole mirrored shape onto [userId] - used for an ordinary re-sync and
+     * to claim a user that existed before this account did alike ([findMirror]).
+     *
+     * Deliberately the full shape rather than a patch of single fields: the result must be
+     * indistinguishable from what [createUser] would have produced. A user minted by
+     * `OrchestratorAuthenticator` on first login carries neither name nor attributes nor a
+     * federation link, and one inherited from an earlier database may be disabled.
+     *
      * Keycloak's user PUT REPLACES the whole `attributes` map, it never merges - so
      * `orchestratorAccountId` must be re-sent here too, even though [attributes] itself never
      * contains it, or the very next [findUserId] lookup for this account would silently stop
      * finding this user.
      */
-    private fun updateUser(accountId: Long, userId: String, email: String?, emailConfirmed: Boolean, attributes: Map<String, String>) {
+    private fun writeUser(accountId: Long, userId: String, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String>) {
         val body = buildMap<String, Any?> {
+            put("enabled", true)
             if (email != null) {
                 put("email", email)
                 put("emailVerified", emailConfirmed)
             }
+            // Only when known: a null here means "this sync learned no name", never "clear it".
+            // Carried on every write, not just at creation - an account identified AFTER its
+            // Keycloak user already existed (REGISTER "Enrollment zuerst", or a user minted by
+            // OrchestratorAuthenticator on first login) would otherwise keep the placeholder name
+            // for good, with no later sync able to correct it.
+            if (firstName != null) put("firstName", firstName)
+            if (lastName != null) put("lastName", lastName)
             put("attributes", keycloakAttributes(accountId, attributes))
+            passwordStorageComponentId()?.let { put("federationLink", it) }
         }
         authorized().put().uri("/admin/realms/{realm}/users/{id}", realm, userId)
             .contentType(MediaType.APPLICATION_JSON)
