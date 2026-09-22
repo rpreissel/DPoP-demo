@@ -3,6 +3,7 @@ package com.example.dpop.kcext;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
@@ -27,10 +28,12 @@ final class PeerAuthAssertionSigner {
 
     private final String issuer;
     private final String audience;
+    private final ECKey signingKey;
 
-    PeerAuthAssertionSigner(String issuer, String audience) {
+    PeerAuthAssertionSigner(String issuer, String audience, ECKey signingKey) {
         this.issuer = issuer;
         this.audience = audience;
+        this.signingKey = signingKey;
     }
 
     String sign(String httpMethod, String httpUrl, String channelSessionId) {
@@ -45,11 +48,11 @@ final class PeerAuthAssertionSigner {
                 .claim("channel_anchor", channelSessionId);
 
         SignedJWT jwt = new SignedJWT(
-                new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(PeerAuthSigningKey.KEY.getKeyID()).build(),
+                new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(signingKey.getKeyID()).build(),
                 claims.build()
         );
         try {
-            jwt.sign(new ECDSASigner(PeerAuthSigningKey.KEY));
+            jwt.sign(new ECDSASigner(signingKey));
         } catch (com.nimbusds.jose.JOSEException e) {
             throw new IllegalStateException("Failed to sign peer-auth assertion", e);
         }

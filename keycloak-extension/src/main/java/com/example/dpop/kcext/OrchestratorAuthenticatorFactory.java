@@ -86,7 +86,7 @@ public class OrchestratorAuthenticatorFactory implements AuthenticatorFactory {
 
     @Override
     public Authenticator create(KeycloakSession session) {
-        return new OrchestratorAuthenticator();
+        return new OrchestratorAuthenticator(OrchestratorSettings.of(session).newClient());
     }
 
     @Override

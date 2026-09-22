@@ -46,9 +46,11 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
 
     private static final Logger LOG = Logger.getLogger(OrchestratorManageMethodsRequiredAction.class);
 
-    private final OrchestratorClient client = new OrchestratorClient(
-            OrchestratorConfig.BASE_URL, OrchestratorConfig.PEER_AUTH_ISSUER, OrchestratorConfig.PEER_AUTH_AUDIENCE
-    );
+    private final OrchestratorClient client;
+
+    OrchestratorManageMethodsRequiredAction(OrchestratorClient client) {
+        this.client = client;
+    }
 
     @Override
     public void evaluateTriggers(RequiredActionContext context) {

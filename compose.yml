@@ -1,7 +1,7 @@
 # Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), als Ersatz fuer
 # das reine Mock-Keycloak-Frontend (bd DPoP-demo-f9o.9) im echten Betrieb. `compose up` startet
 # beides: Keycloak UND den containerisierten Orchestrator - der wendet beim eigenen Start ueber
-# KeycloakMigrationRunnerStartup automatisch alle keycloak-migrations/migrations/*.kc.kts an
+# KeycloakMigrationRunnerStartup automatisch alle Migrationen aus dem keycloak-migrations-Jar an
 # (Ersatz fuer den frueheren separaten Tofu-Schritt, siehe git-history fuer infra/tofu).
 #
 # Beide Dockerfiles bauen nichts mehr selbst - `./gradlew stagePodmanArtifacts` muss vorher einmal
@@ -39,16 +39,16 @@ services:
       KC_HTTPS_KEY_STORE_PASSWORD: password
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      # Wohin die Extension den Orchestrator anspricht (OrchestratorConfig.java) - der Default passt
-      # zu ./gradlew bootRun auf dem Host, siehe Kommentar oben.
-      ORCHESTRATOR_BASE_URL: ${ORCHESTRATOR_BASE_URL:-http://host.containers.internal:8080}
-      ORCHESTRATOR_PEER_AUTH_ISSUER: ${ORCHESTRATOR_PEER_AUTH_ISSUER:-dpop-demo-keycloak}
-      ORCHESTRATOR_PEER_AUTH_AUDIENCE: ${ORCHESTRATOR_PEER_AUTH_AUDIENCE:-dpop-demo-orchestrator}
+      # Hier stehen bewusst KEINE ORCHESTRATOR_*-Variablen mehr: wohin die Extension den
+      # Orchestrator anspricht, welchen iss/aud sie signiert und welchen Origin der QR-Deep-Link
+      # traegt, sind Config-Properties der "orchestrator"-Komponente IM REALM
+      # (OrchestratorSettings) - gesetzt von der Migration, sichtbar in der Admin-Console. Welche
+      # Werte das sind, entscheidet die Variante beim orchestrator-Service unten.
     # Kein extra_hosts fuer host.containers.internal: Podman Machine (gvproxy, macOS) loest den
     # Namen bereits selbst auf; ein expliziter "host-gateway"-Eintrag scheitert auf dieser
     # Bridge-Netzwerkkonfiguration mit "host containers internal IP address is empty" (Podman kann
-    # dort keinen host-gateway-Wert ermitteln). Auf reinem Linux-Podman ohne Machine-VM muesste
-    # ORCHESTRATOR_BASE_URL stattdessen auf die tatsaechliche Host-IP zeigen.
+    # dort keinen host-gateway-Wert ermitteln). Auf reinem Linux-Podman ohne Machine-VM braucht es
+    # dafuer eine eigene Migrations-Variante mit der tatsaechlichen Host-IP.
     ports:
       - "8543:8443"
     volumes:
@@ -88,7 +88,7 @@ services:
       retries: 150
 
   # Containerisierter Orchestrator - wendet beim eigenen Start automatisch alle
-  # keycloak-migrations/migrations/*.kc.kts an (KeycloakMigrationRunnerStartup, nur im
+  # Migrationen aus dem keycloak-migrations-Jar an (KeycloakMigrationRunnerStartup, nur im
   # `keycloak`-Spring-Profil aktiv). restart: on-failure bleibt als Sicherheitsnetz stehen (siehe
   # Healthcheck-Kommentar oben) - seit der JWKS-basierte Healthcheck echte REST-Bereitschaft statt
   # nur eines offenen TCP-Ports prueft, greift es im Normalfall nicht mehr (verifiziert:
@@ -118,23 +118,27 @@ services:
       # application-keycloak.yml (das ist fuer den Host-Lauf per gradlew gedacht). Das
       # selbstsignierte Zertifikat wird trotzdem akzeptiert, siehe KeycloakTlsConfig.kt
       # (Trust-all + Hostname-Verifier-all, nur im "keycloak"-Profil aktiv).
-      KEYCLOAK_MIGRATE_BASE_URL: https://keycloak:8443
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-Demo}
+      # Welcher Parametersatz gilt (application-keycloak.yml, keycloak-setup.variants):
+      # "compose" spricht beide Seiten unter ihren Service-Namen an, "host" (Default) geht ueber
+      # den gemappten Port bzw. host.containers.internal - dort laeuft der Orchestrator per
+      # ./gradlew bootRun auf dem Host.
+      #
+      # Aus diesem einen Satz leitet KeycloakSetupEnvironment alles Weitere ab: wohin die
+      # Migration schreibt, wohin der Account-Sync spricht, welches Realm, welche Client-Secrets,
+      # welche JWKS-/OIDC-URLs. Deshalb stehen die frueheren KC_PEERAUTH_*, KC_OIDC_*,
+      # KEYCLOAKSYNC_* und KEYCLOAK_MIGRATE_BASE_URL hier nicht mehr - sie waeren ein zweiter Ort
+      # fuer dieselben Werte.
+      #
+      # ACHTUNG: aendert sich ein bereits angewendeter Wert dieses Satzes, baut der MigrationRunner
+      # das Realm neu auf - dieselbe Konsequenz wie bei einer geaenderten Migrationsdatei.
+      # Realm-Name und die beiden Client-Secrets stehen bewusst NICHT hier: sie gehoeren zum
+      # Parametersatz (keycloak-setup.variants bzw. eine eigene Variante) - ein zweiter Default
+      # an dieser Stelle waere derselbe Wert an zwei Orten.
+      KEYCLOAK_SETUP_VARIANT: compose
+      # Master-Realm-Admin fuer den Migrationslauf selbst - nicht der orchestrator-admin-Client,
+      # den die Migration erst anlegt.
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      ORCHESTRATOR_ADMIN_CLIENT_SECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
-      ORCHESTRATOR_APP_CLIENT_SECRET: ${ORCHESTRATOR_APP_CLIENT_SECRET:-change-me-orchestrator-app-token}
-      KC_PEERAUTH_JWKSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-Demo}/orchestrator-jwks/.well-known/jwks.json
-      # The browser receives its access token from Keycloak's public host port. Keep this
-      # external issuer separate from the internal service URLs used for JWKS and admin calls.
-      KC_OIDC_ISSUER: https://localhost:8543/realms/${KEYCLOAK_REALM:-Demo}
-      KC_OIDC_CERTSURI: https://keycloak:8443/realms/${KEYCLOAK_REALM:-Demo}/protocol/openid-connect/certs
-      KEYCLOAKSYNC_BASEURL: https://keycloak:8443
-      KEYCLOAKSYNC_REALM: ${KEYCLOAK_REALM:-Demo}
-      KEYCLOAKSYNC_ADMINCLIENTID: orchestrator-admin
-      KEYCLOAKSYNC_ADMINCLIENTSECRET: ${ORCHESTRATOR_ADMIN_CLIENT_SECRET:-change-me-orchestrator-admin}
-      KEYCLOAKSYNC_APPCLIENTID: orchestrator-app-token
-      KEYCLOAKSYNC_APPCLIENTSECRET: ${ORCHESTRATOR_APP_CLIENT_SECRET:-change-me-orchestrator-app-token}
     ports:
       - "8080:8080"
     volumes:

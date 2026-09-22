@@ -7,17 +7,16 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 
 /**
- * Stateless, same idiom the {@code webtool} factories use (see
- * {@code AbstractWebToolRendererFactory}) - one shared instance handed back for every session.
+ * Eine Instanz pro Session, wie bei den Authenticator-Factories: der Client haengt an der
+ * Realm-Konfiguration ({@link OrchestratorSettings}), die erst mit der Session feststeht - eine
+ * geteilte statische Instanz koennte ihn nicht tragen.
  * Realm registration (enabled, {@code defaultAction=false}) happens in a migration, not here.
  */
 public class OrchestratorManageMethodsRequiredActionFactory implements RequiredActionFactory {
 
-    private static final OrchestratorManageMethodsRequiredAction INSTANCE = new OrchestratorManageMethodsRequiredAction();
-
     @Override
     public RequiredActionProvider create(KeycloakSession session) {
-        return INSTANCE;
+        return new OrchestratorManageMethodsRequiredAction(OrchestratorSettings.of(session).newClient());
     }
 
     @Override

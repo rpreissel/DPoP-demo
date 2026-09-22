@@ -1,6 +1,5 @@
 package com.example.dpop.kcext.webtool.qr;
 
-import com.example.dpop.kcext.OrchestratorConfig;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,7 +30,7 @@ abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
         // Willkommen page (docs/10-frontend.md #1); intent=confirm_peer_login is the same wire
         // vocabulary AuthIntent.fromRequest already accepts on POST /app/channels, just carried via
         // the URL instead of a request body (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN).
-        String deepLink = OrchestratorConfig.DEMO_APP_BASE_URL + "/app/?intent=confirm_peer_login&pairingCode="
+        String deepLink = ctx.settings().publicOrchestratorBaseUrl() + "/app/?intent=confirm_peer_login&pairingCode="
                 + URLEncoder.encode(pairingCode, StandardCharsets.UTF_8);
 
         return form

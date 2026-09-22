@@ -75,7 +75,7 @@ public class OrchestratorUpdateAuthenticatorFactory implements AuthenticatorFact
 
     @Override
     public Authenticator create(KeycloakSession session) {
-        return new OrchestratorUpdateAuthenticator();
+        return new OrchestratorUpdateAuthenticator(OrchestratorSettings.of(session).newClient());
     }
 
     @Override

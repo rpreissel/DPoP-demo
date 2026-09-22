@@ -22,14 +22,14 @@ import java.util.stream.Stream;
  * exactly as it is; only the "password" credential type is routed here, via
  * {@link UserModel#getFederationLink()} pointing at this provider's component id.
  */
-public class OrchestratorPasswordStorageProvider implements UserStorageProvider, UserRegistrationProvider,
+public class OrchestratorStorageProvider implements UserStorageProvider, UserRegistrationProvider,
         CredentialInputValidator, CredentialInputUpdater {
 
-    private static final Logger LOG = Logger.getLogger(OrchestratorPasswordStorageProvider.class);
+    private static final Logger LOG = Logger.getLogger(OrchestratorStorageProvider.class);
 
     private final OrchestratorClient client;
 
-    OrchestratorPasswordStorageProvider(OrchestratorClient client) {
+    OrchestratorStorageProvider(OrchestratorClient client) {
         this.client = client;
     }
 

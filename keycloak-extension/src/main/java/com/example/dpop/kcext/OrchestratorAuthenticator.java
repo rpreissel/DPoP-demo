@@ -12,7 +12,6 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserProvider;
 import org.keycloak.sessions.AuthenticationSessionModel;
-import org.keycloak.storage.UserStorageProvider;
 
 import java.util.List;
 
@@ -42,9 +41,11 @@ public class OrchestratorAuthenticator implements Authenticator {
 
     private static final Logger LOG = Logger.getLogger(OrchestratorAuthenticator.class);
 
-    private final OrchestratorClient client = new OrchestratorClient(
-            OrchestratorConfig.BASE_URL, OrchestratorConfig.PEER_AUTH_ISSUER, OrchestratorConfig.PEER_AUTH_AUDIENCE
-    );
+    private final OrchestratorClient client;
+
+    OrchestratorAuthenticator(OrchestratorClient client) {
+        this.client = client;
+    }
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
@@ -244,15 +245,12 @@ public class OrchestratorAuthenticator implements Authenticator {
         UserModel created = users.addUser(realm, "orchestrator-account-" + accountId);
         created.setEnabled(true);
         created.setSingleAttribute(OrchestratorNotes.USER_ATTR_ACCOUNT_ID, String.valueOf(accountId));
-        // Routes the "password" credential type to OrchestratorPasswordStorageProvider instead of
+        // Routes the "password" credential type to OrchestratorStorageProvider instead of
         // Keycloak's own built-in JPA password provider (DPoP-demo-25q) - Keycloak dispatches CredentialInputValidator/-Updater for a
         // federation-linked user to the linked UserStorageProvider component, so this is enough on
         // its own; no provider-priority configuration needed. The component itself is provisioned
-        // once per realm (infra/tofu/keycloak/main.tf's keycloak_custom_user_federation resource),
-        // found here by provider id since its component id varies per environment.
-        realm.getStorageProviders(UserStorageProvider.class)
-                .filter(c -> OrchestratorPasswordStorageProviderFactory.PROVIDER_ID.equals(c.getProviderId()))
-                .findFirst()
+        // once per realm by the migration (keycloak-migrations/src/main/resources/keycloak-migrations/V1__realm.kc.kts).
+        OrchestratorStorageProviderFactory.componentIn(realm)
                 .ifPresent(component -> created.setFederationLink(component.getId()));
         return created;
     }

@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.kc
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -38,12 +40,12 @@ class KeycloakAdminClient(
     // java.net.http.HttpClient, which snapshots SSLContext.getDefault() at that point; if this ran
     // first, the snapshot would still be the real, non-trusting default.
     @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
+    private val clientAssertions: OrchestratorClientAssertionSigner,
     @Value("\${keycloak-sync.base-url}") private val baseUrl: String,
+    @Value("\${keycloak-sync.public-base-url}") private val publicBaseUrl: String,
     @Value("\${keycloak-sync.realm}") private val realm: String,
     @Value("\${keycloak-sync.admin-client-id}") private val adminClientId: String,
-    @Value("\${keycloak-sync.admin-client-secret}") private val adminClientSecret: String,
-    @Value("\${keycloak-sync.app-client-id}") private val appClientId: String,
-    @Value("\${keycloak-sync.app-client-secret}") private val appClientSecret: String
+    @Value("\${keycloak-sync.app-client-id}") private val appClientId: String
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAdminClient::class.java)
     private val restClient = RestClient.builder().baseUrl(baseUrl).build()
@@ -52,7 +54,7 @@ class KeycloakAdminClient(
     private var cachedToken: CachedToken? = null
 
     @Volatile
-    private var cachedPasswordStorageComponentId: String? = null
+    private var cachedOrchestratorComponentId: String? = null
 
     /**
      * Creates the Keycloak user for [accountId] if none exists yet (username preferring [email],
@@ -272,7 +274,7 @@ class KeycloakAdminClient(
             if (firstName != null) put("firstName", firstName)
             if (lastName != null) put("lastName", lastName)
             put("attributes", keycloakAttributes(accountId, attributes))
-            passwordStorageComponentId()?.let { put("federationLink", it) }
+            orchestratorComponentId()?.let { put("federationLink", it) }
         }
         val response = authorized().post().uri("/admin/realms/{realm}/users", realm)
             .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity()
@@ -310,7 +312,7 @@ class KeycloakAdminClient(
             if (firstName != null) put("firstName", firstName)
             if (lastName != null) put("lastName", lastName)
             put("attributes", keycloakAttributes(accountId, attributes))
-            passwordStorageComponentId()?.let { put("federationLink", it) }
+            orchestratorComponentId()?.let { put("federationLink", it) }
         }
         authorized().put().uri("/admin/realms/{realm}/users/{id}", realm, userId)
             .contentType(MediaType.APPLICATION_JSON)
@@ -323,27 +325,27 @@ class KeycloakAdminClient(
         mapOf("orchestratorAccountId" to listOf(accountId.toString())) + attributes.mapValues { listOf(it.value) }
 
     /**
-     * The `OrchestratorPasswordStorageProvider` User Federation component's id -
-     * provisioned once per realm by `infra/tofu/keycloak/main.tf`'s `keycloak_custom_user_federation`
-     * resource, whose id varies per environment, so it's looked up by `providerId` rather than
-     * hardcoded. Cached: it never changes while this process runs. `null` (silently skipped by the
-     * caller) if the component isn't provisioned yet - the same graceful-degradation the rest of
-     * this sync already applies elsewhere, never a hard failure of the whole sync.
+     * The `orchestrator` User Federation component's id - provisioned once per realm by
+     * the migration in the `keycloak-migrations` jar, whose id varies per environment, so it's
+     * looked up by `providerId` rather than hardcoded. Cached: it never changes while this process
+     * runs. `null` (silently skipped by the caller) if the component isn't provisioned yet - the
+     * same graceful-degradation the rest of this sync already applies elsewhere, never a hard
+     * failure of the whole sync.
      */
-    private fun passwordStorageComponentId(): String? {
-        cachedPasswordStorageComponentId?.let { return it }
+    private fun orchestratorComponentId(): String? {
+        cachedOrchestratorComponentId?.let { return it }
         val id = try {
             val uri = UriComponentsBuilder.fromPath("/admin/realms/{realm}/components")
                 .queryParam("type", "org.keycloak.storage.UserStorageProvider")
                 .buildAndExpand(realm)
                 .toUriString()
             val components = authorized().get().uri(uri).retrieve().body<List<Map<String, Any?>>>().orEmpty()
-            components.firstOrNull { it["providerId"] == "orchestrator-password" }?.get("id") as? String
+            components.firstOrNull { it["providerId"] == "orchestrator" }?.get("id") as? String
         } catch (e: Exception) {
-            log.warn("Failed to look up the orchestrator-password federation component: {}", e.message)
+            log.warn("Failed to look up the orchestrator federation component: {}", e.message)
             null
         }
-        cachedPasswordStorageComponentId = id
+        cachedOrchestratorComponentId = id
         return id
     }
 
@@ -359,7 +361,7 @@ class KeycloakAdminClient(
      */
     fun requestAccountToken(accountId: Long, assertion: String): AccountTokenResponse {
         val form = "grant_type=$ACCOUNT_TOKEN_GRANT_TYPE" +
-            "&client_id=$appClientId&client_secret=$appClientSecret" +
+            "&${clientAuth(appClientId)}" +
             "&account_id=$accountId&assertion=$assertion"
         return tokenResponse(form)
     }
@@ -374,9 +376,26 @@ class KeycloakAdminClient(
      */
     fun refreshAccountToken(refreshToken: String): AccountTokenResponse {
         val form = "grant_type=refresh_token" +
-            "&client_id=$appClientId&client_secret=$appClientSecret" +
+            "&${clientAuth(appClientId)}" +
             "&refresh_token=$refreshToken"
         return tokenResponse(form)
+    }
+
+    /**
+     * Die Client-Authentisierung fuer jeden Token-Request: `private_key_jwt` (RFC 7523) statt
+     * eines `client_secret` - der Orchestrator signiert eine kurzlebige Assertion, Keycloak prueft
+     * sie gegen den Public Key, den es sich von [OrchestratorClientJwksController] holt. Kein
+     * geteiltes Geheimnis, dieselbe Linie wie ADR-7 in der Gegenrichtung.
+     *
+     * Als `aud` die OEFFENTLICHE Realm-Adresse und nicht [baseUrl], ueber die dieser Aufruf
+     * tatsaechlich laeuft: Keycloak vergleicht gegen die Issuer-URL, die es aus seiner eigenen
+     * Frontend-Konfiguration (KC_HOSTNAME) bildet, nicht gegen den benutzten Weg.
+     */
+    private fun clientAuth(clientId: String): String {
+        val assertion = clientAssertions.assertionFor(clientId, "$publicBaseUrl/realms/$realm")
+        return "client_id=$clientId" +
+            "&client_assertion_type=${URLEncoder.encode(CLIENT_ASSERTION_TYPE, StandardCharsets.UTF_8)}" +
+            "&client_assertion=$assertion"
     }
 
     private fun tokenResponse(form: String): AccountTokenResponse {
@@ -402,7 +421,7 @@ class KeycloakAdminClient(
         val current = cachedToken
         if (current != null && Instant.now().isBefore(current.expiresAt)) return current.value
 
-        val form = "grant_type=client_credentials&client_id=$adminClientId&client_secret=$adminClientSecret"
+        val form = "grant_type=client_credentials&${clientAuth(adminClientId)}"
         val response = restClient.post()
             .uri("/realms/{realm}/protocol/openid-connect/token", realm)
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -428,6 +447,9 @@ class KeycloakAdminClient(
 
         /** Must match [com.example.dpop.kcext.grant.AccountTokenGrantType.GRANT_TYPE] on the keycloak-extension side. */
         const val ACCOUNT_TOKEN_GRANT_TYPE = "urn:dpop-demo:account-token"
+
+        /** RFC 7523: signierte Client-Assertion statt client_secret. */
+        private const val CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
     }
 }
 

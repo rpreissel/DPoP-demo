@@ -11,15 +11,20 @@ import org.keycloak.admin.client.resource.RealmResource
  * remember/recall schreiben sofort ins Realm-Attribut dieses einen Schritts, der Wert übersteht
  * damit auch einen komplett neuen Prozesslauf zwischen up und down.
  *
- * kc/realmName sind für den Sonderfall da, dass ein Schritt das Realm selbst anlegt (V1) - vorher
- * gibt es keine RealmResource, auf der man sinnvoll etwas aufrufen könnte.
+ * kc/realmName sind für den Fall da, dass ein Schritt etwas ausserhalb der RealmResource braucht -
+ * das Realm selbst legt MigrationRunner an (siehe dessen ensureRealmExists), nicht ein Schritt.
+ *
+ * setup trägt alles, was am Skript dynamisch ist ([RealmSetup]) - ein Skript liest keine
+ * Umgebungsvariable und schreibt keinen Host, keinen Port und keine Client-Id selbst hin.
  */
 class StepContext internal constructor(
     val kc: Keycloak,
-    val realmName: String,
+    val setup: RealmSetup,
     realm: RealmResource,
     private val memory: StepMemory,
 ) : RealmResource by realm {
+    val realmName: String get() = setup.realmName
+
     fun remember(key: String, value: String) = memory.remember(key, value)
     fun recall(key: String): String = memory.recall(key)
     fun recallOrNull(key: String): String? = memory.recallOrNull(key)

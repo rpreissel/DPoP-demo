@@ -20,8 +20,9 @@ class OidcTokenValidationException(message: String) : RuntimeException(message)
  * Verifies a real, Keycloak-issued OIDC AccessToken (the Web channel's own, from the standard
  * browser authorization_code login) against Keycloak's own realm signing key - a completely
  * different key/purpose than [PeerAuthValidator] (which verifies Keycloak's short-lived
- * per-request peer-auth assertions, signed by an ephemeral per-node key,
- * [PeerAuthSigningKey]-equivalent on the Keycloak side, never the realm's own token-signing key).
+ * per-request peer-auth assertions, signed by the extension's own per-node key - the one kept as
+ * a config property of the `orchestrator` realm component, never the realm's own token-signing
+ * key).
  *
  * Demo-only read path (see `application-keycloak.yml`'s own comment on `kc.oidc`): the Web-Kanal
  * demo UI's Journey-Log tab is the one caller, presenting the browser's own AccessToken directly -

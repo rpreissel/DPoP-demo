@@ -32,9 +32,9 @@ final class OrchestratorClient {
     private final String baseUrl;
     private final PeerAuthAssertionSigner signer;
 
-    OrchestratorClient(String baseUrl, String issuer, String audience) {
+    OrchestratorClient(String baseUrl, String issuer, String audience, com.nimbusds.jose.jwk.ECKey signingKey) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.signer = new PeerAuthAssertionSigner(issuer, audience);
+        this.signer = new PeerAuthAssertionSigner(issuer, audience, signingKey);
     }
 
     /**
@@ -194,7 +194,7 @@ final class OrchestratorClient {
 
     /**
      * Stateless password verify/set for Keycloak's native password credential
-     * ({@code OrchestratorPasswordStorageProvider}) - unlike every other call above, there is no
+     * ({@code OrchestratorStorageProvider}) - unlike every other call above, there is no
      * Channel/ToolSession here: the account id is already known (Keycloak's own
      * {@code orchestratorAccountId} user attribute), so it goes straight in the URL path, which
      * {@code htu} already binds. The peer-auth assertion's {@code channel_anchor} claim (normally

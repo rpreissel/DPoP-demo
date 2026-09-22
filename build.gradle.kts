@@ -184,13 +184,6 @@ val stageOrchestratorArtifact = tasks.register<Exec>("stageOrchestratorArtifact"
     }
 }
 
-val stageOrchestratorMigrations = tasks.register<Copy>("stageOrchestratorMigrations") {
-    group = "podman"
-    dependsOn(stageOrchestratorArtifact)
-    from("keycloak-migrations/migrations")
-    into(podmanStageDir.map { it.dir("orchestrator/keycloak-migrations/migrations") })
-}
-
 // Kopiert das Dockerfile mit nach build/podman/orchestrator, damit compose.yml dieses
 // Staging-Verzeichnis (statt des gesamten Repo-Wurzelverzeichnisses) als Build-Kontext angeben
 // kann: Podman muss dann nur noch die paar fertigen Artefakte hochladen/hashen, nicht mehr .git,
@@ -224,7 +217,7 @@ val stageKeycloakArtifact = tasks.register<Copy>("stageKeycloakArtifact") {
 val stagePodmanArtifacts = tasks.register("stagePodmanArtifacts") {
     group = "podman"
     description = "Baut Orchestrator-Jar, Frontend und Keycloak-Extension und legt beide unter build/podman ab, damit podman-compose build/up nur noch fertige Artefakte kopiert."
-    dependsOn(stageOrchestratorMigrations, stageOrchestratorDockerfile, stageKeycloakArtifact)
+    dependsOn(stageOrchestratorDockerfile, stageKeycloakArtifact)
 }
 
 // Haengt das Staging an den normalen Build-Lifecycle: wer `./gradlew build`/`assemble` laufen

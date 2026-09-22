@@ -26,9 +26,11 @@ public class OrchestratorUpdateAuthenticator implements Authenticator {
 
     private static final Logger LOG = Logger.getLogger(OrchestratorUpdateAuthenticator.class);
 
-    private final OrchestratorClient client = new OrchestratorClient(
-            OrchestratorConfig.BASE_URL, OrchestratorConfig.PEER_AUTH_ISSUER, OrchestratorConfig.PEER_AUTH_AUDIENCE
-    );
+    private final OrchestratorClient client;
+
+    OrchestratorUpdateAuthenticator(OrchestratorClient client) {
+        this.client = client;
+    }
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {

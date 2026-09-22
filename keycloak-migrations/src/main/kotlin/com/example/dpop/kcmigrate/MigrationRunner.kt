@@ -5,8 +5,6 @@ import org.keycloak.admin.client.Keycloak
 import org.keycloak.admin.client.resource.RealmResource
 import org.keycloak.representations.idm.RealmRepresentation
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.Instant
 import kotlin.script.experimental.api.ResultValue
@@ -17,6 +15,10 @@ import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 import kotlin.script.experimental.jvmhost.createJvmCompilationConfigurationFromTemplate
 
 private const val ATTR_PREFIX = "kcmig_"
+private const val SETUP_ATTR_PREFIX = "${ATTR_PREFIX}setup__"
+
+/** Der zuletzt angewendete Wert eines KeycloakSetup-Feldes, als Realm-Attribut wie alles andere hier. */
+private fun setupAttrKey(name: String) = "$SETUP_ATTR_PREFIX$name"
 
 /**
  * kotlin-scripting-jvm-host findet die Stdlib-Jar normalerweise, indem es "kotlin-stdlib*.jar" auf
@@ -36,7 +38,15 @@ private val ensureKotlinStdlibJarProperty: Unit by lazy {
     }
 }
 
-data class MigrationFile(val version: String, val description: String, val path: Path) {
+/**
+ * Eine Migration, wie der Runner sie braucht: ihr Name (aus dem die Version kommt) und ihr Text.
+ *
+ * Bewusst der TEXT und kein Dateipfad: die Skripte liegen als Ressourcen im Jar, nicht als Dateien
+ * daneben. Sie sind damit Teil genau des Artefakts, dessen Code sie voraussetzen - ein Jar und ein
+ * Verzeichnis, die getrennt ausgeliefert werden, koennen auseinanderlaufen. Woher der Text kommt,
+ * entscheidet der Aufrufer; der Runner kennt kein Dateisystem mehr.
+ */
+data class MigrationFile(val version: String, val description: String, val name: String, val text: String) {
     val checksumAttrKey get() = "$ATTR_PREFIX${version}__checksum"
 
     private val stepDonePattern = Regex("""${Regex.escape(ATTR_PREFIX)}${Regex.escape(version)}__step(\d+)$""")
@@ -50,9 +60,10 @@ data class MigrationFile(val version: String, val description: String, val path:
     companion object {
         private val PATTERN = Regex("""V(\d+)__(.+)\.kc\.kts""")
 
-        fun parse(path: Path): MigrationFile? {
-            val match = PATTERN.matchEntire(path.fileName.toString()) ?: return null
-            return MigrationFile(match.groupValues[1], match.groupValues[2], path)
+        /** Null, wenn der Name nicht dem V<n>__<beschreibung>.kc.kts-Schema folgt - dann ist es keine Migration. */
+        fun parse(name: String, text: String): MigrationFile? {
+            val match = PATTERN.matchEntire(name) ?: return null
+            return MigrationFile(match.groupValues[1], match.groupValues[2], name, text)
         }
     }
 }
@@ -60,16 +71,6 @@ data class MigrationFile(val version: String, val description: String, val path:
 /** Lässt Aufrufer (z.B. ein Startup-Hook) erkennen, welche Datei fehlgeschlagen ist, um gezielt zurückzurollen. */
 class MigrationStepFailedException(val fileVersion: String, val fileName: String, cause: Throwable) :
     RuntimeException("Migration $fileName fehlgeschlagen: ${cause.message}", cause)
-
-data class MigrationStatus(
-    val file: MigrationFile,
-    val completedSteps: Int,
-    val totalSteps: Int,
-    val lastCompletedAt: String?,
-    val checksumMismatch: Boolean,
-) {
-    val fullyApplied get() = totalSteps > 0 && completedSteps == totalSteps
-}
 
 /**
  * Wendet .kc.kts-Migrationsdateien Schritt für Schritt an (up) oder zurück (down). Pro Schritt
@@ -81,9 +82,10 @@ data class MigrationStatus(
  */
 class MigrationRunner(
     private val kc: Keycloak,
-    private val realmName: String,
-    private val migrationsDir: Path,
+    private val setup: RealmSetup,
+    private val migrations: List<MigrationFile>,
 ) {
+    private val realmName: String get() = setup.realmName
     private val realm: RealmResource get() = kc.realm(realmName)
     init {
         ensureKotlinStdlibJarProperty
@@ -93,10 +95,8 @@ class MigrationRunner(
     private val evaluationConfig = ScriptEvaluationConfiguration()
     private val host = BasicJvmScriptingHost()
 
-    private fun discover(): List<MigrationFile> =
-        Files.list(migrationsDir).use { stream ->
-            stream.toList().mapNotNull { MigrationFile.parse(it) }
-        }.sortedBy { it.version.toInt() }
+    /** Die Migrationen in Versionsreihenfolge - der Aufrufer reicht sie herein, siehe [MigrationFile]. */
+    private fun discover(): List<MigrationFile> = migrations.sortedBy { it.version.toInt() }
 
     /** Bevor das Realm existiert, ist "noch nichts angewendet" - keine Fehlerbedingung. */
     private fun currentAttrs(): Map<String, String> =
@@ -132,13 +132,43 @@ class MigrationRunner(
         val attrs = currentAttrs()
         val conflicted = discover().filter { file ->
             val stored = attrs[file.checksumAttrKey]
-            stored != null && stored != sha256(file.path)
+            stored != null && stored != sha256(file.text)
         }
         if (conflicted.isEmpty()) return
-        println(
-            "Geänderte, bereits angewendete Migration(en): ${conflicted.joinToString { it.path.fileName.toString() }}" +
-                " - lösche Realm '$realmName' und wende alle Migrationen neu an.",
+        resetRealm(
+            "Geänderte, bereits angewendete Migration(en): ${conflicted.joinToString { it.name }}",
         )
+    }
+
+    /**
+     * Ein geänderter Parameterwert wiegt genauso schwer wie eine geänderte Migrationsdatei: die
+     * Schritte, die ihn verbaut haben, gelten als erledigt und würden ihn nie wieder anfassen -
+     * das Realm liefe stillschweigend mit dem alten Wert weiter. Also derselbe Reset.
+     *
+     * Verglichen werden ausschließlich Werte, die schon einmal gespeichert wurden. Ein später
+     * HINZUGEFÜGTES Feld hat keinen gespeicherten Vorgänger, löst also keinen Reset aus und zwingt
+     * zu keiner Änderung an den bestehenden Skripten. Der Preis dafür: ein Feld, das gar kein
+     * Skript verwendet, löst bei Wertänderung trotzdem einen Reset aus.
+     */
+    private fun resetOnSetupChange() {
+        val attrs = currentAttrs()
+        val changed = setup.asMap().filter { (name, value) ->
+            val stored = attrs[setupAttrKey(name)]
+            stored != null && stored != value
+        }
+        if (changed.isEmpty()) return
+        resetRealm("Geändertes Setup-Feld: ${changed.keys.joinToString()}")
+    }
+
+    /** Nach einem erfolgreichen Lauf ist der aktuelle Satz der, gegen den beim nächsten Mal verglichen wird. */
+    private fun rememberSetup() {
+        setup.asMap().forEach { (name, value) ->
+            if (currentAttrs()[setupAttrKey(name)] != value) setAttr(setupAttrKey(name), value)
+        }
+    }
+
+    private fun resetRealm(reason: String) {
+        println("$reason - lösche Realm '$realmName' und wende alle Migrationen neu an.")
         realm.remove()
         ensureRealmExists()
     }
@@ -146,29 +176,18 @@ class MigrationRunner(
     private fun completedStepIndices(file: MigrationFile): Set<Int> =
         currentAttrs().keys.mapNotNull { file.matchStepDoneKey(it) }.toSet()
 
-    fun status(): List<MigrationStatus> {
-        val attrs = currentAttrs()
-        return discover().map { file ->
-            val script = loadScript(file)
-            val doneIndices = attrs.keys.mapNotNull { file.matchStepDoneKey(it) }.toSet()
-            val lastCompletedAt = doneIndices.mapNotNull { attrs[file.stepDoneAttrKey(it)] }.maxOrNull()
-            val storedChecksum = attrs[file.checksumAttrKey]
-            val mismatch = storedChecksum != null && storedChecksum != sha256(file.path)
-            MigrationStatus(file, doneIndices.size, script.steps.size, lastCompletedAt, mismatch)
-        }
-    }
-
     fun up() {
         ensureRealmExists()
         resetOnChecksumConflict()
+        resetOnSetupChange()
         var anyPending = false
         discover().forEach { file ->
             val script = loadScript(file)
             val done = completedStepIndices(file)
             if (done.size == script.steps.size) return@forEach
             anyPending = true
-            if (done.isEmpty()) setAttr(file.checksumAttrKey, sha256(file.path))
-            println("-> wende ${file.path.fileName} an")
+            if (done.isEmpty()) setAttr(file.checksumAttrKey, sha256(file.text))
+            println("-> wende ${file.name} an")
             try {
                 script.steps.forEachIndexed { i, step ->
                     if (i in done) {
@@ -180,10 +199,11 @@ class MigrationRunner(
                     setAttr(file.stepDoneAttrKey(i), Instant.now().toString())
                 }
             } catch (e: Exception) {
-                throw MigrationStepFailedException(file.version, file.path.fileName.toString(), e)
+                throw MigrationStepFailedException(file.version, file.name, e)
             }
             println("   ok (${script.steps.size} Schritte)")
         }
+        rememberSetup()
         if (!anyPending) println("Keine offenen Migrationen.")
     }
 
@@ -193,15 +213,15 @@ class MigrationRunner(
         val script = loadScript(file)
         val done = completedStepIndices(file)
         if (done.isEmpty()) {
-            println("${file.path.fileName} ist nicht angewendet, nichts zu tun.")
+            println("${file.name} ist nicht angewendet, nichts zu tun.")
             return
         }
-        println("<- mache ${file.path.fileName} rückgängig")
+        println("<- mache ${file.name} rückgängig")
         script.steps.withIndex().toList().asReversed().forEach { (i, step) ->
             if (i !in done) return@forEach
             val downBlock = step.down
                 ?: error(
-                    "${file.path.fileName}: step(\"${step.name}\") hat kein down { } - kann nicht automatisch " +
+                    "${file.name}: step(\"${step.name}\") hat kein down { } - kann nicht automatisch " +
                         "zurückgerollt werden (${done.count { it < i }} vorangehende Schritte bleiben angewendet)",
                 )
             println("   down: ${step.name}")
@@ -209,6 +229,11 @@ class MigrationRunner(
             clearStep(file, i)
         }
         if (completedStepIndices(file).isEmpty()) setAttr(file.checksumAttrKey, null)
+        // Sobald gar nichts mehr angewendet ist, darf auch kein Parameterstand mehr behauptet
+        // werden - sonst vergliche der nächste up()-Lauf gegen Werte, zu denen es kein Realm gibt.
+        if (discover().none { completedStepIndices(it).isNotEmpty() }) {
+            currentAttrs().keys.filter { it.startsWith(SETUP_ATTR_PREFIX) }.forEach { setAttr(it, null) }
+        }
         println("   ok")
     }
 
@@ -218,11 +243,11 @@ class MigrationRunner(
             writeAttr = { key, value -> setAttr(key, value) },
             keyFor = { key -> file.stepDataAttrKey(stepIndex, key) },
         )
-        return StepContext(kc, realmName, realm, memory)
+        return StepContext(kc, setup, realm, memory)
     }
 
     private fun loadScript(file: MigrationFile): KcMigrationScript {
-        val result = host.eval(file.path.toFile().toScriptSource(), compilationConfig, evaluationConfig)
+        val result = host.eval(file.text.toScriptSource(file.name), compilationConfig, evaluationConfig)
         val evalResult = result.valueOrThrow()
         val instance = when (val rv = evalResult.returnValue) {
             is ResultValue.Value -> rv.scriptInstance
@@ -230,7 +255,7 @@ class MigrationRunner(
             else -> null
         }
         return instance as? KcMigrationScript
-            ?: error("${file.path.fileName} konnte nicht als KcMigrationScript geladen werden")
+            ?: error("${file.name} konnte nicht als KcMigrationScript geladen werden")
     }
 
     /** value == null löscht das Attribut wieder. */
@@ -252,8 +277,8 @@ class MigrationRunner(
         realm.update(rep)
     }
 
-    private fun sha256(path: Path): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path))
+    private fun sha256(text: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }
     }
 }

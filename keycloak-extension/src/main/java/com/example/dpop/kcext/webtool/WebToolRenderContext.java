@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool;
 
+import com.example.dpop.kcext.OrchestratorSettings;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Map;
@@ -11,12 +12,17 @@ import java.util.Map;
  * the orchestrator sent them (not narrowed to e.g. just {@code missingFields}): different tools
  * need different keys out of both bags, so each renderer picks its own, the same way
  * {@code ToolRenderContext.stepData}/{@code .demo} are untyped bags on the React side too.
+ *
+ * <p>{@code settings} ist die aufgeloeste Realm-Konfiguration statt der {@code KeycloakSession},
+ * aus der sie stammt: ein Renderer soll seinen konfigurierten Wert lesen koennen, ohne Zugriff auf
+ * alles zu bekommen, was an einer Session haengt.
  */
 public record WebToolRenderContext(
         String toolId,
         String step,
         Map<String, JsonNode> stepData,
         Map<String, JsonNode> demo,
-        String error
+        String error,
+        OrchestratorSettings settings
 ) {
 }

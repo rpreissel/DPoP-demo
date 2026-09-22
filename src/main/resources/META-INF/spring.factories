@@ -1,0 +1,6 @@
+# KeycloakSetupEnvironment leitet die Keycloak-Laufzeitwerte aus dem gewaehlten Parametersatz ab,
+# bevor die erste Bean entsteht (siehe dessen Doku). EnvironmentPostProcessor werden ueber
+# spring.factories registriert - nicht ueber eine .imports-Datei, die gilt nur fuer
+# Auto-Konfigurationen.
+org.springframework.boot.EnvironmentPostProcessor=\
+  com.example.dpop.orchestrator.kc.KeycloakSetupEnvironment

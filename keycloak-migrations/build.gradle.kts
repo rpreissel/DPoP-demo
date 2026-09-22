@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "2.2.21"
     `java-library`
-    application
 }
 
 group = "com.example.dpop"
@@ -49,8 +48,9 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:$kotlinVersion")
     implementation("org.jetbrains.kotlin:kotlin-scripting-common:$kotlinVersion")
     implementation("org.jetbrains.kotlin:kotlin-script-runtime:$kotlinVersion")
-}
-
-application {
-    mainClass.set("com.example.dpop.kcmigrate.MainKt")
+    // KeycloakSetup leitet Namen, Werte und Overrides seiner Felder aus dem primaeren
+    // Konstruktor ab - ein neues Feld ist dadurch genau eine Zeile, ohne parallel gepflegte
+    // Namensliste. Explizit auf $kotlinVersion: transitiv zoege keycloak-admin-client sonst ein
+    // deutlich aelteres kotlin-reflect herein, das nicht zu dieser Stdlib passt.
+    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
 }

@@ -72,7 +72,8 @@ final class WebFormRenderer {
                     .setAttribute("hint", factory != null ? factory.hint() : "");
             if (effectiveError != null) built.setError(effectiveError);
             WebToolRenderContext ctx = new WebToolRenderContext(
-                    next.toolId(), next.step(), response.stepData(), response.demo(), effectiveError
+                    next.toolId(), next.step(), response.stepData(), response.demo(), effectiveError,
+                    OrchestratorSettings.of(session)
             );
             Response rendered = renderer.render(built, ctx);
             if (rendered != null) return rendered;

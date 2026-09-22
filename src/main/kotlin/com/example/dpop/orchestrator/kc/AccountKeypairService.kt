@@ -13,9 +13,10 @@ import java.time.Instant
 
 /**
  * Generates (once, idempotently) and reads back the per-account keypair the `keycloak` profile's
- * real token grant needs. Same shape (EC P-256, nimbus JWK) as the keycloak-
- * extension's own [PeerAuthSigningKey]-style per-node key - here per-account instead, because the
- * whole point is that compromising one account's key never exposes another's.
+ * real token grant needs. Same shape (EC P-256, nimbus JWK) as the two per-node keys this project
+ * also holds ([NodeSigningKey] here, the keycloak-extension's peer-auth key in its `orchestrator`
+ * realm component) - here per-account instead, because the whole point is that compromising one
+ * account's key never exposes another's.
  */
 @Service
 @Profile("keycloak")

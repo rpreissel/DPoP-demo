@@ -42,12 +42,11 @@ public class OrchestratorResumeAuthenticator implements AuthenticationFlowCallba
     private static final Logger LOG = Logger.getLogger(OrchestratorResumeAuthenticator.class);
 
     private final KeycloakSession session;
-    private final OrchestratorClient client = new OrchestratorClient(
-            OrchestratorConfig.BASE_URL, OrchestratorConfig.PEER_AUTH_ISSUER, OrchestratorConfig.PEER_AUTH_AUDIENCE
-    );
+    private final OrchestratorClient client;
 
-    OrchestratorResumeAuthenticator(KeycloakSession session) {
+    OrchestratorResumeAuthenticator(KeycloakSession session, OrchestratorClient client) {
         this.session = session;
+        this.client = client;
     }
 
     @Override

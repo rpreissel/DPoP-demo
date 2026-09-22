@@ -33,9 +33,9 @@ RUN if command -v addgroup >/dev/null 2>&1; then \
     fi \
  && mkdir -p /data && chown dpop:dpop /data
 
-# app.jar, lib/*.jar (flacher Classpath, siehe stagePodmanArtifacts in build.gradle.kts) und
-# keycloak-migrations/migrations (von KeycloakMigrationRunnerStartup zur Laufzeit gelesen, kein
-# Gradle-Resource-Prozessing) kommen alle schon fertig aus dem Staging-Verzeichnis.
+# app.jar und lib/*.jar (flacher Classpath, siehe stagePodmanArtifacts in build.gradle.kts) kommen
+# fertig aus dem Staging-Verzeichnis. Die Keycloak-Migrationen brauchen hier nichts Eigenes: sie
+# sind Ressourcen im keycloak-migrations-Jar unter lib/ und werden von dort gelesen.
 COPY ./ ./
 RUN chown -R dpop:dpop /app
 USER dpop

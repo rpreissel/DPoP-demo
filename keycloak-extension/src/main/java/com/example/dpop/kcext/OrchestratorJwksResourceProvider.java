@@ -5,6 +5,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import org.keycloak.models.KeycloakSession;
 import org.keycloak.services.resource.RealmResourceProvider;
 
 /**
@@ -17,6 +18,12 @@ import org.keycloak.services.resource.RealmResourceProvider;
  */
 public class OrchestratorJwksResourceProvider implements RealmResourceProvider {
 
+    private final KeycloakSession session;
+
+    public OrchestratorJwksResourceProvider(KeycloakSession session) {
+        this.session = session;
+    }
+
     @Override
     public Object getResource() {
         return this;
@@ -26,7 +33,7 @@ public class OrchestratorJwksResourceProvider implements RealmResourceProvider {
     @Path(".well-known/jwks.json")
     @Produces(MediaType.APPLICATION_JSON)
     public String jwks() {
-        return new JWKSet(PeerAuthSigningKey.KEY.toPublicJWK()).toString();
+        return new JWKSet(OrchestratorSettings.of(session).peerAuthSigningKey().toPublicJWK()).toString();
     }
 
     @Override

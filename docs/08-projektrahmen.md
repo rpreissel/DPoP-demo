@@ -157,7 +157,8 @@ Orchestrator über die Portweiterleitung `8080:8080` mit der Bridge-Gateway-Adre
 server"*. Das Sicherheitsnetz greift also wie vorgesehen.
 
 Für den DB-Blick deshalb den Orchestrator auf dem Host starten und nur Keycloak aus Compose
-laufen lassen; `ORCHESTRATOR_BASE_URL` zeigt per Default auf `host.containers.internal:8080`. Wer
+laufen lassen; die Variante `host` (Default von `KEYCLOAK_SETUP_VARIANT`) richtet Keycloak dafür
+bereits auf `host.containers.internal:8080` aus. Wer
 die Daten eines Container-Laufs braucht, kopiert die Datei aus dem gestoppten Volume
 `orchestrator-data` heraus. `web-allow-others` ist keine Option: Der Port ist auf dem Host
 gemappt, das öffnete den vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.

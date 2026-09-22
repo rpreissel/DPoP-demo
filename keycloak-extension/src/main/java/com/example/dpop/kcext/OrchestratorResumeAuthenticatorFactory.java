@@ -69,7 +69,7 @@ public class OrchestratorResumeAuthenticatorFactory implements AuthenticationFlo
 
     @Override
     public Authenticator create(KeycloakSession session) {
-        return new OrchestratorResumeAuthenticator(session);
+        return new OrchestratorResumeAuthenticator(session, OrchestratorSettings.of(session).newClient());
     }
 
     @Override

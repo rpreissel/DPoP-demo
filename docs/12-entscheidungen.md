@@ -272,7 +272,8 @@ Der custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
 - **Nur die umgekehrte Richtung erlauben** (Keycloak ruft den Orchestrator, nie umgekehrt):
   verworfen — `GET .../token` braucht eine sofortige Antwort.
 - **`private_key_jwt`-Client-Authentifizierung statt `client_secret`** für die Admin-/Sync-Strecke
-  selbst (RFC 7523, secret-frei wie ADR-7): sinnvolle, aber orthogonale Härtung.
+  selbst (RFC 7523, secret-frei wie ADR-7): damals als orthogonale Härtung zurückgestellt,
+  inzwischen umgesetzt — siehe ADR-25.
 
 **Warum das Account-Keypair**: Es überträgt dasselbe Prinzip wie ADR-7 (Signatur statt Secret)
 auf eine zweite Richtung — nicht pro Client/Node, sondern pro Account, weil genau das der Blast
@@ -895,6 +896,63 @@ Eine Vorhersage, die mit dem Schreibvorgang uneins ist, wäre schlimmer als kein
 - `AttributeType` trägt mit `PASSWORD_EXISTS` erstmals eine Aussage, die nichts über die **Person**
   sagt, sondern über die Credentials des Kontos. Bewusst dort und nicht in einem zweiten
   Mechanismus: die Lebensdauer, die das Claim-Log ohnehin verwaltet, ist genau die gesuchte.
+
+## ADR-25: Die Keycloak-Konfiguration steht im Realm, nicht in der Container-Umgebung
+
+**Entscheidung** (umgesetzt): Die Keycloak-Extension liest ihre Laufzeitkonfiguration aus den
+Config-Properties der `orchestrator`-Komponente des Realms (`OrchestratorSettings`), nicht mehr aus
+Umgebungsvariablen des Keycloak-Containers. Fehlt die Komponente oder ein Wert, scheitert der
+Aufruf laut — es gibt keinen Fallback.
+
+Vorgelagert dazu beschreibt **ein** Wertobjekt die ganze Umgebung (`KeycloakSetup`, gewählt über
+`keycloak-setup.variant`): aus ihm speist sich sowohl der Realm-Aufbau durch die Migration als auch
+der laufende Betrieb des Orchestrators (Account-Sync, Peer-Auth-JWKS, OIDC-Prüfung).
+
+**Warum**: Aufbau und Betrieb meinen dasselbe Realm und dieselben Clients. Solange Migration und
+Laufzeit ihre Werte aus getrennten Quellen zogen — `System.getenv` im Migrationsskript, Env-Vars am
+Keycloak-Container, Spring-Properties am Orchestrator —, war „Migration gegen Realm A, Sync gegen
+Realm B" ein Tippfehler weit, und der Fehler zeigte sich erst als 401 tief im Betrieb. Zugleich war
+die Extension-Konfiguration im laufenden Keycloak nirgends sichtbar: weder in der Admin-Console
+noch im Realm-Export.
+
+**Zwei Hälften, eine Konsequenz**: `RealmSetup` ist, was ins Realm geschrieben wird;
+`KeycloakAccess` nur, wie man das fertige Realm erreicht. Ändert sich ein Wert der ersten Hälfte,
+baut der `MigrationRunner` das Realm neu auf — dieselbe Konsequenz wie bei einer geänderten
+Migrationsdatei, aus demselben Grund: die erledigten Schritte würden den Wert nie wieder anfassen,
+das Realm liefe stillschweigend mit dem alten weiter. Das Migrationsskript bekommt deshalb
+ausschließlich `RealmSetup` zu sehen — ein Schritt kann gar nicht erst einen Wert verbauen, den der
+Reset nicht überwacht.
+
+### Kein geteiltes Geheimnis mehr
+
+Im selben Zug entfallen die Client-Secrets: `orchestrator-admin` und `orchestrator-app-token`
+authentisieren sich per **`private_key_jwt`** (RFC 7523, die in ADR-9 erwogene Härtung). Der
+Orchestrator signiert jeden Token-Request mit seinem eigenen Schlüssel, Keycloak holt den
+öffentlichen Teil unter `jwks.url` ab — spiegelbildlich zu der Assertion, mit der sich Keycloak
+beim Orchestrator ausweist (ADR-7). Beide Richtungen tragen damit dasselbe Prinzip, und in
+Konfiguration, Compose-Datei und Realm steht kein geteiltes Geheimnis mehr.
+
+Beide Signaturschlüssel liegen jetzt **in einer Datenbank** statt im Prozessspeicher: der des
+Orchestrators in `orchestrator.node_signing_key`, der der Extension als Property der
+`orchestrator`-Komponente, also in Keycloaks eigener DB. Vorher entstand je Seite ein Paar pro
+JVM-Lauf — das trug nur, solange genau ein Knoten lief: ein zweiter hätte mit einem Schlüssel
+signiert, den das JWKS des ersten nie nennt.
+
+**Preis**, bewusst getragen:
+
+- Ohne die `orchestrator`-Komponente läuft die Extension nicht. Das ist gewollt: ein stiller
+  Default wäre genau die Fehlkonfiguration, die vorher erst am fremden Verhalten eines Logins
+  auffiel.
+- Ein geänderter Wert wirft die Keycloak-Seite weg und baut sie neu. Verkraftbar, weil die
+  Orchestrator-DB keine Keycloak-Ids speichert — die Nutzer entstehen über
+  `orchestratorAccountId` beim nächsten Sync neu.
+- Keycloak muss den Orchestrator erreichen können, um dessen JWKS zu holen — dieselbe Strecke, die
+  die Extension ohnehin für jeden kc-facade-Aufruf braucht (`orchestratorBaseUrl`), also keine
+  neue Abhängigkeit, aber eine zweite Stelle, an der sie sichtbar wird.
+- Die privaten Schlüssel liegen im Klartext in ihrer jeweiligen Datenbank — derselbe Demo-Rahmen,
+  den ADR-22 für den verwahrten PIN benennt.
+
+---
 
 ---
 

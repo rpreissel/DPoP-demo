@@ -31,7 +31,8 @@ Podman-Machine abhängt.
 `podman-compose up --build` startet `keycloak` (echtes Keycloak, HTTPS auf Port 8543) und den
 containerisierten `orchestrator` (Port 8080, eigenes Volume `orchestrator-data` für die
 H2-Datei-DB). Der
-Orchestrator wendet beim eigenen Start automatisch alle `keycloak-migrations/migrations/*.kc.kts`
+Orchestrator wendet beim eigenen Start automatisch alle Migrationen aus dem
+`keycloak-migrations`-Jar (`classpath*:keycloak-migrations/*.kc.kts`)
 an (`KeycloakMigrationRunnerStartup`, Ersatz für den früheren separaten OpenTofu-Realm-Import) und
 spricht Keycloak intern als `https://keycloak:8443` an, nicht `https://localhost:8543`.
 
@@ -76,6 +77,32 @@ Vorlage unter [`.env.work.example`](.env.work.example) bei, einfach kopieren:
 |---|---|---|
 | `KEYCLOAK_BASE_IMAGE` | `quay.io/keycloak/keycloak:26.6.4` | `keycloak-extension/Dockerfile` — Keycloak-Laufzeit-Image (öffentlich, siehe Hinweis unten) |
 | `ORCHESTRATOR_RUNTIME_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21-runtime:latest` | `Dockerfile` — Laufzeit-Image |
+| `KEYCLOAK_SETUP_VARIANT` | `host` (`compose.yml` setzt `compose`) | Welche Keycloak-Umgebung aufgebaut und bedient wird — siehe unten |
+| `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` | `admin` / `admin` | Master-Realm-Admin, mit dem der Migrationslauf arbeitet |
+
+### Keycloak-Umgebung: eine Variante statt einzelner Variablen
+
+Realm-Name, Client-Ids, Redirect-URIs und die URLs beider Seiten sind **keine einzelnen
+Umgebungsvariablen mehr** (Client-Secrets gibt es gar keine mehr — der Orchestrator authentisiert
+sich bei Keycloak mit einer signierten Assertion, `private_key_jwt`). Sie stehen zusammen in einem benannten Satz (`KeycloakSetup`),
+aus dem sich beides speist: der Realm-Aufbau durch die Migration *und* die Laufzeitwerte des
+Orchestrators (Account-Sync, Peer-Auth-JWKS, OIDC-Issuer). `KEYCLOAK_SETUP_VARIANT` wählt aus:
+
+| Variante | Wofür |
+|---|---|
+| `host` | Orchestrator per `./gradlew bootRun` auf dem Host, nur Keycloak im Container |
+| `compose` | beide im Compose-Netz (`compose.yml` setzt sie selbst) |
+
+Beide stehen in `application-keycloak.yml` unter `keycloak-setup.variants`, und `keycloak-setup.base`
+darüber nennt jedes Feld einmal — eine weitere Umgebung ist damit ein Eintrag dort, keine
+Codeänderung; jede Variante nennt nur, worin sie von der Basis abweicht. Die Werte für den Keycloak-seitigen Teil landen als
+Config-Properties der `orchestrator`-Komponente im Realm (User federation in der Admin-Console),
+wo die Extension sie zur Laufzeit liest.
+
+**Achtung:** Ändert sich ein Wert, den ein bereits angewendeter Migrationsschritt verbaut hat, baut
+der `MigrationRunner` das Realm neu auf — dieselbe Konsequenz wie bei einer geänderten
+Migrationsdatei. Die Keycloak-User entstehen beim nächsten Sync/Login neu, die Orchestrator-DB
+bleibt unberührt.
 
 Die Laufzeit-Images legen per `USER root` (kurzzeitig) einen eigenen Nutzer an — `dpop` im
 Orchestrator-Image, `keycloak` bringt sein eigenes Image schon mit — mit `groupadd`/`useradd`

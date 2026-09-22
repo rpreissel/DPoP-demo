@@ -1,20 +1,25 @@
 # Profile fuer den echten Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), gegen das per
 # podman-compose gestartete Keycloak statt des Mock-Keycloak-Frontends (application.yml's Default).
-# Start: `podman-compose up --build` (compose.yml) fuer Keycloak+Tofu-Realm, parallel dazu
+# Start: `podman-compose up --build` (compose.yml) fuer Keycloak, parallel dazu
 # `./gradlew bootRun --args='--spring.profiles.active=keycloak'` fuer den Orchestrator selbst.
+#
+# WO HIER WAS STEHT: Realm-Name, Keycloak-Adresse und die Client-Secrets stehen NICHT mehr in
+# diesem Profil, sondern ausschliesslich im Parametersatz unten (keycloak-setup).
+# KeycloakSetupEnvironment leitet daraus kc.peer-auth.issuer/audience/jwks-uri, kc.oidc.*,
+# keycloak-sync.base-url/realm/*-secret und keycloak-migrate.base-url ab, bevor die erste Bean
+# entsteht. Grund: Aufbau und Betrieb meinen dasselbe Realm und dieselben Clients - zwei Orte
+# dafuer waren ein Tippfehler von einem 401 entfernt, der erst tief im Betrieb auffaellt.
 kc:
   peer-auth:
-    issuer: dpop-demo-keycloak
-    audience: dpop-demo-orchestrator
-    # HTTP ist auf Keycloak-Seite komplett aus (compose.yml) - dieser Fetch (wie auch der
-    # Account-Sync unten) laeuft daher ueber HTTPS gegen das selbstsignierte start-dev-Zertifikat.
-    # KeycloakTlsConfig (nur `keycloak`-Profil) installiert dafuer einen Trust-all-SSLContext -
-    # demo-only, siehe dessen eigene Doku.
-    jwks-uri: https://localhost:8543/realms/Demo/orchestrator-jwks/.well-known/jwks.json
+    # issuer/audience/jwks-uri: abgeleitet (siehe oben).
     jwks-cache-ttl-seconds: 600
     # Grosszuegig statt der Default-30s: die Podman-Machine-VM (macOS) auf diesem Rechner driftet
     # merklich schneller als in 30s tolerierbar, sobald der Host kurz schlaeft - ein reines
     # Lokal-Testing-Problem dieser Umgebung, kein Sicherheitsanspruch dieses Profils.
+    #
+    # Der Fetch der JWKS (wie auch der Account-Sync) laeuft ueber HTTPS gegen das selbstsignierte
+    # start-dev-Zertifikat; KeycloakTlsConfig (nur `keycloak`-Profil) installiert dafuer einen
+    # Trust-all-SSLContext - demo-only, siehe dessen eigene Doku.
     max-clock-skew-seconds: 300
     max-age-seconds: 300
   # Demo-only convenience read path (KeycloakOidcTokenValidator): the Web-Kanal demo UI's
@@ -23,35 +28,75 @@ kc:
   # Orchestrator") only binds the actual login/tool-execution traffic, not this read-only debug
   # view. Verified against Keycloak's OWN realm signing key (not the ephemeral peer-auth one above).
   oidc:
-    issuer: https://localhost:8543/realms/Demo
-    certs-uri: https://localhost:8543/realms/Demo/protocol/openid-connect/certs
+    # issuer/certs-uri: abgeleitet (siehe oben).
     jwks-cache-ttl-seconds: 600
 
 # Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
-# in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig.
-# admin-client-id/-secret gehoert dem in keycloak-migrations/migrations/V5__orchestrator_admin_client.kc.kts
-# angelegten Service-Account-Client mit der realm-management-Rolle manage-users.
-# app-client-id/-secret gehoert dem separaten, privilegienlosen Client aus
-# keycloak-migrations/migrations/V8__orchestrator_app_client.kc.kts - ausschliesslich fuer den
-# Custom-Account-Token-Grant (APP-Kanal-Login), nie fuer die Admin-REST-API.
-keycloak-sync:
-  base-url: https://localhost:8543
-  realm: Demo
-  admin-client-id: orchestrator-admin
-  admin-client-secret: change-me-orchestrator-admin
-  app-client-id: orchestrator-app-token
-  app-client-secret: change-me-orchestrator-app-token
+# in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig. Vollstaendig abgeleitet
+# (base-url, realm, beide Client-Ids und -Secrets): es sind genau die Clients, die die Migration
+# anlegt, siehe Kopf.
 
-# KeycloakMigrationRunnerStartup: wendet alle .kc.kts-Dateien aus keycloak-migrations/migrations
-# beim Start des Orchestrators an - Ersatz für den frueheren separaten Tofu-Schritt. Braucht echte
-# Master-Realm-Admin-Credentials (nicht keycloak-sync's orchestrator-admin-Service-Account oben -
-# der wird von V5 erst angelegt, existiert beim allerersten Lauf also noch nicht).
-# base-url per Default fuer den Host-Lauf (./gradlew bootRun); im Compose-Netzwerk ueberschreibt
-# KEYCLOAK_MIGRATE_BASE_URL auf https://keycloak:8443, migrations-dir bleibt gleich (siehe
-# Dockerfile - die migrations/ liegen dort ebenfalls unter /app/keycloak-migrations/migrations).
-keycloak-migrate:
-  base-url: ${KEYCLOAK_MIGRATE_BASE_URL:https://localhost:8543}
-  realm: ${KEYCLOAK_REALM:Demo}
-  admin-username: ${KEYCLOAK_ADMIN:admin}
-  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
-  migrations-dir: keycloak-migrations/migrations
+# KeycloakMigrationRunnerStartup wendet die Migrationen beim Start des Orchestrators an - Ersatz
+# fuer den frueheren separaten Tofu-Schritt. Es gibt hier nichts mehr zu konfigurieren: die
+# Skripte sind Ressourcen des keycloak-migrations-Jars (classpath*:keycloak-migrations/*.kc.kts),
+# und base-url wie Admin-Zugang sind aus der gewaehlten Umgebung abgeleitet (siehe Kopf). Der
+# Zugang ist bewusst der Master-Realm-Admin und nicht keycloak-sync's
+# orchestrator-admin-Service-Account: den legt die Migration selbst erst an.
+
+# Welche Umgebung aufgebaut und bedient wird. Alles, was zwischen zwei Umgebungen verschieden ist
+# - Realm-Name, Client-Ids, Secrets, Redirect-URIs und die URLs beider Seiten - steht hier, nicht
+# verstreut als System.getenv im Migrationsskript (KeycloakSetup). Aus diesem Satz speist sich
+# beides: der Realm-Aufbau durch die Migration und die Laufzeitwerte oben.
+#
+# ZWEI HAELFTEN, eine wichtige Unterscheidung (KeycloakSetup):
+#   RealmSetup     - was ins Realm geschrieben wird (realmName, realmDisplayName, loginTheme,
+#                    browserClientId, qrTestClientId, adminApiClientId, appTokenClientId, browserRedirectUris,
+#                    orchestratorBaseUrl, publicOrchestratorBaseUrl, peerAuthIssuer,
+#                    peerAuthAudience). Aendert sich einer dieser Werte, baut MigrationRunner das
+#                    Realm NEU AUF (resetOnSetupChange) - dieselbe Konsequenz wie bei einer
+#                    geaenderten Migrationsdatei, denn die erledigten Schritte wuerden den neuen
+#                    Wert sonst nie wieder anfassen.
+#   KeycloakAccess - wie man dieses Keycloak erreicht: keycloakBaseUrl, publicKeycloakBaseUrl und
+#                    die Master-Realm-Zugangsdaten des Migrationslaufs (adminUsername/-Password).
+#                    Steht in keinem Realm, kostet also nichts: gilt beim naechsten Start.
+#
+# base nennt jedes Feld, eine Variante nur ihre Abweichungen. Eine weitere Umgebung ist damit ein
+# Eintrag unter variants, keine Codeaenderung.
+keycloak-setup:
+  variant: ${KEYCLOAK_SETUP_VARIANT:host}
+  base:
+    realmName: ${KEYCLOAK_REALM:Demo}
+    realmDisplayName: Demo
+    # Die Formulare der Extension leben in diesem Theme.
+    loginTheme: orchestrator
+    browserClientId: dpop-demo-web
+    qrTestClientId: dpop-demo-web-qr-test
+    adminApiClientId: orchestrator-admin
+    appTokenClientId: orchestrator-app-token
+    # 8080 ist der Orchestrator selbst, 5173 der Vite-Dev-Server des Frontends.
+    browserRedirectUris: http://localhost:8080/*,http://localhost:5173/*
+    # Die vier Adressen setzt jede Variante selbst - die Werte hier stehen nur fuer die
+    # Vollstaendigkeit der Basis (KeycloakSetup.from verlangt jedes Feld) und tragen nie.
+    orchestratorBaseUrl: http://localhost:8080
+    publicOrchestratorBaseUrl: http://localhost:8080
+    peerAuthIssuer: dpop-demo-keycloak
+    peerAuthAudience: dpop-demo-orchestrator
+    keycloakBaseUrl: https://localhost:8543
+    publicKeycloakBaseUrl: https://localhost:8543
+    # Master-Realm-Admin fuer den Realm-Aufbau - nicht der orchestrator-admin-Client, den die
+    # Migration selbst anlegt.
+    adminUsername: ${KEYCLOAK_ADMIN:admin}
+    adminPassword: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+  variants:
+    host:
+      # Orchestrator laeuft auf dem Host (./gradlew bootRun), nur Keycloak im Container: der Weg
+      # dorthin geht ueber den gemappten Port, der Rueckweg ueber host.containers.internal -
+      # Podman Machine (gvproxy, macOS) loest den Namen selbst auf. Auf reinem Linux-Podman ohne
+      # Machine-VM braucht es dafuer eine eigene Variante mit der tatsaechlichen Host-IP.
+      orchestratorBaseUrl: http://host.containers.internal:8080
+      keycloakBaseUrl: https://localhost:8543
+    compose:
+      # Beide im compose-Netz: direkt ueber die Service-Namen, ohne Umweg ueber gemappte Ports.
+      # publicKeycloakBaseUrl bleibt die Host-Adresse - von dort holt der Browser sein Token.
+      orchestratorBaseUrl: http://orchestrator:8080
+      keycloakBaseUrl: https://keycloak:8443

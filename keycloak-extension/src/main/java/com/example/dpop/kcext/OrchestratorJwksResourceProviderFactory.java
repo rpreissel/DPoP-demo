@@ -17,7 +17,7 @@ public class OrchestratorJwksResourceProviderFactory implements RealmResourcePro
 
     @Override
     public RealmResourceProvider create(KeycloakSession session) {
-        return new OrchestratorJwksResourceProvider();
+        return new OrchestratorJwksResourceProvider(session);
     }
 
     @Override
