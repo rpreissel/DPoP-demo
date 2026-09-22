@@ -1,6 +1,5 @@
 package com.example.dpop.account.internal
 
-import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
@@ -9,7 +8,8 @@ import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_api.normalizeAnchorValue
 import com.example.dpop.tool_api.normalizeKvnr
-import com.example.dpop.tool_api.rule
+import com.example.dpop.tool_api.anchorRule
+import com.example.dpop.tool_api.isLocalAnchor
 import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -120,8 +120,8 @@ class IdentityMatchingService(
                 ?.accountId?.let { matches.add(Resolution.ExistingAccount(it, MatchedVia.Anchor(AttributeType.PERSON_ID))) }
         }
         for (claim in claims
-            .filter { it.attributeType.rule.authority == AttributeAuthority.LOCAL_ANCHOR }
-            .sortedByDescending { checkNotNull(it.attributeType.rule.anchor) { "${it.attributeType} has no anchor rule" }.bindingStrength }
+            .filter { it.attributeType.isLocalAnchor }
+            .sortedByDescending { checkNotNull(it.attributeType.anchorRule) { "${it.attributeType} has no anchor rule" }.bindingStrength }
         ) {
             val anchor = accountAnchorRepository.findByAttributeTypeAndValue(
                 claim.attributeType,

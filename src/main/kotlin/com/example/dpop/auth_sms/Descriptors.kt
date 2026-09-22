@@ -34,7 +34,7 @@ object EnrollSmsDescriptor : ToolDescriptor {
 
     // A confirmed TAN proves the subject holds this number, which is an assertion about their
     // identity and therefore belongs in the claim log - the same treatment enroll-email gives a
-    // confirmed address. It stops there: PHONE_NUMBER is AttributeAuthority.METHOD_MODULE, so
+    // confirmed address. It stops there: PHONE_NUMBER is AttributeAuthority.MethodModule, so
     // recordClaims appends provenance only and materializes no anchor. Deliberately no
     // uniqueness - several accounts may legitimately share one number (a family phone), and the
     // claim log has no unique constraint to violate. auth-sms-lookup never resolves by number.

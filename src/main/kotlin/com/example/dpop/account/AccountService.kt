@@ -17,7 +17,9 @@ import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.normalizeAnchorValue
-import com.example.dpop.tool_api.rule
+import com.example.dpop.tool_api.anchorRule
+import com.example.dpop.tool_api.authority
+import com.example.dpop.tool_api.isLocalAnchor
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.TrustLevel
@@ -68,7 +70,7 @@ class AccountService(
      * Withdraws what one method instance asserted, as its own retraction row per distinct value -
      * the claim log itself is never touched (ADR-12, docs/12-entscheidungen.md).
      *
-     * Retracts only claims whose [AttributeRule.authority] is [AttributeAuthority.METHOD_MODULE]:
+     * Retracts only claims whose [AttributeType.authority] is [AttributeAuthority.MethodModule]:
      * an anchor (`EMAIL`) or master-data attribute (`NAME`) is an identity fact OF THE ACCOUNT,
      * not an artifact of the method, and outlives the credential - otherwise removing the email
      * method would silently strip the account's identity anchor and with it password login.
@@ -83,7 +85,7 @@ class AccountService(
      * Exists so a caller can work out the consequences of a removal BEFORE writing anything
      * (`JourneyActionExecutor.removeMethod` projects the account's state after the removal to
      * check it against the channel's floor). Deliberately the same query and the same
-     * METHOD_MODULE filter as the retraction itself rather than a second, independently derived
+     * MethodModule filter as the retraction itself rather than a second, independently derived
      * answer - a projection that disagreed with the write it predicts would be worse than none.
      */
     @Transactional(readOnly = true)
@@ -91,7 +93,7 @@ class AccountService(
         val instanceId = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return emptySet()
         return accountClaimRepository.findByAuthMethodId(instanceId)
             .filter { it.accountId == accountId }
-            .filter { it.attributeType?.rule?.authority == AttributeAuthority.METHOD_MODULE }
+            .filter { it.attributeType?.authority == AttributeAuthority.MethodModule }
             .mapNotNull { it.attributeType }
             .toSet()
     }
@@ -141,7 +143,7 @@ class AccountService(
                 )
             )
         }
-        if (attributeType.rule.authority == AttributeAuthority.LOCAL_ANCHOR) {
+        if (attributeType.isLocalAnchor) {
             accountAnchorRepository.findByAccountIdAndAttributeType(accountId, attributeType)
                 ?.let { accountAnchorRepository.delete(it) }
         }
@@ -159,7 +161,7 @@ class AccountService(
         val now = Instant.now()
         val retractable = accountClaimRepository.findByAuthMethodId(instanceId)
             .filter { it.accountId == accountId }
-            .filter { it.attributeType?.rule?.authority == AttributeAuthority.METHOD_MODULE }
+            .filter { it.attributeType?.authority == AttributeAuthority.MethodModule }
             .mapNotNull { claim -> claim.attributeType?.let { type -> type to claim.normalizedValue } }
             .distinct()
         retractable.forEach { (type, value) ->
@@ -182,7 +184,7 @@ class AccountService(
      * [claims] a single completed tool run asserted, applied together. Never overwrites a prior
      * claim; the log is provenance. At most one claim per [AttributeType] - the same contract
      * `assertClaimsCovered` checks upstream, re-checked here so this method is safe on its own.
-     * A locally owned attribute (`AttributeAuthority.LOCAL_ANCHOR`: `PERSON_ID`,
+     * A locally owned attribute (`AttributeAuthority.Local`: `PERSON_ID`,
      * `EID_RESTRICTED_ID`, `EMAIL`) is additionally consolidated into its [AccountAnchor]; every
      * other attribute is only logged here, its authority living elsewhere (`ext_stammdaten`, or a
      * method module's own row).
@@ -246,7 +248,7 @@ class AccountService(
                     )
                 )
             }
-            if (claim.attributeType.rule.authority == AttributeAuthority.LOCAL_ANCHOR) {
+            if (claim.attributeType.isLocalAnchor) {
                 lockForUpdate(accountId)
                 recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
                 eventPublisher.publishEvent(AccountChanged(accountId))
@@ -260,7 +262,7 @@ class AccountService(
      * re-assigned: ADR-11 makes a cross-account conflict an upstream rejection, and throwing rolls
      * the whole claim back, log entry included. A new value for THIS account's own anchor
      * re-binds it only if [AnchorRule.allowsReplacement] says so (`EMAIL`); `PERSON_ID` (immutable
-     * after first binding) is rejected the same way. Only ever called from the `LOCAL_ANCHOR`
+     * after first binding) is rejected the same way. Only ever called from the `AttributeAuthority.Local`
      * branch of [recordClaims] - [type] is guaranteed to have an [AnchorRule].
      *
      * A rebind UPDATES the row in place rather than deleting and re-inserting: Hibernate flushes
@@ -281,7 +283,7 @@ class AccountService(
         establishedAt: Instant,
         provenAcr: AcrLevel
     ) {
-        val anchor = checkNotNull(type.rule.anchor) { "$type is not a local anchor attribute" }
+        val anchor = checkNotNull(type.anchorRule) { "$type is not a local anchor attribute" }
         val normalized = type.normalizeAnchorValue(value)
         accountAnchorRepository.findByAttributeTypeAndValue(type, normalized)?.let { held ->
             if (held.accountId == accountId) return
@@ -577,7 +579,7 @@ class AccountService(
         accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value))?.accountId
 
     override fun anchorValue(accountId: Long, type: AttributeType): String? {
-        check(type.rule.authority == AttributeAuthority.LOCAL_ANCHOR) { "$type is not a local account anchor, it is owned by ${type.rule.authority}" }
+        check(type.isLocalAnchor) { "$type is not a local account anchor, it is owned by ${type.authority}" }
         return accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
     }
 

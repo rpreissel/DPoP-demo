@@ -46,7 +46,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
      * States the bare fact that this account now has a password, so that another method can make
      * itself depend on it through the ordinary `requires` gate ([AttributeType.PASSWORD_EXISTS]).
      * It needs no value of its own - and gets its lifetime for free: `retractClaimsOf` retracts
-     * every METHOD_MODULE claim of a revoked instance, so removing the password un-establishes
+     * every MethodModule claim of a revoked instance, so removing the password un-establishes
      * this by itself, and whatever required it falls with it.
      */
     override val claims = setOf(ClaimDeclaration(AttributeType.PASSWORD_EXISTS, ClaimSource.of(toolId)))

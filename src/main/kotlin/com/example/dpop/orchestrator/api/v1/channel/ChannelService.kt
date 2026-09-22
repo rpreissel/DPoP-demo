@@ -30,8 +30,8 @@ import com.example.dpop.tool_api.AuthData
 import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_api.AttributeAuthority
-import com.example.dpop.tool_api.rule
+import com.example.dpop.tool_api.authority
+import com.example.dpop.tool_api.isLocalAnchor
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
@@ -348,9 +348,9 @@ class ChannelService(
     fun retractAttribute(channelSessionId: UUID, bindingKeyRef: String, attribute: String): ChannelResponse {
         val attributeType = AttributeType.fromWireName(attribute)
             ?: throw OrchestratorException.invalidState("Unbekanntes Attribut: $attribute")
-        if (attributeType.rule.authority != AttributeAuthority.LOCAL_ANCHOR) {
+        if (!attributeType.isLocalAnchor) {
             throw OrchestratorException.invalidState(
-                "'$attribute' gehoert nicht dem Konto (${attributeType.rule.authority}) und kann hier nicht zurueckgenommen werden"
+                "'$attribute' gehoert nicht dem Konto (${attributeType.authority}) und kann hier nicht zurueckgenommen werden"
             )
         }
         return startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.RetractAttributeRequested(attributeType))

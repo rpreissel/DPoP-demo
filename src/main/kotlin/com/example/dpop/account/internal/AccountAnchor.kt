@@ -11,8 +11,8 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * The one current value an account holds for a locally owned attribute (`AttributeRule.authority
- * == LOCAL_ANCHOR`), in its normalized form - at most one per (account, attribute type).
+ * The one current value an account holds for a locally owned attribute (`AttributeType.authority
+ * is AttributeAuthority.Local`), in its normalized form - at most one per (account, attribute type).
  * `UNIQUE(attribute_type, normalized_value)` makes resolving an identity a lookup instead of a
  * match and is the only uniqueness authority for that value. First writer wins across accounts - a
  * cross-account conflict is an upstream rejection (ADR-11, docs/12-entscheidungen.md), never a

@@ -145,7 +145,7 @@ Diagramm der tragenden Tabellen: [02-domaenenmodell.md](02-domaenenmodell.md) Ab
 - **Typen**: Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
   `VARCHAR(16)`, Tool-IDs/Methoden/Attributtypen/Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
 - **Anker**: Jeder Schreibvorgang auf `account.anchor` verlangt ein Mindestniveau nach
-  `AttributeType.anchorAcrFloor` (Erstbinden und Ersetzen getrennt); `established_acr` hält das
+  `AnchorRule.acrFloor` (Erstbinden und Ersetzen getrennt); `established_acr` hält das
   tatsächlich bewiesene, nach ADR-5 begrenzte Niveau ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
 - **Konto**: Über `account.account` werden Änderungen gesperrt; der aktuelle Zustand steht in
   eigenen Zeilen, die Historie wird nur angefügt

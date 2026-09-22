@@ -10,23 +10,33 @@ import com.example.dpop.tool_spi.AttributeType
  * persistence-adjacent knowledge on purpose; it lives here in `tool_api` instead.
  */
 
-/** Who owns the current value of an attribute. */
-enum class AttributeAuthority {
-    /** Stored locally in `account.anchor`, which is also the uniqueness authority for it. */
-    LOCAL_ANCHOR,
+/**
+ * Who owns the current value of an attribute - and, for the one owner that also resolves accounts
+ * by it, the rules that come with that. Sealed rather than an enum beside a nullable [AnchorRule]:
+ * "the account owns this value" and "this value is an anchor" are one fact here, not two that a
+ * test has to keep in step. There is no locally owned attribute that is not an anchor, and no
+ * anchor that is not locally owned, so [Local] carries its [Local.anchor] and the unpaired state
+ * cannot be written down.
+ */
+sealed interface AttributeAuthority {
+    /**
+     * The account itself owns the value, stored in `account.anchor` - which is also the uniqueness
+     * authority for it and the row every lookup resolves through, hence [anchor].
+     */
+    data class Local(val anchor: AnchorRule) : AttributeAuthority
 
     /**
      * Owned by the master-data backend and read live through [PersonDirectory] whenever it is
      * needed - never projected into a local column, so it cannot go stale. Local claim-log rows
      * for these types are history (what was asserted, by whom, when), never the current truth.
      */
-    EXT_STAMMDATEN,
+    data object ExtStammdaten : AttributeAuthority
 
     /**
      * Owned by the method module that enrolled it, in its own `<module>_enrollment` row (e.g.
      * `auth_sms.enrollment.phone_number`). The `account` module never resolves it.
      */
-    METHOD_MODULE
+    data object MethodModule : AttributeAuthority
 }
 
 /**
@@ -37,7 +47,7 @@ enum class AttributeAuthority {
 data class AnchorAcrFloor(val establish: AcrLevel, val replace: AcrLevel)
 
 /**
- * The anchor-specific rules for a [AttributeAuthority.LOCAL_ANCHOR] attribute. [bindingStrength]
+ * The anchor-specific rules an [AttributeAuthority.Local] attribute carries. [bindingStrength]
  * is derived from [allowsReplacement] rather than a second, independently chosen rank: an anchor
  * nothing can ever replace is unforgeable evidence of identity, one that a later, equally strong
  * proof may re-point is not - so "immutable" and "binds more strongly" can never disagree.
@@ -47,14 +57,10 @@ data class AnchorRule(val acrFloor: AnchorAcrFloor, val allowsReplacement: Boole
 }
 
 /**
- * The complete rule set for one [AttributeType], as a single exhaustive `when` ([rule]) instead of
- * one `when` per property: a new [AttributeType] does not compile until this one place decides
- * everything about it. [anchor] is `null` exactly when [authority] is not
- * [AttributeAuthority.LOCAL_ANCHOR].
- */
-data class AttributeRule(val authority: AttributeAuthority, val anchor: AnchorRule?)
-
-/**
+ * Who owns this attribute's current value, as a single exhaustive `when` instead of one `when` per
+ * property: a new [AttributeType] does not compile until this one place decides everything about
+ * it.
+ *
  * `PERSON_ID` establishes and replaces at `loa2` - it is the strongest anchor, so both writes cost
  * the most. `EMAIL` establishes at `loa1` - a registration has proven nothing yet, so demanding
  * `loa2` there would make the first account impossible - but replaces at `loa2`, since that write
@@ -63,19 +69,16 @@ data class AttributeRule(val authority: AttributeAuthority, val anchor: AnchorRu
  * replacing it (a new card, same person) must cost exactly what establishing it did - it can
  * change value, but never account.
  */
-val AttributeType.rule: AttributeRule
+val AttributeType.authority: AttributeAuthority
     get() = when (this) {
-        AttributeType.PERSON_ID -> AttributeRule(
-            authority = AttributeAuthority.LOCAL_ANCHOR,
-            anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
+        AttributeType.PERSON_ID -> AttributeAuthority.Local(
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
         )
-        AttributeType.EID_RESTRICTED_ID -> AttributeRule(
-            authority = AttributeAuthority.LOCAL_ANCHOR,
-            anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
+        AttributeType.EID_RESTRICTED_ID -> AttributeAuthority.Local(
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
         )
-        AttributeType.EMAIL -> AttributeRule(
-            authority = AttributeAuthority.LOCAL_ANCHOR,
-            anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true)
+        AttributeType.EMAIL -> AttributeAuthority.Local(
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true)
         )
         AttributeType.KVNR,
         AttributeType.NAME,
@@ -84,13 +87,25 @@ val AttributeType.rule: AttributeRule
         AttributeType.STRASSE,
         AttributeType.HAUSNUMMER,
         AttributeType.PLZ,
-        AttributeType.ORT -> AttributeRule(authority = AttributeAuthority.EXT_STAMMDATEN, anchor = null)
+        AttributeType.ORT -> AttributeAuthority.ExtStammdaten
         AttributeType.PHONE_NUMBER,
-        // METHOD_MODULE is what makes the dependency work: retractClaimsOf retracts exactly these
+        // MethodModule is what makes the dependency work: retractClaimsOf retracts exactly these
         // when the owning method instance is revoked, so "the account has a password" stops being
         // established the moment the password does.
-        AttributeType.PASSWORD_EXISTS -> AttributeRule(authority = AttributeAuthority.METHOD_MODULE, anchor = null)
+        AttributeType.PASSWORD_EXISTS -> AttributeAuthority.MethodModule
     }
+
+/**
+ * The anchor rules of this attribute type, or `null` for a type the account does not own itself.
+ * Shorthand for the `is`-check plus the property, for the callers that only want the rules; the
+ * ones that branch on ownership match on [authority] directly.
+ */
+val AttributeType.anchorRule: AnchorRule?
+    get() = (authority as? AttributeAuthority.Local)?.anchor
+
+/** Whether the account itself owns this attribute's value - i.e. whether it is a local anchor. */
+val AttributeType.isLocalAnchor: Boolean
+    get() = authority is AttributeAuthority.Local
 
 /**
  * Canonical form of [value] for storage and lookup, applied identically on write
@@ -110,7 +125,7 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
         // itself: KVNR is resolved live through PersonDirectory, never stored/looked up as a
         // local account.anchor row.
         Kvnr.of(value)
-        error("$this is not a local account anchor - authority is ${rule.authority}, resolved live via PersonDirectory")
+        error("$this is not a local account anchor - authority is $authority, resolved live via PersonDirectory")
     }
     AttributeType.NAME,
     AttributeType.VORNAME,
@@ -121,5 +136,5 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.ORT,
     AttributeType.PHONE_NUMBER,
     AttributeType.PASSWORD_EXISTS ->
-        error("$this is not an anchor attribute (authority: ${rule.authority}), has no normalized anchor value")
+        error("$this is not an anchor attribute (authority: $authority), has no normalized anchor value")
 }

@@ -648,7 +648,7 @@ class JourneyActionExecutor(
      * The active credentials that cannot outlive [target] - transitively.
      *
      * Nobody declares this dependency as such: it is read off the `requires` gates that are
-     * already there. Revoking a method retracts the METHOD_MODULE claims it asserted
+     * already there. Revoking a method retracts the MethodModule claims it asserted
      * (`AccountService.retractClaimsOf`), and any method whose `requires` named one of those
      * loses its own precondition - so it cannot stand either, and its claims are then gone in
      * turn. Hence the fixpoint rather than a single pass, even though the catalog today happens
@@ -656,8 +656,9 @@ class JourneyActionExecutor(
      *
      * A requirement on a claim that no method instance asserted needs its own trigger, and has
      * one: `enroll-password` requires a confirmed EMAIL, but `confirm-email` is an ATTESTATION -
-     * it writes its claim with no `authMethodId` (`performAdoptAttestation`), and EMAIL is a
-     * LOCAL_ANCHOR besides, so no method revocation can ever reach it. That is why
+     * it writes its claim with no `authMethodId` (`performAdoptAttestation`), and EMAIL belongs to
+     * the account itself (`AttributeAuthority.Local`) besides, so no method revocation can ever
+     * reach it. That is why
      * [performRetractAttribute] exists and calls this same fixpoint: losing an address takes the
      * password with it, and the password takes a kobil credential (ADR-24).
      *
@@ -699,7 +700,7 @@ class JourneyActionExecutor(
             }
             if (next.isEmpty()) return casualties.drop(falling.size)
             casualties += next
-            // A casualty takes its own METHOD_MODULE claims with it - unless something still
+            // A casualty takes its own MethodModule claims with it - unless something still
             // standing asserts the same type, which is why this is recomputed rather than unioned.
             val stillStanding = account.activeAuthenticationMethods
                 .filter { it.id !in casualties.mapNotNull { c -> c.id }.toSet() }

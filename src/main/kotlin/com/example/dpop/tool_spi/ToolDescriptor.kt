@@ -65,7 +65,7 @@ interface ToolDescriptor {
      * email" is `ClaimRequirement(EMAIL, PROVEN)`.
      *
      * A STANDING precondition, not merely an offering gate: what a credential needed to come into
-     * existence, it needs to keep existing. Revoking a method retracts the METHOD_MODULE claims it
+     * existence, it needs to keep existing. Revoking a method retracts the MethodModule claims it
      * asserted, and `JourneyActionExecutor.removeMethod` therefore also revokes every active
      * credential whose requirement just stopped being established - transitively (ADR-24). That
      * is how a method states a dependency without any second vocabulary: one module asserts a
@@ -73,7 +73,7 @@ interface ToolDescriptor {
      * The live example today is `enroll-password`, which requires a confirmed EMAIL and therefore
      * cannot outlive the address it was set up against.
      *
-     * The reach of that is exactly the reach of the retraction underneath it: only METHOD_MODULE
+     * The reach of that is exactly the reach of the retraction underneath it: only MethodModule
      * claims of a revoked instance are retracted, so a requirement on an account-owned anchor
      * (EMAIL) is still only an offering gate in practice - nothing can currently take that
      * address away. See `JourneyActionExecutor.dependentsOf`.
@@ -216,7 +216,7 @@ enum class ToolCategory {
     /**
      * A tool that proves the subject CONTROLS an attribute (a code arrives there) without
      * resolving who they are and without creating a credential - e.g. confirming an email address
-     * the account itself owns (`AttributeAuthority.LOCAL_ANCHOR`).
+     * the account itself owns (`AttributeAuthority.Local`).
      *
      * Deliberately NOT [IDENT]: three places discriminate by category, and under [IDENT] this
      * would be offered as an identification procedure (`CandidateTools.forIdentification`,

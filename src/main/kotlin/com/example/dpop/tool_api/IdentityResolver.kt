@@ -97,7 +97,7 @@ sealed interface MatchedVia {
 
     /** A unique anchor value (`person_id`, `email`, `restricted_id`) matched via `account.anchor`. */
     data class Anchor(val attributeType: AttributeType) : MatchedVia {
-        override val bindingStrength = checkNotNull(attributeType.rule.anchor) {
+        override val bindingStrength = checkNotNull(attributeType.anchorRule) {
             "$attributeType is not an anchor attribute, has no binding strength"
         }.bindingStrength
     }

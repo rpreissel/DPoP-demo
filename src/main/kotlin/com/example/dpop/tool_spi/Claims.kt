@@ -44,8 +44,8 @@ enum class AttributeType(val wireName: String) {
     /** City/town. */
     ORT("ort"),
     /**
-     * E-mail address. Unlike every other attribute here, a LOCAL_ANCHOR the account owns rather
-     * than a master-data field: `confirm-email` establishes it, three lookup tools resolve an
+     * E-mail address. Unlike every other attribute here, a value the account owns itself
+     * (`AttributeAuthority.Local`) rather than a master-data field: `confirm-email` establishes it, three lookup tools resolve an
      * account through it, and a retraction deletes its anchor row outright (ADR-12).
      */
     EMAIL("email"),
@@ -54,7 +54,7 @@ enum class AttributeType(val wireName: String) {
 
     /**
      * "This account holds a password credential" - established by an `enroll-password` run and
-     * retracted with it, like any other METHOD_MODULE attribute.
+     * retracted with it, like any other MethodModule attribute.
      *
      * The one member of this taxonomy that is not a fact about the PERSON but about the account's
      * credentials, and it is here on purpose rather than as a second mechanism beside the claim

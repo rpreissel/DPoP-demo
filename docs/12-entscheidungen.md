@@ -332,7 +332,7 @@ Lücken zwischen dieser Entscheidung und ihrer Umsetzung wurden geschlossen. Ers
 Anker wird jetzt **vor** der Projektionsspalte geschrieben. Zweitens
 verließ sich `IdentityMatchingService.resolveByAnchor` auf die
 beliebige Reihenfolge eines `Set` und sortiert jetzt ausdrücklich nach
-`AttributeType.rule.anchor?.bindingStrength` (`tool_api/AttributeRules.kt`).
+`AttributeType.anchorRule?.bindingStrength` (`tool_api/AttributeRules.kt`).
 Drittens fing `findOrCreateAccount` die
 `UNIQUE(person_id)`-Kollision nicht ab; das ist durch die atomare
 Claim-Übernahme unten abgelöst.
@@ -343,7 +343,7 @@ kein Sonderfall mehr, sondern ein gewöhnlicher, höchstrangiger `account.anchor
 technisch über denselben `recordAnchor`-Pfad statt über einen separaten
 `bindPersonId`/`findAccountByPersonId`-Vergleich, und
 `MatchedVia.PersonId` ist zugunsten von `MatchedVia.Anchor(PERSON_ID)` entfallen.
-Neu dazugekommen, INNERHALB eines Kontos: `AttributeType.rule.anchor?.allowsReplacement`
+Neu dazugekommen, INNERHALB eines Kontos: `AttributeType.anchorRule?.allowsReplacement`
 ist für `PERSON_ID` `false` (anders als `email`) — ein zweiter, abweichender `person_id`-Claim für
 ein Konto wird ebenfalls per `IdentityConflictException` abgewiesen.
 
@@ -382,7 +382,7 @@ einen eigenen Index.
 trägt jede Claim-Zeile die `auth_method_id` der Methodeninstanz, bei deren Einrichtung sie
 entstanden ist (`null` bei Identifizierungs-Tools). Beim
 Entfernen einer Methode (`AccountDeletionService.revokeMethod`) zieht `retractClaimsOf` genau
-deren Angaben zurück — aber **nur die mit `AttributeAuthority.METHOD_MODULE`**: Ein Anker
+deren Angaben zurück — aber **nur die mit `AttributeAuthority.MethodModule`**: Ein Anker
 (`EMAIL`) oder ein Stammdaten-Attribut (`NAME`) überlebt das Credential, sonst hätte das
 Entfernen der E-Mail-Methode den Passwort-Login
 (`ClaimRequirement(EMAIL, PROVEN)`) zerstört. Der Widerruf selbst ist
@@ -460,8 +460,12 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
   konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.
 - **Nachtrag**: Ihr zweiter Fall (`ExternalLiveLookup`) verschwand mit ihr, obwohl „kein lokaler
   Anker" danach Stammdaten-Hoheit (`NAME`) und Modul-Hoheit (`PHONE_NUMBER`) zugleich abdeckte;
-  er ist als `AttributeRule.authority` (`LOCAL_ANCHOR`/`EXT_STAMMDATEN`/`METHOD_MODULE`,
-  vollständig aufgezählt, über `AttributeType.rule`) in `tool_api/AttributeRules.kt` zurückgeholt.
+  er ist als `AttributeType.authority` (`Local`/`ExtStammdaten`/`MethodModule`, vollständig
+  aufgezählt) in `tool_api/AttributeRules.kt` zurückgeholt. **Nachtrag**: `AttributeAuthority` ist
+  inzwischen ein `sealed interface`, und `Local` trägt seine `AnchorRule` selbst. Vorher standen
+  Eigentümer und Ankerregeln als Flag plus nullable Feld nebeneinander, obwohl sie nie getrennt
+  vorkommen — zusammengehalten von einem Test statt vom Typ. Dasselbe Muster wie bei
+  `ToolDescriptor.keyBinding` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 1).
 - Fremdschlüssel nur innerhalb eines Moduls; modulübergreifende Bezüge sind indizierte Spalten.
 - Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<modul>_<tool-rolle>_data`,
   `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).
@@ -554,8 +558,8 @@ ab. Die Reihenfolge ist Adresse, Passwort, Besitzfaktor.
 **Erwogene Alternative**: Alles beim Alten lassen und die Kopplung nur dokumentieren — `enroll-email`
 bestätigt die Adresse *und* legt die Methode an.
 
-**Warum diese**: Die Adresse gehört dem Konto, nicht dem Verfahren (`AttributeType.rule.authority ==
-LOCAL_ANCHOR`). Drei fremde Lookup-Verfahren lösen das Konto über sie auf, und `enroll-password` setzt sie
+**Warum diese**: Die Adresse gehört dem Konto, nicht dem Verfahren (`AttributeType.authority` ist
+`AttributeAuthority.Local`). Drei fremde Lookup-Verfahren lösen das Konto über sie auf, und `enroll-password` setzt sie
 voraus — sie ist Infrastruktur. Die Trennung sorgt dafür, dass das
 Entfernen der Methode die Adresse gar nicht mehr mitreißen kann.
 
@@ -632,8 +636,7 @@ Attributkombination Name+Vorname+Geburtsdatum gegen die Claim-Historie mit
 (`Resolution.Ambiguous`, `MatchedVia.Attributes`, `BindingStrength.ATTRIBUTE_COMBINATION`,
 `findAccountIdsMatchingAllThree`, Index `ix_claim_type_value`). An ihre Stelle tritt die
 `restricted_id` der eID-Karte als achter Claim von `ident-eid`: ein kartengebundenes Pseudonym
-(in der Demo ein Platzhalter für den echten Restricted Identifier). Sie wird als `LOCAL_ANCHOR`
-geführt, mit `AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true`: Eine neue Karte bringt
+(in der Demo ein Platzhalter für den echten Restricted Identifier). Sie wird als lokaler Anker geführt (`AttributeAuthority.Local`), mit `AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true`: Eine neue Karte bringt
 einen neuen Wert, der den alten an derselben Stelle ersetzt — wie bei `EMAIL`. Hält ein anderes
 Konto den Wert, bleibt es bei der Abweisung (`IdentityConflictException`). Der ersetzte Wert verfällt seit dem
 zweiten ADR-12-Nachtrag auch im Claim-Log: Der Anker-Ersatz schreibt einen Widerruf für den
@@ -864,7 +867,7 @@ Damit das überhaupt greifen kann, hat der Widerruf einen dritten Auslöser beko
 Attribut lässt sich jetzt **direkt** zurücknehmen (`AccountService.retractAttribute`,
 `DELETE /channels/{id}/attributes/{attribute}`). Vorher konnte eine bestätigte Adresse gar nicht
 verloren gehen — `confirm-email` schreibt seine Angabe als ATTESTATION, also ohne
-`auth_method_id`, und EMAIL ist `LOCAL_ANCHOR`; kein Methodenwiderruf erreichte sie.
+`auth_method_id`, und EMAIL gehört ohnehin dem Konto selbst; kein Methodenwiderruf erreichte sie.
 
 **Erwogene Alternative**: Eine eigene Descriptor-Eigenschaft `dependsOnMethods: Set<String>`, die
 Methodennamen nennt. Zuerst so gebaut und wieder zurückgenommen. Sie hätte dasselbe für den
@@ -881,7 +884,7 @@ Entsperrwege an, die es für dieses Credential wirklich gibt.
 **Zweite erwogene Alternative**: Beim Widerruf einfach alle aktiven Methoden neu gegen ihr
 `requires` prüfen. Genau das passiert — nur muss die Vorschau dafür mit dem Schreibvorgang übereinstimmen: Welche
 Typen eine widerrufene Instanz mitnimmt, ermittelt `AccountService.claimedTypesOf` mit **derselben**
-Abfrage und demselben `METHOD_MODULE`-Filter wie der Widerruf selbst. Eine Vorhersage, die vom
+Abfrage und demselben `MethodModule`-Filter wie der Widerruf selbst. Eine Vorhersage, die vom
 Schreibvorgang abweicht, wäre schlimmer als keine.
 
 **Was das kostet:**

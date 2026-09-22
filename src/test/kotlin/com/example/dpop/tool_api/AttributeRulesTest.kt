@@ -15,62 +15,56 @@ import io.kotest.matchers.shouldBe
  */
 class AttributeRulesTest : BehaviorSpec({
 
-    given("rule") {
-        then("PERSON_ID is a LOCAL_ANCHOR, established and replaced at loa2, immutable") {
-            AttributeType.PERSON_ID.rule shouldBe AttributeRule(
-                authority = AttributeAuthority.LOCAL_ANCHOR,
-                anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
+    given("authority") {
+        then("PERSON_ID is locally owned, established and replaced at loa2, immutable") {
+            AttributeType.PERSON_ID.authority shouldBe AttributeAuthority.Local(
+                AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
             )
         }
-        then("EMAIL is a LOCAL_ANCHOR, established at loa1 but replaced only at loa2, replaceable") {
-            AttributeType.EMAIL.rule shouldBe AttributeRule(
-                authority = AttributeAuthority.LOCAL_ANCHOR,
-                anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true)
+        then("EMAIL is locally owned, established at loa1 but replaced only at loa2, replaceable") {
+            AttributeType.EMAIL.authority shouldBe AttributeAuthority.Local(
+                AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true)
             )
         }
-        then("EID_RESTRICTED_ID is a LOCAL_ANCHOR, established and replaced at loa2, replaceable (ADR-19)") {
-            AttributeType.EID_RESTRICTED_ID.rule shouldBe AttributeRule(
-                authority = AttributeAuthority.LOCAL_ANCHOR,
-                anchor = AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
+        then("EID_RESTRICTED_ID is locally owned, established and replaced at loa2, replaceable (ADR-19)") {
+            AttributeType.EID_RESTRICTED_ID.authority shouldBe AttributeAuthority.Local(
+                AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
             )
         }
         then("the locally anchored attributes are exactly PERSON_ID, EID_RESTRICTED_ID and EMAIL") {
-            AttributeType.entries.filter { it.rule.authority == AttributeAuthority.LOCAL_ANCHOR } shouldBe
+            AttributeType.entries.filter { it.isLocalAnchor } shouldBe
                 listOf(AttributeType.PERSON_ID, AttributeType.EID_RESTRICTED_ID, AttributeType.EMAIL)
         }
         then("master data owns the identifying attributes it is the register for") {
-            AttributeType.entries.filter { it.rule.authority == AttributeAuthority.EXT_STAMMDATEN } shouldBe
+            AttributeType.entries.filter { it.authority == AttributeAuthority.ExtStammdaten } shouldBe
                 listOf(
                     AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
                     AttributeType.STRASSE, AttributeType.HAUSNUMMER, AttributeType.PLZ, AttributeType.ORT
                 )
         }
         then("a method module owns what it enrolled itself") {
-            AttributeType.PHONE_NUMBER.rule.authority shouldBe AttributeAuthority.METHOD_MODULE
+            AttributeType.PHONE_NUMBER.authority shouldBe AttributeAuthority.MethodModule
         }
-        then("only LOCAL_ANCHOR types carry an AnchorRule") {
-            AttributeType.entries.forEach { type ->
-                (type.rule.authority == AttributeAuthority.LOCAL_ANCHOR) shouldBe (type.rule.anchor != null)
-            }
-        }
+        // No test that "only local types carry an AnchorRule": AttributeAuthority.Local is the only
+        // variant that has one, so the unpaired state cannot be constructed in the first place.
     }
 
     given("AnchorRule.bindingStrength") {
         then("PERSON_ID is immutable, so it binds most strongly") {
-            AttributeType.PERSON_ID.rule.anchor?.bindingStrength shouldBe BindingStrength.IMMUTABLE_ANCHOR
+            AttributeType.PERSON_ID.anchorRule?.bindingStrength shouldBe BindingStrength.IMMUTABLE_ANCHOR
         }
         then("EMAIL is replaceable, so it binds more weakly") {
-            AttributeType.EMAIL.rule.anchor?.bindingStrength shouldBe BindingStrength.REPLACEABLE_ANCHOR
+            AttributeType.EMAIL.anchorRule?.bindingStrength shouldBe BindingStrength.REPLACEABLE_ANCHOR
         }
         then("EID_RESTRICTED_ID is replaceable - a new card brings a new value, never another person") {
-            AttributeType.EID_RESTRICTED_ID.rule.anchor?.bindingStrength shouldBe BindingStrength.REPLACEABLE_ANCHOR
+            AttributeType.EID_RESTRICTED_ID.anchorRule?.bindingStrength shouldBe BindingStrength.REPLACEABLE_ANCHOR
         }
         then("a non-anchor attribute has no anchor rule at all") {
-            AttributeType.KVNR.rule.anchor.shouldBeNull()
-            AttributeType.PHONE_NUMBER.rule.anchor.shouldBeNull()
-            AttributeType.NAME.rule.anchor.shouldBeNull()
-            AttributeType.VORNAME.rule.anchor.shouldBeNull()
-            AttributeType.GEBURTSDATUM.rule.anchor.shouldBeNull()
+            AttributeType.KVNR.anchorRule.shouldBeNull()
+            AttributeType.PHONE_NUMBER.anchorRule.shouldBeNull()
+            AttributeType.NAME.anchorRule.shouldBeNull()
+            AttributeType.VORNAME.anchorRule.shouldBeNull()
+            AttributeType.GEBURTSDATUM.anchorRule.shouldBeNull()
         }
     }
 
@@ -114,10 +108,10 @@ class AttributeRulesTest : BehaviorSpec({
 
     given("AnchorRule.allowsReplacement") {
         then("PERSON_ID is immutable after first binding") {
-            AttributeType.PERSON_ID.rule.anchor?.allowsReplacement shouldBe false
+            AttributeType.PERSON_ID.anchorRule?.allowsReplacement shouldBe false
         }
         then("EMAIL is re-provable and therefore changeable") {
-            AttributeType.EMAIL.rule.anchor?.allowsReplacement shouldBe true
+            AttributeType.EMAIL.anchorRule?.allowsReplacement shouldBe true
         }
     }
 })

@@ -29,7 +29,7 @@ Größenordnung: 10M `account`-Zeilen, `account.claim` bei 2-8 Zeilen pro Konto 
   `orchestrator.device_account_link` per `binding_key_ref`) bleibt B-Tree auf engen Spalten.
 - **Rückwärts-Lookup** (Wert -> Account) braucht **normalisierte Werte** (kleingeschriebene
   E-Mail, kanonisierte Telefonnummer) - ein Index über Rohwerte wäre ein Fehler
-  (`Foo@x.de` ≠ `foo@x.de`). `AttributeType.rule.anchor`/`normalizeAnchorValue` leisten das
+  (`Foo@x.de` ≠ `foo@x.de`). `AttributeType.anchorRule`/`normalizeAnchorValue` leisten das
   bereits pro Typ.
 - **Das Log (`account.claim`) braucht keinen Rückwärts-Index** - generische Mismatch-Abfragen
   über alle Attribute sind selten und analytisch; dort genügt ein Scan oder ein gezielter

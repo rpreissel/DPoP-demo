@@ -4,7 +4,7 @@ package com.example.dpop.tool_api
  * A validated, normalized Krankenversichertennummer (docs/ideen/account-attribute-und-trust-
  * vereinheitlichen.md, `DPoP-demo-4vd.5`): one letter followed by nine digits, canonical
  * uppercase form - the shape `IdentFscToolController`'s OpenAPI example (`A123456789`) shows,
- * enforced at runtime. Backs [AttributeRules.normalizeAnchorValue]'s `KVNR` case. Safe to enforce strictly there: a KVNR
+ * enforced at runtime. Backs [normalizeAnchorValue]'s `KVNR` case. Safe to enforce strictly there: a KVNR
  * only ever reaches a [com.example.dpop.tool_spi.Claim] after `PersonDirectory.findPersonIdByKvnr`
  * already resolved it to a real person (`IdentFscToolHandler`/`IdentEidToolHandler`), so a
  * malformed value never gets this far in practice.
