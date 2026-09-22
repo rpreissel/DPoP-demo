@@ -24,7 +24,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [01-ueberblick.md](01-ueberblick.md) | Die tragenden Konzepte in Kurzform | Einstieg, erster Überblick |
 | [02-domaenenmodell.md](02-domaenenmodell.md) | Entitäten, Zustände, Enumerationen, Persistenz-Regeln, Tabellenmodell (ER) | „Wie sieht das Datenmodell aus?" |
 | [03-tool-architektur.md](03-tool-architektur.md) | Tool-Katalog, Descriptor, `ToolOutcome`, Modulklassen | Ein neues Verfahren anbinden |
-| [04-orchestrierung.md](04-orchestrierung.md) | `next`-Ermittlung, `AuthPolicy`, MFA, ACR-Deckelung | „Wer entscheidet was?" |
+| [04-orchestrierung.md](04-orchestrierung.md) | `next`-Ermittlung, `AuthPolicy`, MFA, ACR-Begrenzung | „Wer entscheidet was?" |
 | [05-api.md](05-api.md) | API-Grundsätze, App- und Keycloak-Fassade, Beispiele | Client-Entwicklung |
 | [06-ablaeufe.md](06-ablaeufe.md) | `ident-fsc`, `auth-sms`, `enroll-sms` Schritt für Schritt | Implementierung eines Flows |
 | [07-betrieb.md](07-betrieb.md) | Fehlervertrag, Konsistenz, Aufbewahrung und Löschung | Betrieb, Datenschutz |
@@ -32,8 +32,8 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
 | [11-beispiel-story.md](11-beispiel-story.md) | Eine Person durchläuft Registrierung, Login, Step-up, Geräte-Verfahren, QR-Login am Browser, Löschung | Konzepte an einem konkreten Beispiel statt abstrakt |
-| [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Preis | Review, „Warum ist das so?" |
-| [ideen/](ideen/) | Noch nicht entschiedene Gedankenspuren, mit Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
+| [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Kosten | Review, „Warum ist das so?" |
+| [ideen/](ideen/) | Noch nicht entschiedene Überlegungen, samt Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [glossar/](glossar/) | Externes Begriffs-Glossar samt Abgleich gegen dieses Projekt | Prüfen, ob das Domänenmodell fremde Begriffsdefinitionen unterstützt/nachbildet |
 
 ### Lesepfade je Zielgruppe
@@ -66,15 +66,27 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
 
 Drei Session-Ebenen mit fallender Lebensdauer:
 
-- **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web), nie direkt fachlicher Challenge-State.
+- **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web); der fachliche Zustand eines laufenden Verfahrens liegt nie hier.
 - **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird. Einstieg: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `KC_SELECT_METHOD`, `CONFIRM_PEER_LOGIN`; innerhalb eines bestehenden Kanals: `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`, `LOGOUT`, `RE_IDENTIFY`.
 - **AuthJourney**: ein laufender Durchlauf eines Intents; läuft über ein oder mehrere Tools.
-- **JourneyState**: die Position auf diesem Weg samt ihrer Attribute (was angeboten wurde, was abgelehnt ist, welches Tool läuft); je Intent eine eigene versiegelte Zustandsmenge.
+- **JourneyState**: die Position auf diesem Weg samt ihrer Attribute (was angeboten wurde, was abgelehnt ist, welches Tool läuft); je Intent eine eigene, abgeschlossene Zustandsmenge.
 - **ToolSession**: ein einzelner Tool-Durchlauf innerhalb einer Journey (z. B. die TAN-Eingabe bei `auth-sms`); trägt nur Lifecycle-Metadaten, die Fachdaten liegen im Modul.
 - **AuthContext**: serverseitig gespeicherter IAM-Kontext inkl. Keycloak-Token-Referenz und `acr`/`amr`.
-- **binding_key_ref**: Binding-Referenz aus DPoP-Keymaterial für App-Bindung.
+- **binding_key_ref**: der aus dem DPoP-Schlüssel abgeleitete Wert, über den ein Gerät gebunden wird.
 - **toolId**: flacher technischer Bezeichner einer konkreten Ident-/Enroll-/Auth-Methode (z. B. `enroll-sms`); ersetzt in der API die getrennte Kind-/Methode-Aufteilung.
 - **toolSessionId**: UUID einer konkreten, aktivierten Tool-Instanz (nicht zu verwechseln mit `toolId`); wird beim Anlegen über `POST .../channels/{channelSessionId}/tools/{toolId}` erzeugt und referenziert danach die PATCH/GET-Ressource unter `/tools/{toolSessionId}/{toolId}`.
+
+### Deutsche Begriffe und ihre Namen im Code
+
+Die Doku schreibt deutsch, der Code englisch. Wo das auseinandergeht:
+
+| In der Doku | Im Code / in der Datenbank |
+|---|---|
+| Angabe, bestätigte Angabe | `AccountClaim`, `account.claim` |
+| bestätigen (ein Attribut) | `attest`, `ToolOutcome.Completed.Attested`, Rolle `ATTESTATION` |
+| Widerruf, ein Attribut zurücknehmen | `AccountRetraction`, `account.retraction`, `AccountService.retractAttribute` |
+| Anker | `AccountAnchor`, `account.anchor` |
+| Obergrenze eines Niveaus | `maxAcr`, `enrolledUnderAcr`, `acrFloor` |
 
 ---
 ## Bezug zum bestehenden Code

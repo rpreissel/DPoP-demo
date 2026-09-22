@@ -26,7 +26,7 @@ Modell als in den Integrationspunkten (JWT-Signatur, PKCE, Callback-Handling, Sc
 
 ## 2) Kernidee
 
-Statt ext-ident als Blackbox über HTTP anzusprechen, wird seine Fachlogik als Modulith-Modul
+Statt ext-ident von außen über HTTP anzusprechen, wird seine Fachlogik als Modulith-Modul
 `id_nect` direkt in die DPoP-demo-Codebasis übernommen. Das Modul folgt denselben Konventionen
 wie `id_fsc`, `id_eid`, `auth_sms` etc. und kommuniziert über `ToolOutcome` mit dem Orchestrator.
 

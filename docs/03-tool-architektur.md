@@ -87,7 +87,7 @@ Daraus folgt für dich als Backend-Entwickler:
 - **App- und Web-Kanal sind für dich identisch** — Journey, Tool und `next` laufen für beide
   Fassaden gleich ([05-api.md](05-api.md)); du schreibst keine kanalspezifischen Sonderfälle in
   dein Modul.
-- **Der Tokenfluss ist kein Baustellen-Code** — Standard-OIDC gegen Keycloak, serverseitig
+- **Den Tokenfluss musst du nicht bauen** — Standard-OIDC gegen Keycloak, serverseitig
   einmal implementiert; dein Modul liefert nur das Ergebnis eines Verfahrens, nie ein Token
   selbst.
 
@@ -100,7 +100,7 @@ und steht für genau einen Durchlauf eines Tools, mit rein technischen Lifecycle
 (z. B. `ident-fsc`, `enroll-sms`, `auth-sms`) identifiziert Art und Methode flach — kein
 persistiertes Feld, sondern aus der Route abgeleitet, wählt darüber Handler und Moduldaten-Klasse.
 
-Der Tool-Katalog ist **keine zentral gepflegte Tabelle**, sondern die Aggregation der Selbstauskünfte aller Module (`ToolDescriptor`, Abschnitt 2):
+Der Tool-Katalog ist **keine zentral gepflegte Tabelle**. Er entsteht aus den Angaben, die die Module über sich selbst machen (`ToolDescriptor`, Abschnitt 2):
 
 | toolId | role | method | factorTypes | maxAcr | allowsMultipleInstances |
 |---|---|---|---|---|---|
@@ -122,24 +122,24 @@ Entscheidungen dahinter:
 - Jedes Modul liefert Kategorie/Methode/Faktorart/Niveau selbst — kein zentral zu pflegender Katalog.
 - `method` wird **nicht** aus `toolId` geparst: `enroll-sms`/`auth-sms` melden dieselbe `method`, worüber ein Auth-Tool die passende Zeile in `account.auth_method` findet.
 - `factorTypes` ist eine **Menge**, weil ein Verfahren mehrere Faktoren zugleich erbringen kann: `enroll-device`/`auth-device` und `enroll-kobil`/`auth-kobil` melden `loa2` und zwei Faktorarten aus einem Durchlauf (gerätegebundenes Credential plus System-PIN/Biometrie).
-- `requires` wird gegen die konsolidierten Claims des Kontos geprüft (`AccountProfile.establishedClaims`, Behauptungen minus Retraktionen, ADR-12) und doppelt ausgewertet — bei der Kandidatenermittlung und nochmals bei der Aktivierung (`ToolControllerSupport.validatePreconditions`) —, sonst wäre die Kandidatenliste per Direktaufruf umgehbar. Zwei Tools nutzen es heute: `enroll-password` verlangt `ClaimRequirement(EMAIL, PROVEN)`, `ident-kvnr` die bezeugten Identitätsattribute (ADR-18).
-- `requires` ist dabei **keine reine Angebotsschranke mehr, sondern eine stehende Voraussetzung** (ADR-24): Was ein Credential zum Entstehen brauchte, braucht es zum Weiterbestehen. Fällt die Behauptung weg, fällt das Credential mit — transitiv, ermittelt aus denselben Deklarationen (`JourneyActionExecutor.dependentsOfLostClaims`). Deshalb braucht eine Abhängigkeit zwischen Verfahren keine zweite Vokabel: Ein Modul behauptet beim Einrichten einen Claim, ein anderes verlangt ihn, und das Claim-Log erledigt den Rest. `enroll-password` behauptet dafür `PASSWORD_EXISTS` — heute ohne Abnehmer, aber es ist die Vokabel, in der eine solche Abhängigkeit formuliert würde.
-- **Verfügbarkeit** hat zwei unabhängige Achsen, beide als `toolId`-Mengen: Der Client erklärt bei der Kanal-Erzeugung, welche Tools er rendern kann (`availableTools`, fix je Kanal); das Backend kann zusätzlich jedes Tool global zur Laufzeit sperren (`ToolAvailabilityService`). Beide werden live geschnitten (`JourneyContext.availableTools`) und an drei Stellen geprüft; bleibt nichts übrig, greift derselbe `exhausted`/Cancel-Fallback wie bei vollständig abgelehnten Kandidaten.
+- `requires` wird gegen die konsolidierten Claims des Kontos geprüft (`AccountProfile.establishedClaims`, Angaben minus Widerrufe, ADR-12) und doppelt ausgewertet — bei der Kandidatenermittlung und nochmals bei der Aktivierung (`ToolControllerSupport.validatePreconditions`) —, sonst wäre die Kandidatenliste per Direktaufruf umgehbar. Zwei Tools nutzen es heute: `enroll-password` verlangt `ClaimRequirement(EMAIL, PROVEN)`, `ident-kvnr` die bestätigten Identitätsattribute (ADR-18).
+- `requires` entscheidet dabei **nicht nur über das Angebot, sondern gilt dauerhaft** (ADR-24): Was ein Credential zum Entstehen brauchte, braucht es auch zum Weiterbestehen. Fällt die Angabe weg, fällt das Credential mit — und mit ihm alles, was daran hängt, ermittelt aus denselben Deklarationen (`JourneyActionExecutor.dependentsOfLostClaims`). Eine Abhängigkeit zwischen zwei Verfahren braucht deshalb keine eigenen Begriffe: Ein Modul schreibt beim Einrichten einen Claim, ein anderes verlangt ihn, und das Claim-Log erledigt den Rest. `enroll-password` schreibt dafür `PASSWORD_EXISTS` — heute fragt es niemand ab, aber so ließe sich eine solche Abhängigkeit ausdrücken.
+- **Verfügbarkeit** hat zwei unabhängige Achsen, beide als `toolId`-Mengen: Der Client erklärt bei der Kanal-Erzeugung, welche Tools er rendern kann (`availableTools`, fix je Kanal); das Backend kann zusätzlich jedes Tool global zur Laufzeit sperren (`ToolAvailabilityService`). Beide Mengen werden bei jeder Anfrage geschnitten (`JourneyContext.availableTools`) und an drei Stellen geprüft; bleibt nichts übrig, greift derselbe `exhausted`/Cancel-Fallback wie bei vollständig abgelehnten Kandidaten.
 - `role=ATTESTATION` (`confirm-email`) markiert einen Nachweis, der weder Ident noch Auth noch Enroll ist: die bestätigte Adresse wird Account-Attribut, kein Credential — ausführlich in Abschnitt 2 ("`ATTEST`").
 - `role=LOOKUP_AUTH` markiert die `-lookup`-Zwillinge: dieselbe `method` wie ihr `IDENTIFIED_AUTH`-Geschwister, aber Account-Auflösung über eine eingegebene E-Mail statt über den Kanal — ohne diese Unterscheidung wäre die Kandidatenermittlung mehrdeutig.
-- `role=CORRELATION` (`ident-kvnr`) markiert einen Zuordnungsschritt: Er beweist für sich nichts — eine getippte Nummer ist kein Nachweis —, ist nie Kandidat einer (Re-)Identifizierung (`forIdentification`/`reIdentCandidates` matchen auf die Rolle, nicht die Kategorie) und nur nach einer Bezeugung überhaupt aktivierbar (`requires`, ADR-18). `factorTypes = {}` ist Folge dieser Rolle, nicht ihre Definition.
+- `role=CORRELATION` (`ident-kvnr`) markiert einen Zuordnungsschritt: Er beweist für sich nichts — eine getippte Nummer ist kein Nachweis. Er ist nie Kandidat einer (Re-)Identifizierung (`forIdentification`/`reIdentCandidates` prüfen die Rolle, nicht die Kategorie) und lässt sich erst aktivieren, wenn die Identität bereits bestätigt ist (`requires`, ADR-18). `factorTypes = {}` ist Folge dieser Rolle, nicht ihre Definition.
 - `allowsMultipleInstances=true` (`device`, `kobil`): mehrere aktive Instanzen derselben Methode dürfen gleichzeitig existieren, eine je physischem Gerät, statt der sonst üblichen "neu enrollen ersetzt die alte"-Regel. Eine reine **Speicherregel** — sie sagt nur, ob ein neues Enrollment das alte ersetzt.
 - `keyBinding` (`device`, `kobil`): das Credential liegt als nicht-extrahierbarer Schlüssel auf genau einem Gerät und kann anderswo strukturell nicht existieren. Das ist die **Angebots- und Widerrufsregel**: `AuthPolicy.candidateTools` filtert auf die zum anfragenden Gerät passende Instanz, `usableByCaller` prüft zusätzlich, dass das Gerät laut `DeviceAccountLink` noch an dieses Konto gebunden ist, und beim Umbinden widerruft `JourneyActionExecutor` genau die Credentials, die auf diesem Schlüssel liegen.
-- `instanceDisclosure` (heute `device` und `kobil`) beantwortet die Anschlussfrage: Was darf über die auf diesem Schlüssel liegende Instanz **gezeigt** werden? Auch hier liefert das Modul die Regel, nicht den Detail-Blob — der gehört ihm allein und enthält Hashes und Bindungsschlüssel. So kann der Orchestrator „wodurch ist dieses Gerät sonst noch bekannt" beantworten (`device-link.boundCredentials`), ohne einen einzigen konkreten Detail-Key zu kennen. Vorher griff genau eine Stelle dafür in die privaten Konstanten zweier Module; das kompilierte nur, weil `internal const val` inlined wird und damit keine Modulkante übrig blieb, die `ApplicationModules.verify` hätte bemängeln können.
+- `instanceDisclosure` (heute `device` und `kobil`) beantwortet die nächste Frage: Was darf über die Instanz auf diesem Schlüssel **gezeigt** werden? Auch hier liefert das Modul die Regel, nicht die Detaildaten selbst — die gehören ihm allein und enthalten Hashes und Bindungsschlüssel. So kann der Orchestrator sagen, wodurch dieses Gerät sonst noch bekannt ist (`device-link.boundCredentials`), ohne einen einzigen konkreten Detail-Key zu kennen. Vorher las genau eine Stelle dafür die privaten Konstanten zweier Module. Das ließ sich nur übersetzen, weil der Compiler `internal const val` direkt einsetzt und damit keine Modulkante übrig bleibt, die `ApplicationModules.verify` beanstanden könnte.
 - `keyBinding` ist bewusst ein `CallerKeyBinding?` und kein Flag neben einer überschreibbaren Funktion: Die Eigenschaft zu deklarieren **ist** das Mitliefern der Regel, die die Instanzen unterscheidet. Ein Flag ohne Regel (jede Instanz läge auf jedem Schlüssel) oder eine Regel ohne Flag (nie befragt) sind so nicht ausdrückbar — es braucht keine Prüfung, die das Paar zusammenhält.
-- Von `allowsMultipleInstances` **getrennt**, obwohl `device` und `kobil` heute beides beantworten. Die eine aus der anderen zu lesen hält nur, solange jede Multi-Instanz-Methode auch schlüsselgebunden ist: Eine künftige Methode, die lediglich mehrere parallele Instanzen erlaubt, ohne an einen Schlüssel gebunden zu sein, würde sonst still Geräte-Semantik erben, die sie nie beansprucht hat.
+- Von `allowsMultipleInstances` **getrennt**, obwohl `device` und `kobil` heute beides beantworten. Das eine aus dem anderen abzuleiten trägt nur, solange jede Methode mit mehreren Instanzen auch an einen Schlüssel gebunden ist. Eine künftige Methode, die lediglich mehrere Instanzen parallel erlaubt, bekäme sonst unbemerkt die Geräte-Bedeutung mit, die sie nie beansprucht hat.
 - `enroll-kobil`/`auth-kobil` binden das Gerät nicht selbst, sondern über den externen Dienstleister KOBIL — das erste Verfahren, dessen Nachweis **nicht durch den Client läuft**: Der Client trägt nur eine Einmalkennung (OTP), die Assertion holt sich das Backend selbst beim Anbieter (Abschnitt 7 in [Abläufe](06-ablaeufe.md)). Der Besitzfaktor ist damit hier stärker belegt als bei jedem anderen Tool; das Zugangsmittel ist es nicht (nächster Punkt).
-- Beim KOBIL-Verfahren liegt der PIN **im Tool-Backend**, nicht beim Nutzer: er wird bei der Einrichtung dort erzeugt und pro Anmeldung an den Client freigegeben, nachdem dieser sich lokal entsperrt hat — per biometriegeschütztem Gerätegeheimnis oder per Kontopasswort (ADR-21). Der Entsperrweg ist das `userVerification` dieses Verfahrens, kein zweiter Nachweis, und benutzt dafür die im Projekt übliche Vokabel: `pin` für Wissen, `biometric` für Inhärenz — dieselben Werte wie bei `auth-device`. (Ein amr-Eintrag `password` wäre nicht nur eine neue Vokabel, sondern falsch: amr-Token und Methodennamen teilen sich einen Namensraum, `JourneyRecorder` würde dem Lauf die echte Passwortmethode des Kontos anhängen.)
+- Beim KOBIL-Verfahren liegt der PIN **im Tool-Backend**, nicht beim Nutzer: er wird bei der Einrichtung dort erzeugt und pro Anmeldung an den Client freigegeben, nachdem dieser sich lokal entsperrt hat — per biometriegeschütztem Gerätegeheimnis oder per Kontopasswort (ADR-21). Der Entsperrweg ist das `userVerification` dieses Verfahrens, kein zweiter Nachweis, und benutzt dafür die im Projekt üblichen Namen: `pin` für Wissen, `biometric` für Inhärenz — dieselben Werte wie bei `auth-device`. (Ein amr-Eintrag `password` wäre nicht nur ein neuer Name, sondern falsch: amr-Token und Methodennamen teilen sich einen Namensraum, `JourneyRecorder` würde dem Lauf die echte Passwortmethode des Kontos anhängen.)
 - Beide Entsperrwege sind optional, und welche es für ein konkretes Credential gibt, **rechnet der Server aus**: Biometrie nur, wenn ihr bei der Einrichtung zugestimmt wurde (dann existiert `unlock_secret_hash`, sonst NULL), das Passwort nur, solange das Konto eines hat. `auth-kobil` nennt die tatsächlich vorhandenen Wege im `stepData` (`unlockOptions`), statt beide anzubieten und einen davon ins Leere laufen zu lassen.
-- `kobil` deklariert dieselben `factorTypes`/`maxAcr` wie `device` und trägt damit **dieselbe Ausnahme** von „nur nachweisbare Faktoren melden" ([Orchestrierung](04-orchestrierung.md) Abschnitt 8): Wie entsperrt wurde, ist in beiden Fällen eine Selbstauskunft des Clients. Bewusst gleich behandelt, statt für dasselbe Zugangsmittel eine zweite, strengere Regel aufzumachen.
+- `kobil` deklariert dieselben `factorTypes`/`maxAcr` wie `device` und trägt damit **dieselbe Ausnahme** von „nur nachweisbare Faktoren melden" ([Orchestrierung](04-orchestrierung.md) Abschnitt 8): Wie entsperrt wurde, gibt in beiden Fällen der Client selbst an. Bewusst gleich behandelt, statt für dasselbe Zugangsmittel eine zweite, strengere Regel einzuführen.
 - `keyBinding` liest beim KOBIL-Verfahren den **DPoP-Schlüssel** des Kanals (`kobilBindingKeyRef`), nicht die KOBIL-Gerätekennung: Zum Angebotszeitpunkt ist der Schlüssel das einzig Bekannte, die Kennung erfährt der Server erst nach der Einlösung. Beide stehen deshalb unter getrennten, eigens benannten Keys in den `auditDetails` — sie beantworten verschiedene Fragen zu verschiedenen Zeitpunkten.
-- `enroll-qr`/`auth-qr`/`auth-qr-lookup` folgen demselben Enroll/Auth/Lookup-Dreiklang wie `sms`/`password`/`email`, mit einer Besonderheit: `enroll-qr` ist ein reiner Opt-in-Marker ohne Geheimnis (`factorTypes = {}`); die Opt-in-Prüfung selbst sitzt in `confirm-qr-login`.
-- `auth-qr`/`auth-qr-lookup` deklarieren `factorTypes = {possession, knowledge}`: Das bestätigende Handy muss laut `ConfirmPeerLoginStrategy.gate()` selbst erst frisch loa2 nachgewiesen haben — selbst-genügsame MFA wie bei `ident-eid`, konsistent zum `maxAcr=loa2`.
+- `enroll-qr`/`auth-qr`/`auth-qr-lookup` folgen demselben Muster aus Enroll, Auth und Lookup wie `sms`/`password`/`email`, mit einer Besonderheit: `enroll-qr` ist ein reiner Opt-in-Marker ohne Geheimnis (`factorTypes = {}`); die Opt-in-Prüfung selbst sitzt in `confirm-qr-login`.
+- `auth-qr`/`auth-qr-lookup` deklarieren `factorTypes = {possession, knowledge}`: Das bestätigende Handy muss laut `ConfirmPeerLoginStrategy.gate()` selbst erst frisch loa2 nachgewiesen haben — MFA aus einem einzigen Verfahren wie bei `ident-eid`, passend zum `maxAcr=loa2`.
 - `confirm-qr-login` trägt `MethodRole.PEER_APPROVAL` (Kategorie `SIDE_ACTION`) — keine bestehende Rolle passt auf „bestätigt fremdes Handeln".
 
 Zentral bleibt nur, was ein Modul nicht wissen *kann*: welches Niveau sich aus einer **Kombination** von Nachweisen ergibt und welches Niveau eine Ressource fordert — Sache der `AuthPolicy` ([Orchestrierung](04-orchestrierung.md)).
@@ -158,7 +158,7 @@ Jedes Tool bringt eine eigene Descriptor-Bean mit (`object EnrollSmsDescriptor :
 | `factorTypes`, `maxAcr` | statische Obergrenzen dieses Tools |
 | `requires`, `allowsMultipleInstances`, `keyBinding` | leere Menge, `false` bzw. `null` per Default |
 
-`(method, role)` ist der eindeutige Schlüssel für "das konkrete Verfahren dieser Art für dieses Credential" — `(method, role.category)` allein reicht nicht, weil `IDENTIFIED_AUTH` und `LOOKUP_AUTH` sich `category=AUTH` teilen. `ToolHandlerRegistry` lehnt beim Einsammeln der Descriptors ein doppeltes `(method, role)`-Paar ab, statt still auf einen beliebigen Treffer zu kollabieren.
+`(method, role)` ist der eindeutige Schlüssel für "das konkrete Verfahren dieser Art für dieses Credential" — `(method, role.category)` allein reicht nicht, weil `IDENTIFIED_AUTH` und `LOOKUP_AUTH` sich `category=AUTH` teilen. `ToolHandlerRegistry` lehnt beim Einsammeln der Descriptors ein doppeltes `(method, role)`-Paar ab, statt unbemerkt einen beliebigen der beiden zu nehmen.
 
 `tool_spi` kennt **keine** konkreten Methoden — jedes Modul deklariert seine eigene Konstante (z. B. `auth_sms/Descriptors.kt`: `internal const val SMS_METHOD = "sms"`), damit der Katalog ohne zentrale Liste auskommt. `toolId` bleibt bewusst *nicht* aus `(method, role)` abgeleitet: es ist der öffentliche API-Vertrag (URL-Pfade, Frontend-Routing), auch wenn die aktuellen Werte dem Muster `{role-präfix}-{method}[-lookup]` folgen.
 
@@ -172,7 +172,7 @@ fehlgeschlagen:
 | `InProgress(nextStep, data)` | läuft weiter; `data` ist client-gerichtet und wird unverändert als `stepData` durchgereicht |
 | `Failed(reason)` | Versuch fehlgeschlagen; Retry-Regel siehe [Orchestrierung](04-orchestrierung.md) |
 | `Completed.Identified(claims, ...)` | Person identifiziert; genau ein gültiger `PERSON_ID`-Claim |
-| `Completed.Attested(claims, ...)` | Attribut bezeugt; kein `enrollmentRef`, `amr` fest leer (Abschnitt „ATTEST" unten) |
+| `Completed.Attested(claims, ...)` | Attribut bestätigt; kein `enrollmentRef`, `amr` fest leer (Abschnitt „ATTEST" unten) |
 | `Completed.Enrolled(enrollmentRef, ...)` | Methode eingerichtet |
 | `Completed.Authenticated(accountId?, ...)` | Nachweis erbracht — `accountId` nur bei `-lookup`-Tools gesetzt |
 | `Completed.Approved(...)` | Ein `PEER_APPROVAL`-Tool (`confirm-qr-login`) hat eine fremde Anfrage bestätigt |
@@ -181,7 +181,7 @@ Jede `Completed`-Variante trägt zusätzlich `amr` (nachgewiesene Methoden, für
 `AuthContext.currentAmr`), `achievedAcr` und `factorTypes` (Teilmenge der `ToolDescriptor.factorTypes`) —
 die Variante *ist* die Kategorie und legt fest, was der Orchestrator tut.
 
-### `ATTEST`: ein Attribut bezeugen ist weder Identifizierung noch Anmeldung
+### `ATTEST`: ein Attribut bestätigen ist weder Identifizierung noch Anmeldung
 
 `confirm-email` weist nach, dass jemand eine Adresse **kontrolliert** — dort kommt ein Code an. Das
 ist weder „wer bist du" (`IDENT`) noch „weise ein Mittel nach" (`AUTH`) noch „richte ein Mittel ein"
@@ -190,29 +190,31 @@ ist weder „wer bist du" (`IDENT`) noch „weise ein Mittel nach" (`AUTH`) noch
 bestätigte Adresse darf das Niveau des Kanals nicht anheben.
 
 Unter `IDENT` einzuordnen wäre falsch: `CandidateTools.forIdentification` und
-`DefaultAuthPolicy.reIdentCandidates` böten das Tool als Identifizierungsverfahren an, und seine
-Evidenz läge auf der IDENTITY-Achse — das höbe das IAL, den ersten der drei Deckel aus ADR-5.
+`DefaultAuthPolicy.reIdentCandidates` würden das Tool als Identifizierungsverfahren anbieten, und
+sein Nachweis läge auf der IDENTITY-Achse — das würde das IAL anheben, die erste der drei
+Obergrenzen aus ADR-5.
 
-**Wann welche Kategorie**, für das nächste Attribut: `ClaimSource` (wer bürgt) und
-`AttributeType.authority` (wem der aktuelle Wert gehört) entscheiden. Bürgt das Register
-(`EXT_STAMMDATEN`), ist es `IDENT`; bürgt der Austausch selbst (`ClaimSource.of(toolId)`) und gehört
-der Wert dem Konto (`LOCAL_ANCHOR`), ist es `ATTEST`; gehört er dem Methodenmodul
-(`METHOD_MODULE`), ist es `ENROLL`. Über die KVNR lässt sich keine Kontrolle nachweisen, nur die
+**Wann welche Kategorie**, für das nächste Attribut: Darüber entscheiden `ClaimSource` (wer für
+den Wert einsteht) und `AttributeType.authority` (wem der aktuelle Wert gehört). Steht das Register
+dafür ein (`EXT_STAMMDATEN`), ist es `IDENT`. Steht das Verfahren selbst dafür ein
+(`ClaimSource.of(toolId)`) und gehört der Wert dem Konto (`LOCAL_ANCHOR`), ist es `ATTEST`. Gehört
+er dem Methodenmodul (`METHOD_MODULE`), ist es `ENROLL`. Über die KVNR lässt sich keine Kontrolle nachweisen, nur die
 Zugehörigkeit zur Person — also `IDENT`, kein `attest-kvnr`.
 
-Ein dritter Fall fehlte in dieser Regel und wurde mit ADR-18 nachgetragen: **bürgt das Verfahren
-selbst (`ClaimSource.of(toolId)`) für einen Wert, den `EXT_STAMMDATEN` verwaltet, ist es `IDENT`** —
-so liegt `ident-eid`, das Name/Vorname/Geburtsdatum, die Adresse und die kartengebundene `restricted_id` von der Karte bezeugt. `ATTEST` wäre dafür
-falsch, und zwar nicht wegen des Datenbesitzes, sondern weil `ATTEST` per Definition *nichts* zur
-ACR/AMR-Bilanz beiträgt (`evidenceAxis()` wirft dafür): eine eID trägt sehr wohl IAL bei. Umgekehrt
+Ein dritter Fall fehlte in dieser Regel und wurde mit ADR-18 nachgetragen: **Steht das Verfahren
+selbst (`ClaimSource.of(toolId)`) für einen Wert ein, den `EXT_STAMMDATEN` verwaltet, ist es
+`IDENT`** — so liegt der Fall bei `ident-eid`, das Name, Vorname, Geburtsdatum, die Adresse und die
+kartengebundene `restricted_id` von der Karte liest. `ATTEST` wäre dafür falsch, und zwar nicht
+wegen des Datenbesitzes, sondern weil `ATTEST` per Definition *nichts* zur ACR/AMR-Bilanz beiträgt
+(`evidenceAxis()` wirft dort eine Exception): Eine eID trägt sehr wohl IAL bei. Umgekehrt
 gilt die Kategorie auch für ein Tool, das nur *korreliert* statt zu beweisen (`ident-kvnr`,
 `role = CORRELATION`) — es bleibt `IDENT`, seine Sicherheit kommt aus `requires` plus dem
 Identitätsabgleich im Account-Modul.
 
 `ToolCategory.SIDE_ACTION` benennt die geteilte Eigenschaft von `PEER_APPROVAL`-Tools: sie tragen
 nichts zur ACR/AMR-Bilanz des *eigenen* Kanals bei und sind nie Kandidat einer Lücken-Vorauswahl,
-nur explizit per `intent` aktiviert. Bewusst **nicht** `MISC`/`OTHER`: das würde die Exhaustivität
-unterlaufen, die `ToolCategory` als versiegeltes `enum` herstellt — `AuthPolicy.candidateTools`/
+nur explizit per `intent` aktiviert. Bewusst **nicht** `MISC`/`OTHER`: Das würde die Vollständigkeit
+aushebeln, die `ToolCategory` als abgeschlossenes `enum` sichert — `AuthPolicy.candidateTools`/
 `enrollmentCandidates` haben einen eigenen `SIDE_ACTION`-Zweig, der nichts anbietet. Ablehnen einer
 Peer-Anfrage ist **kein** eigener `ToolOutcome` — `Failed(reason = "Vom Nutzer abgelehnt")` reicht.
 
@@ -220,7 +222,7 @@ Peer-Anfrage ist **kein** eigener `ToolOutcome` — `Failed(reason = "Vom Nutzer
 - `amr`/`achievedAcr` liefert jedes Tool selbst, weil dasselbe Verfahren je nach Ausführung unterschiedliche Niveaus erreichen kann.
 - `Completed.Authenticated.accountId` setzen nur die `-lookup`-Tools, die den Account selbst auflösen — gewöhnliche `auth-*`-Tools kennen ihn schon über den Kanal.
 - Ein Controller pro Tool ruft seinen Handler direkt auf, typisiert statt über eine generische `Map<String, Any?>` — kein `toolId`-basierter Laufzeit-Dispatch ([Projektrahmen](08-projektrahmen.md) A11: „Lesbarkeit hat Vorrang vor maximal generischem API-Wiring"). Dieser Controller lebt im selben Modul wie sein Handler (Abschnitt 4); `EnrollmentRef` wird am Aufrufort im Controller aufgelöst und geprüft — der Handler bekommt nie einen nullable Parameter.
-- **Die bestätigte E-Mail ist ein Account-Attribut, kein modul-eigenes Credential**: `confirm-email` liefert den `EMAIL`-Claim über `Completed.Attested`; die Journey übernimmt ihn über `AccountService.recordClaims`. `enroll-email` setzt darauf auf (`requires ClaimRequirement(EMAIL, PROVEN)`) und trägt selbst keinen Claim mehr — die Kontrolle wurde bereits bewiesen, ein zweiter Nachweis brächte nichts. `auth-email-lookup`, `auth-sms-lookup` und `auth-password-lookup` lösen den Account stattdessen über die `resolveAccountByEmail`-Extension auf `AccountDirectory` auf; sie liefert nur eine Account-ID, kein Profil. `confirm-email` prüft selbst **nicht**, ob die Adresse schon einem Konto gehört: Vor dem Code ist sie nur getippt, nicht bewiesen. Wem die bestätigte Adresse gehört, entscheidet danach die zentrale Auflösung — gehört sie einem anderen Konto, geht das vorläufige darin auf, sofern die bezeugte Identität dazu passt ([12-entscheidungen.md](12-entscheidungen.md) ADR-20).
+- **Die bestätigte E-Mail ist ein Account-Attribut, kein modul-eigenes Credential**: `confirm-email` liefert den `EMAIL`-Claim über `Completed.Attested`; die Journey übernimmt ihn über `AccountService.recordClaims`. `enroll-email` setzt darauf auf (`requires ClaimRequirement(EMAIL, PROVEN)`) und trägt selbst keinen Claim mehr — die Kontrolle wurde bereits bewiesen, ein zweiter Nachweis brächte nichts. `auth-email-lookup`, `auth-sms-lookup` und `auth-password-lookup` lösen den Account stattdessen über die `resolveAccountByEmail`-Extension auf `AccountDirectory` auf; sie liefert nur eine Account-ID, kein Profil. `confirm-email` prüft selbst **nicht**, ob die Adresse schon einem Konto gehört: Vor dem Code ist sie nur getippt, nicht bewiesen. Wem die bestätigte Adresse gehört, entscheidet danach die zentrale Auflösung — gehört sie einem anderen Konto, geht das vorläufige darin auf, sofern die bestätigte Identität dazu passt ([12-entscheidungen.md](12-entscheidungen.md) ADR-20).
 
 ---
 

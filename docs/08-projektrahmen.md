@@ -61,17 +61,17 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); eigene `@RestController` |
 | M4 | `account` | Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
 | M5 | `ext_stammdaten` | Externe Stammdaten: verwaltet `Person`-Entitäten mit Adressdaten; implementiert den `tool_api`-Port `PersonDirectory` |
-| M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`), voraussetzungsgebunden über `ToolDescriptor.requires` mit `ClaimRequirement(EMAIL, PROVEN)` ([Tool-Architektur](03-tool-architektur.md)) |
+| M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`); setzt über `ToolDescriptor.requires` eine bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) ([Tool-Architektur](03-tool-architektur.md)) |
 | M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account` |
 | M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …), `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
 | M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
-| M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bezeugt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController` |
-| M10a | `id_kvnr` | Zuordnung einer bezeugten Identität zur Registerperson (Tool `ident-kvnr`, ADR-18); eigener `@RestController` |
+| M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bestätigt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController` |
+| M10a | `id_kvnr` | Zuordnung einer bestätigten Identität zur Registerperson (Tool `ident-kvnr`, ADR-18); eigener `@RestController` |
 | M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff; eigene `@RestController` |
 | M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine `account`-Abhängigkeit |
 | M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE) und `sms` (POSSESSION) an — dem Paar für ein Step-up auf LoA2, create-only: Testpersonen mit bestehendem PERSON_ID-/EMAIL-Anker-Konto werden übersprungen (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveAccountByPersonId`/`resolveAccountByEmail` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); kein `@RestController` |
 | M14 | `auth_kobil` | Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); backend-verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Sub-Ressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber als einziges Methodenmodul eine vierte erlaubte Kante: `kobil_mock` |
-| M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: `allowedDependencies = []` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Gesichter — HTTP-Fassade `/mock-kobil/*` für die App (Pendant zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
+| M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: `allowedDependencies = []` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Fassade `/mock-kobil/*` für die App (Pendant zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -134,9 +134,8 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
   Schema ihres Moduls, Fremdschlüssel nur innerhalb eines Schemas
   ([12-entscheidungen.md](12-entscheidungen.md) ADR-16). Der Flyway-Verlauf bleibt in `PUBLIC`.
 - `kobil_mock` hat aus demselben Grund ein eigenes Schema, aber nicht aus derselben Rolle: Es ist
-  kein Modul dieser Anwendung, sondern ein simuliertes Fremdsystem. Die Trennung ist hier die
-  Aussage — läge es im Schema von `auth_kobil`, könnte das Tool an der Schnittstelle vorbei
-  nachsehen, und der Ablauf würde nichts mehr zeigen.
+  kein Modul dieser Anwendung, sondern ein simuliertes Fremdsystem. Genau darum geht es bei der Trennung: Läge es im Schema von `auth_kobil`, könnte das Tool an der
+  Schnittstelle vorbei nachsehen, und der Ablauf würde nichts mehr zeigen.
 - Im Modul `ext_stammdaten` existiert eine `Person`-Entität mit `id`, `kvnr` (eindeutig), `name`, `vorname`, `strasse`, `hausnummer`, `plz`, `ort`, `geburtsdatum`.
 - Bei Applikationsstart werden Testpersonen und gültige FSC-Codes per Flyway-Migration eingespielt.
 
@@ -151,7 +150,7 @@ allein H2s eigene Localhost-Prüfung diesen Pfad, hinter dem Passwort-Hashes, Ge
 alle Sessions liegen.
 
 Diese Prüfung vergleicht die Absenderadresse: Bei `./gradlew bootRun` ist das `127.0.0.1`, und die
-Konsole geht. **Aus dem Container (`compose.yml`) geht sie nicht:** Der Request erreicht den
+Konsole funktioniert. **Aus dem Container (`compose.yml`) geht sie nicht:** Der Request erreicht den
 Orchestrator über die Portweiterleitung `8080:8080` mit der Bridge-Gateway-Adresse, für H2 eine
 „remote connection" — abgewiesen mit *„remote connections ('webAllowOthers') are disabled on this
 server"*. Das Sicherheitsnetz greift also wie vorgesehen.
@@ -161,7 +160,7 @@ laufen lassen; die Variante `host` (Default von `KEYCLOAK_SETUP_VARIANT`) richte
 bereits auf `host.containers.internal:8080` aus. Wer
 die Daten eines Container-Laufs braucht, kopiert die Datei aus dem gestoppten Volume
 `orchestrator-data` heraus. `web-allow-others` ist keine Option: Der Port ist auf dem Host
-gemappt, das öffnete den vollen Lese-/Schreibzugriff für jeden, der ihn erreicht.
+veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzugriff geben.
 
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
@@ -237,8 +236,8 @@ Journey-Log entsteht nur durch einen echten Durchlauf).
 
 Alle anderen Suiten brauchen nur sein *Ergebnis* — „ein Konto mit sms und Passwort, an dieses
 Gerät gebunden". Das stellt `AccountFixtures` (Test-Sourceset) über die Domain-Services her, nicht
-über SQL: so gelten dieselben Invarianten wie im Produktivpfad (Anchor-Floors,
-Singleton-Ersetzung, Claim-Provenienz). Dasselbe Vorgehen nutzt `demo_seed`
+über SQL: so gelten dieselben Regeln wie im Produktivpfad (Mindestniveaus der Anker,
+Ersetzen einer vorhandenen Methode, Herkunft der Claims). Dasselbe Vorgehen nutzt `demo_seed`
 (`KcDemoAccountSeeder`).
 
 Einstiegspunkte in `IntegrationTestSupport`:
@@ -247,7 +246,7 @@ Einstiegspunkte in `IntegrationTestSupport`:
 | --- | --- |
 | `seedRegisteredAccount()` | Konto existiert (sms + Passwort, bestätigte Adresse, Gerät gebunden), kein Kanal |
 | `loginAsSeededAccount()` | dazu ein angemeldeter loa2-Kanal (`amr = [sms, password]`) |
-| `registerAndAuthenticate()` | echter Registrierungsdurchlauf — trägt zusätzlich eigene `fsc`-Evidenz |
+| `registerAndAuthenticate()` | echter Registrierungsdurchlauf — trägt zusätzlich einen eigenen `fsc`-Nachweis |
 
 Der Unterschied zwischen den letzten beiden ist fachlich: Ein angemeldeter Kanal besitzt keine
 eigene Identifikationsevidenz. Tests, die diese brauchen (etwa das Entfernen einer Methode, die

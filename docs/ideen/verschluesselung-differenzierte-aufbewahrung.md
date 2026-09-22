@@ -28,14 +28,14 @@ ausdrücklich **nicht** Teil der Frage.
   Beispiel. `id_eid.ident_tool_session` fällt heute unter die generische 24h-Regel für
   `*_tool_session` (`07-betrieb.md:42`).
 - Retraction funktioniert heute rein logisch: `AccountRetraction` invalidiert `AccountClaim`-Zeilen
-  zeitbasiert („Behauptungen minus Retraktionen", `02-domaenenmodell.md:142`), löscht aber nur den
+  zeitbasiert („Angaben minus Widerrufe", `02-domaenenmodell.md:142`), löscht aber nur den
   `AccountAnchor` physisch (ADR-12). Die zugehörige `AccountClaim`-Zeile bleibt für immer im
   Klartext liegen — Löschfrist dafür „noch nicht entschieden" (`07-betrieb.md:52`).
 - Alle Löschung heute: harte SQL-`DELETE`s über geplante `*RetentionJob`s auf indizierten
   Cutoff-Spalten (`07-betrieb.md:40-65`), kein Soft-Delete/Tombstone irgendwo.
 
-Ziel dieses Dokuments: das Konzept **Envelope Encryption mit Crypto-Shredding** erklären, es exakt
-auf das bestehende Claim/Anchor/Retraction-Modell mappen, und zwei konkrete Szenarien
+Ziel dieses Dokuments: das Konzept **Envelope Encryption mit Crypto-Shredding** erklären, es genau
+auf das bestehende Claim/Anchor/Retraction-Modell übertragen und zwei konkrete Szenarien
 durchspielen.
 
 ---
@@ -46,8 +46,8 @@ Statt Daten direkt mit einem einzigen, langlebigen Account-Schlüssel zu verschl
 jede Einheit an Daten ihren **eigenen Data Encryption Key (DEK)**. Dieser DEK wird seinerseits vom
 **Account Master Key (AMK)** — genau ein Schlüssel pro Account — verschlüsselt („gewrapped").
 
-**Warum ein einziger Account-Schlüssel allein nicht reicht:** Ein symmetrischer Schlüssel hat genau
-einen Blast-Radius, sowohl fürs Lesen als auch fürs Zerstören. Teilen sich EMAIL-Claim und
+**Warum ein einziger Account-Schlüssel allein nicht reicht:** Ein symmetrischer Schlüssel reicht
+immer genau so weit, beim Lesen wie beim Zerstören. Teilen sich EMAIL-Claim und
 EID-Claims denselben Schlüssel, kann man das EMAIL-Chiffrat nicht dauerhaft unlesbar machen, ohne
 entweder auch die EID-Daten zu zerstören oder vorher den Rest umzuschlüsseln — was wieder bedeutet,
 jede andere Zeile finden und anfassen zu müssen.
@@ -66,7 +66,7 @@ Drei Kandidaten, bewertet gegen das bestehende Modell (`02-domaenenmodell.md` §
 
 | Granularität | Bewertung |
 |---|---|
-| **(a) Ein DEK pro `AttributeType`** (z. B. ein Schlüssel für alle EMAIL-Claims eines Accounts) | Zu grob: `account.claim` ist append-only, ein Account hat oft mehrere historische Zeilen desselben Typs (alte/korrigierte/zurückgezogene/neu bezeugte E-Mail). Eine Retraktion invalidiert nur Claims *vor* ihr — ein danach neu bezeugter Wert zählt wieder (ADR-12). Ein gemeinsamer DEK würde beim Shredden auch aktuell gültige Claims desselben Typs mit zerstören. **Verworfen als primärer Mechanismus.** |
+| **(a) Ein DEK pro `AttributeType`** (z. B. ein Schlüssel für alle EMAIL-Claims eines Accounts) | Zu grob: an `account.claim` wird nur angefügt, ein Account hat oft mehrere historische Zeilen desselben Typs (alte/korrigierte/zurückgezogene/neu bestätigte E-Mail). Ein Widerruf entkräftet nur Claims *vor* ihm — ein danach neu bestätigter Wert zählt wieder (ADR-12). Ein gemeinsamer DEK würde beim Shredden auch aktuell gültige Claims desselben Typs mit zerstören. **Verworfen als primärer Mechanismus.** |
 | **(b) Ein DEK pro `AccountClaim`-Zeile** | Trifft die Granularität von `AccountRetraction`, ist aber unnötig fein: ein eID-Scan schreibt 8 Zeilen (`EID_RESTRICTED_ID`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE`, `HAUSNUMMER`, `PLZ`, `ORT`) in einem `recordClaims`-Aufruf (`AccountService.kt:131-183`) — 8 DEKs für einen fachlichen Vorgang. **Verworfen zugunsten von (b').** |
 | **(b') Ein DEK pro Claim-Batch** (= eine `recordClaims`-Transaktion) | Neues, schmales Feld `claim_batch_id` (UUID), einmal pro `recordClaims`-Aufruf erzeugt und an alle in diesem Aufruf gespeicherten Zeilen gehängt. `AccountClaim.authMethodId` taugt dafür NICHT als Gruppierungsschlüssel — für Identifizierungs-Claims (`ident-eid`) ist es laut Code-Kommentar immer `null` (`AccountClaim.kt:46-49`, „claims from identification tools produce no credential"). Auch `claimSource` allein reicht nicht: `ClaimSource.of(toolId)` = `"ident-eid"` ist für jeden eID-Lauf gleich und würde eine Neuidentifizierung Jahre später fälschlich mit dem ersten Lauf verschmelzen. Ein Batch-DEK bündelt genau das, was fachlich als ein Vorgang zusammengehört (~8x weniger Schlüssel für eID) und lässt trotzdem jeden Scan seine eigene 1-Jahres-Uhr behalten. Kosten: Muss ein einzelnes Attribut innerhalb eines Batches vorzeitig unabhängig sterben, braucht das ein Re-Key der übrigen Zeilen des Batches — im bestehenden Retraction-Modell aber ein Randfall: der Anker-Ersatz-Trigger (ADR-12) trifft nur die drei `LOCAL_ANCHOR`-Attribute (PERSON_ID/EID_RESTRICTED_ID/EMAIL), die übrigen eID-Felder sind `EXT_STAMMDATEN`-Autorität und laufen nur als Konsistenz-Log, nicht einzeln retrahiert. **Empfohlen als primärer Mechanismus für `account.claim`.** |
 | **(c) Ein DEK pro Retention-Klasse** (kleines Enum, z. B. `EID_RESTRICTED`, `STANDARD_CLAIM`) | Grober und billiger zu verwalten, aber periodisches Re-Keying nötig, sobald eine Zeile der Klasse vorzeitig sterben muss. **Empfohlen als pragmatischer Mechanismus für die kurzlebigen Tool-Session-PII-Tabellen** (`id_eid.ident_tool_session` u. ä.), wo ohnehin alles binnen ~24h fällt und selbst ein Batch-DEK Overkill wäre. |
@@ -94,11 +94,11 @@ zuerst:
   (`PERSON_ID`, `EID_RESTRICTED_ID`, `EMAIL`) — Referenzwerte/Pseudonyme plus eine E-Mail-Adresse,
   nicht die eigentlich sensiblen eID-Inhalte (Name, Geburtsdatum, Adresse), die ausschließlich im
   Claim-Log liegen.
-- **Die Retraktion ist für `AccountAnchor` bereits gelöst — ohne Krypto:** ADR-12 löscht die
-  Anker-Zeile bei Retraktion physisch per `DELETE`. Das ist stärker als Crypto-Shredding (kein
+- **Der Widerruf ist für `AccountAnchor` bereits gelöst — ohne Krypto:** ADR-12 löscht die
+  Anker-Zeile beim Widerruf physisch per `DELETE`. Das ist stärker als Crypto-Shredding (kein
   Chiffrat bleibt liegen, das mit einem später kompromittierten Schlüssel wieder lesbar würde — die
   Zeile ist schlicht weg). Der ganze Verschlüsselungsaufwand ist für den Anker nie nötig gewesen;
-  nötig ist er für den **Claim-Log**, der laut `07-betrieb.md:52` bei Retraktion gerade *nicht*
+  nötig ist er für den **Claim-Log**, der laut `07-betrieb.md:52` beim Widerruf gerade *nicht*
   gelöscht wird.
 
 **Konsequenz:** `AccountAnchor` bleibt Klartext, kein Blind Index, kein zweiter globaler Pepper.
@@ -146,7 +146,7 @@ für PBKDF2/HMAC schon nutzt, also keine neue Abhängigkeit.
 `AccountAnchor` für EMAIL physisch gelöscht (ADR-12), aber die `AccountClaim`-Zeile(n) für EMAIL
 bleiben unbegrenzt im Klartext liegen (`07-betrieb.md:52`, Frist „noch nicht entschieden"). Ein
 EMAIL-`recordClaims`-Aufruf ist typischerweise ein Batch mit nur einer Zeile — die
-Batch-Granularität kostet hier nichts. Mit Claim-Batch-DEKs: dieselbe Retraktion löscht zusätzlich
+Batch-Granularität kostet hier nichts. Mit Claim-Batch-DEKs: derselbe Widerruf löscht zusätzlich
 den DEK dieses Batches (sofort oder nach einer Karenz-/Audit-Frist). Die Zeile selbst kann
 strukturell erhalten bleiben — `attribute_type`, `claim_source`, `established_acr`, Zeitstempel
 bleiben unverschlüsselte Metadaten für Audit-Zwecke — nur `claim_value`/`normalized_value` werden
@@ -155,11 +155,11 @@ Entscheidung zur physischen Massenlöschung warten zu müssen.
 
 **eID-Daten, max. 1 Jahr.** Ein `ident-eid`-Lauf schreibt 8 Claims mit gemeinsamer `claim_batch_id`
 in einem `recordClaims`-Aufruf. Reines DEK-Löschen reicht hier **nicht**: „Aktuell gültig" wird im
-bestehenden Modell als „Behauptungen minus Retraktionen" berechnet (`02-domaenenmodell.md:142`) —
+bestehenden Modell als „Angaben minus Widerrufe" berechnet (`02-domaenenmodell.md:142`) —
 rein über `AccountRetraction`-Zeilen, unabhängig von Lesbarkeit. Ohne Retraction hielte die
 Konsolidierungslogik (`findEstablished`, `AccountProfile.establishedClaims`, der Dedup-Check in
 `recordClaims`) die Claims weiterhin für gültig, während sie tatsächlich unlesbares Chiffrat sind —
-ein stiller Widerspruch zwischen Logik- und Krypto-Zustand, potenziell ein Entschlüsselungsfehler
+ein unbemerkter Widerspruch zwischen Logik- und Krypto-Zustand, potenziell ein Entschlüsselungsfehler
 an Stellen, die von „vorhanden" ausgehen.
 
 Der `RetentionJob` muss deshalb **in einer Transaktion** zwei Dinge tun: (a) für jeden betroffenen
@@ -173,7 +173,7 @@ fälschlich als menschliche Operator-Aktion erscheint.
 Eine spätere Neuidentifizierung (neue Karte, neue `claim_batch_id`) bekommt ihre eigene,
 unabhängige Frist. Im Kern strukturell dasselbe Muster, das schon produktiv läuft (`*RetentionJob`,
 `07-betrieb.md:40-55`) — nur dass der Job hier zusätzlich die Retraction-Buchhaltung übernimmt, die
-bei einer nutzerausgelösten Retraktion (E-Mail-Beispiel oben) der auslösende Vorgang selbst liefert.
+bei einem nutzerausgelösten Widerruf (E-Mail-Beispiel oben) der auslösende Vorgang selbst liefert.
 
 ---
 
@@ -195,7 +195,7 @@ bei einer nutzerausgelösten Retraktion (E-Mail-Beispiel oben) der auslösende V
 **Wiederverwendet, unverändert:**
 - Eigenes Schema pro Modul (bleibt im `account`-Schema).
 - Das bestehende `*RetentionJob`-Muster — DEK-Löschung ist nur ein weiterer cutoff-getriebener Job.
-- Die append-only-`AccountClaim`/Projektions-`AccountAnchor`-Trennung und die
+- Die Trennung zwischen `AccountClaim` (nur anfügen) und `AccountAnchor` (Projektion) und die
   `AccountRetraction`-Granularität (ADR-12) — der DEK setzt exakt auf die schon vorhandene Zeile auf.
 
 ---
@@ -256,7 +256,7 @@ großen gesetzlichen Krankenversicherers (~11 Mio. Versicherte).
   bleibt dann ein simples indiziertes `DELETE ... WHERE expires_at < now()`, das bestehende
   Muster. Daraus folgt eine zu erzwingende Invariante: Ein Batch darf nur Attributtypen **derselben**
   Retention-Policy bündeln, sonst gewinnt beim Löschen die längste Frist.
-- **Blast Radius wird bei Prod-Volumen konkret, nicht nur theoretisch.** Verlust der Key-Tabelle
+- **Der Schaden wird bei Produktionsmengen konkret, nicht nur theoretisch.** Verlust der Key-Tabelle
   trifft bei 30–55 Mio. Zeilen nicht ein Konto, sondern alle gleichzeitig — eher ein
   Totalausfall-Szenario als ein gewöhnlicher Tabellenverlust. Braucht eigene, strengere SLOs
   (RPO nahe 0), eher einen eigenen überwachten Datastore als „eine weitere Tabelle im

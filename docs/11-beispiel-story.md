@@ -45,14 +45,15 @@ zwei Pflichtschritte:
    voraus. Mara bekommt einen Code und gibt ihn ein.
 2. **Anmeldeverfahren einrichten.** Mara wählt SMS (`enroll-sms`) und bekommt eine TAN. Damit
    könnte sie sich anmelden — aber nur auf `loa1`: SMS ist ein reiner Besitz-Faktor, und ihre
-   Obergrenze ist `loa1`. Ein Konto, das dort stehen bliebe, käme nie wieder an seine eigene
+   Obergrenze ist `loa1`. Ein Konto, das dort stehen bleibt, kommt nie wieder an seine eigene
    Verwaltung heran, denn die verlangt `loa2`. Also verlangt die Journey ein zweites Verfahren
    **anderer Art**: `enroll-password` (Wissen). Erst die Kombination aus Besitz und Wissen trägt
    `loa2`.
 
-Beide Verfahren werden mit dem bezahlt, was die Sitzung beim Einrichten bewiesen hatte — hier die
-`loa2` der Identifizierung. Dieses Niveau bleibt an ihnen kleben (`enrolledUnderAcr`) und deckelt
-später, was ihre Kombination höchstens erreichen kann (ADR-5, keine Selbst-Eskalation). Hätte Mara
+Beide Verfahren erben das Niveau, das die Sitzung beim Einrichten bewiesen hatte — hier die `loa2`
+der Identifizierung. Dieses Niveau bleibt dauerhaft an ihnen hängen (`enrolledUnderAcr`) und
+begrenzt später, was ihre Kombination höchstens erreichen kann (ADR-5: Niemand soll sich selbst
+höherstufen). Hätte Mara
 statt Passwort und SMS gleich ihr Gerät eingerichtet, wäre der Passwort-Schritt entfallen:
 `enroll-device` bringt Besitz und Wissen (oder Biometrie) schon allein mit.
 
@@ -65,7 +66,7 @@ statt Passwort und SMS gleich ihr Gerät eingerichtet, wäre der Passwort-Schrit
 Mit dem abgeschlossenen Login-Mittel stellt der Orchestrator serverseitig ein `AccessToken`
 gegen Keycloak aus — ein Standard-OIDC-Tokenfluss, den Mara nie zu Gesicht bekommt, nur das
 Ergebnis. Ihr `ChannelSession.state` wechselt auf `AUTHENTICATED`. Ab jetzt ruft die App mit
-diesem Token die eigentliche Fachlichkeit — andere Microservices — **direkt** auf, ohne den
+diesem Token die eigentlichen Fachdienste — andere Microservices — **direkt** auf, ohne den
 Orchestrator dafür je wieder zu brauchen. Registrierung und Login waren nur die Voraussetzung
 dafür, nie der eigentliche Zweck.
 
@@ -98,17 +99,17 @@ Der Orchestrator verlangt daher einen `STEP_UP`. Zwei Wege führen hinauf, und b
 offen:
 
 - **Zweiter Faktor.** Mara gibt zusätzlich ihr Passwort ein. Zwei verschiedene Verfahren mit zwei
-  verschiedenen Faktorarten (Besitz + Wissen) heben das Niveau um eine Stufe — gedeckelt durch das
+  verschiedenen Faktorarten (Besitz + Wissen) heben das Niveau um eine Stufe — begrenzt durch das
   Niveau, unter dem die Verfahren selbst eingerichtet wurden. Da beide in ihrer
   `loa2`-Identifizierungssitzung entstanden sind, reicht es.
 - **Erneut identifizieren.** `ident-fsc` trägt `loa2` aus sich heraus, ohne Kombination. Dieser
-  Weg ist die Notausgangstür für Konten, die nur ein einziges Verfahren haben — sonst kämen sie
-  nie wieder an ihre eigene Verwaltung.
+  Weg ist der Ausweg für Konten mit nur einem einzigen Verfahren — sonst kommen sie nie wieder an
+  ihre eigene Verwaltung.
 
 Erst danach akzeptiert die Journey die Änderung.
 
 *Konzepte: [Sub-Journey `STEP_UP`](04-orchestrierung.md) Abschnitt 3,
-[dreifache Niveau-Deckelung, ADR-5](12-entscheidungen.md).*
+[dreifache Niveau-Begrenzung, ADR-5](12-entscheidungen.md).*
 
 ## 6) Mara macht ihr Gerät zum Anmeldeverfahren
 
@@ -139,15 +140,14 @@ noch nicht — das verrät erst die Zustimmung vom Handy. Mara scannt den Code m
 dort startet die Journey `CONFIRM_PEER_LOGIN`. Bevor sie zustimmen darf, verlangt der
 Orchestrator zweierlei von der **App**-Sitzung:
 
-1. Sie muss selbst `loa2` erreichen — eine `loa1`-Sitzung kann keinen Login anderswo verbürgen.
+1. Sie muss selbst `loa2` erreichen — eine `loa1`-Sitzung kann für einen Login anderswo nicht einstehen.
    Mara löst das mit einem Blick in die Kamera; ihr Geräteverfahren aus Kapitel 6 trägt `loa2`.
 2. Sie muss **frisch** beweisen, dass gerade jetzt Mara am Gerät sitzt und nicht ein alter
    Nachweis von heute Morgen die Zustimmung gibt.
 
 Erst dann erscheint `confirm-qr-login`, Mara tippt auf „Bestätigen" — und der Browser ist
-angemeldet, auf `loa2`, ohne dass dort je ein Passwort getippt wurde. Das Niveau ist kein
-Geschenk: `auth-qr` darf es nur deshalb behaupten, weil die App-Seite vorher durch ihr eigenes
-`loa2`-Tor musste. Der QR-Login reicht durch, was dort schon bewiesen wurde.
+angemeldet, auf `loa2`, ohne dass dort je ein Passwort getippt wurde. Das Niveau ist dabei nicht geschenkt: `auth-qr` darf es nur deshalb melden, weil die App-Seite
+vorher ihre eigene `loa2`-Hürde nehmen musste. Der QR-Login reicht durch, was dort schon bewiesen wurde.
 
 *Konzepte: [`CONFIRM_PEER_LOGIN`](04-orchestrierung.md) Abschnitt 3,
 [Web-/Keycloak-Fassade](05-api.md) Abschnitt 3, [`PEER_APPROVAL` als eigene Rolle](03-tool-architektur.md).*
@@ -190,9 +190,9 @@ nachvollziehbar, ohne dass jemand verteilte Systemlogs rekonstruieren müsste.
 | „Reicht das schon fürs Login/für diese Aktion?" | Niveau (`loa1`/`loa2`/`loa3`) | [04-orchestrierung.md](04-orchestrierung.md) |
 | „Besitz, Wissen, Biometrie — wie viele davon?" | `factorTypes`, MFA-Kombination | [04-orchestrierung.md](04-orchestrierung.md) |
 | „Ist das wirklich Maras Gerät?" | DPoP-Proof | [09-dpop.md](09-dpop.md) |
-| „Darf dieses Handy einen Login anderswo verbürgen?" | `CONFIRM_PEER_LOGIN`, `PEER_APPROVAL` | [04-orchestrierung.md](04-orchestrierung.md) |
+| „Darf dieses Handy für einen Login anderswo einstehen?" | `CONFIRM_PEER_LOGIN`, `PEER_APPROVAL` | [04-orchestrierung.md](04-orchestrierung.md) |
 
 Jeder dieser Schritte funktioniert für Maras App-Kanal genauso wie für einen Browser-Login über
 Keycloak — nur *wer rendert* und *wie der Request abgesichert ist* unterscheidet sich zwischen
-den beiden Kanälen ([05-api.md](05-api.md)). Kapitel 7 zeigt beide zugleich: Derselbe Nutzer,
-zwei Kanäle, und der eine verbürgt den anderen.
+den beiden Kanälen ([05-api.md](05-api.md)). Kapitel 7 zeigt beide zugleich: derselbe Nutzer,
+zwei Kanäle, und der eine steht für den anderen ein.

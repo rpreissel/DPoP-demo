@@ -1,7 +1,7 @@
 # Architekturentscheidungen
 
-Die großen Entscheidungen dieses Projekts, mit der ernsthaft erwogenen Alternative und dem Preis
-der gewählten Lösung. Was die Lösung *ist*, steht in den verlinkten Kapiteln — hier steht nur das
+Die großen Entscheidungen dieses Projekts, jeweils mit der ernsthaft erwogenen Alternative und
+mit dem, was die gewählte Lösung kostet. Was die Lösung *ist*, steht in den verlinkten Kapiteln — hier steht nur das
 *Warum*.
 
 ---
@@ -19,9 +19,9 @@ einer generischen `Map<String, Any?>` als Request-Body.
 zeigt am Controller, was ein Tool tatsächlich erwartet — bei einer `Map<String, Any?>` steht das
 nur noch im Handler-Code. Ein `toolId`-basierter Runtime-Dispatch wäre
 außerdem eine Fehlerquelle, die der Compiler nicht sieht: ein neues Tool ohne passenden
-`when`-Zweig fiele erst zur Laufzeit auf.
+`when`-Zweig würde erst zur Laufzeit auffallen.
 
-**Preis**: Mehr Code — 17 Controller statt einem, mit strukturell ähnlichem Aufbau
+**Kosten**: Mehr Code — 17 Controller statt einem, mit strukturell ähnlichem Aufbau
 (Aktivierung/Fortschreiben/Lesen).
 
 ---
@@ -37,10 +37,10 @@ kodierten intent-spezifischen Feldern.
 
 **Warum diese**: Die Menge der Attribute unterscheidet sich stark zwischen Intents (`REGISTER`
 braucht andere Zwischenzustände als `STEP_UP`), und das Verhalten dazu gehört in Services
-(`AuthPolicy`, Tool-Katalog). Getrennte Spalten je Attribut ergäben eine
-breite Tabelle aus überwiegend leeren Feldern. `stateType` bleibt trotzdem abfragbar.
+(`AuthPolicy`, Tool-Katalog). Getrennte Spalten je Attribut würden eine
+breite Tabelle aus überwiegend leeren Feldern ergeben. `stateType` bleibt trotzdem abfragbar.
 
-**Preis**: Der `state`-Inhalt ist für die Datenbank selbst intransparent — Constraints und
+**Kosten**: Der `state`-Inhalt ist für die Datenbank selbst intransparent — Constraints und
 Fremdschlüssel auf einzelne JSON-Attribute sind nicht möglich, Konsistenz muss die
 `IntentStrategy` je Intent selbst sicherstellen.
 
@@ -64,7 +64,7 @@ Geräte-Identität (dauerhaft). Der `bindingKeyRef` beweist
 nur, welches Gerät spricht, nie, welche Session fortzusetzen ist; eine wiederkehrende
 `ChannelSession` wird deshalb **immer** neu angelegt und nur mit `accountId` vorbefüllt.
 
-**Preis**: Zwei Konzepte statt eines — die Geräte-Bindung muss explizit über
+**Kosten**: Zwei Konzepte statt eines — die Geräte-Bindung muss explizit über
 `DeviceAccountLink` nachgeschlagen werden.
 
 ---
@@ -79,11 +79,11 @@ im ursprünglichen Code) durch einen sauberen Neubau, statt sie fortzuschreiben.
 
 **Warum diese**: Der Alt-Stand unterschied sich strukturell so stark vom Zielbild (andere
 Terminologie, kein `ToolDescriptor`/`AuthPolicy`, unverschlüsselte TANs), dass eine
-Schritt-für-Schritt-Migration mehr Zwischenzustände und damit mehr Fehlerfläche erzeugt hätte als
+Schritt-für-Schritt-Migration mehr Zwischenzustände und damit mehr Fehlerquellen erzeugt hätte als
 ein Neubau. Für eine Demo mit lokaler H2-Datei entfällt außerdem das übliche Gegenargument
 Datenverlust.
 
-**Preis**: Diese Entscheidung ist an den Kontext gebunden — bei echten Bestandsdaten wäre eine
+**Kosten**: Diese Entscheidung ist an den Kontext gebunden — bei echten Bestandsdaten wäre eine
 Neubaseline nicht vertretbar.
 
 **Nachtrag**: Eine zweite Neubaseline hat die danach wieder aufgelaufenen 37 Migrationen
@@ -91,9 +91,9 @@ zusammengeführt — mit Modellbereinigung, siehe ADR-14.
 
 ---
 
-## ADR-5: Dreifache Deckelung des Sicherheitsniveaus
+## ADR-5: Drei Obergrenzen für das Sicherheitsniveau
 
-**Entscheidung**: Das erreichbare Sicherheitsniveau wird an drei unabhängigen Stellen gedeckelt:
+**Entscheidung**: Das erreichbare Sicherheitsniveau ist an drei unabhängigen Stellen begrenzt:
 `account.identification.achieved_acr` begrenzt, was ein Account je erreichen kann;
 `account.auth_method.enrolled_under_acr` begrenzt, was eine einzelne Methode beisteuern darf;
 `achievedAcr` einer Session ist das Minimum aus tatsächlich Nachgewiesenem und dem, was die
@@ -103,17 +103,17 @@ verwendete Methode laut ihrem `enrolledUnderAcr` tragen darf
 **Erwogene Alternative**: Nur `achievedAcr` aus der aktuellen Session-Historie ableiten, ohne die
 Enrollment-Bedingungen der einzelnen Methode rückwirkend zu berücksichtigen.
 
-**Warum diese**: Ohne die `enrolledUnderAcr`-Deckelung gäbe es einen Eskalationspfad: Wer eine
-schwache Session übernimmt (z. B. `loa1`), könnte darin eine eigene Methode hinterlegen und
-dauerhaft ein höheres Niveau vortäuschen. Die dritte
-Deckelung verhindert zusätzlich, dass eine schwach identifizierte
-Person über starke Auth-Methoden ein Niveau erreicht, das ihre Identifizierung nie hergab.
+**Warum diese**: Ohne die `enrolledUnderAcr`-Begrenzung gäbe es einen Weg nach oben: Wer eine
+schwache Session übernimmt (z. B. `loa1`), könnte darin eine eigene Methode einrichten und damit
+dauerhaft ein höheres Niveau vortäuschen. Die dritte Grenze verhindert zusätzlich, dass eine
+schwach identifizierte Person über starke Auth-Methoden ein Niveau erreicht, das ihre
+Identifizierung nie hergab.
 
-**Preis**: Drei Stellen, an denen ein Niveau sinken kann, statt einer; welche gerade greift,
-muss über `AuthContext`, `account.auth_method.enrolled_under_acr` und
-`account.identification.achieved_acr` gemeinsam nachvollzogen werden.
+**Kosten**: Drei Stellen, an denen ein Niveau sinken kann, statt einer. Welche davon gerade
+greift, lässt sich nur über `AuthContext`, `account.auth_method.enrolled_under_acr` und
+`account.identification.achieved_acr` zusammen nachvollziehen.
 
-**Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet den ersten Deckel inzwischen als eigene
+**Nachtrag**: `DefaultAuthPolicy.resolveAcr` berechnet die erste Obergrenze inzwischen als eigene
 Größe (IAL, `identityAssuranceLevel`), getrennt von der Authentifizierungsstärke (AAL,
 `authenticatorAssuranceLevel`) — siehe [Orchestrierung](04-orchestrierung.md) Abschnitt 8.
 Der sichtbare `acr`-Wert und diese ADR bleiben unverändert; die Trennung behebt einen
@@ -136,7 +136,7 @@ das Frontend braucht für jeden neuen Schritt ohnehin eine eigene UI-Komponente,
 allein reicht nie. Eine feste Tabelle macht zusätzlich sichtbar, welche Übergänge das
 Frontend überhaupt kennt.
 
-**Preis**: Backend und Frontend müssen synchron gehalten werden — ein neuer `next`-Wert ohne
+**Kosten**: Backend und Frontend müssen synchron gehalten werden — ein neuer `next`-Wert ohne
 passenden Eintrag in der Frontend-Routing-Tabelle führt zu einem unbehandelten Zustand im Client.
 
 ---
@@ -160,7 +160,7 @@ ggf. noch unbekannt".
   Assertion in-process ausstellen.
 - **Keycloak hält einen DPoP-Key als Geräte-Ersatz** — verworfen: DPoPs Wert kommt daher, dass der
   Schlüssel nicht-exportierbar auf einem unvertrauten Client liegt. Hält ein Server ihn, ist es
-  faktisch ein Shared Secret mit asymmetrischer Zeremonie. Pro Nutzer wäre es zusätzlich fatal:
+  praktisch ein gemeinsames Geheimnis mit asymmetrischem Aufwand. Pro Nutzer wäre es zusätzlich fatal:
   `DeviceAccountLink` würde bei jedem Web-Login treffen.
 
 **Warum die signierte Assertion**: mTLS bringt Betriebsaufwand (Zertifikats-Rollout, -Rotation,
@@ -169,14 +169,14 @@ ggf. noch unbekannt".
 verwendet. Weil der Browser den Orchestrator nie direkt erreicht, bleibt die Angriffsfläche auf
 die eine Server-zu-Server-Strecke beschränkt.
 
-**Preis**: Die Sicherheit der Strecke hängt vollständig an der Signaturprüfung der Anwendung —
+**Kosten**: Die Sicherheit der Strecke hängt vollständig an der Signaturprüfung der Anwendung —
 mTLS hätte Peer-Identität und Verschlüsselung bereits auf Transportebene erzwungen. Ein
-kompromittiertes Keycloak kann jeden Nutzer imitieren — das ist der
-kc-first-Architektur inhärent, auch mTLS ändert daran nichts.
+übernommenes Keycloak kann jeden Nutzer imitieren — das liegt in der kc-first-Architektur selbst,
+auch mTLS ändert daran nichts.
 
 ---
 
-## ADR-8: Keycloak bleibt Journey-Eigentümer seiner eigenen nativen Schritte, statt vollständiger Delegation oder Identity-Brokering
+## ADR-8: Keycloak führt seine eigenen nativen Schritte selbst, statt alles zu delegieren oder über Identity-Brokering zu gehen
 
 **Entscheidung** (umgesetzt): Der Web-Kanal lässt Keycloak seine eigene, native
 Authentifizierungs-Flow-Konfiguration (Conditional-LoA-Subflows, natives Passwort-Login) fahren
@@ -195,14 +195,14 @@ ACR/AMR-Instanz ([05-api.md](05-api.md) Abschnitt 3).
   eingebaute Fähigkeiten (natives Passwort-Login, OTP/TOTP, WebAuthn/Passkey,
   Social-Login-Brokering, Conditional-LoA) — genau die Fähigkeiten, derentwegen
   eine Keycloak-Anbindung überhaupt Sinn ergibt.
-- **Zustandslose Einzel-Tool-Aufrufe ohne Journey** (Keycloak bleibt Journey-Eigentümer, ruft den
+- **Zustandslose Einzel-Tool-Aufrufe ohne Journey** (Keycloak führt die Journey weiter selbst, ruft den
   Orchestrator nur für isolierte Faktoren ohne begleitende `ChannelSession` auf):
   ohne die persistente Journey verliert der Orchestrator die
-  Fähigkeit, mehrere eigene Tools im selben Login mit gemeinsamer Evidenz zu verrechnen. Bleibt
+  Fähigkeit, mehrere eigene Tools im selben Login zu einem gemeinsamen Nachweis zu verrechnen. Bleibt
   sinnvoll für Touchpoints außerhalb eines zusammenhängenden Flows (eine
   Keycloak-„Required Action", eine Aktion in der Account-Konsole).
 
-**Preis**: Split-Brain-Risiko zwischen zwei Zustandshaltern — abgefedert dadurch, dass jede Seite
+**Kosten**: Split-Brain-Risiko zwischen zwei Zustandshaltern — abgefedert dadurch, dass jede Seite
 eine nicht überlappende Zuständigkeit trägt (Keycloak entscheidet OB und WELCHES ACR-Level
 angefragt ist, der Orchestrator WAS innerhalb einer Stufe passiert und wie sich mehrere Nachweise
 zu einem Gesamt-ACR kombinieren).
@@ -221,13 +221,13 @@ echten, von Keycloak signierten AccessToken (`KcTokenProvider`, [05-api.md](05-a
 ([04-orchestrierung.md](04-orchestrierung.md) kennt das gleiche Muster für
 `ChannelAccessGuard`).
 
-Ein Step-up desselben Accounts mintet innerhalb dieser einen Keycloak-Session ein neues Token:
+Ein Step-up desselben Accounts stellt innerhalb dieser einen Keycloak-Session ein neues Token aus:
 `AccountTokenGrantType` markiert die von ihm angelegte
 `UserSessionModel` mit einer Session-Note und findet sie später wieder; ihre Lebensdauer folgt
 den realm-weiten `SSO Session Idle`/`SSO Session Max`-Einstellungen. Der Grant gibt ein opakes
 `refresh_token` aus (`useRefreshToken() == true`), das `KcTokenProvider` für jede reine
 Fristverlängerung nutzt (`KeycloakAdminClient.refreshAccountToken`); zum custom
-Account-Token-Grant greift er nur, wenn sich ACR/AMR seit dem letzten Mint geändert haben.
+Account-Token-Grant greift er nur, wenn sich ACR/AMR seit der letzten Ausstellung geändert haben.
 
 Die Assertion trägt dafür `acr`/`amr` als eigene, signierte Claims - `AccountTokenGrantType`
 kopiert sie in dieselben `UserSessionModel`-Notes wie `OrchestratorAuthenticator`
@@ -235,13 +235,13 @@ kopiert sie in dieselben `UserSessionModel`-Notes wie `OrchestratorAuthenticator
 `OrchestratorAcrAmrMapper` (Client-Scope `orchestrator-claims`) sie in den
 echten AccessToken schreibt. `KeycloakAdminClient.requestAccountToken`/`refreshAccountToken`
 authentifizieren sich dabei als
-privilegienloser Client `orchestrator-app-token` (V8), nicht als `orchestrator-admin` -
+Client `orchestrator-app-token` (V8) ohne jedes Recht, nicht als `orchestrator-admin` -
 genau das ist der Punkt dieses ADRs ("statt geteiltem Admin-Secret").
 
 Unabhängig vom Profil verwirft ein Step-up, der die `AuthEvidence` verändert
 (`AuthEvidenceService.applyEvidence`/`applyEvidenceUpdate`), die im `AuthContext`
-gecachten Tokens — sonst verlängerte der Refresh-Pfad die alte
-Keycloak-Session mit den alten ACR/AMR-Notes weiter.
+zwischengespeicherten Tokens. Sonst würde der Refresh-Pfad die alte Keycloak-Session mit den
+alten ACR/AMR-Notes weiter verlängern.
 
 Dafür erzeugt der Orchestrator bei jedem Keycloak-Account-Sync ein eigenes, asymmetrisches
 Schlüsselpaar pro Account (`orchestrator.keycloak_keypair`, EC P-256) und spiegelt den Public Key als
@@ -253,8 +253,8 @@ Credential-Store. Geschrieben wird er von einer eigenen
 
 Der Account-Sync spiegelt daneben Namen und User-Attribute
 (`personId`/`kvnr`/`geburtsdatum`/`strasse`/`hausnummer`/`plz`/`ort`)
-— je Attribut der Registerwert, sonst der stärkste bezeugte Claim des Kontos (ADR-18: ein voll
-bezeugter Interessent trägt NAME/VORNAME/GEBURTSDATUM und die Adressattribute auch ohne
+— je Attribut der Registerwert, sonst der stärkste bestätigte Claim des Kontos (ADR-18: ein voll
+bestätigter Interessent trägt NAME/VORNAME/GEBURTSDATUM und die Adressattribute auch ohne
 Registerbindung); die
 Platzhalternamen bleiben nur für Konten ohne beides („Enrollment zuerst"). `personId`/`kvnr`
 existieren nur mit Registerbindung — ein Interessent zeigt sich im Fehlen beider, nie in einem
@@ -262,7 +262,7 @@ gepflegten Status-Flag.
 Der custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
 `AccountTokenGrantType`, Keycloaks pluggable `OAuth2GrantType`-SPI in
 `keycloak-server-spi-private`) verlangt zusätzlich eine damit signierte, kurzlebige Assertion
-(`sub`=accountId, `aud`=Grant-URN, `exp` <= 60s) und mintet erst dann einen echten AccessToken.
+(`sub`=accountId, `aud`=Grant-URN, `exp` <= 60s) und stellt erst dann einen echten AccessToken aus.
 
 **Erwogene Alternativen**:
 
@@ -272,16 +272,16 @@ Der custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
 - **Nur die umgekehrte Richtung erlauben** (Keycloak ruft den Orchestrator, nie umgekehrt):
   verworfen — `GET .../token` braucht eine sofortige Antwort.
 - **`private_key_jwt`-Client-Authentifizierung statt `client_secret`** für die Admin-/Sync-Strecke
-  selbst (RFC 7523, secret-frei wie ADR-7): damals als orthogonale Härtung zurückgestellt,
+  selbst (RFC 7523, ohne Geheimnis wie ADR-7): damals als unabhängige Härtung zurückgestellt,
   inzwischen umgesetzt — siehe ADR-25.
 
 **Warum das Account-Keypair**: Es überträgt dasselbe Prinzip wie ADR-7 (Signatur statt Secret)
-auf eine zweite Richtung — nicht pro Client/Node, sondern pro Account, weil genau das der Blast
-Radius ist, der eingegrenzt werden soll: ein Leak trifft höchstens einen Account. Die Assertion
-bleibt kurzlebig (`exp` <= 60s) und wird nur beim ERSTEN Mint bzw. bei einer tatsächlichen
+auf eine zweite Richtung — nicht pro Client oder Knoten, sondern pro Account, weil genau das der Schaden ist, der
+eingegrenzt werden soll: Ein verlorener Schlüssel trifft höchstens einen Account. Die Assertion
+bleibt kurzlebig (`exp` <= 60s) und wird nur bei der ERSTEN Ausstellung oder bei einer tatsächlichen
 ACR/AMR-Änderung gebraucht.
 
-**Preis**: Ein weiterer, account-gebundener Datensatz (`orchestrator.keycloak_keypair`) mit eigenem
+**Kosten**: Ein weiterer, account-gebundener Datensatz (`orchestrator.keycloak_keypair`) mit eigenem
 Lebenszyklus (erzeugt bei Sync, gelöscht bei `AccountDeleted`, [07-betrieb.md](07-betrieb.md)
 Abschnitt 3) sowie ein projektspezifisches Stück Keycloak-Erweiterung, das bei jedem
 Keycloak-Upgrade gegen die `server-spi-private`-Schnittstelle mitgeprüft werden muss.
@@ -291,7 +291,7 @@ Demo-only: Der Private Key liegt unverschlüsselt in der Datenbank.
 
 ## ADR-10: Interessent ist Konto-Zustand, kein eigener AuthIntent
 
-**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bezeugte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `Unresolved`): Anker-Treffer bindet wie heute, ohne Anker-Treffer führt das Konto ohne `person_id` fort (seit ADR-19 gibt es keinen dritten Ausgang mehr).
+**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Es gibt keinen eigenen `AuthIntent.INTERESSENT`. Ein Interessent — ein Konto, das nur über bestätigte Claims identifiziert ist, ohne `person_id`-Bindung — ist eine Beobachtung über den Ausgang einer Identifizierung, kein wählbares Ziel. Die `REGISTER`-Journey (und jeder andere Intent, der Identifizierungen durchläuft) verzweigt auf das Auflösungs-Ergebnis (`Resolution`: `ExistingAccount` / `Unresolved`): Anker-Treffer bindet wie heute, ohne Anker-Treffer führt das Konto ohne `person_id` fort (seit ADR-19 gibt es keinen dritten Ausgang mehr).
 
 **Erwogene Alternative**: Ein eigener `AuthIntent` mit eigener Journey, eigenen States und eigener Strategie — begründbar, falls Interessenten eine abweichende Politik bräuchten.
 
@@ -301,12 +301,12 @@ samt Strategie, nie eine Beschreibung dessen, was ein Lauf geworden ist. Der
 Journey-Verlauf ist für beide Ausgänge strukturell identisch, nur die Konto-Auflösung
 selbst unterscheidet sich. Der heutige `Action.RecordIdentification`-Handler behandelt den Fall `personId == null`
 bereits als Verzweigung innerhalb der bestehenden Journey (REGISTER "Enrollment zuerst",
-[Orchestrierung](04-orchestrierung.md) Abschnitt 2). Ein eigener Intent verdoppelte
-zudem jede künftige Politik-Gabel (`STEP_UP`, `RE_IDENTIFY` auf Interessenten-Konten).
+[Orchestrierung](04-orchestrierung.md) Abschnitt 2). Ein eigener Intent würde zudem jede künftige Verzweigung doppelt führen (`STEP_UP`,
+`RE_IDENTIFY` auf Interessenten-Konten).
 
-**Preis**: Interessenten-spezifische Politik lebt als Verzweigungen in den bestehenden
-Strategien (analog `ConfirmDeviceRebind`) statt in einem eigenen Strategy-Objekt — die
-Strategien werden dadurch konditioneller.
+**Kosten**: Was nur für Interessenten gilt, steht als Verzweigung in den bestehenden Strategien
+(analog `ConfirmDeviceRebind`) statt in einem eigenen Strategy-Objekt — die Strategien bekommen
+dadurch mehr Fallunterscheidungen.
 
 ---
 
@@ -314,24 +314,24 @@ Strategien werden dadurch konditioneller.
 
 **Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Beanspruchen zwei Konten denselben `person_id`-Wert, wird die zweite Bindung abgewiesen (409, "Diese Person ist bereits über ein anderes Konto registriert") und nichts adoptiert: keine Claim-Zeile, keine Konsolidierung, keine Anker-Schreibung. Ein Merge ist nie automatisiert, sondern eine operator-getriebene Fähigkeit außerhalb des Claims-Modell-Umfangs. DB-seitig sichert `UNIQUE(person_id)` (partial, `WHERE person_id IS NOT NULL`) dieselbe Semantik für alle Schreibpfade ab.
 
-**Erwogene Alternative**: Die bezeugte Aussage trotzdem loggen und nur die Konsolidierung
+**Erwogene Alternative**: Die bestätigte Aussage trotzdem loggen und nur die Konsolidierung
 verweigern (Konflikt als abfragbarer Zustand); oder eine Review-Queue.
 
-**Warum diese**: False merge ist die teuerste Fehlerform des Modells — zwei verschiedene
-Menschen dauerhaft verknüpft — und sie zu vermeiden wiegt schwerer als der Verlust der
-bezeugten Aussage, die ephemer im Journey-Log nachweisbar bleibt. Die Konsolidierungs-Rangfolge
-(Anker-Klasse vor Rezenz) gilt innerhalb EINES Kontos; sie endet an der Kontgrenze.
+**Warum diese**: Zwei verschiedene Menschen dauerhaft zu verknüpfen ist der teuerste Fehler, den
+dieses Modell machen kann. Das zu vermeiden wiegt schwerer als der Verlust der bestätigten Aussage,
+die im Journey-Log ohnehin vorübergehend nachweisbar bleibt. Die Rangfolge beim Zusammenführen
+(Anker-Klasse vor Aktualität) gilt innerhalb EINES Kontos und endet an der Kontogrenze.
 
-**Preis**: Der betroffene Nutzer kommt nicht automatisch weiter —
-bis zu einer (ungebauten) Merge-Fähigkeit bleibt der Fall ein Support-Vorgang, und die
-bezeugte Identifikation bleibt nur im ephemeren Journey-Log.
+**Kosten**: Der betroffene Nutzer kommt nicht automatisch weiter —
+Solange es keine Funktion zum Zusammenführen gibt, bleibt der Fall ein Support-Vorgang, und die
+bestätigte Identifikation steht nur im Journey-Log.
 
 **Nachtrag** (Härtung): Drei
 Lücken zwischen dieser Entscheidung und ihrer Umsetzung wurden geschlossen. Erstens schrieb
-`AccountService.recordAnchor` bei einem fremden Anchor die Projektionsspalte trotz Abbruch; der
-Anchor wird jetzt **vor** der Projektionsspalte geschrieben. Zweitens
+`AccountService.recordAnchor` bei einem fremden Anker die Projektionsspalte trotz Abbruch; der
+Anker wird jetzt **vor** der Projektionsspalte geschrieben. Zweitens
 verließ sich `IdentityMatchingService.resolveByAnchor` auf die
-zufällige Iterationsreihenfolge eines `Set` und sortiert jetzt explizit nach
+beliebige Reihenfolge eines `Set` und sortiert jetzt ausdrücklich nach
 `AttributeType.rule.anchor?.bindingStrength` (`tool_api/AttributeRules.kt`).
 Drittens fing `findOrCreateAccount` die
 `UNIQUE(person_id)`-Kollision nicht ab; das ist durch die atomare
@@ -361,29 +361,28 @@ dagegen ein im Account-System bestätigter, wechselbarer Anker.
 
 ---
 
-## ADR-12: Retraktion als eigene Widerrufs-Zeile mit eigenem Vertrauensanker
+## ADR-12: Ein Widerruf ist eine eigene Zeile mit eigenem Vertrauensanker
 
-**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Behauptung mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Behauptungen minus Retraktionen" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Retraktionen kommen nie über den Tool-Vertrag: `ToolOutcome` bleibt positiv-only.
+**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Angabe mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Angaben minus Widerrufe" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Widerrufe kommen nie über den Tool-Vertrag: `ToolOutcome` kennt nur positive Ergebnisse.
 
 **Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
 Claim-Zeile — eine Tabelle, einfachste Abfrage, aber die einzige Nicht-Append-Mutation im Log.
 
-**Warum diese**: Das Integritätsargument des Modells — das Log ist die Quelle der Wahrheit und
-wird nie überschrieben — darf keine Ausnahme erhalten; jede In-place-Mutation schwächt die
-Rekonstruierbarkeit ("was galt wann"). Eine Retraktions-Zeile trägt
-dieselbe Provenanz-Disziplin wie eine Behauptung und hält den
-Tool-Vertrag frei von Negativ-Formen.
+**Warum diese**: Das Log ist die Quelle der Wahrheit und wird nie überschrieben — diese Regel
+darf keine Ausnahme bekommen. Jede Änderung an einer bestehenden Zeile macht es schwerer,
+nachträglich zu sagen, was wann galt. Eine Widerrufszeile trägt ihre Herkunft genauso nachweisbar
+wie eine Angabe und hält den Tool-Vertrag frei von negativen Ergebnissen.
 
-**Preis**: Zwei Formen statt eine — "gültiger Wert" ist immer eine Subtraktion über zwei
+**Kosten**: Zwei Formen statt eine — "gültiger Wert" ist immer eine Subtraktion über zwei
 Tabellen, und jeder Konsolidierungs- und Abfragepfad muss den Widerruf mitdenken; heute ist das
 genau ein Pfad (der Attributabgleich in `IdentityMatchingService`), dort ein `not exists` über
 einen eigenen Index.
 
 **Nachtrag zur Umsetzung**: Damit ein Widerruf weiß, *was* er zurückzieht,
-trägt jede Claim-Zeile die `auth_method_id` der Methodeninstanz, deren Einrichtung sie
-aufgestellt hat (`null` bei Identifizierungs-Tools). Beim
+trägt jede Claim-Zeile die `auth_method_id` der Methodeninstanz, bei deren Einrichtung sie
+entstanden ist (`null` bei Identifizierungs-Tools). Beim
 Entfernen einer Methode (`AccountDeletionService.revokeMethod`) zieht `retractClaimsOf` genau
-deren Behauptungen zurück — aber **nur die mit `AttributeAuthority.METHOD_MODULE`**: Ein Anker
+deren Angaben zurück — aber **nur die mit `AttributeAuthority.METHOD_MODULE`**: Ein Anker
 (`EMAIL`) oder ein Stammdaten-Attribut (`NAME`) überlebt das Credential, sonst hätte das
 Entfernen der E-Mail-Methode den Passwort-Login
 (`ClaimRequirement(EMAIL, PROVEN)`) zerstört. Der Widerruf selbst ist
@@ -392,20 +391,19 @@ ein Tool nie widerrufen darf.
 
 **Zweiter Nachtrag zur Umsetzung**: Zwei Ergänzungen, die das Log praktikabel halten:
 Erstens ist `account.claim` ein Change-Log, kein Run-Log — `recordClaims` überspringt eine
-Behauptung, die identisch bereits gilt (gleicher Typ, normalisierter Wert, Quelle und
+Angabe, die identisch bereits gilt (gleicher Typ, normalisierter Wert, Quelle und
 Methodeninstanz); die Methodeninstanz bleibt Teil des Schlüssels, damit ein Neu-Enrollment eines
 bekannten Werts trotzdem loggt (sonst würde die Revokation der alten Instanz den Wert verlieren).
-Zweitens retrahiert seit ADR-19 auch der In-place-Ersatz eines Ankers (`EMAIL`,
-`EID_RESTRICTED_ID`) den alten Wert (`ACCOUNT_MANAGEMENT`, „anker-ersetzt") — sonst stünde ein
-ersetzter Wert für immer als gültig im Log. Der Anti-Join in `findEstablished` ist dafür
-zeitbasiert (`r.retracted_at >= a.established_at`): Eine Retraktion cancelt nur Behauptungen, die
-vor ihr liegen; ein danach neu bezeugter Wert zählt wieder (E-Mail-Zyklus a → b → a endet
-etabliert auf a).
+Zweitens widerruft seit ADR-19 auch das Ersetzen eines Ankers an derselben Stelle (`EMAIL`,
+`EID_RESTRICTED_ID`) den alten Wert (`ACCOUNT_MANAGEMENT`, „anker-ersetzt") — sonst würde ein
+ersetzter Wert für immer als gültig im Log stehen. Der Anti-Join in `findEstablished` vergleicht dafür
+die Zeitpunkte (`r.retracted_at >= a.established_at`): Ein Widerruf entkräftet nur Angaben, die
+vor ihm liegen; ein danach neu bestätigter Wert gilt wieder (die Folge a → b → a endet bei a).
 
-**Offen und bewusst nicht mitentschieden**: Die Retraktion macht einen Wert *ungültig*, sie
-*löscht* ihn nicht, und die Widerrufs-Zeile legt mit dem normalisierten Wert eine
-zweite lesbare Kopie an. Naheliegend wäre eine Aufbewahrungsfrist, nach der Claim-
-und Retraktions-Zeile gemeinsam gelöscht werden; der Audit-Nachweis hängt nicht daran,
+**Offen und bewusst nicht mitentschieden**: Der Widerruf macht einen Wert *ungültig*, er
+*löscht* ihn nicht, und mit dem normalisierten Wert entsteht in der Widerrufszeile eine zweite
+lesbare Kopie. Naheliegend wäre eine Aufbewahrungsfrist, nach der Claim-
+und Widerrufszeile gemeinsam gelöscht werden; der Audit-Nachweis hängt nicht daran,
 `account.identification` hält Verfahren, LoA und Zeitpunkt ohne die Attributwerte fest.
 
 
@@ -415,9 +413,9 @@ und Retraktions-Zeile gemeinsam gelöscht werden; der Audit-Nachweis hängt nich
 
 **Entscheidung** (umgesetzt): `AccountClaim.attributeType` und `AccountAnchor.attributeType` sind
 über einen gemeinsamen JPA-`AttributeConverter` typisiert (`AttributeTypeConverter`), der über
-`wireName` rundet — nicht über `@Enumerated(EnumType.STRING)`, das der `orchestrator`-Modul für
-seine eigenen Enums nutzt. Die Quelle einer Behauptung heißt `AccountClaim.claimSource: String`
-(bewusst ungetypt, siehe Preis); der Widerruf trägt dagegen ein eigenes, typisiertes
+`wireName` hin- und zurückkonvertiert — nicht über `@Enumerated(EnumType.STRING)`, das der `orchestrator`-Modul für
+seine eigenen Enums nutzt. Die Quelle einer Angabe heißt `AccountClaim.claimSource: String`
+(bewusst ungetypt, siehe Kosten); der Widerruf trägt dagegen ein eigenes, typisiertes
 `AccountRetraction.trustAnchor: RetractionAnchor`.
 
 **Erwogene Alternativen**:
@@ -425,7 +423,8 @@ seine eigenen Enums nutzt. Die Quelle einer Behauptung heißt `AccountClaim.clai
 - **`@Enumerated(EnumType.STRING)`**, konsistent mit dem `orchestrator`-Modul: verworfen, weil
   `account.claim.attribute_type`/`account.anchor.attribute_type` seit Jahren Wire-Names in
   Kleinschreibung tragen (`person_id`, `email`), `@Enumerated(STRING)` aber den
-  Enum-Konstantennamen (`PERSON_ID`) schreibt und jede Bestandszeile stumm verfehlt hätte.
+  Enum-Konstantennamen (`PERSON_ID`) schreibt und damit jede Bestandszeile unbemerkt nicht mehr
+  gefunden hätte.
 - **`claimSource` ebenfalls typisieren** (eine `@JvmInline value class`): verworfen
   nach einem verifizierten Fehlschlag — Hibernate scheiterte bei jedem Schreibzugriff mit
   `JpaSystemException: class java.lang.String cannot be cast to class ...`, weil der
@@ -433,51 +432,51 @@ seine eigenen Enums nutzt. Die Quelle einer Behauptung heißt `AccountClaim.clai
   `String`-Instanz statt der geboxten Value Class durchreicht. `AttributeType` (ein
   echtes Enum) hat dieses Problem nicht.
 
-**Warum diese**: Eine Umbenennung im Wire-Format sollte ein Compilerfehler sein, keine stille
-Datenkorruption über eine Laufzeit von 10+ Jahren. Der eigene Konverter statt `@Enumerated`
+**Warum diese**: Eine Umbenennung im Wire-Format soll der Compiler melden, statt über Jahre
+unbemerkt Daten zu beschädigen. Der eigene Konverter statt `@Enumerated`
 erhält dabei exakt das bestehende Wire-Format, ohne Migration der Bestandsdaten.
 
-**Preis**: Zwei verschiedene Typisierungsmuster im selben Modul (`@Convert` hier,
+**Kosten**: Zwei verschiedene Typisierungsmuster im selben Modul (`@Convert` hier,
 `@Enumerated(STRING)` im `orchestrator`) statt eines einheitlichen — auflösbar nur durch
 Datenmigration oder Umstellung des `orchestrator`. `claimSource` bleibt ungetypt — eine bekannte,
 dokumentierte Lücke.
 
 ---
 
-## ADR-14: Schema-Konsolidierung — Konto als Sperrwurzel, eine Wahrheit je Fakt
+## ADR-14: Schema zusammengeführt — das Konto als Sperrpunkt, eine Wahrheit je Fakt
 
 **Entscheidung**: Die 37 inkrementellen Migrationen sind in `V1__schema.sql` (+ `V2__testdata.sql`)
 zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf von `V1__schema.sql`,
 [Betrieb](07-betrieb.md) Abschnitt 6). Inhaltlich:
 
-- `account` trägt nur noch `id`, `created_at`, `version` und ist Sperrwurzel für Änderungen am
-  aktuellen Kontozustand (`OPTIMISTIC_FORCE_INCREMENT`).
+- `account` trägt nur noch `id`, `created_at`, `version`. Über diese Zeile werden Änderungen am
+  aktuellen Kontozustand gesperrt (`OPTIMISTIC_FORCE_INCREMENT`).
 
 - Aktueller Zustand liegt in Zeilen je Fakt: `account.anchor` (einziger Speicherort von PersonId und
   bestätigter E-Mail), `account.auth_method` (eine Zeile je Methodeninstanz, `EnrollmentRef` als
-  Spalten). Historie ist append-only: `account.claim`, `account.identification`.
+  Spalten). Die Historie wird nur angefügt: `account.claim`, `account.identification`.
   Die JSON-Listen `identifications`/`authentication_methods`, die Projektionsspalten
   `person_id`/`email`/`email_confirmed_at` und `ConsolidationStrategy` entfallen, weil „lokal
   konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.
 - **Nachtrag**: Ihr zweiter Fall (`ExternalLiveLookup`) verschwand mit ihr, obwohl „kein lokaler
   Anker" danach Stammdaten-Hoheit (`NAME`) und Modul-Hoheit (`PHONE_NUMBER`) zugleich abdeckte;
   er ist als `AttributeRule.authority` (`LOCAL_ANCHOR`/`EXT_STAMMDATEN`/`METHOD_MODULE`,
-  exhaustiv, über `AttributeType.rule`) in `tool_api/AttributeRules.kt` zurückgeholt.
+  vollständig aufgezählt, über `AttributeType.rule`) in `tool_api/AttributeRules.kt` zurückgeholt.
 - Fremdschlüssel nur innerhalb eines Moduls; modulübergreifende Bezüge sind indizierte Spalten.
 - Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<modul>_<tool-rolle>_data`,
   `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).
   **Nachtrag**: Diese Namenskonventionen sind von ADR-16 abgelöst.
 
-**Erwogene Alternative**: Nur squashen und die Form des Modells unverändert lassen (JSON-Listen auf
+**Erwogene Alternative**: Die Migrationen nur zusammenfassen und die Form des Modells unverändert lassen (JSON-Listen auf
 der Kontozeile, Projektionsspalten neben den Ankern).
 
-**Warum diese**: Bei ≥ 10 Mio. Konten und langer Lebensdauer sind die JSON-Listen weder abfragbar
-(„alle Konten mit Methode X") noch schreibgünstig (jede
-Änderung schreibt die ganze Zeile), und jede Projektionsspalte
-neben einem Anker ist eine zweite Eindeutigkeitsautorität für denselben Fakt — genau der Fehler, den
-A3 im Review einmal schon beheben musste.
+**Warum diese**: Bei ≥ 10 Mio. Konten und langer Lebensdauer lassen sich die JSON-Listen weder
+abfragen („alle Konten mit Methode X") noch günstig schreiben (jede Änderung schreibt die ganze
+Zeile). Und jede Projektionsspalte neben einem Anker ist eine zweite Stelle, die für denselben
+Fakt Eindeutigkeit garantieren müsste — genau der Fehler, den A3 im Review einmal schon beheben
+musste.
 
-**Preis**: Ein Kontoprofil braucht drei indizierte Lesezugriffe statt einem; die E-Mail im Profil
+**Kosten**: Ein Kontoprofil braucht drei indizierte Lesezugriffe statt einem; die E-Mail im Profil
 ist die normalisierte Form, die Rohschreibweise steht nur noch im Claim-Log. Wie
 bei ADR-4 gilt: Diese Neubaseline ist nur ohne Produktivdaten vertretbar, danach sind Migrationen
 ausschließlich additiv.
@@ -501,14 +500,14 @@ Zeile, so wie es vor der kc-Fassade (`07e7156`) auch war.
 
 1. **Nicht jeder Kanal hat Tokens, aber jeder hat Nachweise.** Der KEYCLOAK-Kanal legt nie einen
    `AuthContext` an ([API](05-api.md) Abschnitt 3); in einer
-   gemeinsamen Tabelle trüge jede Web-Kanal-Zeile vier dauerhaft leere Token-Spalten.
+   gemeinsamen Tabelle hätte jede Web-Kanal-Zeile vier dauerhaft leere Token-Spalten.
 2. **Das eine ist Wahrheit, das andere Cache.** Davon lebt
    `AuthEvidenceService.invalidateCachedTokens`: Ein Step-up setzt Access- und RefreshToken auf
    `null`, **während die Nachweise stehen bleiben**.
 
-**Preis**: Zwei Tabellen, die einander äußerlich stark ähneln (beide mit `account_id`, `version`,
-`updated_at`) und im APP-Kanal praktisch immer gemeinsam entstehen — das erlaubte
-1:n ist heute durchgehend 1:1. Der Grund steht in den KDocs von
+**Kosten**: Zwei Tabellen, die sich äußerlich stark ähneln (beide mit `account_id`, `version`,
+`updated_at`) und im APP-Kanal praktisch immer gemeinsam entstehen — die erlaubte 1:n-Beziehung
+ist heute durchgehend eine 1:1-Beziehung. Der Grund steht in den KDocs von
 `AuthContext`/`AuthEvidence` und hier.
 
 ---
@@ -531,7 +530,7 @@ Modul entstehen, und die tragende Regel dieses Schemas — Fremdschlüssel nur i
 — steht jetzt in der DDL selbst statt nur in einem Kommentar darüber. Eine spätere Aufteilung
 eines Moduls in einen eigenen Dienst hat zudem eine klare Schnittlinie.
 
-**Preis**: Jede Query, jede `@Table`-Annotation und jedes Admin-Werkzeug muss qualifizieren; ein
+**Kosten**: Jede Query, jede `@Table`-Annotation und jedes Admin-Werkzeug muss qualifizieren; ein
 unqualifiziertes `SELECT ... FROM anchor` findet nichts mehr, weil der Suchpfad auf `PUBLIC` steht
 (dort bleibt bewusst auch `flyway_schema_history`).
 Und wo vorher ein Tabellenname global eindeutig war, ist er es jetzt nur noch je Schema: Fünf
@@ -556,33 +555,33 @@ ab. Die Reihenfolge ist Adresse, Passwort, Besitzfaktor.
 bestätigt die Adresse *und* legt die Methode an.
 
 **Warum diese**: Die Adresse gehört dem Konto, nicht dem Verfahren (`AttributeType.rule.authority ==
-LOCAL_ANCHOR`). Drei fremde Lookup-Verfahren lösen das Konto über sie auf, und
-`enroll-password` ist auf sie gegated — sie ist Infrastruktur. Die Trennung sorgt dafür, dass das
+LOCAL_ANCHOR`). Drei fremde Lookup-Verfahren lösen das Konto über sie auf, und `enroll-password` setzt sie
+voraus — sie ist Infrastruktur. Die Trennung sorgt dafür, dass das
 Entfernen der Methode die Adresse gar nicht mehr mitreißen kann.
 
-**Preis**: Ein Schritt mehr in der Registrierung, ein Tool mehr im Katalog, und eine Reihe von
+**Kosten**: Ein Schritt mehr in der Registrierung, ein Tool mehr im Katalog, und eine Reihe von
 Integrationstests musste ihre Erwartung umstellen (`sms + email` → `sms + password`). Die
 Asymmetrie „Passwort nur im Web" entfällt.
 
 ---
 
-## ADR-18: Bezeugen und Zuordnen sind zwei Akte
+## ADR-18: Bestätigen und Zuordnen sind zwei Akte
 
-**Entscheidung**: `ident-eid` bezeugt nur noch, was die Karte trägt (Name, Vorname, Geburtsdatum,
+**Entscheidung**: `ident-eid` bestätigt nur noch, was die Karte trägt (Name, Vorname, Geburtsdatum,
 Adresse — jedes Kartenfeld ein eigener `AttributeType`, auch die Adressattribute `strasse`/
-`hausnummer`/`plz`/`ort`, die dafür aus dem `auditDetails`-Blob in echte Claims aufrückten —
+`hausnummer`/`plz`/`ort`, die dafür aus den unstrukturierten `auditDetails` in echte Claims aufrückten —
 auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuordnung zur
 Registerperson ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer ab, löst sie
 über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit
 `ClaimSource.EXT_STAMMDATEN`, denn dort bürgt tatsächlich das Register. Der zweite Akt wird direkt
 angeboten (`RegisterState.Assigning`, `next` zeigt auf `ident-kvnr`) — ohne Ja/Nein-Frage davor,
 die nur dieselbe Frage doppelt stellen würde. Wer den Schritt abbricht („Jetzt nicht") oder eine
-unbekannte Nummer angibt, endet als vollwertig bezeugter **Interessent** (ADR-10) statt mit einem
+unbekannte Nummer angibt, endet als vollwertig bestätigter **Interessent** (ADR-10) statt mit einem
 Fehler.
 
 **Erwogene Alternative**: Alles in einem Tool lassen und nur die Fehlermeldung verbessern.
 
-**Warum diese**: Der bisherige Zuschnitt behauptete etwas Falsches. `IdentEidDescriptor`
+**Warum diese**: Die bisherige Aufteilung behauptete etwas Falsches. `IdentEidDescriptor`
 deklarierte `ClaimDeclaration(PERSON_ID, ClaimSource.of(toolId))` — das Verfahren bürgte also für
 eine PersonId, die es nie von der Karte gelesen hatte, sondern die der Controller vorab per KVNR
 nachgeschlagen hatte. Eine echte eID-Karte trägt weder KVNR noch PersonId; die KVNR musste der
@@ -590,22 +589,22 @@ Nutzer selbst eintippen, bevor die Karte überhaupt gelesen wurde. Damit war auc
 eID, aber (noch) kein Registereintrag" nicht abbildbar: Er scheiterte hart, obwohl ADR-10 genau
 diesen Kontozustand vorsieht.
 
-`ident-eid` bleibt `IDENTIFICATION`; `ident-kvnr` trägt die eigene Rolle `MethodRole.CORRELATION` (weiterhin Kategorie `IDENT`, denn es gehört zur Identitätsfeststellung und trägt IAL bei) — dasselbe Muster wie `LOOKUP_AUTH` neben `IDENTIFIED_AUTH`: gleiche Kategorie, nie austauschbar. Die Rolle macht explizit, dass das Tool für sich nichts beweist (`factorTypes = {}` ist Folge, nicht Definition), und die Kandidatenpfade matchen auf die Rolle statt die Kategorie, damit es nie als (Re-)Identifizierungsweg angeboten wird. `ATTEST` wäre für die Bezeugung falsch — nicht wegen des
+`ident-eid` bleibt `IDENTIFICATION`; `ident-kvnr` trägt die eigene Rolle `MethodRole.CORRELATION` (weiterhin Kategorie `IDENT`, denn es gehört zur Identitätsfeststellung und trägt IAL bei) — dasselbe Muster wie `LOOKUP_AUTH` neben `IDENTIFIED_AUTH`: gleiche Kategorie, nie austauschbar. Die Rolle macht explizit, dass das Tool für sich nichts beweist (`factorTypes = {}` ist Folge, nicht Definition), und die Kandidatenpfade prüfen die Rolle statt die Kategorie, damit es nie als (Re-)Identifizierungsweg angeboten wird. `ATTEST` wäre für die Bestätigung falsch — nicht wegen des
 Datenbesitzes, sondern weil diese Kategorie per Definition nichts zur ACR/AMR-Bilanz beiträgt
-(`AuthEvidence.evidenceAxis()` wirft dafür); eine eID trägt aber sehr wohl IAL bei, sonst stünde
-der stark bezeugte Interessent am Ende bei `loa1` statt `loa3`.
+(`AuthEvidence.evidenceAxis()` wirft dafür); eine eID trägt aber sehr wohl IAL bei; sonst würde
+der stark bestätigte Interessent am Ende bei `loa1` statt bei `loa3` stehen.
 
 **Sicherheitskern**: `ident-kvnr` beweist für sich **nichts** — eine getippte Nummer ist kein
-Nachweis. Zwei Dinge tragen es: `requires` (die bezeugten Identitätsattribute müssen am Konto
+Nachweis. Zwei Dinge tragen es: `requires` (die bestätigten Identitätsattribute müssen am Konto
 vorliegen, sonst ist das Tool nicht einmal aktivierbar) und der Abgleich
 `IdentityResolver.attestedIdentityMatches`, der vor dem Ankerschreiben prüft, dass die Stammdaten
-hinter der Nummer zu der bereits bezeugten Identität passen. Ohne diesen Abgleich könnte man mit
+hinter der Nummer zu der bereits bestätigten Identität passen. Ohne diesen Abgleich könnte man mit
 der eigenen eID eine fremde Versichertennummer eintippen und sich deren `PERSON_ID`-Anker aufs
 eigene Konto binden, solange diese Person noch kein Konto hat. Die bestehende Trennung bleibt
 dabei erhalten: unbekannte Nummer → Interessent (kein Konflikt), bekannte Nummer mit
 widersprechenden Daten → `409`.
 
-**Preis**: Ein Tool und ein Modul mehr im Katalog, ein Schritt mehr im Ablauf, und
+**Kosten**: Ein Tool und ein Modul mehr im Katalog, ein Schritt mehr im Ablauf, und
 `ToolOutcome.Completed.Identified` musste seinen Pflicht-`PERSON_ID`-Claim aufgeben ("höchstens
 einer" statt "genau einer") — eine Lockerung, die jeden Aufrufer zwingt, den Null-Fall zu
 behandeln. Im Gegenzug hängt `id_eid` an keinem Auflösungs-Port mehr.
@@ -613,11 +612,11 @@ behandeln. Im Gegenzug hängt `id_eid` an keinem Auflösungs-Port mehr.
 **Nachtrag**: Erst dieser ADR hat `requires` überhaupt funktionsfähig gemacht.
 `DefaultAuthPolicy.requiresSatisfied` war hart auf `AttributeType.EMAIL` verdrahtet, jede andere
 Anforderung also unerfüllbar; sie prüft jetzt generisch gegen `AccountProfile.establishedClaims`
-(Behauptungen minus Retraktionen, ADR-12). `enroll-password`s E-Mail-Gate ist damit ein Fall der
+(Angaben minus Widerrufe, ADR-12). `enroll-password`s E-Mail-Gate ist damit ein Fall der
 allgemeinen Regel statt ihrer Definition. Zudem filterte `CandidateTools.forIdentification` gar
 nicht auf `requires` — genau der Pfad, über den `ident-kvnr` sonst als eigenständiges
-Identifizierungsverfahren in der ersten Auswahl aufgetaucht wäre. Inzwischen matchen die
-Kandidatenpfade (`forIdentification`, `forAssignment`, `reIdentCandidates`) auf die Rolle statt
+Identifizierungsverfahren in der ersten Auswahl aufgetaucht wäre. Inzwischen prüfen die
+Kandidatenpfade (`forIdentification`, `forAssignment`, `reIdentCandidates`) die Rolle statt
 die Kategorie — `ident-kvnr` ist damit strukturell nie ein (Re-)Identifizierungsweg, unabhängig
 davon, ob seine `requires` erfüllt sind.
 
@@ -625,7 +624,7 @@ davon, ob seine `requires` erfüllt sind.
 
 ## ADR-19: Auflösung nur über Anker — die eID-`restricted_id` wird einer
 
-**Entscheidung**: `IdentityMatchingService.resolve` löst eine bezeugte Identität **nur noch über
+**Entscheidung**: `IdentityMatchingService.resolve` löst eine bestätigte Identität **nur noch über
 lokale Anker** auf (`resolveByAnchor`, Rangfolge nach `AnchorRule.bindingStrength`); ohne
 Anker-Treffer ist das Ergebnis `Unresolved`. Die bisherige zweite Schicht — normalisierte
 Attributkombination Name+Vorname+Geburtsdatum gegen die Claim-Historie mit
@@ -633,34 +632,34 @@ Attributkombination Name+Vorname+Geburtsdatum gegen die Claim-Historie mit
 (`Resolution.Ambiguous`, `MatchedVia.Attributes`, `BindingStrength.ATTRIBUTE_COMBINATION`,
 `findAccountIdsMatchingAllThree`, Index `ix_claim_type_value`). An ihre Stelle tritt die
 `restricted_id` der eID-Karte als achter Claim von `ident-eid`: ein kartengebundenes Pseudonym
-(Demo-Standin für den echten Restricted Identifier), geführt als `LOCAL_ANCHOR` mit
-`AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true` — eine neue Karte bringt einen neuen
-Wert, der den alten in-place verfallen lässt (wie `EMAIL`); hält ein anderes Konto den Wert,
-bleibt es bei der Abweisung (`IdentityConflictException`). Der ersetzte Wert verfällt seit dem
-zweiten ADR-12-Nachtrag auch im Claim-Log: Der Anker-Ersatz schreibt eine Retraktion für den
+(in der Demo ein Platzhalter für den echten Restricted Identifier). Sie wird als `LOCAL_ANCHOR`
+geführt, mit `AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true`: Eine neue Karte bringt
+einen neuen Wert, der den alten an derselben Stelle ersetzt — wie bei `EMAIL`. Hält ein anderes
+Konto den Wert, bleibt es bei der Abweisung (`IdentityConflictException`). Der ersetzte Wert verfällt seit dem
+zweiten ADR-12-Nachtrag auch im Claim-Log: Der Anker-Ersatz schreibt einen Widerruf für den
 alten Wert, damit das Log mit dem Anker übereinstimmt.
 
 Der Abgleich dreier Attribute (Name/Vorname/Geburtsdatum) bleibt genau dort, wo er
 fachlich hingehört: als **Konsistenzprüfung gegen `ext_stammdaten`**, nie als Auflösungsschicht
 über Account-Claims. `verifyToolAttestedConsistency` prüft die KVNR-aufgelöste Person gegen die
-bezeugten Attribute; `attestedIdentityMatches` vergleicht vor dem Korrelations-Anker die
-Stammdaten hinter der Nummer mit der bezeugten Identität.
+bestätigten Attribute; `attestedIdentityMatches` vergleicht vor dem Korrelations-Anker die
+Stammdaten hinter der Nummer mit der bestätigten Identität.
 
 **Erwogene Alternative**: Die Attributkombination behalten, aber nur noch im Zusammenhang mit
 dem KVNR-Vergleich wirken lassen und ihre Werte gegen `ext_stammdaten` statt gegen den Account
 prüfen.
 
-**Warum diese**: Account-Claims sind Provenienz-Historie, keine Register-Wahrheit — ein
+**Warum diese**: Account-Claims sagen, woher ein Wert kam, sie sind keine Register-Wahrheit — ein
 Dreifach-Treffer darauf kann denselben Datensatz in fremden Konten finden und war damit schwächer
 als das, was er ersetzen sollte. Der KVNR-Abgleich gegen `ext_stammdaten` ist bereits als Guard
 vorhanden; eine zweite Matching-Schicht über Account-Historie ist redundant und erzeugt nur den
 nie sauber spezifizierten `Ambiguous`-Kanal in der Journey. Die `restricted_id` ist das fachlich
-richtige Wiedererkennungsmerkmal für eid-Interessenten: kartengebunden, mit neuem Ausweis
-ändernd, aber nie personenübergreifend — exakt die Semantik eines replacebaren Ankers. Der
-EUDI-Wegweis passt dazu: Die echte PID wird später als eigener Ankertyp einziehen.
+richtige Wiedererkennungsmerkmal für eid-Interessenten: an die Karte gebunden, mit einem neuen
+Ausweis ein neuer Wert, aber nie über Personen hinweg gleich — genau das, was ein ersetzbarer Anker
+leistet. Die EUDI-Richtung passt dazu: Die echte PID kommt später als eigener Ankertyp hinzu.
 
-**Preis**: Bestands-Bezeugungen ohne `restricted_id` (vor diesem ADR) erkennt das System nicht
-wieder — sie laufen auf `Unresolved` und damit auf ein neues Konto. `V1__schema.sql` ändert
+**Kosten**: Bestätigungen aus der Zeit vor diesem ADR, also ohne `restricted_id`, erkennt das
+System nicht wieder — sie laufen auf `Unresolved` und damit auf ein neues Konto. `V1__schema.sql` ändert
 sich (`id_eid.ident_tool_session.restricted_id`, Wegfall `ix_claim_type_value`), bestehende
 Dev-Datenbanken sind neu anzulegen. Die `restricted_id` wird bewusst **nicht** nach Keycloak
 gespiegelt (kein Stammdatum, nur Wiedererkennungsanker).
@@ -674,7 +673,7 @@ mit dem die Journey gerade arbeitet, dann geht das vorläufige der beiden Konten
 auf welcher Seite es steht, ist egal:
 
 - Ist das Konto **der Journey** vorläufig, wechselt die Journey zum gefundenen Konto und nimmt die
-  Bezeugung mit. Das ist der ident-first-Fall: `ident-eid` bezeugt, findet niemanden,
+  Bestätigung mit. Das ist der ident-first-Fall: `ident-eid` bestätigt, findet niemanden,
   `performIdentified` legt dafür ein Konto an — und der `ident-kvnr`-Schritt danach findet das
   echte Konto.
 - Ist das **gefundene** Konto vorläufig, bleibt die Journey, wo sie ist, und übernimmt dessen
@@ -692,20 +691,19 @@ Konto ihm gehört. Eine Vorabprüfung „Adresse schon vergeben?" gibt es deshal
 Code ist nichts bewiesen, sondern nur getippt, und die Ablehnung traf regelmäßig genau den
 Richtigen.
 
-Eine Bedingung kommt hier dazu, die eine Identifizierung nicht braucht: **Die bezeugte Identität
+Eine Bedingung kommt hier dazu, die eine Identifizierung nicht braucht: **Die bestätigte Identität
 muss zum aufgelösten Konto passen.** Der Besitz eines Postfachs sagt „dieses Postfach gehört mir",
 niemals „ich bin diese Person". Hat das Zielkonto eine Registerperson, wird die in dieser Sitzung
-bezeugte Identität gegen deren Stammdaten geprüft (`IdentityResolver.attestedIdentityMatches`,
+bestätigte Identität gegen deren Stammdaten geprüft (`IdentityResolver.attestedIdentityMatches`,
 derselbe Wächter, den ADR-18 vor den Korrelationsschritt stellt) — sonst könnte, wer ein fremdes
 Postfach kontrolliert, seine eigenen eID-Claims an ein fremdes Konto hängen. Hat das Zielkonto
-keine Person gebunden, gibt es nichts zu prüfen, und „eines von beiden ist vorläufig" ist das ganze
-Tor.
+keine Person gebunden, gibt es nichts zu prüfen, und „eines von beiden ist vorläufig" ist die ganze
+Bedingung.
 
 Was „vorläufig" heißt, steht als benannte Regel am `AccountProfile` und nicht als Bedingung an
 mehreren Stellen: `isProvisional` = `isUnidentified` (keine PersonId, ADR-10) **und** es wurde nie
-ein Zugangsmittel eingerichtet. Deaktivierte zählen mit — eine widerrufene Instanz trägt weiterhin
-Claim-Provenienz (`account.claim.auth_method_id`, ADR-12), die man weder mitnehmen noch wegwerfen
-darf. Dieselbe Regel entscheidet, ob eine abgebrochene Journey ihr Konto löschen darf
+ein Zugangsmittel eingerichtet. Deaktivierte zählen mit: Bei einer widerrufenen Instanz hängt weiterhin die Herkunft von Claims
+(`account.claim.auth_method_id`, ADR-12), und die darf man weder mitnehmen noch wegwerfen. Dieselbe Regel entscheidet, ob eine abgebrochene Journey ihr Konto löschen darf
 (`JourneyService.deleteIfAbandonedUnidentified`): eine Regel, zwei Folgen, statt zweier
 handgeschriebener Bedingungen, die auseinanderlaufen können.
 
@@ -715,13 +713,13 @@ das macht sie harmlos. Ihre Reihenfolge gehört zur Entscheidung und ist kein Im
 `account.anchor` ist je (Typ, Wert) global eindeutig (`ux_anchor_value`), also müssen die Anker der
 Quelle **weg sein, bevor** dieselben Werte am Zielkonto geschrieben werden — lesen, freigeben,
 löschen, schreiben. Geschrieben wird über den normalen `recordClaim`-Pfad, Claim für Claim in der
-ursprünglichen Reihenfolge; Konfliktprüfung, ACR-Floors und Retraktionsregeln gelten am Zielkonto
-damit unverändert, und ein Anker, den das Ziel mit demselben Wert schon hat, bleibt der No-op, der
-er ohnehin ist.
+ursprünglichen Reihenfolge; Konfliktprüfung, ACR-Floors und Widerrufsregeln gelten am Zielkonto
+damit unverändert, und ein Anker, den das Ziel mit demselben Wert schon hat, bleibt wirkungslos, wie
+schon vorher.
 
-Für den Kanal gilt dasselbe in umgekehrter Richtung: Evidence und Gerätebindung werden umgehängt,
+Für den Kanal gilt dasselbe in umgekehrter Richtung: Nachweise und Gerätebindung werden umgehängt,
 **bevor** das alte Konto gelöscht wird (`AuthEvidenceService.rebindToAccount`,
-`linkDeviceToAccount`). Die Evidence wird dabei nicht zurückgesetzt — was diese Sitzung bewiesen
+`linkDeviceToAccount`). Die Nachweise werden dabei nicht zurückgesetzt — was diese Sitzung bewiesen
 hat, hat sie bewiesen; es wandert nur der Zeiger auf das Konto, die zwischengespeicherten Tokens
 fallen weg. Nach dem Wechsel läuft die Registrierung noch einmal durch
 `RegisterStrategy.afterIdentification`, damit das neue Konto dieselben zwei Fragen durchläuft wie
@@ -732,17 +730,17 @@ Konto einfach eine vorhandene Methode beweisen, statt eine neue einzurichten?
 `auth_journey`, Overlay über ein synthetisches `AccountProfile`, Materialisierung beim ersten
 schreibenden Akt). Verworfen, und nicht nur wegen des Umfangs: `IdentKvnrDescriptor.requires`
 (NAME/VORNAME/GEBURTSDATUM `PROVEN`) wird gegen `ctx.account` geprüft — ohne geschriebenes Konto
-lässt sich der Zuordnungsschritt gar nicht anbieten, das Overlay wäre also Pflicht und nicht Kür.
-Das ist viel Bauwerk gegen einen Fehler, der aus einem einzigen `409` besteht.
+lässt sich der Zuordnungsschritt gar nicht anbieten, das Overlay wäre also nicht optional, sondern
+Pflicht. Das ist viel Aufwand gegen einen Fehler, der aus einem einzigen `409` besteht.
 
 **Warum diese**: Das vorläufige Konto ist ein Nebenprodukt der Journey und gehört dem Nutzer nicht
-— außer der Bezeugung, die gerade entstanden ist, trägt es nichts. Es im gefundenen Konto aufgehen
-zu lassen kostet nichts und rettet genau diese Bezeugung. Es stehen zu lassen erzeugt dagegen einen
+— außer der Bestätigung, die gerade entstanden ist, trägt es nichts. Es im gefundenen Konto aufgehen
+zu lassen kostet nichts und rettet genau diese Bestätigung. Es stehen zu lassen erzeugt dagegen einen
 Konflikt, den der Nutzer weder verursacht hat noch auflösen kann.
 
-**Preis / bewusst offen**: Zwei echte Konten zusammenzulegen bleibt ungelöst und bleibt beim `409`.
+**Kosten / bewusst offen**: Zwei echte Konten zusammenzulegen bleibt ungelöst und bleibt beim `409`.
 Hat das Zielkonto eine andere E-Mail oder eine andere `restricted_id`, greifen die normalen
-Ankerregeln: ersetzen samt Retraktion (`EMAIL`, `EID_RESTRICTED_ID`) oder abweisen (`PERSON_ID`) —
+Ankerregeln: ersetzen samt Widerruf (`EMAIL`, `EID_RESTRICTED_ID`) oder abweisen (`PERSON_ID`) —
 die Übernahme kopiert nichts an diesen Regeln vorbei. Zurückgezogene Claims kommen nicht mit, und
 die übernommenen Claim-Zeilen tragen den Zeitpunkt der Übernahme. Wann Identität bewiesen wurde,
 steht weiterhin in den `account.identification`-Zeilen; die wandern mit ihrem ursprünglichen
@@ -762,38 +760,38 @@ oder per Kontopasswort. Der Entsperrweg ist das `userVerification` dieses Verfah
 Biometrie entsteht nur bei Zustimmung (dann gibt es einen `unlock_secret_hash`, sonst NULL), das
 Passwort nur, solange das Konto eines hält. `auth-kobil` nennt im `stepData` die tatsächlich
 vorhandenen Wege (`unlockOptions`), statt beide anzubieten: Ein Weg, den es nicht gibt, hätte genau
-einen möglichen Ausgang — einen Fehlversuch, der den Login-Throttle belastet. Preis: Die Antwort
+einen möglichen Ausgang — einen Fehlversuch, der den Login-Throttle belastet. Das kostet etwas: Die Antwort
 verrät, ob das Konto ein Passwort hat. Vertretbar, weil dieser Schritt nur für einen Aufrufer läuft,
 dessen Schlüssel schon zu einem Credential dieses Kontos passt, und weil derselbe Aufrufer direkt
-danach `activeMethods` sieht. Eine leere Liste ist möglich und wird benannt, statt kaschiert.
+danach `activeMethods` sieht. Eine leere Liste ist möglich und wird auch so gesagt, statt verdeckt.
 
 **Erwogene Alternative**: Den KOBIL-Standardweg beibehalten, also den Nutzer einen PIN vergeben und
-eingeben lassen. Verworfen, weil das Verfahren hier gerade zeigen soll, wie ein Gerätebindungs-
-Dienstleister eingebunden wird, ohne dem Nutzer ein weiteres Geheimnis aufzubürden.
+eingeben lassen. Verworfen, weil das Verfahren hier gerade zeigen soll, wie ein Dienstleister für Gerätebindung
+eingebunden wird, ohne dem Nutzer ein weiteres Geheimnis abzuverlangen.
 
 **Zweite erwogene Alternative**: `docs/04-orchestrierung.md` Abschnitt 8 wörtlich nehmen („nur
-Faktoren melden, die dem Server nachweisbar sind") und nur `{possession}` melden, womit der
-Biometrie-Weg bei `loa1` landete. Verworfen, obwohl sie strenger und in einem Punkt richtiger ist:
-Wie entsperrt wurde, kann kein Server sehen. Der Preis der Strenge wäre aber, dass dieselbe Geste
+Faktoren melden, die dem Server nachweisbar sind") und nur `{possession}` melden; der
+Biometrie-Weg würde dann bei `loa1` landen. Verworfen, obwohl sie strenger und in einem Punkt richtiger ist:
+Wie entsperrt wurde, kann kein Server sehen. Eine strengere Regel hätte aber zur Folge, dass dieselbe Geste
 in zwei Verfahren unterschiedlich viel kostet, ohne dass der Nutzer den Grund sieht — und dass
-`auth_device`, das seit immer `inherence` aus derselben Selbstauskunft meldet, zum unbenannten
-Ausreißer würde.
+`auth_device`, das `inherence` von Anfang an aus derselben Client-Angabe meldet, zur unerklärten
+Ausnahme würde.
 
-**Preis, ausgesprochen**: Die Ausnahme von der „nur nachweisbare Faktoren"-Regel gilt damit für
+**Was das kostet**: Die Ausnahme von der „nur nachweisbare Faktoren"-Regel gilt damit für
 zwei Verfahren. Sie steht deshalb dort als **Ausnahme** notiert, nicht als zwei Einzelfälle. Was
-bei `kobil` dagegen stärker belegt ist als überall sonst: der Besitzfaktor ruht auf einer
+bei `kobil` dagegen stärker belegt ist als überall sonst: Der Besitzfaktor beruht auf einer
 Assertion, die das Backend selbst beim Anbieter einlöst, nicht auf einer Client-Signatur (ADR-23).
 
 Zwei Dinge, die aus dieser Entscheidung folgen und im Code als Typ stehen, nicht als Kommentar:
 `KobilUnlockCredential` ist ein `sealed interface` (Gerätegeheimnis **oder** Passwort — beides oder
-nichts ist nicht konstruierbar) und trägt seine Faktorart selbst; und das Kontopasswort meldet
-`pin`, nie `password`, weil ein amr-Eintrag dieses Namens dem Lauf über
+nichts ist nicht konstruierbar) und trägt seine Faktorart selbst. Und das Kontopasswort meldet
+`pin`, nie `password`: Ein amr-Eintrag dieses Namens würde dem Lauf über
 `findActiveMethod(accountId, "password")` den Enrollment-Datensatz der echten Passwortmethode
-anhängen und sie doppelt zählen würde.
+anhängen und sie damit doppelt zählen.
 
 ---
 
-## ADR-22: Der verwahrte PIN liegt im Klartext — Demo-Rahmen, benannt statt kaschiert
+## ADR-22: Der verwahrte PIN liegt im Klartext — Demo-Rahmen, benannt statt verschwiegen
 
 **Entscheidung** (**umgesetzt**): `auth_kobil.enrollment.pin` ist eine Klartextspalte. Ein Hash ist
 ausgeschlossen, weil der Wert herausgegeben werden muss; verschlüsselt wird er nicht.
@@ -802,21 +800,22 @@ ausgeschlossen, weil der Wert herausgegeben werden muss; verschlüsselt wird er 
 Verworfen für diese Demo: Sie schützt gegen einen gestohlenen Datenbankstand, nicht gegen Zugriff
 auf den Anwendungsprozess — und der simulierte Anbieter (`kobil_mock`) hält denselben PIN ohnehin im
 Klartext, so wie das echte KOBIL es tun müsste. Verschlüsselung auf nur einer der beiden Seiten
-wäre Auftritt, nicht Schutz.
+sähe nach Schutz aus, ohne einer zu sein.
 
 **Zweite erwogene Alternative**: Den PIN pro Anmeldung neu setzen (KOBIL kann das) und danach
-verwerfen. Reizvoll, weil dann nichts ruht, aber es hängt jeden Login an den
-Management-Pfad des Anbieters und öffnet ein Fenster, in dem PIN-Wechsel und SDK-Login sich
-überholen.
+verwerfen. Reizvoll, weil dann nichts dauerhaft gespeichert bleibt. Es hängt aber jeden Login an den
+Management-Pfad des Anbieters und öffnet ein Zeitfenster, in dem PIN-Wechsel und SDK-Login
+einander überholen können.
 
-**Preis**: Die H2-Konsole bleibt im Projekt bewusst offen, und ihr Kommentar zählt auf, was dort
+**Kosten**: Die H2-Konsole bleibt im Projekt bewusst offen, und ihr Kommentar zählt auf, was dort
 lesbar ist. Diese Liste wächst um „jeder lebende KOBIL-PIN". Vertretbar nur, solange es so
-dasteht. Präzedenz im Projekt: `AccountKeycloakKeypair.privateKeyJwk` („Demo-only: plaintext, not
-encrypted at rest"). Verwandt, aber nicht dasselbe: `docs/ideen/verschluesselung-differenzierte-aufbewahrung.md`
-entwirft Envelope Encryption für das Claim-Log — ein Vorhaben, das hier nicht vorgegriffen wird.
+dasteht. Denselben Fall gibt es im Projekt schon: `AccountKeycloakKeypair.privateKeyJwk` („Demo-only:
+plaintext, not encrypted at rest"). Verwandt, aber nicht dasselbe:
+`docs/ideen/verschluesselung-differenzierte-aufbewahrung.md` entwirft Envelope Encryption für das
+Claim-Log — einem Vorhaben, dem hier nicht vorgegriffen wird.
 
 Zusätzlich liegen während einer laufenden Einrichtung PIN **und** Unlock-Secret im Klartext in
-`auth_kobil.enroll_tool_session` — dort absichtlich, damit ein Reload den Ablauf nicht abschneidet,
+`auth_kobil.enroll_tool_session` — dort absichtlich, damit ein Neuladen der Seite den Ablauf nicht abbricht,
 und mit der 24-Stunden-Frist des `AuthKobilRetentionJob` als Gegengewicht.
 
 ---
@@ -829,10 +828,10 @@ Risikosignalen löst das Backend selbst beim Anbieter ein.
 
 **Erwogene Alternative**: Die Assertion (signiert) durch den Client weiterreichen und serverseitig
 prüfen — das Muster von `auth_device`s `device-proof+jwt`. Funktioniert, verlangt aber ein
-Vertrauensanker- und Signaturformat, das die öffentliche KOBIL-Dokumentation nicht offenlegt; es
-hier zu erfinden hieße, ein Format zu bauen und als das echte auszugeben.
+Vertrauensanker- und Signaturformat, das die öffentliche KOBIL-Dokumentation nicht nennt. Es hier
+zu erfinden würde bedeuten, ein selbst gebautes Format als das echte auszugeben.
 
-**Preis / Gewinn**: Eine Server-zu-Server-Abhängigkeit im Anmeldepfad — ist der Anbieter nicht
+**Kosten und Gewinn**: Eine Server-zu-Server-Abhängigkeit im Anmeldepfad — ist der Anbieter nicht
 erreichbar, ist das Verfahren nicht nutzbar. Dafür kann ein manipulierter Client hier nichts
 behaupten: Er kann eine Kennung zurückhalten oder wiederholen, und beides endet in derselben
 Antwort („Bestaetigung nicht erkannt"), weil eine Assertion genau einmal einlösbar ist.
@@ -840,30 +839,31 @@ Antwort („Bestaetigung nicht erkannt"), weil eine Assertion genau einmal einl�
 Zwei Folgen, die im Ablauf sichtbar sind: Die Gerätekennung wird **bei KOBIL erfragt**, nie vom
 Client übernommen — sie ist der Vergleichsanker jeder späteren Anmeldung. Und eine Risiko-Ablehnung
 trägt einen **eigenen** Fehlergrund („Geraet als unsicher gemeldet"), weil das keine Verwechslung
-des Nutzers ist, sondern eine Aussage über das Gerät; im „nicht erkannt" verschwände ein echter
-Befund. Bewusst in Kauf genommen: Diese Ablehnung belastet den Login-Throttle wie ein falsches
+des Nutzers ist, sondern eine Aussage über das Gerät; in einem „nicht erkannt" würde ein echter
+Befund verschwinden. Bewusst in Kauf genommen: Diese Ablehnung belastet den Login-Throttle wie ein falsches
 Passwort, ein gerootetes Telefon kann seinen Besitzer also aussperren.
 
 ---
 
-## ADR-24: Eine Methode hängt von einer anderen ab, indem sie deren Behauptung verlangt
+## ADR-24: Eine Methode hängt von einer anderen ab, indem sie deren Angabe verlangt
 
-**Entscheidung** (**umgesetzt**): Abhängigkeiten zwischen Verfahren bekommen keine eigene
-Vokabel. Ein Modul behauptet beim Einrichten einen Claim, ein anderes verlangt ihn per
-`ClaimRequirement` — und `requires` wird damit von einer reinen **Angebots**schranke zu einer
-**stehenden Voraussetzung**: Fällt die Behauptung weg, fällt das Credential, das sie verlangte,
-mit. Transitiv, als Fixpunkt (`JourneyActionExecutor.dependentsOfLostClaims`).
+**Entscheidung** (**umgesetzt**): Abhängigkeiten zwischen Verfahren brauchen keine eigenen
+Begriffe. Ein Modul schreibt beim Einrichten einen Claim, ein anderes verlangt ihn per
+`ClaimRequirement` — und `requires` entscheidet damit nicht mehr nur über das **Angebot**, sondern
+gilt **dauerhaft**: Fällt die Angabe weg, fällt das Credential, das sie verlangte, mit. Das wirkt
+weiter über alles, was seinerseits daran hängt, bis sich nichts mehr ändert
+(`JourneyActionExecutor.dependentsOfLostClaims`).
 
 Die heute lebende Kette ist die Adresse: `enroll-password` verlangt `ClaimRequirement(EMAIL,
 PROVEN)`, also nimmt eine zurückgenommene Adresse das Passwort mit. `enroll-password` behauptet
 zusätzlich `PASSWORD_EXISTS` — ein Claim, den derzeit **niemand** verlangt. Er bleibt trotzdem
-deklariert: Er ist die Sprache, in der eine Abhängigkeit vom Passwort formuliert würde, und die
-Alternative wäre, beim nächsten Bedarf einen zweiten Mechanismus danebenzustellen.
+deklariert: Mit ihm ließe sich eine Abhängigkeit vom Passwort ausdrücken, und die Alternative wäre,
+beim nächsten Bedarf einen zweiten Mechanismus daneben zu stellen.
 
-Damit das überhaupt greifen kann, wurde die Retraktion um einen dritten Auslöser ergänzt: ein
+Damit das überhaupt greifen kann, hat der Widerruf einen dritten Auslöser bekommen: ein
 Attribut lässt sich jetzt **direkt** zurücknehmen (`AccountService.retractAttribute`,
 `DELETE /channels/{id}/attributes/{attribute}`). Vorher konnte eine bestätigte Adresse gar nicht
-verloren gehen — `confirm-email` schreibt seine Behauptung als ATTESTATION, also ohne
+verloren gehen — `confirm-email` schreibt seine Angabe als ATTESTATION, also ohne
 `auth_method_id`, und EMAIL ist `LOCAL_ANCHOR`; kein Methodenwiderruf erreichte sie.
 
 **Erwogene Alternative**: Eine eigene Descriptor-Eigenschaft `dependsOnMethods: Set<String>`, die
@@ -879,30 +879,29 @@ blieb, die Kopplung fiel. Was an ihre Stelle trat, steht in ADR-21: `auth-kobil`
 Entsperrwege an, die es für dieses Credential wirklich gibt.
 
 **Zweite erwogene Alternative**: Beim Widerruf einfach alle aktiven Methoden neu gegen ihr
-`requires` prüfen. Das ist genau der Fixpunkt — allerdings musste die Projektion dafür ehrlich
-sein: Welche Typen eine widerrufene Instanz mitnimmt, wird über `AccountService.claimedTypesOf`
-mit **derselben** Abfrage und demselben `METHOD_MODULE`-Filter ermittelt wie die Retraktion selbst.
-Eine Vorhersage, die mit dem Schreibvorgang uneins ist, wäre schlimmer als keine.
+`requires` prüfen. Genau das passiert — nur muss die Vorschau dafür mit dem Schreibvorgang übereinstimmen: Welche
+Typen eine widerrufene Instanz mitnimmt, ermittelt `AccountService.claimedTypesOf` mit **derselben**
+Abfrage und demselben `METHOD_MODULE`-Filter wie der Widerruf selbst. Eine Vorhersage, die vom
+Schreibvorgang abweicht, wäre schlimmer als keine.
 
-**Preis, ausgesprochen:**
+**Was das kostet:**
 - `requires` bedeutet jetzt mehr als vorher. Jede bestehende Angabe erbt die neue Semantik —
   heute unkritisch, weil die einzige Angabe auf einen Anker (`EMAIL`) nur über den neuen,
-  ausdrücklichen Rücknahme-Endpunkt verloren gehen kann, nie versehentlich. Der Ankertausch
+  ausdrücklichen Widerrufs-Endpunkt verloren gehen kann, nie versehentlich. Der Ankertausch
   („anker-ersetzt") behauptet im selben Zug neu und löst deshalb nichts aus.
-- Ein Attribut zurückzunehmen ist damit ein weitreichender Akt: die Adresse nimmt das Passwort
-  mit. Das ist gewollt und wird vorher geprüft — die
-  Mindestniveau-Prüfung läuft gegen die Projektion **inklusive** der Mitgerissenen und benennt sie
-  in der Ablehnung.
+- Ein Attribut zurückzunehmen hat damit weite Folgen: Die Adresse nimmt das Passwort mit. Das
+  ist gewollt und wird vorher geprüft — die Mindestniveau-Prüfung rechnet **mit** allem, was
+  mitfällt, und die Ablehnung nennt es beim Namen.
 - `AttributeType` trägt mit `PASSWORD_EXISTS` erstmals eine Aussage, die nichts über die **Person**
   sagt, sondern über die Credentials des Kontos. Bewusst dort und nicht in einem zweiten
-  Mechanismus: die Lebensdauer, die das Claim-Log ohnehin verwaltet, ist genau die gesuchte.
+  Mechanismus: Das Claim-Log verwaltet ohnehin genau die Lebensdauer, um die es hier geht.
 
 ## ADR-25: Die Keycloak-Konfiguration steht im Realm, nicht in der Container-Umgebung
 
 **Entscheidung** (umgesetzt): Die Keycloak-Extension liest ihre Laufzeitkonfiguration aus den
 Config-Properties der `orchestrator`-Komponente des Realms (`OrchestratorSettings`), nicht mehr aus
 Umgebungsvariablen des Keycloak-Containers. Fehlt die Komponente oder ein Wert, scheitert der
-Aufruf laut — es gibt keinen Fallback.
+Aufruf sofort und sichtbar — es gibt keinen Fallback.
 
 Vorgelagert dazu beschreibt **ein** Wertobjekt die ganze Umgebung (`KeycloakSetup`, gewählt über
 `keycloak-setup.variant`): aus ihm speist sich sowohl der Realm-Aufbau durch die Migration als auch
@@ -910,23 +909,23 @@ der laufende Betrieb des Orchestrators (Account-Sync, Peer-Auth-JWKS, OIDC-Prüf
 
 **Warum**: Aufbau und Betrieb meinen dasselbe Realm und dieselben Clients. Solange Migration und
 Laufzeit ihre Werte aus getrennten Quellen zogen — `System.getenv` im Migrationsskript, Env-Vars am
-Keycloak-Container, Spring-Properties am Orchestrator —, war „Migration gegen Realm A, Sync gegen
-Realm B" ein Tippfehler weit, und der Fehler zeigte sich erst als 401 tief im Betrieb. Zugleich war
+Keycloak-Container, Spring-Properties am Orchestrator —, genügte ein Tippfehler für „Migration gegen Realm A,
+Sync gegen Realm B", und der Fehler zeigte sich erst als 401 tief im Betrieb. Zugleich war
 die Extension-Konfiguration im laufenden Keycloak nirgends sichtbar: weder in der Admin-Console
 noch im Realm-Export.
 
 **Zwei Hälften, eine Konsequenz**: `RealmSetup` ist, was ins Realm geschrieben wird;
 `KeycloakAccess` nur, wie man das fertige Realm erreicht. Ändert sich ein Wert der ersten Hälfte,
-baut der `MigrationRunner` das Realm neu auf — dieselbe Konsequenz wie bei einer geänderten
-Migrationsdatei, aus demselben Grund: die erledigten Schritte würden den Wert nie wieder anfassen,
-das Realm liefe stillschweigend mit dem alten weiter. Das Migrationsskript bekommt deshalb
+baut der `MigrationRunner` das Realm neu auf — dieselbe Folge wie bei einer geänderten
+Migrationsdatei, und aus demselben Grund: Die erledigten Schritte fassen den Wert nie wieder an,
+das Realm würde unbemerkt mit dem alten weiterlaufen. Das Migrationsskript bekommt deshalb
 ausschließlich `RealmSetup` zu sehen — ein Schritt kann gar nicht erst einen Wert verbauen, den der
 Reset nicht überwacht.
 
 ### Kein geteiltes Geheimnis mehr
 
 Im selben Zug entfallen die Client-Secrets: `orchestrator-admin` und `orchestrator-app-token`
-authentisieren sich per **`private_key_jwt`** (RFC 7523, die in ADR-9 erwogene Härtung). Der
+authentifizieren sich per **`private_key_jwt`** (RFC 7523, die in ADR-9 erwogene Härtung). Der
 Orchestrator signiert jeden Token-Request mit seinem eigenen Schlüssel, Keycloak holt den
 öffentlichen Teil unter `jwks.url` ab — spiegelbildlich zu der Assertion, mit der sich Keycloak
 beim Orchestrator ausweist (ADR-7). Beide Richtungen tragen damit dasselbe Prinzip, und in
@@ -935,14 +934,14 @@ Konfiguration, Compose-Datei und Realm steht kein geteiltes Geheimnis mehr.
 Beide Signaturschlüssel liegen jetzt **in einer Datenbank** statt im Prozessspeicher: der des
 Orchestrators in `orchestrator.node_signing_key`, der der Extension als Property der
 `orchestrator`-Komponente, also in Keycloaks eigener DB. Vorher entstand je Seite ein Paar pro
-JVM-Lauf — das trug nur, solange genau ein Knoten lief: ein zweiter hätte mit einem Schlüssel
+JVM-Lauf — das reichte nur, solange genau ein Knoten lief: Ein zweiter hätte mit einem Schlüssel
 signiert, den das JWKS des ersten nie nennt.
 
-**Preis**, bewusst getragen:
+**Kosten**, bewusst getragen:
 
-- Ohne die `orchestrator`-Komponente läuft die Extension nicht. Das ist gewollt: ein stiller
-  Default wäre genau die Fehlkonfiguration, die vorher erst am fremden Verhalten eines Logins
-  auffiel.
+- Ohne die `orchestrator`-Komponente läuft die Extension nicht. Das ist gewollt: Ein
+  stillschweigender Standardwert wäre genau die Fehlkonfiguration, die vorher erst am seltsamen
+  Verhalten eines Logins auffiel.
 - Ein geänderter Wert wirft die Keycloak-Seite weg und baut sie neu. Verkraftbar, weil die
   Orchestrator-DB keine Keycloak-Ids speichert — die Nutzer entstehen über
   `orchestratorAccountId` beim nächsten Sync neu.
@@ -958,16 +957,15 @@ signiert, den das JWKS des ersten nie nennt.
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 
-Erkannte Befunde, die bewusst
-**nicht** vollständig umgesetzt sind — jeweils eine
-Architektur-/Infrastrukturentscheidung, kein lokal abschließbarer Fix:
+Bekannte Befunde, die bewusst **nicht** vollständig umgesetzt sind — jeder davon ist eine
+Architektur- oder Infrastrukturentscheidung, kein Fix, der an einer Stelle abzuschließen wäre:
 
 - **`orchestrator.dpop_proof_replay`-Skalierung** (siehe auch [09-dpop.md](09-dpop.md) Abschnitt 2): Der
   Schlüssel ist seit ADR-14 ein fester SHA-256-Hash. Offen bleibt die Zeitpartitionierung bzw. ein
   separater persistenter KV-Store — eine Entscheidung für den Produktivstack.
 - **Konto-Lebenszyklus und Merge-Pfad**: `Account` kennt keinen Status und kein
   `merged_into`. ADR-11 weist einen `person_id`-Konflikt
-  bewusst ab, statt zu mergen — über die angestrebte Lebensdauer entsteht Merge-Bedarf aber
-  zwangsläufig, und ohne `merged_into` gibt es dann keinen verlustfreien Weg dorthin.
+  bewusst ab, statt zu mergen — über die angestrebte Lebensdauer wird ein Merge aber
+  zwangsläufig nötig, und ohne `merged_into` gibt es dann keinen verlustfreien Weg dorthin.
 
 Beide verdienen einen eigenen, sorgfältig geplanten Durchgang mit Entwurfsentscheidung vorab.

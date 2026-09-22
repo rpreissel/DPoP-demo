@@ -10,16 +10,16 @@ niedrigerem `enrolledUnderAcr` nach Zustimmung aufgewertet werden dürfen.
 ## 1) Ausgangslage
 
 `authenticationMethods[].enrolledUnderAcr` ist im DPoP-demo-Projekt bewusst **für immer
-eingefroren** — die "dreifache Deckelung" (ADR-5, [12-entscheidungen.md](../12-entscheidungen.md),
+eingefroren** — die "dreifache Begrenzung" (ADR-5, [12-entscheidungen.md](../12-entscheidungen.md),
 [06-ablaeufe.md](../06-ablaeufe.md) #1): eine Methode darf bei der Authentifizierung nie mehr
 Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war. Ohne diese Regel könnte, wer eine
-schwache Session übernimmt, dort eine eigene Methode hinterlegen und damit dauerhaft ein höheres
+schwache Session übernimmt, dort eine eigene Methode einrichten und damit dauerhaft ein höheres
 Niveau erreichen, als er je nachgewiesen hat.
 
 Das erzeugt aber ein reales Nutzerproblem: Wer sich z. B. über "Enrollment zuerst"
 (`RegisterEnrollFirstStrategy`) nur mit SMS registriert (`sms.enrolledUnderAcr = loa1`, `personId
 == null`) und sich später ganz regulär per `ident-fsc`/`ident-eid` identifiziert, bleibt trotzdem
-für immer auf `loa1` gedeckelt — obwohl der Kontoinhaber seine Identität inzwischen nachweislich
+für immer auf `loa1` begrenzt — obwohl der Kontoinhaber seine Identität inzwischen nachweislich
 stärker bestätigt hat. Anders als beim ursprünglichen Angriffsszenario ist hier nicht ein
 Angreifer am Werk, sondern der Kontoinhaber selbst, der gerade freiwillig einen stärkeren Nachweis
 erbracht hat.
@@ -39,7 +39,7 @@ erbracht hat.
    dürfen. Wenn keine betroffen sind, läuft alles wie bisher unverändert weiter (kein
    zusätzlicher Schritt, keine Verhaltensänderung für den Normalfall).
 3. **Zustimmung → Anheben** — bei "Ja" wird `enrolledUnderAcr` der genannten Methoden angehoben,
-   gedeckelt durch die eigene `maxAcr` des jeweiligen Tools (eine Methode darf nie mehr können,
+   begrenzt durch die eigene `maxAcr` des jeweiligen Tools (eine Methode darf nie mehr können,
    als sie technisch je nachweisen könnte). Das ist eine bewusste, **zustimmungsgebundene**
    Ausnahme von ADR-5, nicht dessen Aufhebung: Auslöser ist immer ein frischer, erfolgreicher
    Identitätsnachweis des Kontoinhabers selbst, nie eine automatische oder stille Änderung. Bei
@@ -56,7 +56,7 @@ ist, aber bevor `Transition.Authenticated` zurückgegeben wird — müsste ein n
 (`OfferMethodUpgrade`, ein `AnswerableState` wie das bereits bestehende `OfferReIdent`) eingefügt
 werden, der die betroffenen Methoden auflistet und fragt.
 
-Weil dieser Punkt **innerhalb** von `ReIdentifyStrategy` liegt, würde die Prüfung transparent für
+Weil dieser Punkt **innerhalb** von `ReIdentifyStrategy` liegt, würde die Prüfung automatisch für
 alle fünf Aufrufer gelten (STEP_UP, LOOKUP_LOGIN, AuthEnrollCore, RegisterEnrollFirstStrategy, neuer
 Manage-Trigger), ohne dass einer von ihnen selbst geändert werden müsste — nur der neue,
 gate-lose `IdentifyRequested`-Zustand in `ManageAuthMethodsStrategy`/`ManageAuthMethodsState`
@@ -64,7 +64,7 @@ müsste als sechster Aufrufer neu hinzukommen.
 
 Bei Zustimmung bräuchte es:
 - eine neue `Action` (`Action.UpgradeMethods(accountId, methodInstanceIds, newAcr)`), die
-  `JourneyService` ausführt (Deckelung pro Methode auf deren eigene Tool-`maxAcr` dort, da
+  `JourneyService` ausführt (Begrenzung pro Methode auf deren eigene Tool-`maxAcr` dort, da
   `AccountService` bewusst nichts von `tool_spi` weiß),
 - eine neue Persistenz-Methode `AccountService.upgradeMethods(...)`, im selben Muster wie das
   bestehende `deactivateAuthenticationMethod` (Methoden anhand ihrer `id` treffen, nicht anhand
@@ -87,8 +87,8 @@ exakt das erreichte Niveau widerspiegelt.
 ## 4) Frontend
 
 - **App-Kanal**: `AuthenticationCompletedView.tsx` zeigt "Anmeldeverfahren verwalten" bereits mit
-  Add/Remove-Buttons und dem `enrolledUnderAcr`-Deckel pro Methode an — ein "Identifizieren"-Button
-  würde sich dort naturgemäß einreihen. Der generische `Prompt.Confirm`-Screen, den die App für
+  Add/Remove-Buttons und der `enrolledUnderAcr`-Obergrenze pro Methode an — ein "Identifizieren"-Button
+  würde sich dort ohne Weiteres einreihen. Der generische `Prompt.Confirm`-Screen, den die App für
   jeden `AnswerableState` schon rendert, würde `OfferMethodUpgrade` ohne weitere
   Frontend-Änderung korrekt anzeigen (reiner Text aus `stepData.prompt`).
 - **Web-Kanal**: "Anmeldeverfahren verwalten" ist dort heute **nicht** orchestrator-gesteuert,
@@ -102,19 +102,19 @@ exakt das erreichte Niveau widerspiegelt.
 ## 5) Was sich an bestehendem Verhalten/Dokumentation ändern würde
 
 Die Aussage in [04-orchestrierung.md](../04-orchestrierung.md) ("IAL und AAL"): *"wurde nur mit
-loa2 identifiziert, bleiben auch alle danach eingerichteten Methoden auf loa2 gedeckelt"* würde
+loa2 identifiziert, bleiben auch alle danach eingerichteten Methoden auf loa2 begrenzt"* würde
 eine Ausnahme bekommen — nicht mehr uneingeschränkt wahr, sondern "es sei denn, der Kontoinhaber
 identifiziert sich später erneut auf einem höheren Niveau und stimmt der rückwirkenden Aufwertung
 ausdrücklich zu". ADR-5 selbst bräuchte einen Nachtrag, der diese eine, eng umrissene Ausnahme
-(freiwillig, konto­inhaber-ausgelöst, explizit abgefragt, weiterhin durch die eigene `maxAcr`
-jeder Methode gedeckelt) von der sonst geltenden "nie rückwirkend"-Regel abgrenzt.
+(freiwillig, vom Kontoinhaber ausgelöst, ausdrücklich abgefragt, weiterhin durch die eigene `maxAcr`
+jeder Methode begrenzt) von der sonst geltenden "nie rückwirkend"-Regel abgrenzt.
 
 ## 6) Offene Fragen und Risiken
 
 1. **Ist die Ausnahme von ADR-5 grundsätzlich gewollt?** Das ist eine bewusste Abweichung vom
    bisher strikt eingehaltenen "nie rückwirkend"-Prinzip. Sie betrifft nur Methoden des eigenen
-   Kontos und wird nur nach explizitem, informierten Opt-in wirksam — trotzdem ändert sie ein
-   Kern-Invariant der Sicherheitsarchitektur und sollte nicht "nebenbei" entschieden werden.
+   Kontos und wird nur nach explizitem, informierten Opt-in wirksam — trotzdem ändert sie eine Kernregel
+   der Sicherheitsarchitektur und sollte nicht "nebenbei" entschieden werden.
 2. **Web-Kanal-Lücke**: Ohne Umbau der Web-"Methoden verwalten"-Seite (aktuell reiner
    Keycloak-Redirect) bliebe der neue Trigger vorerst App-only.
 3. **Granularität der Zustimmung**: Immer "alle betroffenen Methoden auf einmal" hochstufen, oder
@@ -134,7 +134,7 @@ jeder Methode gedeckelt) von der sonst geltenden "nie rückwirkend"-Regel abgren
 1. Entscheidung einholen, ob die ADR-5-Ausnahme (Punkt 6.1) so gewollt ist.
 2. Neuer Zustand `ReIdentifyState.OfferMethodUpgrade` + Anpassung von `ReIdentifyStrategy`
    (zentrale Prüfung nach `Action.RecordIdentification`).
-3. Neue `Action.UpgradeMethods` (`IntentStrategy.kt`) + Ausführung in `JourneyService` (Deckelung
+3. Neue `Action.UpgradeMethods` (`IntentStrategy.kt`) + Ausführung in `JourneyService` (Begrenzung
    pro Methode auf deren `maxAcr`) + `AccountService.upgradeMethods(...)`.
 4. Neuer `ManageAuthMethodsState.IdentifyRequested` + Verdrahtung in `ManageAuthMethodsStrategy`
    (kein loa2-Gate) + HTTP-Endpunkt + Frontend-Button (App-Kanal).

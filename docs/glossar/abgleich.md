@@ -19,7 +19,7 @@ unterstützt bzw. nachbildet.
 | **Bescheinigtes vs. unbescheinigtes Attribut** | `TrustLevel { STAMMDATEN(3), PROVEN(2), SELF_REPORTED(1) }`, `ClaimSource.SELF_REPORTED` = „A value the user entered with nothing backing it" (`tool_spi/Claims.kt:62-90`) | Sogar präziser als das Glossar: dreistufige, geordnete Rangfolge statt binärer Unterscheidung. Die Glossar-Regel „unbescheinigte Attribute dürfen niemals für Zuordnung verwendet werden" ist technisch erzwungen über `ClaimRequirement(attributeType, minTrustLevel)` — z. B. verlangt `enroll-password` `EMAIL` mindestens auf `PROVEN` (`auth_password/Descriptors.kt:35`), ein `SELF_REPORTED`-Wert reicht nicht (getestet in `DefaultAuthPolicyTest.kt:454`). **Einschränkung:** Kein aktuell ausgeliefertes Tool deklariert selbst `SELF_REPORTED` — der Wert ist vorhanden und policy-wirksam, aber im Tool-Set noch nicht produktiv genutzt. |
 | **Identifizierungsmittel-Beispiel „E-Mail-Konto mit implizit vertrauter Fremdauthentifizierung"** | `auth_email` (Methode `email`, EMAIL-Anker statt eigenes Credential, `02-domaenenmodell.md:236`) | Deckt sich mit dem Glossar-Beispiel „E-Mail-Konto, Server nimmt fremde Authentifizierung implizit an" — im Projekt sogar so benannt (`EMAIL_ANCHOR_ENROLLMENT`). |
 | **ID-Server/ID-System** | `ext_stammdaten`/`PersonDirectory` (`02-domaenenmodell.md:226-230`, `06-ablaeufe.md:122`) | Genau die Rolle: externes System, das Identitäten (KVNR→Name/Geburtsdatum) kennt und über Zertifizierung/Claims für den Server nutzbar macht. |
-| **Identifizierung** (Anreicherung eines bereits wiedererkannten Clients um bescheinigte Attribute) | `AccountClaim`, `ClaimSource.EXT_STAMMDATEN` vs. `ClaimSource.of(toolId)` (`06-ablaeufe.md:122`) | Die Unterscheidung „wer bürgt" (Register vs. Verfahren selbst) ist exakt die Glossar-Unterscheidung Identifizierungsmittel vs. nachträglich erhaltenes bescheinigtes Attribut. |
+| **Identifizierung** (Anreicherung eines bereits wiedererkannten Clients um bescheinigte Attribute) | `AccountClaim`, `ClaimSource.EXT_STAMMDATEN` vs. `ClaimSource.of(toolId)` (`06-ablaeufe.md:122`) | Die Unterscheidung, wer für einen Wert einsteht (das Register oder das Verfahren selbst), ist exakt die Glossar-Unterscheidung Identifizierungsmittel vs. nachträglich erhaltenes bescheinigtes Attribut. |
 | **MFA-Kombinationsregel, „nicht verknüpfte Einzelfaktoren zählen nicht als ein Authentisierungsmittel"** | „Faktorvielfalt: verschiedene Faktorarten, nie Tool-Anzahl" (`04-orchestrierung.md:1037-1043`) | Deckt sich mit dem Glossar-Hinweis im Abschnitt „2-Faktor-Authentisierungsmittel". |
 
 ## 2) Passt einigermaßen
@@ -49,12 +49,13 @@ verschieden lang lebende Bausteine, von denen keiner einzeln der Glossar-„Iden
    reine Leseprojektion, kein gespeicherter Zustand: `personId`/`email` werden aus
    `AccountAnchor` *gelesen*, nicht aus eigenen Spalten (`02-domaenenmodell.md:139`).
 2. **`Account` ist bewusst kein Träger von Identität.** Er trägt nur `id`, `createdAt`, `version`
-   — „Identitätsschlüssel und Sperrwurzel", explizit ohne Fakt (`02-domaenenmodell.md:138,232`).
+   — die Identität des Kontos und den Punkt, über den Änderungen gesperrt werden, ausdrücklich
+   ohne einen eigenen Fakt (`02-domaenenmodell.md:138,232`).
    Ein Account kann existieren, ohne dass überhaupt eine Glossar-„Identität" daran hängt — der
    „Interessent"-Fall (`isUnidentified`, ADR-10, `02-domaenenmodell.md:139`).
-3. **`AccountClaim` ist Historie, nicht Identität.** Ein append-only Change-Log jeder je bezeugten
-   Änderung (`claim_source`, `normalized_value`, `AcrLevel`), nie überschrieben
-   (`02-domaenenmodell.md:143`) — die Herkunfts-Spur, aus der der aktuelle Zustand
+3. **`AccountClaim` ist Historie, nicht Identität.** Ein Log jeder je bestätigten Änderung
+   (`claim_source`, `normalized_value`, `AcrLevel`), das nur angefügt und nie überschrieben wird
+   (`02-domaenenmodell.md:143`) — die Herkunft, aus der der aktuelle Zustand
    (`AccountAnchor`) abgeleitet und über `AccountRetraction` zeitbasiert korrigiert wird
    (`02-domaenenmodell.md:142`).
 4. **`AccountIdentification` ist Audit, nicht Identität.** Protokolliert, dass und wie
@@ -63,9 +64,9 @@ verschieden lang lebende Bausteine, von denen keiner einzeln der Glossar-„Iden
 
 **Einordnung:** Der aktuelle Anker-Zustand (`AccountAnchor`/`AccountProfile`) entspricht bei einer
 Momentaufnahme exakt der Glossar-„Identität". Claims, Retractions und der Identification-Audit
-sind keine andere Sicht auf dasselbe, sondern die vom Glossar vorausgesetzte, aber nicht
-ausformulierte Frage beantworten: *woher* kommt der aktuelle Stand, *wann* galt ein Attribut als
-bescheinigt, *wie* wird ein Konflikt zwischen zwei Bezeugungen aufgelöst
+sind keine andere Sicht auf dasselbe, sondern beantworten die Fragen, die das Glossar
+voraussetzt, ohne sie auszuformulieren: *woher* kommt der aktuelle Stand, *wann* galt ein Attribut als
+bescheinigt, *wie* wird ein Konflikt zwischen zwei Bestätigungen aufgelöst
 (`IdentityMatchingService.resolve`, `resolveByAnchor`, ADR-19/20). Das ist eine Verfeinerung, kein
 Widerspruch.
 
@@ -82,8 +83,8 @@ Widerspruch.
    ihr wie eine bewusste Sprachregelung.
 2. **Glossar-Wörter in den Docs zitieren.** Aktuell taucht kein Glossar-Wort (Authentisierungsmittel,
    Faktortyp, Identifizierungsmittel, bescheinigtes Attribut …) wörtlich in `docs/*.md` auf, obwohl
-   die Konzepte fast alle da sind. Das Nachziehen der Wörter in den Docs (nicht im Code — dort ist
-   Englisch Konvention) ist ein Low-Cost-Move mit hoher Wirkung.
+   die Konzepte fast alle da sind. Die Wörter in den Docs nachzuziehen (nicht im Code — dort ist
+   Englisch Konvention) kostet wenig und wirkt viel.
 3. **Ehrlichkeit zum Sicherheitsniveau des Browser-Schlüssels.** In `09-dpop.md` ergänzen, dass der
    Browser-Schlüssel (Web Crypto API/IndexedDB) explizit **nicht** das Secure-Element/TPM-Niveau
    des Glossars erreicht — Demo, kein Produktivstack. Besser, das Projekt sagt es zuerst, als dass
@@ -96,8 +97,8 @@ Widerspruch.
    bewusst „kann sich dieses Gerät wieder anmelden" von „wissen wir, wer das ist" — eine
    Verfeinerung, kein Widerspruch: Sobald eine Identität zugeordnet wird, verhält sich das Konto
    exakt wie vom Glossar beschrieben.
-2. **Claims/Anchor/Retraction statt einer einzigen Attributsammlung.** Der aktuelle Zustand kollabiert
-   bei einer Momentaufnahme exakt auf die Glossar-„Identität". Claims und Retractions sind die
+2. **Claims/Anchor/Retraction statt einer einzigen Attributsammlung.** In einer Momentaufnahme
+   fällt der aktuelle Zustand genau mit der Glossar-„Identität" zusammen. Claims und Retractions sind die
    Herleitung dieses Zustands über Zeit — notwendig für revisionssichere Antworten auf „warum galt
    zum Zeitpunkt X dieser Wert als bescheinigt". Für einen regulierten Kontext (Gesundheitswesen)
    ist das ein Mehrwert, kein Abweichen.
@@ -109,7 +110,7 @@ Widerspruch.
    was das Glossar bereits andeutet.
 4. **Aktive Identitätsauflösung (`IdentityMatchingService`).** Das Glossar beschreibt Identifizierung
    als Ergebnis, nicht als Prozess — es sagt nichts darüber, was bei einer Kollision zwischen neuer
-   Bezeugung und bestehendem Konto passiert. Das Projekt liefert diese fehlende Prozessbeschreibung
+   Bestätigung und bestehendem Konto passiert. Das Projekt liefert diese fehlende Prozessbeschreibung
    (`resolveByAnchor`, ADR-19/20) — ein Beitrag zum Glossar, kein Verstoß dagegen.
 5. **Faktorarten dynamisch pro Nachweis statt statisch pro Methode.** Bereits glossar-konform
    (Abschnitt 1) und ein Beleg für sorgfältige Umsetzung, kein Diskussionspunkt.

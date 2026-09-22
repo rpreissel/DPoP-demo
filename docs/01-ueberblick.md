@@ -12,11 +12,11 @@ flowchart LR
   R --> L
   B["Wiederkehrender Nutzer"] --> L["Login"]
   L --> T["AccessToken"]
-  T -- "direkt, ohne Orchestrator" --> F["Fachlichkeit / Microservices"]
+  T -- "direkt, ohne Orchestrator" --> F["Fachdienste / Microservices"]
 ```
 
 Das eigentliche Ziel ist immer dasselbe: ein `AccessToken`, mit dem die App danach die
-Fachlichkeit — Microservices, andere Backends — **direkt** aufruft, ohne Umweg über den
+Fachdienste — Microservices, andere Backends — **direkt** aufruft, ohne Umweg über den
 Orchestrator. Registrierung ist kein eigener Zweck, sondern nur die einmalige Voraussetzung
 dafür, dass ein neuer Nutzer danach einloggen kann. Das `AccessToken` selbst stammt aus einem
 Standard-OIDC-Tokenfluss gegen Keycloak, den der Orchestrator serverseitig abwickelt — das
@@ -34,7 +34,7 @@ Der Kern des Modells sind drei ineinander geschachtelte Sessions mit fallender L
 | Ebene | Steht für | Lebensdauer |
 |---|---|---|
 | `ChannelSession` | Der Kanal (App oder Web), DPoP-gebunden | langlebig, überdauert einzelne Verfahren |
-| `AuthJourney` | Ein Durchlauf eines `AuthIntent`: eine geführte Wegstrecke mit einem Ziel | so lange die Journey läuft |
+| `AuthJourney` | Ein Durchlauf eines `AuthIntent`: ein geführter Weg mit einem Ziel | so lange die Journey läuft |
 | `ToolSession` | Ein einzelner Tool-Durchlauf, z. B. die TAN-Eingabe | kurz, oft Minuten |
 
 Eine Journey durchläuft dabei beliebig viele Tools: Der Weg über die Identifizierung ist etwa
@@ -74,7 +74,7 @@ Details: [05-api.md](05-api.md)
 
 ---
 
-## Der Orchestrator entscheidet, die Module liefern zu
+## Der Orchestrator entscheidet, die Module melden nur ihr Ergebnis
 
 Nach jedem abgeschlossenen Tool entscheidet der Orchestrator, wie es weitergeht: Er verarbeitet
 das Ergebnis kategoriespezifisch (Account anlegen, Methode registrieren, Nachweis übernehmen)
@@ -113,7 +113,7 @@ server-zu-server auf, authentifiziert per signierter Peer-Auth-Assertion statt D
 3. Keycloaks `OrchestratorAuthenticator` rendert das passende Formular, reicht Eingaben per
    `PATCH`/`POST` an dieselben kanalneutralen Tool-Endpunkte wie die App weiter.
 4. Nach fachlichem Erfolg schreibt der Authenticator `authData` (`accountId`/`acr`/`amr`) sofort in
-   Keycloaks eigene Session-Notes; ein Protocol Mapper übernimmt sie beim Token-Mint in die
+   Keycloaks eigene Session-Notes; ein Protocol Mapper übernimmt sie beim Ausstellen des Tokens in die
    `acr`/`amr`-Claims.
 5. `ChannelSession.state` wechselt auf `AUTHENTICATED`, sobald das angefragte Niveau erreicht ist.
 
@@ -125,11 +125,12 @@ Details: [05-api.md](05-api.md)
 
 ---
 
-## Sicherheitsniveaus werden dreifach gedeckelt
+## Sicherheitsniveaus haben drei Obergrenzen
 
-Ein Account kann nie mehr Vertrauen erzeugen, als bei seiner Identifikation festgestellt wurde;
-eine Methode nie mehr, als bei ihrer Einrichtung vorhanden war; ein Durchlauf nie mehr, als das
-Verfahren technisch trägt. Diese Kette verhindert, dass sich über eine in schwacher Session
-hinterlegte Methode dauerhaft ein höheres Niveau erschleichen lässt.
+Ein Account kann nie mehr Vertrauen erzeugen, als bei seiner Identifikation festgestellt wurde.
+Eine Methode kann nie mehr Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war. Und ein Durchlauf
+nie mehr, als das Verfahren technisch trägt. Zusammen verhindern die drei Grenzen, dass jemand
+in einer schwachen Session eine Methode einrichtet und sich damit dauerhaft ein höheres Niveau
+verschafft.
 
 Details: [04-orchestrierung.md](04-orchestrierung.md)

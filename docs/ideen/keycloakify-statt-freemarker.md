@@ -73,7 +73,7 @@ Web-Kanal", für den orchestrator-seitigen Mechanismus) gibt es beim Rendering d
 - **(B) Keycloak natives Account-Theme + Account-REST-API.** Vermutlich blockiert: Keycloaks
   Account-REST-API bietet keine Möglichkeit, nicht-standardmäßige Credential-Typen (E-Mail,
   Passwort-Backend des Orchestrators, SMS, QR) anzulegen/zu aktualisieren, nur zu löschen. Würde
-  außerdem Journey-/`AuthPolicy`-Eigentümerschaft teilweise von Orchestrator zu Keycloak
+  außerdem die Zuständigkeit für Journey und `AuthPolicy` teilweise vom Orchestrator zu Keycloak
   verschieben — widerspricht der bisherigen Entscheidung, dass der Orchestrator alleiniger
   Eigentümer der Methodenverwaltung bleibt.
 - **(C) Externe UI mit eigenem Backend** (BFF), das server-zu-server mit dem Orchestrator spricht

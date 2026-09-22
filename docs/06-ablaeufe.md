@@ -47,16 +47,16 @@ classDiagram
   }
 
   Account "1" --> "0..*" AccountAnchor : aktueller Wert je Ankertyp
-  Account "1" --> "0..*" AccountClaim : Claim-Log (append-only)
-  Account "1" --> "0..*" AccountIdentification : Nachweis-Log (append-only)
+  Account "1" --> "0..*" AccountClaim : Claim-Log (nur anfügen)
+  Account "1" --> "0..*" AccountIdentification : Nachweis-Log (nur anfügen)
   Account "1" --> "0..*" AccountAuthMethod : Methodeninstanzen
   AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms.enrollment, id)
 ```
 
 Entscheidungen, die an diesem Modell hängen:
 
-- **`enrolledUnderAcr` als eigenes Feld, nicht nur Audit-Inhalt**: Das effektive `achievedAcr` eines `auth-*`-Tools ist durch `enrolledUnderAcr` der verwendeten Methode gedeckelt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). Ohne diese Regel gäbe es einen Eskalationspfad: eine in schwacher Session hinterlegte Methode erzeugte dauerhaft ein höheres Niveau, als je nachgewiesen wurde. Den Wert kennt nur der Orchestrator, nie das Modul.
-- **`EnrollmentRef` als echte Spalten, nicht im `details`-Blob**: `account.auth_method.enrollment_type`/`enrollment_id` ist die einzige Verknüpfung zwischen Konto und Credential, indiziert und in beide Richtungen abfragbar (Löschung, Widerrufs-Sweep). Die Credential-Tabellen der Module tragen bewusst keine `account_id`: Sie entstehen im Tool-Handler, bevor der Orchestrator das Konto kennt.
+- **`enrolledUnderAcr` als eigenes Feld, nicht nur Audit-Inhalt**: Das effektive `achievedAcr` eines `auth-*`-Tools ist durch `enrolledUnderAcr` der verwendeten Methode begrenzt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). Ohne diese Regel gäbe es einen Weg nach oben: Eine in einer schwachen Session eingerichtete Methode würde dauerhaft ein höheres Niveau erzeugen, als je nachgewiesen wurde. Den Wert kennt nur der Orchestrator, nie das Modul.
+- **`EnrollmentRef` als echte Spalten, nicht irgendwo in `details`**: `account.auth_method.enrollment_type`/`enrollment_id` ist die einzige Verknüpfung zwischen Konto und Credential, indiziert und in beide Richtungen abfragbar (Löschung, Widerruf). Die Credential-Tabellen der Module tragen bewusst keine `account_id`: Sie entstehen im Tool-Handler, bevor der Orchestrator das Konto kennt.
 - **Eine Zeile je Methodeninstanz statt JSON-Liste auf dem Konto**: Lesen schreibt nie; Änderungen sperren nur die Kontozeile per Versions-Inkrement; deaktivierte Instanzen tragen `deactivated_at` (CHECK-Constraint hält `active` und `deactivated_at` konsistent).
 - **`details.enrolledUnderAmr` ist Audit-Kontext, kein Modellfeld**: erklärt rückblickend die Nachweise zum Enrollment-Zeitpunkt, beeinflusst weder Kandidatenauswahl noch ACR-Berechnung. Maßgeblich ist ausschließlich `enrolledUnderAcr`.
 - **Die bestätigte E-Mail ist der EMAIL-Anker**, keine Spalte auf `Account` und kein Modul-Credential — höchstens eine je Konto, dieselbe Behandlung wie `personId`. Dieselbe Adresse dient sowohl als Auth-Mittel (`enroll-email`/`auth-email`, `EnrollmentRef` = `EMAIL_ANCHOR_ENROLLMENT`) als auch als Identifikator für den lookup-basierten Login. `UNIQUE(attribute_type, normalized_value)` verhindert Doppelvergabe in jeder Schreibweise.
@@ -64,9 +64,9 @@ Entscheidungen, die an diesem Modell hängen:
 - **Keine TAN im Enrollment**: Die TAN ist ein versuchsbezogenes Einmalgeheimnis und liegt gehasht mit Ablaufzeit in der Tool-Session-Tabelle — sonst überschreiben sich zwei parallele Versuche gegenseitig. Die eingereichte TAN wird nie gespeichert, nur gegen den Hash geprüft.
 - **Orchestrator speichert nur Lifecycle/Routing**, nie Fach- oder Moduldaten — die liegen ausschließlich im jeweiligen Methodenmodul (`auth_sms.auth_tool_session`/`auth_sms.enroll_tool_session` bei SMS).
 
-Regel für `account.identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören Nachweisanker (`provider`, `providerTxId`), Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext oder Geheimnisse.
+Regel für `account.identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde, nicht **was** geprüft wurde. Hinein gehören die Belege der Prüfung (`provider`, `providerTxId`), die Verfahrensversion und ein Hash über die geprüften Merkmale; nicht hinein gehören KVNR/Name im Klartext oder Geheimnisse.
 
-Ein Lauf kann **zwei** Zeilen hinterlassen, weil ADR-18 die Identifizierung in zwei Akte teilt: bezeugen (`ident-eid`) und zuordnen (`ident-kvnr`). Beide werden protokolliert — die Zuordnung besonders, denn das ist der Moment, in dem der `PERSON_ID`-Anker entsteht. Welcher Akt eine Zeile war, steht als `role` in `details` (`IDENTIFICATION` oder `CORRELATION`) und wird nicht aus dem Verfahrensnamen erraten: Ein Korrelationsschritt trägt das Niveau der Bezeugung, auf der er aufsetzt, und eine Zeile „kvnr / loa2" ohne weiteren Hinweis läse sich wie ein Verfahren, das dieses Niveau allein erreicht hat. Zeilen desselben Laufs teilen sich ihre `journeyId`.
+Ein Lauf kann **zwei** Zeilen hinterlassen, weil ADR-18 die Identifizierung in zwei Akte teilt: bestätigen (`ident-eid`) und zuordnen (`ident-kvnr`). Beide werden protokolliert — die Zuordnung besonders, denn das ist der Moment, in dem der `PERSON_ID`-Anker entsteht. Welcher Akt eine Zeile war, steht als `role` in `details` (`IDENTIFICATION` oder `CORRELATION`) und wird nicht aus dem Verfahrensnamen erraten: Ein Korrelationsschritt trägt das Niveau der Bestätigung, auf der er aufsetzt, und eine Zeile „kvnr / loa2" ohne weiteren Hinweis würde sich wie ein Verfahren lesen, das dieses Niveau allein erreicht hat. Zeilen desselben Laufs teilen sich ihre `journeyId`.
 
 ---
 
@@ -114,20 +114,20 @@ Fehlerfall zusätzlich zum allgemeinen Vertrag: fehlender/ungültiger `devicePro
 
 Zwei `PATCH`-Schritte, jeder mit eigenem `nextStep`, damit der Client zwei unterschiedliche Bildschirme zeigen kann:
 
-1. **`card`**: die simulierte eID-Karte liefert ihre vollen Ausweisdaten in einem Zug — `name`, `vorname`, `geburtsdatum`, `strasse`, `hausnummer`, `plz`, `ort`, `restrictedId`. Es wird **nichts** vorab eingetippt: eine Karte trägt weder KVNR noch PersonId, also gibt es auch keinen Suchschritt davor. Die `restrictedId` ist das kartengebundene Pseudonym (Demo-Standin für den echten Restricted Identifier). Im Kartenformular ist sie änderbar, obwohl eine echte Karte sie fest mitbringt: Nur so lässt sich in der Demo eine zweite Karte derselben Person durchspielen (neuer Wert, gleiches Konto — ADR-19) oder dieselbe Karte ein zweites Mal auflegen (Wiedererkennung).
+1. **`card`**: die simulierte eID-Karte liefert ihre vollen Ausweisdaten in einem Zug — `name`, `vorname`, `geburtsdatum`, `strasse`, `hausnummer`, `plz`, `ort`, `restrictedId`. Es wird **nichts** vorab eingetippt: eine Karte trägt weder KVNR noch PersonId, also gibt es auch keinen Suchschritt davor. Die `restrictedId` ist das kartengebundene Pseudonym (in der Demo ein Platzhalter für den echten Restricted Identifier). Im Kartenformular ist sie änderbar, obwohl eine echte Karte sie fest mitbringt: Nur so lässt sich in der Demo eine zweite Karte derselben Person durchspielen (neuer Wert, gleiches Konto — ADR-19) oder dieselbe Karte ein zweites Mal auflegen (Wiedererkennung).
 2. **`pin`**: die eID-PIN (Testwert `123456`, wie `ident-fsc`s `VALIDCODE`).
 
 Wie beim allgemeinen Muster lösen alle Felder zusammen in einem einzigen `PATCH`-Aufruf ebenfalls auf; nur die fehlenden Felder müssen einzeln nachgereicht werden.
 
-Der eigentliche Unterschied zu `ident-fsc` liegt darin, wer bürgt: Bei `ident-fsc` ist der Stammdaten-Backend die Quelle und das Tool nur sein Kanal (`ClaimSource.EXT_STAMMDATEN`), der Freischaltcode trägt den Verfahrensnachweis. `ident-eid` bezeugt dagegen auf **eigene** Autorität (`ClaimSource.of(toolId)`), was die Karte zeigt — Name, Vorname, Geburtsdatum und die Adresse als Claims, die `restrictedId` als achter Claim, der als lokaler Anker die Wiedererkennung des Interessenten trägt (ADR-19: eine neue Karte ersetzt den Wert in-place, ein fremdes Konto hält ihn nie). Eine PersonId behauptet es nicht (ADR-18).
+Der eigentliche Unterschied zu `ident-fsc` liegt darin, wer für die Daten einsteht: Bei `ident-fsc` ist das Stammdaten-Backend die Quelle und das Tool nur sein Kanal (`ClaimSource.EXT_STAMMDATEN`), der Freischaltcode trägt den Verfahrensnachweis. `ident-eid` bestätigt dagegen auf **eigene** Autorität (`ClaimSource.of(toolId)`), was die Karte zeigt — Name, Vorname, Geburtsdatum und die Adresse als Claims, die `restrictedId` als achter Claim, der als lokaler Anker die Wiedererkennung des Interessenten trägt (ADR-19: eine neue Karte ersetzt den Wert an derselben Stelle, ein fremdes Konto hält ihn nie). Eine PersonId behauptet es nicht (ADR-18).
 
-**`ident-kvnr`** ist der zweite Akt: ein eigenes Tool mit einem Schritt (`input`, Feld `kvnr`), das die Versichertennummer über `PersonDirectory.findPersonIdByKvnr` auflöst (Controller, nicht Handler — `id_kvnr` darf `ext_stammdaten` nicht direkt kennen, [Projektrahmen](08-projektrahmen.md) Abschnitt 3) und `PERSON_ID`/`KVNR` unter `EXT_STAMMDATEN` behauptet. Es trägt die Rolle `CORRELATION` (Kategorie `IDENT`, ADR-18) — die ausdrückliche Form, dass eine getippte Nummer für sich nichts beweist (`factorTypes={}` ist Folge, nicht Definition). Getragen wird es von zwei Dingen: `requires` (die bezeugten Identitätsattribute müssen am Konto vorliegen, sonst ist es nicht einmal aktivierbar) und `IdentityResolver.attestedIdentityMatches`, das vor dem Ankerschreiben prüft, ob die Stammdaten hinter der Nummer zur bezeugten Identität passen.
+**`ident-kvnr`** ist der zweite Akt: ein eigenes Tool mit einem Schritt (`input`, Feld `kvnr`), das die Versichertennummer über `PersonDirectory.findPersonIdByKvnr` auflöst (Controller, nicht Handler — `id_kvnr` darf `ext_stammdaten` nicht direkt kennen, [Projektrahmen](08-projektrahmen.md) Abschnitt 3) und `PERSON_ID`/`KVNR` unter `EXT_STAMMDATEN` behauptet. Es trägt die Rolle `CORRELATION` (Kategorie `IDENT`, ADR-18) — der ausdrückliche Hinweis darauf, dass eine getippte Nummer für sich nichts beweist (`factorTypes={}` ist Folge, nicht Definition). Getragen wird es von zwei Dingen: `requires` (die bestätigten Identitätsattribute müssen am Konto vorliegen, sonst ist es nicht einmal aktivierbar) und `IdentityResolver.attestedIdentityMatches`, das vor dem Ankerschreiben prüft, ob die Stammdaten hinter der Nummer zur bestätigten Identität passen.
 
-Gehört die Nummer zu einem Konto, das es bereits gibt, ist das kein Fehler des Nutzers, sondern eine Folge der Reihenfolge: Die Bezeugung brauchte ein Konto, bevor die Zuordnung laufen konnte. Das vorläufige Konto geht dann im gefundenen auf — mit Bezeugung, Ankern und Identifizierungs-Audit ([12-entscheidungen.md](12-entscheidungen.md) ADR-20). Danach steht die Registrierung dort, wo jeder andere Weg auf ein bestehendes Konto auch stünde: bei der Frage, ob dieses Gerät anderswo gebunden ist, und beim Angebot, eine vorhandene Methode zu beweisen statt eine neue einzurichten.
+Gehört die Nummer zu einem Konto, das es bereits gibt, ist das kein Fehler des Nutzers, sondern eine Folge der Reihenfolge: Die Bestätigung brauchte ein Konto, bevor die Zuordnung laufen konnte. Das vorläufige Konto geht dann im gefundenen auf — mit Bestätigung, Ankern und Identifizierungs-Audit ([12-entscheidungen.md](12-entscheidungen.md) ADR-20). Danach steht die Registrierung dort, wo jeder andere Weg auf ein bestehendes Konto auch stünde: bei der Frage, ob dieses Gerät anderswo gebunden ist, und beim Angebot, eine vorhandene Methode zu beweisen statt eine neue einzurichten.
 
-Zwischen beiden steht keine Ja/Nein-Frage mehr: Nach der Bezeugung zeigt `next` direkt auf `ident-kvnr` (`RegisterState.Assigning`). Wer die Nummer nicht angeben will, bricht den Schritt ab (`DELETE /orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr`, im Frontend „Jetzt nicht") — der Lauf läuft regulär weiter und das Konto bleibt Interessent ([Orchestrierung](04-orchestrierung.md), ADR-10), mit voll bezeugter Identität, nur ohne Registerbindung. Ein Fallback-, kein Pflichtzustand.
+Zwischen beiden steht keine Ja/Nein-Frage mehr: Nach der Bestätigung zeigt `next` direkt auf `ident-kvnr` (`RegisterState.Assigning`). Wer die Nummer nicht angeben will, bricht den Schritt ab (`DELETE /orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr`, im Frontend „Jetzt nicht") — der Lauf läuft regulär weiter und das Konto bleibt Interessent ([Orchestrierung](04-orchestrierung.md), ADR-10), mit voll bestätigter Identität, nur ohne Registerbindung. Ein Fallback-, kein Pflichtzustand.
 
-Fehlerfälle zusätzlich zum allgemeinen Vertrag: falsche PIN -> `Failed("eID-PIN ungueltig")`; unbekannte Versichertennummer -> `Failed("Versichertennummer konnte nicht zugeordnet werden")` — bewusst dieselbe Antwort, egal ob die Nummer gar nicht existiert oder zu jemand anderem gehört, damit daraus kein KVNR-Existenz-Orakel wird; passt die Nummer zu einer anderen Person als der bezeugten, ist es ein Konflikt (`409`), kein Tool-Fehlschlag.
+Fehlerfälle zusätzlich zum allgemeinen Vertrag: falsche PIN -> `Failed("eID-PIN ungueltig")`; unbekannte Versichertennummer -> `Failed("Versichertennummer konnte nicht zugeordnet werden")`. Beide Fälle bekommen bewusst dieselbe Antwort, egal ob die Nummer gar nicht existiert oder zu jemand anderem gehört — sonst ließe sich daraus ablesen, ob eine Nummer existiert. Passt die Nummer zu einer anderen Person als der bestätigten, ist es ein Konflikt (`409`), kein Tool-Fehlschlag.
 
 
 ---
@@ -220,10 +220,10 @@ erneut.
   welches Gerät erwartet wurde.
 - Gemeldetes Risiko in der konfigurierten Sperrmenge (`dpop.kobil.blocking-risks`) ->
   `Failed("Geraet als unsicher gemeldet")`. Bewusst ein eigener Grund: Das ist kein Tippfehler des
-  Nutzers, sondern eine Aussage über das Gerät; im „nicht erkannt" verschwände ein echter Befund.
-  Kein Score, sondern eine benannte Menge — ein Score müsste erfunden werden und läse sich als
-  Messung. Da beide Seiten geschlossene Enums sind, ist ein unbekanntes Signal kein zu prüfender
-  Fall, sondern nicht konstruierbar.
+  Nutzers, sondern eine Aussage über das Gerät; in einem „nicht erkannt" würde ein echter Befund verschwinden.
+  Kein Score, sondern eine benannte Menge — ein Score wäre erfunden und würde sich trotzdem wie eine
+  Messung lesen. Da beide Seiten geschlossene Enums sind, ist ein unbekanntes Signal nicht einmal
+  konstruierbar, also auch kein zu prüfender Fall.
 - Falsches Gerätegeheimnis, falsches Passwort und gar kein Passwort-Credential ->
   **eine** Formulierung (`Failed("Entsperren fehlgeschlagen")`), damit daraus kein Orakel wird, ob
   das Konto ein Passwort hat.
@@ -240,7 +240,7 @@ Besitzer aussperren. Bewusst in Kauf genommen, statt eine Sonderbehandlung einzu
 noch ein Passwort hält. Einen Weg anzubieten, den es nicht gibt, hätte nur einen möglichen Ausgang
 — einen Fehlversuch, der den Login-Throttle belastet.
 
-Der Preis, den das kostet: Die Antwort verrät dem Aufrufer, ob das Konto ein Passwort hat. Das ist
+Was das kostet: Die Antwort verrät dem Aufrufer, ob das Konto ein Passwort hat. Das ist
 hier vertretbar, weil `auth-kobil` überhaupt nur für einen Aufrufer läuft, dessen Schlüssel bereits
 zu einem eingetragenen Credential **dieses** Kontos passt (`keyBinding`) — und derselbe Aufrufer
 sieht `activeMethods`, sobald er fertig ist.
