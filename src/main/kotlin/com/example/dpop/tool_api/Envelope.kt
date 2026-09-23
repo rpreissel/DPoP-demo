@@ -26,7 +26,10 @@ data class ActiveMethodView(
     @field:Schema(example = "Laptop")
     val label: String? = null,
     @field:Schema(example = "[\"POSSESSION\"]")
-    val factorTypes: Set<FactorType>? = null,
+    // List, not Set: on the wire this is a JSON array in both directions, and a Set only made
+    // the generated client type a JS Set - which JSON.parse never produces. Uniqueness is a
+    // property of how the catalog builds this, not of the transport.
+    val factorTypes: List<FactorType>? = null,
     @field:Schema(example = "loa2", description = "This tool's own declared ceiling - never account/session-specific.")
     val maxAcr: String? = null,
     @field:Schema(example = "loa1", description = "The level the session had already proven at the moment this method was enrolled (ADR-5) - caps effectiveAcr below maxAcr if lower.")
@@ -136,6 +139,10 @@ data class JourneyDebugStep(
  * tool produced it.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+// additionalProperties, because [values] is written FLAT onto this object by @JsonAnyGetter.
+// Without this the schema advertised a nested `values` property that no response ever carries,
+// and the generated client type said `demo.values.tan` where the wire says `demo.tan`.
+@Schema(additionalProperties = Schema.AdditionalPropertiesValue.TRUE)
 data class DemoInfo(
     @field:Schema(example = "42")
     val accountId: Long? = null,
@@ -146,10 +153,10 @@ data class DemoInfo(
             "[JourneyDebugStep]. Empty once nothing is running."
     )
     val journeys: List<JourneyDebugStep> = emptyList(),
-    @field:Schema(
-        description = "Flattened onto the parent object (e.g. demo.tan, demo.email) - whichever " +
-            "demo-only values the tool that just ran attached, e.g. a plaintext tan/code/password.",
-        example = "{\"tan\": \"123456\", \"email\": \"max.mustermann@example.com\"}"
-    )
+    // hidden, not described: @JsonAnyGetter writes these entries FLAT onto the enclosing object
+    // (demo.tan, demo.email - never demo.values.tan), which the class-level additionalProperties
+    // above is what actually states. A property of its own here would describe a shape no response
+    // ever carries.
+    @field:Schema(hidden = true)
     @get:JsonAnyGetter val values: Map<String, Any?> = emptyMap()
 )

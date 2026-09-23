@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.mockk
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 
 /** Pure unit test of [KcChannelAccessGuard] - the kc-anchor mismatch is the whole point of this class. */
 class KcChannelAccessGuardTest : BehaviorSpec({

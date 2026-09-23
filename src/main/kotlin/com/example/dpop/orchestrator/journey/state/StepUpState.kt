@@ -37,7 +37,7 @@ sealed interface StepUpState : JourneyState {
         val startingAcr: AcrLevel,
         /**
          * Whether a dead end here (no active method reaches [targetAcr]) may fall back to offering
-         * `RE_IDENTIFY` - false for [com.example.dpop.orchestrator.journey.AuthIntent.CONFIRM_PEER_LOGIN]'s
+         * `RE_IDENTIFY` - false for [com.example.dpop.orchestrator.kernel.AuthIntent.CONFIRM_PEER_LOGIN]'s
          * own gate (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1: a peer-approval must never let
          * someone acquire a fresh identity just to confirm someone else's login), true everywhere
          * else this sub-journey is used ([com.example.dpop.orchestrator.journey.strategy.DeleteAccountStrategy],

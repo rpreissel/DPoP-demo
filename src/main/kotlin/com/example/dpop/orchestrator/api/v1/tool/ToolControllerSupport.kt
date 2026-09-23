@@ -2,7 +2,8 @@ package com.example.dpop.orchestrator.api.v1.tool
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
-import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.api.v1.DemoDisclosure
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
@@ -41,8 +42,8 @@ import java.util.UUID
  *
  * Implements [ToolEndpoint] - the SPI a tool controller is written against once it moves into its
  * own method module. [Context] implements [ToolContext] but is never exposed as
- * more than that interface to any caller (not even `ToolSwitchController`, which lives in
- * `tool_api` and only ever sees [ToolContext] too - see [abandon]); the methods whose interface
+ * more than that interface to any caller (not even [ToolSwitchController] next to it, which only
+ * ever sees [ToolContext] too - see [abandon]); the methods whose interface
  * signature takes `context: ToolContext` cast it back to [Context] internally, safe because this
  * class is the only place a [Context] is ever constructed.
  *
@@ -62,7 +63,8 @@ class ToolControllerSupport(
     private val sendThrottleService: SendThrottleService,
     private val channelService: ChannelService,
     private val journeyService: JourneyService,
-    private val toolAvailabilityService: ToolAvailabilityService
+    private val toolAvailabilityService: ToolAvailabilityService,
+    private val demoDisclosure: DemoDisclosure
 ) : ToolEndpoint {
     data class Context(
         override val toolId: String,
@@ -341,12 +343,17 @@ class ToolControllerSupport(
      * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
      */
     private fun demoInfo(journey: AuthJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
-        val isAuthenticated = channel.state == ChannelState.AUTHENTICATED
         val journeys = journeyService.debugChain(channel)
-        if (!isAuthenticated && values.isNullOrEmpty() && journeys.isEmpty()) return null
         val personId = journey.accountId?.let { accountService.findAccount(it)?.personId }
-        val enrichedValues = (values ?: emptyMap()) + ("persons" to DEMO_PERSONS)
-        return DemoInfo(accountId = journey.accountId, personId = personId, journeys = journeys, values = enrichedValues)
+        return demoDisclosure.assemble(
+            accountId = journey.accountId,
+            personId = personId,
+            journeys = journeys,
+            values = values,
+            // An authenticated channel gets the block even with nothing left to say - the client's
+            // completed-view reads accountId/personId off it.
+            includeWhenEmpty = channel.state == ChannelState.AUTHENTICATED
+        )
     }
 
     companion object {

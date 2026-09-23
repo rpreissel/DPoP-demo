@@ -2,10 +2,11 @@ package com.example.dpop.orchestrator.api.v1.channel
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
+import com.example.dpop.orchestrator.api.v1.DemoDisclosure
 import com.example.dpop.orchestrator.api.v1.ChannelAccessGuard
-import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
@@ -13,9 +14,9 @@ import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
-import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.kernel.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
-import com.example.dpop.orchestrator.session.AmrSource
+import com.example.dpop.orchestrator.kernel.AmrSource
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelCreationThrottleService
@@ -41,6 +42,7 @@ import java.time.Duration
 import java.util.UUID
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import com.example.dpop.orchestrator.session.forLog
 
 /**
  * The channel-level entry points. Everything about WHICH tool comes next belongs to the journey
@@ -62,7 +64,8 @@ class ChannelService(
     private val channelCreationThrottleService: ChannelCreationThrottleService,
     private val journeyLogService: JourneyLogService,
     private val personDirectory: PersonDirectory,
-    private val toolRegistry: ToolHandlerRegistry
+    private val toolRegistry: ToolHandlerRegistry,
+    private val demoDisclosure: DemoDisclosure
 ) {
 
     /**
@@ -159,7 +162,14 @@ class ChannelService(
      */
     fun getJourneyLog(channelSessionId: UUID, bindingKeyRef: String): JourneyLogResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        return channel.accountId?.let { journeyLogService.getLogForAccount(it) } ?: JourneyLogResponse(emptyList())
+        // The channel ids are resolved here, where the session tables belong, and handed to the
+        // log - it no longer reads them itself (JourneyLogService.LoggedChannel).
+        return channel.accountId?.let { accountId ->
+            journeyLogService.getLogForAccount(
+                accountId,
+                sessionManagementService.findChannelSessionIdsForAccount(accountId)
+            )
+        } ?: JourneyLogResponse(emptyList())
     }
 
     /**
@@ -209,7 +219,7 @@ class ChannelService(
                 id = requireNotNull(m.id) { "Active method without an id" },
                 method = m.method,
                 label = m.label,
-                factorTypes = descriptor?.factorTypes,
+                factorTypes = descriptor?.factorTypes?.toList(),
                         maxAcr = descriptor?.maxAcr?.value,
                 enrolledUnderAcr = m.enrolledUnderAcr,
                 effectiveAcr = descriptor?.let { AcrLevel.min(AcrLevel.of(m.enrolledUnderAcr), it.maxAcr) }?.value
@@ -309,7 +319,7 @@ class ChannelService(
         if (activeJourney != null) {
             journeyService.cancel(activeJourney, channel)
         } else {
-            journeyLogService.recordForChannel(channel, "LOGGED_OUT")
+            journeyLogService.recordForChannel(channel.forLog(), "LOGGED_OUT")
         }
 
         val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
@@ -451,13 +461,16 @@ class ChannelService(
         return AuthData(accountId = channel.accountId, acr = acr?.value, amr = amr)
     }
 
-    /** Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses (docs/tool_api/Envelope.kt, JourneyDebugStep). */
+    /**
+     * Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses
+     * (tool_api/Envelope.kt, JourneyDebugStep). Assembled by [DemoDisclosure], never here - that
+     * bean is the one place that decides whether this deployment discloses demo values at all.
+     */
     private fun demoInfo(channel: ChannelSession): DemoInfo? {
         val journeys = journeyService.debugChain(channel)
-        if (journeys.isEmpty()) return null
         val accountId = channel.accountId
         val personId = accountId?.let { accountService.findAccount(it)?.personId }
-        return DemoInfo(accountId = accountId, personId = personId, journeys = journeys)
+        return demoDisclosure.assemble(accountId, personId, journeys)
     }
 
     /**

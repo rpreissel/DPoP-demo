@@ -10,8 +10,11 @@ import { expect, type Page } from '@playwright/test'
  * exactly how this suite broke when ident-eid was added.
  */
 export async function completeRegistration(page: Page): Promise<void> {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Verbinden (automatisch)' }).click()
+  // Straight to the App channel, not via `/`: the root is the channel-CHOICE page, and its
+  // "Zum App-Kanal" link opens a named tab (target=...), which Playwright would follow into a
+  // second page object. The suite is about the journey, not about that hop.
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Automatisch anmelden' }).click()
 
   // Two identification candidates (ident-eid, ident-fsc) mean a selection page rather than a skip
   // straight to the single one - pick Freischaltcode, whose form is fully pre-filled in demo mode.
@@ -28,7 +31,9 @@ export async function completeRegistration(page: Page): Promise<void> {
     // SMS first so the resulting amr is predictable for assertions; the rest are the generic
     // "send a code / confirm a code" steps every enroll-* tool shares. Demo mode pre-fills the
     // phone number, e-mail and the just-issued TAN/code, so no typing is needed.
-    for (const name of [/SMS/, 'Code senden', 'TAN bestätigen', 'Code bestätigen'] as const) {
+    // 'Einrichten' closes any enroll-* form whose fields demo mode already pre-filled (password
+    // today). It comes last so the more specific labels win when both are on screen.
+    for (const name of [/SMS/, 'Code senden', 'TAN bestätigen', 'Code bestätigen', 'Einrichten'] as const) {
       const button = page.getByRole('button', { name }).first()
       if (await button.isVisible()) {
         await button.click()

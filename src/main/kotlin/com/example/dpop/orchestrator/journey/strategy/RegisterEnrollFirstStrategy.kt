@@ -4,7 +4,7 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
 import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
 import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext

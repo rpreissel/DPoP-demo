@@ -1,6 +1,10 @@
-package com.example.dpop.orchestrator.dpop
+package com.example.dpop.orchestrator.api.v1
 
-import com.example.dpop.orchestrator.api.v1.DeviceChannelAccessGuard
+import com.example.dpop.orchestrator.dpop.DpopProof
+import com.example.dpop.orchestrator.dpop.DpopValidationException
+import com.example.dpop.orchestrator.dpop.DpopValidator
+import com.example.dpop.orchestrator.dpop.JwkThumbprintService
+
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.buildRequestUrl

@@ -4,13 +4,13 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.account.AuthMethodView
-import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.AccountDeletionService
-import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.kernel.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
@@ -28,6 +28,7 @@ import com.example.dpop.tool_spi.assertClaimsCovered
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * The acting phase of a transition: the [Action]s a [Transition.Perform] can carry, actually

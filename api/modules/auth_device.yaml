@@ -1,0 +1,474 @@
+components:
+  schemas:
+    ActiveMethodView:
+      description: 'One active authentication method instance. `id` addresses it for DELETE .../methods/{id} - method name
+        alone isn''t unique when a method allows multiple instances (e.g. several active `device` entries, one per physical
+        device). `label` is a user-chosen display name, set only for multi-instance methods; `null` for singleton ones (email/sms/password),
+        which the client labels from `method` itself. `enrolledUnderAcr`/`maxAcr`/`effectiveAcr`/`factorTypes` surface the
+        ADR-5 three-way cap (docs/12-entscheidungen.md): `effectiveAcr` is `min(enrolledUnderAcr, maxAcr)`, the level this
+        method can actually contribute right now, which can be lower than the tool''s own declared `maxAcr` if it was enrolled
+        while the session had proven less.'
+      properties:
+        effectiveAcr:
+          description: min(enrolledUnderAcr, maxAcr) - what this method actually contributes today.
+          example: loa1
+          type: string
+        enrolledUnderAcr:
+          description: The level the session had already proven at the moment this method was enrolled (ADR-5) - caps effectiveAcr
+            below maxAcr if lower.
+          example: loa1
+          type: string
+        factorTypes:
+          example:
+          - POSSESSION
+          items:
+            enum:
+            - KNOWLEDGE
+            - POSSESSION
+            - INHERENCE
+            type: string
+          type: array
+        id:
+          example: 7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b
+          type: string
+        label:
+          example: Laptop
+          type: string
+        maxAcr:
+          description: This tool's own declared ceiling - never account/session-specific.
+          example: loa2
+          type: string
+        method:
+          example: sms
+          type: string
+      required:
+      - id
+      - method
+      type: object
+    AuthData:
+      properties:
+        accountId:
+          example: 42
+          format: int64
+          type: integer
+        acr:
+          example: loa2
+          type: string
+        amr:
+          additionalProperties:
+            type: string
+          description: 'Method -> who proved it: "orchestrator" for a completed orchestrator tool, "kc" for evidence a native
+            Keycloak authenticator already established (docs/05-api.md Abschnitt 3). Informational only - the orchestrator
+            alone still resolves the combined acr above, regardless of source.'
+          example:
+            password: kc
+            sms: orchestrator
+          type: object
+      type: object
+    ChannelBlock:
+      properties:
+        activeMethods:
+          description: All active authentication methods on the account, regardless of whether this session's currentAmr proved
+            them. currentAmr is session evidence (what THIS channel actually proved); activeMethods is the account's full
+            standing method list, unfiltered by device - a lost/stolen device's credential must be removable from any authenticated
+            session, not only from that device itself.
+          items:
+            $ref: '#/components/schemas/ActiveMethodView'
+          type: array
+        channelSessionId:
+          format: uuid
+          type: string
+        channelType:
+          description: Which facade this channel was opened through - APP (DPoP) or KEYCLOAK (docs/02-domaenenmodell.md Abschnitt
+            1). Fixed for the channel's whole lifetime.
+          example: APP
+          type: string
+        currentAcr:
+          example: loa2
+          type: string
+        currentAmr:
+          example:
+          - sms
+          - password
+          items:
+            type: string
+          type: array
+        state:
+          example: AUTHENTICATED
+          type: string
+      required:
+      - channelSessionId
+      - channelType
+      - state
+      type: object
+    ChannelResponse:
+      properties:
+        authData:
+          $ref: '#/components/schemas/AuthData'
+          description: KEYCLOAK channels only (docs/05-api.md Abschnitt 3) - never present for APP.
+        channel:
+          $ref: '#/components/schemas/ChannelBlock'
+        demo:
+          $ref: '#/components/schemas/DemoInfo'
+          description: Demo-only correlation IDs, never part of the production contract.
+        next:
+          $ref: '#/components/schemas/Next'
+        stepData:
+          additionalProperties:
+            type: object
+          description: 'Whatever the current step needs to render: missing fields, selection options, or a retry reason.'
+          example:
+            options:
+            - ident-fsc
+            - ident-eid
+          type: object
+      required:
+      - channel
+      type: object
+    DemoInfo:
+      additionalProperties: true
+      properties:
+        accountId:
+          example: 42
+          format: int64
+          type: integer
+        journeys:
+          description: The running journey chain for this channel, outermost first - see [JourneyDebugStep]. Empty once nothing
+            is running.
+          items:
+            $ref: '#/components/schemas/JourneyDebugStep'
+          type: array
+        personId:
+          example: 7
+          format: int64
+          type: integer
+      type: object
+    DeviceProofPatchRequest:
+      properties:
+        deviceProof:
+          example: eyJhbGciOiJFUzI1NiIsInR5cCI6ImRwb3Arand0In0.eyJodG0iOiJQQVRDSCIsImh0dSI6Ii4uLiJ9.MEUCIQ
+          type: string
+        label:
+          example: Laptop
+          type: string
+      type: object
+    JourneyDebugStep:
+      properties:
+        intent:
+          example: DELETE_ACCOUNT
+          type: string
+        journeyId:
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+          type: string
+        lifecycle:
+          example: SUSPENDED
+          type: string
+        note:
+          description: 'Demo-only: why this journey''s current step looks the way it does - either why its tool became the
+            automatic choice, or why a selection among several is being shown at all. Null whenever the step already explains
+            itself (e.g. a Prompt), never part of the production contract.'
+          example: Gerät wiedererkannt - automatisch vorgeschlagen.
+          type: string
+        stateType:
+          example: ConfirmPending
+          type: string
+      required:
+      - intent
+      - journeyId
+      - lifecycle
+      - stateType
+      type: object
+    Next:
+      properties:
+        context:
+          example: authentication
+          type: string
+        step:
+          example: auth
+          type: string
+        toolId:
+          example: auth-sms
+          type: string
+        toolSessionId:
+          format: uuid
+          type: string
+        type:
+          example: tool
+          type: string
+      required:
+      - step
+      - type
+      type: object
+  securitySchemes:
+    dpop:
+      description: DPoP proof JWT (docs/09-dpop.md); required on every App-facade call.
+      in: header
+      name: DPoP
+      type: apiKey
+info:
+  description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
+    the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
+  title: DPoP-Demo Orchestrator API
+  version: v1
+openapi: 3.1.0
+paths:
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-device:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_1
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: ANONYMOUS
+                next:
+                  step: auth
+                  toolId: auth-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-device
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-device:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  step: enroll
+                  toolId: enroll-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-device
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-device:
+    get:
+      operationId: read_1
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: ANONYMOUS
+                next:
+                  step: auth
+                  toolId: auth-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-device state
+      tags:
+      - 'Tool: Gerät'
+    patch:
+      description: Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after
+        the user confirms the mocked PIN/biometric prompt.
+      operationId: patch_1
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceProofPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - device
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm device authentication
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-device:
+    get:
+      operationId: read
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  step: enroll
+                  toolId: enroll-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-device state
+      tags:
+      - 'Tool: Gerät'
+    patch:
+      description: Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after
+        the user confirms the mocked PIN/biometric prompt.
+      operationId: patch
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceProofPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - password
+                  - device
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm device enrollment
+      tags:
+      - 'Tool: Gerät'
+tags:
+- description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: SMS'
+- description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
+  name: 'Tool: E-Mail'
+- description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: Passwort'
+- description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
+  name: 'Tool: Gerät'
+- description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
+  name: 'Tool: QR-Login'
+- description: Gerätebindung über den externen Dienstleister KOBIL
+  name: 'Tool: KOBIL'

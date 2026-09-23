@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1
+package com.example.dpop.orchestrator.kernel
 
 import org.springframework.http.HttpStatus
 

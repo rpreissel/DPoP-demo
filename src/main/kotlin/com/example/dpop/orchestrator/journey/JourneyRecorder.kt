@@ -5,7 +5,7 @@ import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.policy.evidenceAxis
-import com.example.dpop.orchestrator.session.AmrSource
+import com.example.dpop.orchestrator.kernel.AmrSource
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -14,6 +14,7 @@ import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
+import com.example.dpop.orchestrator.session.forLog
 
 /**
  * Everything a completed step writes OUTSIDE the state machine's own tables: native evidence
@@ -62,8 +63,7 @@ class JourneyRecorder(
             // journey-strategie-vereinheitlichung.md #4) - and deliberately not named similarly to
             // "EvidenceReported" (the real transition's own log entry), so the two cannot be
             // confused for one another.
-            journeyLogService.record(
-                channel, journey, "native_evidence_synced",
+            journeyLogService.record(channel.forLog(), journey.forLog(), "native_evidence_synced",
                 journeyState = codec.read(journey)::class.simpleName,
                 detail = mapOf("source" to source, "methods" to journeyLogDetails.methodEvidenceDetail(updates))
             )

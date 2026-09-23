@@ -36,7 +36,7 @@ class AccountClaim(
     var normalizedValue: String? = null,
 
     // Raw String, not the ClaimSource value class: Hibernate hands an AttributeConverter the unboxed
-    // String for a Kotlin value-class property and fails at runtime (docs/13-review-domaenen-db-modell.md C2).
+    // String for a Kotlin value-class property and fails at runtime (docs/archiv/2026-review-domaenen-db-modell.md C2).
     @Column(name = "claim_source", nullable = false)
     var claimSource: String? = null,
 

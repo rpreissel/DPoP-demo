@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.session.SessionManagementService
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
 import java.util.UUID
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 
 /**
  * "Wer spricht hier, und darf er auf diesen Kanal?" (docs/02-domaenenmodell.md Abschnitt 1) - one

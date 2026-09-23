@@ -13,6 +13,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import java.util.Locale
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 
 /** Maps the error contract from docs/07-betrieb.md #1 onto exceptions raised anywhere in the call chain. */
 @RestControllerAdvice

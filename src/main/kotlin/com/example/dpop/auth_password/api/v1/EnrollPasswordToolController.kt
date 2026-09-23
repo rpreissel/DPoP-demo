@@ -34,7 +34,7 @@ data class EnrollPasswordPatchRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Passwort", description = "Registers a username/password credential as a knowledge factor")
+@Tag(name = "Tool: Passwort")
 @SecurityRequirement(name = "dpop")
 class EnrollPasswordToolController(
     private val handler: EnrollPasswordToolHandler,
@@ -48,7 +48,7 @@ class EnrollPasswordToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "enroll-password", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -76,7 +76,7 @@ class EnrollPasswordToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["email", "password"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
@@ -104,7 +104,7 @@ class EnrollPasswordToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "enroll-password", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

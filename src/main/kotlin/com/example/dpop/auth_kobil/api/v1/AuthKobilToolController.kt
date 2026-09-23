@@ -45,7 +45,7 @@ data class AuthKobilPatchRequest(
  * its own sub-resources is explicitly allowed (docs/05-api.md); this is the first one to need it.
  */
 @RestController
-@Tag(name = "Tool: KOBIL", description = "Gerätebindung über den externen Dienstleister KOBIL")
+@Tag(name = "Tool: KOBIL")
 @SecurityRequirement(name = "dpop")
 class AuthKobilToolController(
     private val descriptor: AuthKobilDescriptor,
@@ -60,7 +60,7 @@ class AuthKobilToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
                       "next": {"type": "tool", "toolId": "auth-kobil", "step": "unlock", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
@@ -101,7 +101,7 @@ class AuthKobilToolController(
             ApiResponse(
                 responseCode = "201",
                 description = "Released",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
                       "next": {"type": "tool", "toolId": "auth-kobil", "step": "otp", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
@@ -140,7 +140,7 @@ class AuthKobilToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["kobil", "biometric"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}

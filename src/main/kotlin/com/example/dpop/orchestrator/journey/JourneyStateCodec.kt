@@ -15,6 +15,7 @@ import com.example.dpop.orchestrator.journey.state.StepUpState
 import org.springframework.stereotype.Component
 import tools.jackson.databind.exc.InvalidTypeIdException
 import tools.jackson.module.kotlin.jacksonObjectMapper
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * Persists a [JourneyState] as `(stateType, state)` on the [AuthJourney] row.

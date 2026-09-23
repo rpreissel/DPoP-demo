@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1.kc
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 @Schema(
     description = "Upsert body for the kc-facade's one facade-specific endpoint (docs/05-api.md " +

@@ -28,7 +28,7 @@ private const val AUTH_QR_TOOL_ID = "auth-qr"
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: QR-Login", description = "Confirm this login from an already-known account's app")
+@Tag(name = "Tool: QR-Login")
 @SecurityRequirement(name = "dpop")
 class AuthQrToolController(
     private val handler: AuthQrToolHandler,

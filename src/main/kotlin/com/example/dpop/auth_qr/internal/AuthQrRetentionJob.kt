@@ -4,10 +4,9 @@ import com.example.dpop.auth_qr.internal.authqr.AuthQrToolSessionRepository
 import com.example.dpop.auth_qr.internal.authqrlookup.AuthQrLookupToolSessionRepository
 import com.example.dpop.auth_qr.internal.confirmqrlogin.ConfirmQrLoginToolSessionRepository
 import com.example.dpop.auth_qr.internal.enrollqr.EnrollQrToolSessionRepository
-import org.springframework.scheduling.annotation.Scheduled
+import com.example.dpop.tool_api.ToolSessionSweeper
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.Duration
 import java.time.Instant
 
 /**
@@ -22,12 +21,10 @@ class AuthQrRetentionJob(
     private val authLookupToolSessionRepository: AuthQrLookupToolSessionRepository,
     private val confirmToolSessionRepository: ConfirmQrLoginToolSessionRepository,
     private val loginRequestRepository: QrLoginRequestRepository
-) {
+) : ToolSessionSweeper {
 
-    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
-    fun cleanup() {
-        val cutoff = Instant.now().minus(RETENTION)
+    override fun sweep(cutoff: Instant) {
         enrollToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         authToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         authLookupToolSessionRepository.deleteByCreatedAtBefore(cutoff)
@@ -35,7 +32,4 @@ class AuthQrRetentionJob(
         loginRequestRepository.deleteByExpiresAtBefore(cutoff)
     }
 
-    companion object {
-        private val RETENTION: Duration = Duration.ofHours(24)
-    }
 }

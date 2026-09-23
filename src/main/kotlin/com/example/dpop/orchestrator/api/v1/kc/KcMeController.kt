@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.orchestrator.session.SessionManagementService
 
 /**
  * Demo/debug-only read path for the Web-Kanal test UI's Journey-Log tab (`kc.oidc`'s own
@@ -26,7 +27,10 @@ import org.springframework.web.bind.annotation.RestController
 @Profile("keycloak")
 class KcMeController(
     private val oidcTokenValidator: KeycloakOidcTokenValidator,
-    private val journeyLogService: JourneyLogService
+    private val journeyLogService: JourneyLogService,
+    // The channel ids belong to the session tables, which the journey log deliberately does not
+    // read (journeylog.LoggedChannel) - so the caller resolves them.
+    private val sessionManagementService: SessionManagementService
 ) {
 
     @GetMapping("/journey-log")
@@ -38,6 +42,11 @@ class KcMeController(
     fun journeyLog(@RequestHeader("Authorization") authorization: String?): ResponseEntity<JourneyLogResponse> {
         val token = authorization?.removePrefix("Bearer ")?.trim()
         val accountId = oidcTokenValidator.accountIdOf(token)
-        return ResponseEntity.ok(journeyLogService.getLogForAccount(accountId))
+        return ResponseEntity.ok(
+            journeyLogService.getLogForAccount(
+                accountId,
+                sessionManagementService.findChannelSessionIdsForAccount(accountId)
+            )
+        )
     }
 }

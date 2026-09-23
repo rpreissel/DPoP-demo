@@ -1,7 +1,12 @@
-package com.example.dpop.tool_api
+package com.example.dpop.orchestrator.api.v1.tool
+
+import com.example.dpop.tool_api.BindingKey
+import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.tool_api.ToolEndpoint
 
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -16,9 +21,16 @@ import java.util.UUID
 /**
  * `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` - "Back"/"Switch": abandons the
  * currently activated tool. The single generic, toolId-keyed endpoint in this API; every other
- * tool operation has its own tool-specific controller. What happens next - falling back to
- * another candidate, narrowing a mandatory offer, or ending the journey - is decided by the
- * journey's current state, not by this controller.
+ * tool operation (activation, GET, PATCH) has its own controller in its own method module.
+ *
+ * It lives in the orchestrator, not in `tool_api`, although it is the one endpoint no single
+ * method module owns. `tool_api` is the SPI between the orchestrator and those modules - a
+ * contract, not a web layer - and every method module depends on it. Serving HTTP from there gave
+ * all of them a controller they neither need nor should carry.
+ *
+ * The orchestrator is the right owner for the other half of the same reason: what happens after an
+ * abandon - falling back to another candidate, narrowing a mandatory offer, or ending the journey -
+ * is decided by the journey's current state, which is the orchestrator's own.
  */
 @RestController
 @RequestMapping("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}")
@@ -35,7 +47,7 @@ class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {
             ApiResponse(
                 responseCode = "200",
                 description = "auth-sms abandoned during a fallback chain - offers the other loa2 candidates.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
                       "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},

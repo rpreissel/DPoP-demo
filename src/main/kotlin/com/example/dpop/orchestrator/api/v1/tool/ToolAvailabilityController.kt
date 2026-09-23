@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1.tool
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -47,7 +48,7 @@ class ToolAvailabilityController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", array = ArraySchema(schema = Schema(implementation = ToolAvailabilityEntry::class)), examples = [ExampleObject(value = """
                     [
                       {"toolId": "auth-sms", "method": "sms", "enabled": true, "reason": null},
                       {"toolId": "enroll-sms", "method": "sms", "enabled": true, "reason": null},

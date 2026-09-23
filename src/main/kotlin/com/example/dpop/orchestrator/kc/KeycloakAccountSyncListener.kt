@@ -8,10 +8,10 @@ import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.ext_stammdaten.PersonData
 import com.example.dpop.tool_spi.AttributeType
 import org.slf4j.LoggerFactory
+import java.time.Instant
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
-import org.springframework.transaction.event.TransactionPhase
-import org.springframework.transaction.event.TransactionalEventListener
+import org.springframework.modulith.events.ApplicationModuleListener
 
 /**
  * Keeps a Keycloak user mirrored for every orchestrator account
@@ -21,13 +21,21 @@ import org.springframework.transaction.event.TransactionalEventListener
  * profile - deciding whether this mechanism runs at all is a startup-time concern (`@Profile`),
  * not a runtime toggle.
  *
- * [TransactionPhase.AFTER_COMMIT]: never sync a change that might still roll back, and never hold
- * the account's own DB transaction open across a network call to Keycloak.
+ * [ApplicationModuleListener] rather than a plain `@TransactionalEventListener`: it is Spring
+ * Modulith's combination of AFTER_COMMIT, `@Async` and a transaction of its own, and - the reason
+ * it is used here - it enrols the event in the **Event Publication Registry**. Before the
+ * account's transaction commits, a row is written to `event_publication` recording that this
+ * listener still owes work; the row is completed only once this method returns normally.
  *
- * Best-effort by design: a failed sync is logged, not rethrown - it must never turn an orchestrator
- * account mutation (already committed by the time this runs) into a failed request. A later
- * [AccountChanged] for the same account (or a manual retry) is the recovery path, not an
- * automatic one.
+ * That closes the gap this sync had for a long time. It is best-effort towards the caller by
+ * design - a failed sync must never turn an already-committed account change into a failed
+ * request - but "best-effort" used to mean the failure left no trace at all: the account had
+ * changed, Keycloak did not know, and the only path back was "the account happens to change
+ * again", which for an account that never changes again is no path. Now every owed sync is a row
+ * that can be listed, retried and counted (docs/07-betrieb.md Abschnitt 3a).
+ *
+ * AFTER_COMMIT also means the account's own DB transaction is never held open across the network
+ * call to Keycloak - the rule `OrchestratorArchitectureTest` enforces for the whole orchestrator.
  */
 @Component
 @Profile("keycloak")
@@ -40,7 +48,7 @@ class KeycloakAccountSyncListener(
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAccountSyncListener::class.java)
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     fun onAccountChanged(event: AccountChanged) {
         val profile = accountService.findAccount(event.accountId) ?: return
         // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
@@ -49,34 +57,30 @@ class KeycloakAccountSyncListener(
         if (profile.email == null) return
         // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
         val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
-        try {
-            val mirror = kcUserMirror(profile, person, accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES))
-            keycloakAdminClient.upsertUser(
-                profile.accountId, profile.email, profile.emailConfirmed,
-                mirror.firstName, mirror.lastName, mirror.attributes
-            )
-            val keypair = accountKeypairService.keypairFor(profile.accountId)
-            val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
-            keycloakAdminClient.setPublicKeyCredential(profile.accountId, keypair.publicKeyJwk, activeMethods)
-        } catch (e: Exception) {
-            log.warn("Keycloak account sync failed for accountId={}", event.accountId, e)
-        }
+        val mirror = kcUserMirror(profile, person, accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES))
+        // Deliberately NOT wrapped in a try/catch any more. A thrown exception is how this method
+        // tells the Event Publication Registry "not done" - the publication stays incomplete and is
+        // retried. Swallowing it would mark the sync complete and lose it for good, which is
+        // exactly the silent state the registry exists to prevent.
+        keycloakAdminClient.upsertUser(
+            profile.accountId, profile.email, profile.emailConfirmed,
+            mirror.firstName, mirror.lastName, mirror.attributes
+        )
+        val keypair = accountKeypairService.keypairFor(profile.accountId)
+        val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
+        keycloakAdminClient.setPublicKeyCredential(profile.accountId, keypair.publicKeyJwk, activeMethods)
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     fun onAccountDeleted(event: AccountDeleted) {
-        try {
-            keycloakAdminClient.deleteUser(event.accountId)
-        } catch (e: Exception) {
-            log.warn("Keycloak account sync (delete) failed for accountId={}", event.accountId, e)
-        }
-        // Local-only, no Keycloak round-trip needed - safe to do even if the deleteUser() call
-        // above failed, unlike deleteUser() itself this can't leave anything orphaned on the
-        // Keycloak side. deleteById() would throw if no row exists (e.g. non-keycloak-synced
-        // account) - existsById() guard keeps this a true no-op then.
+        // Local first, remote second. The local row can never be orphaned by removing it early
+        // (nothing outside this process reads it), while a failed deleteUser() must be retried -
+        // and is, because the exception leaves this listener's publication incomplete. On that
+        // retry the existsById() guard makes the local half a true no-op.
         if (accountKeycloakKeypairRepository.existsById(event.accountId)) {
             accountKeycloakKeypairRepository.deleteById(event.accountId)
         }
+        keycloakAdminClient.deleteUser(event.accountId)
     }
 }
 

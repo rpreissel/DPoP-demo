@@ -3,7 +3,7 @@ package com.example.dpop.orchestrator.api.v1.kc
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
-import com.example.dpop.orchestrator.session.AmrSource
+import com.example.dpop.orchestrator.kernel.AmrSource
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.nimbusds.jose.JWSAlgorithm

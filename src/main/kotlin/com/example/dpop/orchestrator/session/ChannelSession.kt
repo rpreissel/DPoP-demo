@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -58,7 +58,7 @@ class ChannelSession(
      * docs/05-api.md Abschnitt 3, sets it via [com.example.dpop.orchestrator.api.v1.kc.
      * KcChannelService.restoreData] as a side effect of that same call - no separate write path).
      * `null` for every APP channel and for a KEYCLOAK channel whose flow never completed. Exists
-     * solely so [com.example.dpop.orchestrator.session.RetentionJob] can ask Keycloak's Admin API
+     * solely so [com.example.dpop.orchestrator.retention.RetentionJob] can ask Keycloak's Admin API
      * whether the underlying session is still alive before deciding how urgently to clean up -
      * never read for any authorization decision, that stays [channelAnchor]'s job alone.
      */

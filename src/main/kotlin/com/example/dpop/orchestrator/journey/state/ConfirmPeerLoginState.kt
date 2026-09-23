@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.journey.state
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * Approve or decline a WEB-channel login waiting on this account's peer approval

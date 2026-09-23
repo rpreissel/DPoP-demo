@@ -7,6 +7,7 @@ import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * `AuthIntent.CONFIRM_PEER_LOGIN` (docs/04-orchestrierung.md): the loa2 gate and its

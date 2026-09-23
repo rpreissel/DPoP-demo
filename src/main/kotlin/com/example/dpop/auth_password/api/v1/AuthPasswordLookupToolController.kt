@@ -39,7 +39,7 @@ data class AuthPasswordLookupPatchRequest(
  * toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Passwort", description = "Login ohne DPoP via email + password")
+@Tag(name = "Tool: Passwort")
 @SecurityRequirement(name = "dpop")
 class AuthPasswordLookupToolController(
     private val handler: AuthPasswordLookupToolHandler,
@@ -55,7 +55,7 @@ class AuthPasswordLookupToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "auth-password-lookup", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -83,7 +83,7 @@ class AuthPasswordLookupToolController(
             ApiResponse(
                 responseCode = "200",
                 description = "Correct email+password - logged in, offered the optional device-binding.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "offerDeviceBinding"}
@@ -121,7 +121,7 @@ class AuthPasswordLookupToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "auth-password-lookup", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

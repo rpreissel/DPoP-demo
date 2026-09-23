@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey
+package com.example.dpop.orchestrator.kernel
 
 /**
  * What the user wants to achieve, together with the strategy that leads them there
@@ -116,22 +116,4 @@ enum class AuthIntent {
             return entries.firstOrNull { it.isEntryIntent && it.name.equals(value, ignoreCase = true) }
         }
     }
-}
-
-/**
- * Whether the journey is still running - orthogonal to where on the path it stands
- * ([JourneyState]).
- *
- * [SUSPENDED] exists for sub-journeys (docs/04-orchestrierung.md #6): while a precondition
- * journey runs, its parent waits. Keeping the parent out of [STARTED] is what preserves the
- * invariant "at most one running journey per channel" without a second lookup rule.
- */
-enum class JourneyLifecycle {
-    STARTED,
-    SUSPENDED,
-    SUCCEEDED,
-    FAILED,
-    CANCELLED,
-    EXPIRED,
-    CONSUMED
 }

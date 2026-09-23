@@ -1,4 +1,12 @@
-package com.example.dpop.orchestrator.session
+package com.example.dpop.orchestrator.retention
+
+import com.example.dpop.orchestrator.session.AuthContextRepository
+import com.example.dpop.orchestrator.session.AuthEvidenceRepository
+import com.example.dpop.orchestrator.session.AttemptThrottleRepository
+import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.ChannelSessionRepository
+import com.example.dpop.orchestrator.session.SessionEventRepository
+import com.example.dpop.orchestrator.session.ToolSessionRepository
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
 import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
@@ -25,46 +33,30 @@ import java.time.Instant
  * swept, because neither is bounded by anything else. account.*, AuthSmsEnrollment and
  * ext_stammdaten.person/id_fsc.code belong to the account, never touched here.
  */
+/**
+ * Deliberately NOT `@Transactional` itself: [confirmedDeadKcChannels] asks Keycloak's Admin API
+ * over the network, once per candidate channel, and a sweep can face hundreds of them. Holding the
+ * retention transaction open across those round trips would keep row locks for as long as a remote
+ * service takes to answer - the very thing `KeycloakAccountSyncListener` states as the rule
+ * ("never hold the account's own DB transaction open across a network call to Keycloak") and that
+ * this job used to break. The probe therefore runs first, with no transaction, and only its result
+ * is handed to [SessionRetentionSweeper], which does all the deleting in one.
+ *
+ * `OrchestratorArchitectureTest.keycloakIsNeverCalledFromInsideATransaction` keeps it that way.
+ */
 @Component
 class RetentionJob(
-    private val toolSessionRepository: ToolSessionRepository,
-    private val journeyRepository: AuthJourneyRepository,
+    private val sweeper: SessionRetentionSweeper,
     private val channelSessionRepository: ChannelSessionRepository,
-    private val authContextRepository: AuthContextRepository,
-    private val authEvidenceRepository: AuthEvidenceRepository,
-    private val sessionEventRepository: SessionEventRepository,
-    private val journeyLogRepository: JourneyLogRepository,
-    private val attemptThrottleRepository: AttemptThrottleRepository,
     // Optional: only present under the `keycloak` profile (KeycloakAdminClient.kt's own doc) -
     // RetentionJob itself runs in every profile, so it must tolerate the bean being absent.
     private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
 ) {
-    private val log = LoggerFactory.getLogger(RetentionJob::class.java)
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
-    @Transactional
     fun cleanup() {
         val now = Instant.now()
-
-        toolSessionRepository.deleteByExpiresAtBefore(now.minus(TOOL_SESSION_RETENTION))
-        deleteExpiredJourneys(now.minus(JOURNEY_RETENTION))
-
-        val confirmedDeadKcChannels = confirmedDeadKcChannels(now)
-        deleteChannels(confirmedDeadKcChannels)
-
-        deleteExpiredChannels(now.minus(CHANNEL_SESSION_RETENTION))
-
-        sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
-
-        val journeyLogEntries = journeyLogRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_LOG_RETENTION))
-        val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
-        if (journeyLogEntries > 0 || staleCounters > 0) {
-            log.info(
-                "Retention: deleted {} journey log entry/entries and {} attempt throttle counter(s)",
-                journeyLogEntries,
-                staleCounters
-            )
-        }
+        sweeper.sweep(now, confirmedDeadKcChannels(now))
     }
 
     /**
@@ -86,6 +78,59 @@ class RetentionJob(
                 val sessionId = channel.durableKcSessionId
                 accountId != null && sessionId != null && client.isSessionAlive(accountId, sessionId) == false
             }
+    }
+
+}
+
+/**
+ * All of retention's actual deleting, in one transaction, cleaned from the inside out
+ * (ToolSession -> AuthJourney -> ChannelSession+AuthContext+AuthEvidence) so a row's FK target is
+ * already gone by the time it would be deleted.
+ *
+ * Split out of [RetentionJob] along the one boundary that matters here: this class touches only
+ * the database and may therefore be transactional; the job that drives it must not be, because it
+ * talks to Keycloak first. Self-invocation would have made a `@Transactional` method on the job
+ * itself silently non-transactional (Spring proxies do not intercept internal calls), so the split
+ * is a separate bean rather than a second method.
+ */
+@Component
+class SessionRetentionSweeper(
+    private val toolSessionRepository: ToolSessionRepository,
+    private val journeyRepository: AuthJourneyRepository,
+    private val channelSessionRepository: ChannelSessionRepository,
+    private val authContextRepository: AuthContextRepository,
+    private val authEvidenceRepository: AuthEvidenceRepository,
+    private val sessionEventRepository: SessionEventRepository,
+    private val journeyLogRepository: JourneyLogRepository,
+    private val attemptThrottleRepository: AttemptThrottleRepository
+) {
+    private val log = LoggerFactory.getLogger(SessionRetentionSweeper::class.java)
+
+    /**
+     * @param confirmedDeadKcChannels channels [RetentionJob] already confirmed dead with Keycloak,
+     *   outside any transaction - passed in rather than determined here precisely so this method
+     *   makes no network call of its own.
+     */
+    @Transactional
+    fun sweep(now: Instant, confirmedDeadKcChannels: List<ChannelSession>) {
+        toolSessionRepository.deleteByExpiresAtBefore(now.minus(TOOL_SESSION_RETENTION))
+        deleteExpiredJourneys(now.minus(JOURNEY_RETENTION))
+
+        deleteChannels(confirmedDeadKcChannels)
+
+        deleteExpiredChannels(now.minus(CHANNEL_SESSION_RETENTION))
+
+        sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
+
+        val journeyLogEntries = journeyLogRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_LOG_RETENTION))
+        val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
+        if (journeyLogEntries > 0 || staleCounters > 0) {
+            log.info(
+                "Retention: deleted {} journey log entry/entries and {} attempt throttle counter(s)",
+                journeyLogEntries,
+                staleCounters
+            )
+        }
     }
 
     /**

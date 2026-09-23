@@ -38,7 +38,7 @@ data class ConfirmQrLoginActivateRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: QR-Login", description = "Approve or decline a WEB channel's pairing from this already-authenticated app")
+@Tag(name = "Tool: QR-Login")
 @SecurityRequirement(name = "dpop")
 class ConfirmQrLoginToolController(
     private val handler: ConfirmQrLoginToolHandler,

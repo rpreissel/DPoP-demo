@@ -5,6 +5,7 @@ import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * The App-facade-specific endpoints (docs/05-api.md #2): everything a channel offers once it
@@ -59,7 +61,7 @@ class ChannelCreationController(
             ApiResponse(
                 responseCode = "201",
                 description = "New channel - an unrecognized device lands on the identification choice.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "orchestrator", "context": "registration", "step": "selectIdentificationMethod"},
@@ -104,7 +106,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "Resumed mid-step-up, waiting on an SMS TAN.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
                       "next": {"type": "tool", "toolId": "auth-sms", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -128,7 +130,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "loa3 requested, current evidence (loa2) doesn't satisfy it - offers the candidate methods.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa2"},
                       "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},
@@ -154,7 +156,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "A cancelled REGISTER journey restarts the same entry intent from scratch.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "ident-fsc", "step": "input"}
@@ -220,7 +222,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "Device binding accepted after a lookup login - journey settles into authenticated.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
@@ -247,7 +249,7 @@ class ChannelController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = MethodsResponse::class), examples = [ExampleObject(value = """
                     {
                       "methods": [
                         {"id": "7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b", "method": "sms"},
@@ -275,7 +277,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "Already AUTHENTICATED with sms+password - offered the still-missing methods.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["sms", "password"]},
                       "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
@@ -302,7 +304,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "Already at loa2 - confirm-qr-login offered directly.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa2"},
                       "next": {"type": "tool", "toolId": "confirm-qr-login", "step": "input"}
@@ -334,7 +336,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "Confirmation prompt for the account deletion.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED"},
                       "next": {"type": "orchestrator", "context": "prompt", "step": "confirm"},
@@ -362,7 +364,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "The sms method instance was removed - password alone still satisfies loa1.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {
                         "channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED",
@@ -396,7 +398,7 @@ class ChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "The address was withdrawn; nothing required it.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {
                         "channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED",
@@ -427,7 +429,7 @@ class ChannelController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = TokenResponse::class), examples = [ExampleObject(value = """
                     {
                       "accessToken": "eyJhbGciOiJub25lIn0.eyJzdWIiOiI0MiIsImFjciI6ImxvYTIiLCJhbXIiOlsic21zIl19.",
                       "tokenType": "Bearer",
@@ -469,7 +471,7 @@ class ChannelController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(type = "object", additionalProperties = Schema.AdditionalPropertiesValue.TRUE), examples = [ExampleObject(value = """
                     {
                       "accountId": 42,
                       "personId": 7,

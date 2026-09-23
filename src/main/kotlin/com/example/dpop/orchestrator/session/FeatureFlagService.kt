@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.journey.FeatureFlagProvider
+import com.example.dpop.orchestrator.kernel.FeatureFlagProvider
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,7 +12,7 @@ import java.time.Instant
  *
  * Implements [FeatureFlagProvider] so `JourneyService` picks the flags up generically. Adding a
  * flag therefore touches nothing here: declare its name in
- * [com.example.dpop.orchestrator.journey.FeatureFlags], read it in the strategy that cares, and
+ * [com.example.dpop.orchestrator.kernel.FeatureFlags], read it in the strategy that cares, and
  * flip it through this service.
  */
 @Service

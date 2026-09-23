@@ -35,6 +35,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * Fired after a change to an account's current state (creation, anchors, methods) - the

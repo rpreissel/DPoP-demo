@@ -35,7 +35,7 @@ data class ConfirmEmailPatchRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: E-Mail", description = "Confirms control over an email address - the account keeps it, no method is created")
+@Tag(name = "Tool: E-Mail")
 @SecurityRequirement(name = "dpop")
 class ConfirmEmailToolController(
     private val handler: ConfirmEmailToolHandler,
@@ -49,7 +49,7 @@ class ConfirmEmailToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "confirm-email", "step": "input", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -77,7 +77,7 @@ class ConfirmEmailToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [
                     ExampleObject(name = "After email - code sent", value = """
                         {
                           "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
@@ -121,7 +121,7 @@ class ConfirmEmailToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "confirm-email", "step": "codeInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

@@ -54,7 +54,7 @@ class IdentFscToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "ident-fsc", "step": "input", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -83,7 +83,7 @@ class IdentFscToolController(
             ApiResponse(
                 responseCode = "200",
                 description = "Identified - the journey now chains toward the required loa2 (2nd factor + confirmed email).",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
@@ -116,7 +116,7 @@ class IdentFscToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "ident-fsc", "step": "input", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

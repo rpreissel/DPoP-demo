@@ -8,7 +8,7 @@ import java.time.Instant
 
 /**
  * One runtime feature flag, keyed by its name from
- * [com.example.dpop.orchestrator.journey.FeatureFlags] - a switch an operator can flip without a
+ * [com.example.dpop.orchestrator.kernel.FeatureFlags] - a switch an operator can flip without a
  * redeploy. Absence of a row means off: only a flag somebody actually touched lives here, so a new
  * flag needs no seeding and its documented default keeps working until then (same idiom as
  * [com.example.dpop.orchestrator.tool.ToolAvailability]).

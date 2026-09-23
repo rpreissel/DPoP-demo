@@ -30,11 +30,83 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # Deckt Backend und Frontend ab: der Gradle-Build zieht ueber processResources ->
-      # npmBuild auch den Vite-Build mit hoch, ein Fehler dort bricht hier ab.
-      - name: Backend-Tests
-        run: ./gradlew test
+      # Deckt Backend und Frontend ab: `build` zieht ueber processResources -> npmBuild den
+      # Vite-Build mit, und ueber assemble -> stagePodmanArtifacts das Entpacken der Boot-Jar in
+      # den flachen Container-Classpath (build.gradle.kts). Ein Fehler beim Staging faellt damit
+      # hier auf und nicht erst beim `podman-compose build`.
+      - name: Backend-Tests und Artefakt-Staging
+        run: ./gradlew build
 
       - name: Frontend-Tests
         working-directory: frontend
         run: npm test
+
+      # vitest transpiliert nur und prueft keine Typen. Ohne diesen Schritt geht ein Typfehler im
+      # Frontend durch die CI. `--force`, weil tsc sonst gegen ein aus dem npm-Cache
+      # mitgebrachtes .tsbuildinfo laeuft und den Build als aktuell ansieht.
+      - name: Frontend-Typpruefung
+        working-directory: frontend
+        run: npx tsc -b --force
+
+      - name: Frontend-Lint
+        working-directory: frontend
+        run: npm run lint
+
+      # api/openapi.yaml und api/modules/*.yaml sind die einzige geschriebene Fassung des
+      # API-Vertrags (docs/05-api.md). Weicht sie vom Code ab, soll das hier auffallen und nicht
+      # erst zur Laufzeit in einem der drei Clients, die den Vertrag lesen.
+      - name: OpenAPI-Snapshot aktuell
+        run: ./gradlew checkOpenApiSnapshot
+
+      # Die erzeugten Frontend-Typen muessen zum Vertrag passen. Sonst koennte ein veralteter,
+      # eingecheckter Generatorstand die Typpruefung oben gruen halten.
+      - name: Generierte Frontend-Typen aktuell
+        run: |
+          ./gradlew generateFrontendApiTypes
+          git diff --exit-code -- frontend/src/generated \
+            || { echo "::error::frontend/src/generated ist veraltet. Bitte './gradlew generateFrontendApiTypes' laufen lassen und das Ergebnis committen."; exit 1; }
+
+  e2e:
+    name: End-to-End
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Frontend-Abhaengigkeiten
+        working-directory: frontend
+        run: npm ci
+
+      - name: Playwright-Browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      # Die Suite startet ihren eigenen Server auf Port 8091 mit frischer In-Memory-DB
+      # (playwright.config.ts). Ein laufender Dienst wird also nicht vorausgesetzt, aber der
+      # Vite-Build muss in src/main/resources/static liegen, bevor bootRun ihn ausliefert.
+      - name: Frontend bauen
+        run: ./gradlew npmBuild
+
+      - name: E2E-Tests
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace
+          path: frontend/test-results/
+          retention-days: 7

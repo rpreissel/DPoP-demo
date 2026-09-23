@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.policy
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
-import com.example.dpop.orchestrator.session.AcrLevels
+import com.example.dpop.orchestrator.kernel.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.TrustLevel
@@ -16,7 +16,7 @@ import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
 /**
- * Provisional default implementation (docs/11-umsetzungsplan.md, Phase B3): the amr->acr
+ * Provisional default implementation (docs/08-projektrahmen.md, Phase B3): the amr->acr
  * mapping is fachlich/regulatorisch offen (docs/04-orchestrierung.md #2) and only stubbed
  * here via each tool's own maxAcr, plus one concrete combination rule: two AUTH tools of
  * DIFFERENT factor types, proven together, earn one tier above what either could reach alone

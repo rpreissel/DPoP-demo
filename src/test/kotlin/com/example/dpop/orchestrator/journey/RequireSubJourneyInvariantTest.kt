@@ -8,6 +8,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 class RequireSubJourneyInvariantTest : BehaviorSpec({
     given("a sub-journey request") {

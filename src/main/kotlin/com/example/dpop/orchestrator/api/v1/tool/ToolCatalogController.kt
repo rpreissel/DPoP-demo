@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1.tool
 
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -34,7 +35,7 @@ class ToolCatalogController(private val toolRegistry: ToolHandlerRegistry) {
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", array = ArraySchema(schema = Schema(implementation = ToolCatalogEntry::class)), examples = [ExampleObject(value = """
                     [
                       {"toolId": "ident-fsc", "method": "fsc", "role": "IDENTIFICATION"},
                       {"toolId": "enroll-sms", "method": "sms", "role": "ENROLLMENT"},

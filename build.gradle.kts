@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.dependency.management)
     alias(libs.plugins.kover)
+    alias(libs.plugins.openapi.generator)
 }
 
 group = "com.example"
@@ -72,6 +73,9 @@ dependencies {
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.modulith.starter.core)
+    // Event Publication Registry: Spring Modulith' eigener transaktionaler Outbox
+    // (docs/07-betrieb.md Abschnitt 3a). Bringt events-api/-core/-jpa/-jackson mit.
+    implementation(libs.spring.modulith.starter.jdbc)
     implementation(libs.nimbus.jose.jwt)
     implementation(libs.kotlin.reflect)
     implementation(libs.jackson.module.kotlin)
@@ -148,6 +152,78 @@ tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// Der API-Vertrag wird von drei Seiten von Hand gelesen (Kotlin-DTOs, frontend/src/types.ts,
+// keycloak-extension). api/openapi.yaml ist die eine Stelle, an der er steht; OpenApiSnapshotTest
+// prueft ihn gegen den laufenden Code. `check` laeuft ohnehin ueber `test` mit - diese beiden
+// Tasks sind nur die benannten Ein- und Ausgaenge dafuer.
+val checkOpenApiSnapshot = tasks.register<Test>("checkOpenApiSnapshot") {
+    group = "verification"
+    description = "Prueft api/openapi.yaml gegen die Spec des laufenden Codes."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching("com.example.dpop.orchestrator.api.v1.OpenApiSnapshotTest") }
+    // Ein Vertrags-Diff ist kein flaky Test: immer neu ausfuehren, nie aus dem Build-Cache
+    // als "up to date" ueberspringen, sonst geht genau die Aenderung durch, die er fangen soll.
+    outputs.upToDateWhen { false }
+}
+
+tasks.register<Test>("updateOpenApiSnapshot") {
+    group = "verification"
+    description = "Schreibt api/openapi.yaml aus der Spec des laufenden Codes neu."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching("com.example.dpop.orchestrator.api.v1.OpenApiSnapshotTest") }
+    systemProperty("openapi.snapshot.update", "true")
+    outputs.upToDateWhen { false }
+}
+
+// Die dritte Seite des Vertrags: die Frontend-Typen werden aus demselben Snapshot erzeugt, statt
+// wie bisher in types.ts von Hand nachgepflegt zu werden. Damit wird eine Backend-DTO-Aenderung
+// im Frontend zum TypeScript-Fehler statt zu einem `undefined` zur Laufzeit.
+//
+// Nur Modelle, keine API-Clients: das Frontend ruft ueber seine eigene DPoP-behaftete api.ts auf
+// (jede Anfrage braucht einen frisch signierten Proof), ein generierter fetch-Client koennte das
+// nicht und wuerde nur ungenutzt mitlaufen.
+val generateFrontendApiTypes = tasks.register<org.openapitools.generator.gradle.plugin.tasks.GenerateTask>("generateFrontendApiTypes") {
+    group = "frontend"
+    description = "Erzeugt frontend/src/generated aus api/openapi.yaml (OpenAPI Generator)."
+    generatorName.set("typescript-fetch")
+    inputSpec.set(layout.projectDirectory.file("api/openapi.yaml").asFile.absolutePath)
+    outputDir.set(layout.projectDirectory.dir("frontend/src/generated").asFile.absolutePath)
+    // typescript-fetch buendelt alle Modelle in models/index.ts und fuehrt diese Datei als
+    // "supporting file" - ohne den zweiten Eintrag erzeugt der Generator nur die .md-Doku und
+    // keine einzige .ts-Datei.
+    globalProperties.set(mapOf("models" to "", "supportingFiles" to "index.ts"))
+    // Die .md-Doku dupliziert nur, was schon im Snapshot und in den Doc-Kommentaren steht.
+    generateModelDocumentation.set(false)
+    configOptions.set(
+        mapOf(
+            // Die erzeugten Interfaces sollen genau die Wire-Namen tragen, damit ein Feld im
+            // Frontend so heisst wie im Kotlin-DTO und im Snapshot - sonst waere der Abgleich
+            // wieder eine Uebersetzungsleistung von Hand.
+            "modelPropertyNaming" to "original",
+            "enumPropertyNaming" to "original",
+            "supportsES6" to "true",
+            "withoutRuntimeChecks" to "true"
+        )
+    )
+    // Der Generator raeumt sein Ausgabeverzeichnis nicht selbst auf: ein geloeschtes DTO liesse
+    // sonst seine Datei zurueck und das Frontend koennte weiter dagegen compilieren.
+    doFirst { delete(layout.projectDirectory.dir("frontend/src/generated")) }
+    // Das oberste index.ts re-exportiert `./runtime` - den fetch-Client, den wir bewusst nicht
+    // erzeugen (siehe oben). Die Datei wuerde den Typcheck des Frontends brechen; importiert wird
+    // ausschliesslich ./generated/models.
+    doLast { delete(layout.projectDirectory.file("frontend/src/generated/index.ts")) }
+}
+
+// Bewusst KEIN `npmBuild.dependsOn(generateFrontendApiTypes)`: der Test-Runtime-Classpath zieht
+// processResources und damit npmBuild mit, also haenge der Snapshot-Task sonst an einem
+// Generatorlauf ueber genau den Snapshot, den er gerade erst schreiben soll - bei ungueltiger Spec
+// blockiert sich das gegenseitig. Stattdessen ist frontend/src/generated eingecheckt und die CI
+// prueft per `git diff --exit-code`, dass es zum Snapshot passt.
 
 // Trennt Gradle-Build von Podman-Build: die Dockerfiles (mitsamt sich selbst, siehe
 // stageOrchestratorDockerfile/stageKeycloakArtifact unten) kopieren nur noch fertige Artefakte aus

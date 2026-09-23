@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
@@ -15,19 +15,21 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
-import com.example.dpop.orchestrator.kc.KeycloakAdminClient
+import com.example.dpop.orchestrator.kc.KeycloakSessionEnded
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.repository.findByIdOrNull
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.session.forLog
 
 /**
  * The machinery between the [IntentStrategy] SPI and the rest of the orchestrator: it turns a
@@ -67,9 +69,11 @@ class JourneyService(
     private val journeyLogService: JourneyLogService,
     private val journeyLogDetails: JourneyLogDetails,
     private val journeyRecorder: JourneyRecorder,
-    // Optional: only present under the `keycloak` profile (KeycloakAdminClient's own doc) -
-    // JourneyService itself runs in every profile, so it must tolerate the bean being absent.
-    private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
+    // Logout publishes KeycloakSessionEnded rather than calling Keycloak: no listener is
+    // registered outside the `keycloak` profile, so the event simply goes nowhere there - which
+    // replaces the ObjectProvider<KeycloakAdminClient> this used to hold just to tolerate the
+    // bean's absence.
+    private val eventPublisher: ApplicationEventPublisher
 ) {
     private val strategiesByIntent: Map<AuthIntent, IntentStrategy<*>> = strategies.associateBy { it.intent }
 
@@ -121,7 +125,7 @@ class JourneyService(
             // Anfangs-Übergang der Maschine (Statecharts: Pseudostate -> q0, mit Aktion) -
             // mechanisch, von keiner Strategie entschieden, aber ganz normal über dieselbe
             // Pipeline geloggt wie jeder andere Übergang.
-            journeyLogService.record(channel, journey, "Entry", detail = journeyLogDetails.actionDetail(action, journey, channel))
+            journeyLogService.record(channel.forLog(), journey.forLog(), "Entry", detail = journeyLogDetails.actionDetail(action, journey, channel))
             actionExecutor.perform(journey, channel, action)
             // Re-derive now that the seed's own effect (e.g. restored evidence) is reflected in ctx
             // - initialState() must never see the placeholder's stale, pre-seed picture.
@@ -212,7 +216,7 @@ class JourneyService(
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "JOURNEY_CANCELLED", "orchestrator"
         )
-        journeyLogService.record(channel, journey, "CANCELLED", journeyState = codec.read(journey)::class.simpleName)
+        journeyLogService.record(channel.forLog(), journey.forLog(), "CANCELLED", journeyState = codec.read(journey)::class.simpleName)
     }
 
     // Routing -----------------------------------------------------------------
@@ -244,7 +248,7 @@ class JourneyService(
         // here last becomes current, and the other is correctly rejected by isCurrent afterwards.
         codec.write(journey, state.withActive(ToolRef(tool.toolId, toolSessionId, tool.startStep)))
         journeyRepository.save(journey)
-        journeyLogService.record(channel, journey, "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
+        journeyLogService.record(channel.forLog(), journey.forLog(), "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
     }
 
     fun isCurrent(journey: AuthJourney, toolId: ToolId, toolSessionId: UUID): Boolean =
@@ -342,8 +346,7 @@ class JourneyService(
             // routing authority ("one function, so the two can never disagree", see nextOf's
             // own doc) - the log only ever shows what routing itself derived.
             val availableTools = routing.availableToolsOf(channel)
-            journeyLogService.record(
-                channel, journey, event::class.simpleName!!,
+            journeyLogService.record(channel.forLog(), journey.forLog(), event::class.simpleName!!,
                 journeyState = state::class.simpleName,
                 // acrFloor is what this step was actually judged against; resolvedAcr is the
                 // account's own CURRENT combined level from ctx.evidence (MFA-bump included, see
@@ -398,7 +401,7 @@ class JourneyService(
         Transition.Logout -> {
             journey.consume()
             journeyRepository.save(journey)
-            journeyLogService.record(channel, journey, "LOGGED_OUT", journeyState = "LoggedOut")
+            journeyLogService.record(channel.forLog(), journey.forLog(), "LOGGED_OUT", journeyState = "LoggedOut")
             // The App channel has no browser/cookie of its own to end - but it may hold a real
             // Keycloak session from the custom account-token grant
             // (AccountTokenGrantType's reused session, AuthContext.keycloakSessionId). Ending only
@@ -411,7 +414,10 @@ class JourneyService(
                 channel.authContextId
                     ?.let { authContextService.getAuthContext(it) }
                     ?.keycloakSessionId
-                    ?.let { sessionId -> runCatching { keycloakAdminClient.getIfAvailable()?.logoutSession(sessionId) } }
+                    // Published, not called: this whole transition runs inside this service's
+                    // transaction, and the Admin API call used to hold it open across a network
+                    // round trip. KeycloakSessionLogoutListener picks it up AFTER_COMMIT.
+                    ?.let { sessionId -> eventPublisher.publishEvent(KeycloakSessionEnded(sessionId)) }
             }
             channel.authContextId = null
             channel.authEvidenceId = null
@@ -478,8 +484,7 @@ class JourneyService(
      */
     private fun chargeAttempt(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, outcome: ToolOutcome.Failed): Step {
         journey.attemptBudget -= 1
-        journeyLogService.record(
-            channel, journey, "TOOL_FAILED",
+        journeyLogService.record(channel.forLog(), journey.forLog(), "TOOL_FAILED",
             journeyState = codec.read(journey)::class.simpleName,
             detail = mapOf(
                 "toolId" to tool.toolId,

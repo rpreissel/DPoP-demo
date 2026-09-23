@@ -1,4 +1,10 @@
-package com.example.dpop.orchestrator.session
+package com.example.dpop.orchestrator.retention
+
+import com.example.dpop.orchestrator.session.AttemptThrottleRepository
+import com.example.dpop.orchestrator.session.AuthContextRepository
+import com.example.dpop.orchestrator.session.AuthEvidenceRepository
+import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.ChannelSessionRepository
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
 import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
@@ -38,15 +44,22 @@ class RetentionJobTest : BehaviorSpec({
         journeyLogRepository: JourneyLogRepository = mockk(relaxed = true),
         attemptThrottleRepository: AttemptThrottleRepository = mockk(relaxed = true),
         keycloakAdminClient: ObjectProvider<KeycloakAdminClient> = noKeycloakClient()
+    // The deleting moved into SessionRetentionSweeper so that RetentionJob itself can stay
+    // non-transactional while it probes Keycloak (see RetentionJob's own doc). A REAL sweeper is
+    // wired here rather than a mock: every assertion below is about what actually gets deleted, so
+    // stubbing it out would leave this test verifying nothing.
     ) = RetentionJob(
-        toolSessionRepository = mockk(relaxed = true),
-        journeyRepository = mockk<AuthJourneyRepository>(relaxed = true),
+        sweeper = SessionRetentionSweeper(
+            toolSessionRepository = mockk(relaxed = true),
+            journeyRepository = mockk<AuthJourneyRepository>(relaxed = true),
+            channelSessionRepository = channelSessionRepository,
+            authContextRepository = authContextRepository,
+            authEvidenceRepository = authEvidenceRepository,
+            sessionEventRepository = mockk(relaxed = true),
+            journeyLogRepository = journeyLogRepository,
+            attemptThrottleRepository = attemptThrottleRepository
+        ),
         channelSessionRepository = channelSessionRepository,
-        authContextRepository = authContextRepository,
-        authEvidenceRepository = authEvidenceRepository,
-        sessionEventRepository = mockk(relaxed = true),
-        journeyLogRepository = journeyLogRepository,
-        attemptThrottleRepository = attemptThrottleRepository,
         keycloakAdminClient = keycloakAdminClient
     )
 

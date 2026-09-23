@@ -25,7 +25,7 @@ private const val ENROLL_QR_TOOL_ID = "enroll-qr"
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: QR-Login", description = "Opt-in marker allowing this account to be logged into via QR pairing")
+@Tag(name = "Tool: QR-Login")
 @SecurityRequirement(name = "dpop")
 class EnrollQrToolController(
     private val handler: EnrollQrToolHandler,

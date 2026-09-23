@@ -1,9 +1,8 @@
 package com.example.dpop.id_eid.internal
 
-import org.springframework.scheduling.annotation.Scheduled
+import com.example.dpop.tool_api.ToolSessionSweeper
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.Duration
 import java.time.Instant
 
 /**
@@ -12,15 +11,11 @@ import java.time.Instant
  * after the process has moved on.
  */
 @Component
-class IdEidRetentionJob(private val repository: IdEidToolSessionRepository) {
+class IdEidRetentionJob(private val repository: IdEidToolSessionRepository) : ToolSessionSweeper {
 
-    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
-    fun cleanup() {
-        repository.deleteByCreatedAtBefore(Instant.now().minus(RETENTION))
+    override fun sweep(cutoff: Instant) {
+        repository.deleteByCreatedAtBefore(cutoff)
     }
 
-    companion object {
-        private val RETENTION: Duration = Duration.ofHours(24)
-    }
 }

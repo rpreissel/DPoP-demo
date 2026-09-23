@@ -6,9 +6,12 @@ import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 import io.kotest.core.spec.style.BehaviorSpec
 import org.springframework.stereotype.Repository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * Locks in dependency directions the codebase relies on but that nothing mechanically enforced -
@@ -189,6 +192,85 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                         "lives (docs/09-dpop.md #3) and AccountDeletionService is the one legitimate bulk " +
                         "remover; anything else reaching the table directly would bypass both"
                 )
+                .check(everything)
+        }
+    }
+
+    given("outbound Keycloak Admin API calls") {
+        then("no @Transactional class makes one - a DB transaction never spans a network round trip") {
+            // The rule KeycloakAccountSyncListener states for itself ("never hold the account's own
+            // DB transaction open across a network call to Keycloak") and enforces by listening
+            // AFTER_COMMIT. It was only ever a comment, and three places broke it: JourneyService's
+            // logout transition, RetentionJob's dead-session probe, and KcTokenProvider. The first
+            // two now publish an event / probe before the transaction; the third is a named,
+            // deliberate exception below.
+            //
+            // Holding a transaction across a remote call keeps row locks for as long as the remote
+            // service takes to answer - under load that turns one slow Keycloak into a stalled
+            // orchestrator, and the failure looks like a database problem.
+            noClasses()
+                .that().areAnnotatedWith(Transactional::class.java)
+                .and().resideOutsideOfPackage("com.example.dpop.orchestrator.kc..")
+                // The one declared exception: minting an account token IS a Keycloak round trip
+                // that has to happen while serving the request, and its transaction exists to write
+                // the refresh-token cache back onto the AuthContext it just read. Bounded to one
+                // call per token request (never per row), and it cannot be moved after the commit
+                // because its result is the response. Named here so it stays the ONLY one.
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.session.KcTokenProvider")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("com.example.dpop.orchestrator.kc.KeycloakAdminClient")
+                .because(
+                    "a transaction that spans a Keycloak round trip holds row locks for the duration of a " +
+                        "remote call; publish an event and act on it AFTER_COMMIT instead, the way " +
+                        "KeycloakAccountSyncListener and KeycloakSessionLogoutListener do"
+                )
+                .check(everything)
+        }
+    }
+
+    given("the demo block of a response") {
+        then("only DemoDisclosure builds one, so a deployment can switch disclosure off for good") {
+            // What travels in `demo` is a plaintext TAN, the fixed demo password, and every seeded
+            // persona's KVNR/name/address. Two services used to build a DemoInfo unconditionally,
+            // so "never part of the production contract" was a doc comment with nothing behind it.
+            // With construction confined to one profile-gated bean, `demo.disclosure=false` removes
+            // the values from every response rather than filtering them out of some.
+            noClasses()
+                .that().resideOutsideOfPackage("com.example.dpop.tool_api..")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.api.v1.DisclosingDemoDisclosure")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.api.v1.WithheldDemoDisclosure")
+                .should().callConstructorWhere(
+                    DescribedPredicate.describe<JavaCall<*>>("construct a DemoInfo") { call ->
+                        call.target.owner.fullName == "com.example.dpop.tool_api.DemoInfo"
+                    }
+                )
+                .because(
+                    "DemoDisclosure is the single place that decides whether this deployment discloses " +
+                        "demo-only values at all; a second construction site would silently reinstate the " +
+                        "unconditional path"
+                )
+                .check(everything)
+        }
+    }
+
+    given("the orchestrator's own packages") {
+        then("they form a DAG - no package depends, directly or indirectly, on one that depends on it") {
+            // Spring Modulith verifies boundaries BETWEEN top-level modules and never looks inside
+            // one. The orchestrator is by far the largest module here, and nothing checked its
+            // interior: session <-> policy, session <-> journey, session <-> journeylog,
+            // kc <-> dpop and session -> api.v1 had all grown into cycles.
+            //
+            // Almost every one was a NAME in the wrong package rather than a real entanglement -
+            // AuthIntent, AmrSource, AcrLevels and OrchestratorException now live in `kernel`,
+            // which depends on nothing; the journey log takes values instead of the entities it
+            // traces; retention, which spans sessions and journeys alike, sits above both instead
+            // of inside one.
+            //
+            // A cycle is not a style question: it means the two packages can only be understood,
+            // tested and changed together, and it is how a module quietly becomes one lump.
+            slices()
+                .matching("com.example.dpop.orchestrator.(*)..")
+                .should().beFreeOfCycles()
                 .check(everything)
         }
     }

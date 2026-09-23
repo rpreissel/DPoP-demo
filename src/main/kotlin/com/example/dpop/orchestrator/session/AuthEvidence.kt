@@ -17,6 +17,7 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.orchestrator.kernel.AmrSource
 
 /**
  * The persistent, central evidence record, kept apart from the tokens issued from it
@@ -162,12 +163,6 @@ class AuthEvidence(
         }
         addAmr(updates)
     }
-}
-
-/** [AuthEvidence.currentAmrSource] values - see its own doc for what each means. */
-object AmrSource {
-    const val ORCHESTRATOR = "orchestrator"
-    const val KEYCLOAK = "kc"
 }
 
 /** One method's own record within [AuthEvidence.amrEvidence] - see that field's doc for why this is one JSON list, not several parallel columns. */

@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.session
 import com.example.dpop.tool_spi.AcrLevel
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import com.example.dpop.orchestrator.kernel.AcrLevels
 
 /**
  * Unit test of [AcrLevels], the orchestrator-side REST of the ACR taxonomy (which itself lives

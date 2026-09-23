@@ -37,7 +37,7 @@ data class AuthPasswordPatchRequest(
  * (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Passwort", description = "Password-based authentication (login/step-up)")
+@Tag(name = "Tool: Passwort")
 @SecurityRequirement(name = "dpop")
 class AuthPasswordToolController(
     private val handler: AuthPasswordUseToolHandler,
@@ -53,7 +53,7 @@ class AuthPasswordToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
                       "next": {"type": "tool", "toolId": "auth-password", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -86,7 +86,7 @@ class AuthPasswordToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["sms", "password"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
@@ -114,7 +114,7 @@ class AuthPasswordToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
                       "next": {"type": "tool", "toolId": "auth-password", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

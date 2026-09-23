@@ -23,7 +23,7 @@ data class TokenPair(
 )
 
 /**
- * Mock Keycloak token issuance (docs/11-umsetzungsplan.md: the real Keycloak facade is out of
+ * Mock Keycloak token issuance (docs/08-projektrahmen.md: the real Keycloak facade is out of
  * scope). The AccessToken is a spec-shaped unsecured JWT (RFC 7519 #6, alg=none) so the frontend
  * can parse and display its claims without a JWT library or a signing key. The RefreshToken is an
  * opaque server-side secret - it is never returned to a caller, only its expiry is. Claims are

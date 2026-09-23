@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent

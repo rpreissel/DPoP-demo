@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.journeylog
 
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

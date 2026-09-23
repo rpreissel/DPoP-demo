@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey
+package com.example.dpop.orchestrator.kernel
 
 /**
  * Names of the runtime feature flags a strategy may read off [JourneyContext.featureFlags] - one

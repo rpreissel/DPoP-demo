@@ -3,10 +3,9 @@ import com.example.dpop.auth_sms.internal.authsmslookup.AuthSmsLookupToolSession
 import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolSessionRepository
 import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolSessionRepository
 
-import org.springframework.scheduling.annotation.Scheduled
+import com.example.dpop.tool_api.ToolSessionSweeper
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.Duration
 import java.time.Instant
 
 /**
@@ -19,18 +18,13 @@ class AuthSmsRetentionJob(
     private val enrollToolSessionRepository: EnrollSmsToolSessionRepository,
     private val authUseToolSessionRepository: AuthSmsUseToolSessionRepository,
     private val authLookupToolSessionRepository: AuthSmsLookupToolSessionRepository
-) {
+) : ToolSessionSweeper {
 
-    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
-    fun cleanup() {
-        val cutoff = Instant.now().minus(RETENTION)
+    override fun sweep(cutoff: Instant) {
         enrollToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         authUseToolSessionRepository.deleteByCreatedAtBefore(cutoff)
         authLookupToolSessionRepository.deleteByCreatedAtBefore(cutoff)
     }
 
-    companion object {
-        private val RETENTION: Duration = Duration.ofHours(24)
-    }
 }

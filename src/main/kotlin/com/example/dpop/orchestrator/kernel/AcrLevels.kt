@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.session
+package com.example.dpop.orchestrator.kernel
 
 import com.example.dpop.tool_spi.AcrLevel
 

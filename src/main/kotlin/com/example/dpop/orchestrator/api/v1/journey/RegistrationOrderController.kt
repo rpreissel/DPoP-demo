@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.api.v1.journey
 
-import com.example.dpop.orchestrator.journey.FeatureFlags
+import com.example.dpop.orchestrator.kernel.FeatureFlags
 import com.example.dpop.orchestrator.session.FeatureFlagService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag

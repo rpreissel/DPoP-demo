@@ -38,7 +38,7 @@ data class AuthEmailLookupPatchRequest(
  * dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: E-Mail", description = "Login ohne DPoP via bestaetigte E-Mail-Adresse + Code")
+@Tag(name = "Tool: E-Mail")
 @SecurityRequirement(name = "dpop")
 class AuthEmailLookupToolController(
     private val handler: AuthEmailLookupToolHandler,
@@ -53,7 +53,7 @@ class AuthEmailLookupToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "auth-email-lookup", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -81,7 +81,7 @@ class AuthEmailLookupToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [
                     ExampleObject(name = "After email - code sent", value = """
                         {
                           "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
@@ -135,7 +135,7 @@ class AuthEmailLookupToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "tool", "toolId": "auth-email-lookup", "step": "codeInput", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

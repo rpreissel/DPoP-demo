@@ -1,0 +1,4402 @@
+components:
+  schemas:
+    ActiveMethodView:
+      description: 'One active authentication method instance. `id` addresses it for DELETE .../methods/{id} - method name
+        alone isn''t unique when a method allows multiple instances (e.g. several active `device` entries, one per physical
+        device). `label` is a user-chosen display name, set only for multi-instance methods; `null` for singleton ones (email/sms/password),
+        which the client labels from `method` itself. `enrolledUnderAcr`/`maxAcr`/`effectiveAcr`/`factorTypes` surface the
+        ADR-5 three-way cap (docs/12-entscheidungen.md): `effectiveAcr` is `min(enrolledUnderAcr, maxAcr)`, the level this
+        method can actually contribute right now, which can be lower than the tool''s own declared `maxAcr` if it was enrolled
+        while the session had proven less.'
+      properties:
+        effectiveAcr:
+          description: min(enrolledUnderAcr, maxAcr) - what this method actually contributes today.
+          example: loa1
+          type: string
+        enrolledUnderAcr:
+          description: The level the session had already proven at the moment this method was enrolled (ADR-5) - caps effectiveAcr
+            below maxAcr if lower.
+          example: loa1
+          type: string
+        factorTypes:
+          example:
+          - POSSESSION
+          items:
+            enum:
+            - KNOWLEDGE
+            - POSSESSION
+            - INHERENCE
+            type: string
+          type: array
+        id:
+          example: 7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b
+          type: string
+        label:
+          example: Laptop
+          type: string
+        maxAcr:
+          description: This tool's own declared ceiling - never account/session-specific.
+          example: loa2
+          type: string
+        method:
+          example: sms
+          type: string
+      required:
+      - id
+      - method
+      type: object
+    AmrEntry:
+      description: One native authenticator proof - which authenticator TYPE, and which specific execution/instance of it.
+      properties:
+        amrSourceId:
+          example: kc-otp-form-exec-1
+          type: string
+        nativeToolId:
+          example: kc-otp-form
+          type: string
+      required:
+      - amrSourceId
+      - nativeToolId
+      type: object
+    AnswerRequest:
+      description: 'An answer to whatever the current step is waiting on instead of a tool run (docs/04-orchestrierung.md
+        #3) - e.g. "accept"/"decline" for the optional device-binding offer of a lookup login. Which values are valid depends
+        on what next.step is currently offering.'
+      properties:
+        answer:
+          example: accept
+          type: string
+      required:
+      - answer
+      type: object
+    AuthData:
+      properties:
+        accountId:
+          example: 42
+          format: int64
+          type: integer
+        acr:
+          example: loa2
+          type: string
+        amr:
+          additionalProperties:
+            type: string
+          description: 'Method -> who proved it: "orchestrator" for a completed orchestrator tool, "kc" for evidence a native
+            Keycloak authenticator already established (docs/05-api.md Abschnitt 3). Informational only - the orchestrator
+            alone still resolves the combined acr above, regardless of source.'
+          example:
+            password: kc
+            sms: orchestrator
+          type: object
+      type: object
+    AuthEmailLookupPatchRequest:
+      properties:
+        code:
+          example: 123456
+          type: string
+        email:
+          example: max.mustermann@example.com
+          type: string
+      type: object
+    AuthEmailPatchRequest:
+      properties:
+        code:
+          example: 123456
+          type: string
+      type: object
+    AuthKobilPatchRequest:
+      properties:
+        otp:
+          example: 48210937
+          type: string
+      type: object
+    AuthPasswordLookupPatchRequest:
+      properties:
+        email:
+          example: max.mustermann@example.com
+          type: string
+        password:
+          example: Passwort!23
+          type: string
+      type: object
+    AuthPasswordPatchRequest:
+      properties:
+        password:
+          example: Passwort!23
+          type: string
+      type: object
+    AuthSmsLookupPatchRequest:
+      properties:
+        email:
+          example: max.mustermann@example.com
+          type: string
+        tan:
+          example: 123456
+          type: string
+      type: object
+    AuthSmsPatchRequest:
+      properties:
+        tan:
+          example: 123456
+          type: string
+      type: object
+    BiometricUnlock:
+      allOf:
+      - $ref: '#/components/schemas/KobilUnlockCredential'
+      - properties:
+          unlockSecret:
+            type: string
+        type: object
+      required:
+      - unlockSecret
+      - userVerification
+    BoundCredentialView:
+      description: 'Whether this device''s DPoP key is already linked to an account (DeviceAccountLink, docs/02-domaenenmodell.md
+        #1) - a pure read, no channel/journey created. Lets the entry screen show "this device belongs to X" before the user
+        picks how to start.'
+      properties:
+        method:
+          example: kobil
+          type: string
+        reference:
+          example: dev-1a2b3c4d5e6f
+          type: string
+      required:
+      - method
+      - reference
+      type: object
+    ChannelBlock:
+      properties:
+        activeMethods:
+          description: All active authentication methods on the account, regardless of whether this session's currentAmr proved
+            them. currentAmr is session evidence (what THIS channel actually proved); activeMethods is the account's full
+            standing method list, unfiltered by device - a lost/stolen device's credential must be removable from any authenticated
+            session, not only from that device itself.
+          items:
+            $ref: '#/components/schemas/ActiveMethodView'
+          type: array
+        channelSessionId:
+          format: uuid
+          type: string
+        channelType:
+          description: Which facade this channel was opened through - APP (DPoP) or KEYCLOAK (docs/02-domaenenmodell.md Abschnitt
+            1). Fixed for the channel's whole lifetime.
+          example: APP
+          type: string
+        currentAcr:
+          example: loa2
+          type: string
+        currentAmr:
+          example:
+          - sms
+          - password
+          items:
+            type: string
+          type: array
+        state:
+          example: AUTHENTICATED
+          type: string
+      required:
+      - channelSessionId
+      - channelType
+      - state
+      type: object
+    ChannelCreateRequest:
+      description: 'requiredAcr is a lower bound only. Always creates a brand-new ChannelSession for this device (docs/02-domaenenmodell.md
+        #3) - DPoP proves the device, never a lookup key for resuming a session. To end a previous session first (logout),
+        call DELETE .../channels/{channelSessionId} before this.'
+      properties:
+        availableTools:
+          description: toolIds this client supports and has enabled (docs/03-tool-architektur.md, availability) - e.g. GET
+            /tools/catalog minus whatever the user turned off locally. Fixed for this channel's whole lifetime; a candidate
+            list never offers a toolId outside this set, and activating one directly fails too.
+          example:
+          - ident-fsc
+          - enroll-sms
+          - auth-sms
+          items:
+            type: string
+          minItems: 1
+          type: array
+        intent:
+          description: 'The entry intent''s own name, case-insensitively (AuthIntent.fromRequest) - no separate wire vocabulary.
+            Omitted/fast_access (default): DeviceAccountLink found -> LOGIN, else REGISTRATION. lookup_login: always offers
+            lookup-based login (email + credential), even on a linked device. register: always starts fresh REGISTRATION,
+            even on a linked device (second account).'
+          enum:
+          - fast_access
+          - register
+          - lookup_login
+          example: register
+          type: string
+        requiredAcr:
+          example: loa2
+          type: string
+      type: object
+    ChannelPatchRequest:
+      description: 'Raises the channel''s durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md
+        #9).'
+      properties:
+        requiredAcr:
+          example: loa3
+          type: string
+      required:
+      - requiredAcr
+      type: object
+    ChannelResponse:
+      properties:
+        authData:
+          $ref: '#/components/schemas/AuthData'
+          description: KEYCLOAK channels only (docs/05-api.md Abschnitt 3) - never present for APP.
+        channel:
+          $ref: '#/components/schemas/ChannelBlock'
+        demo:
+          $ref: '#/components/schemas/DemoInfo'
+          description: Demo-only correlation IDs, never part of the production contract.
+        next:
+          $ref: '#/components/schemas/Next'
+        stepData:
+          additionalProperties:
+            type: object
+          description: 'Whatever the current step needs to render: missing fields, selection options, or a retry reason.'
+          example:
+            options:
+            - ident-fsc
+            - ident-eid
+          type: object
+      required:
+      - channel
+      type: object
+    ConfirmEmailPatchRequest:
+      properties:
+        code:
+          example: 123456
+          type: string
+        email:
+          example: max.mustermann@example.com
+          type: string
+      type: object
+    ConfirmQrLoginActivateRequest:
+      properties:
+        pairingCode:
+          example: ABCD-1234
+          type: string
+      type: object
+    ConfirmQrLoginPatchRequest:
+      properties:
+        decision:
+          example: accept
+          type: string
+        pairingCode:
+          example: ABCD-1234
+          type: string
+      type: object
+    DemoInfo:
+      additionalProperties: true
+      properties:
+        accountId:
+          example: 42
+          format: int64
+          type: integer
+        journeys:
+          description: The running journey chain for this channel, outermost first - see [JourneyDebugStep]. Empty once nothing
+            is running.
+          items:
+            $ref: '#/components/schemas/JourneyDebugStep'
+          type: array
+        personId:
+          example: 7
+          format: int64
+          type: integer
+      type: object
+    DeviceLinkResponse:
+      properties:
+        accountId:
+          example: 42
+          format: int64
+          type: integer
+        boundCredentials:
+          description: 'Demo-only: what else this device is known by - one entry per key-bound credential of the linked account
+            living on THIS key, with the reference its own method discloses (docs/09-dpop.md). The `device` method names its
+            credential key, `kobil` the identifier the provider gave this phone. Absence is meaningful: a client that holds
+            local data for a method no longer listed here is holding something stale.'
+          items:
+            $ref: '#/components/schemas/BoundCredentialView'
+          type: array
+        linked:
+          type: boolean
+        personName:
+          description: Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.
+          example: Max Muster
+          type: string
+      required:
+      - linked
+      type: object
+    DeviceProofPatchRequest:
+      properties:
+        deviceProof:
+          example: eyJhbGciOiJFUzI1NiIsInR5cCI6ImRwb3Arand0In0.eyJodG0iOiJQQVRDSCIsImh0dSI6Ii4uLiJ9.MEUCIQ
+          type: string
+        label:
+          example: Laptop
+          type: string
+      type: object
+    EnrollKobilPatchRequest:
+      properties:
+        activated:
+          example: true
+          type: boolean
+        biometricConsent:
+          example: true
+          type: boolean
+        label:
+          example: Diensthandy
+          type: string
+      type: object
+    EnrollPasswordPatchRequest:
+      properties:
+        password:
+          example: Passwort!23
+          type: string
+      type: object
+    EnrollSmsPatchRequest:
+      properties:
+        phoneNumber:
+          example: +49 170 1234567
+          type: string
+        tan:
+          example: 123456
+          type: string
+      type: object
+    IdentEidPatchRequest:
+      properties:
+        geburtsdatum:
+          example: '1985-03-12'
+          format: date
+          type: string
+        hausnummer:
+          example: 1
+          type: string
+        name:
+          example: Muster
+          type: string
+        ort:
+          example: Berlin
+          type: string
+        pin:
+          example: 123456
+          type: string
+        plz:
+          example: 10117
+          type: string
+        restrictedId:
+          example: T0103005T4UY6CQ1B3LN0T28WJ
+          type: string
+        strasse:
+          example: Musterstraße
+          type: string
+        vorname:
+          example: Max
+          type: string
+      type: object
+    IdentFscPatchRequest:
+      properties:
+        fsc:
+          example: VALIDCODE
+          type: string
+        kvnr:
+          example: A123456789
+          type: string
+        name:
+          example: Muster
+          type: string
+        vorname:
+          example: Max
+          type: string
+      type: object
+    IdentKvnrPatchRequest:
+      properties:
+        kvnr:
+          example: A123456789
+          type: string
+      type: object
+    JourneyDebugStep:
+      properties:
+        intent:
+          example: DELETE_ACCOUNT
+          type: string
+        journeyId:
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+          type: string
+        lifecycle:
+          example: SUSPENDED
+          type: string
+        note:
+          description: 'Demo-only: why this journey''s current step looks the way it does - either why its tool became the
+            automatic choice, or why a selection among several is being shown at all. Null whenever the step already explains
+            itself (e.g. a Prompt), never part of the production contract.'
+          example: Gerät wiedererkannt - automatisch vorgeschlagen.
+          type: string
+        stateType:
+          example: ConfirmPending
+          type: string
+      required:
+      - intent
+      - journeyId
+      - lifecycle
+      - stateType
+      type: object
+    JourneyLogEntryView:
+      properties:
+        accountId:
+          format: int64
+          type: integer
+        channelSessionId:
+          format: uuid
+          type: string
+        channelType:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        detail:
+          additionalProperties:
+            type: object
+          type: object
+        eventType:
+          type: string
+        intent:
+          type: string
+        journeyId:
+          format: uuid
+          type: string
+        journeyState:
+          type: string
+        parentJourneyId:
+          format: uuid
+          type: string
+      required:
+      - channelSessionId
+      - createdAt
+      - detail
+      - eventType
+      type: object
+    JourneyLogResponse:
+      properties:
+        entries:
+          items:
+            $ref: '#/components/schemas/JourneyLogEntryView'
+          type: array
+      required:
+      - entries
+      type: object
+    KcChannelUpsertRequest:
+      description: Upsert body for the kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3). All fields are
+        optional. accountId is the account Keycloak already knows (sub vorhanden) - the channel is bound to it immediately,
+        once, never overwritten by a later call. targetAcr is Keycloak's requested LoA level, already translated into an orchestrator
+        ACR string, and only raises the channel's floor, never lowers it. amr lists which native Keycloak authenticators (never
+        orchestrator tools) just proved something THIS flow run, one entry per proof - method/loa/factorTypes are resolved
+        server-side from a NativeAuthenticatorDescriptor (see AmrEntry), the kc-facade's own mirror of a ToolDescriptor, not
+        resolved from the orchestrator's own catalog (which stays entirely ignorant of native authenticators). Merged into
+        the channel's evidence and re-checked against the current floor exactly like any other proof; no separate 'combined
+        native acr' field exists, since the orchestrator derives that itself.
+      properties:
+        accountId:
+          example: 42
+          format: int64
+          type: integer
+        amr:
+          items:
+            $ref: '#/components/schemas/AmrEntry'
+          type: array
+        availableTools:
+          description: The Web channel's own declaration of which toolIds its Keycloak theme can render (one com.example.dpop.kcext.webtool.WebToolRenderer
+            factory per toolId, registered via META-INF/services) - the kc-facade's counterpart to the App channel's own availableTools
+            (POST /channels). Only read on this channel's first call (a later upsert resumes the already-persisted set); a
+            channel-anonymous caller that omits this gets none of the orchestrator's tools, never all of them.
+          items:
+            type: string
+          type: array
+        intent:
+          description: 'Only read on this channel''s first call, same restriction as availableTools - the kc facade''s own,
+            deliberately narrow counterpart to the App facade''s `intent` request parameter (docs/05-api.md #"POST /app/channels:
+            intent-Parameter"). Omitted (or null) means kc_select_method, the existing login/step-up behaviour. Only kc_select_method
+            and register are accepted here - unlike the App facade, not every AuthIntent.isEntryIntent value: fast_access/lookup_login
+            assume an APP-shaped channel this facade never has.'
+          example: register
+          type: string
+        kcSessionId:
+          description: Required whenever restoreData is present, ignored otherwise. Keycloak's own, durable UserSessionModel
+            id - deliberately NOT read off the peer-auth assertion (the assertion's kc-anchor is always THIS flow run's own
+            channelSessionId, docs/02-domaenenmodell.md Abschnitt 1, so it can't verify a token minted for a DIFFERENT, earlier
+            flow run's channel). Must match what GET .../restore-data was called with to produce this exact restoreData token.
+          type: string
+        restoreData:
+          description: 'A signed RestoreData token this same UserSession''s channel returned earlier via GET .../restore-data,
+            resubmitted verbatim (docs/ideen/web-keycloak-kanal.md #6) - the bulk, one-shot way to seed a brand-new channel
+            with what a PRIOR, unrelated flow run already established, as opposed to accountId/amr above which report what
+            THIS flow run just proved. Both are merged into the channel the same way; only restoreData may already be meaningfully
+            old by the time it arrives here. Opaque to every caller but the orchestrator itself - see RestoreDataCodec.'
+          type: string
+        targetAcr:
+          example: loa2
+          type: string
+      type: object
+    KobilActivateRequest:
+      properties:
+        activationCode:
+          type: string
+        pin:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+      required:
+      - activationCode
+      - pin
+      - tenantId
+      - userId
+      type: object
+    KobilLoginRequest:
+      properties:
+        pin:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+      required:
+      - pin
+      - tenantId
+      - userId
+      type: object
+    KobilOtpResponse:
+      properties:
+        otp:
+          type: string
+      required:
+      - otp
+      type: object
+    KobilPinReleaseRequest:
+      properties:
+        unlock:
+          oneOf:
+          - $ref: '#/components/schemas/BiometricUnlock'
+          - $ref: '#/components/schemas/PasswordUnlock'
+      required:
+      - unlock
+      type: object
+    KobilRiskSimulationRequest:
+      properties:
+        risks:
+          items:
+            enum:
+            - ROOTED
+            - EMULATOR
+            - DEBUGGER_ATTACHED
+            - APP_TAMPERED
+            - OS_OUTDATED
+            type: string
+          type: array
+        tenantId:
+          type: string
+        userId:
+          type: string
+      required:
+      - risks
+      - tenantId
+      - userId
+      type: object
+    KobilUnlockCredential:
+      discriminator:
+        propertyName: kind
+      properties:
+        kind:
+          type: string
+        userVerification:
+          enum:
+          - PIN
+          - BIOMETRIC
+          type: string
+      required:
+      - kind
+      type: object
+    MethodsResponse:
+      description: 'The account''s active authentication methods (docs/05-api.md #2). Never contains fsc.'
+      properties:
+        methods:
+          items:
+            $ref: '#/components/schemas/ActiveMethodView'
+          type: array
+      required:
+      - methods
+      type: object
+    MgmtPasswordSetRequest:
+      properties:
+        newPassword:
+          type: string
+      type: object
+    MgmtPasswordVerifyRequest:
+      properties:
+        password:
+          type: string
+      type: object
+    MgmtPasswordVerifyResponse:
+      properties:
+        valid:
+          type: boolean
+      required:
+      - valid
+      type: object
+    Next:
+      properties:
+        context:
+          example: authentication
+          type: string
+        step:
+          example: auth
+          type: string
+        toolId:
+          example: auth-sms
+          type: string
+        toolSessionId:
+          format: uuid
+          type: string
+        type:
+          example: tool
+          type: string
+      required:
+      - step
+      - type
+      type: object
+    PasswordUnlock:
+      allOf:
+      - $ref: '#/components/schemas/KobilUnlockCredential'
+      - properties:
+          password:
+            type: string
+        type: object
+      required:
+      - password
+      - userVerification
+    RegistrationOrderState:
+      properties:
+        enrollFirst:
+          type: boolean
+      required:
+      - enrollFirst
+      type: object
+    RestoreDataResponse:
+      description: The channel's current RestoreData, signed - null if there is nothing worth restoring yet.
+      properties:
+        restoreData:
+          type: string
+      type: object
+    TokenResponse:
+      description: Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification
+        needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's
+        a credential and stays server-side; refreshExpiresAt is the only thing about it exposed.
+      properties:
+        accessExpiresAt:
+          example: '2026-08-28T18:05:00Z'
+          format: date-time
+          type: string
+        accessToken:
+          example: eyJhbGciOiJub25lIn0.eyJzdWIiOiI0MiIsImFjciI6ImxvYTIiLCJhbXIiOlsic21zIl19.
+          type: string
+        refreshExpiresAt:
+          example: '2026-08-29T18:00:00Z'
+          format: date-time
+          type: string
+        tokenType:
+          type: string
+      required:
+      - accessExpiresAt
+      - accessToken
+      - refreshExpiresAt
+      type: object
+    ToolAvailabilityEntry:
+      properties:
+        enabled:
+          example: true
+          type: boolean
+        method:
+          example: sms
+          type: string
+        reason:
+          example: Wartungsfenster bis 18 Uhr
+          type: string
+        toolId:
+          example: auth-sms
+          type: string
+      required:
+      - enabled
+      - method
+      - toolId
+      type: object
+    ToolAvailabilityPutRequest:
+      properties:
+        enabled:
+          example: false
+          type: boolean
+        reason:
+          example: Wartungsfenster bis 18 Uhr
+          type: string
+      required:
+      - enabled
+      type: object
+    ToolCatalogEntry:
+      properties:
+        method:
+          example: sms
+          type: string
+        role:
+          example: IDENTIFIED_AUTH
+          type: string
+        toolId:
+          example: auth-sms
+          type: string
+      required:
+      - method
+      - role
+      - toolId
+      type: object
+  securitySchemes:
+    dpop:
+      description: DPoP proof JWT (docs/09-dpop.md); required on every App-facade call.
+      in: header
+      name: DPoP
+      type: apiKey
+info:
+  description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
+    the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
+  title: DPoP-Demo Orchestrator API
+  version: v1
+openapi: 3.1.0
+paths:
+  /mock-keycloak/.well-known/jwks.json:
+    get:
+      operationId: jwks
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: object
+                type: object
+          description: OK
+      summary: The mock's public key, in the shape kc.peer-auth.jwks-uri expects
+      tags:
+      - Mock Keycloak
+  /mock-keycloak/signing-key:
+    get:
+      description: Real Keycloak never exposes this; the Mock-Keycloak frontend fetches it once to sign peer-auth assertions
+        client-side, standing in for the real Authenticator SPI plugin.
+      operationId: signingKey
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: object
+                type: object
+          description: OK
+      summary: The mock's PRIVATE signing key - demo/test only
+      tags:
+      - Mock Keycloak
+  /mock-kobil/activate:
+    post:
+      description: Binds this device to the user and creates the device identifier. The activation code is spent in the process.
+      operationId: activate_21
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KobilActivateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+      summary: MC SDK ActivateEvent
+      tags:
+      - Mock KOBIL
+  /mock-kobil/login:
+    post:
+      description: Checks the device, files an assertion, and returns only the one-time password that points at it. The assertion
+        itself never reaches the caller.
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KobilLoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/KobilOtpResponse'
+          description: OK
+      summary: MC SDK LoginEvent
+      tags:
+      - Mock KOBIL
+  /mock-kobil/simulate-risk:
+    post:
+      description: Has no counterpart in the real product. Without it the risk-rejection path would only ever be reachable
+        from a test.
+      operationId: simulateRisk
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KobilRiskSimulationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: object
+                type: object
+          description: OK
+      summary: 'Demo switch: what this device''s sensors report from now on'
+      tags:
+      - Mock KOBIL
+  /orchestrator/api/v1/admin/registration-order:
+    get:
+      operationId: get
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RegistrationOrderState'
+          description: OK
+      summary: Current REGISTER order
+      tags:
+      - 'Admin: registration order'
+    put:
+      description: Takes effect for the next brand-new REGISTER journey - a running one keeps whichever order it started with.
+      operationId: put_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationOrderState'
+        required: true
+      responses:
+        '200':
+          description: OK
+      summary: Set REGISTER order
+      tags:
+      - 'Admin: registration order'
+  /orchestrator/api/v1/admin/tools/availability:
+    get:
+      operationId: list
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+              - enabled: true
+                method: sms
+                reason: null
+                toolId: auth-sms
+              - enabled: true
+                method: sms
+                reason: null
+                toolId: enroll-sms
+              - enabled: false
+                method: device
+                reason: Wartungsfenster bis 18 Uhr
+                toolId: auth-device
+              schema:
+                items:
+                  $ref: '#/components/schemas/ToolAvailabilityEntry'
+                type: array
+          description: OK
+      summary: List every catalog tool with its current backend-enabled state
+      tags:
+      - 'Admin: tool availability'
+  /orchestrator/api/v1/admin/tools/{toolId}/availability:
+    put:
+      description: Takes effect on the next step computed for any channel - no restart needed.
+      operationId: put
+      parameters:
+      - in: path
+        name: toolId
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolAvailabilityPutRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+      summary: Enable or disable a tool
+      tags:
+      - 'Admin: tool availability'
+  /orchestrator/api/v1/app/channels:
+    post:
+      description: 'Always mints a brand-new ChannelSession for this DPoP-bound device (docs/02-domaenenmodell.md #3: the
+        key proves the device, never a lookup key for resuming a session - use GET with a remembered channelSessionId to resume).
+        A device that was already registered still gets offered LOGIN, not a fresh ident-fsc. To end a previous session first
+        (logout), call DELETE on it before this.'
+      operationId: createChannel
+      parameters:
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  context: registration
+                  step: selectIdentificationMethod
+                  type: orchestrator
+                stepData:
+                  options:
+                  - ident-fsc
+                  - ident-eid
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: New channel - an unrecognized device lands on the identification choice.
+      security:
+      - dpop: [
+          ]
+      summary: Create a new App channel
+      tags:
+      - App channels
+  /orchestrator/api/v1/app/channels/device-link:
+    get:
+      description: 'A pure read (docs/02-domaenenmodell.md #1) - no channel/journey created, just the same DPoP proof every
+        other App-facade call already needs. Lets the entry screen show whose device this is before the user picks how to
+        start.'
+      operationId: getDeviceLink
+      parameters:
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DeviceLinkResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Whether this device is already linked to an account
+      tags:
+      - App channels
+  /orchestrator/api/v1/channels/{channelSessionId}:
+    delete:
+      description: 'Ends this channel for good (docs/02-domaenenmodell.md #3: AUTHENTICATED -> LOGGED_OUT, terminal) - cancels
+        any active process and discards the AuthContext. For interactive clients prefer POST .../logouts which shows a confirmation
+        prompt first. Never resumes on this channelSessionId afterwards; call POST .../channels again for a new session (a
+        known device still skips straight to LOGIN there).'
+      operationId: logout
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Logged out - no body.
+      security:
+      - dpop: [
+          ]
+      summary: Log out (direct, no confirmation)
+      tags:
+      - Channels
+    get:
+      description: 'The guaranteed resume entry point (docs/05-api.md #2): next always reflects the currently due step.'
+      operationId: getChannel
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-sms
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Resumed mid-step-up, waiting on an SMS TAN.
+      security:
+      - dpop: [
+          ]
+      summary: Read the current channel state
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/account-deletions:
+    post:
+      description: Channel must already be AUTHENTICATED. Starts an unconditional yes/no confirmation (next.context=prompt,
+        next.step=confirm, stepData.prompt - the same generic address every AnswerableState uses) that always comes FIRST,
+        before anything else is checked. Only once accepted does the loa2 gate apply (a step-up first if not yet reached);
+        if that gate needed a step-up, its own fresh proof is enough and deletion follows immediately, otherwise one more
+        fresh re-proof of any active factor is required - never skipped just because the session already carried loa2. On
+        success the account and everything it owns is hard-deleted, every ChannelSession it was ever bound to is logged out
+        server-side, and this response's channel.state is LOGGED_OUT with no next, exactly like a plain logout.
+      operationId: deleteAccount
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: AUTHENTICATED
+                next:
+                  context: prompt
+                  step: confirm
+                  type: orchestrator
+                stepData:
+                  prompt:
+                    '@t': Confirm
+                    cancelLabel: Abbrechen
+                    confirmLabel: Account löschen
+                    destructive: true
+                    title: Account wirklich löschen?
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Confirmation prompt for the account deletion.
+      security:
+      - dpop: [
+          ]
+      summary: Delete the account of an already authenticated channel
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/answer:
+    post:
+      description: 'Generic answer endpoint for any state that pauses for an explicit yes/no instead of a tool run (next.context=prompt,
+        next.step=confirm, stepData.prompt) - the optional device-binding offer right after a lookup login, the account-deletion
+        confirmation, and any future one alike, all through this same address, answer="accept"/"decline". For device binding
+        specifically: agreeing is the ONLY way such a login ever makes this device recognizable for future logins - it never
+        happens as a side effect, because this intent is chosen precisely by people who want no device binding.'
+      operationId: answer
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Device binding accepted after a lookup login - journey settles into authenticated.
+      security:
+      - dpop: [
+          ]
+      summary: Answer whatever the current step is waiting on
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/attributes/{attribute}:
+    delete:
+      description: 'Sibling of the methods endpoint, for what is NOT a credential: an account-owned fact, today only the confirmed
+        address (`email`). Same gate, and the same refusal (409) when the consequences would drop the account below this channel''s
+        required level - consequences being the point: every credential that required the attribute is withdrawn with it,
+        transitively. Removing the address therefore also removes a password enrolled against it, and a KOBIL binding that
+        in turn required that password.'
+      operationId: retractAttribute
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: attribute
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - fsc
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: The address was withdrawn; nothing required it.
+      security:
+      - dpop: [
+          ]
+      summary: Withdraw a confirmed account attribute
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/enrollments:
+    post:
+      description: Channel must already be AUTHENTICATED. Offers AuthPolicy.enrollmentCandidates via the existing enroll-*
+        tools, unchanged; finishing does not require reaching any particular level - one successful enrollment ends this and
+        returns to AUTHENTICATED. Call again to add another.
+      operationId: manageMethods
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - sms
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  context: enrollment
+                  step: selectMethod
+                  type: orchestrator
+                stepData:
+                  options:
+                  - enroll-device
+                  - confirm-email
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Already AUTHENTICATED with sms+password - offered the still-missing methods.
+      security:
+      - dpop: [
+          ]
+      summary: Voluntarily add another authentication method
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/idclaims:
+    get:
+      description: Business-facing claims (accountId/personId/name/email/acr/amr/auth_time) - a separate resource from the
+        AccessToken's own claims, not encoded into it. name is the one place the client learns who is logged in (docs/05-api.md).
+      operationId: getIdClaims
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                accountId: 42
+                acr: loa2
+                amr:
+                - sms
+                - password
+                auth_time: 1798567890
+                email: max.mustermann@example.com
+                name: Max Muster
+                personId: 7
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Get the fachliche ID-token claims
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/journey:
+    delete:
+      description: Abandons the currently running AuthJourney, whatever intent started it; the response already offers a fresh
+        start where applicable.
+      operationId: cancel
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: input
+                  toolId: ident-fsc
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: A cancelled REGISTER journey restarts the same entry intent from scratch.
+      security:
+      - dpop: [
+          ]
+      summary: Cancel the current journey
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/journey-log:
+    get:
+      description: Every journey step ever recorded under this channel's OWN account, across every channel (APP or KEYCLOAK
+        alike) that account was ever authenticated on - not just this one. Empty, not an error, when this channel has no account
+        bound yet.
+      operationId: getJourneyLog_1
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/JourneyLogResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read this channel's account's journey log
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/logouts:
+    post:
+      description: Channel must already be AUTHENTICATED. Starts a LOGOUT journey with a confirmation prompt (next.context=prompt,
+        next.step=confirm, stepData.prompt). On accept (via POST .../answer) the channel ends for good (AUTHENTICATED -> LOGGED_OUT,
+        terminal). On decline the channel stays AUTHENTICATED. Analogous to POST .../account-deletions.
+      operationId: startLogout
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Confirmation prompt for the logout.
+      security:
+      - dpop: [
+          ]
+      summary: Start a confirmed logout
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/methods:
+    get:
+      description: 'The methods collection as a real readable resource - identical data to ChannelResponse''s activeMethods
+        (docs/05-api.md #2), just addressable on its own. Never includes fsc (identification lives in the identification audit
+        log, not authenticationMethods). Empty list, not an error, when no account is known yet for this channel.'
+      operationId: getMethods
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                methods:
+                - id: 7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b
+                  method: sms
+                - id: b2d4f6a8-1c3e-4a5b-9d7f-8e0a1b2c3d4e
+                  label: Laptop
+                  method: device
+              schema:
+                $ref: '#/components/schemas/MethodsResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the account's active authentication methods
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/methods/{methodInstanceId}:
+    delete:
+      description: Channel must already be AUTHENTICATED and the instance currently active. Addressed by its own id (GET .../methods),
+        never by method name - a method can have several active instances (e.g. multiple devices). Rejected (409) if removing
+        it would drop the account below this channel's own required level.
+      operationId: deactivateMethod
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: methodInstanceId
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  activeMethods:
+                  - id: 7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b
+                    method: password
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: The sms method instance was removed - password alone still satisfies loa1.
+      security:
+      - dpop: [
+          ]
+      summary: Deactivate an authentication method instance
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/peer-logins:
+    post:
+      description: Channel must already be AUTHENTICATED (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN). Same AuthIntent.CONFIRM_PEER_LOGIN
+        as the cold-entry path via POST /app/channels - gates on loa2 (step-up offered first if below it), then offers confirm-qr-login
+        as the one candidate.
+      operationId: confirmPeerLogin
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: input
+                  toolId: confirm-qr-login
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Already at loa2 - confirm-qr-login offered directly.
+      security:
+      - dpop: [
+          ]
+      summary: Confirm a WEB-channel QR login from this already-authenticated APP channel
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/step-ups:
+    post:
+      description: 'The App channel''s step-up trigger (docs/05-api.md #9). Only raises, never lowers.'
+      operationId: raiseRequiredAcr
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelPatchRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  context: auth
+                  step: selectMethod
+                  type: orchestrator
+                stepData:
+                  options:
+                  - auth-sms
+                  - auth-password
+                  - auth-device
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: loa3 requested, current evidence (loa2) doesn't satisfy it - offers the candidate methods.
+      security:
+      - dpop: [
+          ]
+      summary: Raise the channel's required ACR floor
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/token:
+    get:
+      description: 'Covers both first issuance and refresh - call this again whenever a fresh token might be needed. minValiditySeconds
+        (default 15) is the caller''s tolerance: if the current AccessToken still has at least that much life left, it comes
+        back unchanged; otherwise the backend mints a new one (silently using the remembered RefreshToken where possible).
+        The RefreshToken value itself is never returned - it''s a credential and stays server-side.'
+      operationId: getToken
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: minValiditySeconds
+        required: false
+        schema:
+          default: 15
+          format: int64
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                accessExpiresAt: '2026-08-28T18:05:00Z'
+                accessToken: eyJhbGciOiJub25lIn0.eyJzdWIiOiI0MiIsImFjciI6ImxvYTIiLCJhbXIiOlsic21zIl19.
+                refreshExpiresAt: '2026-08-29T18:00:00Z'
+                tokenType: Bearer
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Get the mock Keycloak AccessToken
+      tags:
+      - Channels
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-device:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_20
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: ANONYMOUS
+                next:
+                  step: auth
+                  toolId: auth-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-device
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-email:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_18
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-email
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-email
+      tags:
+      - 'Tool: E-Mail'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-email-lookup:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_19
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: auth
+                  toolId: auth-email-lookup
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-email-lookup
+      tags:
+      - 'Tool: E-Mail'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-kobil:
+    post:
+      operationId: activate_17
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: ANONYMOUS
+                next:
+                  step: unlock
+                  toolId: auth-kobil
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+                stepData:
+                  unlockOptions:
+                  - biometric
+                  - password
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-kobil
+      tags:
+      - 'Tool: KOBIL'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_15
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-password
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-password
+      tags:
+      - 'Tool: Passwort'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password-lookup:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_16
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: auth
+                  toolId: auth-password-lookup
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-password-lookup
+      tags:
+      - 'Tool: Passwort'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-qr:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_13
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-qr
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-qr-lookup:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_14
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-qr-lookup
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_11
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-sms
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-sms
+      tags:
+      - 'Tool: SMS'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms-lookup:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_12
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: auth
+                  toolId: auth-sms-lookup
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate auth-sms-lookup
+      tags:
+      - 'Tool: SMS'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-email:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_10
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: input
+                  toolId: confirm-email
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate confirm-email
+      tags:
+      - 'Tool: E-Mail'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-qr-login:
+    post:
+      description: 'Optional body: {pairingCode}, when already known (e.g. from a demo-link deep link) - skips the input step.'
+      operationId: activate_9
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmQrLoginActivateRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Activate confirm-qr-login
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-device:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_8
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  step: enroll
+                  toolId: enroll-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-device
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-email:
+    post:
+      description: 'One shot: no request body, and the response already carries the completed outcome.'
+      operationId: activate_7
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: done
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-email
+      tags:
+      - 'Tool: E-Mail-Login'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-kobil:
+    post:
+      description: Provisions the KOBIL user and returns everything the app's SDK needs for its activation call - including
+        the PIN, which this backend mints and keeps.
+      operationId: activate_6
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - fsc
+                  state: AUTHENTICATED
+                next:
+                  step: activate
+                  toolId: enroll-kobil
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+                stepData:
+                  activationCode: K7M2PQX9
+                  kobilUserId: kob-1a2b3c4d5e6f
+                  missingFields:
+                  - activated
+                  - biometricConsent
+                  pin: '40318827'
+                  tenantId: dpop-demo
+                  unlockSecret: xE1r...
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-kobil
+      tags:
+      - 'Tool: KOBIL'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-password:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_5
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: enroll
+                  toolId: enroll-password
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-password
+      tags:
+      - 'Tool: Passwort'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-qr:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_4
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-qr
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-sms:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_3
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: enroll
+                  toolId: enroll-sms
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate enroll-sms
+      tags:
+      - 'Tool: SMS'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-eid:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_2
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: card
+                  toolId: ident-eid
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate ident-eid
+      tags:
+      - 'Tool: eID'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-fsc:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate_1
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: input
+                  toolId: ident-fsc
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate ident-fsc
+      tags:
+      - 'Tool: Freischaltcode'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-kvnr:
+    post:
+      description: 'No request body: toolId already carries kind and method.'
+      operationId: activate
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: input
+                  toolId: ident-kvnr
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+      security:
+      - dpop: [
+          ]
+      summary: Activate ident-kvnr
+      tags:
+      - 'Tool: Versichertennummer'
+  /orchestrator/api/v1/journey-log:
+    get:
+      description: Every journey step ever recorded under the caller's own bindingKeyRef, newest first - across all channelSessionIds
+        this device ever created.
+      operationId: getJourneyLog
+      parameters:
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/JourneyLogResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read this device's journey log
+      tags:
+      - Journey log
+  /orchestrator/api/v1/kc/channels/{channelSessionId}:
+    patch:
+      description: 'Upsert semantics (docs/05-api.md Abschnitt 3): creates the channel on first call under this Keycloak-chosen
+        id, just resumes it on every later one - idempotent by construction, no separate create-then-resume round trip. accountId/targetAcr
+        are only meaningful on step-up.'
+      operationId: upsertChannel
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KcChannelUpsertRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  context: auth
+                  step: selectMethod
+                  type: orchestrator
+                stepData:
+                  options:
+                  - ident-fsc
+                  - auth-password
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: First call for a fresh Keycloak flow run - offers every kc-usable method.
+      security:
+      - kc-peer-auth: [
+          ]
+      summary: Upsert a kc channel and advance its journey
+      tags:
+      - KC channels
+  /orchestrator/api/v1/kc/channels/{channelSessionId}/restore-data:
+    get:
+      description: For the Authenticator's end-of-flow lifecycle hook only (docs/ideen/docs/05-api.md Abschnitt 3) - reads
+        back what this channel accumulated, to stash in a Keycloak UserSessionModel note and resubmit at a later flow's start.
+        kcSessionId is passed explicitly (not read off the channel's own anchor) because the returned token must remain valid
+        across the flow-run boundary the channel itself does not survive - a fresh channel next flow run, but the very same
+        UserSessionModel id.
+      operationId: getRestoreData
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: kcSessionId
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RestoreDataResponse'
+          description: OK
+      security:
+      - kc-peer-auth: [
+          ]
+      summary: Fetch this channel's signed RestoreData
+      tags:
+      - KC channels
+  /orchestrator/api/v1/tools/auth-password/mgmt/{accountId}:
+    post:
+      operationId: verify
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MgmtPasswordVerifyRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MgmtPasswordVerifyResponse'
+          description: OK
+      security:
+      - kc-peer-auth: [
+          ]
+      summary: Verify a candidate password against the account's stored credential
+      tags:
+      - KC password management
+  /orchestrator/api/v1/tools/catalog:
+    get:
+      description: No auth, no channel required - purely descriptive.
+      operationId: catalog
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+              - method: fsc
+                role: IDENTIFICATION
+                toolId: ident-fsc
+              - method: sms
+                role: ENROLLMENT
+                toolId: enroll-sms
+              - method: sms
+                role: IDENTIFIED_AUTH
+                toolId: auth-sms
+              - method: sms
+                role: LOOKUP_AUTH
+                toolId: auth-sms-lookup
+              schema:
+                items:
+                  $ref: '#/components/schemas/ToolCatalogEntry'
+                type: array
+          description: OK
+      summary: List every registered tool
+      tags:
+      - Tool catalog
+  /orchestrator/api/v1/tools/enroll-password/mgmt/{accountId}:
+    post:
+      operationId: set
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MgmtPasswordSetRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+      security:
+      - kc-peer-auth: [
+          ]
+      summary: Replace the account's password credential with a new one
+      tags:
+      - KC password management
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-device:
+    get:
+      operationId: read_19
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: ANONYMOUS
+                next:
+                  step: auth
+                  toolId: auth-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-device state
+      tags:
+      - 'Tool: Gerät'
+    patch:
+      description: Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after
+        the user confirms the mocked PIN/biometric prompt.
+      operationId: patch_19
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceProofPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - device
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm device authentication
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-email:
+    get:
+      operationId: read_17
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-email
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-email state
+      tags:
+      - 'Tool: E-Mail'
+    patch:
+      operationId: patch_17
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthEmailPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - password
+                  - email
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm the code sent to the account's confirmed email address
+      tags:
+      - 'Tool: E-Mail'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-email-lookup:
+    get:
+      operationId: read_18
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: codeInput
+                  toolId: auth-email-lookup
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-email-lookup state
+      tags:
+      - 'Tool: E-Mail'
+    patch:
+      description: First call with email resolves the account and triggers the confirmation code send; a second call with
+        code confirms it.
+      operationId: patch_18
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthEmailLookupPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                After code - logged in, device-binding offer:
+                  description: After code - logged in, device-binding offer
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      currentAcr: loa1
+                      currentAmr:
+                      - email
+                      state: AUTHENTICATED
+                    next:
+                      context: authentication
+                      step: offerDeviceBinding
+                      type: orchestrator
+                After email - code sent:
+                  description: After email - code sent
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    demo:
+                      tan: '123456'
+                    next:
+                      step: codeInput
+                      toolId: auth-email-lookup
+                      toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                      type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply email, then code
+      tags:
+      - 'Tool: E-Mail'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-kobil:
+    get:
+      operationId: read_16
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-kobil state
+      tags:
+      - 'Tool: KOBIL'
+    patch:
+      description: The backend fetches the assertion behind the OTP from KOBIL, compares the device identifier with the enrolled
+        one and checks the reported risks.
+      operationId: patch_16
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthKobilPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - kobil
+                  - biometric
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Redeem the one-time password
+      tags:
+      - 'Tool: KOBIL'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-kobil/pin-releases:
+    post:
+      description: The app presents either the locally stored unlock secret (guarded by its biometric prompt) or the account
+        password. The PIN is in this response and nowhere else - a later GET will not return it again.
+      operationId: releasePin
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KobilPinReleaseRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Not released - an ordinary retryable failure, deliberately not an error status
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: ANONYMOUS
+                next:
+                  step: otp
+                  toolId: auth-kobil
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+                stepData:
+                  kobilPin: '40318827'
+                  kobilUserId: kob-1a2b3c4d5e6f
+                  missingFields:
+                  - otp
+                  tenantId: dpop-demo
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Released
+      security:
+      - dpop: [
+          ]
+      summary: Release the backend-held PIN
+      tags:
+      - 'Tool: KOBIL'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-password:
+    get:
+      operationId: read_14
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-password
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-password state
+      tags:
+      - 'Tool: Passwort'
+    patch:
+      operationId: patch_14
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthPasswordPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - sms
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm the password against the account's enrolled credential
+      tags:
+      - 'Tool: Passwort'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup:
+    get:
+      operationId: read_15
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: auth
+                  toolId: auth-password-lookup
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-password-lookup state
+      tags:
+      - 'Tool: Passwort'
+    patch:
+      operationId: patch_15
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthPasswordLookupPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: offerDeviceBinding
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Correct email+password - logged in, offered the optional device-binding.
+      security:
+      - dpop: [
+          ]
+      summary: Supply email and password together (self-verifying, single call)
+      tags:
+      - 'Tool: Passwort'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-qr:
+    get:
+      operationId: read_12
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-qr state
+      tags:
+      - 'Tool: QR-Login'
+    patch:
+      description: No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen).
+      operationId: patch_12
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Poll for the APP side's decision
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-qr-lookup:
+    get:
+      operationId: read_13
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-qr-lookup state
+      tags:
+      - 'Tool: QR-Login'
+    patch:
+      description: No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen).
+      operationId: patch_13
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Poll for the APP side's decision
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-sms:
+    get:
+      operationId: read_10
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  step: auth
+                  toolId: auth-sms
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-sms state
+      tags:
+      - 'Tool: SMS'
+    patch:
+      operationId: patch_10
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthSmsPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - password
+                  - sms
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Correct TAN - the step-up is satisfied, channel settles into authenticated.
+      security:
+      - dpop: [
+          ]
+      summary: Confirm the TAN sent to the account's enrolled phone number
+      tags:
+      - 'Tool: SMS'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-sms-lookup:
+    get:
+      operationId: read_11
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: tanInput
+                  toolId: auth-sms-lookup
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current auth-sms-lookup state
+      tags:
+      - 'Tool: SMS'
+    patch:
+      description: First call with email resolves the account and triggers the TAN send; a second call with tan confirms it.
+      operationId: patch_11
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthSmsLookupPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                After email - TAN sent:
+                  description: After email - TAN sent
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    demo:
+                      tan: '123456'
+                    next:
+                      step: tanInput
+                      toolId: auth-sms-lookup
+                      toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                      type: tool
+                After tan - logged in, device-binding offer:
+                  description: After tan - logged in, device-binding offer
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      currentAcr: loa1
+                      currentAmr:
+                      - sms
+                      state: AUTHENTICATED
+                    next:
+                      context: authentication
+                      step: offerDeviceBinding
+                      type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply email, then TAN
+      tags:
+      - 'Tool: SMS'
+  /orchestrator/api/v1/tools/{toolSessionId}/confirm-email:
+    get:
+      operationId: read_9
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: codeInput
+                  toolId: confirm-email
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current confirm-email state
+      tags:
+      - 'Tool: E-Mail'
+    patch:
+      description: First call with email triggers the code send; a second call with code confirms it.
+      operationId: patch_9
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                After code - confirmed, chain continues:
+                  description: After code - confirmed, chain continues
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      context: enrollment
+                      step: selectMethod
+                      type: orchestrator
+                    stepData:
+                      options:
+                      - enroll-password
+                After email - code sent:
+                  description: After email - code sent
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    demo:
+                      tan: '123456'
+                    next:
+                      step: codeInput
+                      toolId: confirm-email
+                      toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                      type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply email, then the confirmation code
+      tags:
+      - 'Tool: E-Mail'
+  /orchestrator/api/v1/tools/{toolSessionId}/confirm-qr-login:
+    get:
+      operationId: read_8
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current confirm-qr-login state
+      tags:
+      - 'Tool: QR-Login'
+    patch:
+      description: 'First call: {pairingCode}. Once resolved: {decision: accept|reject}.'
+      operationId: patch_8
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmQrLoginPatchRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply the pairing code, then the accept/reject decision
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-device:
+    get:
+      operationId: read_7
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  currentAmr:
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  step: enroll
+                  toolId: enroll-device
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-device state
+      tags:
+      - 'Tool: Gerät'
+    patch:
+      description: Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after
+        the user confirms the mocked PIN/biometric prompt.
+      operationId: patch_7
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceProofPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - password
+                  - device
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm device enrollment
+      tags:
+      - 'Tool: Gerät'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-email:
+    get:
+      operationId: read_20
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-email state
+      tags:
+      - 'Tool: E-Mail-Login'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-kobil:
+    get:
+      operationId: read_6
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-kobil state
+      tags:
+      - 'Tool: KOBIL'
+    patch:
+      description: Records the credential once KOBIL reports a bound device for this user.
+      operationId: patch_6
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollKobilPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - fsc
+                  - kobil
+                  - biometric
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm the KOBIL activation
+      tags:
+      - 'Tool: KOBIL'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-password:
+    get:
+      operationId: read_5
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: enroll
+                  toolId: enroll-password
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-password state
+      tags:
+      - 'Tool: Passwort'
+    patch:
+      description: The credential is self-verifying, no separate confirmation step.
+      operationId: patch_5
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollPasswordPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa2
+                  currentAmr:
+                  - email
+                  - password
+                  state: AUTHENTICATED
+                next:
+                  context: authentication
+                  step: authenticated
+                  type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply the password
+      tags:
+      - 'Tool: Passwort'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-qr:
+    get:
+      operationId: read_4
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-qr state
+      tags:
+      - 'Tool: QR-Login'
+    patch:
+      description: No request body - the call itself is the confirmation.
+      operationId: patch_4
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Confirm the opt-in
+      tags:
+      - 'Tool: QR-Login'
+  /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms:
+    get:
+      operationId: read_3
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: tanInput
+                  toolId: enroll-sms
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current enroll-sms state
+      tags:
+      - 'Tool: SMS'
+    patch:
+      description: First call with phoneNumber triggers the TAN send; a second call with tan confirms it.
+      operationId: patch_3
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollSmsPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                After phoneNumber - TAN sent:
+                  description: After phoneNumber - TAN sent
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    demo:
+                      tan: '123456'
+                    next:
+                      step: tanInput
+                      toolId: enroll-sms
+                      toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                      type: tool
+                After tan - enrolled, chain continues:
+                  description: After tan - enrolled, chain continues
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      context: enrollment
+                      step: selectMethod
+                      type: orchestrator
+                    stepData:
+                      options:
+                      - confirm-email
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply phone number, then TAN
+      tags:
+      - 'Tool: SMS'
+  /orchestrator/api/v1/tools/{toolSessionId}/ident-eid:
+    get:
+      operationId: read_2
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: card
+                  toolId: ident-eid
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current ident-eid state
+      tags:
+      - 'Tool: eID'
+    patch:
+      description: Only the fields for the current step need to be sent; all of them together also completes in one call.
+      operationId: patch_2
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentEidPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                After card data - pin step:
+                  description: After card data - pin step
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      step: pin
+                      toolId: ident-eid
+                      toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                      type: tool
+                After pin - attested, the assignment question follows:
+                  description: After pin - attested, the assignment question follows
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      context: prompt
+                      step: confirm
+                      type: orchestrator
+                    stepData:
+                      prompt:
+                        title: Konto Ihrer Versichertennummer zuordnen?
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply the simulated card's Ausweisdaten, then the PIN
+      tags:
+      - 'Tool: eID'
+  /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc:
+    get:
+      operationId: read_1
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: input
+                  toolId: ident-fsc
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current ident-fsc state
+      tags:
+      - 'Tool: Freischaltcode'
+    patch:
+      description: Only the fields being supplied or corrected need to be sent; all four together also resolves in one call.
+      operationId: patch_1
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentFscPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  context: enrollment
+                  step: selectMethod
+                  type: orchestrator
+                stepData:
+                  options:
+                  - enroll-sms
+                  - enroll-device
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Identified - the journey now chains toward the required loa2 (2nd factor + confirmed email).
+      security:
+      - dpop: [
+          ]
+      summary: Supply KVNR/name/vorname/FSC
+      tags:
+      - 'Tool: Freischaltcode'
+  /orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr:
+    get:
+      operationId: read
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Read the current ident-kvnr state
+      tags:
+      - 'Tool: Versichertennummer'
+    patch:
+      operationId: patch
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentKvnrPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                Assigned - the run finishes:
+                  description: Assigned - the run finishes
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      context: enrollment
+                      step: selectMethod
+                      type: orchestrator
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+      security:
+      - dpop: [
+          ]
+      summary: Supply the Versichertennummer
+      tags:
+      - 'Tool: Versichertennummer'
+  /orchestrator/api/v1/tools/{toolSessionId}/{toolId}:
+    delete:
+      description: Moves the journey on according to the state it is standing on - to the next fallback option, back to the
+        selection step, or to the end of the journey if nothing else could be offered.
+      operationId: switchAway
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: toolId
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: bindingKeyRef
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  currentAcr: loa1
+                  state: STEP_UP_IN_PROGRESS
+                next:
+                  context: auth
+                  step: selectMethod
+                  type: orchestrator
+                stepData:
+                  options:
+                  - auth-password
+                  - auth-device
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: auth-sms abandoned during a fallback chain - offers the other loa2 candidates.
+      security:
+      - dpop: [
+          ]
+      summary: Abandon this tool attempt
+      tags:
+      - Tools
+tags:
+- description: Operator kill-switch for individual tools - no auth guard yet (demo scope)
+  name: 'Admin: tool availability'
+- description: Facade-neutral channel resource - shared by every facade that creates one
+  name: Channels
+- description: Gerätebindung über den externen Dienstleister KOBIL
+  name: 'Tool: KOBIL'
+- description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
+  name: 'Tool: Gerät'
+- description: KVNR/name/vorname/FSC identification
+  name: 'Tool: Freischaltcode'
+- description: The full set of registered tools, independent of any journey
+  name: Tool catalog
+- description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
+  name: 'Tool: QR-Login'
+- description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: SMS'
+- description: Abandoning an activated tool (Back/Switch)
+  name: Tools
+- description: Toggle between ident-first and enroll-first REGISTER - no auth guard yet (demo scope)
+  name: 'Admin: registration order'
+- description: Simulated eID card read, then PIN - attests what the card shows
+  name: 'Tool: eID'
+- description: Simuliertes KOBIL-Backend - kein Endpunkt dieser Anwendung, sondern der Fremddienst
+  name: Mock KOBIL
+- description: Stateless password verify/set for Keycloak's native credential
+  name: KC password management
+- description: Reichhaltiges, nach bindingKeyRef abrufbares Journey-Log (Debug/Demo, kein Audit-Trail)
+  name: Journey log
+- description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: Passwort'
+- description: Demo-only signing key for the Mock-Keycloak frontend - not a real Keycloak endpoint
+  name: Mock Keycloak
+- description: The App facade's own endpoints - channel creation and the device-link read
+  name: App channels
+- description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
+  name: 'Tool: E-Mail'
+- description: Activates the account's confirmed address as an authentication method
+  name: 'Tool: E-Mail-Login'
+- description: Ordnet eine bereits bezeugte Identität der Registerperson zu
+  name: 'Tool: Versichertennummer'
+- description: The kc facade's one facade-specific endpoint - upsert channel + advance journey
+  name: KC channels

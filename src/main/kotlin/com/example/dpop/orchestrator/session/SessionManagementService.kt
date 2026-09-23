@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -8,6 +8,7 @@ import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.orchestrator.kernel.AcrLevels
 
 @Service
 @Transactional
@@ -168,4 +169,12 @@ class SessionManagementService(
     private fun hashPayload(payload: String): String =
         MessageDigest.getInstance("SHA-256").digest(payload.toByteArray())
             .joinToString("") { "%02x".format(it) }
+
+    /**
+     * Every channel this account was ever bound to - the ids the journey log needs to show an
+     * account's whole trace. Resolved here rather than in `journeylog` itself, so the log stays a
+     * trace that reads no session tables (see `journeylog.LoggedChannel`).
+     */
+    fun findChannelSessionIdsForAccount(accountId: Long): List<UUID> =
+        channelSessionRepository.findByAccountId(accountId).mapNotNull { it.channelSessionId }
 }

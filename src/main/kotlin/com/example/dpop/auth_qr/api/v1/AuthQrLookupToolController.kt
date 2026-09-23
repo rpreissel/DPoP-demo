@@ -26,7 +26,7 @@ private const val AUTH_QR_LOOKUP_TOOL_ID = "auth-qr-lookup"
  * dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: QR-Login", description = "Passwordless login: confirmed from an unrelated app, account unknown to WEB until then")
+@Tag(name = "Tool: QR-Login")
 @SecurityRequirement(name = "dpop")
 class AuthQrLookupToolController(
     private val handler: AuthQrLookupToolHandler,

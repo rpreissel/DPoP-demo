@@ -43,7 +43,7 @@ data class DeviceProofPatchRequest(
  * generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Gerät", description = "Device-key based enrollment (gerätebindung)")
+@Tag(name = "Tool: Gerät")
 @SecurityRequirement(name = "dpop")
 class EnrollDeviceToolController(
     private val deviceProofs: DeviceProofs,
@@ -58,7 +58,7 @@ class EnrollDeviceToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
                       "next": {"type": "tool", "toolId": "enroll-device", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -86,7 +86,7 @@ class EnrollDeviceToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["password", "device"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
@@ -115,7 +115,7 @@ class EnrollDeviceToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa1", "currentAmr": ["password"]},
                       "next": {"type": "tool", "toolId": "enroll-device", "step": "enroll", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

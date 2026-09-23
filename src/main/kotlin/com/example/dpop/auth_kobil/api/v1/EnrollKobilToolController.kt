@@ -48,7 +48,7 @@ data class EnrollKobilPatchRequest(
  * controller owns activation, PATCH and GET (docs/08-projektrahmen.md A11).
  */
 @RestController
-@Tag(name = "Tool: KOBIL", description = "Gerätebindung über den externen Dienstleister KOBIL")
+@Tag(name = "Tool: KOBIL")
 @SecurityRequirement(name = "dpop")
 class EnrollKobilToolController(
     private val handler: EnrollKobilToolHandler,
@@ -63,7 +63,7 @@ class EnrollKobilToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["fsc"]},
                       "next": {"type": "tool", "toolId": "enroll-kobil", "step": "activate", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
@@ -92,7 +92,7 @@ class EnrollKobilToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["fsc", "kobil", "biometric"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}

@@ -6,6 +6,7 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.buildRequestUrl
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -47,7 +48,7 @@ class KcChannelController(
             ApiResponse(
                 responseCode = "200",
                 description = "First call for a fresh Keycloak flow run - offers every kc-usable method.",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},

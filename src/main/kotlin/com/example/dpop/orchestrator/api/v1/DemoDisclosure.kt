@@ -1,0 +1,91 @@
+package com.example.dpop.orchestrator.api.v1
+
+import com.example.dpop.tool_api.DemoInfo
+import com.example.dpop.tool_api.JourneyDebugStep
+import com.example.dpop.tool_spi.DEMO_PERSONS
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.stereotype.Component
+
+/**
+ * The only thing in the system that may put demo-only values into a response.
+ *
+ * What travels in the `demo` block is not decoration: a plaintext TAN, a plaintext confirmation
+ * code, the fixed demo password, every seeded persona's KVNR, name, address and FSC code. That it
+ * is "never part of the production contract" used to be stated in a doc comment on
+ * `tool_spi.DEMO_DATA_KEY` and nowhere else - the two assembly sites built a [DemoInfo]
+ * unconditionally, so a deployment that must not disclose any of it had nothing to switch off.
+ * A convention is not a safeguard.
+ *
+ * Now there is exactly one implementation able to produce a [DemoInfo], and whether it exists at
+ * all is decided at startup by `demo.disclosure`. With it off, the bean in this file's place
+ * returns `null` for every request and the plaintext values physically cannot reach a client -
+ * the tools still attach them to their own outcome, but nothing carries them any further.
+ *
+ * Default ON: this project IS the demo, and the values are the point of it (docs/05-api.md #2).
+ * The default is stated here rather than assumed, so turning it off is one setting rather than a
+ * code change.
+ *
+ * `OrchestratorArchitectureTest.onlyDemoDisclosureBuildsDemoInfo` keeps this the only construction
+ * site - otherwise a third assembly point could quietly reintroduce the unconditional path.
+ */
+interface DemoDisclosure {
+
+    /**
+     * @param values whatever the tool that just ran attached under
+     *   [com.example.dpop.tool_spi.DEMO_DATA_KEY], or null when it attached nothing.
+     * @return the block to put in the response, or `null` when there is nothing to say - or
+     *   nothing that may be said.
+     */
+    fun assemble(
+        accountId: Long?,
+        personId: Long?,
+        journeys: List<JourneyDebugStep>,
+        values: Map<String, Any?>? = null,
+        includeWhenEmpty: Boolean = false
+    ): DemoInfo?
+}
+
+/**
+ * The disclosing implementation - active unless `demo.disclosure=false`.
+ *
+ * `persons` (all seeded demo personas) is attached here, once, for every caller rather than by
+ * each tool's own `demoData(...)` call, so a frontend persona picker works everywhere without
+ * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
+ */
+@Component
+@ConditionalOnProperty(name = ["demo.disclosure"], havingValue = "true", matchIfMissing = true)
+class DisclosingDemoDisclosure : DemoDisclosure {
+
+    override fun assemble(
+        accountId: Long?,
+        personId: Long?,
+        journeys: List<JourneyDebugStep>,
+        values: Map<String, Any?>?,
+        includeWhenEmpty: Boolean
+    ): DemoInfo? {
+        if (!includeWhenEmpty && values.isNullOrEmpty() && journeys.isEmpty()) return null
+        return DemoInfo(
+            accountId = accountId,
+            personId = personId,
+            journeys = journeys,
+            values = (values ?: emptyMap()) + ("persons" to DEMO_PERSONS)
+        )
+    }
+}
+
+/**
+ * `demo.disclosure=false`: nothing is disclosed, for any caller, ever. Not a filter over an
+ * assembled block but the absence of one - there is no code path left that could build it.
+ */
+@Component
+@ConditionalOnProperty(name = ["demo.disclosure"], havingValue = "false")
+class WithheldDemoDisclosure : DemoDisclosure {
+
+    override fun assemble(
+        accountId: Long?,
+        personId: Long?,
+        journeys: List<JourneyDebugStep>,
+        values: Map<String, Any?>?,
+        includeWhenEmpty: Boolean
+    ): DemoInfo? = null
+}

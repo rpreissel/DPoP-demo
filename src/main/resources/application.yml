@@ -1,6 +1,28 @@
 spring:
   application:
     name: dpop-demo
+  modulith:
+    events:
+      # Event Publication Registry = Spring Modulith' transaktionaler Outbox. Jede Methode mit
+      # @ApplicationModuleListener bekommt vor dem Commit eine Zeile in
+      # orchestrator.event_publication; sie wird erst geschlossen, wenn die Methode fehlerfrei
+      # zurueckkehrt. Details: docs/07-betrieb.md Abschnitt 3a.
+      #
+      # Beim Neustart offene Zeilen erneut zustellen: sonst bliebe liegen, was genau in dem Moment
+      # noch offen war, als der Prozess endete.
+      republish-outstanding-events-on-restart: true
+      jdbc:
+        # Ohne das sucht die Registry EVENT_PUBLICATION im Standardschema. In diesem Projekt hat
+        # jedes Modul sein eigenes Schema (ADR-16), und die Tabelle gehoert dem Orchestrator.
+        schema: orchestrator
+      # Und waehrend des Laufs: was laenger als fuenf Minuten offen ist, wird erneut zugestellt.
+      # Der Empfaenger (die Keycloak-Spiegelung) ist idempotent, deshalb kostet eine ueberfluessige
+      # Wiederholung nichts.
+      staleness:
+        check-interval: 5m
+        published: 5m
+        processing: 5m
+        resubmitted: 5m
   datasource:
     url: jdbc:h2:file:./data/dpopdb
     username: sa
@@ -36,6 +58,19 @@ spring:
       # Sessions. Also: nicht setzen.
       enabled: true
       path: /h2-console
+
+# Wie viele Instanzen dieses Systems laufen. Eine Aussage ueber die Umgebung, kein Schalter:
+# `multiple` schaltet nichts frei, sondern laesst DeploymentTopologyCheck beim Start pruefen, ob
+# der Code das ueberhaupt traegt (geplante Jobs ohne Sperre, Pepper pro Boot) - und mit einer
+# klaren Meldung abbrechen, wenn nicht. Siehe docs/07-betrieb.md.
+deployment:
+  instances: single
+
+# Aufbewahrung der modul-eigenen Tool-Session-Arbeitsdaten - die eine Stelle, an der diese Frist
+# steht (vorher als private Konstante in zehn Retention-Jobs kopiert). tool_api/ToolSessionRetention.kt
+tool-session:
+  retention: PT24H
+  sweep-interval: PT1H
 
 server:
   port: 8080

@@ -4,6 +4,7 @@ import com.example.dpop.tool_api.ActiveMethodView
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotEmpty
 import java.time.Instant
+import com.example.dpop.orchestrator.kernel.AuthIntent
 
 @Schema(
     description = "requiredAcr is a lower bound only. Always creates a brand-new ChannelSession for this device " +

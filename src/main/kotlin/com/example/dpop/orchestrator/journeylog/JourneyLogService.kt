@@ -1,8 +1,6 @@
 package com.example.dpop.orchestrator.journeylog
 
-import com.example.dpop.orchestrator.journey.AuthJourney
-import com.example.dpop.orchestrator.session.ChannelSession
-import com.example.dpop.orchestrator.session.ChannelSessionRepository
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
@@ -27,16 +25,38 @@ data class JourneyLogEntryView(
 
 data class JourneyLogResponse(val entries: List<JourneyLogEntryView>)
 
+/**
+ * Exactly what the log records about the channel an entry belongs to.
+ *
+ * A value, not the `ChannelSession` entity: the log is a trace, and a trace must not reach back
+ * into the machine it traces. Taking the entity made `journeylog` import `session`, which
+ * `session` in turn imports for its own retention - a cycle created purely by convenience at the
+ * call site. Each caller now says which four values it is logging, which is also the honest list
+ * of what ends up in the table.
+ */
+data class LoggedChannel(
+    val channelSessionId: UUID,
+    val bindingKeyRef: String?,
+    val channelType: String?,
+    val accountId: Long?
+)
+
+/** The journey side of the same split - see [LoggedChannel]. */
+data class LoggedJourney(
+    val journeyId: UUID,
+    val parentJourneyId: UUID?,
+    val intent: AuthIntent
+)
+
 @Service
 class JourneyLogService(
-    private val journeyLogRepository: JourneyLogRepository,
-    private val channelSessionRepository: ChannelSessionRepository
+    private val journeyLogRepository: JourneyLogRepository
 ) {
 
-    /** [channel]/[journey] are always in scope at the call sites in JourneyService - no extra lookups needed. [journeyState] is a first-class field, like [eventType] - not just another entry in [detail]. */
+    /** [journeyState] is a first-class field, like [eventType] - not just another entry in [detail]. */
     fun record(
-        channel: ChannelSession,
-        journey: AuthJourney,
+        channel: LoggedChannel,
+        journey: LoggedJourney,
         eventType: String,
         journeyState: String? = null,
         detail: Map<String, Any?> = emptyMap()
@@ -44,12 +64,12 @@ class JourneyLogService(
         journeyLogRepository.save(
             JourneyLogEntry(
                 bindingKeyRef = channel.bindingKeyRef,
-                channelType = channel.channel?.name,
+                channelType = channel.channelType,
                 accountId = channel.accountId,
-                channelSessionId = checkNotNull(channel.channelSessionId),
-                journeyId = checkNotNull(journey.journeyId),
+                channelSessionId = channel.channelSessionId,
+                journeyId = journey.journeyId,
                 parentJourneyId = journey.parentJourneyId,
-                intent = checkNotNull(journey.intent),
+                intent = journey.intent,
                 eventType = eventType,
                 journeyState = journeyState,
                 detail = detail
@@ -58,13 +78,13 @@ class JourneyLogService(
     }
 
     /** For an event that isn't part of any journey - e.g. logging out of an AUTHENTICATED channel with nothing currently running, which would otherwise leave no trace at all. */
-    fun recordForChannel(channel: ChannelSession, eventType: String, detail: Map<String, Any?> = emptyMap()) {
+    fun recordForChannel(channel: LoggedChannel, eventType: String, detail: Map<String, Any?> = emptyMap()) {
         journeyLogRepository.save(
             JourneyLogEntry(
                 bindingKeyRef = channel.bindingKeyRef,
-                channelType = channel.channel?.name,
+                channelType = channel.channelType,
                 accountId = channel.accountId,
-                channelSessionId = checkNotNull(channel.channelSessionId),
+                channelSessionId = channel.channelSessionId,
                 journeyId = null,
                 parentJourneyId = null,
                 intent = null,
@@ -85,15 +105,16 @@ class JourneyLogService(
      * Callers must already have proven they ARE this account (a channel bound to it) - this method
      * itself does no authorization, same contract as [getLogFor] trusting its own bindingKeyRef.
      *
-     * Resolved via [ChannelSessionRepository.findByAccountId] first, not by filtering
+     * [channelSessionIds] are resolved by the CALLER (which already holds the channel it
+     * authorized against) rather than looked up here - the log does not read the session tables,
+     * see [LoggedChannel]. They are passed in rather than filtering
      * [JourneyLogEntry.accountId] directly: a channel only gets its account bound partway through
      * (e.g. after ident-fsc/lookup-login completes), so entries logged earlier in that SAME journey
      * (its own "Started") never have that field set - filtering on it would silently truncate every
      * journey to "from binding onward" instead of showing it whole, which is exactly the
      * requirement here.
      */
-    fun getLogForAccount(accountId: Long): JourneyLogResponse {
-        val channelSessionIds = channelSessionRepository.findByAccountId(accountId).mapNotNull { it.channelSessionId }
+    fun getLogForAccount(accountId: Long, channelSessionIds: List<UUID>): JourneyLogResponse {
         val channelEntries = if (channelSessionIds.isEmpty()) {
             emptyList()
         } else {

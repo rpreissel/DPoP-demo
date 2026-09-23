@@ -12,6 +12,7 @@ import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -35,7 +36,7 @@ private const val AUTH_DEVICE_TOOL_ID = "auth-device"
  * GET for this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Gerät", description = "Device-key based authentication (login/step-up)")
+@Tag(name = "Tool: Gerät")
 @SecurityRequirement(name = "dpop")
 class AuthDeviceToolController(
     private val deviceProofs: DeviceProofs,
@@ -52,7 +53,7 @@ class AuthDeviceToolController(
         responses = [
             ApiResponse(
                 responseCode = "201",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
                       "next": {"type": "tool", "toolId": "auth-device", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}
@@ -87,7 +88,7 @@ class AuthDeviceToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["device"]},
                       "next": {"type": "orchestrator", "context": "authentication", "step": "authenticated"}
@@ -116,7 +117,7 @@ class AuthDeviceToolController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(examples = [ExampleObject(value = """
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
                       "next": {"type": "tool", "toolId": "auth-device", "step": "auth", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"}

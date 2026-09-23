@@ -20,7 +20,10 @@ data class KobilLoginRequest(val tenantId: String, val userId: String, val pin: 
 
 data class KobilOtpResponse(val otp: String)
 
-data class KobilRiskSimulationRequest(val tenantId: String, val userId: String, val risks: Set<KobilRisk>)
+// risks as List, not Set - see ActiveMethodView.factorTypes: the wire carries a JSON array, and
+// declaring a Set here only taught the generated client to build a JS Set it cannot send.
+// Set semantics stay where they belong, in the call into KobilSsms below.
+data class KobilRiskSimulationRequest(val tenantId: String, val userId: String, val risks: List<KobilRisk>)
 
 /**
  * The face the APP talks to - KOBIL's own endpoint, standing in for what the MC SDK does natively
@@ -66,7 +69,7 @@ class KobilMockController(private val ssms: KobilSsms) {
             "would only ever be reachable from a test."
     )
     fun simulateRisk(@RequestBody request: KobilRiskSimulationRequest): Map<String, Any> {
-        ssms.simulateRiskSignals(KobilUserRef(request.tenantId, request.userId), request.risks)
+        ssms.simulateRiskSignals(KobilUserRef(request.tenantId, request.userId), request.risks.toSet())
         return mapOf("risks" to request.risks.map { it.name })
     }
 

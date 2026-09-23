@@ -2,17 +2,17 @@ package com.example.dpop.orchestrator.api.v1.kc
 
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.api.v1.KcChannelAccessGuard
-import com.example.dpop.orchestrator.api.v1.OrchestratorException
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
-import com.example.dpop.orchestrator.session.AcrLevels
-import com.example.dpop.orchestrator.session.AmrSource
+import com.example.dpop.orchestrator.kernel.AcrLevels
+import com.example.dpop.orchestrator.kernel.AmrSource
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toMethodEvidence

@@ -24,7 +24,7 @@ data class NativeAuthenticatorDescriptor(
 )
 
 /**
- * Demo/mock registry (docs/11-umsetzungsplan.md: no real Keycloak realm to introspect) - a small,
+ * Demo/mock registry (docs/08-projektrahmen.md: no real Keycloak realm to introspect) - a small,
  * fixed set standing in for what a real deployment would configure per Authenticator execution
  * (an admin wiring up `OrchestratorAuthenticator`/native executions in a Keycloak flow). Kc-facade
  * -only, mirrors `ToolHandlerRegistry` in spirit but deliberately NOT the same registry: native

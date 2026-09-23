@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.declineTool
-import com.example.dpop.orchestrator.journey.AuthIntent
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.CandidateTools
 import com.example.dpop.orchestrator.journey.IntentStrategy
 import com.example.dpop.orchestrator.journey.JourneyContext

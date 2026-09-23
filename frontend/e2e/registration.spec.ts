@@ -19,7 +19,7 @@ test('register with ident-fsc, enroll SMS, and reach the authenticated security 
   // The security summary's account fields only ever arrive via the on-demand GET backfill (never
   // inline in the tool response that settled `next` into authenticated) - if this renders, the
   // real backfill fetch against the real backend succeeded.
-  await expect(page.locator('li:has-text("Sicherheitsniveau (ACR)")')).toContainText(/loa[12]/)
-  await expect(page.locator('li:has-text("Nachgewiesene Methoden (AMR)")')).toContainText('sms')
+  await expect(page.locator('li:has-text("Sicherheitsniveau")')).toContainText(/loa[12]/)
+  await expect(page.locator('li:has-text("Genutzte Anmeldeverfahren")')).toContainText('sms')
   await expect(page.getByRole('button', { name: 'Deaktivieren' }).first()).toBeVisible()
 })

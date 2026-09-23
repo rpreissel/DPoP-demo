@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
-import com.example.dpop.orchestrator.dpop.DpopBindingKeyResolver
+import com.example.dpop.orchestrator.api.v1.DpopBindingKeyResolver
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry
