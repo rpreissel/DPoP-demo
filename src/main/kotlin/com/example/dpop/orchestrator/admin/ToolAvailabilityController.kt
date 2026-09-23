@@ -30,13 +30,12 @@ data class ToolAvailabilityPutRequest(
 
 /**
  * The backend-side kill-switch for a tool (docs/03-tool-architektur.md, availability): global,
- * takes effect immediately on the next step of any journey, no redeploy needed. Demo scope
- * deliberately: no auth guard here yet, since this project has no admin security anywhere else -
- * do not expose this beyond a trusted operator network as-is.
+ * takes effect immediately on the next step of any journey, no redeploy needed. Behind the
+ * admin login like everything under [ADMIN_API] (AdminSecurityConfig).
  */
 @RestController
 @RequestMapping("$ADMIN_API/tools")
-@Tag(name = "Admin: tool availability", description = "Operator kill-switch for individual tools - no auth guard yet (demo scope)")
+@Tag(name = "Admin: tool availability", description = "Operator kill-switch for individual tools")
 class ToolAvailabilityController(
     private val toolAvailabilityService: ToolAvailabilityService,
     private val toolRegistry: ToolHandlerRegistry

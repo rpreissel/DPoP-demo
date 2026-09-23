@@ -21,8 +21,6 @@ import type * as Wire from './generated/models'
 
 export type {
   ActiveMethodView,
-  AmrEntry,
-  AuthData,
   BoundCredentialView,
   ChannelBlock,
   DeviceLinkResponse,
@@ -70,20 +68,26 @@ export function confirmPromptOf(prompt: Prompt | undefined): ConfirmPrompt | und
   return prompt?.kind === 'Confirm' ? (prompt as ConfirmPrompt) : undefined
 }
 
-/** One seeded demo persona - travels inside the demo bag, so it has no schema of its own. */
+/**
+ * One person of the (simulated) register - travels inside the demo bag, so it has no schema of its
+ * own. Read live from the register, so anything but the KVNR may be missing (null) for a person
+ * created on /ext/.
+ */
 export interface DemoPerson {
   kvnr: string
-  name: string
-  vorname: string
-  email: string
-  strasse: string
-  hausnummer: string
-  plz: string
-  ort: string
-  geburtsdatum: string
-  fscCode: string
+  name?: string | null
+  vorname?: string | null
+  /** Our account data, not the register's - only set for the seeded personas. */
+  email?: string | null
+  strasse?: string | null
+  hausnummer?: string | null
+  plz?: string | null
+  ort?: string | null
+  geburtsdatum?: string | null
+  /** Plaintext of the newest valid letter in the register's mailbox (ADR-31), null when none is valid. */
+  fscCode?: string | null
   /** The eID card's fixed restricted identifier - person-unique, changes only with a new card. */
-  restrictedId: string
+  restrictedId?: string | null
 }
 
 /**
@@ -99,7 +103,7 @@ export type DemoInfo = Wire.DemoInfo & {
   password?: string
   /** Fixed demo email (same value for enroll-email and both lookup-based logins), prefilled so testers never have to remember one. */
   email?: string
-  /** All seeded demo personas, attached centrally by the orchestrator (not per tool) - offered as a picker wherever a demo value is prefilled. */
+  /** Every register person, attached centrally by the orchestrator (not per tool) - offered as a picker wherever a demo value is prefilled. */
   persons?: DemoPerson[]
 }
 
@@ -114,12 +118,25 @@ export type ChannelResponse = Omit<Wire.ChannelResponse, 'stepData' | 'demo'> & 
 }
 
 /**
- * One row of the rich, per-step journey trace (GET /journey-log) - distinct from the backend's
- * minimized orchestrator.session_event audit trail. Demo/debug only: shows everything the backend
- * could determine about a journey's path, grouped client-side by channelSessionId/journeyId.
+ * One row of the rich, per-step journey trace (admin page, `GET /orchestrator/admin/journey-log`) -
+ * distinct from the backend's minimized orchestrator.session_event audit trail. Demo/debug only:
+ * shows everything the backend could determine about a journey's path, grouped client-side by
+ * channelSessionId/journeyId. Hand-written like the other admin types: operator endpoints are not
+ * part of the app contract, so nothing generates them.
  */
-export type JourneyLogEntryView = Omit<Wire.JourneyLogEntryView, 'detail'> & {
+export interface JourneyLogEntryView {
+  channelSessionId: string
+  /** APP or KEYCLOAK. */
+  channelType?: string
+  /** Inherited from a later entry of the same channel when logged before the account was bound. */
+  accountId?: number
+  journeyId?: string
+  parentJourneyId?: string
+  intent?: string
+  eventType: string
+  journeyState?: string
   detail: Record<string, unknown>
+  createdAt: string
 }
 
 export type JourneyLogResponse = { entries: JourneyLogEntryView[] }

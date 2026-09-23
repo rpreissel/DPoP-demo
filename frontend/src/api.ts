@@ -1,3 +1,4 @@
+import { ADMIN_PATH, adminAuthHeader, clearAdminCredentials } from './adminAuth'
 import { createDpopProof, type DpopKeyPair } from './dpop'
 import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, ErrorResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
 import { ErrorResponseErrorEnum } from './generated/models'
@@ -132,16 +133,6 @@ export function raiseRequiredAcr(dpop: DpopKeyPair, channelSessionId: string, re
   return call(dpop, 'POST', `/orchestrator/api/v1/channels/${channelSessionId}/step-ups`, { requiredAcr })
 }
 
-/** Every journey step ever recorded under this device's own bindingKeyRef - no channelSessionId needed, it's resolved from the DPoP proof itself. */
-export function getJourneyLog(dpop: DpopKeyPair): Promise<JourneyLogResponse> {
-  return call(dpop, 'GET', '/orchestrator/api/v1/journey-log')
-}
-
-/** Every journey step ever recorded under this channel's own account, across every channel (APP or KEYCLOAK) that account was ever authenticated on - not just this one. Empty when no account is bound yet. */
-export function getAccountJourneyLog(dpop: DpopKeyPair, channelSessionId: string): Promise<JourneyLogResponse> {
-  return call(dpop, 'GET', `/orchestrator/api/v1/channels/${channelSessionId}/journey-log`)
-}
-
 /** Abandons the running AuthJourney; the response already offers a fresh start where applicable. */
 export function cancelJourney(dpop: DpopKeyPair, channelSessionId: string): Promise<ChannelResponse> {
   return call(dpop, 'DELETE', `/orchestrator/api/v1/channels/${channelSessionId}/journey`)
@@ -261,13 +252,20 @@ export interface ToolAvailabilityEntry {
   reason?: string
 }
 
-/** No DPoP: these endpoints (docs/03-tool-architektur.md, availability) aren't bound to a device or channel. */
+/**
+ * No DPoP: these endpoints (docs/03-tool-architektur.md, availability) aren't bound to a device or
+ * channel. Operator endpoints under ADMIN_PATH get the admin login's Basic header instead; a 401
+ * there logs the admin page out, so it shows its login form again.
+ */
 async function callPlain<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const admin = path.startsWith(ADMIN_PATH)
+  const auth = admin ? adminAuthHeader() : null
   const response = await fetch(path, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
+  if (admin && response.status === 401) clearAdminCredentials()
   if (!response.ok) throw new ApiError(response.status, undefined, `${method} ${path} failed: ${response.status}`)
   // A Kotlin `Unit`-returning controller method (e.g. every admin PUT here) comes back as
   // 200 with an empty body, not 204 - relying on the status code alone made `.json()` throw
@@ -309,7 +307,55 @@ export interface KeycloakSyncResult {
 
 /** Only exists when the backend runs with the `keycloak` Spring profile active - 404s otherwise, which KeycloakSyncView treats as "feature not available here", not an error. */
 export function syncKeycloak(): Promise<KeycloakSyncResult> {
-  return callPlain('POST', '/orchestrator/api/v1/kc/sync')
+  return callPlain('POST', `${ADMIN_PATH}/keycloak/sync`)
+}
+
+/** Same shape as JourneyLogResponse, plus who each account id is (register display name). */
+export interface AdminJourneyLogResponse extends JourneyLogResponse {
+  accounts: { accountId: number; displayName?: string | null }[]
+}
+
+export function fetchAdminJourneyLog(limit = 500): Promise<AdminJourneyLogResponse> {
+  return callPlain('GET', `${ADMIN_PATH}/journey-log?limit=${limit}`)
+}
+
+export interface AdminAccount {
+  accountId: number
+  personId?: number | null
+  displayName?: string | null
+  email?: string | null
+  methods: string[]
+}
+
+export function fetchAdminAccounts(): Promise<AdminAccount[]> {
+  return callPlain('GET', `${ADMIN_PATH}/accounts`)
+}
+
+export function deleteAdminAccount(accountId: number): Promise<void> {
+  return callPlain('DELETE', `${ADMIN_PATH}/accounts/${accountId}`)
+}
+
+export function resetDemo(): Promise<{ deletedAccounts: number }> {
+  return callPlain('POST', `${ADMIN_PATH}/demo-reset`)
+}
+
+/** Probes the stored credentials - any admin GET does; 401 clears them (see callPlain). */
+export function checkAdminLogin(): Promise<unknown> {
+  return fetchRegistrationOrder()
+}
+
+export interface ServerInfo {
+  keycloakProfile: boolean
+  keycloakBaseUrl?: string | null
+  keycloakRealm?: string | null
+  registrationEnrollFirst: boolean
+  disabledTools: { toolId: string; reason?: string | null }[]
+  demoDisclosure: boolean
+}
+
+/** Public, read-only (no login) - the welcome page's "Server-Status" tab. */
+export function fetchServerInfo(): Promise<ServerInfo> {
+  return callPlain('GET', '/orchestrator/demo/server-info')
 }
 
 /**

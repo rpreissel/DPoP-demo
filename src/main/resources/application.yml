@@ -48,16 +48,25 @@ spring:
       # Bewusst an - erklaerte Projektentscheidung fuer diese Demo, der direkte DB-Blick gehoert
       # zum Zweck.
       #
-      # Damit die Abwaegung dokumentiert bleibt: es gibt kein Spring Security im Classpath, also
-      # bewacht sonst NICHTS diesen Pfad. Was ihn traegt, ist allein H2s eigener Default
+      # Damit die Abwaegung dokumentiert bleibt: Spring Security schuetzt nur /orchestrator/admin/**
+      # (AdminSecurityConfig), dieser Pfad ist dort ausdruecklich offen - es bewacht ihn also sonst
+      # NICHTS. Was ihn traegt, ist allein H2s eigener Default
       # web-allow-others=false, der Zugriffe auf localhost begrenzt. Wer den auf true setzt,
       # oeffnet jedem, der den Port erreicht, vollen Lese-/Schreibzugriff auf die Datei-DB -
       # inklusive Passwort-Hashes (auth_password), Geraeteschluesseln (auth_device_enrollment),
-      # Freischaltcodes (id_fsc_code), jedem lebenden KOBIL-PIN im Klartext (auth_kobil.enrollment,
+      # Freischaltcode-Hashes und Brief-Klartexte (ext_stammdaten), jedem lebenden KOBIL-PIN im Klartext (auth_kobil.enrollment,
       # ADR-22 - der einzige Eintrag dieser Liste, der kein Hash und kein Derivat ist) und allen
       # Sessions. Also: nicht setzen.
       enabled: true
       path: /h2-console
+
+# Zugang zur Admin-Seite (/admin/) und zu allen Betriebsendpunkten unter /orchestrator/admin/**
+# (AdminSecurityConfig, HTTP Basic). Demo-Werte - wer diese Instanz erreichbar macht, setzt sie per
+# DEMO_ADMIN_USERNAME/DEMO_ADMIN_PASSWORD neu.
+demo:
+  admin:
+    username: admin
+    password: admin
 
 # Wie viele Instanzen dieses Systems laufen. Eine Aussage ueber die Umgebung, kein Schalter:
 # `multiple` schaltet nichts frei, sondern laesst DeploymentTopologyCheck beim Start pruefen, ob
@@ -85,12 +94,14 @@ springdoc:
 
 kc:
   peer-auth:
-    # docs/05-api.md Abschnitt 3 / docs/12-entscheidungen.md ADR-7: one signed JWT per kc-facade request. Values below
-    # match the (not yet built, DPoP-demo-f9o.9) Mock-Keycloak frontend, not a real realm -
-    # point jwks-uri at a real Keycloak realm's certs endpoint for anything beyond the demo.
-    issuer: mock-keycloak
+    # docs/05-api.md Abschnitt 3 / docs/12-entscheidungen.md ADR-7: one signed JWT per kc-facade request.
+    # Ohne Profil `keycloak` gibt es keinen Aussteller: issuer und jwks-uri bleiben leer, die
+    # kc-Fassade weist damit jede Assertion ab (KeycloakJwkSource kennt keinen Schluessel) - der
+    # Web-Kanal existiert nur mit echtem Keycloak. Im Profil `keycloak` setzt
+    # KeycloakSetupEnvironment beide Werte aus dem Parametersatz.
+    issuer: ""
     audience: dpop-demo-orchestrator
-    jwks-uri: http://localhost:8080/mock-keycloak/.well-known/jwks.json
+    jwks-uri: ""
     jwks-cache-ttl-seconds: 600
     max-clock-skew-seconds: 30
     max-age-seconds: 30

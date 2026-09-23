@@ -453,20 +453,6 @@ class ChannelController(
         return ResponseEntity.ok(channelService.getToken(channelSessionId, bindingKeyRef, minValiditySeconds))
     }
 
-    @GetMapping("/{channelSessionId}/journey-log")
-    @Operation(
-        summary = "Read this channel's account's journey log",
-        description = "Every journey step ever recorded under this channel's OWN account, across every channel " +
-            "(APP or KEYCLOAK alike) that account was ever authenticated on - not just this one. Empty, not an " +
-            "error, when this channel has no account bound yet."
-    )
-    fun getJourneyLog(
-        @PathVariable channelSessionId: UUID,
-        @BindingKey bindingKeyRef: String
-    ): ResponseEntity<JourneyLogResponse> {
-        return ResponseEntity.ok(channelService.getJourneyLog(channelSessionId, bindingKeyRef))
-    }
-
     @GetMapping("/{channelSessionId}/idclaims")
     @Operation(
         summary = "Get the fachliche ID-token claims",

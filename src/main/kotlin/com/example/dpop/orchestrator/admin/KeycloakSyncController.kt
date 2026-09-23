@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1.kc
+package com.example.dpop.orchestrator.admin
 
 import com.example.dpop.orchestrator.kc.KeycloakAccountSyncService
 import com.example.dpop.orchestrator.kc.KeycloakSyncResult
@@ -9,16 +9,16 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import com.example.dpop.tool_api.API_V1
 
 /**
- * Backs the demo frontend's "Sync with Keycloak" settings button - only exists at all under the
+ * Backs the admin page's "Sync with Keycloak" button - an operator action, hence under
+ * [ADMIN_API] and its login rather than the app contract. Only exists at all under the
  * `keycloak` Spring profile, same as
- * [com.example.dpop.orchestrator.kc.KeycloakAccountSyncService] itself; the default (Mock-Keycloak)
+ * [com.example.dpop.orchestrator.kc.KeycloakAccountSyncService] itself; the default (no Keycloak)
  * profile has no such endpoint to call.
  */
 @RestController
-@RequestMapping("$API_V1/kc/sync")
+@RequestMapping("$ADMIN_API/keycloak/sync")
 @Tag(name = "KC account sync", description = "Explicit full reconciliation between orchestrator accounts and Keycloak users - demo/debug only")
 @Profile("keycloak")
 class KeycloakSyncController(private val keycloakAccountSyncService: KeycloakAccountSyncService) {

@@ -94,6 +94,44 @@
   color: var(--text);
 }
 
+/* Personenregister (/ext/): ein simuliertes FREMDSYSTEM, darum bewusst eine dritte, amtlich-nüchterne
+   Palette (hell + Petrol) und eine Serifenschrift für Überschriften - man soll ohne Lesen merken,
+   dass man hier nicht in unserer Anwendung ist. */
+.channel-ext {
+  --text: #3f4a4a;
+  --text-h: #102a2a;
+  --bg: #fbfaf6;
+  --border: #d6d9cf;
+  --code-bg: #eef0e8;
+  --accent: #0f766e;
+  --accent-bg: rgba(15, 118, 110, 0.08);
+  --accent-border: rgba(15, 118, 110, 0.35);
+  --heading: Georgia, 'Times New Roman', serif;
+  --shadow:
+    rgba(16, 42, 42, 0.08) 0 10px 15px -3px, rgba(16, 42, 42, 0.04) 0 4px 6px -2px;
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Admin (/admin/): unser eigenes System, aber die Betreiber-Sicht - dunkel + Bernstein, damit sie
+   sich weder mit dem App-Kanal (Lila) noch mit dem Web-Kanal (Blau) verwechseln lässt. */
+.channel-admin {
+  --text: #c8c3b8;
+  --text-h: #f7f3ea;
+  --bg: #1a1814;
+  --border: #3a352b;
+  --code-bg: #24211b;
+  --accent: #e0a526;
+  --accent-bg: rgba(224, 165, 38, 0.14);
+  --accent-border: rgba(224, 165, 38, 0.45);
+  --shadow:
+    rgba(0, 0, 0, 0.45) 0 10px 15px -3px, rgba(0, 0, 0, 0.3) 0 4px 6px -2px;
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--text);
+}
+
 #root {
   width: 100%;
   min-height: 100svh;

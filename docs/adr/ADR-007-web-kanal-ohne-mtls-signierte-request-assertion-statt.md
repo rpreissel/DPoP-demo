@@ -43,9 +43,8 @@ auch mTLS ändert daran nichts.
   [05-api.md](../05-api.md) Abschnitt 3: „ein Schlüsselpaar pro Client“). Das trennt die
   Server-zu-Server-Signatur von der Token-Signatur; der Vorteil gegenüber mTLS — kein
   Zertifikats-Rollout — bleibt, weil auch dieser Schlüssel über eine JWKS-URL verteilt wird.
-- *Browser → Orchestrator.* Genau ein Endpunkt ist davon ausgenommen: `KcMeController`
-  (`/orchestrator/api/v1/kc/me`, nur Profil `keycloak`) liest für die Test-Oberfläche das eigene
-  Journey-Log mit einem echten Keycloak-AccessToken. Er ist rein lesend, gehört nicht zur
-  kc-Facade und trägt keine Login- oder Tool-Ausführung.
+- *Browser → Orchestrator.* Ausnahmen gibt es keine mehr. Früher las `KcMeController`
+  (`/orchestrator/api/v1/kc/me`) für die Test-Oberfläche das eigene Journey-Log mit einem echten
+  Keycloak-AccessToken; seit das Journey-Log nur noch auf der Admin-Seite steht, ist er entfernt.
 
 ---

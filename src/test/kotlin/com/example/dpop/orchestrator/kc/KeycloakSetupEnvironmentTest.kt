@@ -66,11 +66,6 @@ class KeycloakSetupEnvironmentTest {
             .isEqualTo("https://keycloak:8443/realms/Demo/orchestrator-jwks/.well-known/jwks.json")
         assertThat(env.getProperty("kc.peer-auth.issuer")).isEqualTo("dpop-demo-keycloak")
         assertThat(env.getProperty("kc.peer-auth.audience")).isEqualTo("dpop-demo-orchestrator")
-        // Der Browser holt sein Token vom oeffentlichen Port, die Schluessel holt der Orchestrator
-        // intern - der Issuer im Token traegt deshalb eine andere Adresse als die certs-uri.
-        assertThat(env.getProperty("kc.oidc.issuer")).isEqualTo("https://localhost:8543/realms/Demo")
-        assertThat(env.getProperty("kc.oidc.certs-uri"))
-            .isEqualTo("https://keycloak:8443/realms/Demo/protocol/openid-connect/certs")
     }
 
     @Test
@@ -80,7 +75,7 @@ class KeycloakSetupEnvironmentTest {
 
         KeycloakSetupEnvironment().postProcessEnvironment(env, SpringApplication())
 
-        // Das Default-Profil bringt eigene kc.*-Werte mit (Mock-Keycloak) - die duerfen hier nicht
+        // Das Default-Profil bringt eigene kc.*-Werte mit (leerer Aussteller) - die duerfen hier nicht
         // ueberschrieben werden.
         assertThat(env.getProperty("keycloak-sync.base-url")).isNull()
     }

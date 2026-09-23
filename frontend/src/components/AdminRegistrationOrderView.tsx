@@ -5,7 +5,7 @@ import { fetchRegistrationOrder, setRegistrationOrder } from '../api.ts'
  * REGISTER's "Enrollment zuerst" experiment (docs/04-orchestrierung.md, `RegisterEnrollFirstStrategy`):
  * a global runtime toggle between the ident-first status quo and the alternative order, for the
  * next brand-new REGISTER journey - a journey already in progress keeps whichever order it started
- * with. No DPoP, no auth guard (demo scope, same as the tool-availability admin endpoint).
+ * with. No DPoP, behind the admin login like every operator endpoint.
  */
 export function AdminRegistrationOrderView() {
   const [enrollFirst, setEnrollFirst] = useState<boolean | null>(null)
@@ -32,14 +32,14 @@ export function AdminRegistrationOrderView() {
 
   return (
     <div className="card">
-      <h2>Admin: Registrierungsreihenfolge</h2>
+      <h2>Registrierungsreihenfolge</h2>
       <p>
         Experiment: Identifikation zuerst (Status quo) oder erst Enrollment, mit optionaler Identifikation am Ende.
         Wirkt für die nächste neu gestartete REGISTER-Journey - eine bereits laufende behält ihre Reihenfolge.
       </p>
       {error && <p className="error-card">{error}</p>}
       {enrollFirst === null ? (
-        <p>Lädt…</p>
+        !error && <p>Lädt…</p>
       ) : (
         <ul className="status-list">
           <li>

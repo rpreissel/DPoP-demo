@@ -153,25 +153,6 @@ class ChannelService(
     }
 
     /**
-     * Every journey step ever recorded under this channel's OWN account, across every channel
-     * (APP or KEYCLOAK) that account was ever authenticated on - the account-scoped counterpart
-     * of `JourneyLogController`'s own bindingKeyRef-scoped log, which a KEYCLOAK channel has no
-     * bindingKeyRef to look up by at all (docs/02-domaenenmodell.md Abschnitt 1). Empty, not an
-     * error, when this channel has no account bound yet.
-     */
-    fun getJourneyLog(channelSessionId: UUID, bindingKeyRef: String): JourneyLogResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        // The channel ids are resolved here, where the session tables belong, and handed to the
-        // log - it no longer reads them itself (JourneyLogService.LoggedChannel).
-        return channel.accountId?.let { accountId ->
-            journeyLogService.getLogForAccount(
-                accountId,
-                sessionManagementService.findChannelSessionIdsForAccount(accountId)
-            )
-        } ?: JourneyLogResponse(emptyList())
-    }
-
-    /**
      * The AccessToken - Mock (default profile) or a real, Keycloak-signed one (`keycloak`
      * profile) depending on [tokenProvider]. `APP`-only: a `KEYCLOAK` channel never
      * has an [ChannelSession.authContextId] to mint one from - its client already holds real

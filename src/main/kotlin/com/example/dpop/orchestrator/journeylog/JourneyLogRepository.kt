@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journeylog
 
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -8,19 +9,8 @@ import java.time.Instant
 import java.util.UUID
 
 interface JourneyLogRepository : JpaRepository<JourneyLogEntry, UUID> {
-    fun findByBindingKeyRefOrderByCreatedAtDesc(bindingKeyRef: String): List<JourneyLogEntry>
-
-    fun findByAccountIdOrderByCreatedAtDesc(accountId: Long): List<JourneyLogEntry>
-
-    /**
-     * Keyed on channelSessionId, not the entry's own [JourneyLogEntry.accountId] - an entry logged
-     * BEFORE this channel's account was bound (e.g. the journey's own "Started") never gets that
-     * field backfilled, so filtering on it directly would silently truncate every journey to
-     * "from binding onward" instead of showing it whole. [JourneyLogService.getLogForAccount]
-     * resolves the channel set from `ChannelSessionRepository.findByAccountId` first and queries
-     * this by that instead.
-     */
-    fun findByChannelSessionIdInOrderByCreatedAtDesc(channelSessionIds: Collection<UUID>): List<JourneyLogEntry>
+    /** The operator's view across every channel and account (`AdminJourneyLogController`), newest first. */
+    fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<JourneyLogEntry>
 
     /**
      * Retention sweep (`RetentionJob`). A bulk statement rather than a derived `deleteBy...`:
@@ -36,8 +26,7 @@ interface JourneyLogRepository : JpaRepository<JourneyLogEntry, UUID> {
      * Erasure path (`AccountDeletionService`). Two keys in ONE statement, both deliberate:
      *
      * Two keys, because entries written BEFORE the channel resolved an account carry a null
-     * `accountId` and would survive an account-keyed delete - the same reason
-     * [findByChannelSessionIdInOrderByCreatedAtDesc] exists for the read direction.
+     * `accountId` and would survive an account-keyed delete.
      *
      * One statement, because every bulk mutation over this table auto-flushes the persistence
      * context first. Splitting the erasure in two let the second flush re-issue a write for an

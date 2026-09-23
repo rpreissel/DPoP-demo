@@ -12,3 +12,9 @@ package com.example.dpop.orchestrator.admin
  * Not versioned with the app contract: operators and apps change on different schedules.
  */
 const val ADMIN_API = "/orchestrator/admin"
+
+/**
+ * Public, read-only demo endpoints (e.g. the welcome page's server status) - outside the app
+ * contract like [ADMIN_API], but without its login: they switch nothing.
+ */
+const val DEMO_API = "/orchestrator/demo"

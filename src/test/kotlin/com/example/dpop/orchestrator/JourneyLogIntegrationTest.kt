@@ -3,13 +3,17 @@ package com.example.dpop.orchestrator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
-import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpMethod
 
 /**
  * The rich, per-step journey trace (docs/04-orchestrierung.md), distinct from the minimized
- * orchestrator.session_event audit trail - see JourneyLogEntry's own doc.
+ * orchestrator.session_event audit trail - see JourneyLogEntry's own doc. Read the only way it
+ * can be read now: the operator's view across all accounts (`GET /orchestrator/admin/journey-log`),
+ * narrowed here to the channel under test.
  */
 class JourneyLogIntegrationTest : IntegrationTestSupport() {
 
@@ -20,21 +24,24 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun logOf(channelSessionId: String): List<Map<String, Any?>> =
+        (restTemplate.exchange(
+            "http://localhost:$port/orchestrator/admin/journey-log", HttpMethod.GET, HttpEntity<Void>(adminHeaders()), mapType
+        ).body!!["entries"] as List<Map<String, Any?>>).filter { it["channelSessionId"] == channelSessionId }
+
     init {
         given("a channel that ran a full registration") {
-            `when`("reading the journey log for that device's binding key") {
+            `when`("reading that channel's journey log") {
                 then("every step is recorded, newest first, grouped by channel/journey") {
 
                     // A real run, not a seeded account: this suite reads the journey LOG, which
                     // only an actual journey writes.
                     val channelSessionId = registerAndAuthenticate()
 
-                    val log = get("/orchestrator/api/v1/journey-log")
-                    @Suppress("UNCHECKED_CAST")
-                    val entries = log["entries"] as List<Map<String, Any?>>
+                    val entries = logOf(channelSessionId)
 
                     entries shouldHaveAtLeastSize 1
-                    entries.all { it["channelSessionId"] == channelSessionId } shouldBe true
                     entries.all { it["channelType"] == "APP" } shouldBe true
                     entries.all { (it["intent"] as String).isNotBlank() } shouldBe true
                     entries.any { it["eventType"] == "Started" } shouldBe true
@@ -63,10 +70,7 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
                         """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"WRONGCODE"}"""
                     )
 
-                    val log = get("/orchestrator/api/v1/journey-log")
-                    @Suppress("UNCHECKED_CAST")
-                    val entries = log["entries"] as List<Map<String, Any?>>
-                    entries.any { it["eventType"] == "TOOL_FAILED" } shouldBe true
+                    logOf(channelSessionId).any { it["eventType"] == "TOOL_FAILED" } shouldBe true
                 }
             }
         }
@@ -82,33 +86,25 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
                     post("/orchestrator/api/v1/channels/$channelSessionId/logouts")
                     post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
 
-                    val log = get("/orchestrator/api/v1/journey-log")
-                    @Suppress("UNCHECKED_CAST")
-                    val entries = log["entries"] as List<Map<String, Any?>>
-                    val logoutEntry = entries.first { it["eventType"] == "LOGGED_OUT" }
+                    val logoutEntry = logOf(channelSessionId).first { it["eventType"] == "LOGGED_OUT" }
                     logoutEntry["channelSessionId"] shouldBe channelSessionId
                     logoutEntry["channelType"] shouldBe "APP"
                 }
             }
         }
 
-        given("two different devices") {
-            `when`("one of them reads the journey log") {
-                then("only its own entries come back") {
+        given("a registration whose channel is bound to an account only partway through") {
+            `when`("reading its journey log") {
+                then("the steps before the binding are attributed to that account too") {
 
-                    // A real run, not a seeded account: this test reads the journey LOG, which
-                    // only an actual journey writes.
-                    registerAndAuthenticate()
-                    val ownBindingKeyRef = currentBindingKeyRef
+                    val channelSessionId = registerAndAuthenticate()
 
-                    currentBindingKeyRef = "a-completely-different-binding-key"
-                    post("/orchestrator/api/v1/app/channels")
-
-                    currentBindingKeyRef = ownBindingKeyRef
-                    val log = get("/orchestrator/api/v1/journey-log")
-                    @Suppress("UNCHECKED_CAST")
-                    val entries = log["entries"] as List<Map<String, Any?>>
-                    entries shouldHaveAtLeastSize 1
+                    val entries = logOf(channelSessionId)
+                    val accountIds = entries.map { it["accountId"] }.toSet()
+                    accountIds.size shouldBe 1
+                    accountIds.single().shouldNotBeNull()
+                    // "Started" is logged before ident-fsc binds the account - it still carries it.
+                    entries.first { it["eventType"] == "Started" }["accountId"].shouldNotBeNull()
                 }
             }
         }

@@ -90,6 +90,9 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.spring.boot.starter.data.jpa)
+    // Guards only the operator endpoints (/orchestrator/admin/**, AdminSecurityConfig) - DPoP and
+    // the Keycloak facade authenticate themselves and stay outside Spring Security.
+    implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.modulith.starter.core)
     // Event Publication Registry: Spring Modulith' eigener transaktionaler Outbox
     // (docs/07-betrieb.md Abschnitt 3a). Bringt events-api/-core/-jpa/-jackson mit.
@@ -137,6 +140,8 @@ val npmBuild = tasks.register<Exec>("npmBuild") {
     dependsOn(npmInstall)
     workingDir = frontendDir
     inputs.dir(frontendDir.resolve("src"))
+    // One HTML entry per page app (vite.config.ts `input`) - a changed page title must rebuild too.
+    inputs.files(fileTree(frontendDir) { include("index.html", "*/index.html"); exclude("node_modules/**") })
     inputs.file(frontendDir.resolve("vite.config.ts"))
     inputs.file(frontendDir.resolve("package.json"))
     outputs.dir(file("src/main/resources/static"))
@@ -152,8 +157,8 @@ tasks.named<Delete>("clean") {
 }
 
 // `./gradlew bootRunKc` - same as bootRun, just with the `keycloak` profile active (real Keycloak
-// via podman-compose, see compose.yml/docs/05-api.md Abschnitt 3, instead of the default
-// profile's Mock-Keycloak frontend). Equivalent to `bootRun --args='--spring.profiles.active=keycloak'`,
+// via podman-compose, see compose.yml/docs/05-api.md Abschnitt 3; without it there is no Web
+// channel at all). Equivalent to `bootRun --args='--spring.profiles.active=keycloak'`,
 // just without having to remember/retype that every time.
 tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {
     group = "application"
@@ -178,6 +183,10 @@ tasks.withType<Test> {
     // bricht dann ab und meldet "Sharing is only supported for boot loader classes" bei jedem
     // Start - aus, statt jedes Mal zu warnen.
     jvmArgs("-Xshare:off")
+    // Gradles Default fuer Test-JVMs sind 512 MB. Die Suite haelt mehrere Spring-Kontexte im
+    // Cache (je MockkBean-Kombination einer), und mit Spring Security wurde jeder etwas groesser -
+    // der ArchUnit-Import am Ende lief dann in "OutOfMemoryError: Java heap space".
+    maxHeapSize = "1g"
 }
 
 // Der API-Vertrag hat drei Leser (Kotlin-DTOs, Frontend, keycloak-extension); beide Clients werden

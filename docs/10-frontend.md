@@ -81,23 +81,33 @@ Daraus folgt für dich als Frontend-Entwickler:
 
 ---
 
-## 0) Drei eigenständige Apps
+## 0) Fünf eigenständige Apps
 
-Das Frontend ist **kein** einzelnes SPA, sondern drei eigene React-Apps mit eigenem
+Das Frontend ist **kein** einzelnes SPA, sondern fünf eigene React-Apps mit eigenem
 HTML-Entry-Point/URL, die sich Code (Komponenten, Tools, `api.ts`, ...) nur als gemeinsame
-Bibliothek teilen:
+Bibliothek teilen. Jede hat ein eigenes Farbschema (`index.css`), damit man ohne Lesen sieht, wo man ist:
 
-- **Willkommen** (`/`) — statisch, keine Channel-Logik, kein DPoP-Key; Links zu den beiden Kanälen.
-- **App-Kanal** (`/app/`) — der DPoP-gebundene Orchestrator-Ablauf mit eigenen
-  Demo/Journey-Log/Einstellungen-Tabs.
-- **Web-Kanal** (`/web/`) — der echte Keycloak-Browser-Ablauf mit eigenen
-  Demo/Mock-Keycloak/Journey-Log/Einstellungen-Tabs.
+- **Willkommen** (`/`) — keine Channel-Logik, kein DPoP-Key. Tabs *Übersicht* (Kacheln zu allen
+  anderen Apps), *Begriffe & Doku* und *Server-Status* (liest nur das öffentliche
+  `GET /orchestrator/demo/server-info`: Keycloak-Profil, Registrierungsreihenfolge, gesperrte Tools).
+- **App-Kanal** (`/app/`) — der DPoP-gebundene Orchestrator-Ablauf, ohne Tabs. Was nur diesen
+  Client betrifft (Startniveau, unterstützte Verfahren), steht unter „Erweitert“: Die
+  Verfügbarkeit erklärt der Client, nicht der Betreiber.
+- **Web-Kanal** (`/web/`) — der echte Keycloak-Browser-Ablauf, ohne Tabs. Es gibt ihn nur mit dem
+  Spring-Profil `keycloak`: Ohne Profil zeigt `/web/` einen Hinweis statt eines Logins, und die
+  Kachel auf der Startseite ist deaktiviert (beides liest `server-info.keycloakProfile`). Einen
+  simulierten Keycloak gibt es nicht mehr.
+- **Admin** (`/admin/`) — die Betreiber-Sicht, hinter dem Admin-Login (HTTP Basic auf
+  `/orchestrator/admin/**`, `AdminSecurityConfig`). Tabs *Einstellungen* (Tool-Sperren,
+  Registrierungsreihenfolge, Keycloak-Sync, Entwickler-Links), *Journey-Log* über alle Konten und
+  Geräte (mit Live-Aktualisierung) und *Konten* (löschen, Demo zurücksetzen).
+- **Personenregister** (`/ext/`) — das simulierte **Fremdsystem** (ADR-31): Personen, Freischaltcodes
+  und der Briefkasten mit den Klartext-Codes. Spricht nur `/mock-stammdaten/*`, nie `/orchestrator`.
 
-Journey-Log und Einstellungen leben jeweils **im eigenen Kanal**, nicht bei Willkommen und nicht
-als vierte App — beide Ansichten hängen am jeweiligen Kanal-Kontext (DPoP-Channel bzw.
-Keycloak-Tokens).
+Die Kanäle zeigen nur, was ein Nutzer dieses Kanals sähe. Das Journey-Log und alles, was die
+ganze Instanz umschaltet, liegt auf der Admin-Seite - dort über alle Konten, Geräte und Kanäle.
 
-Navigation zwischen den drei Apps ist **echte Browser-Navigation**, kein Client-Routing — Back/
+Navigation zwischen den Apps ist **echte Browser-Navigation**, kein Client-Routing — Back/
 Forward funktionieren dafür ohne eigenen Code. Willkommens Links zu den Kanälen öffnen einen
 **benannten** Tab (`target="dpop-demo-app-kanal"`/`target="dpop-demo-web-kanal"`, bewusst ohne
 `rel="noopener"`, das die Wiederverwendung verhindern würde) statt `_blank` — innerhalb derselben
@@ -116,10 +126,10 @@ neuen Tab. Das ist ein Komfort-Manko beim Desktop-Testen, keine Funktionseinschr
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | FE-1 | Frontend auf Basis von React (aktuelle Version) und TypeScript. | siehe Versionstabelle in [08-projektrahmen.md](08-projektrahmen.md) |
-| FE-2 | Das Frontend kann autark betrieben werden. | `npm run dev` startet den Vite-Dev-Server, alle drei Entry-Points erreichbar (`/`, `/app/`, `/web/`) |
-| FE-3 | Das Frontend kann über Spring Boot gehostet werden. | Ein Vite-Build mit drei HTML-Entry-Points nach `src/main/resources/static`; `./gradlew bootRun` liefert es aus. `/app/`/`/web/` werden über explizite `WebMvcConfigurer`-Forwards ([WebConfig.kt](../src/main/kotlin/com/example/dpop/orchestrator/api/v1/WebConfig.kt)) auf ihre `index.html` aufgelöst — der Default-Resource-Handler löst nur den Root-Fall |
-| FE-4 | Im Entwicklungsmodus werden API-Requests weitergeleitet. | Vite-Dev-Server proxyt `/orchestrator` nach `http://localhost:8080`, für alle drei Apps gleichermaßen |
-| FE-5 | Das Frontend kommuniziert ausschließlich über den `orchestrator`. | Keine direkten Aufrufe an fachliche Module. **Eine benannte Ausnahme:** `src/kobilSdk.ts` ruft den Fremddienst KOBIL (`/mock-kobil/*`) direkt auf — auf einem echten Telefon wäre das nativer SDK-Code, und den Aufruf durch unser Backend zu leiten würde aus dem Fremddienst unbemerkt einen internen Aufruf machen. Genau diese Trennung ist der Punkt des Verfahrens ([Abläufe](06-ablaeufe.md) Abschnitt 7) |
+| FE-2 | Das Frontend kann autark betrieben werden. | `npm run dev` startet den Vite-Dev-Server, alle fünf Entry-Points erreichbar (`/`, `/app/`, `/web/`, `/admin/`, `/ext/`) |
+| FE-3 | Das Frontend kann über Spring Boot gehostet werden. | Ein Vite-Build mit fünf HTML-Entry-Points nach `src/main/resources/static`; `./gradlew bootRun` liefert es aus. `/app/`, `/web/`, `/admin/` und `/ext/` werden über explizite `WebMvcConfigurer`-Forwards ([WebConfig.kt](../src/main/kotlin/com/example/dpop/orchestrator/api/v1/WebConfig.kt)) auf ihre `index.html` aufgelöst — der Default-Resource-Handler löst nur den Root-Fall |
+| FE-4 | Im Entwicklungsmodus werden API-Requests weitergeleitet. | Vite-Dev-Server proxyt `/orchestrator` und `/mock-stammdaten` nach `http://localhost:8080`, für alle Apps gleichermaßen |
+| FE-5 | Das Frontend kommuniziert ausschließlich über den `orchestrator`. | Keine direkten Aufrufe an fachliche Module. **Eine benannte Ausnahme:** `src/kobilSdk.ts` ruft den Fremddienst KOBIL (`/mock-kobil/*`) direkt auf — auf einem echten Telefon wäre das nativer SDK-Code, und den Aufruf durch unser Backend zu leiten würde aus dem Fremddienst unbemerkt einen internen Aufruf machen. Genau diese Trennung ist der Punkt des Verfahrens ([Abläufe](06-ablaeufe.md) Abschnitt 7). Dasselbe gilt für die Seite `/ext/`, die das simulierte Personenregister (`/mock-stammdaten/*`) direkt bedient (ADR-31) |
 
 ---
 
@@ -128,7 +138,7 @@ neuen Tab. Das ist ein Komfort-Manko beim Desktop-Testen, keine Funktionseinschr
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | FE-6 | Übersichtliches Layout mit Karten, konsistentem Farbschema und Darkmode. | visuelle Gestaltung als Karten |
-| FE-7 | Formulare sind mit Testdaten vorbelegt. | Frei erfundene Erstangaben (`ident-fsc`, Telefonnummer) clientseitig fest vorbelegt; alles, wofür der Server einen Wert kennt (TAN/Code/Passwort/E-Mail), kommt über das `demo`-Objekt ([API](05-api.md)) |
+| FE-7 | Formulare sind mit Testdaten vorbelegt. | Frei erfundene Erstangaben (Telefonnummer) clientseitig fest vorbelegt; alles, wofür der Server einen Wert kennt (TAN/Code/Passwort/E-Mail, die Testpersonen samt Freischaltcode aus dem Register-Briefkasten), kommt über das `demo`-Objekt ([API](05-api.md)) |
 | FE-8 | Der aktuelle Stand und der nächste Schritt werden dargestellt. | Anzeige aus `next` und `stepData` |
 | FE-9 | Telefonnummern werden clientseitig vorvalidiert. | Formatprüfung vor dem Absenden; das Backend lehnt ungültige Nummern mit `400` ab |
 | FE-10 | Geräte-Identität und Kanal lassen sich unabhängig voneinander zurücksetzen. | „Neu erzeugen" tauscht nur den DPoP-Key, startet aber keinen Kanal. „Leeren" vergisst nur die lokal gemerkte `channelSessionId`, ohne Backend-Aufruf. Logout beendet den Kanal serverseitig ([API](05-api.md), Logout) und legt **keinen** neuen Kanal automatisch an — nur sichtbar, wenn der Kanal `AUTHENTICATED` ist |

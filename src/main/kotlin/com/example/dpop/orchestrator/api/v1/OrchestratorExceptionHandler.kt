@@ -1,7 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
 import com.example.dpop.orchestrator.dpop.DpopValidationException
-import com.example.dpop.orchestrator.kc.OidcTokenValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
@@ -34,11 +33,6 @@ class OrchestratorExceptionHandler {
     /** Missing/invalid Keycloak peer-auth assertion (docs/12-entscheidungen.md ADR-7) - same contract as DPoP: 401. */
     @ExceptionHandler(PeerAuthValidationException::class)
     fun handlePeerAuthValidation(e: PeerAuthValidationException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.UNAUTHORIZED, e.message ?: "")
-
-    /** Missing/invalid real Keycloak OIDC AccessToken (`KeycloakOidcTokenValidator`, demo-only Web-Kanal Journey-Log read path) - same 401 contract as the other two bearer-proof kinds. */
-    @ExceptionHandler(OidcTokenValidationException::class)
-    fun handleOidcTokenValidation(e: OidcTokenValidationException): ResponseEntity<ErrorResponse> =
         respond(ErrorCode.UNAUTHORIZED, e.message ?: "")
 
     @ExceptionHandler(OrchestratorException::class)

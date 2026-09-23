@@ -499,6 +499,20 @@ a.method-choice {
   transition: border-color 0.15s, background 0.15s, transform 0.05s;
 }
 
+/* A tile for something this server does not offer right now (e.g. the Web channel without the
+   `keycloak` profile): same shape as the others, but visibly not clickable. */
+.method-choice.method-choice-disabled {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 button.method-choice:hover,
 a.method-choice:hover {
   border-color: var(--accent-border);
@@ -587,6 +601,14 @@ a.method-choice:active {
   margin-top: 1.25rem;
   border-top: 1px solid var(--border);
   padding-top: 0.75rem;
+}
+
+/* The divider separates a disclosure from card content ABOVE it - as a card's first element there
+   is nothing to separate it from. */
+.card > .disclosure:first-child {
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
 }
 
 .disclosure-summary {
@@ -1112,4 +1134,76 @@ button.small,
 
 .web-page-wide {
   max-width: 100%;
+}
+
+.channel-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.card-heading-row h2 {
+  margin: 0;
+}
+
+.form-group select {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 1rem;
+}
+
+/* /ext/ - Personenregister */
+.ext-banner {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--accent);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
+.ext-banner code {
+  margin: 0;
+  padding: 0 0.2rem;
+}
+
+.brief-list {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.brief {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font-family: var(--heading);
+  color: #222;
+}
+
+.brief-meta {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+}
+
+.brief-code {
+  margin-top: 0.4rem;
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #111;
 }

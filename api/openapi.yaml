@@ -522,49 +522,6 @@ components:
       - lifecycle
       - stateType
       type: object
-    JourneyLogEntryView:
-      properties:
-        accountId:
-          format: int64
-          type: integer
-        channelSessionId:
-          format: uuid
-          type: string
-        channelType:
-          type: string
-        createdAt:
-          format: date-time
-          type: string
-        detail:
-          additionalProperties: true
-          type: object
-        eventType:
-          type: string
-        intent:
-          type: string
-        journeyId:
-          format: uuid
-          type: string
-        journeyState:
-          type: string
-        parentJourneyId:
-          format: uuid
-          type: string
-      required:
-      - channelSessionId
-      - createdAt
-      - detail
-      - eventType
-      type: object
-    JourneyLogResponse:
-      properties:
-        entries:
-          items:
-            $ref: '#/components/schemas/JourneyLogEntryView'
-          type: array
-      required:
-      - entries
-      type: object
     KcChannelUpsertRequest:
       description: Upsert body for the kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3). All fields are
         optional. accountId is the account Keycloak already knows (sub vorhanden) - the channel is bound to it immediately,
@@ -1389,40 +1346,6 @@ paths:
       - kc-peer-auth: [
           ]
       summary: Cancel the current journey
-      tags:
-      - Channels
-  /orchestrator/api/v1/channels/{channelSessionId}/journey-log:
-    get:
-      description: Every journey step ever recorded under this channel's OWN account, across every channel (APP or KEYCLOAK
-        alike) that account was ever authenticated on - not just this one. Empty, not an error, when this channel has no account
-        bound yet.
-      operationId: getJourneyLog_1
-      parameters:
-      - in: path
-        name: channelSessionId
-        required: true
-        schema:
-          format: uuid
-          type: string
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/JourneyLogResponse'
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      security:
-      - dpop: [
-          ]
-      - kc-peer-auth: [
-          ]
-      summary: Read this channel's account's journey log
       tags:
       - Channels
   /orchestrator/api/v1/channels/{channelSessionId}/logouts:
@@ -2551,32 +2474,6 @@ paths:
       summary: Activate ident-kvnr
       tags:
       - 'Tool: Versichertennummer'
-  /orchestrator/api/v1/journey-log:
-    get:
-      description: Every journey step ever recorded under the caller's own bindingKeyRef, newest first - across all channelSessionIds
-        this device ever created.
-      operationId: getJourneyLog
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/JourneyLogResponse'
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      security:
-      - dpop: [
-          ]
-      - kc-peer-auth: [
-          ]
-      summary: Read this device's journey log
-      tags:
-      - Journey log
   /orchestrator/api/v1/kc/channels/{channelSessionId}:
     patch:
       description: 'Upsert semantics (docs/05-api.md Abschnitt 3): creates the channel on first call under this Keycloak-chosen
@@ -4666,8 +4563,6 @@ tags:
   name: 'Tool: eID'
 - description: Stateless password verify/set for Keycloak's native credential
   name: KC password management
-- description: Reichhaltiges, nach bindingKeyRef abrufbares Journey-Log (Debug/Demo, kein Audit-Trail)
-  name: Journey log
 - description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: Passwort'
 - description: The App facade's own endpoints - channel creation and the device-link read

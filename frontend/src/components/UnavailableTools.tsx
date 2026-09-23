@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchToolAvailability, type ToolAvailabilityEntry } from '../api.ts'
+import { fetchServerInfo, type ServerInfo } from '../api.ts'
 import { knownToolIds } from '../tools/registry'
 
 interface UnavailableToolsProps {
-  /** The client's own declared availability (Einstellungen, docs/03-tool-architektur.md). */
+  /** The client's own declared availability ("Erweitert" in the demo tab, docs/03-tool-architektur.md). */
   availableTools: string[]
 }
 
@@ -12,23 +12,24 @@ interface UnavailableToolsProps {
  * a tool that's off simply never appears in `stepData.options`, with no indication why. This
  * makes that visible on the Demo page itself: which known tools are currently unavailable, and
  * on which axis (this client's own declared support, or the backend-wide kill-switch, with its
- * reason) - most useful right after toggling something in Einstellungen or simulating an outage.
+ * reason) - most useful right after toggling something on the admin page or simulating an outage.
+ * The backend locks come from the public server status, not the admin endpoint: a channel user
+ * has no admin login, and needs none to see that a tool is switched off.
  */
 export function UnavailableTools({ availableTools }: UnavailableToolsProps) {
-  const [adminEntries, setAdminEntries] = useState<ToolAvailabilityEntry[] | null>(null)
+  const [disabled, setDisabled] = useState<ServerInfo['disabledTools']>([])
 
   useEffect(() => {
-    fetchToolAvailability()
-      .then(setAdminEntries)
-      .catch(() => setAdminEntries(null))
+    fetchServerInfo()
+      .then((info) => setDisabled(info.disabledTools))
+      .catch(() => setDisabled([]))
   }, [])
 
   const rows = knownToolIds
     .map((toolId) => {
       const clientDisabled = !availableTools.includes(toolId)
-      const adminEntry = adminEntries?.find((e) => e.toolId === toolId)
-      const adminDisabled = adminEntry ? !adminEntry.enabled : false
-      return { toolId, clientDisabled, adminDisabled, reason: adminEntry?.reason }
+      const lock = disabled.find((e) => e.toolId === toolId)
+      return { toolId, clientDisabled, adminDisabled: lock !== undefined, reason: lock?.reason }
     })
     .filter((row) => row.clientDisabled || row.adminDisabled)
 

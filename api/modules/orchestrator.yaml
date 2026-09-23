@@ -1,5 +1,49 @@
 components:
   schemas:
+    AdminAccountLabel:
+      properties:
+        accountId:
+          format: int64
+          type: integer
+        displayName:
+          type: string
+      required:
+      - accountId
+      type: object
+    AdminAccountView:
+      properties:
+        accountId:
+          format: int64
+          type: integer
+        displayName:
+          type: string
+        email:
+          type: string
+        methods:
+          items:
+            type: string
+          type: array
+        personId:
+          format: int64
+          type: integer
+      required:
+      - accountId
+      - methods
+      type: object
+    AdminJourneyLogResponse:
+      properties:
+        accounts:
+          items:
+            $ref: '#/components/schemas/AdminAccountLabel'
+          type: array
+        entries:
+          items:
+            $ref: '#/components/schemas/JourneyLogEntryView'
+          type: array
+      required:
+      - accounts
+      - entries
+      type: object
     AmrEntry:
       description: One native authenticator proof - which authenticator TYPE, and which specific execution/instance of it.
       properties:
@@ -81,6 +125,14 @@ components:
       required:
       - requiredAcr
       type: object
+    DemoResetResult:
+      properties:
+        deletedAccounts:
+          format: int32
+          type: integer
+      required:
+      - deletedAccounts
+      type: object
     DeviceLinkResponse:
       properties:
         accountId:
@@ -103,6 +155,15 @@ components:
           type: string
       required:
       - linked
+      type: object
+    DisabledToolView:
+      properties:
+        reason:
+          type: string
+        toolId:
+          type: string
+      required:
+      - toolId
       type: object
     JourneyLogEntryView:
       properties:
@@ -137,15 +198,6 @@ components:
       - createdAt
       - detail
       - eventType
-      type: object
-    JourneyLogResponse:
-      properties:
-        entries:
-          items:
-            $ref: '#/components/schemas/JourneyLogEntryView'
-          type: array
-      required:
-      - entries
       type: object
     KcChannelUpsertRequest:
       description: Upsert body for the kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3). All fields are
@@ -239,6 +291,28 @@ components:
         restoreData:
           type: string
       type: object
+    ServerInfo:
+      properties:
+        demoDisclosure:
+          type: boolean
+        disabledTools:
+          items:
+            $ref: '#/components/schemas/DisabledToolView'
+          type: array
+        keycloakBaseUrl:
+          type: string
+        keycloakProfile:
+          type: boolean
+        keycloakRealm:
+          type: string
+        registrationEnrollFirst:
+          type: boolean
+      required:
+      - demoDisclosure
+      - disabledTools
+      - keycloakProfile
+      - registrationEnrollFirst
+      type: object
     TokenResponse:
       description: Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification
         needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's
@@ -328,17 +402,17 @@ info:
   version: v1
 openapi: 3.1.0
 paths:
-  /mock-keycloak/.well-known/jwks.json:
+  /orchestrator/admin/accounts:
     get:
-      operationId: jwks
+      operationId: accounts
       responses:
         '200':
           content:
             '*/*':
               schema:
-                additionalProperties: {
-                  }
-                type: object
+                items:
+                  $ref: '#/components/schemas/AdminAccountView'
+                type: array
           description: OK
         default:
           content:
@@ -346,22 +420,22 @@ paths:
               schema:
                 $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      summary: The mock's public key, in the shape kc.peer-auth.jwks-uri expects
+      summary: All accounts
       tags:
-      - Mock Keycloak
-  /mock-keycloak/signing-key:
-    get:
-      description: Real Keycloak never exposes this; the Mock-Keycloak frontend fetches it once to sign peer-auth assertions
-        client-side, standing in for the real Authenticator SPI plugin.
-      operationId: signingKey
+      - 'Admin: accounts'
+  /orchestrator/admin/accounts/{accountId}:
+    delete:
+      description: Same cleanup as the account's own deletion journey; its channels end up logged out.
+      operationId: delete
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          format: int64
+          type: integer
       responses:
         '200':
-          content:
-            '*/*':
-              schema:
-                additionalProperties: {
-                  }
-                type: object
           description: OK
         default:
           content:
@@ -369,9 +443,58 @@ paths:
               schema:
                 $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      summary: The mock's PRIVATE signing key - demo/test only
+      summary: Delete one account
       tags:
-      - Mock Keycloak
+      - 'Admin: accounts'
+  /orchestrator/admin/demo-reset:
+    post:
+      description: Deletes every account, lifts every tool lock and restores the ident-first registration order. The person
+        register (/mock-stammdaten) is a foreign system and stays as it is.
+      operationId: reset
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DemoResetResult'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Put the demo back to its start
+      tags:
+      - 'Admin: accounts'
+  /orchestrator/admin/journey-log:
+    get:
+      description: At most `limit` entries (1-2000), newest first.
+      operationId: recent
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 500
+          format: int32
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AdminJourneyLogResponse'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Newest journey-log entries across all accounts
+      tags:
+      - 'Admin: journey log'
   /orchestrator/admin/registration-order:
     get:
       operationId: get
@@ -915,40 +1038,6 @@ paths:
       summary: Cancel the current journey
       tags:
       - Channels
-  /orchestrator/api/v1/channels/{channelSessionId}/journey-log:
-    get:
-      description: Every journey step ever recorded under this channel's OWN account, across every channel (APP or KEYCLOAK
-        alike) that account was ever authenticated on - not just this one. Empty, not an error, when this channel has no account
-        bound yet.
-      operationId: getJourneyLog_1
-      parameters:
-      - in: path
-        name: channelSessionId
-        required: true
-        schema:
-          format: uuid
-          type: string
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/JourneyLogResponse'
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
-          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      security:
-      - dpop: [
-          ]
-      - kc-peer-auth: [
-          ]
-      summary: Read this channel's account's journey log
-      tags:
-      - Channels
   /orchestrator/api/v1/channels/{channelSessionId}/logouts:
     post:
       description: Channel must already be AUTHENTICATED. Starts a LOGOUT journey with a confirmation prompt (next.context=prompt,
@@ -1220,32 +1309,6 @@ paths:
       summary: Get the mock Keycloak AccessToken
       tags:
       - Channels
-  /orchestrator/api/v1/journey-log:
-    get:
-      description: Every journey step ever recorded under the caller's own bindingKeyRef, newest first - across all channelSessionIds
-        this device ever created.
-      operationId: getJourneyLog
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/JourneyLogResponse'
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
-          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      security:
-      - dpop: [
-          ]
-      - kc-peer-auth: [
-          ]
-      summary: Read this device's journey log
-      tags:
-      - Journey log
   /orchestrator/api/v1/kc/channels/{channelSessionId}:
     patch:
       description: 'Upsert semantics (docs/05-api.md Abschnitt 3): creates the channel on first call under this Keycloak-chosen
@@ -1507,36 +1570,57 @@ paths:
       summary: Abandon this tool attempt
       tags:
       - Tools
+  /orchestrator/demo/server-info:
+    get:
+      operationId: get_1
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ServerInfo'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Current server status
+      tags:
+      - 'Demo: server info'
 tags:
-- description: Operator kill-switch for individual tools - no auth guard yet (demo scope)
-  name: 'Admin: tool availability'
+- description: Toggle between ident-first and enroll-first REGISTER
+  name: 'Admin: registration order'
 - description: Facade-neutral channel resource - shared by every facade that creates one
   name: Channels
 - description: Gerätebindung über den externen Dienstleister KOBIL
   name: 'Tool: KOBIL'
+- description: Journey log across all accounts and channels
+  name: 'Admin: journey log'
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
   name: 'Tool: Gerät'
 - description: The full set of registered tools, independent of any journey
   name: Tool catalog
 - description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
   name: 'Tool: QR-Login'
+- description: List and delete accounts, reset the demo
+  name: 'Admin: accounts'
 - description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: SMS'
 - description: Abandoning an activated tool (Back/Switch)
   name: Tools
-- description: Toggle between ident-first and enroll-first REGISTER - no auth guard yet (demo scope)
-  name: 'Admin: registration order'
+- description: Read-only server status for the welcome page
+  name: 'Demo: server info'
 - description: Stateless password verify/set for Keycloak's native credential
   name: KC password management
-- description: Reichhaltiges, nach bindingKeyRef abrufbares Journey-Log (Debug/Demo, kein Audit-Trail)
-  name: Journey log
 - description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: Passwort'
-- description: Demo-only signing key for the Mock-Keycloak frontend - not a real Keycloak endpoint
-  name: Mock Keycloak
 - description: The App facade's own endpoints - channel creation and the device-link read
   name: App channels
 - description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
   name: 'Tool: E-Mail'
+- description: Operator kill-switch for individual tools
+  name: 'Admin: tool availability'
 - description: The kc facade's one facade-specific endpoint - upsert channel + advance journey
   name: KC channels

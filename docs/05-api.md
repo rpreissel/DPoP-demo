@@ -34,10 +34,13 @@ erreichte jede Stelle zu einem anderen Zeitpunkt.
 | `keycloak-extension/build/generated/` | die daraus erzeugten Java-Modelle | von `OrchestratorClient` benutzt, nicht eingecheckt |
 
 **Was zum App-Vertrag gehört, entscheidet der Pfad.** `api/openapi.yaml` enthält genau die
-Endpunkte unter `API_V1`, abgeleitet aus der Konstante, nicht aus einer Ausschlussliste. Zwei Arten
+Endpunkte unter `API_V1`, abgeleitet aus der Konstante, nicht aus einer Ausschlussliste. Drei Arten
 von Endpunkten liegen bewusst woanders: Betriebsendpunkte unter `/orchestrator/admin` (Tool-Sperre,
-Registrierungsreihenfolge) und die Stellvertreter externer Systeme unter `/mock-*`. Auf beide darf
-sich kein App-Client verlassen. Stünden sie im eingefrorenen Stand, meldete der
+Registrierungsreihenfolge, Keycloak-Sync, Journey-Log aller Konten, Konten löschen, Demo
+zurücksetzen; als einzige hinter einem Login, HTTP Basic mit `demo.admin.*`), der öffentliche,
+nur lesende Server-Status unter `/orchestrator/demo/server-info` und die Stellvertreter externer
+Systeme unter `/mock-*` (`/mock-kobil`, `/mock-stammdaten`, ADR-31). Auf keine davon darf
+sich ein App-Client verlassen. Stünden sie im eingefrorenen Stand, meldete der
 Kompatibilitätsvergleich ihr späteres Entfernen als Bruch des App-Vertrags. Dokumentiert sind sie
 trotzdem: in der Datei ihres Moduls unter `api/modules/`.
 
@@ -259,12 +262,13 @@ Liest den stabilen Kanalzustand. Zwei zusätzliche Felder im `channel`-Block neb
 
 Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer gesetzt — auch bei abgeschlossener Journey (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es nicht. Nur bei `LOGGED_OUT` (terminal) fehlt `next` ganz.
 
-### Journey-Log (`GET /journey-log`, `GET /channels/{channelSessionId}/journey-log`)
+### Journey-Log
 
-Debug/Demo-Ansicht, kein Audit-Trail (`SessionEvent`, [Betrieb](07-betrieb.md) Abschnitt 2). Zwei Varianten, beide `dpop`-authentifiziert:
-
-- `GET /orchestrator/api/v1/journey-log`: jeder Journey-Schritt unter dem `bindingKeyRef` des Aufrufers (aus dem validierten DPoP-Proof), neuestes zuerst, über alle `channelSessionId`s dieses Geräts hinweg (`JourneyLogController`).
-- `GET /channels/{channelSessionId}/journey-log`: jeder Journey-Schritt unter dem **Account**, an den dieser Kanal gebunden ist, kanalübergreifend (APP wie KEYCLOAK). Leer statt Fehler, solange kein Account gebunden ist.
+Debug/Demo-Ansicht, kein Audit-Trail (`SessionEvent`, [Betrieb](07-betrieb.md) Abschnitt 2). Nicht
+Teil des App-Vertrags: Es gibt sie nur als Betriebsendpunkt `GET /orchestrator/admin/journey-log`
+(hinter dem Admin-Login, über alle Konten und Kanäle). Die früheren Kanal-Varianten
+`GET /journey-log` (pro Gerät) und `GET /channels/{channelSessionId}/journey-log` (pro Konto) sind
+entfernt - ein bewusster Bruch von v1, `api/published/v1.yaml` wurde dafür neu gehoben.
 
 ### `GET /app/channels/device-link`
 

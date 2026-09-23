@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.orchestrator.admin.ADMIN_API
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidator
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
@@ -70,7 +71,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     init {
         beforeEach {
-            // Children first (FK order); ext_stammdaten.person/id_fsc.code seed data is left
+            // Children first (FK order); ext_stammdaten.person/freischaltcode seed data is left
             // untouched. The union of every table any suite ever touches - deleting from one a
             // given test never populated is a harmless no-op. account's own children cascade.
             listOf(
@@ -160,8 +161,14 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     protected fun put(url: String, body: String): HttpStatus =
         restTemplate.exchange(
-            "http://localhost:$port$url", HttpMethod.PUT, HttpEntity(body, headers()), Void::class.java
+            "http://localhost:$port$url", HttpMethod.PUT, HttpEntity(body, if (url.startsWith(ADMIN_API)) adminHeaders() else headers()), Void::class.java
         ).statusCode as HttpStatus
+
+    /** Operator endpoints sit behind the admin login (AdminSecurityConfig) - the demo credentials from application.yml. */
+    protected fun adminHeaders(): HttpHeaders = HttpHeaders().apply {
+        setBasicAuth("admin", "admin")
+        set("Content-Type", "application/json")
+    }
 
     protected fun get(url: String): Map<String, Any?> =
         restTemplate.exchange(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
 import '../../App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, DeviceLinkResponse, Next, StepData } from '../../types'
@@ -14,10 +14,8 @@ import {
   createChannel,
   deactivateMethod,
   describeError,
-  getAccountJourneyLog,
   getChannel,
   getDeviceLink,
-  getJourneyLog,
   getTool,
   startLogout,
   onApiCall,
@@ -44,14 +42,10 @@ import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
 import { EntryChoiceLinks } from '../../components/EntryChoiceLinks'
 import { SelectMethodView } from '../../components/SelectMethodView'
 import { JourneyStructureView } from '../../components/JourneyStructureView'
-import { JourneyLogView } from '../../components/JourneyLogView'
 import { PromptView } from '../../components/PromptView'
 import { ToolAvailabilitySelector } from '../../components/ToolAvailabilitySelector'
-import { AdminRegistrationOrderView } from '../../components/AdminRegistrationOrderView'
-import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
-import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
-import { KeycloakSyncView } from '../../components/KeycloakSyncView'
 import { UnavailableTools } from '../../components/UnavailableTools'
+import { Disclosure } from '../../components/Disclosure'
 import { DeviceIdentityCard } from '../../components/DeviceIdentityCard'
 import { DiagramHint } from '../../components/DiagramHint'
 import { CURRENT_STEP_BY_STATE_TYPE, currentJourneyDiagramKey, journeyContextLabel, JOURNEY_DIAGRAMS } from '../../journeyDiagrams'
@@ -61,14 +55,6 @@ interface ActiveTool {
   toolId: string
 }
 
-type SubTab = 'demo' | 'journeylog' | 'settings'
-const SUB_TABS: SubTab[] = ['demo', 'journeylog', 'settings']
-
-/** The sub-tab lives in the URL hash ("journeylog"/"settings", bare/empty meaning "demo") so a reload or a shared link keeps/opens the same place. */
-function subFromHash(): SubTab {
-  const raw = window.location.hash.slice(1)
-  return (SUB_TABS as string[]).includes(raw) ? (raw as SubTab) : 'demo'
-}
 
 /**
  * Wire vocabulary of AuthIntent's entry intents (backend `AuthIntent.fromRequest`, case-
@@ -141,11 +127,6 @@ export function AppChannelApp() {
     setAvailableToolsState(toolIds)
     storeAvailableTools(toolIds)
   }
-  const [sub, setSubState] = useState<SubTab>(() => subFromHash())
-  const appJourneyLogFetcher = useCallback(
-    () => (channelSessionId ? getAccountJourneyLog(dpop!, channelSessionId) : getJourneyLog(dpop!)),
-    [channelSessionId, dpop],
-  )
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugLog, setDebugLog] = useState<DebugEvent[]>([])
   const debugIdRef = useRef(0)
@@ -153,19 +134,6 @@ export function AppChannelApp() {
   // sync explicitly (not derived from channelSessionId) since it must survive Clear/Logout
   // clearing the in-memory state while still reflecting localStorage accurately afterwards.
   const [rememberedChannelSessionId, setRememberedChannelSessionId] = useState(() => loadChannelSessionId())
-
-  /** Keeps the URL hash in sync so a reload, a shared link, or the browser's own back/forward button all land on the right place. */
-  function setActiveTab(newSub: SubTab) {
-    setSubState(newSub)
-    const hash = newSub === 'demo' ? '' : newSub
-    if (window.location.hash.slice(1) !== hash) window.location.hash = hash
-  }
-
-  useEffect(() => {
-    const onHashChange = () => setSubState(subFromHash())
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
 
   function logEvent(label: string, extra?: { request?: unknown; response?: unknown; error?: string }) {
     debugIdRef.current += 1
@@ -761,18 +729,19 @@ export function AppChannelApp() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <AppChannelFrame sub={sub} onSelectTab={(s) => setActiveTab(s as SubTab)} onBack={() => { window.location.href = '/' }}>
-          {sub === 'journeylog' && (
-            <JourneyLogView fetchLog={dpop ? appJourneyLogFetcher : null} />
+        <AppChannelFrame onBack={() => { window.location.href = '/' }}>
+          {error && (
+            <div className="card error-card">
+              <h2>Fehler</h2>
+              <p>{error}</p>
+            </div>
           )}
 
-          {sub === 'settings' && (
-            <>
-              <AdminToolAvailabilityView />
-              <AdminRegistrationOrderView />
-              <div className="card">
-                <h2>Demo-Konfiguration (App-Kanal)</h2>
-                <p>Wirkt erst auf den nächsten im Demo-Reiter neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>
+          <UnavailableTools availableTools={availableTools} />
+          {!channelSessionId && (
+            <div className="card">
+              <Disclosure summary="Erweitert: Startniveau und unterstützte Verfahren dieses Clients">
+                <p>Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>
                 <label className="field-row">
                   Startniveau:
                   <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
@@ -781,22 +750,9 @@ export function AppChannelApp() {
                   </select>
                 </label>
                 <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
-              </div>
-              <KeycloakSyncView />
-              <DeveloperToolsCard />
-            </>
-          )}
-
-          {error && sub === 'demo' && (
-            <div className="card error-card">
-              <h2>Fehler</h2>
-              <p>{error}</p>
+              </Disclosure>
             </div>
           )}
-
-          {sub === 'demo' && (
-          <>
-          <UnavailableTools availableTools={availableTools} />
 
           {channelSessionId ? (
             <>
@@ -983,7 +939,7 @@ export function AppChannelApp() {
                           </DiagramHint>
                         </span>
                         <span className="method-choice-hint">
-                          Ein Browser wartet auf eine Bestätigung von diesem Gerät. Setzt ein hier schon bekanntes Konto voraus.
+                          Für einen Browser, der einen QR- oder Pairing-Code anzeigt. Setzt ein hier schon bekanntes Konto voraus.
                         </span>
                       </span>
                     </button>
@@ -1038,19 +994,15 @@ export function AppChannelApp() {
               onCancelJourney={canCancel ? handleCancel : undefined}
             />
           )}
-          </>
-          )}
         </AppChannelFrame>
       </div>
 
-      {sub === 'demo' && (
-        <DebugSidebar
-          channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
-          log={debugLog}
-          open={debugOpen}
-          onToggle={() => setDebugOpen((v) => !v)}
-        />
-      )}
+      <DebugSidebar
+        channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
+        log={debugLog}
+        open={debugOpen}
+        onToggle={() => setDebugOpen((v) => !v)}
+      />
     </div>
   )
 }

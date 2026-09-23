@@ -20,9 +20,9 @@ import org.springframework.core.env.MapPropertySource
  * Betrieb auf. Hier gibt es sie einmal, alles andere ist abgeleitet.
  *
  * Als [EnvironmentPostProcessor] und nicht als Bean, weil `@Value`-Platzhalter wie
- * `${kc.oidc.issuer}` schon beim Erzeugen der Beans aufgeloest werden - die Werte muessen also in
+ * `${kc.peer-auth.issuer}` schon beim Erzeugen der Beans aufgeloest werden - die Werte muessen also in
  * der Environment stehen, bevor irgendeine Bean entsteht. Die betroffenen Klassen
- * ([KeycloakAdminClient], [PeerAuthValidator], [KeycloakJwkSource], [KeycloakOidcTokenValidator])
+ * ([KeycloakAdminClient], [PeerAuthValidator], [KeycloakJwkSource])
  * bleiben dadurch unveraendert bei ihren Properties; nur deren Herkunft aendert sich.
  */
 class KeycloakSetupEnvironment : EnvironmentPostProcessor, Ordered {
@@ -58,11 +58,6 @@ class KeycloakSetupEnvironment : EnvironmentPostProcessor, Ordered {
                     "kc.peer-auth.issuer" to setup.realm.peerAuthIssuer,
                     "kc.peer-auth.audience" to setup.realm.peerAuthAudience,
                     "kc.peer-auth.jwks-uri" to "$realms/orchestrator-jwks/.well-known/jwks.json",
-                    // Der Browser bekommt sein Token von Keycloaks oeffentlichem Port, der
-                    // Issuer im Token traegt also die oeffentliche Adresse - die Schluessel holt
-                    // der Orchestrator trotzdem ueber den internen Weg.
-                    "kc.oidc.issuer" to "${setup.access.publicKeycloakBaseUrl}/realms/${setup.realm.realmName}",
-                    "kc.oidc.certs-uri" to "$realms/protocol/openid-connect/certs",
                 ),
             ),
         )

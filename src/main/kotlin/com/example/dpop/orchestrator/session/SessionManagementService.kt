@@ -169,12 +169,4 @@ class SessionManagementService(
     private fun hashPayload(payload: String): String =
         MessageDigest.getInstance("SHA-256").digest(payload.toByteArray())
             .joinToString("") { "%02x".format(it) }
-
-    /**
-     * Every channel this account was ever bound to - the ids the journey log needs to show an
-     * account's whole trace. Resolved here rather than in `journeylog` itself, so the log stays a
-     * trace that reads no session tables (see `journeylog.LoggedChannel`).
-     */
-    fun findChannelSessionIdsForAccount(accountId: Long): List<UUID> =
-        channelSessionRepository.findByAccountId(accountId).mapNotNull { it.channelSessionId }
 }

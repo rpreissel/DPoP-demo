@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journeylog
 
 import com.example.dpop.orchestrator.kernel.AuthIntent
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
@@ -105,35 +106,22 @@ class JourneyLogService(
         )
     }
 
-    fun getLogFor(bindingKeyRef: String): JourneyLogResponse =
-        JourneyLogResponse(journeyLogRepository.findByBindingKeyRefOrderByCreatedAtDesc(bindingKeyRef).map { it.toView() })
-
     /**
-     * Every journey step ever recorded under [accountId], across every channel it was ever bound
-     * to (APP or KEYCLOAK alike) - the account-scoped counterpart of [getLogFor], which only ever
-     * sees APP channels (KEYCLOAK ones have no bindingKeyRef, docs/02-domaenenmodell.md Abschnitt 1).
-     * Callers must already have proven they ARE this account (a channel bound to it) - this method
-     * itself does no authorization, same contract as [getLogFor] trusting its own bindingKeyRef.
+     * The newest [limit] entries across every channel and account - the operator's view, with no
+     * authorization of its own (its controller sits behind the admin login).
      *
-     * [channelSessionIds] are resolved by the CALLER (which already holds the channel it
-     * authorized against) rather than looked up here - the log does not read the session tables,
-     * see [LoggedChannel]. They are passed in rather than filtering
-     * [JourneyLogEntry.accountId] directly: a channel only gets its account bound partway through
-     * (e.g. after ident-fsc/lookup-login completes), so entries logged earlier in that SAME journey
-     * (its own "Started") never have that field set - filtering on it would silently truncate every
-     * journey to "from binding onward" instead of showing it whole, which is exactly the
-     * requirement here.
+     * An entry logged before its channel resolved an account carries no `accountId` (it is only
+     * bound partway through, e.g. once ident-fsc completes); here it inherits the one a later entry of the SAME channel carries, so
+     * a journey is attributed to its person as a whole rather than only from binding onward.
      */
-    fun getLogForAccount(accountId: Long, channelSessionIds: List<UUID>): JourneyLogResponse {
-        val channelEntries = if (channelSessionIds.isEmpty()) {
-            emptyList()
-        } else {
-            journeyLogRepository.findByChannelSessionIdInOrderByCreatedAtDesc(channelSessionIds)
-        }
-        val entries = (channelEntries + journeyLogRepository.findByAccountIdOrderByCreatedAtDesc(accountId))
-            .distinctBy { it.logId }
-            .sortedByDescending { it.createdAt }
-        return JourneyLogResponse(entries.map { it.toView() })
+    fun getRecent(limit: Int): JourneyLogResponse {
+        val entries = journeyLogRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit))
+        val accountByChannel = entries
+            .filter { it.accountId != null }
+            .associate { checkNotNull(it.channelSessionId) to checkNotNull(it.accountId) }
+        return JourneyLogResponse(entries.map { entry ->
+            entry.toView().let { view -> view.copy(accountId = view.accountId ?: accountByChannel[view.channelSessionId]) }
+        })
     }
 
     private fun JourneyLogEntry.toView() = JourneyLogEntryView(

@@ -31,7 +31,7 @@ import java.time.Instant
  * ids are expected, not a defect). The same holds for JourneyLogEntry and AttemptThrottle: both
  * are keyed by ids they do not constrain, so both are swept purely by age - and both MUST be
  * swept, because neither is bounded by anything else. account.*, AuthSmsEnrollment and
- * ext_stammdaten.person/id_fsc.code belong to the account, never touched here.
+ * ext_stammdaten.person/freischaltcode belong to the account, never touched here.
  */
 /**
  * Deliberately NOT `@Transactional` itself: [confirmedDeadKcChannels] asks Keycloak's Admin API
@@ -188,9 +188,8 @@ class SessionRetentionSweeper(
         private val SESSION_EVENT_RETENTION: Duration = Duration.ofDays(90)
 
         /**
-         * The journey log is queried per channel session
-         * ([com.example.dpop.orchestrator.journeylog.JourneyLogService.getLogForAccount] resolves
-         * the channel set first), so outliving [CHANNEL_SESSION_RETENTION] buys nothing while
+         * The journey log is read per channel session (the admin view groups by it), so
+         * outliving [CHANNEL_SESSION_RETENTION] buys nothing while
          * this is by far the highest-volume table in the system - one row per journey step, each
          * with a JSON `detail`. It is a debugging/demo trace, NOT the audit trail; that is
          * SessionEvent, which keeps its own, longer window.

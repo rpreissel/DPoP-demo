@@ -33,7 +33,7 @@ export function KeycloakSyncView() {
 
   return (
     <div className="card">
-      <h2>Admin: Keycloak-Sync</h2>
+      <h2>Keycloak-Sync</h2>
       <p>
         Gleicht jeden Account in Keycloak ab (anlegen/aktualisieren) und löscht Keycloak-User, deren{' '}
         <code>orchestratorAccountId</code> zu keinem Account mehr passt. Läuft normalerweise automatisch bei jeder

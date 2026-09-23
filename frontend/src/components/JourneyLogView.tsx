@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { describeError } from '../api'
 import type { JourneyLogEntryView, JourneyLogResponse } from '../types'
 
+/** The admin endpoint's answer: the entries plus every account they can be filtered by. */
+type LogWithAccounts = JourneyLogResponse & { accounts: { accountId: number; displayName?: string | null }[] }
+
+const LIVE_INTERVAL_MS = 5000
+
 interface Props {
-  /**
-   * `null` while there's nothing to fetch for yet (e.g. no DPoP key/no AccessToken loaded);
-   * otherwise the one call that resolves this view's data - the App channel fetches per-device
-   * or per-account via DPoP (see App.tsx), the Web channel via its own real Keycloak AccessToken
-   * as Bearer auth (see WebChannelView.tsx) - this component doesn't care which.
-   */
-  fetchLog: (() => Promise<JourneyLogResponse>) | null
+  /** The admin page's fetch (`fetchAdminJourneyLog`) - the only caller since the channels dropped their own log tabs. */
+  fetchLog: () => Promise<LogWithAccounts>
 }
 
 /** Labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
@@ -188,33 +188,46 @@ function buildJourneyTree(byJourney: Map<string, JourneyScopedEntry[]>): Journey
 }
 
 /**
- * The JourneyLog tab (docs/04-orchestrierung.md) - a demo/debug view of every journey step ever
- * recorded for the account bound to [channelSessionId] (across every channel it was ever
- * authenticated on, APP or KEYCLOAK alike), or - before any channel/account is known yet - just
- * THIS device's own bindingKeyRef (the backend resolves that from the DPoP proof, no
- * channelSessionId needed). Filterable/groupable by channelSessionId and journeyId either way.
+ * The admin page's Journey-Log tab (docs/04-orchestrierung.md) - a demo/debug view of every
+ * journey step across all accounts and channels (APP or KEYCLOAK alike), filterable by person,
+ * channelSessionId and journeyId, optionally refreshing itself while a demo runs alongside.
  * Channels and journeys are opaque UUIDs with no meaning of their own, so both the filters and the
  * group headings identify them by when they started (plus the intent, for a journey) instead.
  */
 export function JourneyLogView({ fetchLog }: Props) {
   const [entries, setEntries] = useState<JourneyLogEntryView[]>([])
+  const [accountNames, setAccountNames] = useState<Map<number, string>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [channelFilter, setChannelFilter] = useState<string>('')
   const [journeyFilter, setJourneyFilter] = useState<string>('')
+  const [accountFilter, setAccountFilter] = useState<string>('')
+  const [liveOn, setLiveOn] = useState(false)
 
-  function load() {
-    if (!fetchLog) return
-    setLoading(true)
+  /** [quiet]: a live refresh must not blank the view with "Lädt…" every few seconds. */
+  function load(quiet = false) {
+    if (!quiet) setLoading(true)
     setError(null)
     fetchLog()
-      .then((response) => setEntries(response.entries))
+      .then((response) => {
+        setEntries(response.entries)
+        setAccountNames(new Map(response.accounts.map((a) => [a.accountId, a.displayName ?? `Konto ${a.accountId}`])))
+      })
       .catch((err) => setError(describeError('Journey-Log laden fehlgeschlagen', err)))
       .finally(() => setLoading(false))
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [fetchLog])
+
+  useEffect(() => {
+    if (!liveOn) return
+    const timer = window.setInterval(() => load(true), LIVE_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveOn, fetchLog])
+
+  const accountOf = (entry: JourneyLogEntryView) => (entry.accountId == null ? 'none' : String(entry.accountId))
 
   // Oldest first within a journey's own steps (the backend returns newest-first, the natural
   // order for an API default) - groupedNewestFirst below re-sorts the ChannelSession/Journey
@@ -242,7 +255,10 @@ export function JourneyLogView({ fetchLog }: Props) {
   }, [chronological, channelFilter])
 
   const filtered = chronological.filter(
-    (e) => (!channelFilter || e.channelSessionId === channelFilter) && (!journeyFilter || e.journeyId === journeyFilter)
+    (e) =>
+      (!channelFilter || e.channelSessionId === channelFilter) &&
+      (!journeyFilter || e.journeyId === journeyFilter) &&
+      (!accountFilter || accountOf(e) === accountFilter)
   )
   // Groups (ChannelSession, and Journey within it) are ordered newest-activity-first - the rows
   // inside a Journey table stay oldest-first (chronological), so "newest on top" only applies at
@@ -260,8 +276,10 @@ export function JourneyLogView({ fetchLog }: Props) {
       const allEntries = [...[...byJourney.values()].flat(), ...channelLevelEntries]
       const latest = allEntries.reduce((max, e) => (e.createdAt > max ? e.createdAt : max), allEntries[0].createdAt)
       const earliest = allEntries.reduce((min, e) => (e.createdAt < min ? e.createdAt : min), allEntries[0].createdAt)
+      const accountId = allEntries.find((e) => e.accountId != null)?.accountId
       return {
         channelSessionId,
+        person: accountId != null ? accountNames.get(accountId) ?? `Konto ${accountId}` : 'ohne Konto',
         channelType: firstChannelType(allEntries),
         journeyTree: buildJourneyTree(byJourney),
         channelLevelEntries,
@@ -275,12 +293,30 @@ export function JourneyLogView({ fetchLog }: Props) {
     <div className="card journey-log-card">
       <h2>Journey-Log</h2>
       <p>
-        Jeder Journey-Schritt, der für dieses Gerät (dessen DPoP-Schlüssel) je aufgezeichnet wurde - über alle
-        ChannelSessions hinweg, gruppiert nach ChannelSession und Journey, neueste zuerst. Nur zu Demo-/Debug-Zwecken,
-        kein Audit-Trail.
+        Jeder Journey-Schritt aller Konten und Geräte, neueste zuerst - gruppiert nach Person, ChannelSession und
+        Journey. Mit „Live“ läuft die Ansicht neben einer Demo mit. Nur zu Demo-/Debug-Zwecken, kein Audit-Trail.
       </p>
 
       <div className="controls">
+        <label className="field-row">
+          Person:
+          <select
+            value={accountFilter}
+            onChange={(e) => {
+              setAccountFilter(e.target.value)
+              setChannelFilter('')
+              setJourneyFilter('')
+            }}
+          >
+            <option value="">Alle ({accountNames.size})</option>
+            {[...accountNames.entries()].map(([id, name]) => (
+              <option key={id} value={String(id)}>
+                {name}
+              </option>
+            ))}
+            {entries.some((e) => e.accountId == null) && <option value="none">ohne Konto</option>}
+          </select>
+        </label>
         <label className="field-row">
           ChannelSession:
           <select
@@ -309,9 +345,13 @@ export function JourneyLogView({ fetchLog }: Props) {
             ))}
           </select>
         </label>
-        <button type="button" onClick={load} disabled={loading}>
+        <button type="button" onClick={() => load()} disabled={loading}>
           Aktualisieren
         </button>
+        <label className="field-row">
+          <input type="checkbox" checked={liveOn} onChange={(e) => setLiveOn(e.target.checked)} />
+          Live ({LIVE_INTERVAL_MS / 1000} s)
+        </label>
       </div>
 
       {error && (
@@ -319,13 +359,15 @@ export function JourneyLogView({ fetchLog }: Props) {
           <p>{error}</p>
         </div>
       )}
-      {loading && <p>Lädt…</p>}
+      {loading && entries.length === 0 && <p>Lädt…</p>}
       {!loading && filtered.length === 0 && !error && <p>Keine Einträge.</p>}
 
-      {groupedNewestFirst.map(({ channelSessionId, channelType, journeyTree, channelLevelEntries, earliest }) => (
+      {groupedNewestFirst.map(({ channelSessionId, person, channelType, journeyTree, channelLevelEntries, earliest }) => (
         <div key={channelSessionId} className="journey-log-channel">
           <div className="journey-log-channel-header">
-            <h3>ChannelSession vom {dateTimeFormat.format(new Date(earliest))}</h3>
+            <h3>
+              {person && <>{person} · </>}ChannelSession vom {dateTimeFormat.format(new Date(earliest))}
+            </h3>
             <span className="journey-log-channel-type">{channelTypeLabel(channelType)}</span>
           </div>
           {channelLevelEntries.length > 0 && renderEntryTable(channelLevelEntries)}

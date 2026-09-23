@@ -7,7 +7,7 @@ const H2_USER = 'sa'
 
 /**
  * Links into the ONE shared orchestrator backend behind both channels - identical either way, so
- * this lives once here instead of being duplicated per channel's Einstellungen tab.
+ * this lives once, on the admin page's Einstellungen tab.
  */
 export function DeveloperToolsCard() {
   return (

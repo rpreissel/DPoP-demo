@@ -11,13 +11,16 @@ export default defineConfig({
     outDir: resolve(frontendDir, '../src/main/resources/static'),
     emptyOutDir: true,
     rollupOptions: {
-      // Three separate apps (docs/10-frontend.md #1: Willkommen/App-Kanal/Web-Kanal), sharing
+      // Five separate apps (docs/10-frontend.md #0: Willkommen/App-Kanal/Web-Kanal/Admin/
+      // Personenregister), sharing
       // components/tools/api.ts as plain imports but each with its own HTML entry/React root - so
       // navigation between them is real browser navigation, not client-side routing.
       input: {
         welcome: resolve(frontendDir, 'index.html'),
         app: resolve(frontendDir, 'app/index.html'),
         web: resolve(frontendDir, 'web/index.html'),
+        admin: resolve(frontendDir, 'admin/index.html'),
+        ext: resolve(frontendDir, 'ext/index.html'),
       },
     },
   },
@@ -28,7 +31,7 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
-      '/mock-keycloak': {
+      '/mock-stammdaten': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

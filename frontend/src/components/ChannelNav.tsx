@@ -1,25 +1,28 @@
-type SubTab = 'demo' | 'journeylog' | 'settings' | 'mock'
+import type { ReactNode } from 'react'
 
-interface Tab {
-  key: SubTab
+export interface NavTab<K extends string> {
+  key: K
   label: string
 }
 
-interface Props {
+interface Props<K extends string> {
   badge: string
-  tabs: Tab[]
-  sub: SubTab
-  onSelectTab: (sub: SubTab) => void
+  /** Omitted (or empty) for a page without tabs - then only badge, back button and actions show. */
+  tabs?: readonly NavTab<K>[]
+  sub?: K
+  onSelectTab?: (sub: K) => void
   onBack: () => void
+  /** Right-hand extras next to the tabs (e.g. the admin page's logout). */
+  actions?: ReactNode
 }
 
 /**
- * Shared top bar for both channel chromes (AppChannelFrame/WebChannelLayout) - identical markup
- * for both so the two channels' navigation reads as "the same kind of thing, different color",
- * not two unrelated UIs. The back button is its own labeled control (not folded into the badge)
- * so "go back to Startseite" stays recognizable in both channels.
+ * Shared top bar for every page with tabs (App/Web channel, Admin, Personenregister) - identical
+ * markup everywhere so the pages read as "the same kind of thing, different color", not unrelated
+ * UIs. The back button is its own labeled control (not folded into the badge) so "go back to
+ * Startseite" stays recognizable on every page.
  */
-export function ChannelNav({ badge, tabs, sub, onSelectTab, onBack }: Props) {
+export function ChannelNav<K extends string>({ badge, tabs = [], sub, onSelectTab, onBack, actions }: Props<K>) {
   return (
     <nav className="channel-topbar" aria-label={`${badge}-Bereiche`}>
       <div className="channel-topbar-brand">
@@ -28,6 +31,7 @@ export function ChannelNav({ badge, tabs, sub, onSelectTab, onBack }: Props) {
         </button>
         <span className="channel-badge">{badge}</span>
       </div>
+      {tabs.length > 0 && (
       <div className="app-tabs channel-topbar-tabs" role="tablist">
         {tabs.map((tab) => (
           <button
@@ -35,12 +39,14 @@ export function ChannelNav({ badge, tabs, sub, onSelectTab, onBack }: Props) {
             role="tab"
             aria-selected={sub === tab.key}
             className={sub === tab.key ? 'active' : ''}
-            onClick={() => onSelectTab(tab.key)}
+            onClick={() => onSelectTab?.(tab.key)}
           >
             {tab.label}
           </button>
         ))}
       </div>
+      )}
+      {actions && <div className="channel-topbar-actions">{actions}</div>}
     </nav>
   )
 }

@@ -53,10 +53,6 @@ function formatRemaining(expiresAt: number): string {
   return `${Math.round(seconds / 60)}min`
 }
 
-interface Props {
-  onTokens: (tokens: TokenSet | null) => void
-}
-
 /**
  * The Web-Kanal demo's own "Demo" sub-tab: a REAL browser login against the REAL Keycloak
  * (authorization_code + PKCE, see webOidc.ts) - login at loa1 or loa2, the resulting
@@ -67,15 +63,10 @@ interface Props {
  * ADR-8: the orchestrator only ever hears from Keycloak's own server-side
  * extension, never from this browser tab).
  */
-export function WebChannelView({ onTokens }: Props) {
+export function WebChannelView() {
   const [tokens, setTokens] = useState<TokenSet | null>(() => loadStoredTokens())
   const [error, setError] = useState('')
   const completingRef = useRef(false)
-
-  useEffect(() => {
-    onTokens(tokens)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokens])
 
   // Picks up `?code=...` after the redirect back from Keycloak - guarded against StrictMode's
   // double effect-invocation (same pattern as App.tsx's activatingToolIdRef): a second concurrent
