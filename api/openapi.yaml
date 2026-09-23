@@ -92,7 +92,7 @@ components:
     AuthEmailLookupPatchRequest:
       properties:
         code:
-          example: 123456
+          example: '123456'
           type: string
         email:
           example: max.mustermann@example.com
@@ -101,13 +101,13 @@ components:
     AuthEmailPatchRequest:
       properties:
         code:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     AuthKobilPatchRequest:
       properties:
         otp:
-          example: 48210937
+          example: '48210937'
           type: string
       type: object
     AuthPasswordLookupPatchRequest:
@@ -131,13 +131,13 @@ components:
           example: max.mustermann@example.com
           type: string
         tan:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     AuthSmsPatchRequest:
       properties:
         tan:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     BiometricUnlock:
@@ -279,7 +279,7 @@ components:
     ConfirmEmailPatchRequest:
       properties:
         code:
-          example: 123456
+          example: '123456'
           type: string
         email:
           example: max.mustermann@example.com
@@ -386,7 +386,7 @@ components:
           example: +49 170 1234567
           type: string
         tan:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     ErrorResponse:
@@ -451,7 +451,7 @@ components:
           format: date
           type: string
         hausnummer:
-          example: 1
+          example: '1'
           type: string
         name:
           example: Muster
@@ -460,10 +460,10 @@ components:
           example: Berlin
           type: string
         pin:
-          example: 123456
+          example: '123456'
           type: string
         plz:
-          example: 10117
+          example: '10117'
           type: string
         restrictedId:
           example: T0103005T4UY6CQ1B3LN0T28WJ

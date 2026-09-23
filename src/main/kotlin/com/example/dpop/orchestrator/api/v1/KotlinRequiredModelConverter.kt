@@ -66,7 +66,21 @@ internal class KotlinRequiredModelConverter : ModelConverter {
             .filter { target.required?.contains(it) != true }
             .forEach { target.addRequiredItem(it) }
 
+        // And the other direction: springdoc 3 reads Kotlin non-nullability itself and marks such
+        // a property required even when it has a default - `availableTools: List<String> =
+        // emptyList()` would become mandatory in every request. A default means "may be omitted",
+        // so it comes back out, whoever put it in.
+        val optional = optionalPropertyNames(kClass)
+        target.required?.takeIf { required -> required.any { it in optional } }?.let { required ->
+            target.required = required.filterNot { it in optional }.ifEmpty { null }
+        }
+
         return resolved
+    }
+
+    private fun optionalPropertyNames(kClass: KClass<*>): Set<String> {
+        val primary = runCatching { kClass.constructors.firstOrNull() }.getOrNull() ?: return emptySet()
+        return primary.parameters.filter { it.isOptional }.mapNotNull { it.name }.toSet()
     }
 
     /**

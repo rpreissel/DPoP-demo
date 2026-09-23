@@ -3,7 +3,7 @@ components:
     AuthKobilPatchRequest:
       properties:
         otp:
-          example: 48210937
+          example: '48210937'
           type: string
       type: object
     BiometricUnlock:

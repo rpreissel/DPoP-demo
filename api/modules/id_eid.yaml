@@ -7,7 +7,7 @@ components:
           format: date
           type: string
         hausnummer:
-          example: 1
+          example: '1'
           type: string
         name:
           example: Muster
@@ -16,10 +16,10 @@ components:
           example: Berlin
           type: string
         pin:
-          example: 123456
+          example: '123456'
           type: string
         plz:
-          example: 10117
+          example: '10117'
           type: string
         restrictedId:
           example: T0103005T4UY6CQ1B3LN0T28WJ

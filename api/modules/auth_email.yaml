@@ -3,7 +3,7 @@ components:
     AuthEmailLookupPatchRequest:
       properties:
         code:
-          example: 123456
+          example: '123456'
           type: string
         email:
           example: max.mustermann@example.com
@@ -12,13 +12,13 @@ components:
     AuthEmailPatchRequest:
       properties:
         code:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     ConfirmEmailPatchRequest:
       properties:
         code:
-          example: 123456
+          example: '123456'
           type: string
         email:
           example: max.mustermann@example.com

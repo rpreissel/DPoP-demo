@@ -52,6 +52,14 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      # Bekannte Luecken in dem, was tatsaechlich ausgeliefert wird. Nur Laufzeit-Abhaengigkeiten
+      # (--omit=dev): eine Warnung in einem Build-Werkzeug erreicht keinen Nutzer, und sie hier
+      # durchschlagen zu lassen, wuerde die CI an Dingen rot machen, die niemand ausliefert. Ab
+      # "high", damit der Schritt ein Signal bleibt und kein Dauerrauschen wird.
+      - name: Frontend-Abhaengigkeiten ohne bekannte Luecken
+        working-directory: frontend
+        run: npm audit --audit-level=high --omit=dev
+
       # api/openapi.yaml und api/modules/*.yaml sind die einzige geschriebene Fassung des
       # API-Vertrags (docs/05-api.md). Weicht sie vom Code ab, soll das hier auffallen und nicht
       # erst zur Laufzeit in einem der drei Clients, die den Vertrag lesen.

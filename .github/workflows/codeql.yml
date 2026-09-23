@@ -1,0 +1,55 @@
+name: CodeQL
+
+# Statische Sicherheitsanalyse fuer beide Sprachwelten des Projekts. Ergebnisse landen unter
+# Security -> Code scanning im Repository, nicht als roter Build: ein Befund braucht eine
+# Einschaetzung, keine automatische Sperre.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyse (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          # Kotlin und Java brauchen einen echten Compilerlauf. Nur die Kompilierung, nicht
+          # `build`: Tests und Vite-Build tragen zur Analyse nichts bei und kosten Minuten.
+          # compileKotlin haengt nicht am npm-Build (der steckt erst in processResources).
+          - language: java-kotlin
+            build-mode: manual
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        if: matrix.language == 'java-kotlin'
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.language == 'java-kotlin'
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Kompilieren
+        if: matrix.language == 'java-kotlin'
+        run: ./gradlew compileKotlin :keycloak-extension:compileJava :keycloak-migrations:compileKotlin --no-build-cache
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

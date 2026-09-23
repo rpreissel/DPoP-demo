@@ -148,8 +148,8 @@ paths:
           content:
             '*/*':
               schema:
-                additionalProperties:
-                  type: object
+                additionalProperties: {
+                  }
                 type: object
           description: OK
         default:

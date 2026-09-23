@@ -6,13 +6,13 @@ components:
           example: max.mustermann@example.com
           type: string
         tan:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     AuthSmsPatchRequest:
       properties:
         tan:
-          example: 123456
+          example: '123456'
           type: string
       type: object
     EnrollSmsPatchRequest:
@@ -21,7 +21,7 @@ components:
           example: +49 170 1234567
           type: string
         tan:
-          example: 123456
+          example: '123456'
           type: string
       type: object
   securitySchemes:

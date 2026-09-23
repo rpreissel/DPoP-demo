@@ -1,0 +1,38 @@
+# Hält Abhängigkeiten aktuell, statt sie wie springdoc (2.x auf Boot 4) oder Kotest (5.x) still
+# veralten zu lassen. Gruppiert, damit pro Woche wenige PRs statt einer pro Bibliothek kommen;
+# jeder PR läuft durch dieselbe CI (Snapshot, openapi-diff, Tests, Kover).
+version: 2
+updates:
+  # Version-Catalog (gradle/libs.versions.toml) und alle Subprojekte, auch keycloak-extension.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      spring:
+        patterns: ["org.springframework*", "io.spring*", "org.springdoc*"]
+      kotlin:
+        patterns: ["org.jetbrains.kotlin*", "org.jetbrains.kotlinx*"]
+      test:
+        patterns: ["io.kotest*", "io.mockk*", "com.ninja-squad*", "org.junit*"]
+      keycloak:
+        patterns: ["org.keycloak*"]
+      openapi:
+        patterns: ["org.openapitools*", "org.openapi*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      frontend:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

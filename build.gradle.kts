@@ -292,6 +292,13 @@ val generateFrontendApiTypes = tasks.register<org.openapitools.generator.gradle.
 // Generatorlauf ueber genau den Snapshot, den er gerade erst schreiben soll - bei ungueltiger Spec
 // blockiert sich das gegenseitig. Stattdessen ist frontend/src/generated eingecheckt und die CI
 // prueft per `git diff --exit-code`, dass es zum Snapshot passt.
+//
+// Wohl aber eine Reihenfolge: stehen beide im selben Aufruf (`./gradlew build
+// generateFrontendApiTypes`), liest npmBuild das Verzeichnis, das der Generator gerade schreibt, und
+// Gradle bricht mit "implicit dependency" ab. mustRunAfter zieht den Generator nicht in einen Lauf,
+// der ihn nicht verlangt - die Blockade oben entsteht also nicht -, sorgt aber dafuer, dass npmBuild
+// die frischen Typen sieht, wenn er mitlaeuft.
+npmBuild { mustRunAfter(generateFrontendApiTypes) }
 
 // Trennt Gradle-Build von Podman-Build: die Dockerfiles (mitsamt sich selbst, siehe
 // stageOrchestratorDockerfile/stageKeycloakArtifact unten) kopieren nur noch fertige Artefakte aus
