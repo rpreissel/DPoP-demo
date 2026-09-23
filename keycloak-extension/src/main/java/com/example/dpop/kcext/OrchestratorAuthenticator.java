@@ -50,7 +50,10 @@ public class OrchestratorAuthenticator implements Authenticator {
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         try {
-            String channelSessionId = OrchestratorNotes.channelSessionId(context);
+            // Read up front: it also decides WHICH channel this run talks to (channelSessionIdFor).
+            String intent = context.getAuthenticatorConfig() == null ? null
+                    : context.getAuthenticatorConfig().getConfig().get("intent");
+            String channelSessionId = OrchestratorNotes.channelSessionIdFor(context.getAuthenticationSession(), intent);
             // Deliberately NOT gated on `stepUp` (= a UserSessionModel already exists): a step-up
             // request against an existing SSO session that auth-cookie found insufficient for the
             // requested level still resolves context.getUser() (the cookie authenticator attaches
@@ -71,9 +74,8 @@ public class OrchestratorAuthenticator implements Authenticator {
             // #2/#3): unconfigured means kc_select_method, today's login/step-up behaviour -
             // admin-configurable per execution, same idiom as the static toolId pre-selection
             // below. Only meaningful on this channel's very first call; a later resume ignores it
-            // server-side (KcChannelService.entryIntentFor is only consulted when isFreshChannel).
-            String intent = context.getAuthenticatorConfig() == null ? null
-                    : context.getAuthenticatorConfig().getConfig().get("intent");
+            // server-side (KcChannelService.entryIntentFor is only consulted when isFreshChannel) -
+            // which is why a changed intent gets a fresh channel above.
 
             // Deliberately NOT OrchestratorNotes.nativeAmr(context), and no restoreData here:
             // OrchestratorResumeAuthenticator is this flow run's one dedicated place for both -
@@ -108,7 +110,13 @@ public class OrchestratorAuthenticator implements Authenticator {
             OrchestratorClient.ChannelResponse response;
             if ("select".equals(pendingKind)) {
                 if ("true".equals(form.getFirst("orchestrator_abandon"))) {
-                    response = client.abandonJourney(channelSessionId);
+                    // "Abbrechen" ends the LOGIN, not just the orchestrator journey: abandoning the
+                    // journey alone made the orchestrator restart the very same entry intent, so
+                    // the user landed on this page again (and a registration restarted forever).
+                    // cancelLogin() hands control back to the client - OIDC redirects to its
+                    // redirect_uri with error=access_denied. The kc channel is left to its TTL.
+                    context.cancelLogin();
+                    return;
                 } else {
                     String selectedToolId = form.getFirst("toolId");
                     if (selectedToolId == null || selectedToolId.isBlank()) {
@@ -262,7 +270,22 @@ public class OrchestratorAuthenticator implements Authenticator {
      * in {@link WebFormRenderer}, shared with {@link OrchestratorManageMethodsRequiredAction}.
      */
     private Response selectForm(AuthenticationFlowContext context, List<String> options, OrchestratorClient.ChannelResponse response, String error) {
-        return WebFormRenderer.selectForm(context.getSession(), context.form(), context.getAuthenticationSession(), options, response, error);
+        return WebFormRenderer.selectForm(context.getSession(), context.form(), context.getAuthenticationSession(), options, response, error,
+                offersRegistration(context));
+    }
+
+    /**
+     * Keycloak's own "Registrieren" link (the realm's registration flow runs the orchestrator's
+     * REGISTER journey) belongs on this page only where the native login form would show it too:
+     * nobody known yet (not a step-up), registration allowed, and not already inside the
+     * registration flow itself.
+     */
+    private static boolean offersRegistration(AuthenticationFlowContext context) {
+        String intent = context.getAuthenticatorConfig() == null ? null
+                : context.getAuthenticatorConfig().getConfig().get("intent");
+        return context.getUser() == null
+                && context.getRealm().isRegistrationAllowed()
+                && !"register".equalsIgnoreCase(intent);
     }
 
     private Response toolForm(AuthenticationFlowContext context, OrchestratorClient.Next next, OrchestratorClient.ChannelResponse response, String error) {

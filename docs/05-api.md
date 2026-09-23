@@ -142,6 +142,13 @@ Tool-Namespace:
 
 `DELETE .../journey` bricht die laufende `AuthJourney` ab und rollt `ChannelSession.state` zurück ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). Danach startet der Kanal **denselben Intent** erneut, mit dem er eröffnet wurde. `STEP_UP`- und `MANAGE_AUTH_METHODS`-Abbruch liefern direkt `authenticated`. Account-Bindung und `AuthContext` werden aus `DeviceAccountLink` neu abgeleitet; ein zuvor per `ident-fsc` angelegter Account bleibt bestehen.
 
+Im Web-Kanal ruft „Abbrechen“ auf der Verfahrensauswahl der Keycloak-Anmeldeseite dieses `DELETE`
+**nicht** auf, sondern beendet den ganzen Keycloak-Login (`context.cancelLogin()` in
+`OrchestratorAuthenticator`): Keycloak kehrt mit `error=access_denied` zur Website zurück, die
+„Anmeldung abgebrochen“ anzeigt. Ein Neustart desselben Intents hätte den Nutzer sonst wieder auf
+dieselbe Seite geschickt, und eine Registrierung hätte sich endlos neu gestartet. Der verlassene
+KEYCLOAK-Kanal läuft über seine TTL aus.
+
 ### Logout
 
 Zwei Varianten:

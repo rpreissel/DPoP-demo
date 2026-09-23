@@ -123,9 +123,31 @@ export async function redirectToManageMethods() {
   window.location.assign(url.toString())
 }
 
-/** If the current URL carries a fresh `?code=...` from the redirect above, exchanges it for tokens and scrubs the query string; otherwise a no-op. Call once, on mount. */
+/** Keycloak came back with `?error=...` instead of a code - `cancelled` for the user's own "Abbrechen" (access_denied). */
+export class LoginNotCompletedError extends Error {
+  readonly cancelled: boolean
+
+  constructor(error: string, description: string | null) {
+    const cancelled = error === 'access_denied'
+    super(cancelled ? 'Anmeldung abgebrochen.' : `Anmeldung fehlgeschlagen: ${description ?? error}`)
+    this.name = 'LoginNotCompletedError'
+    this.cancelled = cancelled
+  }
+}
+
+/**
+ * If the current URL carries a fresh `?code=...` from the redirect above, exchanges it for tokens
+ * and scrubs the query string; `?error=...` (e.g. the user cancelled at Keycloak) is scrubbed too
+ * and thrown as [LoginNotCompletedError]; otherwise a no-op. Call once, on mount.
+ */
 export async function completeLoginIfRedirected(): Promise<TokenSet | null> {
   const params = new URLSearchParams(window.location.search)
+  const error = params.get('error')
+  if (error) {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY)
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+    throw new LoginNotCompletedError(error, params.get('error_description'))
+  }
   const code = params.get('code')
   if (!code) return null
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   completeLoginIfRedirected,
+  LoginNotCompletedError,
   redirectToLogin,
   redirectToLogout,
   redirectToManageMethods,
@@ -66,6 +67,8 @@ function formatRemaining(expiresAt: number): string {
 export function WebChannelView() {
   const [tokens, setTokens] = useState<TokenSet | null>(() => loadStoredTokens())
   const [error, setError] = useState('')
+  // "Anmeldung abgebrochen" is the user's own choice, not a failure - shown as a note, not an error.
+  const [notice, setNotice] = useState('')
   const completingRef = useRef(false)
 
   // Picks up `?code=...` after the redirect back from Keycloak - guarded against StrictMode's
@@ -81,7 +84,10 @@ export function WebChannelView() {
           storeTokens(fresh)
         }
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => {
+        if (err instanceof LoginNotCompletedError && err.cancelled) setNotice(err.message)
+        else setError(err instanceof Error ? err.message : String(err))
+      })
       .finally(() => {
         completingRef.current = false
       })
@@ -89,17 +95,20 @@ export function WebChannelView() {
 
   function login(acrValue: '1' | '2') {
     setError('')
+    setNotice('')
     redirectToLogin(acrValue).catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
   function loginQrTest() {
     setError('')
+    setNotice('')
     redirectToQrTestLogin().catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
   function refresh() {
     if (!tokens?.refreshToken) return
     setError('')
+    setNotice('')
     refreshTokens(tokens.refreshToken, tokens.clientId)
       .then((fresh) => {
         setTokens(fresh)
@@ -110,11 +119,13 @@ export function WebChannelView() {
 
   function stepUp() {
     setError('')
+    setNotice('')
     redirectToStepUp(tokens?.clientId).catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
   function manageMethods() {
     setError('')
+    setNotice('')
     redirectToManageMethods().catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
@@ -172,6 +183,7 @@ export function WebChannelView() {
         den Login dort per QR-Code bestätigen. Simuliert ist nur die Website selbst - sie ist diese Seite.
       </p>
 
+      {notice && <div className="hint">{notice}</div>}
       {error && <div className="error-card">{error}</div>}
 
       {!tokens && (

@@ -33,8 +33,9 @@ final class WebFormRenderer {
      * {@code response} is null only on a retry path with no fresh {@code ChannelResponse} to read
      * from - falls back to a generic heading there rather than failing.
      */
+    /** [offerRegistration]: render Keycloak's registration link below the choices (see the template's info section). */
     static Response selectForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession,
-            List<String> options, OrchestratorClient.ChannelResponse response, String error) {
+            List<String> options, OrchestratorClient.ChannelResponse response, String error, boolean offerRegistration) {
         Map<String, String> optionLabels = new LinkedHashMap<>();
         for (String option : options) {
             WebToolRendererFactory factory = rendererFactoryFor(session, option);
@@ -52,7 +53,8 @@ final class WebFormRenderer {
                 .setAttribute("title", title)
                 .setAttribute("description", descriptionNode != null ? descriptionNode.asText() : null)
                 .setAttribute("options", options)
-                .setAttribute("optionLabels", optionLabels);
+                .setAttribute("optionLabels", optionLabels)
+                .setAttribute("offerRegistration", offerRegistration);
         if (error != null) built.setError(error);
         return built.createForm("orchestrator-select.ftl");
     }

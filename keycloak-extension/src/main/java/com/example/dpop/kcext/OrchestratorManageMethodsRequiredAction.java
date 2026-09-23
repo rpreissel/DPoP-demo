@@ -217,7 +217,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                 return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "select");
-            context.challenge(WebFormRenderer.selectForm(context.getSession(), context.form(), authSession, options, response, null));
+            context.challenge(WebFormRenderer.selectForm(context.getSession(), context.form(), authSession, options, response, null, false));
             return;
         }
 

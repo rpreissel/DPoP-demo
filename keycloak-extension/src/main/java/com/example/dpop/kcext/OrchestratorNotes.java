@@ -30,6 +30,8 @@ public final class OrchestratorNotes {
 
     /** This flow run's channelSessionId, derived once and reused by every step of the same run. */
     static final String CHANNEL_SESSION_ID = "orchestrator_channel_session_id";
+    /** The entry intent CHANNEL_SESSION_ID was opened for ("" = the default login/step-up) - see {@link #channelSessionIdFor}. */
+    static final String CHANNEL_INTENT = "orchestrator_channel_intent";
     /** Which pending step this authenticator is currently showing - "select" or "tool". */
     static final String PENDING_KIND = "orchestrator_pending_kind";
     static final String PENDING_TOOL_ID = "orchestrator_pending_tool_id";
@@ -85,6 +87,33 @@ public final class OrchestratorNotes {
         String tabId = authSession.getTabId();
         String derived = UUID.nameUUIDFromBytes(("kc-auth-session-tab:" + tabId).getBytes()).toString();
         authSession.setAuthNote(CHANNEL_SESSION_ID, derived);
+        return derived;
+    }
+
+    /**
+     * The channel for this flow run's entry [intent]. The same authentication session can move
+     * from the login flow to the registration flow (Keycloak's "Registrieren" link keeps the tab
+     * id), but the orchestrator honours an entry intent only on a channel's very first call - the
+     * registration would silently continue the login journey. A different intent therefore gets a
+     * channel of its own, derived from the tab id plus the intent, and replaces the flow run's
+     * current one (every later step reads {@link #CHANNEL_SESSION_ID}); the abandoned login
+     * channel simply runs out.
+     */
+    static String channelSessionIdFor(AuthenticationSessionModel authSession, String intent) {
+        String wanted = intent == null ? "" : intent.toLowerCase();
+        String current = authSession.getAuthNote(CHANNEL_SESSION_ID);
+        String currentIntent = authSession.getAuthNote(CHANNEL_INTENT);
+        if (current == null || wanted.equals(currentIntent == null ? "" : currentIntent)) {
+            String id = channelSessionId(authSession);
+            authSession.setAuthNote(CHANNEL_INTENT, wanted);
+            return id;
+        }
+        String derived = UUID.nameUUIDFromBytes(("kc-auth-session-tab:" + authSession.getTabId() + ":" + wanted).getBytes()).toString();
+        authSession.setAuthNote(CHANNEL_SESSION_ID, derived);
+        authSession.setAuthNote(CHANNEL_INTENT, wanted);
+        authSession.removeAuthNote(PENDING_KIND);
+        authSession.removeAuthNote(PENDING_TOOL_ID);
+        authSession.removeAuthNote(PENDING_TOOL_SESSION_ID);
         return derived;
     }
 
