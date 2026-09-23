@@ -7,7 +7,10 @@ import com.example.dpop.orchestrator.session.FeatureFlagService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.tool_api.PersonDirectory
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
+import com.example.dpop.demo_seed.DemoAccountSeed
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,7 +28,11 @@ data class AdminAccountView(
     val methods: List<String>
 )
 
-data class DemoResetResult(val deletedAccounts: Int)
+data class DemoResetResult(
+    val deletedAccounts: Int,
+    @field:Schema(description = "Demo accounts created again right after the reset - 0 without the keycloak profile, which has none.")
+    val seededAccounts: Int
+)
 
 /**
  * Accounts from the operator's side: list, delete one, or put the whole demo back to its start.
@@ -41,6 +48,7 @@ class AdminAccountsController(
     private val personDirectory: PersonDirectory,
     private val toolAvailabilityService: ToolAvailabilityService,
     private val featureFlagService: FeatureFlagService,
+    private val demoAccountSeed: ObjectProvider<DemoAccountSeed>,
 ) {
 
     @GetMapping("accounts")
@@ -67,7 +75,7 @@ class AdminAccountsController(
     @PostMapping("demo-reset")
     @Operation(
         summary = "Put the demo back to its start",
-        description = "Deletes every account, restores the preset tool order and locks per channel and the ident-first registration order. " +
+        description = "Deletes every account, restores the preset tool order and locks per channel and the ident-first registration order, then creates the demo accounts again (keycloak profile). " +
             "The person register (/mock-stammdaten) is a foreign system and stays as it is."
     )
     fun reset(): DemoResetResult {
@@ -75,6 +83,8 @@ class AdminAccountsController(
         accountIds.forEach { accountDeletionService.deleteAccount(it) }
         toolAvailabilityService.applyDefaults()
         featureFlagService.setEnabled(FeatureFlags.REGISTER_ENROLL_FIRST, false)
-        return DemoResetResult(deletedAccounts = accountIds.size)
+        // Back to the start means the demo accounts too, not an empty system until the next boot.
+        val seeded = demoAccountSeed.ifAvailable?.seed() ?: 0
+        return DemoResetResult(deletedAccounts = accountIds.size, seededAccounts = seeded)
     }
 }

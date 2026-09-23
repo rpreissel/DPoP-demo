@@ -16,7 +16,7 @@ import org.springframework.modulith.ApplicationModule
  */
 @ApplicationModule(
     allowedDependencies = [
-        "tool_spi", "tool_api", "account", "ext_stammdaten", "kcmigrate"
+        "tool_spi", "tool_api", "account", "ext_stammdaten", "kcmigrate", "demo_seed"
     ]
 )
 internal class ModuleMetadata

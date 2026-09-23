@@ -146,8 +146,13 @@ components:
         deletedAccounts:
           format: int32
           type: integer
+        seededAccounts:
+          description: Demo accounts created again right after the reset - 0 without the keycloak profile, which has none.
+          format: int32
+          type: integer
       required:
       - deletedAccounts
+      - seededAccounts
       type: object
     DeviceLinkResponse:
       properties:
@@ -492,7 +497,8 @@ paths:
   /orchestrator/admin/demo-reset:
     post:
       description: Deletes every account, restores the preset tool order and locks per channel and the ident-first registration
-        order. The person register (/mock-stammdaten) is a foreign system and stays as it is.
+        order, then creates the demo accounts again (keycloak profile). The person register (/mock-stammdaten) is a foreign
+        system and stays as it is.
       operationId: reset
       responses:
         '200':

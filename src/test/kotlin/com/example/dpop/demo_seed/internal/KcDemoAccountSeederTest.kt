@@ -1,6 +1,7 @@
 package com.example.dpop.demo_seed.internal
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.demo_seed.DemoAccountSeed
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.SmsCredentialPort
@@ -51,6 +52,26 @@ class KcDemoAccountSeederTest(
     }
 
     given("the demo seed using the real annotation-driven transaction") {
+        then("the demo reset's seed puts deleted demo accounts back, and reports only what it created") {
+            val persons = mockk<PersonDirectory>()
+            val passwords = mockk<PasswordCredentialPort>()
+            val sms = mockk<SmsCredentialPort>()
+            listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
+                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+            }
+            every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
+            every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
+            val demoSeed = seed(persons, passwords, sms) as DemoAccountSeed
+
+            demoSeed.seed() shouldBe 3
+            demoSeed.seed() shouldBe 0
+
+            // What the reset leaves behind: no accounts at all.
+            jdbc.update("DELETE FROM account.account")
+            demoSeed.seed() shouldBe 3
+            accountService.allAccountIds().size shouldBe 3
+        }
+
         then("a restart reuses person anchors without duplicate claims or methods") {
             val persons = mockk<PersonDirectory>()
             val passwords = mockk<PasswordCredentialPort>()

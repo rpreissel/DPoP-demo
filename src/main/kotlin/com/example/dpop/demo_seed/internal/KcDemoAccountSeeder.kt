@@ -1,6 +1,7 @@
 package com.example.dpop.demo_seed.internal
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.demo_seed.DemoAccountSeed
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.SmsCredentialPort
@@ -52,12 +53,20 @@ internal class KcDemoAccountSeeder(
     private val accountService: AccountService,
     private val passwordCredentialPort: PasswordCredentialPort,
     private val smsCredentialPort: SmsCredentialPort
-) : ApplicationRunner {
+) : ApplicationRunner, DemoAccountSeed {
 
     private val log = LoggerFactory.getLogger(KcDemoAccountSeeder::class.java)
 
+    // Transactional itself too: seed() called from here is a self-invocation that bypasses the
+    // proxy, so without this the boot seed would run without the all-or-nothing transaction.
     @Transactional
     override fun run(args: ApplicationArguments) {
+        seed()
+    }
+
+    @Transactional
+    override fun seed(): Int {
+        var created = 0
         TEST_PERSONS.forEach { person ->
             val personId = personDirectory.findPersonIdByKvnr(person.kvnr)
             if (personId == null) {
@@ -133,7 +142,9 @@ internal class KcDemoAccountSeeder(
                 "kc demo seed: {} -> orchestrator accountId={} (Keycloak user attribute orchestratorAccountId, see infra/tofu/keycloak/main.tf)",
                 person.kvnr, profile.accountId
             )
+            created++
         }
+        return created
     }
 
     private data class TestPerson(val kvnr: String, val email: String, val phoneNumber: String)

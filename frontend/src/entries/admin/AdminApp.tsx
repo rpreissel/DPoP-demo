@@ -216,13 +216,16 @@ function AccountsTab() {
           Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), setzt die Verfahren je Kanal auf die Voreinstellung
           zurück (Reihenfolge und Sperren aus <code>demo.tool-defaults</code>) und stellt die
           Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenregister (/ext/) ist ein Fremdsystem und
-          bleibt unverändert. Im Keycloak-Profil entstehen die Demo-Konten erst beim nächsten Start neu.
+          bleibt unverändert. Im Keycloak-Profil werden die Demo-Konten danach gleich wieder angelegt.
         </p>
         {confirming === 'reset' ? (
           <div className="form-actions">
             <button
               className="destructive"
-              onClick={() => run(async () => `Demo zurückgesetzt, ${(await resetDemo()).deletedAccounts} Konto/Konten gelöscht.`)}
+              onClick={() => run(async () => {
+                const r = await resetDemo()
+                return `Demo zurückgesetzt: ${r.deletedAccounts} Konto/Konten gelöscht, ${r.seededAccounts} Demo-Konto/Konten neu angelegt.`
+              })}
             >
               Ja, alles zurücksetzen
             </button>

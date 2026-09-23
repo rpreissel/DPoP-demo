@@ -360,7 +360,7 @@ export function deleteAdminAccount(accountId: number): Promise<void> {
   return callPlain('DELETE', `${ADMIN_PATH}/accounts/${accountId}`)
 }
 
-export function resetDemo(): Promise<{ deletedAccounts: number }> {
+export function resetDemo(): Promise<{ deletedAccounts: number; seededAccounts: number }> {
   return callPlain('POST', `${ADMIN_PATH}/demo-reset`)
 }
 

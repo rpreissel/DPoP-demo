@@ -92,9 +92,12 @@ class AdminIntegrationTest : IntegrationTestSupport() {
                 put("/orchestrator/admin/tools/auth-sms/availability/APP", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
                 put("/orchestrator/admin/registration-order", """{"enrollFirst":true}""") shouldBe HttpStatus.OK
 
-                restTemplate.exchange(
+                val reset = restTemplate.exchange(
                     "http://localhost:$port/orchestrator/admin/demo-reset", HttpMethod.POST, HttpEntity<Void>(adminHeaders()), mapType
-                ).statusCode shouldBe HttpStatus.OK
+                )
+                reset.statusCode shouldBe HttpStatus.OK
+                // No keycloak profile here, so no demo accounts to put back.
+                reset.body!!["seededAccounts"] shouldBe 0
 
                 adminList("/orchestrator/admin/accounts") shouldBe emptyList()
                 adminGet("/orchestrator/admin/registration-order")["enrollFirst"] shouldBe false
