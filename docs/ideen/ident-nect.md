@@ -1,6 +1,6 @@
 # Idee: Identifikation über Nect (`ident-nect`)
 
-Status: **Konzept, nicht umgesetzt** (Stand 2026-09-23). Fasst die beiden früheren Papiere
+Status: **Umgesetzt als Demo mit Mock** (2026-09-23), nur im App-Kanal; die echte Anbindung (Abschnitt 9) und der Web-Kanal (Abschnitt 8) sind offen. Abweichungen vom Konzept stehen in Abschnitt 12. Fasst die beiden früheren Papiere
 „ext-ident als Tool anbinden“ und „ext-ident in den Modulith integrieren“ (2026-08-31) zusammen
 und gleicht sie mit dem heutigen Code ab. Neu: ein **Mock-Fremdsystem** mit Jumppage und Masken
 für eID, ePass und EUDI-Wallet, damit das Verfahren in der Demo ohne Nect-Zugang durchspielbar
@@ -111,7 +111,7 @@ object IdentNectDescriptor : ToolDescriptor {
     override val method = "nect"
     override val role = MethodRole.IDENTIFICATION
     override val startStep = "redirect"
-    override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
+    override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = AcrLevel.LOA3
     override val claims = setOf(/* NAME, VORNAME, GEBURTSDATUM, Adresse (optional), Anker */)
 }
@@ -124,14 +124,13 @@ Verfahren, das der Nutzer auf der Jumppage gewählt hat:
 |---|---|---|---|
 | eID (Karte + PIN) | `nect-eid` | Besitz, Wissen | loa3 |
 | ePass (NFC-Chip + Selfie) | `nect-epass` | Besitz, Inhärenz | loa2 |
-| EUDI-Wallet (PID) | `nect-eudi` | Besitz, Wissen/Inhärenz (Geräteentsperrung) | loa3 |
+| EUDI-Wallet (PID) | `nect-eudi` | Besitz, Wissen (Geräteentsperrung) | loa3 |
 
 ### Schritte
 
 | step | Wer | Was |
 |---|---|---|
-| `redirect` | App | `stepData.jumpUrl`; Button „Weiter zu Nect“ leitet weiter |
-| `waiting` | App | Nach Rücksprung: `PATCH {caseId}`; bis das Ergebnis da ist, „Identifikation läuft“ |
+| `redirect` | App | `stepData` `nect-redirect` (`jumpUrl`, `caseId`); Button „Weiter zu Nect“ leitet weiter; nach dem Rücksprung `PATCH {caseId}` ohne weiteren Klick |
 | – | Backend | Ergebnis beim Fremdsystem holen, Claims ableiten, `Completed.Identified` oder `Failed` |
 
 ### Arbeitsdaten
@@ -145,17 +144,18 @@ Ausweisdaten selbst speichert `id_nect` nicht; sie gehen als Claims an das Konto
 ## 6) Redirect und Rücksprung im App-Kanal
 
 1. Der Tool-Schritt `redirect` liefert `jumpUrl = /nect/?case={caseId}`. Die `callback_uri`, die
-   `id_nect` beim Anlegen des Case mitgibt, ist `/app/?tool=ident-nect&caseId={caseId}`.
+   `id_nect` beim Anlegen des Case mitgibt, ist `/app/`; Nect hängt `?nectCaseId={caseId}` an.
 2. Der Browser verlässt die App-Seite. `channelSessionId` (localStorage) und DPoP-Schlüssel
    (IndexedDB) überleben das – genau wie beim Neuladen.
 3. Beim Rücksprung setzt die App den Kanal wie gewohnt fort (`GET /channels/{id}`), liest
-   `tool`/`caseId` aus der URL (wie heute `pairingCode`), bereinigt die URL und schickt
+   `nectCaseId` aus der URL (wie `pairingCode`), bereinigt die URL und schickt
    `PATCH /tools/{toolSessionId}/ident-nect {caseId}`. Die `toolSessionId` kommt aus `next`.
 4. Passt die `caseId` nicht zur Tool-Session, ist das ein `Failed` – ein fremder Case kann so
    nicht eingelöst werden. Jeder Case ist nur einmal einlösbar (Replay-Schutz im Fremdsystem).
 
-Bricht der Nutzer auf der Jumppage ab, kommt er mit `?caseId=…&error=cancelled` zurück; das Tool
-meldet `Failed`, und die Auswahl der Identifikationsverfahren erscheint wieder.
+Bricht der Nutzer auf der Jumppage ab (oder scheitert die Identifizierung), kommt er ebenfalls nur
+mit `?nectCaseId=…` zurück; erst das Einlösen zeigt den Ausgang. Das Tool meldet `Failed`, die App
+bietet „Erneut versuchen“ (`PATCH {retry: true}` legt einen neuen Case an) oder „Anderes Verfahren“.
 
 ---
 
@@ -253,3 +253,22 @@ sieht nur die `redirect_uri` und den Rücksprung. Offene Punkte dort: Issuer-Whi
    (bequemer in der Demo)? Vorschlag: selber Tab.
 4. Web-Kanal: wann und mit welchem Rücksprung aus Keycloak heraus?
 5. Echte Anbindung A oder B – hängt an den übrigen Konsumenten von ext-ident.
+
+---
+
+## 12) Umsetzung (2026-09-23)
+
+- Module `id_nect` (Tool) und `nect_mock` (Fremdsystem, `allowedDependencies = []`), Kante
+  `id_nect → nect_mock` deklariert wie `auth_kobil → kobil_mock`. Die App spricht nur mit dem
+  Orchestrator; die Sprungseite nur mit `/mock-nect`; das Ergebnis holt das Backend direkt bei
+  `NectIdent.redeem` ab (einmalig, nur für den Case der eigenen Tool-Session).
+- amr je Verfahren: `nect-eid`, `nect-epass`, `nect-eudi` (Entscheidung Rene). Weil amr damit nicht
+  mehr gleich `method` ist, erkennt `DefaultAuthPolicy.reIdentCandidates` „in dieser Sitzung schon
+  benutzt“ zusätzlich über die `toolId` hinter der Evidence (`amrSourceId`).
+- Der Pass liefert keine Adresse, die Wallet nur die freigegebenen Felder; `EID_RESTRICTED_ID` nur
+  beim eID-Verfahren (Nect-eigenes Pseudonym, nicht dasselbe wie bei `ident-eid`).
+- Nur App-Kanal: dort als erstes Identifikationsverfahren einsortiert. Der Web-Kanal bietet es nicht an, weil die
+  keycloak-extension keinen Renderer dafür hat (der Client deklariert, was er kann) – keine
+  zusätzliche Sperre im Backend.
+- Offene Fragen 1–3 damit entschieden: Rolle wie Abschnitt 4, Niveaus wie Tabelle, selber Tab.
+

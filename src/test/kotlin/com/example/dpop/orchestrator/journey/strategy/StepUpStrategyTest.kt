@@ -117,7 +117,7 @@ class StepUpStrategyTest : BehaviorSpec({
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"))
+            availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"), ToolId("ident-nect"))
         )
         val state = StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)
 
@@ -193,7 +193,7 @@ class StepUpStrategyTest : BehaviorSpec({
         }
 
         `when`("re-identification cannot help either") {
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "fsc", "eid", "nect-eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc, amrSourceId = mapOf("nect-eid" to "ident-nect")))
             then("cancels - giving up here is not an error") {
                 strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Transition.Cancel
             }

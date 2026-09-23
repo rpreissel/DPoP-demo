@@ -1,0 +1,224 @@
+components:
+  schemas:
+    NectAttributes:
+      properties:
+        documentNumber:
+          type: string
+        expiryDate:
+          format: date
+          type: string
+        geburtsdatum:
+          format: date
+          type: string
+        hausnummer:
+          type: string
+        issuingState:
+          type: string
+        name:
+          type: string
+        ort:
+          type: string
+        plz:
+          type: string
+        restrictedId:
+          type: string
+        strasse:
+          type: string
+        vorname:
+          type: string
+        walletPseudonym:
+          type: string
+      type: object
+    NectCaseView:
+      properties:
+        caseId:
+          format: uuid
+          type: string
+        status:
+          type: string
+      required:
+      - caseId
+      - status
+      type: object
+    NectFailRequest:
+      properties:
+        reason:
+          example: Selfie passt nicht zum Passbild
+          type: string
+      required:
+      - reason
+      type: object
+    NectRedirect:
+      properties:
+        redirectUri:
+          type: string
+      required:
+      - redirectUri
+      type: object
+    NectResultRequest:
+      properties:
+        attributes:
+          $ref: '#/components/schemas/NectAttributes'
+        pin:
+          example: '123456'
+          type: string
+        procedure:
+          example: eid
+          type: string
+      required:
+      - attributes
+      - procedure
+      type: object
+  securitySchemes:
+    dpop:
+      description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the
+        binding key is derived from it and is never supplied by the caller.
+      in: header
+      name: DPoP
+      type: apiKey
+    kc-peer-auth:
+      bearerFormat: JWT
+      description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
+        server-to-server, and the channel anchor comes out of the assertion.'
+      scheme: bearer
+      type: http
+info:
+  description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
+    the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
+  title: DPoP-Demo Orchestrator API
+  version: v1
+openapi: 3.1.0
+paths:
+  /mock-nect/cases/{caseId}:
+    get:
+      operationId: case
+      parameters:
+      - in: path
+        name: caseId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NectCaseView'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Status eines Vorgangs
+      tags:
+      - Mock Nect
+  /mock-nect/cases/{caseId}/cancellation:
+    post:
+      operationId: cancel
+      parameters:
+      - in: path
+        name: caseId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NectRedirect'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Identifizierung abbrechen
+      tags:
+      - Mock Nect
+  /mock-nect/cases/{caseId}/failure:
+    post:
+      operationId: fail
+      parameters:
+      - in: path
+        name: caseId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NectFailRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NectRedirect'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Identifizierung scheitern lassen (Demo)
+      tags:
+      - Mock Nect
+  /mock-nect/cases/{caseId}/result:
+    post:
+      description: 'procedure: eid, epass oder eudi. eID verlangt die PIN (Testwert 123456); ein abgelaufener Pass lässt den
+        Vorgang scheitern.'
+      operationId: result
+      parameters:
+      - in: path
+        name: caseId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NectResultRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NectRedirect'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Identifizierung abschließen
+      tags:
+      - Mock Nect
+tags:
+- description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: SMS'
+- description: Gerätebindung über den externen Dienstleister KOBIL
+  name: 'Tool: KOBIL'
+- description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
+  name: 'Tool: Gerät'
+- description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: Passwort'
+- description: Simulierter Identifizierungsdienst - kein Endpunkt dieser Anwendung, sondern das Fremdsystem
+  name: Mock Nect
+- description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
+  name: 'Tool: E-Mail'
+- description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
+  name: 'Tool: QR-Login'

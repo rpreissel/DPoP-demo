@@ -13,7 +13,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 - Ein React/TypeScript-Frontend, das einen DPoP-Proof erzeugt und mit dem Backend kommuniziert.
 - Einen `orchestrator`, der Session- und Journey-Zustände verwaltet und die fachliche Richtigkeit
   (Policy, Retry, DPoP-Bindung) durchsetzt, ohne die Methodenmodule zu kennen.
-- Mehrere fachliche Module (`id_fsc`, `id_eid`, `id_kvnr`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`, `auth_kobil`),
+- Mehrere fachliche Module (`id_fsc`, `id_eid`, `id_nect`, `id_kvnr`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`, `auth_kobil`),
   die ihre eigenen Tool-Endpunkte mitbringen und den Orchestrator ausschließlich über
   `tool_api` erreichen ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4).
 - Zwei Datenmodule (`account`, `ext_stammdaten`), die Konto- bzw. Personendaten halten und
@@ -73,6 +73,8 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M14 | `auth_kobil` | Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); backend-verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Sub-Ressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber als einziges Methodenmodul eine vierte erlaubte Kante: `kobil_mock` |
 | M16 | `orchestrator.kernel` | Kein eigenes Modulith-Modul, sondern das unterste Paket **innerhalb** von `orchestrator`: das gemeinsame Vokabular (`AuthIntent`, `AmrSource`, `AcrLevels`, `OrchestratorException`, `FeatureFlagProvider`). Hängt von nichts ab — das ist sein ganzer Vertrag. Es existiert, weil fast jeder Paketzyklus im Orchestrator ein *Name* am falschen Ort war: `AmrSource` sagt, woher ein Nachweis stammt (Policy-Frage), lag aber neben der JPA-Entität, die ihn speichert |
 | M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: `allowedDependencies = []` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Fassade `/mock-kobil/*` für die App (Pendant zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
+| M16 | `id_nect` | Identifizierung über Nect (Tool `ident-nect`): Sprung auf die Nect-Seite, Rücksprung mit Vorgangsnummer, das Backend löst das Ergebnis selbst ein; bestätigt nur Dokumentdaten wie `id_eid` (ADR-18); amr je Verfahren `nect-eid`/`nect-epass`/`nect-eudi`. Erlaubte Kante zum Fremdsystem: `nect_mock` |
+| M17 | `nect_mock` | Simulierter **Identifizierungsdienst** Nect, kein Tool-Modul: `allowedDependencies = []`, eigenes Schema, zwei Schnittstellen — `NectIdent` für unser Backend und die HTTP-Fassade `/mock-nect/*` für die Sprungseite `/nect/` (eID, Reisepass, EUDI-Wallet). Untersteht nicht unserer Aufbewahrung |
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -110,8 +112,8 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 ```
 
 - Kein Methodenmodul referenziert den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten"]`). Die einzige gemeinsame Kante ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
-- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `id_kvnr.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`, `auth_kobil.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package. Einzige Ausnahme: `kobil_mock.api.v1` liegt bewusst NICHT unter `/orchestrator/api`, sondern unter `/mock-kobil` — es ist der Fremddienst, nicht diese Anwendung.
-- Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Kanten zu simulierten Fremdsystemen sind deklariert, nicht geduldet: `auth_kobil → kobil_mock`, `id_fsc → ext_stammdaten` (nur `Freischaltcodes`, ADR-31). Account-Lookups laufen über `tool_api.AccountDirectory`, Schreibungen über Claims in `ToolOutcome` und deren Übernahme durch die Journey. E-Mail-spezifische Lookup-Komfortfunktionen sind Extensions auf dem Port.
+- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `id_kvnr.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`, `auth_kobil.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package. Ausnahmen: `kobil_mock.api.v1` und `nect_mock.api.v1` liegen bewusst NICHT unter `/orchestrator/api`, sondern unter `/mock-kobil` bzw. `/mock-nect` — sie sind die Fremddienste, nicht diese Anwendung.
+- Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Kanten zu simulierten Fremdsystemen sind deklariert, nicht geduldet: `auth_kobil → kobil_mock`, `id_fsc → ext_stammdaten` (nur `Freischaltcodes`, ADR-31), `id_nect → nect_mock` (nur `NectIdent`). Account-Lookups laufen über `tool_api.AccountDirectory`, Schreibungen über Claims in `ToolOutcome` und deren Übernahme durch die Journey. E-Mail-spezifische Lookup-Komfortfunktionen sind Extensions auf dem Port.
 - `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
 - Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` ist nicht nötig.
 - Das Frontend kommuniziert ausschließlich über HTTP mit der Applikation als Ganzes; welches Modul einen Endpunkt implementiert, ist für es nicht sichtbar.
@@ -122,7 +124,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 |----|-------------|-----------|
 | M-1 | Jedes Modul besitzt ein eigenes Package. | Package-Struktur unter `com.example.dpop.<modul>` |
 | M-2 | Jedes Modul enthält mindestens eine Service-Klasse. | `@Service` in jedem Modul vorhanden |
-| M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` gekoppelt, nie direkt. | Konstruktor-Injection nur gegen `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_stammdaten` (ADR-31) |
+| M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` gekoppelt, nie direkt. | Konstruktor-Injection nur gegen `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_stammdaten` (ADR-31), `id_nect → nect_mock` |
 | M-4 | Die Modulstruktur ist verifizierbar. | `ApplicationModules.verify()` in Tests |
 
 ---

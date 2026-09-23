@@ -170,7 +170,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
                 account = acc,
                 evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
                 acrFloor = AcrLevel.LOA2,
-                availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"))
+                availableTools = StrategyTestFixtures.allToolIds - setOf(ToolId("ident-fsc"), ToolId("ident-eid"), ToolId("ident-nect"))
             )
             then("aborts with a reason - never a silent enrollment fallback (this intent has none)") {
                 val transition = strategy.transition(LookupLoginState.Credential(Offer(listOf(ToolId("auth-sms-lookup")))), JourneyEvent.ActionCompleted, theCtx)

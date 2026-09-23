@@ -22,6 +22,7 @@ import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
 import com.example.dpop.auth_sms.AuthSmsUseDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
 import com.example.dpop.id_eid.IdentEidDescriptor
+import com.example.dpop.id_nect.IdentNectDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.id_kvnr.IdentKvnrDescriptor
 import com.example.dpop.orchestrator.journey.JourneyContext
@@ -47,7 +48,7 @@ object StrategyTestFixtures {
 
     val catalog = ToolHandlerRegistry(
         listOf(
-            IdentFscDescriptor, IdentEidDescriptor, IdentKvnrDescriptor,
+            IdentFscDescriptor, IdentEidDescriptor, IdentNectDescriptor, IdentKvnrDescriptor,
             EnrollSmsDescriptor, AuthSmsUseDescriptor, AuthSmsLookupDescriptor,
             ConfirmEmailDescriptor, EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
             EnrollPasswordDescriptor, AuthPasswordUseDescriptor, AuthPasswordLookupDescriptor,
@@ -109,7 +110,16 @@ object StrategyTestFixtures {
      * [enrolledUnderAcr], when given an account, is that account's own enrollment record for each
      * method in [amr] - only needed for scenarios that actually exercise the MFA-combination bump.
      */
-    fun evidence(amr: List<String>, factorTypes: Set<FactorType>, account: AccountProfile? = null): AuthEvidence {
+    /**
+     * [amrSourceId] names the tool behind an amr value where the two differ - ident-nect reports
+     * `nect-<procedure>`, not its method name.
+     */
+    fun evidence(
+        amr: List<String>,
+        factorTypes: Set<FactorType>,
+        account: AccountProfile? = null,
+        amrSourceId: Map<String, String> = emptyMap()
+    ): AuthEvidence {
         val methodAcr = amr.associateWith { m ->
             catalog.descriptors().filter { it.method == m }.maxByOrNull { AcrLevel.rank(it.maxAcr) }?.maxAcr?.value ?: AcrLevel.NONE.value
         }
@@ -118,7 +128,7 @@ object StrategyTestFixtures {
             ?.mapNotNull { m -> m.enrolledUnderAcr?.let { m.method to it } }
             ?.toMap()
             ?: emptyMap()
-        return AuthEvidence.from(amr, factorTypes, methodAcr, enrolledUnderAcr)
+        return AuthEvidence.from(amr, factorTypes, methodAcr, enrolledUnderAcr, amrSourceId = amrSourceId)
     }
 
     fun ctx(

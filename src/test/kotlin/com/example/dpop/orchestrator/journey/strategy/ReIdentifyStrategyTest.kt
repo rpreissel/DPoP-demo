@@ -69,10 +69,17 @@ class ReIdentifyStrategyTest : BehaviorSpec({
     }
 
     given("OfferReIdent, with an IDENT tool that could still reach the target") {
-        // sms already used, fsc/eid not - only fsc is isolated here by marking eid used too, so
-        // the offered set is unambiguous.
+        // sms already used, the IDENT tools not - only fsc is isolated here by marking eid and
+        // nect used too, so the offered set is unambiguous.
         val acc = account(method("sms", AcrLevel.LOA2))
-        val theCtx = ctx(account = acc, evidence = AuthEvidence.from(listOf("sms", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)), acrFloor = AcrLevel.LOA2)
+        val theCtx = ctx(
+            account = acc,
+            evidence = AuthEvidence.from(
+                listOf("sms", "eid", "nect-epass"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
+                amrSourceId = mapOf("nect-epass" to "ident-nect")
+            ),
+            acrFloor = AcrLevel.LOA2
+        )
         val state = ReIdentifyState.OfferReIdent(AcrLevel.LOA2, AcrLevel.LOA1)
 
         `when`("accepted") {
@@ -107,11 +114,16 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         }
     }
 
-    given("OfferReIdent, no IDENT tool can close the gap (both fsc and eid already used this session)") {
+    given("OfferReIdent, no IDENT tool can close the gap (fsc, eid and nect already used this session)") {
         val acc = account(method("sms", AcrLevel.LOA2))
         val theCtx = ctx(
             account = acc,
-            evidence = AuthEvidence.from(listOf("sms", "fsc", "eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)),
+            // Nect's amr is the procedure (`nect-eid`), not its method name - it counts as used
+            // because ident-nect produced it.
+            evidence = AuthEvidence.from(
+                listOf("sms", "fsc", "eid", "nect-eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE),
+                amrSourceId = mapOf("nect-eid" to "ident-nect")
+            ),
             acrFloor = AcrLevel.LOA2
         )
         val state = ReIdentifyState.OfferReIdent(AcrLevel.LOA2, AcrLevel.LOA1)

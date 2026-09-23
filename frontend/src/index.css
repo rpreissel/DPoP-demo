@@ -114,6 +114,24 @@
   color: var(--text);
 }
 
+/* Nect (/nect/): ein fremder Identifizierungsdienst, auf dessen Seite der Nutzer kurz wechselt -
+   hell, Korallrot, damit der Seitenwechsel aus der App heraus sofort sichtbar ist. */
+.channel-nect {
+  --text: #4a3f40;
+  --text-h: #2a1214;
+  --bg: #fffafa;
+  --border: #eed6d7;
+  --code-bg: #fbeeee;
+  --accent: #e5484d;
+  --accent-bg: rgba(229, 72, 77, 0.08);
+  --accent-border: rgba(229, 72, 77, 0.35);
+  --shadow:
+    rgba(42, 18, 20, 0.08) 0 10px 15px -3px, rgba(42, 18, 20, 0.04) 0 4px 6px -2px;
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--text);
+}
+
 /* Admin (/admin/): unser eigenes System, aber die Betreiber-Sicht - dunkel + Bernstein, damit sie
    sich weder mit dem App-Kanal (Lila) noch mit dem Web-Kanal (Blau) verwechseln lässt. */
 .channel-admin {

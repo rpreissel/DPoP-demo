@@ -54,14 +54,14 @@ class RegisterStrategyTest : BehaviorSpec({
 
         then("always goes straight to identification - no PreferredAuth/AuthChoice shortcut exists here") {
             strategy.transition(RegisterState.Start, JourneyEvent.Started, ctx(account = acc)) shouldBe
-                Transition.To(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid")))))
+                Transition.To(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid"), ToolId("ident-nect")))))
         }
     }
 
     given("Start, no account known yet") {
         then("goes to identification, same as a run seeded by FAST_ACCESS's own sub-journey hand-off") {
             strategy.transition(RegisterState.Start, JourneyEvent.Started, ctx(account = null)) shouldBe
-                Transition.To(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid")))))
+                Transition.To(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid"), ToolId("ident-nect")))))
         }
     }
 
@@ -211,7 +211,7 @@ class RegisterStrategyTest : BehaviorSpec({
                 JourneyEvent.Abandoned(AuthSmsUseDescriptor),
                 ctx(account = acc, channel = ChannelType.KEYCLOAK)
             )
-            transition shouldBe Transition.To(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid")))))
+            transition shouldBe Transition.To(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"), ToolId("ident-eid"), ToolId("ident-nect")))))
         }
     }
 

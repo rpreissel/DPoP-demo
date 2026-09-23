@@ -74,7 +74,7 @@ demo:
   tool-defaults:
     channels:
       APP:
-        order: [ident-fsc, ident-eid, ident-kvnr, enroll-device, enroll-kobil, enroll-qr, enroll-password, enroll-sms, enroll-email, auth-device, auth-kobil, auth-password, auth-sms, auth-qr, auth-email, auth-password-lookup, auth-sms-lookup, auth-qr-lookup, auth-email-lookup, confirm-email, confirm-qr-login]
+        order: [ident-nect, ident-fsc, ident-eid, ident-kvnr, enroll-device, enroll-kobil, enroll-qr, enroll-password, enroll-sms, enroll-email, auth-device, auth-kobil, auth-password, auth-sms, auth-qr, auth-email, auth-password-lookup, auth-sms-lookup, auth-qr-lookup, auth-email-lookup, confirm-email, confirm-qr-login]
         disabled: [auth-qr, auth-email, auth-qr-lookup, auth-email-lookup]
       KEYCLOAK:
         order: [ident-fsc, ident-eid, ident-kvnr, enroll-email, enroll-password, enroll-qr, enroll-sms, enroll-kobil, enroll-device, auth-qr, auth-sms, auth-password, auth-device, auth-email, auth-kobil, auth-qr-lookup, auth-sms-lookup, auth-password-lookup, auth-email-lookup, confirm-email, confirm-qr-login]

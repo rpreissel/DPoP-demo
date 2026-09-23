@@ -496,6 +496,16 @@ components:
           example: A123456789
           type: string
       type: object
+    IdentNectPatchRequest:
+      properties:
+        caseId:
+          description: The case id Nect sent the user back with (?nectCaseId=...).
+          format: uuid
+          type: string
+        retry:
+          description: true opens a fresh Nect case instead of reporting one.
+          type: boolean
+      type: object
     JourneyDebugStep:
       properties:
         intent:
@@ -734,6 +744,23 @@ components:
       required:
       - kind
       - missingFields
+    NectRedirectStep:
+      description: The user leaves for Nect's jump page; the app comes back with ?nectCaseId=... and reports it.
+      properties:
+        caseId:
+          format: uuid
+          type: string
+        jumpUrl:
+          example: /nect/?case=5b1c2d3e-0000-4000-8000-000000000001
+          type: string
+        kind:
+          enum:
+          - nect-redirect
+          type: string
+      required:
+      - caseId
+      - jumpUrl
+      - kind
     Next:
       properties:
         context:
@@ -835,6 +862,7 @@ components:
           kobil-unlock: '#/components/schemas/KobilUnlockStep'
           message: '#/components/schemas/MessageStep'
           missing-fields: '#/components/schemas/MissingFields'
+          nect-redirect: '#/components/schemas/NectRedirectStep'
           qr-pairing: '#/components/schemas/QrPairingStep'
           select-method: '#/components/schemas/SelectMethodStep'
         propertyName: kind
@@ -846,6 +874,7 @@ components:
       - $ref: '#/components/schemas/KobilUnlockStep'
       - $ref: '#/components/schemas/MessageStep'
       - $ref: '#/components/schemas/MissingFields'
+      - $ref: '#/components/schemas/NectRedirectStep'
       - $ref: '#/components/schemas/QrPairingStep'
       - $ref: '#/components/schemas/SelectMethodStep'
     TokenResponse:
@@ -1622,7 +1651,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-device:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_20
+      operationId: activate_21
       parameters:
       - in: path
         name: channelSessionId
@@ -1663,7 +1692,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-email:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_18
+      operationId: activate_19
       parameters:
       - in: path
         name: channelSessionId
@@ -1705,7 +1734,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-email-lookup:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_19
+      operationId: activate_20
       parameters:
       - in: path
         name: channelSessionId
@@ -1745,7 +1774,7 @@ paths:
       - 'Tool: E-Mail'
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-kobil:
     post:
-      operationId: activate_17
+      operationId: activate_18
       parameters:
       - in: path
         name: channelSessionId
@@ -1793,7 +1822,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_15
+      operationId: activate_16
       parameters:
       - in: path
         name: channelSessionId
@@ -1835,7 +1864,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password-lookup:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_16
+      operationId: activate_17
       parameters:
       - in: path
         name: channelSessionId
@@ -1876,7 +1905,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-qr:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_13
+      operationId: activate_14
       parameters:
       - in: path
         name: channelSessionId
@@ -1908,7 +1937,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-qr-lookup:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_14
+      operationId: activate_15
       parameters:
       - in: path
         name: channelSessionId
@@ -1940,7 +1969,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_11
+      operationId: activate_12
       parameters:
       - in: path
         name: channelSessionId
@@ -1982,7 +2011,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms-lookup:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_12
+      operationId: activate_13
       parameters:
       - in: path
         name: channelSessionId
@@ -2023,7 +2052,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-email:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_10
+      operationId: activate_11
       parameters:
       - in: path
         name: channelSessionId
@@ -2064,7 +2093,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-qr-login:
     post:
       description: 'Optional body: {pairingCode}, when already known (e.g. from a demo-link deep link) - skips the input step.'
-      operationId: activate_9
+      operationId: activate_10
       parameters:
       - in: path
         name: channelSessionId
@@ -2101,7 +2130,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-device:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_8
+      operationId: activate_9
       parameters:
       - in: path
         name: channelSessionId
@@ -2145,7 +2174,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-email:
     post:
       description: 'One shot: no request body, and the response already carries the completed outcome.'
-      operationId: activate_7
+      operationId: activate_8
       parameters:
       - in: path
         name: channelSessionId
@@ -2186,7 +2215,7 @@ paths:
     post:
       description: Provisions the KOBIL user and returns everything the app's SDK needs for its activation call - including
         the PIN, which this backend mints and keeps.
-      operationId: activate_6
+      operationId: activate_7
       parameters:
       - in: path
         name: channelSessionId
@@ -2240,7 +2269,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-password:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_5
+      operationId: activate_6
       parameters:
       - in: path
         name: channelSessionId
@@ -2281,7 +2310,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-qr:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_4
+      operationId: activate_5
       parameters:
       - in: path
         name: channelSessionId
@@ -2313,7 +2342,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-sms:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_3
+      operationId: activate_4
       parameters:
       - in: path
         name: channelSessionId
@@ -2354,7 +2383,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-eid:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_2
+      operationId: activate_3
       parameters:
       - in: path
         name: channelSessionId
@@ -2395,7 +2424,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-fsc:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate_1
+      operationId: activate_2
       parameters:
       - in: path
         name: channelSessionId
@@ -2436,7 +2465,7 @@ paths:
   /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-kvnr:
     post:
       description: 'No request body: toolId already carries kind and method.'
-      operationId: activate
+      operationId: activate_1
       parameters:
       - in: path
         name: channelSessionId
@@ -2474,6 +2503,51 @@ paths:
       summary: Activate ident-kvnr
       tags:
       - 'Tool: Versichertennummer'
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-nect:
+    post:
+      description: No request body. Opens a Nect case; stepData carries the jump URL.
+      operationId: activate
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: redirect
+                  toolId: ident-nect
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+                stepData:
+                  caseId: 5b1c2d3e-0000-4000-8000-000000000001
+                  jumpUrl: /nect/?case=5b1c2d3e-0000-4000-8000-000000000001
+                  kind: nect-redirect
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Activate ident-nect
+      tags:
+      - 'Tool: Nect'
   /orchestrator/api/v1/kc/channels/{channelSessionId}:
     patch:
       description: 'Upsert semantics (docs/05-api.md Abschnitt 3): creates the channel on first call under this Keycloak-chosen
@@ -2685,7 +2759,7 @@ paths:
       - KC password management
   /orchestrator/api/v1/tools/{toolSessionId}/auth-device:
     get:
-      operationId: read_19
+      operationId: read_20
       parameters:
       - in: path
         name: toolSessionId
@@ -2726,7 +2800,7 @@ paths:
     patch:
       description: Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after
         the user confirms the mocked PIN/biometric prompt.
-      operationId: patch_19
+      operationId: patch_20
       parameters:
       - in: path
         name: toolSessionId
@@ -2773,7 +2847,7 @@ paths:
       - 'Tool: Gerät'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-email:
     get:
-      operationId: read_17
+      operationId: read_18
       parameters:
       - in: path
         name: toolSessionId
@@ -2813,7 +2887,7 @@ paths:
       tags:
       - 'Tool: E-Mail'
     patch:
-      operationId: patch_17
+      operationId: patch_18
       parameters:
       - in: path
         name: toolSessionId
@@ -2861,7 +2935,7 @@ paths:
       - 'Tool: E-Mail'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-email-lookup:
     get:
-      operationId: read_18
+      operationId: read_19
       parameters:
       - in: path
         name: toolSessionId
@@ -2902,7 +2976,7 @@ paths:
     patch:
       description: First call with email resolves the account and triggers the confirmation code send; a second call with
         code confirms it.
-      operationId: patch_18
+      operationId: patch_19
       parameters:
       - in: path
         name: toolSessionId
@@ -2965,7 +3039,7 @@ paths:
       - 'Tool: E-Mail'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-kobil:
     get:
-      operationId: read_16
+      operationId: read_17
       parameters:
       - in: path
         name: toolSessionId
@@ -2997,7 +3071,7 @@ paths:
     patch:
       description: The backend fetches the assertion behind the OTP from KOBIL, compares the device identifier with the enrolled
         one and checks the reported risks.
-      operationId: patch_16
+      operationId: patch_17
       parameters:
       - in: path
         name: toolSessionId
@@ -3106,7 +3180,7 @@ paths:
       - 'Tool: KOBIL'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-password:
     get:
-      operationId: read_14
+      operationId: read_15
       parameters:
       - in: path
         name: toolSessionId
@@ -3146,7 +3220,7 @@ paths:
       tags:
       - 'Tool: Passwort'
     patch:
-      operationId: patch_14
+      operationId: patch_15
       parameters:
       - in: path
         name: toolSessionId
@@ -3194,7 +3268,7 @@ paths:
       - 'Tool: Passwort'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup:
     get:
-      operationId: read_15
+      operationId: read_16
       parameters:
       - in: path
         name: toolSessionId
@@ -3233,7 +3307,7 @@ paths:
       tags:
       - 'Tool: Passwort'
     patch:
-      operationId: patch_15
+      operationId: patch_16
       parameters:
       - in: path
         name: toolSessionId
@@ -3280,68 +3354,6 @@ paths:
       - 'Tool: Passwort'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-qr:
     get:
-      operationId: read_12
-      parameters:
-      - in: path
-        name: toolSessionId
-        required: true
-        schema:
-          format: uuid
-          type: string
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/ChannelResponse'
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      security:
-      - dpop: [
-          ]
-      - kc-peer-auth: [
-          ]
-      summary: Read the current auth-qr state
-      tags:
-      - 'Tool: QR-Login'
-    patch:
-      description: No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen).
-      operationId: patch_12
-      parameters:
-      - in: path
-        name: toolSessionId
-        required: true
-        schema:
-          format: uuid
-          type: string
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/ChannelResponse'
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      security:
-      - dpop: [
-          ]
-      - kc-peer-auth: [
-          ]
-      summary: Poll for the APP side's decision
-      tags:
-      - 'Tool: QR-Login'
-  /orchestrator/api/v1/tools/{toolSessionId}/auth-qr-lookup:
-    get:
       operationId: read_13
       parameters:
       - in: path
@@ -3368,7 +3380,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Read the current auth-qr-lookup state
+      summary: Read the current auth-qr state
       tags:
       - 'Tool: QR-Login'
     patch:
@@ -3402,9 +3414,71 @@ paths:
       summary: Poll for the APP side's decision
       tags:
       - 'Tool: QR-Login'
+  /orchestrator/api/v1/tools/{toolSessionId}/auth-qr-lookup:
+    get:
+      operationId: read_14
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Read the current auth-qr-lookup state
+      tags:
+      - 'Tool: QR-Login'
+    patch:
+      description: No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen).
+      operationId: patch_14
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Poll for the APP side's decision
+      tags:
+      - 'Tool: QR-Login'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-sms:
     get:
-      operationId: read_10
+      operationId: read_11
       parameters:
       - in: path
         name: toolSessionId
@@ -3444,7 +3518,7 @@ paths:
       tags:
       - 'Tool: SMS'
     patch:
-      operationId: patch_10
+      operationId: patch_11
       parameters:
       - in: path
         name: toolSessionId
@@ -3492,7 +3566,7 @@ paths:
       - 'Tool: SMS'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-sms-lookup:
     get:
-      operationId: read_11
+      operationId: read_12
       parameters:
       - in: path
         name: toolSessionId
@@ -3532,7 +3606,7 @@ paths:
       - 'Tool: SMS'
     patch:
       description: First call with email resolves the account and triggers the TAN send; a second call with tan confirms it.
-      operationId: patch_11
+      operationId: patch_12
       parameters:
       - in: path
         name: toolSessionId
@@ -3595,7 +3669,7 @@ paths:
       - 'Tool: SMS'
   /orchestrator/api/v1/tools/{toolSessionId}/confirm-email:
     get:
-      operationId: read_9
+      operationId: read_10
       parameters:
       - in: path
         name: toolSessionId
@@ -3635,7 +3709,7 @@ paths:
       - 'Tool: E-Mail'
     patch:
       description: First call with email triggers the code send; a second call with code confirms it.
-      operationId: patch_9
+      operationId: patch_10
       parameters:
       - in: path
         name: toolSessionId
@@ -3699,7 +3773,7 @@ paths:
       - 'Tool: E-Mail'
   /orchestrator/api/v1/tools/{toolSessionId}/confirm-qr-login:
     get:
-      operationId: read_8
+      operationId: read_9
       parameters:
       - in: path
         name: toolSessionId
@@ -3730,7 +3804,7 @@ paths:
       - 'Tool: QR-Login'
     patch:
       description: 'First call: {pairingCode}. Once resolved: {decision: accept|reject}.'
-      operationId: patch_8
+      operationId: patch_9
       parameters:
       - in: path
         name: toolSessionId
@@ -3766,7 +3840,7 @@ paths:
       - 'Tool: QR-Login'
   /orchestrator/api/v1/tools/{toolSessionId}/enroll-device:
     get:
-      operationId: read_7
+      operationId: read_8
       parameters:
       - in: path
         name: toolSessionId
@@ -3810,7 +3884,7 @@ paths:
     patch:
       description: Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after
         the user confirms the mocked PIN/biometric prompt.
-      operationId: patch_7
+      operationId: patch_8
       parameters:
       - in: path
         name: toolSessionId
@@ -3858,7 +3932,7 @@ paths:
       - 'Tool: Gerät'
   /orchestrator/api/v1/tools/{toolSessionId}/enroll-email:
     get:
-      operationId: read_20
+      operationId: read_21
       parameters:
       - in: path
         name: toolSessionId
@@ -3889,7 +3963,7 @@ paths:
       - 'Tool: E-Mail-Login'
   /orchestrator/api/v1/tools/{toolSessionId}/enroll-kobil:
     get:
-      operationId: read_6
+      operationId: read_7
       parameters:
       - in: path
         name: toolSessionId
@@ -3920,7 +3994,7 @@ paths:
       - 'Tool: KOBIL'
     patch:
       description: Records the credential once KOBIL reports a bound device for this user.
-      operationId: patch_6
+      operationId: patch_7
       parameters:
       - in: path
         name: toolSessionId
@@ -3969,7 +4043,7 @@ paths:
       - 'Tool: KOBIL'
   /orchestrator/api/v1/tools/{toolSessionId}/enroll-password:
     get:
-      operationId: read_5
+      operationId: read_6
       parameters:
       - in: path
         name: toolSessionId
@@ -4009,7 +4083,7 @@ paths:
       - 'Tool: Passwort'
     patch:
       description: The credential is self-verifying, no separate confirmation step.
-      operationId: patch_5
+      operationId: patch_6
       parameters:
       - in: path
         name: toolSessionId
@@ -4057,7 +4131,7 @@ paths:
       - 'Tool: Passwort'
   /orchestrator/api/v1/tools/{toolSessionId}/enroll-qr:
     get:
-      operationId: read_4
+      operationId: read_5
       parameters:
       - in: path
         name: toolSessionId
@@ -4088,7 +4162,7 @@ paths:
       - 'Tool: QR-Login'
     patch:
       description: No request body - the call itself is the confirmation.
-      operationId: patch_4
+      operationId: patch_5
       parameters:
       - in: path
         name: toolSessionId
@@ -4119,7 +4193,7 @@ paths:
       - 'Tool: QR-Login'
   /orchestrator/api/v1/tools/{toolSessionId}/enroll-sms:
     get:
-      operationId: read_3
+      operationId: read_4
       parameters:
       - in: path
         name: toolSessionId
@@ -4159,7 +4233,7 @@ paths:
       - 'Tool: SMS'
     patch:
       description: First call with phoneNumber triggers the TAN send; a second call with tan confirms it.
-      operationId: patch_3
+      operationId: patch_4
       parameters:
       - in: path
         name: toolSessionId
@@ -4223,7 +4297,7 @@ paths:
       - 'Tool: SMS'
   /orchestrator/api/v1/tools/{toolSessionId}/ident-eid:
     get:
-      operationId: read_2
+      operationId: read_3
       parameters:
       - in: path
         name: toolSessionId
@@ -4263,7 +4337,7 @@ paths:
       - 'Tool: eID'
     patch:
       description: Only the fields for the current step need to be sent; all of them together also completes in one call.
-      operationId: patch_2
+      operationId: patch_3
       parameters:
       - in: path
         name: toolSessionId
@@ -4326,7 +4400,7 @@ paths:
       - 'Tool: eID'
   /orchestrator/api/v1/tools/{toolSessionId}/ident-fsc:
     get:
-      operationId: read_1
+      operationId: read_2
       parameters:
       - in: path
         name: toolSessionId
@@ -4366,7 +4440,7 @@ paths:
       - 'Tool: Freischaltcode'
     patch:
       description: Only the fields being supplied or corrected need to be sent; all four together also resolves in one call.
-      operationId: patch_1
+      operationId: patch_2
       parameters:
       - in: path
         name: toolSessionId
@@ -4415,7 +4489,7 @@ paths:
       - 'Tool: Freischaltcode'
   /orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr:
     get:
-      operationId: read
+      operationId: read_1
       parameters:
       - in: path
         name: toolSessionId
@@ -4445,7 +4519,7 @@ paths:
       tags:
       - 'Tool: Versichertennummer'
     patch:
-      operationId: patch
+      operationId: patch_1
       parameters:
       - in: path
         name: toolSessionId
@@ -4490,6 +4564,90 @@ paths:
       summary: Supply the Versichertennummer
       tags:
       - 'Tool: Versichertennummer'
+  /orchestrator/api/v1/tools/{toolSessionId}/ident-nect:
+    get:
+      operationId: read
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Read the current ident-nect state
+      tags:
+      - 'Tool: Nect'
+    patch:
+      description: The backend redeems the case's result from Nect itself - once, and only for the case this tool session
+        opened.
+      operationId: patch
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentNectPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                Attested, the assignment question follows:
+                  description: Attested, the assignment question follows
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      context: prompt
+                      step: confirm
+                      type: orchestrator
+                    stepData:
+                      kind: confirm
+                      prompt:
+                        kind: Confirm
+                        title: Konto Ihrer Versichertennummer zuordnen?
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Report the returned Nect case, or open a new one
+      tags:
+      - 'Tool: Nect'
   /orchestrator/api/v1/tools/{toolSessionId}/{toolId}:
     delete:
       description: Moves the journey on according to the state it is standing on - to the next fallback option, back to the
@@ -4553,6 +4711,8 @@ tags:
   name: 'Tool: Freischaltcode'
 - description: The full set of registered tools, independent of any journey
   name: Tool catalog
+- description: Identification at Nect (eID, passport or EUDI wallet) via jump page and return
+  name: 'Tool: Nect'
 - description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
   name: 'Tool: QR-Login'
 - description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'

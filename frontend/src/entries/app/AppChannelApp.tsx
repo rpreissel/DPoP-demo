@@ -34,6 +34,7 @@ import {
   storeChannelSessionId,
   storePendingPairingCode,
 } from '../../session.ts'
+import { storeReturnedNectCase } from '../../tools/nect/returnedCase'
 import { dropStaleKobilData } from '../../tools/kobil/localData'
 import { shorten } from '../../format.ts'
 import { AppChannelFrame } from '../../components/AppChannelFrame'
@@ -271,7 +272,8 @@ export function AppChannelApp() {
     const params = new URLSearchParams(window.location.search)
     const intentParam = params.get('intent')
     const pairingCode = params.get('pairingCode')
-    if (!intentParam && !pairingCode) return
+    const nectCaseId = params.get('nectCaseId')
+    if (!intentParam && !pairingCode && !nectCaseId) return
     urlEntryHandledRef.current = true
 
     if (pairingCode) {
@@ -282,8 +284,18 @@ export function AppChannelApp() {
 
     params.delete('intent')
     params.delete('pairingCode')
+    params.delete('nectCaseId')
     const query = params.toString()
     window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+
+    // Back from Nect's jump page (ident-nect): the channel waiting for this case is the one this
+    // device remembers - resume it, and the tool's redirect step reports the case itself.
+    if (nectCaseId) {
+      storeReturnedNectCase(nectCaseId)
+      logEvent('Rücksprung von Nect', { response: { nectCaseId } })
+      handleStart('resume')
+      return
+    }
 
     const mode = intentParam ? INTENT_TO_START_MODE[intentParam.toLowerCase()] : undefined
     if (!mode) return

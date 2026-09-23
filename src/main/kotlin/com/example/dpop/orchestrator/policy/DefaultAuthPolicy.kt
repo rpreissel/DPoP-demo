@@ -215,13 +215,17 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         val evidence = ctx.evidence
         val requiredAcr = ctx.requiredAcr
         val usedMethods = evidence.factors.map { it.method.value }.toSet()
+        // An identification's amr need not be its method name: ident-nect reports
+        // `nect-<procedure>` (the document the user picked at Nect), so "already used" is also
+        // read from which tool produced the evidence, not from the method name alone.
+        val usedTools = evidence.factors.map { it.amrSourceId }.toSet()
         return toolRegistry.descriptors()
             // Role, not category: `category == IDENT` alone also matches a CORRELATION step,
             // which must never be offered as a way to (re-)identify (its role doc, ADR-18) -
             // typing a semi-public number is no fresh proof even when the account's `requires`
             // claims are already established.
             .filter { it.role == MethodRole.IDENTIFICATION }
-            .filter { it.method !in usedMethods }
+            .filter { it.method !in usedMethods && it.toolId.value !in usedTools }
             .filter { AcrLevel.rank(it.maxAcr) >= AcrLevel.rank(requiredAcr) }
             // Same gate as every other candidate path: a tool whose preconditions the account
             // doesn't meet must not be offered here either.

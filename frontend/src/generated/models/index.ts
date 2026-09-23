@@ -821,6 +821,25 @@ export interface IdentKvnrPatchRequest {
 /**
  * 
  * @export
+ * @interface IdentNectPatchRequest
+ */
+export interface IdentNectPatchRequest {
+    /**
+     * The case id Nect sent the user back with (?nectCaseId=...).
+     * @type {string}
+     * @memberof IdentNectPatchRequest
+     */
+    caseId?: string;
+    /**
+     * true opens a fresh Nect case instead of reporting one.
+     * @type {boolean}
+     * @memberof IdentNectPatchRequest
+     */
+    retry?: boolean;
+}
+/**
+ * 
+ * @export
  * @interface JourneyDebugStep
  */
 export interface JourneyDebugStep {
@@ -1211,6 +1230,41 @@ export const MissingFieldsKindEnum = {
 export type MissingFieldsKindEnum = typeof MissingFieldsKindEnum[keyof typeof MissingFieldsKindEnum];
 
 /**
+ * The user leaves for Nect's jump page; the app comes back with ?nectCaseId=... and reports it.
+ * @export
+ * @interface NectRedirectStep
+ */
+export interface NectRedirectStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof NectRedirectStep
+     */
+    caseId: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof NectRedirectStep
+     */
+    jumpUrl: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof NectRedirectStep
+     */
+    kind: NectRedirectStepKindEnum;
+}
+
+
+/**
+ * @export
+ */
+export const NectRedirectStepKindEnum = {
+    nect_redirect: 'nect-redirect'
+} as const;
+export type NectRedirectStepKindEnum = typeof NectRedirectStepKindEnum[keyof typeof NectRedirectStepKindEnum];
+
+/**
  * 
  * @export
  * @interface Next
@@ -1381,7 +1435,7 @@ export type SelectMethodStepKindEnum = typeof SelectMethodStepKindEnum[keyof typ
  * What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones this deployment can produce.
  * @export
  */
-export type StepData = { kind: 'confirm' } & ConfirmStep | { kind: 'failed-attempt' } & FailedAttemptStep | { kind: 'kobil-activation' } & KobilActivationStep | { kind: 'kobil-otp' } & KobilOtpStep | { kind: 'kobil-unlock' } & KobilUnlockStep | { kind: 'message' } & MessageStep | { kind: 'missing-fields' } & MissingFields | { kind: 'qr-pairing' } & QrPairingStep | { kind: 'select-method' } & SelectMethodStep;
+export type StepData = { kind: 'confirm' } & ConfirmStep | { kind: 'failed-attempt' } & FailedAttemptStep | { kind: 'kobil-activation' } & KobilActivationStep | { kind: 'kobil-otp' } & KobilOtpStep | { kind: 'kobil-unlock' } & KobilUnlockStep | { kind: 'message' } & MessageStep | { kind: 'missing-fields' } & MissingFields | { kind: 'nect-redirect' } & NectRedirectStep | { kind: 'qr-pairing' } & QrPairingStep | { kind: 'select-method' } & SelectMethodStep;
 /**
  * Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's a credential and stays server-side; refreshExpiresAt is the only thing about it exposed.
  * @export

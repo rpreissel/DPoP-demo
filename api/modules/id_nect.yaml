@@ -1,0 +1,193 @@
+components:
+  schemas:
+    IdentNectPatchRequest:
+      properties:
+        caseId:
+          description: The case id Nect sent the user back with (?nectCaseId=...).
+          format: uuid
+          type: string
+        retry:
+          description: true opens a fresh Nect case instead of reporting one.
+          type: boolean
+      type: object
+    NectRedirectStep:
+      description: The user leaves for Nect's jump page; the app comes back with ?nectCaseId=... and reports it.
+      properties:
+        caseId:
+          format: uuid
+          type: string
+        jumpUrl:
+          example: /nect/?case=5b1c2d3e-0000-4000-8000-000000000001
+          type: string
+        kind:
+          enum:
+          - nect-redirect
+          type: string
+      required:
+      - caseId
+      - jumpUrl
+      - kind
+  securitySchemes:
+    dpop:
+      description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the
+        binding key is derived from it and is never supplied by the caller.
+      in: header
+      name: DPoP
+      type: apiKey
+    kc-peer-auth:
+      bearerFormat: JWT
+      description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
+        server-to-server, and the channel anchor comes out of the assertion.'
+      scheme: bearer
+      type: http
+info:
+  description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
+    the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
+  title: DPoP-Demo Orchestrator API
+  version: v1
+openapi: 3.1.0
+paths:
+  /orchestrator/api/v1/channels/{channelSessionId}/tools/ident-nect:
+    post:
+      description: No request body. Opens a Nect case; stepData carries the jump URL.
+      operationId: activate
+      parameters:
+      - in: path
+        name: channelSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  step: redirect
+                  toolId: ident-nect
+                  toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
+                  type: tool
+                stepData:
+                  caseId: 5b1c2d3e-0000-4000-8000-000000000001
+                  jumpUrl: /nect/?case=5b1c2d3e-0000-4000-8000-000000000001
+                  kind: nect-redirect
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Activate ident-nect
+      tags:
+      - 'Tool: Nect'
+  /orchestrator/api/v1/tools/{toolSessionId}/ident-nect:
+    get:
+      operationId: read
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Read the current ident-nect state
+      tags:
+      - 'Tool: Nect'
+    patch:
+      description: The backend redeems the case's result from Nect itself - once, and only for the case this tool session
+        opened.
+      operationId: patch
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentNectPatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                Attested, the assignment question follows:
+                  description: Attested, the assignment question follows
+                  value:
+                    channel:
+                      channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      state: REGISTERING
+                    next:
+                      context: prompt
+                      step: confirm
+                      type: orchestrator
+                    stepData:
+                      kind: confirm
+                      prompt:
+                        kind: Confirm
+                        title: Konto Ihrer Versichertennummer zuordnen?
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Report the returned Nect case, or open a new one
+      tags:
+      - 'Tool: Nect'
+tags:
+- description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: SMS'
+- description: Gerätebindung über den externen Dienstleister KOBIL
+  name: 'Tool: KOBIL'
+- description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
+  name: 'Tool: Gerät'
+- description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: Passwort'
+- description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
+  name: 'Tool: E-Mail'
+- description: Identification at Nect (eID, passport or EUDI wallet) via jump page and return
+  name: 'Tool: Nect'
+- description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
+  name: 'Tool: QR-Login'

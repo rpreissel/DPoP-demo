@@ -29,17 +29,16 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
     init {
         given("a fresh channel") {
             `when`("switching away from the ident-fsc tool") {
-                then("the fallback chain moves to the only remaining identification candidate") {
+                then("the fallback chain moves on to the remaining identification candidates") {
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
 
                 // Identification is a FALLBACK state (declining moves on, same rule as
-                // PreferredAuth/AuthChoice): ident-fsc is now declined, leaving ident-eid as the sole
-                // remaining candidate - single-candidate skip activates it directly rather than
-                // showing a trivial one-option selection page.
+                // PreferredAuth/AuthChoice): ident-fsc is now declined, leaving the other two
+                // identification tools to choose from - ident-fsc itself is not offered again.
                 val result = delete("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc")
-                result.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-eid", "step" to "card")
+                result.stepData()["options"] shouldBe listOf("ident-eid", "ident-nect")
 
                 val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 channel.channel()["state"] shouldBe "REGISTERING"
