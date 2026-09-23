@@ -1,5 +1,7 @@
 package com.example.dpop.kcext;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -15,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Talks to the orchestrator's one kc-facade endpoint (docs/05-api.md Abschnitt 3) -
@@ -25,7 +28,14 @@ import java.util.Map;
  */
 final class OrchestratorClient {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    /**
+     * Unbekannte Felder werden ueberlesen. Das ist keine Nachlaessigkeit, sondern die
+     * Gegenrichtung zur Compile-Pruefung: Diese Extension laeuft in einem eigenen Image und muss
+     * gegen einen neueren Orchestrator weiterarbeiten. Ein neu HINZUGEKOMMENES Feld darf sie nicht
+     * stoppen; ein UMBENANNTES oder ENTFERNTES faellt weiterhin beim Compilieren auf.
+     */
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
 
     private final HttpClient http = HttpClient.newHttpClient();
@@ -293,10 +303,29 @@ final class OrchestratorClient {
             String authDataAcr,
             Map<String, String> authDataAmr
     ) {
+        /**
+         * Baut die flache Sicht aus den GENERIERTEN Vertragsmodellen (api/openapi.yaml), statt die
+         * Felder von Hand aus dem JSON zu klauben.
+         *
+         * Der Unterschied ist der Fehlermodus. Vorher lieferte ein umbenanntes Feld
+         * {@code path("state").asText(null)} still {@code null}, und der Fehler tauchte drei
+         * Schichten spaeter auf. Jetzt bricht der Compiler, sobald der Vertrag sich aendert - das
+         * ist der ganze Zweck des Umbaus.
+         *
+         * <p>ZWEI Felder bleiben bewusst offene JsonNodes: {@code stepData} und {@code demo}. Beide
+         * sind per Entwurf offene Beutel, aus denen die Renderer einzelne Schluessel picken. Fuer
+         * stepData kommt ein zweiter Grund dazu: Der generierte Union-Typ wirft bei einer Form, die
+         * dieser Client noch nicht kennt (siehe ContractModelTest). Diese Extension wird in einem
+         * eigenen Container-Image ausgeliefert und muss einen Deploy-Versatz gegen einen neueren
+         * Orchestrator ueberstehen - ein unbekannter Schritt darf sie nicht zerlegen.
+         */
         static ChannelResponse from(JsonNode json) {
-            JsonNode channel = json.path("channel");
-            JsonNode nextNode = json.path("next");
-            Next next = nextNode.isMissingNode() || nextNode.isNull() ? null : Next.from(nextNode);
+            com.example.dpop.kcext.api.model.ChannelResponse wire;
+            try {
+                wire = MAPPER.treeToValue(stripOpenBags(json), com.example.dpop.kcext.api.model.ChannelResponse.class);
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException("Antwort des Orchestrators passt nicht zum Vertrag", e);
+            }
 
             Map<String, JsonNode> stepData = new LinkedHashMap<>();
             json.path("stepData").fields().forEachRemaining(e -> stepData.put(e.getKey(), e.getValue()));
@@ -307,22 +336,44 @@ final class OrchestratorClient {
             Map<String, JsonNode> demo = new LinkedHashMap<>();
             json.path("demo").fields().forEachRemaining(e -> demo.put(e.getKey(), e.getValue()));
 
-            JsonNode authData = json.path("authData");
-            Long accountId = authData.hasNonNull("accountId") ? authData.get("accountId").asLong() : null;
-            String acr = authData.hasNonNull("acr") ? authData.get("acr").asText() : null;
-            Map<String, String> amr = new LinkedHashMap<>();
-            authData.path("amr").fields().forEachRemaining(e -> amr.put(e.getKey(), e.getValue().asText()));
+            var channel = wire.getChannel();
+            var wireNext = wire.getNext();
+            var authData = wire.getAuthData();
 
             return new ChannelResponse(
-                    channel.path("channelSessionId").asText(null),
-                    channel.path("state").asText(null),
-                    next,
+                    // Der Vertrag fuehrt die beiden Session-Ids als uuid, die flache Sicht als String -
+                    // die Extension reicht sie nur als Pfadsegment weiter und parst sie nie.
+                    channel == null ? null : Objects.toString(channel.getChannelSessionId(), null),
+                    channel == null ? null : channel.getState(),
+                    wireNext == null ? null : new Next(
+                            wireNext.getType(),
+                            wireNext.getToolId(),
+                            wireNext.getContext(),
+                            wireNext.getStep(),
+                            Objects.toString(wireNext.getToolSessionId(), null)
+                    ),
                     stepData,
                     demo,
-                    accountId,
-                    acr,
-                    amr
+                    authData == null ? null : authData.getAccountId(),
+                    authData == null ? null : authData.getAcr(),
+                    authData == null || authData.getAmr() == null ? Map.of() : authData.getAmr()
             );
+        }
+
+        /**
+         * Entfernt die beiden offenen Beutel, bevor das typisierte Modell sie zu sehen bekommt.
+         *
+         * Ohne das wuerde der generierte stepData-Union-Typ jede Antwort mit einer unbekannten Form
+         * zum Scheitern bringen - obwohl dieser Client den Inhalt ohnehin nur als JsonNode liest.
+         */
+        private static JsonNode stripOpenBags(JsonNode json) {
+            if (!(json instanceof ObjectNode object)) {
+                return json;
+            }
+            ObjectNode copy = object.deepCopy();
+            copy.remove("stepData");
+            copy.remove("demo");
+            return copy;
         }
 
         List<String> stepDataOptions() {
