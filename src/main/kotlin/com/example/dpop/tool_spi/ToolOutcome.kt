@@ -28,9 +28,8 @@ sealed interface ToolOutcome {
         /**
          * Demo-only values this step wants to show (a plaintext TAN, a prefilled address).
          *
-         * Its own field rather than a reserved key inside the step data: it is explicitly not part
-         * of the production contract (see [DEMO_DATA_KEY]), and while both travelled in one map
-         * every reader had to remember to split them.
+         * Its own field rather than a key inside the step data: it is not part of the production
+         * contract, and only `DemoDisclosure` decides whether it reaches a client at all.
          */
         val demo: Map<String, Any?>? = null
     ) : ToolOutcome

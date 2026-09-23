@@ -6,7 +6,6 @@ import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
 import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
-import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional

@@ -68,7 +68,7 @@ class EnrollKobilToolController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["fsc"]},
                       "next": {"type": "tool", "toolId": "enroll-kobil", "step": "activate", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
-                      "stepData": {"missingFields": ["activated", "biometricConsent"], "tenantId": "dpop-demo", "kobilUserId": "kob-1a2b3c4d5e6f", "activationCode": "K7M2PQX9", "pin": "40318827", "unlockSecret": "xE1r..."}
+                      "stepData": {"kind": "kobil-activation", "missingFields": ["activated", "biometricConsent"], "tenantId": "dpop-demo", "kobilUserId": "kob-1a2b3c4d5e6f", "activationCode": "K7M2PQX9", "pin": "40318827", "unlockSecret": "xE1r..."}
                     }
                 """)])]
             )

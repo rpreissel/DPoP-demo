@@ -11,9 +11,11 @@
  * says `channel: ChannelBlock`, not `channel?: ChannelBlock`. Nothing in this file restates what
  * the backend already declares.
  *
- * What stays hand-written is only what the backend genuinely serves as an open map - `stepData`
- * and its `prompt`, the demo bag's named extras, the token/ID-token shapes. Their contents are
- * documented per step in docs/05-api.md, not in the schema, so there is nothing to generate from.
+ * `stepData` is generated too, as a union discriminated by `kind`. The one thing added here is the
+ * way out for a shape this build does not know yet - see [StepData].
+ *
+ * What stays hand-written is only what the backend genuinely serves as an open map - the demo
+ * bag's named extras and the token/ID-token shapes.
  */
 import type * as Wire from './generated/models'
 
@@ -28,33 +30,43 @@ export type {
   Next,
 } from './generated/models'
 
-/** Whatever the current step needs to render: missing fields, selection options, or a retry reason. */
-export interface StepData {
-  missingFields?: string[]
-  options?: string[]
-  title?: string
-  description?: string
-  error?: string
-  prompt?: Prompt
-  [key: string]: unknown
-}
+/** Every step shape this build knows, generated from the contract. */
+export type KnownStepData = Wire.StepData
+export type StepKind = KnownStepData['kind']
 
 /**
- * What an AnswerableState shows while it waits for `POST .../answer` - authored entirely by the
- * backend (orchestrator/journey/state/Prompt.kt): the app channel is a mobile app with week-long
- * release cycles, so screen text must be able to change without an app release. `@t` is the
- * Jackson polymorphism discriminator; `Confirm` is the only variant today.
- *
- * Hand-written rather than generated: it only ever travels inside `stepData`, which the backend
- * serves as an open map, so it has no schema of its own to generate from.
+ * A shape this build does not know yet. The step flow is decided by the backend and may grow
+ * without a frontend release - a newer backend can send a `kind` this union has never heard of,
+ * and nothing may break on it. Deliberately no index signature: reading a field from an unknown
+ * shape is exactly the guess the typed union is there to stop.
  */
-export interface Prompt {
-  '@t': 'Confirm'
-  title: string
-  description?: string
-  confirmLabel: string
-  cancelLabel: string
-  destructive?: boolean
+export interface UnknownStepData {
+  kind: string
+}
+
+export type StepData = KnownStepData | UnknownStepData
+
+/**
+ * The step data if it has the given shape, otherwise undefined. The one way to read `stepData`:
+ * a plain `stepData.kind === 'x'` does not narrow, because [UnknownStepData] matches any string.
+ */
+export function stepDataOf<K extends StepKind>(
+  stepData: StepData | undefined,
+  kind: K,
+): Extract<KnownStepData, { kind: K }> | undefined {
+  return stepData?.kind === kind ? (stepData as Extract<KnownStepData, { kind: K }>) : undefined
+}
+
+/** What an AnswerableState shows while it waits - authored by the backend, see PromptView. */
+export type Prompt = Wire.Prompt
+export type ConfirmPrompt = Wire.Confirm
+
+/**
+ * The prompt as a yes/no confirmation, or undefined for a kind this build does not know - the
+ * same rule as [UnknownStepData]: an unknown shape is not rendered, it is not guessed at.
+ */
+export function confirmPromptOf(prompt: Prompt | undefined): ConfirmPrompt | undefined {
+  return prompt?.kind === 'Confirm' ? (prompt as ConfirmPrompt) : undefined
 }
 
 /** One seeded demo persona - travels inside the demo bag, so it has no schema of its own. */
@@ -92,8 +104,8 @@ export type DemoInfo = Wire.DemoInfo & {
 
 /**
  * The one response envelope for every endpoint, channel- and tool-level alike (docs/05-api.md #2).
- * Only `stepData` and `demo` are re-typed - both are open maps on the wire, and the two types
- * above are the client's own reading of them.
+ * Only `stepData` and `demo` are re-typed: `stepData` widened by [UnknownStepData], `demo` by
+ * the named extras above.
  */
 export type ChannelResponse = Omit<Wire.ChannelResponse, 'stepData' | 'demo'> & {
   stepData?: StepData

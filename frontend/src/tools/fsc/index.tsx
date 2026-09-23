@@ -1,6 +1,7 @@
 import type { ToolModule } from '../types'
 import { submitFsc } from './api'
 import { IdentFscForm } from './IdentFscForm'
+import { attemptError } from '../stepData'
 
 export const identFsc: ToolModule = {
   toolId: 'ident-fsc',
@@ -10,7 +11,7 @@ export const identFsc: ToolModule = {
       return (
         <IdentFscForm
           onSubmit={(fields) => submitFsc(ctx, fields)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoPersons={ctx.demo?.persons}
         />
       )

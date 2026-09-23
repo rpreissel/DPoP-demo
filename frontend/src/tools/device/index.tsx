@@ -2,6 +2,7 @@ import type { ToolModule } from '../types'
 import { authDevice, enrollDevice } from './api'
 import { DeviceAuthForm } from './DeviceAuthForm'
 import { DeviceEnrollForm } from './DeviceEnrollForm'
+import { attemptError } from '../stepData'
 
 const ICON = '📲'
 const LABEL = 'Gerät'
@@ -19,7 +20,7 @@ export const enrollDeviceTool: ToolModule = {
           toolSessionId={ctx.toolSessionId}
           toolId={ctx.toolId}
           onSubmit={(body) => enrollDevice(ctx, body)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
         />
       )
     }
@@ -37,7 +38,7 @@ export const authDeviceTool: ToolModule = {
           toolSessionId={ctx.toolSessionId}
           toolId={ctx.toolId}
           onSubmit={(body) => authDevice(ctx, body)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
         />
       )
     }

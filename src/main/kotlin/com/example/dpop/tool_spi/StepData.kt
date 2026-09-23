@@ -12,21 +12,27 @@ import kotlin.reflect.KClass
  *
  * It used to be a bare `Map<String, Any?>`, which made it the one part of the response the
  * contract said nothing about: a client had to know from prose which keys a given step carries.
- * Now every shape is a declared type, and the object names itself through `@t`.
+ * Now every shape is a declared type, and the object names itself through `kind`.
  *
  * **The discriminator has to be inside the object.** What a step shows depends on the step, and
  * the step is named by the sibling `next` - but OpenAPI can only discriminate on a property of the
- * object itself. `Prompt` already solved the same problem the same way, so `@t` is the convention
- * this follows rather than invents.
+ * object itself.
+ *
+ * **Why `kind` and not `@t`.** `@t` is the Jackson convention for the journey states this backend
+ * persists, and that is where it belongs. On the wire it broke the generated TypeScript: the
+ * generator turns the name into a legal identifier and wrote the union as `{ t: 'confirm' }`, so a
+ * client dispatching on the generated type would always have read `undefined`. `kind` is what the
+ * contract already used for the KOBIL unlock credential - one
+ * discriminator name on the wire, not two.
  *
  * **Keyed by the step, not by the endpoint.** A tool's response regularly carries another step's
  * data: abandoning `auth-sms` answers with the orchestrator's selection screen, and a completed
  * tool answers with whatever comes next. `Step` pairs this with the `next` it belongs to
  * (`JourneyService`), and that pairing is the whole rule.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "kind")
 @Schema(
-    description = "What the current step needs to render. `@t` names the shape; see the mapping " +
+    description = "What the current step needs to render. `kind` names the shape; see the mapping " +
         "on this schema for the ones this deployment can produce."
 )
 interface StepData

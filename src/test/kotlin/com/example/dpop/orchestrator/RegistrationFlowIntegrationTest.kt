@@ -104,7 +104,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 // `@t` names the shape (tool_spi/StepData.kt). enroll-sms says nothing beyond
                 // "this input is still missing", so it uses the shared MissingFields shape rather
                 // than one of its own.
-                afterPhone.stepData() shouldBe mapOf("@t" to "missing-fields", "missingFields" to listOf("tan"))
+                afterPhone.stepData() shouldBe mapOf("kind" to "missing-fields", "missingFields" to listOf("tan"))
                 @Suppress("UNCHECKED_CAST")
                 (afterPhone["demo"] as Map<String, Any?>)["tan"] shouldBe enrollTan
                 // Mid-flow: tool responses never carry currentAcr/currentAmr/activeMethods

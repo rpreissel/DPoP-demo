@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Configuration
 @JsonTypeName("kobil-unlock")
 @Schema(description = "The app must unlock the backend-held PIN; these are the accepted ways.")
 data class KobilUnlockStep(
-    @field:Schema(example = "[\"BIOMETRIC\", \"PIN\"]")
+    @field:Schema(example = "[\"biometric\", \"password\"]")
     val unlockOptions: List<String>,
     val tenantId: String,
     val kobilUserId: String

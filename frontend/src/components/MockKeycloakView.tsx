@@ -5,6 +5,7 @@ import { describeError } from '../api'
 import { knownToolIds, renderToolStep, metaFor } from '../tools/registry'
 import type { ToolRenderContext } from '../tools/types'
 import type { AuthData, ChannelResponse, DemoInfo, Next, StepData } from '../types'
+import { stepDataOf } from '../types'
 import { SelectMethodView } from './SelectMethodView'
 
 type Anchor = { kcAuthSessionId?: string; kcSessionId?: string }
@@ -107,6 +108,7 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
 
   const next = response?.next
   const stepData = response?.stepData
+  const selection = stepDataOf(stepData, 'select-method')
   const demo = response?.demo
 
   // Same single-candidate auto-collapse the App channel handles (JourneyService.nextFor): when
@@ -362,11 +364,11 @@ export function MockKeycloakView({ onStateChange }: MockKeycloakViewProps) {
         </div>
       )}
 
-      {next?.type === 'orchestrator' && stepData?.options && (
-        <SelectMethodView options={stepData.options} title={stepData.title ?? 'Verfahren wählen'} description={stepData.description} onSelect={selectMethod} />
+      {next?.type === 'orchestrator' && selection && (
+        <SelectMethodView options={selection.options} title={selection.title ?? 'Verfahren wählen'} description={selection.description} onSelect={selectMethod} />
       )}
 
-      {next?.type === 'orchestrator' && stepData?.prompt && <p className="card">Prompt-Schritte werden im Mock nicht unterstützt (nur im App-Kanal via Answer-Endpunkt).</p>}
+      {next?.type === 'orchestrator' && stepDataOf(stepData, 'confirm') && <p className="card">Prompt-Schritte werden im Mock nicht unterstützt (nur im App-Kanal via Answer-Endpunkt).</p>}
 
       {toolCtx && toolRenderable && (
         <>

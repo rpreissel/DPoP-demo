@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component
  *
  * What travels in the `demo` block is not decoration: a plaintext TAN, a plaintext confirmation
  * code, the fixed demo password, every seeded persona's KVNR, name, address and FSC code. That it
- * is "never part of the production contract" used to be stated in a doc comment on
- * `tool_spi.DEMO_DATA_KEY` and nowhere else - the two assembly sites built a [DemoInfo]
+ * is "never part of the production contract" used to be stated in a doc comment and nowhere
+ * else - the two assembly sites built a [DemoInfo]
  * unconditionally, so a deployment that must not disclose any of it had nothing to switch off.
  * A convention is not a safeguard.
  *
@@ -31,8 +31,8 @@ import org.springframework.stereotype.Component
 interface DemoDisclosure {
 
     /**
-     * @param values whatever the tool that just ran attached under
-     *   [com.example.dpop.tool_spi.DEMO_DATA_KEY], or null when it attached nothing.
+     * @param values whatever the tool that just ran attached as
+     *   [com.example.dpop.tool_spi.ToolOutcome.InProgress.demo], or null when it attached nothing.
      * @return the block to put in the response, or `null` when there is nothing to say - or
      *   nothing that may be said.
      */
@@ -49,7 +49,7 @@ interface DemoDisclosure {
  * The disclosing implementation - active unless `demo.disclosure=false`.
  *
  * `persons` (all seeded demo personas) is attached here, once, for every caller rather than by
- * each tool's own `demoData(...)` call, so a frontend persona picker works everywhere without
+ * each tool's own `demo` values, so a frontend persona picker works everywhere without
  * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
  */
 @Component

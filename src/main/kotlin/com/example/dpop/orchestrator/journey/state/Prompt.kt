@@ -12,8 +12,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  *
  * Sealed so a future second kind (e.g. a free-form choice among several answers) is a compile-time
  * decision at every call site, not a guessed string - [Confirm] is the only variant needed today.
+ *
+ * Discriminated by `kind` like every polymorphic type on the wire (see `tool_spi.StepData` for
+ * why not `@t`, which the persisted journey states keep).
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "kind")
 @JsonSubTypes(
     JsonSubTypes.Type(value = Prompt.Confirm::class, name = "Confirm")
 )

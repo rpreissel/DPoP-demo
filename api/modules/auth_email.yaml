@@ -130,7 +130,7 @@ components:
           $ref: '#/components/schemas/Next'
         stepData:
           $ref: '#/components/schemas/StepData'
-          description: Whatever the current step needs to render. `@t` names the shape - see StepData.
+          description: Whatever the current step needs to render. `kind` names the shape - see StepData.
       required:
       - channel
       type: object
@@ -262,16 +262,16 @@ components:
       discriminator:
         mapping:
           Confirm: '#/components/schemas/Confirm'
-        propertyName: '@t'
+        propertyName: kind
       properties:
-        '@t':
-          type: string
         description:
+          type: string
+        kind:
           type: string
         title:
           type: string
       required:
-      - '@t'
+      - kind
     SelectMethodStep:
       description: Several procedures are possible; the client shows a selection.
       properties:
@@ -291,7 +291,7 @@ components:
       required:
       - options
     StepData:
-      description: What the current step needs to render. `@t` names the shape; see the mapping on this schema for the ones
+      description: What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones
         this deployment can produce.
       discriminator:
         mapping:
@@ -300,7 +300,7 @@ components:
           message: '#/components/schemas/MessageStep'
           missing-fields: '#/components/schemas/MissingFields'
           select-method: '#/components/schemas/SelectMethodStep'
-        propertyName: '@t'
+        propertyName: kind
       oneOf:
       - $ref: '#/components/schemas/ConfirmStep'
       - $ref: '#/components/schemas/FailedAttemptStep'
@@ -308,10 +308,10 @@ components:
       - $ref: '#/components/schemas/MissingFields'
       - $ref: '#/components/schemas/SelectMethodStep'
       properties:
-        '@t':
+        kind:
           type: string
       required:
-      - '@t'
+      - kind
       type: object
   securitySchemes:
     dpop:
@@ -706,6 +706,7 @@ paths:
                       step: selectMethod
                       type: orchestrator
                     stepData:
+                      kind: select-method
                       options:
                       - enroll-password
                 After email - code sent:

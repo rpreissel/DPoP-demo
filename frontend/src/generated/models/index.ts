@@ -385,7 +385,7 @@ export interface ChannelResponse {
      */
     next?: Next;
     /**
-     * Whatever the current step needs to render. `@t` names the shape - see StepData.
+     * Whatever the current step needs to render. `kind` names the shape - see StepData.
      * @type {StepData}
      * @memberof ChannelResponse
      */
@@ -1294,13 +1294,13 @@ export interface Prompt {
      * @type {string}
      * @memberof Prompt
      */
-    t: string;
+    description?: string;
     /**
      * 
      * @type {string}
      * @memberof Prompt
      */
-    description?: string;
+    kind: string;
     /**
      * 
      * @type {string}
@@ -1380,10 +1380,10 @@ export interface SelectMethodStep {
 }
 /**
  * @type StepData
- * What the current step needs to render. `@t` names the shape; see the mapping on this schema for the ones this deployment can produce.
+ * What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones this deployment can produce.
  * @export
  */
-export type StepData = { t: 'confirm' } & ConfirmStep | { t: 'failed-attempt' } & FailedAttemptStep | { t: 'kobil-activation' } & KobilActivationStep | { t: 'kobil-otp' } & KobilOtpStep | { t: 'kobil-unlock' } & KobilUnlockStep | { t: 'message' } & MessageStep | { t: 'missing-fields' } & MissingFields | { t: 'qr-pairing' } & QrPairingStep | { t: 'select-method' } & SelectMethodStep;
+export type StepData = { kind: 'confirm' } & ConfirmStep | { kind: 'failed-attempt' } & FailedAttemptStep | { kind: 'kobil-activation' } & KobilActivationStep | { kind: 'kobil-otp' } & KobilOtpStep | { kind: 'kobil-unlock' } & KobilUnlockStep | { kind: 'message' } & MessageStep | { kind: 'missing-fields' } & MissingFields | { kind: 'qr-pairing' } & QrPairingStep | { kind: 'select-method' } & SelectMethodStep;
 /**
  * Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's a credential and stays server-side; refreshExpiresAt is the only thing about it exposed.
  * @export

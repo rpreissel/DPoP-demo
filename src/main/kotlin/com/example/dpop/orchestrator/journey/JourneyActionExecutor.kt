@@ -69,7 +69,7 @@ class JourneyActionExecutor(
      * needs alike - reads it straight off the action instead of needing it passed in separately.
      *
      * @return a demo-only notice to merge into the eventual response's `demo` block (see
-     * [com.example.dpop.tool_spi.DEMO_DATA_KEY]), or `null` when this action has none. Currently
+     * [com.example.dpop.tool_spi.ToolOutcome.InProgress.demo]), or `null` when this action has none. Currently
      * only [Action.AdoptCredential] ever returns one - see [performAdoptCredential] for why.
      */
     fun perform(journey: AuthJourney, channel: ChannelSession, action: Action): Map<String, Any?>? {

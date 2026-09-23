@@ -1,6 +1,7 @@
 import { submitViaPatch } from '../shared/defaultApi'
 import type { ToolModule } from '../types'
 import { IdentKvnrForm } from './IdentKvnrForm'
+import { attemptError } from '../stepData'
 
 /** Kein Verfahrenswechsel, sondern ein freiwilliger Schritt - die Beschriftung des Auswegs, hier und in der Rahmen-UI. */
 const SKIP_LABEL = 'Jetzt nicht'
@@ -22,7 +23,7 @@ export const identKvnr: ToolModule = {
           onSubmit={(kvnr) => submitViaPatch(ctx, { kvnr })}
           onSkip={ctx.onSkip}
           skipLabel={SKIP_LABEL}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoPersons={ctx.demo?.persons}
         />
       )

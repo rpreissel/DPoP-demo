@@ -2,7 +2,6 @@ package com.example.dpop.auth_email.internal.authemaillookup
 
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_spi.DEMO_EMAIL
-import com.example.dpop.tool_spi.demoData
 import java.time.Instant
 import java.util.UUID
 import com.example.dpop.tool_spi.MissingFields

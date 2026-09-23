@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
 import '../../App.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, DeviceLinkResponse, Next, StepData } from '../../types'
+import { confirmPromptOf, stepDataOf } from '../../types'
 import { getUIComponent } from '../../routing.ts'
 import { knownToolIds, metaFor, renderToolStep } from '../../tools/registry'
 import type { ToolRenderContext } from '../../tools/types'
@@ -95,6 +96,9 @@ export function AppChannelApp() {
   const [activeMethods, setActiveMethods] = useState<ActiveMethodView[] | undefined>()
   const [next, setNext] = useState<Next | undefined>()
   const [stepData, setStepData] = useState<StepData | undefined>()
+  // The orchestrator's `message` step, kept across auto-activating the one tool it announces -
+  // that tool's own response replaces stepData and would otherwise swallow it.
+  const [carriedMessage, setCarriedMessage] = useState<string | undefined>()
   const [demo, setDemo] = useState<DemoInfo | undefined>()
   const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
   // Which entry choice started the current channel - drives the journey-shape hover hint in
@@ -223,6 +227,7 @@ export function AppChannelApp() {
     setActiveMethods(response.channel.activeMethods)
     setNext(response.next)
     setStepData(response.stepData)
+    setCarriedMessage(undefined)
     setDemo(response.demo)
 
     const next = response.next
@@ -429,16 +434,15 @@ export function AppChannelApp() {
     // error). So "Anderes Verfahren" stays offered here, same as after an explicit selection.
     setAlternativesCount(1)
     activatingToolIdRef.current = toolId
-    const pendingMessage = stepData?.message
+    const pendingMessage = stepDataOf(stepData, 'message')?.message
     activateTool(dpop, channelSessionId, toolId, activationBodyFor(toolId))
       .then((response) => {
         // Preserve the journey-level context message (e.g. "E-Mail-Bestätigung ausstehend")
-        // across auto-activation: the tool endpoint's own response typically has no message,
-        // so the one from the offering state would otherwise be lost.
-        if (typeof pendingMessage === 'string' && !response.stepData?.message) {
-          response = { ...response, stepData: { ...response.stepData, message: pendingMessage } }
-        }
+        // across auto-activation: the tool endpoint's own response carries the tool's step, so
+        // the one from the offering state would otherwise be lost. Kept beside stepData, not
+        // merged into it - a message glued onto another step's shape would be neither of them.
         applyResponse(response, toolId)
+        setCarriedMessage(pendingMessage)
       })
       .catch((err) => setError(describeError('Tool activation failed', err)))
       .finally(() => {
@@ -703,7 +707,7 @@ export function AppChannelApp() {
     if (!dpop || !channelSessionId) return
     try {
       // The options just shown minus the one being picked = how many real alternatives remain.
-      setAlternativesCount(Math.max(0, (stepData?.options?.length ?? 1) - 1))
+      setAlternativesCount(Math.max(0, (stepDataOf(stepData, 'select-method')?.options.length ?? 1) - 1))
       const response = await activateTool(dpop, channelSessionId, toolId, activationBodyFor(toolId))
       applyResponse(response, toolId)
     } catch (err) {
@@ -734,6 +738,10 @@ export function AppChannelApp() {
   // Everything a tool's own render() needs (src/tools/registry.ts) - assembled once here from
   // `next`/`activeTool`, each tool module then calls its own api.ts and reports back via
   // onResult/onError instead of routing through a central App.tsx patch callback.
+  const selection = stepDataOf(stepData, 'select-method')
+  const confirmPrompt = confirmPromptOf(stepDataOf(stepData, 'confirm')?.prompt)
+  const message = stepDataOf(stepData, 'message')?.message ?? carriedMessage
+
   const toolCtx: ToolRenderContext | undefined =
     dpop && next?.type === 'tool' && next.toolId
       ? {
@@ -742,6 +750,7 @@ export function AppChannelApp() {
           toolSessionId: next.toolSessionId ?? activeTool?.toolSessionId,
           proof: { kind: 'dpop', dpop },
           stepData,
+          message,
           demo,
           onResult: (response) => applyResponse(response, next.toolId),
           onError: (message) => setError(message),
@@ -984,19 +993,19 @@ export function AppChannelApp() {
             </>
           )}
 
-          {uiComponent === 'select-method' && stepData?.options && (
+          {uiComponent === 'select-method' && selection && (
             <SelectMethodView
-              options={stepData.options}
-              title={stepData.title ?? 'Verfahren wählen'}
-              description={stepData.description}
+              options={selection.options}
+              title={selection.title ?? 'Verfahren wählen'}
+              description={selection.description}
               onSelect={handleSelectMethod}
             />
           )}
 
           {toolCtx && renderToolStep(toolCtx)}
 
-          {uiComponent === 'prompt' && stepData?.prompt && (
-            <PromptView prompt={stepData.prompt} onAnswer={handleAnswer} />
+          {uiComponent === 'prompt' && confirmPrompt && (
+            <PromptView prompt={confirmPrompt} onAnswer={handleAnswer} />
           )}
 
           {uiComponent === 'authentication-completed' && dpop && channelSessionId && (
@@ -1014,7 +1023,7 @@ export function AppChannelApp() {
               onPeerLogin={handlePeerLogin}
               onLogout={handleLogout}
               manageError={error || undefined}
-              infoMessage={typeof stepData?.message === 'string' ? stepData.message : undefined}
+              infoMessage={message}
             />
           )}
 

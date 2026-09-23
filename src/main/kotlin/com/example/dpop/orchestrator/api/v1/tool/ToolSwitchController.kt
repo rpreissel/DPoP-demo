@@ -52,7 +52,7 @@ class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa1"},
                       "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},
-                      "stepData": {"options": ["auth-password", "auth-device"]}
+                      "stepData": {"kind": "select-method", "options": ["auth-password", "auth-device"]}
                     }
                 """)])]
             )

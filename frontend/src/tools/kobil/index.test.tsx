@@ -50,6 +50,8 @@ describe('the kobil tool modules', () => {
 
 describe('enroll-kobil/activate', () => {
   const stepData = {
+    kind: 'kobil-activation',
+    missingFields: ['activated', 'biometricConsent'],
     tenantId: 'dpop-demo',
     kobilUserId: 'kob-1',
     activationCode: 'ABC123',
@@ -99,8 +101,8 @@ describe('enroll-kobil/activate', () => {
 })
 
 describe('auth-kobil/unlock', () => {
-  const stepData = { tenantId: 'dpop-demo', kobilUserId: 'kob-1', unlockOptions: ['biometric', 'password'] }
-  const passwordOnly = { tenantId: 'dpop-demo', kobilUserId: 'kob-1', unlockOptions: ['password'] }
+  const stepData = { kind: 'kobil-unlock', tenantId: 'dpop-demo', kobilUserId: 'kob-1', unlockOptions: ['biometric', 'password'] }
+  const passwordOnly = { kind: 'kobil-unlock', tenantId: 'dpop-demo', kobilUserId: 'kob-1', unlockOptions: ['password'] }
 
   it('releases with the locally stored secret when one is present', () => {
     storeUnlockSecret('kob-1', 'the-secret')
@@ -133,7 +135,7 @@ describe('auth-kobil/unlock', () => {
   })
 
   it('says so plainly when no means is left at all', () => {
-    const noOptions = { tenantId: 'dpop-demo', kobilUserId: 'kob-1', unlockOptions: [] }
+    const noOptions = { kind: 'kobil-unlock', tenantId: 'dpop-demo', kobilUserId: 'kob-1', unlockOptions: [] }
     render(<>{authKobilTool.render(ctx({ step: 'unlock', toolId: 'auth-kobil', stepData: noOptions }))}</>)
 
     expect(screen.queryByRole('button', { name: 'Mit Biometrie entsperren' })).toBeNull()
@@ -144,7 +146,7 @@ describe('auth-kobil/unlock', () => {
 
 describe('auth-kobil/otp', () => {
   it('runs the SDK login with the released PIN on its own and submits only the OTP', async () => {
-    const stepData = { tenantId: 'dpop-demo', kobilUserId: 'kob-1', kobilPin: '40318827' }
+    const stepData = { kind: 'kobil-otp', missingFields: ['otp'], tenantId: 'dpop-demo', kobilUserId: 'kob-1', kobilPin: '40318827' }
     render(<>{authKobilTool.render(ctx({ step: 'otp', toolId: 'auth-kobil', stepData }))}</>)
 
     await waitFor(() => expect(login).toHaveBeenCalledWith({ tenantId: 'dpop-demo', userId: 'kob-1' }, '40318827'))
@@ -152,7 +154,7 @@ describe('auth-kobil/otp', () => {
   })
 
   it('falls back to the unlock screen when the step is reached without a PIN - a reload after the release', () => {
-    const stepData = { tenantId: 'dpop-demo', kobilUserId: 'kob-1' }
+    const stepData = { kind: 'kobil-otp', missingFields: ['otp'], tenantId: 'dpop-demo', kobilUserId: 'kob-1' }
     render(<>{authKobilTool.render(ctx({ step: 'otp', toolId: 'auth-kobil', stepData }))}</>)
 
     // No PIN in hand means there is nothing to run the SDK with; the only way on is another unlock.

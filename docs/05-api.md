@@ -43,8 +43,9 @@ Was sonst noch dazugehört:
   nachgezogen sind, schlägt er fehl. Übernehmen mit `./gradlew updateOpenApiSnapshot`, danach
   `./gradlew generateFrontendApiTypes`.
 - **`frontend/src/types.ts` leitet ab statt nachzubauen.** Von Hand steht dort nur noch, was das
-  Backend als offene Map liefert: `stepData` mit seinem `prompt`, die benannten Werte im
-  `demo`-Block und die Token-Formen. Deren Inhalt ist hier dokumentiert, nicht im Schema.
+  Backend als offene Map liefert: die benannten Werte im `demo`-Block und die Token-Formen. Dazu
+  kommt eine Ergänzung zur generierten `stepData`-Union: `UnknownStepData` für eine Form, die
+  dieser Build noch nicht kennt, und `stepDataOf(stepData, kind)` als einziger Lesezugriff.
 - **Pflichtfelder stehen im Schema.** springdoc übernimmt Kotlins Non-Null nicht von selbst;
   `KotlinRequiredModelConverter` macht das: eine nicht-nullable Property ohne Default wird
   `required`.
@@ -76,6 +77,8 @@ Alle Requests enthalten den Header `DPoP: <proof>`.
 - Auswahloptionen stehen nicht in `next`, sondern in `stepData.options` als vollständige `toolId`-Werte (z. B. `enroll-sms`). Der Client darf `toolId` nie selbst konstruieren; sie kommt aus `next.toolId` oder `stepData.options`.
 - Wenn genau eine Methode erlaubt ist, überspringt das Backend die Auswahlseite und liefert direkt den Tool-Schritt.
 - `stepData` trägt, was der aktuelle Schritt zum Anzeigen braucht: tool-internen Zustand (z. B. `missingFields`), erlaubte Folge-Tools (`options`), nach einem fehlgeschlagenen Versuch den Grund (`error`). Sonst entfällt das Feld.
+- Jede `stepData` nennt ihre Form im Feld `kind` (`select-method`, `missing-fields`, `failed-attempt`, `confirm`, `message`, dazu die Formen der Module wie `qr-pairing` oder `kobil-otp`). Welche Formen es gibt, steht im `discriminator.mapping` von `StepData` in der Spec. Jedes Modul deklariert seine eigenen Formen selbst; eine zentrale Liste gibt es nicht. Ein Client muss mit einem unbekannten `kind` rechnen und ihn übergehen, statt abzubrechen.
+- Der Diskriminator heißt auf dem Draht überall `kind`, auch bei `Prompt` und `KobilUnlockCredential`. `@t` gibt es nur noch intern für die gespeicherten Journey-Zustände: Der TypeScript-Generator kann den Namen nicht abbilden und hatte daraus `t` gemacht.
 
 Pfadkonvention:
 
@@ -163,11 +166,11 @@ Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst 
 
 ### Das `Prompt`-Objekt
 
-Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Tool-Lauf wartet (`AnswerableState`), trägt einen `prompt` in `stepData`: `{"@t": "Confirm", "title": "...", "description": "...", "confirmLabel": "...", "cancelLabel": "...", "destructive": true|false}`. `next` ist für **jeden** `AnswerableState`, unabhängig vom Intent, derselbe feste Wert: `{"type":"orchestrator","context":"prompt","step":"confirm"}`. Beantwortet wird jeder `Prompt` über denselben generischen `POST .../{channelSessionId}/answer` mit `{"answer": "accept"|"decline"}`.
+Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Tool-Lauf wartet (`AnswerableState`), trägt einen `prompt` in `stepData` (Form `confirm`): `{"kind": "Confirm", "title": "...", "description": "...", "confirmLabel": "...", "cancelLabel": "...", "destructive": true|false}`. `next` ist für **jeden** `AnswerableState`, unabhängig vom Intent, derselbe feste Wert: `{"type":"orchestrator","context":"prompt","step":"confirm"}`. Beantwortet wird jeder `Prompt` über denselben generischen `POST .../{channelSessionId}/answer` mit `{"answer": "accept"|"decline"}`.
 
 Jeder Prompt-Text wird **komplett vom Backend geliefert**, nie clientseitig vorformuliert; eine geänderte Rückfrage braucht so keinen App-Release.
 
-`Prompt` ist als `sealed interface` mit `@t`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine `Choice`-Variante ist vorbereitet, aber nicht implementiert. Verwendungen: Gerätebindungs-Screen des Lookup-Logins, Account-Löschbestätigung, Logout-Bestätigung, `ReIdentifyState.OfferReIdent` vor der `RE_IDENTIFY`-SubJourney ([Orchestrierung](04-orchestrierung.md)).
+`Prompt` ist als `sealed interface` mit `kind`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine `Choice`-Variante ist vorbereitet, aber nicht implementiert. Verwendungen: Gerätebindungs-Screen des Lookup-Logins, Account-Löschbestätigung, Logout-Bestätigung, `ReIdentifyState.OfferReIdent` vor der `RE_IDENTIFY`-SubJourney ([Orchestrierung](04-orchestrierung.md)).
 
 ### Account löschen (AuthIntent.DELETE_ACCOUNT)
 
@@ -190,11 +193,11 @@ Konsistenzregel: Pro `channelSessionId` darf es höchstens einen aktiven öffent
 
 Registrierung mit `ident-fsc` -> `enroll-sms`:
 
-1. `POST /app/channels` (`{"requiredAcr": "loa2", "availableTools": ["ident-fsc", "enroll-sms", ...]}`, `intent` weggelassen → Default `fast_access`; `availableTools` ist Pflicht, siehe unten) liefert eine neue `channelSessionId` und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId`). Enthält `availableTools` auch `ident-eid`, liefert derselbe `POST` einen Auswahlschritt: `next={"type":"orchestrator","context":"registration","step":"selectIdentificationMethod"}`, `stepData={"options":["ident-fsc","ident-eid"]}`.
-2. `POST .../tools/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"missingFields":["kvnr","name","vorname"]}` und `next.toolSessionId` gesetzt.
-3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem FSC. Solange Felder fehlen: `200` mit aktualisiertem `stepData.missingFields`, `next` unverändert auf `ident-fsc`. Nach erfolgreicher Verifikation: `stepData={"options":["enroll-sms"]}`, `next={"type":"orchestrator","context":"enrollment","step":"selectMethod"}`.
-4. `POST .../tools/enroll-sms` liefert `stepData={"missingFields":["phoneNumber"]}`.
-5. `PATCH .../enroll-sms` mit `{"phoneNumber": "..."}` löst den TAN-Versand aus: `stepData={"missingFields":["tan"]}` plus (siehe unten) `demo={"tan":"123456"}`.
+1. `POST /app/channels` (`{"requiredAcr": "loa2", "availableTools": ["ident-fsc", "enroll-sms", ...]}`, `intent` weggelassen → Default `fast_access`; `availableTools` ist Pflicht, siehe unten) liefert eine neue `channelSessionId` und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId`). Enthält `availableTools` auch `ident-eid`, liefert derselbe `POST` einen Auswahlschritt: `next={"type":"orchestrator","context":"registration","step":"selectIdentificationMethod"}`, `stepData={"kind":"select-method","options":["ident-fsc","ident-eid"]}`.
+2. `POST .../tools/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"kind":"missing-fields","missingFields":["kvnr","name","vorname"]}` und `next.toolSessionId` gesetzt.
+3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem FSC. Solange Felder fehlen: `200` mit aktualisiertem `stepData.missingFields`, `next` unverändert auf `ident-fsc`. Nach erfolgreicher Verifikation: `stepData={"kind":"select-method","options":["enroll-sms"]}`, `next={"type":"orchestrator","context":"enrollment","step":"selectMethod"}`.
+4. `POST .../tools/enroll-sms` liefert `stepData={"kind":"missing-fields","missingFields":["phoneNumber"]}`.
+5. `PATCH .../enroll-sms` mit `{"phoneNumber": "..."}` löst den TAN-Versand aus: `stepData={"kind":"missing-fields","missingFields":["tan"]}` plus (siehe unten) `demo={"tan":"123456"}`.
 6. `PATCH .../enroll-sms` mit `{"tan": "123456"}` schließt ab: `next={"type":"orchestrator","context":"authentication","step":"authenticated"}`, `channel.state` bereits `"AUTHENTICATED"` in derselben Antwort — kein separater `GET` nötig.
 7. `GET /channels/{channelSessionId}` liefert jederzeit den stabilen Kanalzustand — der garantierte Resume-Einstieg, mitten in einem laufenden Tool inklusive dessen `toolSessionId`.
 
@@ -202,7 +205,7 @@ Jedes weitere Tool (`enroll-password`/`auth-password`, `enroll-email`/`auth-emai
 
 ### Das `demo`-Objekt
 
-Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen — **kein Teil des produktiven Vertrags** (in einer echten Umgebung abgeschaltet). Es trägt `accountId`/`personId` sowie je nach Tool `tan` (gerade ausgestellte TAN/Code), `password`/`email` (feste Demo-Werte zum Vorbelegen von Formularen). Tools hängen ihre demo-Werte über `tool_spi.demoData(...)` an.
+Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen — **kein Teil des produktiven Vertrags** (in einer echten Umgebung abgeschaltet). Es trägt `accountId`/`personId` sowie je nach Tool `tan` (gerade ausgestellte TAN/Code), `password`/`email` (feste Demo-Werte zum Vorbelegen von Formularen). Tools liefern ihre Demo-Werte im eigenen Feld `ToolOutcome.InProgress.demo`, getrennt von `stepData`.
 
 ### `POST /app/channels`: `intent`-Parameter
 
@@ -294,10 +297,10 @@ Beide laufen auf demselben Gate zusammen:
    (`next={"context":"auth","step":"selectMethod"}` bei mehreren Kandidaten). **Ausnahme**: Musste
    Schritt 2 erst einen Step-up auslösen, zählt dieser Nachweis bereits als der geforderte.
 4. `confirm-qr-login` aktivieren:
-   - `POST .../tools/confirm-qr-login` (kein Body) → `stepData={"missingFields":["pairingCode"]}`.
+   - `POST .../tools/confirm-qr-login` (kein Body) → `stepData={"kind":"missing-fields","missingFields":["pairingCode"]}`.
    - `PATCH .../confirm-qr-login` mit `{"pairingCode":"..."}` (aus dem QR-Code bzw. dem Demo-Link
      vorbefüllt, [Frontend](10-frontend.md)) → bei gültiger, noch offener Anfrage
-     `stepData={"verificationCode":"..."}`, `next.step="confirm"`. Der Nutzer vergleicht ihn mit dem
+     `stepData={"kind":"qr-pairing","verificationCode":"..."}`, `next.step="confirm"`. Der Nutzer vergleicht ihn mit dem
      auf der Web-Seite gezeigten (QR-Jacking-Schutz).
      Unbekannter/abgelaufener/bereits entschiedener Code: `stepData.error`, bleibt auf `input`,
      normale Retry-Logik.

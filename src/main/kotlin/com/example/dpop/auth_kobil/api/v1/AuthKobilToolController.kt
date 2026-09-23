@@ -65,7 +65,7 @@ class AuthKobilToolController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
                       "next": {"type": "tool", "toolId": "auth-kobil", "step": "unlock", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
-                      "stepData": {"unlockOptions": ["biometric", "password"]}
+                      "stepData": {"kind": "kobil-unlock", "unlockOptions": ["biometric", "password"], "tenantId": "dpop-demo", "kobilUserId": "kob-1a2b3c4d5e6f"}
                     }
                 """)])]
             )
@@ -106,7 +106,7 @@ class AuthKobilToolController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "ANONYMOUS"},
                       "next": {"type": "tool", "toolId": "auth-kobil", "step": "otp", "toolSessionId": "9c858901-8a57-4791-81fe-4c455b099bc9"},
-                      "stepData": {"missingFields": ["otp"], "tenantId": "dpop-demo", "kobilUserId": "kob-1a2b3c4d5e6f", "kobilPin": "40318827"}
+                      "stepData": {"kind": "kobil-otp", "missingFields": ["otp"], "tenantId": "dpop-demo", "kobilUserId": "kob-1a2b3c4d5e6f", "kobilPin": "40318827"}
                     }
                 """)])]
             ),

@@ -90,7 +90,7 @@ class EnrollSmsToolController(
                         {
                           "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                           "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
-                          "stepData": {"options": ["confirm-email"]}
+                          "stepData": {"kind": "select-method", "options": ["confirm-email"]}
                         }
                     """)
                 ])]

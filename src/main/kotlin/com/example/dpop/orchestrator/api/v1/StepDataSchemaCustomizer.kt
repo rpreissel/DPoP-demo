@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.api.v1
 
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.StepDataTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import io.swagger.v3.core.converter.AnnotatedType
 import io.swagger.v3.core.converter.ModelConverters
@@ -79,7 +80,15 @@ class StepDataSchemaCustomizer {
 
     private companion object {
         private const val STEP_DATA_SCHEMA = "StepData"
-        private const val DISCRIMINATOR = "@t"
+
+        /**
+         * Read off [StepData]'s own `@JsonTypeInfo`, not repeated here: the spec must name the
+         * property Jackson actually writes, and a second literal is one that can drift.
+         */
+        private val DISCRIMINATOR: String =
+            checkNotNull(StepData::class.java.getAnnotation(JsonTypeInfo::class.java)) {
+                "StepData must carry @JsonTypeInfo - the whole union is keyed on it"
+            }.property
         private const val SHARED_PACKAGE = "com.example.dpop.tool_spi"
         private const val ORCHESTRATOR_PACKAGE = "com.example.dpop.orchestrator"
     }

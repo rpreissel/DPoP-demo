@@ -55,12 +55,12 @@ class ContractModelTest {
         String vonMorgen = """
             {"channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                          "channelType": "KEYCLOAK", "state": "STEP_UP_IN_PROGRESS"},
-             "stepData": {"@t": "eine-form-von-morgen", "irgendwas": 1}}
+             "stepData": {"kind": "eine-form-von-morgen", "irgendwas": 1}}
             """;
         assertThrows(Exception.class, () -> mapper.readValue(vonMorgen, ChannelResponse.class));
 
         // Als offener Knoten gelesen ueberlebt dieselbe Antwort.
-        assertNotNull(assertDoesNotThrowJson(vonMorgen).path("stepData").path("@t").asText(null));
+        assertNotNull(assertDoesNotThrowJson(vonMorgen).path("stepData").path("kind").asText(null));
     }
 
     /**
@@ -77,7 +77,7 @@ class ContractModelTest {
                           "einNeuesFeld": "spaeter dazugekommen"},
               "next": {"type": "tool", "toolId": "auth-sms", "step": "auth",
                        "toolSessionId": "7d2b1d7e-0000-4000-8000-000000000001"},
-              "stepData": {"@t": "eine-form-von-morgen", "prompt": "Bitte bestaetigen"},
+              "stepData": {"kind": "eine-form-von-morgen", "prompt": "Bitte bestaetigen"},
               "demo": {"tan": "123456"},
               "authData": {"accountId": 42, "acr": "loa2", "amr": {"sms": "orchestrator"}}
             }

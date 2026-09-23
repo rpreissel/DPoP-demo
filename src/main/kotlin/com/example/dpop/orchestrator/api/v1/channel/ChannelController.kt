@@ -66,7 +66,7 @@ class ChannelCreationController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "orchestrator", "context": "registration", "step": "selectIdentificationMethod"},
-                      "stepData": {"options": ["ident-fsc", "ident-eid"]}
+                      "stepData": {"kind": "select-method", "options": ["ident-fsc", "ident-eid"]}
                     }
                 """)])]
             )
@@ -135,7 +135,7 @@ class ChannelController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "STEP_UP_IN_PROGRESS", "currentAcr": "loa2"},
                       "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},
-                      "stepData": {"options": ["auth-sms", "auth-password", "auth-device"]}
+                      "stepData": {"kind": "select-method", "options": ["auth-sms", "auth-password", "auth-device"]}
                     }
                 """)])]
             )
@@ -282,7 +282,7 @@ class ChannelController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED", "currentAcr": "loa2", "currentAmr": ["sms", "password"]},
                       "next": {"type": "orchestrator", "context": "enrollment", "step": "selectMethod"},
-                      "stepData": {"options": ["enroll-device", "confirm-email"]}
+                      "stepData": {"kind": "select-method", "options": ["enroll-device", "confirm-email"]}
                     }
                 """)])]
             )
@@ -341,7 +341,7 @@ class ChannelController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "AUTHENTICATED"},
                       "next": {"type": "orchestrator", "context": "prompt", "step": "confirm"},
-                      "stepData": {"prompt": {"@t": "Confirm", "title": "Account wirklich löschen?", "confirmLabel": "Account löschen", "cancelLabel": "Abbrechen", "destructive": true}}
+                      "stepData": {"kind": "confirm", "prompt": {"kind": "Confirm", "title": "Account wirklich löschen?", "confirmLabel": "Account löschen", "cancelLabel": "Abbrechen", "destructive": true}}
                     }
                 """)])]
             )

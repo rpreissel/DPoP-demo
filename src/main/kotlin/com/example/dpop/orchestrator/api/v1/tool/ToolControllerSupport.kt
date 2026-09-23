@@ -22,7 +22,6 @@ import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_api.AuthorizedToolContext
 import com.example.dpop.tool_api.ToolContext
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.DEMO_PERSONS
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolId
@@ -217,9 +216,8 @@ class ToolControllerSupport(
 
         val step = journeyService.applyOutcome(journey, channel, descriptor, outcome)
 
-        // The DEMO_DATA_KEY bag arrives inside ToolOutcome.data like any other tool-internal
-        // field; JourneyService splits it off into Step.demo, because it never belongs in stepData
-        // (docs/05-api.md #2: production contract).
+        // step.demo comes from the tool's own ToolOutcome.InProgress.demo - a field of its own, so
+        // it never mixes with stepData (docs/05-api.md #2: production contract).
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,
@@ -335,7 +333,7 @@ class ToolControllerSupport(
      * personId is read back off the account rather than carried along - it is already stored there.
      *
      * `persons` (all seeded demo personas) is attached here, once, for every tool - not by each
-     * tool's own `demoData(...)` call - so a frontend persona picker works everywhere without
+     * tool's own `demo` values - so a frontend persona picker works everywhere without
      * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
      */
     private fun demoInfo(journey: AuthJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {

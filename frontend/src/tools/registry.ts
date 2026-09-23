@@ -23,7 +23,7 @@ export function metaFor(toolId: string): ToolMeta {
 /** Renders the current step of `ctx.toolId`'s own module, or null if that tool/step is unknown. */
 export function renderToolStep(ctx: ToolRenderContext): ReactNode | null {
   const content = BY_ID[ctx.toolId]?.render(ctx) ?? null
-  const message = typeof ctx.stepData?.message === 'string' ? ctx.stepData.message : null
+  const message = ctx.message ?? null
   if (!content) return null
   if (!message) return content
   return createElement('div', null,

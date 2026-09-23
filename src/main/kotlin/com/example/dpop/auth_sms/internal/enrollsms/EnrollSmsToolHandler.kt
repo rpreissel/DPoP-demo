@@ -10,7 +10,6 @@ import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
-import com.example.dpop.tool_spi.demoData
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional

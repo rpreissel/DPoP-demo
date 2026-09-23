@@ -98,7 +98,7 @@ class IdentEidToolController(
                         {
                           "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                           "next": {"type": "orchestrator", "context": "prompt", "step": "confirm"},
-                          "stepData": {"prompt": {"title": "Konto Ihrer Versichertennummer zuordnen?"}}
+                          "stepData": {"kind": "confirm", "prompt": {"kind": "Confirm", "title": "Konto Ihrer Versichertennummer zuordnen?"}}
                         }
                     """)
                 ])]

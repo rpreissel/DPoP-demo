@@ -3,6 +3,7 @@ import { confirmEmail, requestEmailLookup, submitEmailCode } from './api'
 import { EmailCodeInputForm } from './EmailCodeInputForm'
 import { EmailCodeLookupForm } from './EmailCodeLookupForm'
 import { EmailEnrollForm } from './EmailEnrollForm'
+import { attemptError } from '../stepData'
 
 const ICON = '✉️'
 const LABEL = 'E-Mail'
@@ -15,7 +16,7 @@ export const confirmEmailTool: ToolModule = {
       return (
         <EmailEnrollForm
           onSubmit={(email) => confirmEmail(ctx, email)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoEmail={ctx.demo?.email}
           demoPersons={ctx.demo?.persons}
         />
@@ -29,7 +30,7 @@ export const confirmEmailTool: ToolModule = {
           // damit von vorn an (auth-email hat keine Adresse zum Wechseln, auth-email-lookup
           // trennt Adress- und Code-Schritt im Backend).
           onChangeAddress={(email) => confirmEmail(ctx, email)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoTan={ctx.demo?.tan}
         />
       )
@@ -43,7 +44,7 @@ export const authEmail: ToolModule = {
   meta: { icon: ICON, label: LABEL, hint: 'Code an die bestätigte E-Mail-Adresse' },
   render(ctx) {
     if (ctx.step === 'auth') {
-      return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={ctx.stepData?.error} demoTan={ctx.demo?.tan} />
+      return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={attemptError(ctx)} demoTan={ctx.demo?.tan} />
     }
     return null
   },
@@ -57,14 +58,14 @@ export const authEmailLookup: ToolModule = {
       return (
         <EmailCodeLookupForm
           onSubmit={(email) => requestEmailLookup(ctx, email)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoEmail={ctx.demo?.email}
           demoPersons={ctx.demo?.persons}
         />
       )
     }
     if (ctx.step === 'codeInput') {
-      return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={ctx.stepData?.error} demoTan={ctx.demo?.tan} />
+      return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={attemptError(ctx)} demoTan={ctx.demo?.tan} />
     }
     return null
   },

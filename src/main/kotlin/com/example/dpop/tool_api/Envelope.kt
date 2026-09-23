@@ -99,7 +99,7 @@ data class ChannelResponse(
     val channel: ChannelBlock,
     val next: Next? = null,
     @field:Schema(
-        description = "Whatever the current step needs to render. `@t` names the shape - see StepData."
+        description = "Whatever the current step needs to render. `kind` names the shape - see StepData."
     )
     val stepData: StepData? = null,
     @field:Schema(description = "Demo-only correlation IDs, never part of the production contract.")

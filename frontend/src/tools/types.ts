@@ -16,6 +16,12 @@ export interface ToolRenderContext {
   /** App channel (DPoP) or Mock-Keycloak (peer-auth) - see [CallerProof]; only tools/shared/defaultApi.ts's submitViaPatch reads this. */
   proof: CallerProof
   stepData?: StepData
+  /**
+   * A note from the journey to show above the tool's form (e.g. why this step appears at all).
+   * Its own field, not read from `stepData`: it usually comes from the step BEFORE the tool - the
+   * orchestrator's `message` step - and has to survive the tool's own response replacing it.
+   */
+  message?: string
   demo?: DemoInfo
   /** App.tsx: applyResponse(response, toolId) */
   onResult: (response: ChannelResponse) => void

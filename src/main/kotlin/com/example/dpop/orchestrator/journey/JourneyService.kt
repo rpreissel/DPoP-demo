@@ -17,7 +17,6 @@ import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakSessionEnded
 import com.example.dpop.tool_spi.AcrLevel
-import com.example.dpop.tool_spi.DEMO_DATA_KEY
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome

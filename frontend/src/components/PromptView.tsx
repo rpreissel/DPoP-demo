@@ -1,7 +1,7 @@
-import type { Prompt } from '../types'
+import type { ConfirmPrompt } from '../types'
 
 interface Props {
-  prompt: Prompt
+  prompt: ConfirmPrompt
   onAnswer: (accept: boolean) => void
   busy?: boolean
 }

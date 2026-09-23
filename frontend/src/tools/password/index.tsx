@@ -3,6 +3,7 @@ import { enrollPassword, submitPassword, submitPasswordLookup } from './api'
 import { EmailPasswordLookupForm } from './EmailPasswordLookupForm'
 import { PasswordEnrollForm } from './PasswordEnrollForm'
 import { PasswordLoginForm } from './PasswordLoginForm'
+import { attemptError } from '../stepData'
 
 const ICON = '🔑'
 const LABEL = 'Passwort'
@@ -12,7 +13,7 @@ export const enrollPasswordTool: ToolModule = {
   meta: { icon: ICON, label: LABEL, hint: 'Eigenes Passwort festlegen' },
   render(ctx) {
     if (ctx.step === 'enroll') {
-      return <PasswordEnrollForm onSubmit={(fields) => enrollPassword(ctx, fields)} error={ctx.stepData?.error} demoPassword={ctx.demo?.password} />
+      return <PasswordEnrollForm onSubmit={(fields) => enrollPassword(ctx, fields)} error={attemptError(ctx)} demoPassword={ctx.demo?.password} />
     }
     return null
   },
@@ -23,7 +24,7 @@ export const authPassword: ToolModule = {
   meta: { icon: ICON, label: LABEL, hint: 'Mit dem hinterlegten Passwort' },
   render(ctx) {
     if (ctx.step === 'auth') {
-      return <PasswordLoginForm onSubmit={(fields) => submitPassword(ctx, fields)} error={ctx.stepData?.error} demoPassword={ctx.demo?.password} />
+      return <PasswordLoginForm onSubmit={(fields) => submitPassword(ctx, fields)} error={attemptError(ctx)} demoPassword={ctx.demo?.password} />
     }
     return null
   },
@@ -37,7 +38,7 @@ export const authPasswordLookup: ToolModule = {
       return (
         <EmailPasswordLookupForm
           onSubmit={(fields) => submitPasswordLookup(ctx, fields)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoPassword={ctx.demo?.password}
           demoEmail={ctx.demo?.email}
           demoPersons={ctx.demo?.persons}

@@ -2,6 +2,7 @@ import type { ToolModule } from '../types'
 import { submitEidCard, submitEidPin } from './api'
 import { IdentEidCardForm } from './IdentEidCardForm'
 import { IdentEidPinForm } from './IdentEidPinForm'
+import { attemptError } from '../stepData'
 
 export const identEid: ToolModule = {
   toolId: 'ident-eid',
@@ -11,12 +12,12 @@ export const identEid: ToolModule = {
       return (
         <IdentEidCardForm
           onSubmit={(fields) => submitEidCard(ctx, fields)}
-          error={ctx.stepData?.error}
+          error={attemptError(ctx)}
           demoPersons={ctx.demo?.persons}
         />
       )
     }
-    if (ctx.step === 'pin') return <IdentEidPinForm onSubmit={(pin) => submitEidPin(ctx, pin)} error={ctx.stepData?.error} />
+    if (ctx.step === 'pin') return <IdentEidPinForm onSubmit={(pin) => submitEidPin(ctx, pin)} error={attemptError(ctx)} />
     return null
   },
 }

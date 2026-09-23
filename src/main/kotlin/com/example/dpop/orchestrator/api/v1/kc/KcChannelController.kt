@@ -53,7 +53,7 @@ class KcChannelController(
                     {
                       "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
                       "next": {"type": "orchestrator", "context": "auth", "step": "selectMethod"},
-                      "stepData": {"options": ["ident-fsc", "auth-password"]}
+                      "stepData": {"kind": "select-method", "options": ["ident-fsc", "auth-password"]}
                     }
                 """)])]
             )

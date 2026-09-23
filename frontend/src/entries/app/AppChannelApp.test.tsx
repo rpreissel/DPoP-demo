@@ -65,7 +65,7 @@ describe('resume mid-tool (docs/05-api.md #2: next.toolSessionId)', () => {
       channelResponse({
         channel: { channelSessionId: 'chan-1', channelType: 'APP', state: 'REGISTERING' },
         next: resumedNext,
-        stepData: { demo: { tan: '123456' } },
+        demo: { tan: '123456' },
       })
     )
 
