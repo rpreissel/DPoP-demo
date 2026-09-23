@@ -1,59 +1,63 @@
 import { useEffect, useState } from 'react'
-import { fetchServerInfo, type ServerInfo } from '../api.ts'
+import { fetchServerInfo, type ChannelType, type ServerInfo } from '../api.ts'
 import { knownToolIds } from '../tools/registry'
 
 interface UnavailableToolsProps {
-  /** The client's own declared availability ("Erweitert" in the demo tab, docs/03-tool-architektur.md). */
-  availableTools: string[]
+  /** Whose operator locks count - a lock for the Web channel does not affect the App, and vice versa. */
+  channel: ChannelType
+  /**
+   * The client's own declared availability, where this page knows it (the App channel's
+   * "Erweitert"). The Web channel's declaration lives in the Keycloak extension, so there only the
+   * operator locks are shown.
+   */
+  availableTools?: string[]
 }
 
 /**
  * Both availability axes only ever show up as an ABSENCE in a candidate list (docs/05-api.md) -
  * a tool that's off simply never appears in `stepData.options`, with no indication why. This
- * makes that visible on the Demo page itself: which known tools are currently unavailable, and
- * on which axis (this client's own declared support, or the backend-wide kill-switch, with its
- * reason) - most useful right after toggling something on the admin page or simulating an outage.
- * The backend locks come from the public server status, not the admin endpoint: a channel user
+ * says so, deliberately small and collapsed: a one-line hint that opens to the list with reasons.
+ * The operator locks come from the public server status, not the admin endpoint: a channel user
  * has no admin login, and needs none to see that a tool is switched off.
  */
-export function UnavailableTools({ availableTools }: UnavailableToolsProps) {
-  const [disabled, setDisabled] = useState<ServerInfo['disabledTools']>([])
+export function UnavailableTools({ channel, availableTools }: UnavailableToolsProps) {
+  const [locks, setLocks] = useState<ServerInfo['disabledTools']>([])
 
   useEffect(() => {
     fetchServerInfo()
-      // Only locks for this channel type count here - a Web-only lock does not affect the App.
-      .then((info) => setDisabled(info.disabledTools.filter((t) => t.channel === 'APP')))
-      .catch(() => setDisabled([]))
-  }, [])
+      .then((info) => setLocks(info.disabledTools.filter((t) => t.channel === channel)))
+      .catch(() => setLocks([]))
+  }, [channel])
 
-  const rows = knownToolIds
+  const candidates = availableTools ? knownToolIds : locks.map((l) => l.toolId)
+  const rows = candidates
     .map((toolId) => {
-      const clientDisabled = !availableTools.includes(toolId)
-      const lock = disabled.find((e) => e.toolId === toolId)
-      return { toolId, clientDisabled, adminDisabled: lock !== undefined, reason: lock?.reason }
+      const clientDisabled = availableTools ? !availableTools.includes(toolId) : false
+      const lock = locks.find((e) => e.toolId === toolId)
+      return { toolId, clientDisabled, lock }
     })
-    .filter((row) => row.clientDisabled || row.adminDisabled)
+    .filter((row) => row.clientDisabled || row.lock)
 
   if (rows.length === 0) return null
 
   return (
-    <div className="card">
-      <h3 className="section-heading">Nicht verfügbare Verfahren</h3>
-      <ul className="status-list">
+    <details className="unavailable-tools">
+      <summary>
+        {rows.length} Verfahren nicht verfügbar
+      </summary>
+      <ul>
         {rows.map((row) => (
           <li key={row.toolId}>
-            <span className="label">{row.toolId}</span>
-            <span className="value">
-              {[
-                row.clientDisabled && 'auf diesem Client deaktiviert',
-                row.adminDisabled && `vom Backend gesperrt${row.reason ? ` (${row.reason})` : ''}`,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
+            <code>{row.toolId}</code>{' '}
+            {[
+              row.clientDisabled && 'auf diesem Client deaktiviert',
+              row.lock && `gesperrt${row.lock.reason ? ` - ${row.lock.reason}` : ''}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </li>
         ))}
       </ul>
-    </div>
+    </details>
   )
 }

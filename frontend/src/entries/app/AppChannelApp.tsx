@@ -754,7 +754,7 @@ export function AppChannelApp() {
             </div>
           )}
 
-          <UnavailableTools availableTools={availableTools} />
+          <UnavailableTools channel="APP" availableTools={availableTools} />
           {!channelSessionId && (
             <div className="card">
               <Disclosure summary="Erweitert: Startniveau und unterstützte Verfahren dieses Clients">

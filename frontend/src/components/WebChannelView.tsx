@@ -13,6 +13,7 @@ import {
 import { parseJwtPayload } from '../jwt'
 import { shorten } from '../format'
 import { DiagramHint } from './DiagramHint'
+import { UnavailableTools } from './UnavailableTools'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { Disclosure } from './Disclosure'
 
@@ -183,6 +184,7 @@ export function WebChannelView() {
         den Login dort per QR-Code bestätigen. Simuliert ist nur die Website selbst - sie ist diese Seite.
       </p>
 
+      <UnavailableTools channel="KEYCLOAK" />
       {notice && <div className="hint">{notice}</div>}
       {error && <div className="error-card">{error}</div>}
 
