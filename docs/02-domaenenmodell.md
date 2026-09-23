@@ -152,7 +152,7 @@ stateDiagram-v2
 
 ## 7) Tabellenmodell
 
-Das Schema steht vollständig in `src/main/resources/db/migration/V1__schema.sql`, die Konventionen
+Das Schema steht in `src/main/resources/db/migration/<modul>/`, eine Datei je Modul, die Konventionen
 dahinter in [07-betrieb.md](07-betrieb.md) Abschnitt 6 und [12-entscheidungen.md](12-entscheidungen.md)
 ADR-14/ADR-16. Die Diagramme zeigen die tragenden Tabellen mit ihren identifizierenden Spalten,
 nicht jede Spalte. Jedes Modul hat ein eigenes Datenbankschema; der qualifizierte Name nennt den
@@ -310,7 +310,7 @@ Die `*_tool_session`-Tabellen liegen im Schema ihres Moduls, obwohl ihr Lebenszy
 Fremdschlüssel darauf würde also über eine Schemagrenze gehen. `auth_sms.enroll_tool_session` ist die Modulhälfte
 derselben `orchestrator.tool_session`, keine vierte Session-Ebene. Jedes Methodenmodul ist gleich
 aufgebaut: ein langlebiges `<modul>.enrollment` plus je eine kurzlebige
-`<modul>.<tool-rolle>_tool_session` pro Tool; die vollständige Liste steht in `V1__schema.sql`.
+`<modul>.<tool-rolle>_tool_session` pro Tool; die Tabellen eines Moduls stehen in seiner eigenen Migration unter `db/migration/<modul>/`.
 
 Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.session_event` und
 `orchestrator.journey_log` (Session-IDs sind dort historische Werte, keine Referenzen — die

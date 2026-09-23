@@ -12,6 +12,7 @@
 2. Danach **nur gezielt** das benötigte Detaildokument:
    - Architektur/Module: `docs/08-projektrahmen.md`
    - Flows/Orchestrierung: `docs/04-orchestrierung.md`, `docs/06-ablaeufe.md`
+     (einzelne Journey: `docs/journeys/<intent>.md`; einzelne Entscheidung: `docs/adr/`)
    - API: `docs/05-api.md`
    - DPoP: `docs/09-dpop.md`
    - Frontend: `docs/10-frontend.md`

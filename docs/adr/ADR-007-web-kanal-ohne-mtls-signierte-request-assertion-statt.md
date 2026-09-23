@@ -1,0 +1,34 @@
+# ADR-7: Web-Kanal ohne mTLS, signierte Request-Assertion statt Client-Zertifikat
+
+**Entscheidung** (umgesetzt): Die Server-zu-Server-Strecke Keycloak -> Orchestrator im Web-Kanal
+wird **ohne mTLS** abgesichert; statt eines Client-Zertifikats verifiziert der Orchestrator eine
+signierte Request-Assertion von Keycloak (`PeerAuthValidator`, [05-api.md](05-api.md) Abschnitt 3).
+Der Browser spricht nie direkt mit dem Orchestrator.
+
+Ein einziges JWT pro Request statt Access-Token-plus-separatem-Proof: Beim initialen Login gibt es
+noch kein `sub`. Die Assertion sagt stattdessen einfach "ich handle für diesen Kanal-Anker, Nutzer
+ggf. noch unbekannt".
+
+**Erwogene Alternativen**:
+
+- **mTLS** zwischen Keycloak und Orchestrator — beiderseitige Zertifikatsprüfung auf
+  Transportebene.
+- **Token Exchange** — verworfen als unnötig: Keycloak besitzt die Session ohnehin und kann die
+  Assertion in-process ausstellen.
+- **Keycloak hält einen DPoP-Key als Geräte-Ersatz** — verworfen: DPoPs Wert kommt daher, dass der
+  Schlüssel nicht-exportierbar auf einem unvertrauten Client liegt. Hält ein Server ihn, ist es
+  praktisch ein gemeinsames Geheimnis mit asymmetrischem Aufwand. Pro Nutzer wäre es zusätzlich fatal:
+  `DeviceAccountLink` würde bei jedem Web-Login treffen.
+
+**Warum die signierte Assertion**: mTLS bringt Betriebsaufwand (Zertifikats-Rollout, -Rotation,
+-Widerruf für zwei Serverdienste) mit, den eine signierte Anwendungsebene-Assertion nicht braucht
+— die Signatur lässt sich mit demselben Schlüsselmaterial prüfen, das Keycloak ohnehin für Tokens
+verwendet. Weil der Browser den Orchestrator nie direkt erreicht, bleibt die Angriffsfläche auf
+die eine Server-zu-Server-Strecke beschränkt.
+
+**Kosten**: Die Sicherheit der Strecke hängt vollständig an der Signaturprüfung der Anwendung —
+mTLS hätte Peer-Identität und Verschlüsselung bereits auf Transportebene erzwungen. Ein
+übernommenes Keycloak kann jeden Nutzer imitieren — das liegt in der kc-first-Architektur selbst,
+auch mTLS ändert daran nichts.
+
+---

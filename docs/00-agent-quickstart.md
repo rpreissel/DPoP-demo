@@ -22,6 +22,8 @@ Ziel: In <2 Minuten genug Kontext, um sicher zu implementieren, ohne den komplet
 |---|---|
 | Modulgrenzen, Stack, Versionen | `08-projektrahmen.md` |
 | Orchestrator-Entscheidungen/Policy | `04-orchestrierung.md` |
+| Ein einzelner Ablauf im Detail | `journeys/<intent>.md` (nicht den ganzen 04er laden) |
+| Warum etwas so ist | `12-entscheidungen.md` (Index) -> `adr/ADR-NNN-*.md` |
 | API-Verträge und Routen | `05-api.md` |
 | Schrittfolgen der Verfahren | `06-ablaeufe.md` |
 | DPoP-Validierung und Binding | `09-dpop.md` |

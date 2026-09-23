@@ -39,7 +39,7 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 
 | Objekt | Frist läuft ab | Richtwert | Grund |
 |---|---|---|---|
-| `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h | Personenbezug und TAN-Hash. Jedes Methodenmodul hat dafür einen eigenen `*RetentionJob` (auch `auth_device`, `auth_qr`, `auth_kobil`). Bei `auth_kobil.enroll_tool_session` wiegt die Frist schwerer als sonst: dort liegen während einer laufenden Einrichtung KOBIL-PIN und Unlock-Secret im Klartext (ADR-22) |
+| `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h (`tool-session.retention`) | Personenbezug und TAN-Hash. Jedes Methodenmodul löscht seine eigenen Tabellen selbst (`*RetentionJob` implementiert `ToolSessionSweeper`); Frist und Intervall stehen dagegen nur einmal, in `tool_api/ToolSessionRetention.kt`. Bei `auth_kobil.enroll_tool_session` ist die Frist besonders wichtig: dort liegen während einer laufenden Einrichtung KOBIL-PIN und Unlock-Secret im Klartext ([ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)) |
 | `kobil_mock.*` (Fremdsystem) | — | **kein** Cleanup durch uns | `kobil_mock` simuliert KOBIL und untersteht nicht unserer Aufbewahrung. Dass es überhaupt persistiert, ist Voraussetzung und nicht Bequemlichkeit: ohne das würde nach jedem Neustart jede `auth_kobil.enrollment`-Zeile auf einen Nutzer zeigen, den es beim Anbieter nicht mehr gibt |
 | `QrLoginRequest` | `expiresAt` | 24 h | Pairing-Anfrage, nach Ablauf (5 Min.) wirkungslos; von `AuthQrRetentionJob` mit abgeräumt |
 | `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Replay-Schutz gilt nur im Akzeptanzfenster eines Proofs |
@@ -58,12 +58,88 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 Umgang mit den Referenzen:
 
 - **Besitzkette** (`ChannelSession` -> `AuthJourney` -> `orchestrator.tool_session` -> die Modulhälfte `<modul>.*_tool_session`): wird von innen nach außen abgeräumt. Weil die Fristen von innen nach außen wachsen, ergibt sich diese Reihenfolge automatisch.
-- **Moduldaten** räumt jedes Modul eigenständig nach Alter (`createdAt`) auf, ohne Signal vom Orchestrator. Das ist robuster als ein Löschbefehl: Ein verpasstes Signal würde Datensätze dauerhaft stehen lassen, zu denen niemand mehr gehört.
+- **Moduldaten**: Welche Zeilen gelöscht werden, entscheidet jedes Modul selbst. Nur das Modul weiß, welche seiner Tabellen zur Session gehören und welche (`*_enrollment`) zum Konto. Wann gelöscht wird, steht an einer Stelle (`tool-session.retention`) und wird von einem gemeinsamen Scheduler (`ToolSessionRetentionDriver`) ausgelöst.
+
+  Vorher hatte jedes Modul einen eigenen `@Scheduled`-Job mit einer eigenen Konstante `private val RETENTION = 24h`: zehn Kopien derselben Frist. Ein Modul ohne Job fiel dabei niemandem auf, weil nichts fehlschlug — es fehlte einfach eine Datei. So blieben die Zeilen in `id_kvnr.ident_tool_session` dauerhaft stehen. `ToolSessionCoverageTest` prüft jetzt gegen das tatsächliche Schema, dass jede `*_tool_session`-Tabelle von einem Sweeper geleert wird, auch eine später hinzukommende.
+
+  Schlägt der Sweep eines Moduls fehl, laufen die übrigen trotzdem. Sonst würden Daten ihre Frist überleben, weil an anderer Stelle ein Fehler auftrat.
 - **Das Audit hängt an nichts**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel — das Audit muss die Sessions überleben und speichert nur `payloadHash` statt Nutzdaten. IDs, die ins Leere zeigen, sind erwartet und kein Defekt.
 - **Eine Methode zu widerrufen hat bei KOBIL eine Außenhälfte.** `KobilEnrollmentCleanup` löscht nicht nur unsere Zeile, sondern räumt auch den Nutzer beim Anbieter ab — sonst bliebe dort ein gebundenes Gerät stehen, von dem hier niemand mehr etwas weiß. Dieser zweite Aufruf wirkt nach außen und liegt außerhalb der Transaktion — wie der gemockte SMS-Versand: Unsere Zeile verschwindet in jedem Fall.
 - **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. `account.identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
 - **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `orchestrator.journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `orchestrator.attempt_throttle` (nur die Scopes `ACCOUNT`/`ACCOUNT_SEND`; `BINDING_KEY`/`CONTACT_SEND` ließen sich sonst durch eine Neuregistrierung zurücksetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
 - **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3). `RetentionJob` prüft deshalb für abgelaufene `KEYCLOAK`-Kanäle per Keycloak-Admin-API, ob die Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) fällt auf die normale zeitbasierte Frist zurück.
+
+  Diese Abfrage läuft vor und außerhalb der Löschtransaktion. `RetentionJob` ist nicht transaktional und fragt nur ab; gelöscht wird in `SessionRetentionSweeper`. Andernfalls würde ein Lauf über hunderte Kandidaten Zeilensperren so lange halten, wie Keycloak zum Antworten braucht. `OrchestratorArchitectureTest` prüft diese Regel jetzt für den ganzen Orchestrator.
+
+## 3a) Keycloak-Spiegelung: offene Zustellungen stehen in einer Tabelle
+
+Jedes Konto wird als Keycloak-Nutzer gespiegelt (`KeycloakAccountSyncListener`, nur im
+`keycloak`-Profil). Die Spiegelung läuft nach dem Commit und ist absichtlich best-effort: Ein
+fehlgeschlagener Keycloak-Aufruf darf eine bereits abgeschlossene Kontoänderung nicht nachträglich
+scheitern lassen.
+
+Früher blieb bei einem Fehler aber gar nichts zurück. Als Wiederholung gab es nur „irgendwann
+ändert sich das Konto nochmal" — für ein Konto, das sich nie wieder ändert, also keine. Das Konto
+existierte, der Keycloak-Nutzer fehlte, eine Anmeldung war unmöglich, und nirgends stand, dass das
+so ist.
+
+Dafür gibt es jetzt die **Event Publication Registry** von Spring Modulith
+([ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md)):
+
+- Der Listener ist ein `@ApplicationModuleListener`. Bevor die Transaktion der Kontoänderung
+  committet, schreibt Modulith eine Zeile nach `orchestrator.event_publication`.
+- Die Zeile wird erst geschlossen, wenn die Methode ohne Fehler zurückkehrt. Deshalb fängt der
+  Listener Fehler **nicht** mehr ab: Die Exception ist das Signal „nicht erledigt".
+- Offene Zeilen werden nach fünf Minuten erneut zugestellt
+  (`spring.modulith.events.staleness.*`) und beim Neustart ebenfalls
+  (`republish-outstanding-events-on-restart`).
+- Die Zeile enthält Status, Zahl der Zustellversuche und den Zeitpunkt der letzten Wiederholung.
+
+Was noch offen ist, lässt sich damit abfragen:
+
+```sql
+SELECT event_type, listener_id, publication_date, completion_attempts, status
+FROM orchestrator.event_publication
+WHERE completion_date IS NULL
+ORDER BY publication_date;
+```
+
+Zwei Dinge, die man wissen muss:
+
+- `spring.modulith.events.jdbc.schema: orchestrator` ist zwingend. Ohne diese Einstellung sucht die
+  Registry die Tabelle im Standardschema, findet sie nicht und schreibt nichts — ohne
+  Fehlermeldung. `EventPublicationRegistryTest` prüft deshalb, dass ein fehlschlagender Listener
+  tatsächlich eine offene Zeile hinterlässt.
+- Die Tabelle legt Flyway an (`V5__event_publication.sql`), nicht Modulith. Die Datei ist
+  unverändert aus dem `spring-modulith-events-jdbc`-Jar übernommen und muss beim Anheben der
+  Modulith-Version damit verglichen werden.
+
+`KeycloakSessionLogoutListener` benutzt die Registry bewusst nicht. Eine nicht beendete
+Keycloak-Session läuft von selbst nach wenigen Minuten ab; ein fehlender Keycloak-Nutzer bleibt.
+Nur der zweite Fall braucht eine Wiederholung.
+
+## 3b) Das System läuft als eine Instanz
+
+Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte in drei unabhängigen Stellen:
+
+- elf `@Scheduled`-Jobs ohne Sperre oder Leader-Election. Bei mehreren Instanzen liefe jeder Lauf
+  mehrfach parallel.
+- `dpop.secrets.otp-pepper` ist standardmäßig leer, das Pepper wird also bei jedem Start neu
+  gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen.
+- Die `@Volatile`-Caches im `KeycloakAdminClient` gelten nur im eigenen Prozess.
+
+Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst beim zweiten Pod — als sporadisch
+fehlschlagende TAN-Prüfung. Deshalb steht es jetzt in der Konfiguration:
+
+```yaml
+deployment:
+  instances: single   # oder: multiple
+```
+
+`multiple` schaltet nichts frei. Es ist eine Aussage über die Umgebung, und
+`DeploymentTopologyCheck` prüft beim Start, ob der Code das trägt. Wenn nicht, bricht der Start mit
+einer Liste dessen ab, was fehlt. Sobald die Voraussetzungen da sind — eine gemeinsame Sperre für
+die Jobs, ein gesetztes Pepper —, ist diese Prüfung die Stelle, an der man sie lockert.
 
 ## 4) Kontosperre, Rate-Limits und Versand-Drosselung (Brute-Force-/Bombing-Schutz)
 
@@ -128,7 +204,7 @@ einen eigenen, IP-/anonymen Zähler auf fehlgeschlagene `pairingCode`-Lookups �
 
 ## 6) Datenbankschema: Konventionen
 
-Das Schema steht vollständig in `src/main/resources/db/migration/V1__schema.sql`; die Regeln
+Das Schema steht in `src/main/resources/db/migration/<modul>/`, eine Datei je Modul; die Regeln
 stehen in dessen Kopf und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16).
 Diagramm der tragenden Tabellen: [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
 

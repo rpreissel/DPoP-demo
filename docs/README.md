@@ -25,6 +25,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [02-domaenenmodell.md](02-domaenenmodell.md) | Entitäten, Zustände, Enumerationen, Persistenz-Regeln, Tabellenmodell (ER) | „Wie sieht das Datenmodell aus?" |
 | [03-tool-architektur.md](03-tool-architektur.md) | Tool-Katalog, Descriptor, `ToolOutcome`, Modulklassen | Ein neues Verfahren anbinden |
 | [04-orchestrierung.md](04-orchestrierung.md) | `next`-Ermittlung, `AuthPolicy`, MFA, ACR-Begrenzung | „Wer entscheidet was?" |
+| [journeys/](journeys/) | Eine Datei je Journey (`FAST_ACCESS`, `REGISTER`, …) — der Katalog aus 04 Abschnitt 3 | „Wie läuft genau dieser eine Ablauf?" |
 | [05-api.md](05-api.md) | API-Grundsätze, App- und Keycloak-Fassade, Beispiele | Client-Entwicklung |
 | [06-ablaeufe.md](06-ablaeufe.md) | `ident-fsc`, `auth-sms`, `enroll-sms` Schritt für Schritt | Implementierung eines Flows |
 | [07-betrieb.md](07-betrieb.md) | Fehlervertrag, Konsistenz, Aufbewahrung und Löschung | Betrieb, Datenschutz |
@@ -32,7 +33,9 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
 | [10-frontend.md](10-frontend.md) | UI-Anforderungen und lokale Routing-Tabelle | Frontend-Entwicklung |
 | [11-beispiel-story.md](11-beispiel-story.md) | Eine Person durchläuft Registrierung, Login, Step-up, Geräte-Verfahren, QR-Login am Browser, Löschung | Konzepte an einem konkreten Beispiel statt abstrakt |
-| [12-entscheidungen.md](12-entscheidungen.md) | Architekturentscheidungen samt erwogener Alternative und Kosten | Review, „Warum ist das so?" |
+| [12-entscheidungen.md](12-entscheidungen.md) | **Index** der Architekturentscheidungen | Review, „Warum ist das so?" |
+| [adr/](adr/) | Eine Datei je Entscheidung, samt erwogener Alternative und Kosten | Genau eine Entscheidung nachlesen |
+| [archiv/](archiv/) | Abgeschlossene Reviews — historisch, nicht maßgeblich | „Wie wurde das damals entschieden?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Überlegungen, samt Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [glossar/](glossar/) | Externes Begriffs-Glossar samt Abgleich gegen dieses Projekt | Prüfen, ob das Domänenmodell fremde Begriffsdefinitionen unterstützt/nachbildet |
 

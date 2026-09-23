@@ -19,6 +19,38 @@ Die fachliche Bedeutung der Antworten — insbesondere `next` — ergibt sich au
 - Der Client leitet den nächsten technischen Call aus `next.type` (`tool` vs. `orchestrator`) und dem dazu passenden Attribut (`next.toolId` bzw. `next.context` + gewähltem Eintrag aus `stepData.options`) über eine feste Routing-Tabelle ab.
 - Methoden- und artspezifische Endpunkte sowie klar benannte DTOs/Handler (`ident-fsc`, `enroll-sms`, `auth-sms`) gehen vor generischem API-Wiring.
 
+### Der Vertrag: `api/`
+
+Den Vertrag lesen drei Stellen: die Kotlin-DTOs selbst, das Frontend und das JSON-Parsing in
+`keycloak-extension` (`OrchestratorClient`, `OrchestratorNextDispatch`). Vorher war er dreimal von
+Hand geschrieben, und eine geänderte Antwort erreichte jede Stelle zu einem anderen Zeitpunkt.
+
+| Datei | Inhalt | Wofür |
+|---|---|---|
+| `api/openapi.yaml` | der vollständige Vertrag | Eingabe für den Codegenerator |
+| `api/modules/<modul>.yaml` | nur die Endpunkte und DTOs dieses Moduls | zum Lesen und Reviewen |
+| `frontend/src/generated/` | die daraus erzeugten TypeScript-Typen | vom Frontend importiert |
+
+Beide YAML-Dateien entstehen im selben Testlauf aus derselben laufenden Anwendung
+(`OpenApiSnapshotTest`), können also nicht auseinanderlaufen. Die Modul-Dateien sind keine zweite
+Quelle, sondern ein Ausschnitt: eine Änderung an einem SMS-Endpunkt steht in
+`api/modules/auth_sms.yaml` (425 Zeilen) statt irgendwo in 4200 Zeilen. Die Gruppen leitet
+`ModuleApiGroups` aus den vorhandenen `@RestController` ab, nicht aus einer gepflegten Liste.
+
+Was sonst noch dazugehört:
+
+- **Der Test vergleicht, er dokumentiert nicht.** Ändert sich eine Antwort, ohne dass die Snapshots
+  nachgezogen sind, schlägt er fehl. Übernehmen mit `./gradlew updateOpenApiSnapshot`, danach
+  `./gradlew generateFrontendApiTypes`.
+- **`frontend/src/types.ts` leitet ab statt nachzubauen.** Von Hand steht dort nur noch, was das
+  Backend als offene Map liefert: `stepData` mit seinem `prompt`, die benannten Werte im
+  `demo`-Block und die Token-Formen. Deren Inhalt ist hier dokumentiert, nicht im Schema.
+- **Pflichtfelder stehen im Schema.** springdoc übernimmt Kotlins Non-Null nicht von selbst;
+  `KotlinRequiredModelConverter` macht das: eine nicht-nullable Property ohne Default wird
+  `required`.
+- **YAML, nicht JSON**, weil die Dateien in Diffs gelesen werden: keine Anführungszeichen, keine
+  Klammern, und lange Beschreibungen stehen als umbrochener Text statt als eine endlose Zeile.
+
 ---
 
 ## 2) App-Fassade (Orchestrator-first)

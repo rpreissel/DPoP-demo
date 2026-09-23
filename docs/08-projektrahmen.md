@@ -63,7 +63,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M5 | `ext_stammdaten` | Externe Stammdaten: verwaltet `Person`-Entitäten mit Adressdaten; implementiert den `tool_api`-Port `PersonDirectory` |
 | M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`); setzt über `ToolDescriptor.requires` eine bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) ([Tool-Architektur](03-tool-architektur.md)) |
 | M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account` |
-| M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …), `ToolSwitchController` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
+| M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …). Enthält bewusst keinen Controller: `tool_api` ist ein Vertrag, keine Web-Schicht, und jedes Methodenmodul hängt davon ab ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
 | M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
 | M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bestätigt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController` |
 | M10a | `id_kvnr` | Zuordnung einer bestätigten Identität zur Registerperson (Tool `ident-kvnr`, ADR-18); eigener `@RestController` |
@@ -71,6 +71,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine `account`-Abhängigkeit |
 | M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE) und `sms` (POSSESSION) an — dem Paar für ein Step-up auf LoA2, create-only: Testpersonen mit bestehendem PERSON_ID-/EMAIL-Anker-Konto werden übersprungen (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveAccountByPersonId`/`resolveAccountByEmail` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); kein `@RestController` |
 | M14 | `auth_kobil` | Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); backend-verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Sub-Ressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber als einziges Methodenmodul eine vierte erlaubte Kante: `kobil_mock` |
+| M16 | `orchestrator.kernel` | Kein eigenes Modulith-Modul, sondern das unterste Paket **innerhalb** von `orchestrator`: das gemeinsame Vokabular (`AuthIntent`, `AmrSource`, `AcrLevels`, `OrchestratorException`, `FeatureFlagProvider`). Hängt von nichts ab — das ist sein ganzer Vertrag. Es existiert, weil fast jeder Paketzyklus im Orchestrator ein *Name* am falschen Ort war: `AmrSource` sagt, woher ein Nachweis stammt (Policy-Frage), lag aber neben der JPA-Entität, die ihn speichert |
 | M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: `allowedDependencies = []` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Fassade `/mock-kobil/*` für die App (Pendant zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
 
 ### Modulabhängigkeiten (C4 Component View)
@@ -88,7 +89,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 │   (Channel-Endpunkte,    auth_email / auth_device                       │
 │    Journey/Policy)       (jeweils die eigenen Tool-Endpunkte)           │
 │                                                                          │
-│                    tool_api.ToolSwitchController (generisch, toolId-los)│
+│         orchestrator.api.v1.tool.ToolSwitchController (generisch)      │
 └───────────────────────────────┬──────────────────────────────────────┬─┘
                                  │ implementiert / ruft auf              │
                                  ▼                                      ▼
@@ -165,7 +166,7 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | P-1 | H2 mit dateibasierter DB und In-Memory-Tests. | `application.yml` und `application-test.yml` entsprechend konfiguriert |
-| P-2 | Schema-Aufbau erfolgt mit Flyway. | Migrationen unter `src/main/resources/db/migration/` |
+| P-2 | Schema-Aufbau erfolgt mit Flyway, eine Datei je Modul. | `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst |
 | P-3 | Zugriff auf Personen erfolgt über Spring Data JPA. | `PersonRepository extends JpaRepository` |
 | P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort` |
 | P-5 | Testdaten werden beim Start eingespielt. | Flyway-Migration oder Initialisierungsroutine vorhanden |
@@ -225,7 +226,15 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 - `./gradlew build` baut Backend und Frontend und führt alle Tests aus.
 - `./gradlew bootRun` startet die Applikation auf Port 8080 (blockierend; für Verifikation eignen sich Integrationstests besser).
 - Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den DPoP-Session-Flow.
-- `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten.
+- `ApplicationModules.verify()` bestätigt die Einhaltung der Modulabhängigkeiten **zwischen** den Modulen.
+- `OrchestratorArchitectureTest` prüft die Schichtung innerhalb von `orchestrator`, die Modulith nicht sieht:
+  - Die Teilpakete müssen zyklenfrei sein (`slices().beFreeOfCycles()`). Es gab dort fünf Zyklen (`session` ↔ `policy`, `journey`, `journeylog`; `kc` ↔ `dpop`; `session` → `api.v1`); sie sind über das Paket `kernel` aufgelöst (Abschnitt 3 und [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md)).
+  - Aus einer offenen Transaktion darf kein Keycloak-Aufruf herausgehen. Sonst hält die Transaktion Zeilensperren so lange, wie der fremde Dienst zum Antworten braucht. Einzige Ausnahme ist `KcTokenProvider`: dort ist das Token die Antwort selbst.
+  - Nur `DemoDisclosure` erzeugt ein `DemoInfo`. Damit entfernt `demo.disclosure=false` die Klartext-TANs aus jeder Antwort, statt sie an einer von mehreren Stellen zu filtern ([ADR-28](adr/ADR-028-demo-werte-abschaltbar.md)).
+- `ToolSessionCoverageTest` prüft gegen das tatsächliche Schema, dass jede `*_tool_session`-Tabelle von einem Sweeper geleert wird ([Betrieb](07-betrieb.md) Abschnitt 3).
+- `EventPublicationRegistryTest` prüft, dass ein fehlschlagender `@ApplicationModuleListener` eine offene Zeile hinterlässt ([Betrieb](07-betrieb.md) Abschnitt 3a).
+- `checkOpenApiSnapshot` und `generateFrontendApiTypes` halten den API-Vertrag und die daraus erzeugten Frontend-Typen deckungsgleich ([API](05-api.md) Abschnitt 1).
+- Die CI führt zusätzlich `tsc -b` aus (vitest prüft keine Typen), dazu `oxlint` und die Playwright-Tests.
 
 ### Vorbedingungen in Integrationstests
 
