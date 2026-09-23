@@ -737,6 +737,23 @@ export function AppChannelApp() {
             </div>
           )}
 
+          {!channelSessionId && (
+            <div className="card welcome-card">
+              <h2>Dieser Tab ist Ihr Smartphone</h2>
+              <p>
+                Stellen Sie sich vor, Sie öffnen die App Ihrer Versicherung. Der Tab spielt diese App: Beim ersten
+                Aufruf hat er einen <strong>Geräteschlüssel</strong> erzeugt, der den Browser nie verlässt, und
+                signiert damit jede Anfrage (DPoP). Ein abgefangenes Token nützt so auf keinem anderen Gerät.
+              </p>
+              <p>
+                Beim ersten Mal <strong>registrieren</strong> Sie sich: einmal ausweisen (Freischaltcode aus dem
+                Brief oder eID), dann ein Anmeldeverfahren einrichten. Danach <strong>melden Sie sich an</strong> -
+                auf diesem Gerät auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind
+                nur Handy, SMS/E-Mail (der Code steht im Formular), Brief und Ausweiskarte.
+              </p>
+            </div>
+          )}
+
           <UnavailableTools availableTools={availableTools} />
           {!channelSessionId && (
             <div className="card">

@@ -182,6 +182,26 @@
   margin-top: 1.25rem;
 }
 
+/* Welcome page: what the demo really runs vs. what it only plays - side by side, stacked on phones. */
+.real-vs-sim {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.real-vs-sim h3 {
+  margin-top: 0;
+}
+
+.real-vs-sim ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.real-vs-sim li {
+  margin-bottom: 0.4rem;
+}
+
 .journey-diagram {
   margin: 0;
   color: var(--text-h);

@@ -160,10 +160,16 @@ export function WebChannelView() {
   return (
     <>
     <div className="card">
-      <h2>Web-Kanal: Login über echtes Keycloak</h2>
+      <h2>Dieser Tab ist eine Website</h2>
       <p>
-        Ein echter Browser-Redirect zu Keycloak (Authorization Code + PKCE) - kein Mock, kein Umweg über den
-        Orchestrator. Das AccessToken/IdToken kommt direkt von Keycloaks eigenem Token-Endpoint.
+        Stellen Sie sich das Kundenportal Ihrer Versicherung im Browser vor. „Anmelden“ leitet Sie - wie bei
+        jeder großen Website - zu einem <strong>echten Keycloak</strong> weiter (OpenID Connect mit PKCE), und
+        das AccessToken kommt direkt von dort zurück.
+      </p>
+      <p>
+        Was Keycloak auf seinen Anmeldeseiten abfragt, entscheidet im Hintergrund derselbe Orchestrator wie in der
+        App: gleiche Konten, gleiche Verfahren, gleiche Sicherheitsniveaus. Ist die App schon angemeldet, können Sie
+        den Login dort per QR-Code bestätigen. Simuliert ist nur die Website selbst - sie ist diese Seite.
       </p>
 
       {error && <div className="error-card">{error}</div>}

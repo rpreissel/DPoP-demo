@@ -55,13 +55,16 @@ export function WelcomeApp() {
         <div className="card welcome-card">
           <h2>Worum geht es hier?</h2>
           <p>
-            Diese Demo zeigt zwei Wege, wie man sich anmeldet und danach ein <strong>AccessToken</strong>{' '}
-            bekommt - den eigentlichen Ausweis, mit dem eine Anwendung Sie erkennt. Der{' '}
-            <strong>App-Kanal</strong> simuliert eine eigene App: Sie weisen sich einmalig aus
-            (Freischaltcode oder eID) und melden sich danach mit SMS, E-Mail, Passwort oder einem
-            Geräteschlüssel an - auch mehrere davon kombiniert für ein höheres Sicherheitsniveau. Der{' '}
-            <strong>Web-Kanal</strong> simuliert dagegen einen ganz normalen Website-Login über einen
-            echten Identitätsanbieter (Keycloak).
+            Ein <strong>Identitätsdienst</strong> (der Orchestrator) bedient zwei Zugänge zu denselben
+            Konten: eine <strong>Smartphone-App</strong> und eine <strong>Website</strong>. Man weist sich
+            einmal aus - per Freischaltcode aus einem Brief oder per eID - und meldet sich danach mit SMS,
+            E-Mail, Passwort oder einem Geräteschlüssel an, bei Bedarf mit zweitem Faktor (Step-up).
+            Am Ende steht ein <strong>AccessToken</strong>: der Ausweis, mit dem eine Anwendung Sie
+            erkennt.
+          </p>
+          <p>
+            Jeder Browser-Tab dieser Demo spielt eine Rolle: das Smartphone, die Website, das externe
+            Register, den Betreiber. Welche das ist, steht auf jeder Kachel.
           </p>
           <ul className="method-choice-list channel-choice-list">
             <li>
@@ -70,8 +73,12 @@ export function WelcomeApp() {
                   📱
                 </span>
                 <span className="method-choice-text">
-                  <span className="method-choice-label">Zum App-Kanal</span>
-                  <span className="method-choice-hint">Nativer, DPoP-gebundener Client - wie eine mobile App</span>
+                  <span className="method-choice-label">App-Kanal - spielt das Smartphone</span>
+                  <span className="method-choice-hint">
+                    Der Tab ist die App auf dem Handy: Er erzeugt einen Geräteschlüssel und signiert jede Anfrage
+                    damit (DPoP), damit ein abgefangenes Token auf einem anderen Gerät nichts nützt. Registrieren,
+                    Anmelden, Verfahren verwalten, Step-up.
+                  </span>
                 </span>
               </a>
             </li>
@@ -94,8 +101,12 @@ export function WelcomeApp() {
                     🌐
                   </span>
                   <span className="method-choice-text">
-                    <span className="method-choice-label">Zum Web-Kanal</span>
-                    <span className="method-choice-hint">Echter Browser-Client gegen echtes Keycloak</span>
+                    <span className="method-choice-label">Web-Kanal - spielt eine Website</span>
+                    <span className="method-choice-hint">
+                      Der Tab ist eine gewöhnliche Website mit „Anmelden“-Knopf. Der Login läuft über ein echtes
+                      Keycloak, das im Hintergrund denselben Orchestrator fragt - gleiche Konten, gleiche
+                      Verfahren, auch „mit der App bestätigen“ per QR-Code.
+                    </span>
                   </span>
                 </a>
               )}
@@ -106,8 +117,11 @@ export function WelcomeApp() {
                   🏛️
                 </span>
                 <span className="method-choice-text">
-                  <span className="method-choice-label">Personenregister (Fremdsystem)</span>
-                  <span className="method-choice-hint">Stammdaten und Freischaltcodes ändern - so, wie es ein externes Register täte</span>
+                  <span className="method-choice-label">Personenregister - spielt ein fremdes System</span>
+                  <span className="method-choice-hint">
+                    Das externe Register mit den Stammdaten der Versicherten. Es stellt die Freischaltcodes aus und
+                    verschickt sie als Brief - der Briefkasten zeigt, was bei der Person ankäme.
+                  </span>
                 </span>
               </a>
             </li>
@@ -117,12 +131,42 @@ export function WelcomeApp() {
                   🛠️
                 </span>
                 <span className="method-choice-text">
-                  <span className="method-choice-label">Admin</span>
-                  <span className="method-choice-hint">Einstellungen, Journey-Log aller Konten, Demo zurücksetzen (mit Anmeldung)</span>
+                  <span className="method-choice-label">Admin - spielt den Betreiber</span>
+                  <span className="method-choice-hint">
+                    Blick hinter die Kulissen: jeder Schritt jeder Journey aller Konten, Verfahren sperren,
+                    Demo zurücksetzen (mit Anmeldung).
+                  </span>
                 </span>
               </a>
             </li>
           </ul>
+        </div>
+      )}
+
+      {tab === 'uebersicht' && (
+        <div className="card">
+          <h2>Was ist echt, was simuliert?</h2>
+          <div className="real-vs-sim">
+            <div>
+              <h3>Echt</h3>
+              <ul>
+                <li>Der Orchestrator: Journeys, Konten, Verfahren, Tokens</li>
+                <li>Die DPoP-Signaturen - der Geräteschlüssel entsteht per WebCrypto im Browser</li>
+                <li>Keycloak und der Website-Login (OIDC mit PKCE) - nur mit Profil <code>keycloak</code></li>
+                <li>Die Sicherheitsniveaus (loa1/loa2) und der Step-up</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Simuliert</h3>
+              <ul>
+                <li>Das Smartphone - ein Browser-Tab</li>
+                <li>SMS- und E-Mail-Versand - der Code steht direkt im Formular</li>
+                <li>Der Brief mit dem Freischaltcode - der Briefkasten im Register</li>
+                <li>Das Auslesen der eID-Karte und der Dienstleister KOBIL</li>
+                <li>Das Personenregister selbst</li>
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
