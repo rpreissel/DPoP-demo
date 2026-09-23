@@ -30,8 +30,11 @@ Asymmetrie „Passwort nur im Web" entfällt.
   erzwungen — kommt das Passwort zuletzt: `ConfirmingEmail → Enrolling → PasswordObligation`
   (`RegisterStrategy`, [Orchestrierung](../04-orchestrierung.md), „Eine dritte Pflicht“). Die
   Passwortpflicht prüft erst am Ende, ob das Konto `loa2` sonst erreicht.
-- *„Enrollment zuerst“.* `RegisterEnrollFirstStrategy` fragt das Passwort ab, sobald keines
-  existiert, ohne die `loa2`-Bedingung. Das ist eine zweite Lesart derselben Pflicht; sie gehört
-  angeglichen oder hier als bewusste Ausnahme begründet (offen).
+- *„Enrollment zuerst“.* `RegisterEnrollFirstStrategy` prüft seit 2026-09-23 dieselbe
+  `loa2`-Bedingung wie `RegisterStrategy` (vorher fragte sie ohne Bedingung). Am Verhalten ändert
+  das nichts: In diesem Ablauf ist die Identifizierung freiwillig, ein Zugangsmittel aber Pflicht.
+  Ohne Identifizierung wird jede Methode unter `loa1` eingerichtet, und der Zwei-Faktor-Bump ist
+  durch `enrolledUnderAcr` gedeckelt (ADR-5) — `loa2` ist dort also nie aus eigener Kraft
+  erreichbar, und das Passwort wird weiterhin immer verlangt. Eine Regel statt zweier Lesarten.
 
 ---

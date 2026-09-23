@@ -161,7 +161,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
 
     /**
      * Mirrors `AuthEnrollCore.afterEnrollment`'s exact cascade (sufficient method -> confirmed
-     * email -> KEYCLOAK password), just self-contained and, once every obligation is discharged,
+     * email -> password), just self-contained and, once every obligation is discharged,
      * ending in the optional identification offer instead of `Transition.Authenticated` directly.
      */
     private fun afterEnrollment(ctx: JourneyContext, emailObligation: Boolean): Transition {
@@ -183,7 +183,13 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
             CandidateTools.forEmailConfirmation(ctx).takeIf { it.isNotEmpty() }
                 ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(Offer(it))) }
         }
-        if (account.activeAuthenticationMethods.none { it.method == PASSWORD_METHOD }) {
+        // Same rule as RegisterStrategy.afterEnrollment (ADR-17): a password only where the account
+        // could not otherwise get back to loa2 on its own. Here that is always the case unless the
+        // optional identification already ran: every method enrolled without it sits at loa1, and
+        // the two-factor bump is capped by enrolledUnderAcr (ADR-5). One rule, not two readings.
+        if (ctx.policy.reachability(account, AuthEnrollCore.ENROLLMENT_FLOOR_ACR) !is Reachability.Reachable &&
+            account.activeAuthenticationMethods.none { it.method == PASSWORD_METHOD }
+        ) {
             passwordEnrollmentCandidates(ctx).takeIf { it.isNotEmpty() }
                 ?.let { return Transition.To(RegisterEnrollFirstState.EnrollFirstPasswordObligation(Offer(it))) }
         }
