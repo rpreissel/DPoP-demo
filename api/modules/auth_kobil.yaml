@@ -153,9 +153,14 @@ components:
     ConfirmStep:
       description: The step waits for a yes/no answer; the prompt is authored by the backend.
       properties:
+        kind:
+          enum:
+          - confirm
+          type: string
         prompt:
           $ref: '#/components/schemas/Prompt'
       required:
+      - kind
       - prompt
     DemoInfo:
       additionalProperties: true
@@ -235,8 +240,13 @@ components:
         error:
           example: TAN ungueltig
           type: string
+        kind:
+          enum:
+          - failed-attempt
+          type: string
       required:
       - error
+      - kind
     JourneyDebugStep:
       properties:
         intent:
@@ -268,6 +278,10 @@ components:
       properties:
         activationCode:
           type: string
+        kind:
+          enum:
+          - kobil-activation
+          type: string
         kobilUserId:
           type: string
         missingFields:
@@ -282,6 +296,7 @@ components:
           type: string
       required:
       - activationCode
+      - kind
       - kobilUserId
       - missingFields
       - pin
@@ -289,6 +304,10 @@ components:
     KobilOtpStep:
       description: Waiting for the one-time password the KOBIL SDK produced.
       properties:
+        kind:
+          enum:
+          - kobil-otp
+          type: string
         kobilPin:
           type: string
         kobilUserId:
@@ -303,6 +322,7 @@ components:
         tenantId:
           type: string
       required:
+      - kind
       - kobilUserId
       - missingFields
       - tenantId
@@ -335,6 +355,10 @@ components:
     KobilUnlockStep:
       description: The app must unlock the backend-held PIN; these are the accepted ways.
       properties:
+        kind:
+          enum:
+          - kobil-unlock
+          type: string
         kobilUserId:
           type: string
         tenantId:
@@ -348,20 +372,30 @@ components:
             type: string
           type: array
       required:
+      - kind
       - kobilUserId
       - tenantId
       - unlockOptions
     MessageStep:
       description: A single candidate was auto-activated; this explains why the step appears.
       properties:
+        kind:
+          enum:
+          - message
+          type: string
         message:
           example: E-Mail-Bestaetigung ausstehend
           type: string
       required:
+      - kind
       - message
     MissingFields:
       description: Which inputs this step is still waiting for.
       properties:
+        kind:
+          enum:
+          - missing-fields
+          type: string
         missingFields:
           example:
           - tan
@@ -370,6 +404,7 @@ components:
             type: string
           type: array
       required:
+      - kind
       - missingFields
     Next:
       properties:
@@ -421,6 +456,10 @@ components:
       properties:
         description:
           type: string
+        kind:
+          enum:
+          - select-method
+          type: string
         options:
           example:
           - auth-password
@@ -433,6 +472,7 @@ components:
           example: Wie moechten Sie sich anmelden?
           type: string
       required:
+      - kind
       - options
     StepData:
       description: What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones
@@ -457,12 +497,6 @@ components:
       - $ref: '#/components/schemas/MessageStep'
       - $ref: '#/components/schemas/MissingFields'
       - $ref: '#/components/schemas/SelectMethodStep'
-      properties:
-        kind:
-          type: string
-      required:
-      - kind
-      type: object
   securitySchemes:
     dpop:
       description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the

@@ -152,9 +152,14 @@ components:
     ConfirmStep:
       description: The step waits for a yes/no answer; the prompt is authored by the backend.
       properties:
+        kind:
+          enum:
+          - confirm
+          type: string
         prompt:
           $ref: '#/components/schemas/Prompt'
       required:
+      - kind
       - prompt
     DemoInfo:
       additionalProperties: true
@@ -222,8 +227,13 @@ components:
         error:
           example: TAN ungueltig
           type: string
+        kind:
+          enum:
+          - failed-attempt
+          type: string
       required:
       - error
+      - kind
     JourneyDebugStep:
       properties:
         intent:
@@ -253,14 +263,23 @@ components:
     MessageStep:
       description: A single candidate was auto-activated; this explains why the step appears.
       properties:
+        kind:
+          enum:
+          - message
+          type: string
         message:
           example: E-Mail-Bestaetigung ausstehend
           type: string
       required:
+      - kind
       - message
     MissingFields:
       description: Which inputs this step is still waiting for.
       properties:
+        kind:
+          enum:
+          - missing-fields
+          type: string
         missingFields:
           example:
           - tan
@@ -269,6 +288,7 @@ components:
             type: string
           type: array
       required:
+      - kind
       - missingFields
     Next:
       properties:
@@ -308,16 +328,26 @@ components:
     QrPairingStep:
       description: 'A QR pairing in progress: the pairing code, and the verification code once known.'
       properties:
+        kind:
+          enum:
+          - qr-pairing
+          type: string
         pairingCode:
           example: 7F3K-92QL
           type: string
         verificationCode:
           example: '4711'
           type: string
+      required:
+      - kind
     SelectMethodStep:
       description: Several procedures are possible; the client shows a selection.
       properties:
         description:
+          type: string
+        kind:
+          enum:
+          - select-method
           type: string
         options:
           example:
@@ -331,6 +361,7 @@ components:
           example: Wie moechten Sie sich anmelden?
           type: string
       required:
+      - kind
       - options
     StepData:
       description: What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones
@@ -351,12 +382,6 @@ components:
       - $ref: '#/components/schemas/MissingFields'
       - $ref: '#/components/schemas/QrPairingStep'
       - $ref: '#/components/schemas/SelectMethodStep'
-      properties:
-        kind:
-          type: string
-      required:
-      - kind
-      type: object
   securitySchemes:
     dpop:
       description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the

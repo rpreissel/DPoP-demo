@@ -21,6 +21,15 @@ version = "0.0.1-SNAPSHOT"
 // "Struktur" debug view (docs/05-api.md #2, `demo`) - counting them would understate real
 // coverage where it matters and overstate it where a gap is harmless.
 kover {
+    // Kover haengt jede Test-Task an koverVerify und damit an `build`. Fuer die beiden
+    // Snapshot-Tasks ist das falsch: updateOpenApiSnapshot wuerde bei jedem Build api/openapi.yaml
+    // stillschweigend neu schreiben - und damit genau den Unterschied glaetten, den
+    // checkOpenApiSnapshot melden soll. Beide laufen nur, wenn man sie beim Namen ruft.
+    currentProject {
+        instrumentation {
+            disabledForTestTasks.addAll("checkOpenApiSnapshot", "updateOpenApiSnapshot")
+        }
+    }
     reports {
         filters {
             excludes {
@@ -156,6 +165,10 @@ tasks.withType<Test> {
     // Tests fuer aktuell, wenn sich nur der Vertrag geaendert hat - der Test laeuft dann nicht und
     // meldet folgerichtig auch nichts.
     inputs.dir(layout.projectDirectory.dir("api")).withPropertyName("apiContract")
+    // Die Test-JVMs haengen Agenten an den Bootclasspath (Kover, ByteBuddy). Class Data Sharing
+    // bricht dann ab und meldet "Sharing is only supported for boot loader classes" bei jedem
+    // Start - aus, statt jedes Mal zu warnen.
+    jvmArgs("-Xshare:off")
 }
 
 // Der API-Vertrag wird von drei Seiten von Hand gelesen (Kotlin-DTOs, frontend/src/types.ts,
@@ -194,7 +207,7 @@ tasks.register<Test>("updateOpenApiSnapshot") {
 //
 // Eigene Konfiguration statt testImplementation: openapi-diff bringt swagger-parser mit, das mit
 // dem swagger-core von springdoc kollidiert, und jcl-over-slf4j, das mit Boots Logging kollidiert.
-val openapiDiff: Configuration by configurations.creating
+val openapiDiff: Configuration = configurations.create("openapiDiff")
 
 dependencies {
     openapiDiff(variantOf(libs.openapi.diff.cli) { classifier("all") })

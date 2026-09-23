@@ -28,15 +28,14 @@ class DiscriminatorMappingTest : BehaviorSpec({
 
     given("the checked-in contract") {
         then("every discriminator value deserializes to the class it is mapped to") {
-            @Suppress("UNCHECKED_CAST")
-            val spec = Yaml().load<Map<String, Any?>>(Files.readString(SNAPSHOT))
-            val schemas = ((spec["components"] as Map<String, Any?>)["schemas"] as Map<String, Any?>)
+            val spec = Yaml().load<Map<*, *>>(Files.readString(SNAPSHOT))
+            val schemas = ((spec["components"] as Map<*, *>)["schemas"] as Map<*, *>)
 
-            val unlock = schemas["KobilUnlockCredential"] as Map<String, Any?>
-            val discriminator = unlock["discriminator"] as? Map<String, Any?>
+            val unlock = schemas["KobilUnlockCredential"] as Map<*, *>
+            val discriminator = unlock["discriminator"] as? Map<*, *>
                 ?: error("KobilUnlockCredential hat keinen discriminator mehr - JacksonSubTypesModelConverter?")
             val property = discriminator["propertyName"] as String
-            val mapping = discriminator["mapping"] as? Map<String, String>
+            val mapping = discriminator["mapping"] as? Map<*, *>
                 ?: error(
                     "discriminator.mapping fehlt. Ein Generator leitet die Werte dann aus den " +
                         "Schemanamen ab und sendet kind=\"BiometricUnlock\" statt \"biometric\"."
@@ -48,7 +47,7 @@ class DiscriminatorMappingTest : BehaviorSpec({
                 val parsed = mapper.readValue(payload, KobilUnlockCredential::class.java)
                 // Das Schema, auf das die Mapping-Zeile zeigt, muss die Klasse sein, die Jackson
                 // fuer denselben Wert waehlt.
-                parsed.javaClass.simpleName shouldBe ref.substringAfterLast('/')
+                parsed.javaClass.simpleName shouldBe (ref as String).substringAfterLast('/')
             }
         }
     }

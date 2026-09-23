@@ -51,17 +51,40 @@ class StepDataSchemaCustomizer {
             }
             val name = ModelConverters.getInstance().read(AnnotatedType(java)).keys.firstOrNull()
                 ?: java.simpleName
+            val kind = typeNameOf(java)
+            components.schemas[name]?.let { declareKind(it, kind) }
             base.addOneOfItem(Schema<Any>().`$ref`("#/components/schemas/$name"))
-            discriminator.mapping(typeNameOf(java), "#/components/schemas/$name")
+            discriminator.mapping(kind, "#/components/schemas/$name")
         }
         base.discriminator = discriminator
+        // The union carries nothing of its own besides the discriminator: `kind` now lives in
+        // every shape. Left here as well, the union would at the same time be an object with a
+        // required field - two statements a generator has to reconcile, and warns about.
+        base.properties = null
+        base.required = null
+        base.types = null
+        base.type = null
     }
 
     /**
-     * The value Jackson writes into `@t`. `@JsonTypeName` when the shape declares one, otherwise
-     * Jackson's own default - the simple class name. Read from the same annotation Jackson reads,
-     * so the contract cannot disagree with the wire.
+     * `kind` belongs to the shape itself, because that is where Jackson writes it: into every
+     * subtype object, not into a wrapper around it. A discriminator the referenced schemas do not
+     * declare is none for a generator - the Java one then guesses which shape fits.
+     *
+     * A single-value enum rather than a bare string: each shape states the value it carries, so a
+     * client can narrow on the field without looking up the mapping.
      */
+    private fun declareKind(shape: Schema<*>, kind: String) {
+        if (shape.properties?.containsKey(DISCRIMINATOR) == true) return
+        val property = Schema<String>().apply {
+            types = setOf("string")
+            type = "string"
+            enum = listOf(kind)
+        }
+        shape.properties = linkedMapOf<String, Schema<*>>(DISCRIMINATOR to property) + (shape.properties ?: emptyMap())
+        shape.required = listOf(DISCRIMINATOR) + (shape.required ?: emptyList()).filterNot { it == DISCRIMINATOR }
+    }
+
     /**
      * Its own module's, plus the two every response can carry: the shared shapes in `tool_spi` and
      * the orchestrator's own screens, which any tool endpoint may answer with when the journey
@@ -74,6 +97,11 @@ class StepDataSchemaCustomizer {
             pkg.startsWith(ORCHESTRATOR_PACKAGE)
     }
 
+    /**
+     * The value Jackson writes into `kind`. `@JsonTypeName` when the shape declares one, otherwise
+     * Jackson's own default - the simple class name. Read from the same annotation Jackson reads,
+     * so the contract cannot disagree with the wire.
+     */
     private fun typeNameOf(java: Class<*>): String =
         java.getAnnotation(JsonTypeName::class.java)?.value?.takeIf { it.isNotEmpty() }
             ?: java.simpleName

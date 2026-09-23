@@ -475,11 +475,27 @@ export interface ConfirmQrLoginPatchRequest {
 export interface ConfirmStep {
     /**
      * 
+     * @type {string}
+     * @memberof ConfirmStep
+     */
+    kind: ConfirmStepKindEnum;
+    /**
+     * 
      * @type {Prompt}
      * @memberof ConfirmStep
      */
     prompt: Prompt;
 }
+
+
+/**
+ * @export
+ */
+export const ConfirmStepKindEnum = {
+    confirm: 'confirm'
+} as const;
+export type ConfirmStepKindEnum = typeof ConfirmStepKindEnum[keyof typeof ConfirmStepKindEnum];
+
 /**
  * 
  * @export
@@ -680,7 +696,23 @@ export interface FailedAttemptStep {
      * @memberof FailedAttemptStep
      */
     error: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof FailedAttemptStep
+     */
+    kind: FailedAttemptStepKindEnum;
 }
+
+
+/**
+ * @export
+ */
+export const FailedAttemptStepKindEnum = {
+    failed_attempt: 'failed-attempt'
+} as const;
+export type FailedAttemptStepKindEnum = typeof FailedAttemptStepKindEnum[keyof typeof FailedAttemptStepKindEnum];
+
 /**
  * 
  * @export
@@ -969,6 +1001,12 @@ export interface KobilActivationStep {
      * @type {string}
      * @memberof KobilActivationStep
      */
+    kind: KobilActivationStepKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilActivationStep
+     */
     kobilUserId: string;
     /**
      * 
@@ -995,12 +1033,28 @@ export interface KobilActivationStep {
      */
     unlockSecret?: string;
 }
+
+
+/**
+ * @export
+ */
+export const KobilActivationStepKindEnum = {
+    kobil_activation: 'kobil-activation'
+} as const;
+export type KobilActivationStepKindEnum = typeof KobilActivationStepKindEnum[keyof typeof KobilActivationStepKindEnum];
+
 /**
  * Waiting for the one-time password the KOBIL SDK produced.
  * @export
  * @interface KobilOtpStep
  */
 export interface KobilOtpStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilOtpStep
+     */
+    kind: KobilOtpStepKindEnum;
     /**
      * 
      * @type {string}
@@ -1026,6 +1080,16 @@ export interface KobilOtpStep {
      */
     tenantId: string;
 }
+
+
+/**
+ * @export
+ */
+export const KobilOtpStepKindEnum = {
+    kobil_otp: 'kobil-otp'
+} as const;
+export type KobilOtpStepKindEnum = typeof KobilOtpStepKindEnum[keyof typeof KobilOtpStepKindEnum];
+
 /**
  * 
  * @export
@@ -1086,6 +1150,12 @@ export interface KobilUnlockStep {
      * @type {string}
      * @memberof KobilUnlockStep
      */
+    kind: KobilUnlockStepKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilUnlockStep
+     */
     kobilUserId: string;
     /**
      * 
@@ -1100,6 +1170,16 @@ export interface KobilUnlockStep {
      */
     unlockOptions: Array<string>;
 }
+
+
+/**
+ * @export
+ */
+export const KobilUnlockStepKindEnum = {
+    kobil_unlock: 'kobil-unlock'
+} as const;
+export type KobilUnlockStepKindEnum = typeof KobilUnlockStepKindEnum[keyof typeof KobilUnlockStepKindEnum];
+
 /**
  * A single candidate was auto-activated; this explains why the step appears.
  * @export
@@ -1111,8 +1191,24 @@ export interface MessageStep {
      * @type {string}
      * @memberof MessageStep
      */
+    kind: MessageStepKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof MessageStep
+     */
     message: string;
 }
+
+
+/**
+ * @export
+ */
+export const MessageStepKindEnum = {
+    message: 'message'
+} as const;
+export type MessageStepKindEnum = typeof MessageStepKindEnum[keyof typeof MessageStepKindEnum];
+
 /**
  * The account's active authentication methods (docs/05-api.md #2). Never contains fsc.
  * @export
@@ -1173,11 +1269,27 @@ export interface MgmtPasswordVerifyResponse {
 export interface MissingFields {
     /**
      * 
+     * @type {string}
+     * @memberof MissingFields
+     */
+    kind: MissingFieldsKindEnum;
+    /**
+     * 
      * @type {Array<string>}
      * @memberof MissingFields
      */
     missingFields: Array<string>;
 }
+
+
+/**
+ * @export
+ */
+export const MissingFieldsKindEnum = {
+    missing_fields: 'missing-fields'
+} as const;
+export type MissingFieldsKindEnum = typeof MissingFieldsKindEnum[keyof typeof MissingFieldsKindEnum];
+
 /**
  * 
  * @export
@@ -1266,6 +1378,12 @@ export interface QrPairingStep {
      * @type {string}
      * @memberof QrPairingStep
      */
+    kind: QrPairingStepKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof QrPairingStep
+     */
     pairingCode?: string;
     /**
      * 
@@ -1274,6 +1392,16 @@ export interface QrPairingStep {
      */
     verificationCode?: string;
 }
+
+
+/**
+ * @export
+ */
+export const QrPairingStepKindEnum = {
+    qr_pairing: 'qr-pairing'
+} as const;
+export type QrPairingStepKindEnum = typeof QrPairingStepKindEnum[keyof typeof QrPairingStepKindEnum];
+
 /**
  * The channel's current RestoreData, signed - null if there is nothing worth restoring yet.
  * @export
@@ -1301,6 +1429,12 @@ export interface SelectMethodStep {
     description?: string;
     /**
      * 
+     * @type {string}
+     * @memberof SelectMethodStep
+     */
+    kind: SelectMethodStepKindEnum;
+    /**
+     * 
      * @type {Array<string>}
      * @memberof SelectMethodStep
      */
@@ -1312,6 +1446,16 @@ export interface SelectMethodStep {
      */
     title?: string;
 }
+
+
+/**
+ * @export
+ */
+export const SelectMethodStepKindEnum = {
+    select_method: 'select-method'
+} as const;
+export type SelectMethodStepKindEnum = typeof SelectMethodStepKindEnum[keyof typeof SelectMethodStepKindEnum];
+
 /**
  * @type StepData
  * What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones this deployment can produce.

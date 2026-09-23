@@ -333,13 +333,13 @@ final class OrchestratorClient {
             }
 
             Map<String, JsonNode> stepData = new LinkedHashMap<>();
-            json.path("stepData").fields().forEachRemaining(e -> stepData.put(e.getKey(), e.getValue()));
+            json.path("stepData").properties().forEach(e -> stepData.put(e.getKey(), e.getValue()));
 
             // Sibling of stepData, not nested in it (tool_spi/Demo.kt: the caller lifts DEMO_DATA_KEY
             // out into its own top-level block before building the client response) - passed through
             // unchanged to WebToolRenderer, same as stepData, since different tools prefill different keys.
             Map<String, JsonNode> demo = new LinkedHashMap<>();
-            json.path("demo").fields().forEachRemaining(e -> demo.put(e.getKey(), e.getValue()));
+            json.path("demo").properties().forEach(e -> demo.put(e.getKey(), e.getValue()));
 
             var channel = wire.getChannel();
             var wireNext = wire.getNext();

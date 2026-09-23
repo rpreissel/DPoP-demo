@@ -133,7 +133,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
 
                 val channel = get("/orchestrator/api/v1/channels/$channelSessionId").channel()
                 channel["currentAcr"] shouldBe "loa2"
-                (channel["currentAmr"] as List<String>).shouldContainAll("kobil", "biometric")
+                (channel["currentAmr"] as List<*>).shouldContainAll("kobil", "biometric")
                 (channel["activeMethods"] as List<*>).methodNames() shouldContain "kobil"
             }
 
@@ -184,7 +184,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
 
                 val channel = get("/orchestrator/api/v1/channels/$loginChannel").channel()
                 channel["currentAcr"] shouldBe "loa2"
-                (channel["currentAmr"] as List<String>).shouldContainAll("kobil", "biometric")
+                (channel["currentAmr"] as List<*>).shouldContainAll("kobil", "biometric")
             }
 
             then("the password unlock reports pin, never password - otherwise the account password would count twice") {
@@ -197,7 +197,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
                     .stepData()["kobilPin"] as String
                 redeem(toolSessionId, sdkLogin(device, pin))
 
-                val amr = get("/orchestrator/api/v1/channels/$loginChannel").channel()["currentAmr"] as List<String>
+                val amr = get("/orchestrator/api/v1/channels/$loginChannel").channel()["currentAmr"] as List<*>
                 amr.shouldContainAll("kobil", "pin")
                 amr shouldNotContain "password"
             }
