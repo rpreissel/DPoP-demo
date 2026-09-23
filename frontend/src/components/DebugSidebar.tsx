@@ -21,8 +21,6 @@ interface DebugSidebarProps {
     stepData?: unknown
     demo?: unknown
     activeTool?: unknown
-    /** WEB channels only (docs/05-api.md Abschnitt 3, authData) - the Mock-Keycloak screen's own channel object carries this, the App channel's never does. */
-    authData?: unknown
   }
   log: DebugEvent[]
   open: boolean
@@ -50,7 +48,6 @@ function withoutDemo(value: unknown): unknown {
  */
 export function DebugSidebar({ channel, log, open, onToggle }: DebugSidebarProps) {
   const [showDemo, setShowDemo] = useState(false)
-
   return (
     <aside className={`debug-sidebar${open ? '' : ' collapsed'}`}>
       <div className="debug-sidebar-header">

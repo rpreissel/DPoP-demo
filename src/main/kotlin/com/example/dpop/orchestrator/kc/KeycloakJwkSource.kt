@@ -23,7 +23,9 @@ class KeycloakJwkSource(
     private var cached: JWKSet? = null
     private var cachedAt: Instant = Instant.EPOCH
 
+    /** Null for an unknown kid - and for every kid when no issuer is configured (blank jwks-uri, no `keycloak` profile). */
     fun find(kid: String): JWK? {
+        if (jwksUri.isBlank()) return null
         val known = currentSet().getKeyByKeyId(kid)
         if (known != null) return known
         // Unknown kid: could be a just-rotated key, worth one refetch before giving up.

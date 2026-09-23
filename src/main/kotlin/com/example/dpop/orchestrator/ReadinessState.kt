@@ -15,7 +15,7 @@ interface ReadinessState {
     val isReady: Boolean
 }
 
-/** Default-Profil (Mock-Keycloak) hat keine Migrationen abzuwarten - immer bereit. */
+/** Default-Profil (ohne Keycloak) hat keine Migrationen abzuwarten - immer bereit. */
 @Component
 @Profile("!keycloak")
 class AlwaysReadyState : ReadinessState {

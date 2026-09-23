@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component
  * SSLContext/HostnameVerifier because both call sites go through library code
  * ([com.nimbusds.jose.jwk.JWKSet.load], Spring's `RestClient` default `java.net.http.HttpClient`)
  * that builds its own HTTP client internally rather than accepting an injected one - only wired up
- * under the `keycloak` Spring profile, so the default (Mock-Keycloak) profile's own TLS behavior is
+ * under the `keycloak` Spring profile, so the default (no Keycloak) profile's own TLS behavior is
  * completely untouched.
  */
 @Component

@@ -49,7 +49,7 @@ class BindingKeyOpenApiConfig {
      * a bearer peer-auth assertion.
      *
      * Attached per operation rather than globally, because it must say something true about each
-     * one: endpoints without a `@BindingKey` parameter (the tool catalog, the mock-Keycloak
+     * one: endpoints without a `@BindingKey` parameter (the tool catalog, the admin
      * fixtures) genuinely need neither.
      */
     @Bean

@@ -49,7 +49,7 @@ class OpenApiConfig {
          * The two ways a caller proves who it is - which are the two branches of
          * [DpopBindingKeyResolver]. Which endpoints accept them is stated per operation by
          * [BindingKeyOpenApiConfig], because it differs: a few endpoints (the tool catalog, the
-         * mock-Keycloak fixtures) need neither.
+         * admin endpoints) need neither.
          */
         .components(
             Components()

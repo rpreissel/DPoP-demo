@@ -223,7 +223,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
         }
 
         Given("a step-up channel whose account already reaches loa1 evidence natively") {
-            When("PATCH is called again with amr (Mock-Keycloak: simulate a native authenticator)") {
+            When("PATCH is called again with amr (simulating a native Keycloak authenticator)") {
                 Then("the merged evidence is reflected in authData and, once sufficient, authenticates") {
                     val authenticatedChannelSessionId = loginAsSeededAccount()
                     val accountId = jdbcTemplate.queryForObject(

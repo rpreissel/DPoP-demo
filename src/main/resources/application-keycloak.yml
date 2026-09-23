@@ -1,11 +1,11 @@
 # Profile fuer den echten Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), gegen das per
-# podman-compose gestartete Keycloak statt des Mock-Keycloak-Frontends (application.yml's Default).
+# podman-compose gestartete Keycloak. Ohne dieses Profil gibt es keinen Web-Kanal.
 # Start: `podman-compose up --build` (compose.yml) fuer Keycloak, parallel dazu
 # `./gradlew bootRun --args='--spring.profiles.active=keycloak'` fuer den Orchestrator selbst.
 #
 # WO HIER WAS STEHT: Realm-Name und Keycloak-Adresse stehen NICHT mehr in
 # diesem Profil, sondern ausschliesslich im Parametersatz unten (keycloak-setup).
-# KeycloakSetupEnvironment leitet daraus kc.peer-auth.issuer/audience/jwks-uri, kc.oidc.*,
+# KeycloakSetupEnvironment leitet daraus kc.peer-auth.issuer/audience/jwks-uri,
 # keycloak-sync.base-url/realm und keycloak-migrate.base-url ab, bevor die erste Bean
 # entsteht. Grund: Aufbau und Betrieb meinen dasselbe Realm und dieselben Clients - zwei Orte
 # dafuer waren ein Tippfehler von einem 401 entfernt, der erst tief im Betrieb auffaellt.
@@ -22,14 +22,6 @@ kc:
     # Trust-all-SSLContext - demo-only, siehe dessen eigene Doku.
     max-clock-skew-seconds: 300
     max-age-seconds: 300
-  # Demo-only convenience read path (KeycloakOidcTokenValidator): the Web-Kanal demo UI's
-  # Journey-Log tab calls the orchestrator directly with the browser's own real Keycloak
-  # AccessToken - the production kc-facade contract ("Browser spricht nie direkt mit dem
-  # Orchestrator") only binds the actual login/tool-execution traffic, not this read-only debug
-  # view. Verified against Keycloak's OWN realm signing key (not the ephemeral peer-auth one above).
-  oidc:
-    # issuer/certs-uri: abgeleitet (siehe oben).
-    jwks-cache-ttl-seconds: 600
 
 # Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
 # in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig. Vollstaendig abgeleitet

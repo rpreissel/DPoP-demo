@@ -1,5 +1,5 @@
-# Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), als Ersatz fuer
-# das reine Mock-Keycloak-Frontend (bd DPoP-demo-f9o.9) im echten Betrieb. `compose up` startet
+# Echtes Keycloak fuer den Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3) - ohne es gibt es
+# keinen Web-Kanal. `compose up` startet
 # beides: Keycloak UND den containerisierten Orchestrator - der wendet beim eigenen Start ueber
 # KeycloakMigrationRunnerStartup automatisch alle Migrationen aus dem keycloak-migrations-Jar an
 # (Ersatz fuer den frueheren separaten Tofu-Schritt, siehe git-history fuer infra/tofu).

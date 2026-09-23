@@ -26,10 +26,9 @@ import java.util.Date
  * `kcSessionId`, so a leaked or misdirected token can't seed evidence under a session it was never
  * proved for.
  *
- * Symmetric (HS256) and deliberately NOT `MockKeycloakKeyProvider`'s key: that one the mock
- * frontend deliberately RECEIVES so it can act as Keycloak - reusing it here would let anyone
- * holding it forge their own RestoreData too, defeating the whole point of this being an
- * orchestrator-only trust anchor. Generated fresh per boot, same "nothing to check in and forget"
+ * Symmetric (HS256) and deliberately a key of its own, not one shared with Keycloak's peer-auth:
+ * this is an orchestrator-only trust anchor that no other party may be able to forge. Generated
+ * fresh per boot, same "nothing to check in and forget"
  * reasoning as `dpop.secrets.otp-pepper` - a restart invalidates any RestoreData token still in
  * flight, acceptable for a value that only ever needs to outlive one Keycloak UserSession.
  */

@@ -6,9 +6,9 @@
  * ever has to ship inside the browser bundle - PKCE is what makes a public client's authorization
  * code still safe to redeem.
  *
- * Distinct from `kcSigning.ts`/`kcApi.ts` (Mock-Keycloak tab): those simulate Keycloak calling the
- * orchestrator's kc-facade server-to-server, entirely without a browser. This module is the
- * opposite direction - the browser itself, acting as the actual RP a real deployment would have.
+ * Keycloak itself talks to the orchestrator's kc-facade server-to-server (the extension, signed
+ * peer-auth), never through this browser. This module is the other direction - the browser
+ * itself, acting as the actual RP a real deployment would have.
  */
 
 const KEYCLOAK_BASE = 'https://localhost:8543'
@@ -63,7 +63,7 @@ function randomString(length: number): string {
   return base64UrlEncode(bytes)
 }
 
-/** Redirects the browser to Keycloak's own login - `acrValue` picks the LoA-1/LoA-2 Condition-LoA branch (infra/tofu/keycloak/main.tf's orchestrator_loa_1/orchestrator_loa_2 subflows), same as the acr_values query param the Mock-Keycloak tab's equivalent server-to-server call would carry as targetAcr. `clientId` defaults to the normal browser client; pass QR_TEST_CLIENT_ID (see redirectToQrTestLogin) to exercise the demo/test flow instead. */
+/** Redirects the browser to Keycloak's own login - `acrValue` picks the LoA-1/LoA-2 Condition-LoA branch (infra/tofu/keycloak/main.tf's orchestrator_loa_1/orchestrator_loa_2 subflows), which Keycloak's extension forwards to the orchestrator as targetAcr. `clientId` defaults to the normal browser client; pass QR_TEST_CLIENT_ID (see redirectToQrTestLogin) to exercise the demo/test flow instead. */
 export async function redirectToLogin(acrValue: '1' | '2', clientId: string = CLIENT_ID) {
   const codeVerifier = randomString(64)
   const codeChallenge = await sha256Base64Url(codeVerifier)

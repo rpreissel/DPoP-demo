@@ -49,7 +49,7 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
                 is JourneyEvent.Started -> afterProof(ctx)
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(state, event), resumeState = state)
                 is JourneyEvent.Abandoned -> declineTool(state, event.tool.toolId, ctx) { Transition.Cancel }
-                // EvidenceReported (a simulated native authenticator, Mock-Keycloak, merged fresh
+                // EvidenceReported (a native Keycloak authenticator, merged fresh
                 // evidence) and ActionCompleted (resumed after a proof/seed just applied) both
                 // re-check the same way.
                 else -> afterProof(ctx)
