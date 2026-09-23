@@ -184,7 +184,14 @@ export function AuthenticationCompletedView({
       )}
 
       <SectionHeading text="Web-Login per QR bestätigen" diagram="confirmPeerLogin" />
-      <p>Ein Browser wartet auf eine Bestätigung von diesem Konto.</p>
+      {/* Worded as an instruction, not a status: the app cannot know whether a browser is waiting -
+          the pairing code shown there is what connects the two, entered in the next step. */}
+      <p>Zeigt ein Browser einen QR- oder Pairing-Code an, bestätigen Sie den Login hier.</p>
+      {activeMethods && !activeMethods.some((m) => m.method === 'qr') && (
+        <p className="hint">
+          Dafür muss für dieses Konto das Verfahren „QR-Login“ aktiviert sein - unten unter „Anmeldeverfahren verwalten“.
+        </p>
+      )}
       <div className="form-actions">
         <button className="secondary" onClick={onPeerLogin}>
           Web-Login bestätigen
