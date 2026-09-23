@@ -13,9 +13,9 @@ import org.springframework.core.env.MapPropertySource
  * Leitet die Keycloak-Laufzeitwerte des Orchestrators aus dem gewaehlten Migrations-Parametersatz
  * ab, statt sie ein zweites Mal von Hand zu konfigurieren.
  *
- * Realm-Name, Keycloak-Adresse und die beiden Client-Secrets sind fuer Aufbau und Betrieb
- * derselbe Wert: der Sync spricht genau das Realm an, das die Migration anlegt, und meldet sich
- * mit genau dem Secret an, das sie gesetzt hat. Standen sie an zwei Orten, war "Migration gegen
+ * Realm-Name, Keycloak-Adresse und Client-Ids sind fuer Aufbau und Betrieb derselbe Wert: der
+ * Sync spricht genau das Realm an, das die Migration anlegt, als genau der Client, den sie
+ * angelegt hat (angemeldet per private_key_jwt, ADR-25). Standen sie an zwei Orten, war "Migration gegen
  * Realm A, Sync gegen Realm B" ein Tippfehler weit - und faellt erst als 401 irgendwo tief im
  * Betrieb auf. Hier gibt es sie einmal, alles andere ist abgeleitet.
  *

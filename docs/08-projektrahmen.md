@@ -166,7 +166,7 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | P-1 | H2 mit dateibasierter DB und In-Memory-Tests. | `application.yml` und `application-test.yml` entsprechend konfiguriert |
-| P-2 | Schema-Aufbau erfolgt mit Flyway, eine Datei je Modul. | `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst |
+| P-2 | Schema-Aufbau erfolgt mit Flyway, ein Migrationsordner je Modul. | `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst |
 | P-3 | Zugriff auf Personen erfolgt über Spring Data JPA. | `PersonRepository extends JpaRepository` |
 | P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort` |
 | P-5 | Testdaten werden beim Start eingespielt. | Flyway-Migration oder Initialisierungsroutine vorhanden |

@@ -441,7 +441,7 @@ eigenständig.
 
 ### Server-zu-Server: Keycloaks natives Passwort-Credential (`MgmtPasswordController`)
 
-Stateless, ohne Channel/ToolSession: Keycloaks native `OrchestratorPasswordStorageProvider`-SPI
+Stateless, ohne Channel/ToolSession: Keycloaks native UserStorage-SPI (`OrchestratorStorageProvider`)
 verifiziert/setzt Passwörter auf dem über das `orchestratorAccountId`-User-Attribut bekannten
 Account. Authentifiziert über dieselbe
 `kc-peer-auth`-Signatur wie andere Peer-Aufrufe

@@ -206,10 +206,10 @@ selbst (`ClaimSource.of(toolId)`) für einen Wert ein, den `EXT_STAMMDATEN` verw
 `IDENT`** — so liegt der Fall bei `ident-eid`, das Name, Vorname, Geburtsdatum, die Adresse und die
 kartengebundene `restricted_id` von der Karte liest. `ATTEST` wäre dafür falsch, und zwar nicht
 wegen des Datenbesitzes, sondern weil `ATTEST` per Definition *nichts* zur ACR/AMR-Bilanz beiträgt
-(`evidenceAxis()` wirft dort eine Exception): Eine eID trägt sehr wohl IAL bei. Umgekehrt
+(`evidenceAxis()` liefert dort keine Achse): Eine eID trägt sehr wohl IAL bei. Umgekehrt
 gilt die Kategorie auch für ein Tool, das nur *korreliert* statt zu beweisen (`ident-kvnr`,
-`role = CORRELATION`) — es bleibt `IDENT`, seine Sicherheit kommt aus `requires` plus dem
-Identitätsabgleich im Account-Modul.
+`role = CORRELATION`) — es bleibt `IDENT`, trägt aber keine Evidenzachse und hebt das IAL nicht;
+seine Sicherheit kommt aus `requires` plus dem Identitätsabgleich im Account-Modul.
 
 `ToolCategory.SIDE_ACTION` benennt die geteilte Eigenschaft von `PEER_APPROVAL`-Tools: sie tragen
 nichts zur ACR/AMR-Bilanz des *eigenen* Kanals bei und sind nie Kandidat einer Lücken-Vorauswahl,

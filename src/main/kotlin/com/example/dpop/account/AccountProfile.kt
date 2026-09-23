@@ -59,7 +59,7 @@ data class AccountProfile(
      * as disposable:
      *
      * - `JourneyService.deleteIfAbandonedUnidentified` deletes it when its journey is abandoned.
-     * - `AccountService.absorbInteressent` lets it YIELD to the account an assignment step
+     * - `AccountService.absorbProvisionalAccount` lets it YIELD to the account an assignment step
      *   resolves, taking its attestations along (ADR-20).
      *
      * DEACTIVATED instances count as credentials here, deliberately: a revoked instance still

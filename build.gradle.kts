@@ -31,6 +31,15 @@ kover {
         }
     }
     reports {
+        // Eine Sperrklinke, kein Qualitaetsziel: der Wert liegt knapp unter dem heutigen Stand
+        // (84 %, Zeilen), damit koverVerify bei einem spuerbaren Rueckgang den Build bricht statt
+        // nur einen Bericht zu schreiben. Steigt die Abdeckung, wird die Grenze nachgezogen - nie
+        // gesenkt, um eine Aenderung durchzubekommen.
+        verify {
+            rule {
+                minBound(82)
+            }
+        }
         filters {
             excludes {
                 classes(
@@ -171,8 +180,8 @@ tasks.withType<Test> {
     jvmArgs("-Xshare:off")
 }
 
-// Der API-Vertrag wird von drei Seiten von Hand gelesen (Kotlin-DTOs, frontend/src/types.ts,
-// keycloak-extension). api/openapi.yaml ist die eine Stelle, an der er steht; OpenApiSnapshotTest
+// Der API-Vertrag hat drei Leser (Kotlin-DTOs, Frontend, keycloak-extension); beide Clients werden
+// aus api/openapi.yaml generiert. Das ist die eine Stelle, an der er steht; OpenApiSnapshotTest
 // prueft ihn gegen den laufenden Code. `check` laeuft ohnehin ueber `test` mit - diese beiden
 // Tasks sind nur die benannten Ein- und Ausgaenge dafuer.
 val checkOpenApiSnapshot = tasks.register<Test>("checkOpenApiSnapshot") {

@@ -1,8 +1,12 @@
 # ADR-7: Web-Kanal ohne mTLS, signierte Request-Assertion statt Client-Zertifikat
 
+> **Stand 2026-09-23:** Die Assertion wird mit einem eigenen Schlüssel signiert, nicht mit den
+> Token-Schlüsseln des Realms; der Browser erreicht den Orchestrator an genau einer Demo-Stelle.
+> Siehe Nachtrag.
+
 **Entscheidung** (umgesetzt): Die Server-zu-Server-Strecke Keycloak -> Orchestrator im Web-Kanal
 wird **ohne mTLS** abgesichert; statt eines Client-Zertifikats verifiziert der Orchestrator eine
-signierte Request-Assertion von Keycloak (`PeerAuthValidator`, [05-api.md](05-api.md) Abschnitt 3).
+signierte Request-Assertion von Keycloak (`PeerAuthValidator`, [05-api.md](../05-api.md) Abschnitt 3).
 Der Browser spricht nie direkt mit dem Orchestrator.
 
 Ein einziges JWT pro Request statt Access-Token-plus-separatem-Proof: Beim initialen Login gibt es
@@ -30,5 +34,18 @@ die eine Server-zu-Server-Strecke beschränkt.
 mTLS hätte Peer-Identität und Verschlüsselung bereits auf Transportebene erzwungen. Ein
 übernommenes Keycloak kann jeden Nutzer imitieren — das liegt in der kc-first-Architektur selbst,
 auch mTLS ändert daran nichts.
+
+**Nachtrag (2026-09-23)**:
+- *Schlüsselmaterial.* Anders als oben unter „Warum“ angenommen, prüft der Orchestrator die
+  Assertion **nicht** mit den Token-Schlüsseln des Realms. Die Extension erzeugt je Komponente ein
+  eigenes Schlüsselpaar und veröffentlicht es unter
+  `/realms/{realm}/orchestrator-jwks/.well-known/jwks.json` (`OrchestratorJwksResourceProvider`,
+  [05-api.md](../05-api.md) Abschnitt 3: „ein Schlüsselpaar pro Client“). Das trennt die
+  Server-zu-Server-Signatur von der Token-Signatur; der Vorteil gegenüber mTLS — kein
+  Zertifikats-Rollout — bleibt, weil auch dieser Schlüssel über eine JWKS-URL verteilt wird.
+- *Browser → Orchestrator.* Genau ein Endpunkt ist davon ausgenommen: `KcMeController`
+  (`/orchestrator/api/v1/kc/me`, nur Profil `keycloak`) liest für die Test-Oberfläche das eigene
+  Journey-Log mit einem echten Keycloak-AccessToken. Er ist rein lesend, gehört nicht zur
+  kc-Facade und trägt keine Login- oder Tool-Ausführung.
 
 ---

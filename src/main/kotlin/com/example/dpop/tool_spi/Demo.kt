@@ -8,7 +8,7 @@ package com.example.dpop.tool_spi
 const val DEMO_EMAIL = "max.mustermann@example.com"
 
 /**
- * One of `V2__testdata.sql`'s three seeded persons, with every attribute any demo tool prefills
+ * One of `demo_seed/V16__testdata.sql`'s three seeded persons, with every attribute any demo tool prefills
  * anywhere (auth_email/password/sms's email, id_fsc/id_eid's KVNR/name/address/FSC code, and the
  * eid card's fixed restricted identifier). One shared shape so a single picker (wired centrally
  * in `ToolControllerSupport.demoInfo`, not per tool) covers every method and ident procedure at
@@ -29,7 +29,7 @@ data class DemoPerson(
 )
 
 /**
- * Same three persons/kvnrs as `V2__testdata.sql` and `KcDemoAccountSeeder.TEST_PERSONS` (demo_seed) -
+ * Same three persons/kvnrs as `demo_seed/V16__testdata.sql` and `KcDemoAccountSeeder.TEST_PERSONS` (demo_seed) -
  * duplicated here (not imported) for the same module-boundary reason as [DEMO_EMAIL]/`DEMO_PASSWORD`.
  * The first entry matches [DEMO_EMAIL] so existing single-value prefill behavior is unchanged.
  */

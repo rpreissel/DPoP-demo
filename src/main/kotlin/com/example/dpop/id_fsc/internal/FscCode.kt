@@ -15,7 +15,7 @@ class FscCode(
     /**
      * SHA-256 of the code, never the code itself. Unlike the six-digit TANs elsewhere this needs
      * no pepper: a Freischaltcode is not an enumerable number range, and a plain digest is what
-     * lets the demo codes be seeded in SQL (V2__testdata.sql).
+     * lets the demo codes be seeded in SQL (demo_seed/V16__testdata.sql).
      */
     var codeHash: String? = null,
 

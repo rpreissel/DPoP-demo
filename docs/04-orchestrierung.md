@@ -515,8 +515,12 @@ sondern verhält sich wie fehlende Eingabe (`200` plus Navigation, Grund in `ste
 das erschöpfte Budget endet terminal (`410`) — HTTP-Fehlercodes signalisieren gestörte Abläufe,
 nicht erwartbare Eingabefehler ([API](05-api.md)).
 
-Ausdrücklich offen: Brute-Force-Schutz auf Kontoebene über mehrere Journeys hinweg; das Budget ist
-journey-lokal.
+Über die Journey hinaus zählt ein zweiter, kontoweiter Schutz: `ToolControllerSupport.chargeThrottles`
+bucht jeden abgeschlossenen AUTH-Versuch auf das Konto (`LoginThrottleService`, auch beim
+Lookup-Login über `attemptedAccountId`) und jeden IDENT-Versuch auf die Person
+(`IdentThrottleService`). Das Retry-Budget oben bleibt journey-lokal; die Kontosperre gilt über alle
+Journeys und Kanäle hinweg. Welche Kategorien bewusst nicht zählen und warum, steht in
+[Betrieb](07-betrieb.md) Abschnitt 4.
 
 ---
 
@@ -636,14 +640,16 @@ betrifft, bedeutet denselben Zustand in mehreren Hierarchien. Bei zwei Pflichten
 bessere Tausch; kommt eine dritte hinzu, die mehrere Intents betrifft, gehört die Entscheidung neu
 geprüft.
 
-### Eine dritte Pflicht, aber kanalgebunden statt intent-übergreifend
+### Eine dritte Pflicht, auf einen Intent begrenzt
 
 `PasswordObligation` (`RegisterStrategy`) ist die oben angekündigte dritte Pflicht, aber anders
 zugeschnitten als der Absatz darüber befürchtet: Sie betrifft **keinen zweiten Intent** (nur
-`REGISTER`, nie `FAST_ACCESS`), sondern ist auf einen Kanal begrenzt (nur `KEYCLOAK`, nie `APP`).
-`RegisterStrategy` legt sich dafür um das Ergebnis von `AuthEnrollCore.afterEnrollment`: Nur wenn diese
-`Transition.Authenticated` zurückgeben würde *und* der Kanal `KEYCLOAK` ist *und* noch keine aktive
-`password`-Methode existiert, wird `PasswordObligation` eingeschoben. Der Zustand gehört, anders
+`REGISTER`, nie `FAST_ACCESS`). Seit die E-Mail-Bestätigung kein Enrollment mehr ist
+([ADR-17](adr/ADR-017-adresse-bestaetigen-und-e-mail-login-einrichten-sind.md)), gilt sie auf
+**beiden** Kanälen. `RegisterStrategy` legt sich dafür um das Ergebnis von
+`AuthEnrollCore.afterEnrollment`: Nur wenn diese `Transition.Authenticated` zurückgeben würde *und*
+noch keine aktive `password`-Methode existiert *und* das Konto `loa2` sonst nicht erreichen könnte,
+wird `PasswordObligation` eingeschoben. Der Zustand gehört, anders
 als `AuthChoice`/`Enrolling`, exklusiv zu `RegisterState`.
 
 **Reihenfolge, technisch erzwungen**: `PasswordObligation` steht *nach* `ConfirmingEmail`, weil

@@ -6,7 +6,7 @@ daraus an Tokens ausgestellt wurde) sind zwei Tabellen mit einseitiger Abhängig
 dürfen auf dieselbe Evidenz zeigen (`AuthContextRepository.findByAuthEvidenceId` liefert eine
 Liste). Abgeleitete Größen werden in keiner gespeichert: `currentAcr` berechnet
 `AuthPolicy.resolveAcr` bei jedem Lesen neu aus `amr_evidence`
-([Domänenmodell](02-domaenenmodell.md) Abschnitt 7).
+([Domänenmodell](../02-domaenenmodell.md) Abschnitt 7).
 
 **Erwogene Alternative**: Eine Tabelle — die Token-Spalten neben den Nachweisen in derselben
 Zeile, so wie es vor der kc-Fassade (`07e7156`) auch war.
@@ -14,7 +14,7 @@ Zeile, so wie es vor der kc-Fassade (`07e7156`) auch war.
 **Warum diese**: Zwei Gründe, die beide nicht an der Kardinalität hängen.
 
 1. **Nicht jeder Kanal hat Tokens, aber jeder hat Nachweise.** Der KEYCLOAK-Kanal legt nie einen
-   `AuthContext` an ([API](05-api.md) Abschnitt 3); in einer
+   `AuthContext` an ([API](../05-api.md) Abschnitt 3); in einer
    gemeinsamen Tabelle hätte jede Web-Kanal-Zeile vier dauerhaft leere Token-Spalten.
 2. **Das eine ist Wahrheit, das andere Cache.** Davon lebt
    `AuthEvidenceService.invalidateCachedTokens`: Ein Step-up setzt Access- und RefreshToken auf

@@ -1,5 +1,8 @@
 # ADR-18: Bestätigen und Zuordnen sind zwei Akte
 
+> **Stand 2026-09-23:** `ident-kvnr` trägt kein IAL bei; der Satz im Entscheidungstext war falsch.
+> Siehe Nachtrag 2.
+
 **Entscheidung**: `ident-eid` bestätigt nur noch, was die Karte trägt (Name, Vorname, Geburtsdatum,
 Adresse — jedes Kartenfeld ein eigener `AttributeType`, auch die Adressattribute `strasse`/
 `hausnummer`/`plz`/`ort`, die dafür aus den unstrukturierten `auditDetails` in echte Claims aufrückten —
@@ -52,5 +55,13 @@ Identifizierungsverfahren in der ersten Auswahl aufgetaucht wäre. Inzwischen pr
 Kandidatenpfade (`forIdentification`, `forAssignment`, `reIdentCandidates`) die Rolle statt
 die Kategorie — `ident-kvnr` ist damit strukturell nie ein (Re-)Identifizierungsweg, unabhängig
 davon, ob seine `requires` erfüllt sind.
+
+**Nachtrag 2 (2026-09-23)**: Oben heißt es, `ident-kvnr` gehöre zur Identitätsfeststellung „und
+trägt IAL bei“. Das widerspricht dem eigenen Sicherheitskern („beweist für sich nichts“) und dem
+Code: Die Rolle `CORRELATION` hat keine Evidenzachse (`ToolDescriptor.evidenceAxis()` in
+`orchestrator/policy/AuthEvidence.kt` liefert `null`), hebt also weder IAL noch AAL. Das IAL eines
+bestätigten Interessenten kommt allein aus `ident-eid`. Ebenso „`AuthEvidence.evidenceAxis()` wirft“
+für `ATTEST`: Die Funktion ist eine Erweiterung auf `ToolDescriptor` und liefert für `ATTESTATION`
+ebenfalls `null`.
 
 ---

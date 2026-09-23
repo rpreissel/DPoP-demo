@@ -33,7 +33,7 @@ sealed interface AttributeAuthority {
     data object ExtStammdaten : AttributeAuthority
 
     /**
-     * Owned by the method module that enrolled it, in its own `<module>_enrollment` row (e.g.
+     * Owned by the method module that enrolled it, in its own `<module>.enrollment` row (e.g.
      * `auth_sms.enrollment.phone_number`). The `account` module never resolves it.
      */
     data object MethodModule : AttributeAuthority

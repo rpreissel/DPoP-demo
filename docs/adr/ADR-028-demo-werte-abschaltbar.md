@@ -14,7 +14,8 @@ Bedingung. Ein Deployment, das diese Werte nicht ausliefern darf, hatte nichts z
 
 `if (!demoEnabled) return null` wäre kürzer gewesen. Dagegen spricht: man müsste dann per Test
 absichern, dass wirklich jede Stelle das Flag prüft, und eine dritte Stelle könnte den
-bedingungslosen Pfad wieder einführen. Mit einer profilgebundenen Bean gibt es den Pfad nicht, über
+bedingungslosen Pfad wieder einführen. Mit einer Bean, die es nur je nach Property `demo.disclosure` gibt (`@ConditionalOnProperty`,
+zwei Implementierungen in `DemoDisclosure.kt`), gibt es den Pfad nicht, über
 den die Werte hinausgehen könnten.
 
 ## Kosten

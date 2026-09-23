@@ -1,7 +1,7 @@
-# ADR-30: Eine Flyway-Migration je Modul
+# ADR-30: Ein Flyway-Migrationsordner je Modul
 
-**Entscheidung.** Jedes Modul bringt sein Schema in einer eigenen Datei unter
-`db/migration/<modul>/` mit. Im Wurzelverzeichnis der Migrationen liegt keine SQL-Datei mehr.
+**Entscheidung.** Jedes Modul bringt sein Schema in einem eigenen Ordner
+`db/migration/<modul>/` mit, meist eine Datei (der Orchestrator hat drei). Im Wurzelverzeichnis der Migrationen liegt keine SQL-Datei mehr.
 `ModuleMigrationLocations` findet die Ordner beim Start selbst.
 
 ## Vorher

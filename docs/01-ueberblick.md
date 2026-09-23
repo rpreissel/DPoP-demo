@@ -127,9 +127,11 @@ Details: [05-api.md](05-api.md)
 
 ## Sicherheitsniveaus haben drei Obergrenzen
 
-Ein Account kann nie mehr Vertrauen erzeugen, als bei seiner Identifikation festgestellt wurde.
-Eine Methode kann nie mehr Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war. Und ein Durchlauf
-nie mehr, als das Verfahren technisch trägt. Zusammen verhindern die drei Grenzen, dass jemand
+Eine Methode kann nie mehr Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war, und dazu
+zählt auch, wie stark die Person in dieser Session identifiziert war. Und ein Durchlauf nie mehr,
+als das Verfahren technisch trägt. Eine eigene, kontoweite Grenze aus der gespeicherten
+Identifizierung gibt es nicht mehr; sie wirkt nur noch über die Einrichtung
+([ADR-5](adr/ADR-005-drei-obergrenzen-fuer-das-sicherheitsniveau.md), Nachtrag 2). Zusammen verhindern die drei Grenzen, dass jemand
 in einer schwachen Session eine Methode einrichtet und sich damit dauerhaft ein höheres Niveau
 verschafft.
 

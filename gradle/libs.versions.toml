@@ -12,6 +12,12 @@ springmockk = "5.0.1"
 kover = "0.9.9"
 openapi-generator = "7.18.0"
 openapi-diff = "2.1.7"
+# Eine Version fuer beide Seiten der Peer-Auth-Signatur: keycloak-extension signiert, der
+# Orchestrator (PeerAuthValidator) prueft - derselbe JOSE-Dialekt, nicht nur dieselbe Bibliothek.
+nimbus-jose-jwt = "10.10"
+# Jackson 2 nur fuer keycloak-extension (der Orchestrator laeuft auf Jackson 3 / tools.jackson).
+jackson2 = "2.19.0"
+shadow = "9.2.2"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
@@ -21,6 +27,7 @@ kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotl
 kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 
 [libraries]
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
@@ -36,7 +43,9 @@ spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-
 h2 = { module = "com.h2database:h2" }
 spring-boot-h2console = { module = "org.springframework.boot:spring-boot-h2console" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
-nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version = "10.3" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }
+jackson2-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson2" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 # Jackson 3 Kotlin module: JourneyState is persisted as JSON (data classes + sealed hierarchies).

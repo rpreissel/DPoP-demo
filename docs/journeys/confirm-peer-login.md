@@ -61,4 +61,4 @@ Drei Startzustände, eine Zustandsmenge:
 Der Pairing-Code geht **nicht** über den Kanal-Erzeugungsvertrag, sondern ist ein Eingabefeld des
 ersten `confirm-qr-login`-Schritts. Der QR-Code (bzw. der Demo-Link) kodiert einen Deep-Link, der
 App-seitig `intent=confirm_peer_login` setzt und `pairingCode` vorbefüllt durchreicht
-([Frontend](10-frontend.md)).
+([Frontend](../10-frontend.md)).

@@ -14,19 +14,20 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * The API contract has three hand-written readers: the Kotlin DTOs, `frontend/src/types.ts`, and
- * the Java parsing in `keycloak-extension` (`OrchestratorClient`/`OrchestratorNextDispatch`).
- * Nothing used to connect them, so a changed response shape reached each of them as a runtime
- * surprise at a different time. `api/openapi.yaml` is the one place the contract is written down;
- * this test is what keeps it honest - a changed controller or DTO fails HERE, in the diff of a
- * checked-in file, instead of silently in a client.
+ * The API contract used to have three hand-written readers: the Kotlin DTOs,
+ * `frontend/src/types.ts`, and the Java parsing in `keycloak-extension`. Nothing connected them,
+ * so a changed response shape reached each of them as a runtime surprise at a different time.
+ * `api/openapi.yaml` is now the one place the contract is written down, produced from the running
+ * code by this test - a changed controller or DTO fails HERE, in the diff of a checked-in file,
+ * instead of silently in a client.
  *
- * The frontend's generated types are derived from that same snapshot
- * (`frontend/src/generated/api.ts`, `npm run generate:api`), so a contract change the frontend has
- * not caught up with becomes a TypeScript error rather than an `undefined` at runtime.
+ * Both clients are generated from that same snapshot: the frontend's types into
+ * `frontend/src/generated` (`./gradlew generateFrontendApiTypes`, checked in) and the extension's
+ * Java models at build time (`:keycloak-extension:generateOrchestratorModels`). A contract change a
+ * client has not caught up with becomes a compile error rather than an `undefined` at runtime.
  *
- * To accept an intended change: `./gradlew updateOpenApiSnapshot`, then `cd frontend && npm run
- * generate:api`, and review both diffs.
+ * To accept an intended change: `./gradlew updateOpenApiSnapshot`, then
+ * `./gradlew generateFrontendApiTypes`, and review both diffs (docs/adr/ADR-026).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -72,7 +73,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                         Beabsichtigt? Dann:
                           ./gradlew updateOpenApiSnapshot
                           ./gradlew generateFrontendApiTypes
-                        und die Diffs pruefen - keycloak-extension liest denselben Vertrag von Hand.
+                        und die Diffs pruefen - keycloak-extension erzeugt ihre Modelle beim Build aus demselben Vertrag.
                         """.trimIndent()
                     )
                 }

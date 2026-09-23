@@ -1,6 +1,9 @@
 # ADR-12: Ein Widerruf ist eine eigene Zeile mit eigenem Vertrauensanker
 
-**Entscheidung** (**umgesetzt**, [Idee](ideen/claims-modell-und-vertrauensanker.md)): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Angabe mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Angaben minus Widerrufe" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Widerrufe kommen nie über den Tool-Vertrag: `ToolOutcome` kennt nur positive Ergebnisse.
+> **Stand 2026-09-23:** Projektionsspalten gibt es nicht mehr, und der Widerruf hat mehr als einen
+> Leser. Siehe Nachtrag 3.
+
+**Entscheidung** (**umgesetzt**, [Idee](../ideen/claims-modell-und-vertrauensanker.md)): Ein zurückgezogener Wert (KVNR abgemeldet, E-Mail verworfen) wird als eigene Zeilenform festgehalten — `account.retraction(account_id, attribute_type, normalized_value, trust_anchor, reason, retracted_at)` — und ist selbst eine Angabe mit eigenem Vertrauensanker: WER ruft zurück, plus Grund und Zeitpunkt. Das Log (`account.claim`) bleibt strikt append-only; die Konsolidierung rechnet "Angaben minus Widerrufe" und hält Projektionsspalten und `account.anchor` aktuell (die Anker-Zeile wird gelöscht — die Anker-Tabelle ist Projektion, nicht Log). Widerrufe kommen nie über den Tool-Vertrag: `ToolOutcome` kennt nur positive Ergebnisse.
 
 **Erwogene Alternative**: Flag-Spalten (`retracted_at`/`retracted_by`) direkt auf der
 Claim-Zeile — eine Tabelle, einfachste Abfrage, aber die einzige Nicht-Append-Mutation im Log.
@@ -43,5 +46,13 @@ lesbare Kopie. Naheliegend wäre eine Aufbewahrungsfrist, nach der Claim-
 und Widerrufszeile gemeinsam gelöscht werden; der Audit-Nachweis hängt nicht daran,
 `account.identification` hält Verfahren, LoA und Zeitpunkt ohne die Attributwerte fest.
 
+**Nachtrag 3 (2026-09-23)**:
+- Seit [ADR-14](ADR-014-schema-zusammengefuehrt-das-konto-als-sperrpunkt-eine-wahrheit.md) gibt es
+  keine Projektionsspalten mehr; die Konsolidierung hält nur noch `account.anchor` aktuell.
+- Der unter „Kosten“ genannte einzige Leser (Attributabgleich in `IdentityMatchingService`) ist mit
+  ADR-19 entfallen. `findEstablished` hat heute mehrere Leser: `AccountService` (bestätigte
+  Angaben, Claim-Übernahme in `recordClaims`, `absorbProvisionalAccount`, Anzeige) und
+  `IdentityMatchingService` (bestätigte Identität). Alle gehen über denselben Anti-Join; die
+  Subtraktion steht also weiterhin an genau einer Stelle, nur mit mehr Aufrufern.
 
 ---

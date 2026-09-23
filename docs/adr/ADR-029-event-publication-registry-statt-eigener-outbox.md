@@ -50,7 +50,7 @@ Zustellungen führen zu zehn gleichen Upserts, nicht zu falschen Daten.
 - `spring.modulith.events.jdbc.schema: orchestrator` ist zwingend. Ohne die Einstellung sucht die
   Registry die Tabelle im Standardschema, findet sie nicht und schreibt nichts — ohne Fehlermeldung.
   Genau das ist beim ersten Versuch passiert; `EventPublicationRegistryTest` prüft es deshalb.
-- Die Tabelle legt Flyway an (`V5__event_publication.sql`), nicht Modulith selbst. Das Projekt legt
+- Die Tabelle legt Flyway an (`orchestrator/V15__event_publication.sql`), nicht Modulith selbst. Das Projekt legt
   jedes Schema per Migration an (ADR-16). Die Datei ist unverändert aus dem
   `spring-modulith-events-jdbc`-Jar übernommen und muss beim Anheben der Version verglichen werden.
 

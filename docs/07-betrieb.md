@@ -119,7 +119,7 @@ Zwei Dinge, die man wissen muss:
   Registry die Tabelle im Standardschema, findet sie nicht und schreibt nichts — ohne
   Fehlermeldung. `EventPublicationRegistryTest` prüft deshalb, dass ein fehlschlagender Listener
   tatsächlich eine offene Zeile hinterlässt.
-- Die Tabelle legt Flyway an (`V5__event_publication.sql`), nicht Modulith. Die Datei ist
+- Die Tabelle legt Flyway an (`orchestrator/V15__event_publication.sql`), nicht Modulith. Die Datei ist
   unverändert aus dem `spring-modulith-events-jdbc`-Jar übernommen und muss beim Anheben der
   Modulith-Version damit verglichen werden.
 
@@ -213,8 +213,8 @@ einen eigenen, IP-/anonymen Zähler auf fehlgeschlagene `pairingCode`-Lookups �
 
 ## 6) Datenbankschema: Konventionen
 
-Das Schema steht in `src/main/resources/db/migration/<modul>/`, eine Datei je Modul; die Regeln
-stehen in dessen Kopf und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16).
+Das Schema steht in `src/main/resources/db/migration/<modul>/`, ein Ordner je Modul; die Regeln
+stehen in `db/migration/KONVENTIONEN.md` und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16/ADR-30).
 Diagramm der tragenden Tabellen: [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
 
 - **Besitz ist strukturell**: Ein Datenbankschema je Modul, und jede Tabelle liegt im Schema

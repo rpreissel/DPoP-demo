@@ -2,7 +2,7 @@
 
 **Entscheidung**: `AuthJourney` ist eine flache Entity ohne Subklassen oder getrennte Tabellen je
 Intent. Was sich je Intent unterscheidet, steckt in `stateType` (Diskriminator) plus `state`
-(JSON) ([Domänenmodell](02-domaenenmodell.md) Abschnitt 2).
+(JSON) ([Domänenmodell](../02-domaenenmodell.md) Abschnitt 2).
 
 **Erwogene Alternative**: Eine Tabelle je Intent bzw. Single-Table-Vererbung mit spaltenweise
 kodierten intent-spezifischen Feldern.

@@ -661,7 +661,7 @@ class JourneyActionExecutor(
      * the account itself (`AttributeAuthority.Local`) besides, so no method revocation can ever
      * reach it. That is why
      * [performRetractAttribute] exists and calls this same fixpoint: losing an address takes the
-     * password with it, and the password takes a kobil credential (ADR-24).
+     * password and the email login with it (ADR-24).
      *
      * This is where `requires` stops being merely an offering gate and becomes a standing
      * precondition (see [ToolDescriptor.requires]). A claim that survives the revocation - an

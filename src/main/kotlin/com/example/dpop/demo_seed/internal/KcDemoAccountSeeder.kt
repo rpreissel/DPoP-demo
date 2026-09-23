@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 /**
- * Demo-only: gives every V2__testdata.sql test person a real orchestrator account with a
+ * Demo-only: gives every demo_seed/V16__testdata.sql test person a real orchestrator account with a
  * confirmed address and two active login methods - `password` (KNOWLEDGE) and `sms` (POSSESSION),
  * the pair a step-up to LoA2 can actually combine - so the `keycloak` profile's
  * native-password/orchestrator-step-up flow
@@ -156,7 +156,7 @@ internal class KcDemoAccountSeeder(
          */
         private val SEEDED_ACR = AcrLevel.LOA2
 
-        // Same three persons/kvnrs as V2__testdata.sql - kept in that exact order because a fresh
+        // Same three persons/kvnrs as demo_seed/V16__testdata.sql - kept in that exact order because a fresh
         // DB assigns account ids sequentially in the order accounts are first created, and
         // infra/tofu/keycloak/main.tf's keycloak_user resources hardcode the resulting ids
         // (1/2/3) as each user's orchestratorAccountId attribute.

@@ -23,6 +23,7 @@ Claim-Log — einem Vorhaben, dem hier nicht vorgegriffen wird.
 
 Zusätzlich liegen während einer laufenden Einrichtung PIN **und** Unlock-Secret im Klartext in
 `auth_kobil.enroll_tool_session` — dort absichtlich, damit ein Neuladen der Seite den Ablauf nicht abbricht,
-und mit der 24-Stunden-Frist des `AuthKobilRetentionJob` als Gegengewicht.
+und mit der zentralen 24-Stunden-Frist für Tool-Sessions (`tool-session.retention` in
+`application.yml`, abgeräumt über `AuthKobilRetentionJob`) als Gegengewicht.
 
 ---

@@ -253,7 +253,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
             // What travels in `demo` is a plaintext TAN, the fixed demo password, and every seeded
             // persona's KVNR/name/address. Two services used to build a DemoInfo unconditionally,
             // so "never part of the production contract" was a doc comment with nothing behind it.
-            // With construction confined to one profile-gated bean, `demo.disclosure=false` removes
+            // With construction confined to one property-gated bean, `demo.disclosure=false` removes
             // the values from every response rather than filtering them out of some.
             noClasses()
                 .that().resideOutsideOfPackage("com.example.dpop.tool_api..")

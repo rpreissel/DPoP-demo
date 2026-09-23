@@ -9,20 +9,16 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver
 /**
  * Lets every module keep its own migrations in its own folder under `db/migration/`.
  *
- * The schema is already per module (`auth_sms.*`, `account.*`, ... - one schema each, V1), but the
- * migrations were not: `V1__schema.sql` creates the tables of all fourteen modules in one 589-line
- * file. Adding a method module therefore meant editing a file shared with every other module - the
- * one place module autonomy still broke, and the reason `V3__auth_kobil.sql` had already drifted
- * into a different convention on its own.
+ * Each module owns a database schema (`auth_sms.*`, `account.*`, ..., ADR-16) and the migrations
+ * that build it, in `db/migration/<module>/` (ADR-30). Before that, one shared file created the
+ * tables of every module, so adding a method module meant editing a file shared with all others -
+ * the one place module autonomy still broke.
  *
  * Discovered rather than listed: a hard-coded `spring.flyway.locations` would just move the shared
  * file one level up - a central list a new module can be forgotten from, which is exactly the
  * failure mode the tool catalog and the retention sweep were already built to avoid. A module gets
- * its migrations run by creating the folder, and by nothing else.
- *
- * `classpath:db/migration` itself stays first and keeps V1-V4: they are history, already applied
- * everywhere, and splitting an applied migration would only change checksums for no gain. New
- * module-owned migrations go in the module's own folder.
+ * its migrations run by creating the folder, and by nothing else. `classpath:db/migration` itself
+ * holds no SQL any more, only `KONVENTIONEN.md`.
  *
  * Versions remain ONE sequence across all folders - Flyway orders by version, not by location. Two
  * modules picking the same version is a startup failure ("Found more than one migration with

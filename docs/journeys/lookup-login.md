@@ -53,4 +53,4 @@ Re-Identifizierung bleibt erlaubt, weil dabei kein Credential auf einem ungeprü
 
 **Enumeration-Schutz**: Eine unbekannte E-Mail liefert dieselbe Antwortform wie ein aufgelöster
 Account mit fehlgeschlagenem Nachweis — nie eine eigene Fehlerform, auch nicht im Timing der
-Demo-Werte ([API](05-api.md)). Bewusst nicht weiter gehärtet (kein Timing-Padding).
+Demo-Werte ([API](../05-api.md)). Bewusst nicht weiter gehärtet (kein Timing-Padding).

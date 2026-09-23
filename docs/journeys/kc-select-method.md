@@ -3,8 +3,8 @@
 
 # `KC_SELECT_METHOD`
 
-Der Default-Entry-Intent des `KEYCLOAK`-Kanals für Login/Step-up ([05-api.md](05-api.md)
-Abschnitt 3, `ADR-8` in [12-entscheidungen.md](12-entscheidungen.md)); `REGISTER` ist der zweite
+Der Default-Entry-Intent des `KEYCLOAK`-Kanals für Login/Step-up ([05-api.md](../05-api.md)
+Abschnitt 3, `ADR-8` in [12-entscheidungen.md](../12-entscheidungen.md)); `REGISTER` ist der zweite
 Web-Entry (Abschnitt "REGISTER" oben). Ein einziger Zustand, der ohne jede Bedingung alle kc-nutzbaren
 Tools als einen `selectMethod`-Schritt anbietet — keine Fallback-Kette, kein Enrollment-Angebot,
 und VOR dem Anbieten keine Prüfung, ob das Vorhandene schon reicht: Keycloaks native Flow-Konfiguration

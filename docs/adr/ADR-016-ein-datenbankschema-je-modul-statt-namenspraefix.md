@@ -10,7 +10,7 @@ Schema ihres Moduls: `account.anchor`, `auth_sms.enrollment`, `orchestrator.chan
 Tabellennamen tragen kein Modulpräfix mehr; Indizes und
 Constraints sind schema-eigene Objekte und ebenfalls präfixfrei (`ux_anchor_value`). Die
 Arbeitsdaten eines Tool-Durchlaufs heißen `<modul>.<tool-rolle>_tool_session`
-([Betrieb](07-betrieb.md) Abschnitt 6, Kopf von `V1__schema.sql`).
+([Betrieb](../07-betrieb.md) Abschnitt 6, `db/migration/KONVENTIONEN.md`).
 
 **Erwogene Alternative**: Der Zustand davor — eine flache Tabellenmenge mit dem Modulnamen als
 Präfix (`auth_sms_enrollment`, `orchestrator_channel_session`).
@@ -24,7 +24,7 @@ eines Moduls in einen eigenen Dienst hat zudem eine klare Schnittlinie.
 **Kosten**: Jede Query, jede `@Table`-Annotation und jedes Admin-Werkzeug muss qualifizieren; ein
 unqualifiziertes `SELECT ... FROM anchor` findet nichts mehr, weil der Suchpfad auf `PUBLIC` steht
 (dort bleibt bewusst auch `flyway_schema_history`).
-Und wo vorher ein Tabellenname global eindeutig war, ist er es jetzt nur noch je Schema: Fünf
+Und wo vorher ein Tabellenname global eindeutig war, ist er es jetzt nur noch je Schema: Sechs
 Module haben ein `enroll_tool_session`.
 
 ---

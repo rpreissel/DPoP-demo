@@ -28,7 +28,6 @@ import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
 
 import java.text.ParseException;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -58,9 +57,6 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
     public static final String ACCOUNT_ID_ATTRIBUTE = "orchestratorAccountId";
     private static final String SESSION_MARKER_NOTE = "dpop-demo-account-token-session";
 
-    // Generous like kc.peer-auth.max-clock-skew-seconds on the orchestrator side (application-
-    // keycloak.yml) - same podman-machine clock-drift environment, opposite direction.
-    private static final long MAX_CLOCK_SKEW_SECONDS = 300;
 
     @Override
     public Response process(Context context) {
@@ -178,9 +174,7 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
             if (audience == null || !audience.contains(GRANT_TYPE)) {
                 return null;
             }
-            Date now = new Date();
-            Date exp = claims.getExpirationTime();
-            if (exp == null || now.getTime() - MAX_CLOCK_SKEW_SECONDS * 1000 > exp.getTime()) {
+            if (!AccountAssertionTimes.acceptable(claims, System.currentTimeMillis())) {
                 return null;
             }
             return claims;

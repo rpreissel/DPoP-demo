@@ -70,7 +70,7 @@ class DeploymentTopologyCheck(
             // MULTIPLE is always wrong on this point until something does. Better to say so than to
             // let eleven jobs run N times over.
             add(
-                "Die geplanten Jobs (Retention, Tool-Session-Sweep, Keycloak-Outbox) haben keine " +
+                "Die geplanten Jobs (Retention, Tool-Session-Sweep) haben keine " +
                     "Leader-Election und keine Sperre - bei mehreren Instanzen laufen sie mehrfach " +
                     "parallel. Dafuer fehlt die Umsetzung noch (docs/07-betrieb.md)."
             )

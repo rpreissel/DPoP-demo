@@ -43,20 +43,6 @@ fun upConfig(vararg extraAttributes: Pair<String, Set<String>>): UPConfig {
 
 fun StepContext.clientDbId(clientId: String): String = clients().findByClientId(clientId).first().id
 
-/**
- * POST /clients ignoriert das secret-Feld beim Anlegen (Keycloak vergibt immer ein zufälliges) -
- * erst ein update() setzt einen gewünschten Wert durch. Als Helper hier statt inline im Skript,
- * weil derselbe Aufruf inline in einem step-Block das secret beobachtbar NICHT durchsetzt
- * (vermutlich ein Klassenlader-Effekt der Kotlin-Scripting-Engine auf die Jackson-Serialisierung -
- * siehe MigrationRunner.ensureRealmExists()s ähnlichen Fall) - über eine kompilierte Funktion
- * funktioniert es zuverlässig.
- */
-fun StepContext.setClientSecret(clientId: String, secret: String) {
-    val id = clientDbId(clientId)
-    val rep = clients().get(id).toRepresentation()
-    rep.setSecret(secret)
-    clients().get(id).update(rep)
-}
 fun StepContext.scopeDbId(name: String): String = clientScopes().findAll().first { it.name == name }.id
 
 /** Direktes Kind (Execution oder Subflow) eines Flow-Levels, gesucht über sein providerId oder alias. */

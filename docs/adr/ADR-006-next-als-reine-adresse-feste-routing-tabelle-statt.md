@@ -4,7 +4,7 @@
 `toolId`/`context`, Step) und nie Inhalt oder Links mitliefert. Der Client bildet daraus über eine
 **eigene, lokale, feste Routing-Tabelle** (`(toolId|context, step)` -> UI-Komponente bzw.
 Endpunkt) den nächsten Schritt ab
-([API](05-api.md) Abschnitt 1, [Frontend](10-frontend.md)).
+([API](../05-api.md) Abschnitt 1, [Frontend](../10-frontend.md)).
 
 **Erwogene Alternative**: HATEOAS — die Antwort liefert fertige, klickbare Links (`href`).
 

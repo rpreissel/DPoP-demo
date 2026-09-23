@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
  * The default is stated here rather than assumed, so turning it off is one setting rather than a
  * code change.
  *
- * `OrchestratorArchitectureTest.onlyDemoDisclosureBuildsDemoInfo` keeps this the only construction
+ * `OrchestratorArchitectureTest` ("the demo block of a response") keeps this the only construction
  * site - otherwise a third assembly point could quietly reintroduce the unconditional path.
  */
 interface DemoDisclosure {

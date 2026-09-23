@@ -1,11 +1,15 @@
 # ADR-8: Keycloak führt seine eigenen nativen Schritte selbst, statt alles zu delegieren oder über Identity-Brokering zu gehen
 
+> **Stand 2026-09-23:** Der Orchestrator wird inzwischen an mehr Stellen gerufen als nur für
+> `KC_SELECT_METHOD`, und die Passwortprüfung läuft zustandslos über ihn. Die Entscheidung gilt;
+> siehe Nachtrag.
+
 **Entscheidung** (umgesetzt): Der Web-Kanal lässt Keycloak seine eigene, native
 Authentifizierungs-Flow-Konfiguration (Conditional-LoA-Subflows, natives Passwort-Login) fahren
 und ruft den Orchestrator nur innerhalb einer laufenden, persistenten `AuthJourney` für die
-Schritte auf, die Keycloak nicht kann (`KC_SELECT_METHOD`, [04-orchestrierung.md](04-orchestrierung.md)
+Schritte auf, die Keycloak nicht kann (`KC_SELECT_METHOD`, [04-orchestrierung.md](../04-orchestrierung.md)
 Abschnitt 3). Der Orchestrator bleibt für die Dauer eines Flow-Durchlaufs alleinige, kombinierende
-ACR/AMR-Instanz ([05-api.md](05-api.md) Abschnitt 3).
+ACR/AMR-Instanz ([05-api.md](../05-api.md) Abschnitt 3).
 
 **Erwogene Alternativen**:
 
@@ -28,5 +32,16 @@ ACR/AMR-Instanz ([05-api.md](05-api.md) Abschnitt 3).
 eine nicht überlappende Zuständigkeit trägt (Keycloak entscheidet OB und WELCHES ACR-Level
 angefragt ist, der Orchestrator WAS innerhalb einer Stufe passiert und wie sich mehrere Nachweise
 zu einem Gesamt-ACR kombinieren).
+
+**Nachtrag (2026-09-23)**:
+- *Weitere Einstiege.* Der kc-Kanal nimmt neben `KC_SELECT_METHOD` auch `REGISTER` an
+  (`KcChannelService.entryIntentFor`), und `MANAGE_AUTH_METHODS` läuft als Required Action mit
+  eigener Journey (`OrchestratorManageMethodsRequiredAction`, [05-api.md](../05-api.md) Abschnitt 3).
+  Beides sind Schritte, die Keycloak selbst nicht kann; der Grundsatz „nur dafür“ bleibt.
+- *Passwort.* Das Passwort-Credential prüft Keycloak nicht mehr selbst: `OrchestratorStorageProvider`
+  (UserStorage mit `federationLink`) ruft dafür zustandslos, ohne Kanal und Journey,
+  `MgmtPasswordController` auf. Das ist die oben verworfene Form „zustandslose Einzel-Tool-Aufrufe“,
+  hier bewusst im Login-Flow: Es wird kein Nachweis verrechnet, der Orchestrator ist nur der
+  Credential-Speicher. Das native Passwort-Formular und die LoA-Steuerung bleiben bei Keycloak.
 
 ---

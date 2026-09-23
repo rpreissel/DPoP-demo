@@ -240,8 +240,9 @@ enum class MethodRole(val category: ToolCategory, val defaultStartStep: String) 
     /**
      * Attaches an ALREADY attested identity to the register person it belongs to (e.g.
      * `ident-kvnr` taking the Versichertennummer, docs/12-entscheidungen.md ADR-18). Same
-     * category as [IDENTIFICATION] - it is part of establishing who someone is and contributes
-     * to IAL - but a distinct role for the same reason [LOOKUP_AUTH] is distinct from
+     * category as [IDENTIFICATION] - it is part of establishing who someone is, though it lifts
+     * no evidence axis itself (`evidenceAxis()` is null) - but a distinct role for the same
+     * reason [LOOKUP_AUTH] is distinct from
      * [IDENTIFIED_AUTH]: the category alone matches both, and these two must never be
      * interchangeable.
      *

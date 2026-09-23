@@ -124,16 +124,15 @@ services:
       # ./gradlew bootRun auf dem Host.
       #
       # Aus diesem einen Satz leitet KeycloakSetupEnvironment alles Weitere ab: wohin die
-      # Migration schreibt, wohin der Account-Sync spricht, welches Realm, welche Client-Secrets,
-      # welche JWKS-/OIDC-URLs. Deshalb stehen die frueheren KC_PEERAUTH_*, KC_OIDC_*,
-      # KEYCLOAKSYNC_* und KEYCLOAK_MIGRATE_BASE_URL hier nicht mehr - sie waeren ein zweiter Ort
-      # fuer dieselben Werte.
+      # Migration schreibt, wohin der Account-Sync spricht, welches Realm, welche JWKS-/OIDC-URLs.
+      # Deshalb stehen die frueheren KC_PEERAUTH_*, KC_OIDC_*, KEYCLOAKSYNC_* und
+      # KEYCLOAK_MIGRATE_BASE_URL hier nicht mehr - sie waeren ein zweiter Ort fuer dieselben Werte.
       #
       # ACHTUNG: aendert sich ein bereits angewendeter Wert dieses Satzes, baut der MigrationRunner
       # das Realm neu auf - dieselbe Konsequenz wie bei einer geaenderten Migrationsdatei.
-      # Realm-Name und die beiden Client-Secrets stehen bewusst NICHT hier: sie gehoeren zum
-      # Parametersatz (keycloak-setup.variants bzw. eine eigene Variante) - ein zweiter Default
-      # an dieser Stelle waere derselbe Wert an zwei Orten.
+      # Der Realm-Name steht bewusst NICHT hier: er gehoert zum Parametersatz
+      # (keycloak-setup.variants bzw. eine eigene Variante) - ein zweiter Default an dieser Stelle
+      # waere derselbe Wert an zwei Orten. Client-Secrets gibt es keine mehr (private_key_jwt, ADR-25).
       KEYCLOAK_SETUP_VARIANT: compose
       # Master-Realm-Admin fuer den Migrationslauf selbst - nicht der orchestrator-admin-Client,
       # den die Migration erst anlegt.

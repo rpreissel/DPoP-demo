@@ -3,10 +3,10 @@
 # Start: `podman-compose up --build` (compose.yml) fuer Keycloak, parallel dazu
 # `./gradlew bootRun --args='--spring.profiles.active=keycloak'` fuer den Orchestrator selbst.
 #
-# WO HIER WAS STEHT: Realm-Name, Keycloak-Adresse und die Client-Secrets stehen NICHT mehr in
+# WO HIER WAS STEHT: Realm-Name und Keycloak-Adresse stehen NICHT mehr in
 # diesem Profil, sondern ausschliesslich im Parametersatz unten (keycloak-setup).
 # KeycloakSetupEnvironment leitet daraus kc.peer-auth.issuer/audience/jwks-uri, kc.oidc.*,
-# keycloak-sync.base-url/realm/*-secret und keycloak-migrate.base-url ab, bevor die erste Bean
+# keycloak-sync.base-url/realm und keycloak-migrate.base-url ab, bevor die erste Bean
 # entsteht. Grund: Aufbau und Betrieb meinen dasselbe Realm und dieselben Clients - zwei Orte
 # dafuer waren ein Tippfehler von einem 401 entfernt, der erst tief im Betrieb auffaellt.
 kc:
@@ -33,8 +33,8 @@ kc:
 
 # Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
 # in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig. Vollstaendig abgeleitet
-# (base-url, realm, beide Client-Ids und -Secrets): es sind genau die Clients, die die Migration
-# anlegt, siehe Kopf.
+# (base-url, realm, beide Client-Ids): es sind genau die Clients, die die Migration anlegt, siehe
+# Kopf. Angemeldet wird per private_key_jwt, nicht per Secret (ADR-25).
 
 # KeycloakMigrationRunnerStartup wendet die Migrationen beim Start des Orchestrators an - Ersatz
 # fuer den frueheren separaten Tofu-Schritt. Es gibt hier nichts mehr zu konfigurieren: die
@@ -44,7 +44,7 @@ kc:
 # orchestrator-admin-Service-Account: den legt die Migration selbst erst an.
 
 # Welche Umgebung aufgebaut und bedient wird. Alles, was zwischen zwei Umgebungen verschieden ist
-# - Realm-Name, Client-Ids, Secrets, Redirect-URIs und die URLs beider Seiten - steht hier, nicht
+# - Realm-Name, Client-Ids, Redirect-URIs und die URLs beider Seiten - steht hier, nicht
 # verstreut als System.getenv im Migrationsskript (KeycloakSetup). Aus diesem Satz speist sich
 # beides: der Realm-Aufbau durch die Migration und die Laufzeitwerte oben.
 #

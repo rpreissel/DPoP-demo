@@ -111,7 +111,7 @@ class AccountFixtures(
     /** What a completed ident-fsc run leaves behind: the four stammdaten claims plus the audit row. */
     private fun identify(accountId: Long, kvnr: String, name: String, vorname: String) {
         val personId = requireNotNull(personDirectory.findPersonIdByKvnr(kvnr)) {
-            "No test person for kvnr $kvnr - see V2__testdata.sql"
+            "No test person for kvnr $kvnr - see demo_seed/V16__testdata.sql"
         }
         accountService.recordClaims(
             accountId,

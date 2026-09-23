@@ -1,6 +1,6 @@
 plugins {
     java
-    id("com.gradleup.shadow") version "9.2.2"
+    alias(libs.plugins.shadow)
     alias(libs.plugins.openapi.generator)
 }
 
@@ -27,15 +27,15 @@ dependencies {
     compileOnly("org.keycloak:keycloak-server-spi-private:$keycloakVersion")
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
 
-    // Same JOSE/JWT library the orchestrator's PeerAuthValidator uses (com.nimbusds:nimbus-jose-jwt
-    // via Spring Boot's dependency management) - keeps ES256 signing on this side and verification
-    // on the orchestrator side speaking exactly the same JOSE dialect. Not provided by Keycloak's
-    // runtime, so it has to be shaded into the provider jar.
-    implementation("com.nimbusds:nimbus-jose-jwt:9.37.3")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
+    // Same JOSE/JWT library AND version the orchestrator's PeerAuthValidator uses - one entry in
+    // the version catalog, so ES256 signing on this side and verification on the orchestrator side
+    // cannot drift apart. Not provided by Keycloak's runtime, so it has to be shaded into the
+    // provider jar.
+    implementation(libs.nimbus.jose.jwt)
+    implementation(libs.jackson2.databind)
     // Begleiter fuer java.time, den die generierten Vertragsmodelle brauchen (der Vertrag fuehrt
     // date-time-Felder). Dieselbe Jackson-Version, damit nichts auseinanderlaeuft.
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.19.0")
+    implementation(libs.jackson2.datatype.jsr310)
     // Der Generator schreibt @javax.annotation.Nonnull an jedes Pflichtfeld. compileOnly, weil die
     // Annotation CLASS-Retention hat: der Compiler braucht sie, die Laufzeit nicht - so bleibt sie
     // aus dem Shadow-Jar heraus.

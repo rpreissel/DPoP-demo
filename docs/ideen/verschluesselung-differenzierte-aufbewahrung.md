@@ -4,7 +4,7 @@
 > Betrifft [02-domaenenmodell.md](../02-domaenenmodell.md) §6 (`AccountClaim`/`AccountAnchor`/
 > `AccountRetraction`) und die Aufbewahrungsregeln in [07-betrieb.md](../07-betrieb.md). Im
 > Projekt existiert aktuell **keine** Verschlüsselung ruhender Daten — alle PII-Spalten sind
-> Klartext (`V1__schema.sql`); vorhandener Krypto-Code beschränkt sich auf PBKDF2-Passwort-Hashing,
+> Klartext (`db/migration/<modul>/`); vorhandener Krypto-Code beschränkt sich auf PBKDF2-Passwort-Hashing,
 > HMAC (TAN/E-Mail-Code, Throttle) und EC-Keygen für Keycloak-Assertions. Eine „eID max. 1 Jahr"-
 > Regel existiert nirgends in der Doku — sie dient hier nur als illustratives Beispiel.
 
@@ -20,7 +20,7 @@ ausdrücklich **nicht** Teil der Frage.
 - Im Projekt existiert aktuell **keine** Verschlüsselung ruhender Daten. Alle PII-Spalten
   (`account.claim.claim_value`, `account.anchor.normalized_value`,
   `ext_stammdaten.person.*`, `id_eid.ident_tool_session.*`) sind Klartext-`VARCHAR`/`DATE`
-  (`V1__schema.sql`). Vorhandener Krypto-Code ist nur PBKDF2 (Passwort-Hash), HMAC (TAN/E-Mail-Code,
+  (`db/migration/<modul>/`). Vorhandener Krypto-Code ist nur PBKDF2 (Passwort-Hash), HMAC (TAN/E-Mail-Code,
   Throttle) und EC-Keygen für Keycloak-Assertions — `AccountKeycloakKeypair.privateKeyJwk` ist
   explizit als „Demo-only: plaintext, not encrypted at rest" dokumentiert
   (`AccountKeycloakKeypair.kt:16-17`).

@@ -1,5 +1,7 @@
 # ADR-20: Ein vorläufiges Konto geht im gefundenen auf, statt den Lauf abzuweisen
 
+> **Stand 2026-09-23:** Für eine bestätigte Adresse gilt eine zusätzliche Bedingung; siehe Nachtrag.
+
 **Entscheidung** (**umgesetzt**): Findet ein Identifizierungsschritt ein **anderes** Konto als das,
 mit dem die Journey gerade arbeitet, dann geht das vorläufige der beiden Konten im anderen auf —
 auf welcher Seite es steht, ist egal:
@@ -77,5 +79,16 @@ die Übernahme kopiert nichts an diesen Regeln vorbei. Zurückgezogene Claims ko
 die übernommenen Claim-Zeilen tragen den Zeitpunkt der Übernahme. Wann Identität bewiesen wurde,
 steht weiterhin in den `account.identification`-Zeilen; die wandern mit ihrem ursprünglichen
 `identified_at` und einem `absorbedFromAccountId`-Vermerk mit.
+
+**Nachtrag (2026-09-23)**: Für die **bestätigte Adresse** ist „eines von beiden ist vorläufig“
+seit e92716c nicht mehr die ganze Bedingung. Zusätzlich muss diese Sitzung bereits einen
+Identitätsnachweis erbracht haben (`JourneyActionExecutor.accountOfAttestation`: ohne
+`EvidenceAxis.IDENTITY` → `409` „Diese Adresse gehoert bereits zu einem anderen Konto“). Die
+Adressbestätigung allein ist ein schwächeres Mittel als eine Identifizierung und darf eine Sitzung
+nie auf ein fremdes Konto umhängen — sonst könnte eine frische Sitzung die bereits hinterlegte
+Adresse eines anderen erneut bestätigen und dessen Konto samt Zugangsmitteln übernehmen. Folge:
+Der erste Schritt von „Enrollment zuerst“ (`confirm-email`, vor jeder Identifizierung) weist eine
+bereits vergebene Adresse immer ab. Der Fall aus dem Entscheidungstext (eID ohne Registertreffer,
+danach `confirm-email`) funktioniert weiter, weil dort die Identifizierung vorausging.
 
 ---

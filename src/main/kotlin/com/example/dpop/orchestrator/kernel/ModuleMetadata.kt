@@ -19,6 +19,6 @@ package com.example.dpop.orchestrator.kernel
  * changing a single behaviour.
  *
  * This package therefore depends on NOTHING inside the orchestrator. That is its whole contract,
- * and `OrchestratorArchitectureTest.orchestratorPackagesAreFreeOfCycles` keeps it true.
+ * and `OrchestratorArchitectureTest` ("the orchestrator's own packages") keeps it true.
  */
 internal object KernelPackageMarker

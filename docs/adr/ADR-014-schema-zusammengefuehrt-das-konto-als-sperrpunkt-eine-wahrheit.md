@@ -1,13 +1,18 @@
 # ADR-14: Schema zusammengeführt — das Konto als Sperrpunkt, eine Wahrheit je Fakt
 
-> **Nachtrag.** `V1__schema.sql` ist inzwischen in eine Datei je Modul aufgeteilt, siehe
-> [ADR-30](ADR-030-eine-migration-je-modul.md). Die Aussagen unten gelten unverändert; nur die
-> Datei, auf die sie sich beziehen, gibt es so nicht mehr.
+> **Nachtrag.** Der Migrationsteil dieser Entscheidung (alles in `V1__schema.sql` +
+> `V2__testdata.sql`, Regeln im Dateikopf) ist durch [ADR-30](ADR-030-eine-migration-je-modul.md)
+> abgelöst: ein Migrationsordner je Modul, Testdaten in `demo_seed/V16__testdata.sql`, Regeln in
+> `db/migration/KONVENTIONEN.md`. Das Kontomodell unten gilt unverändert.
+>
+> „Schema“ meint hier den DDL-Bestand, nicht den Datenbank-Namensraum aus
+> [ADR-16](ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md) — die beiden ADRs
+> widersprechen sich nicht.
 
 
 **Entscheidung**: Die 37 inkrementellen Migrationen sind in `V1__schema.sql` (+ `V2__testdata.sql`)
 zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf von `V1__schema.sql`,
-[Betrieb](07-betrieb.md) Abschnitt 6). Inhaltlich:
+[Betrieb](../07-betrieb.md) Abschnitt 6). Inhaltlich:
 
 - `account` trägt nur noch `id`, `created_at`, `version`. Über diese Zeile werden Änderungen am
   aktuellen Kontozustand gesperrt (`OPTIMISTIC_FORCE_INCREMENT`).
@@ -25,7 +30,7 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
   inzwischen ein `sealed interface`, und `Local` trägt seine `AnchorRule` selbst. Vorher standen
   Eigentümer und Ankerregeln als Flag plus nullable Feld nebeneinander, obwohl sie nie getrennt
   vorkommen — zusammengehalten von einem Test statt vom Typ. Dasselbe Muster wie bei
-  `ToolDescriptor.keyBinding` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 1).
+  `ToolDescriptor.keyBinding` ([Tool-Architektur](../03-tool-architektur.md) Abschnitt 1).
 - Fremdschlüssel nur innerhalb eines Moduls; modulübergreifende Bezüge sind indizierte Spalten.
 - Einheitliche Namen (`<modul>_enrollment` = `EnrollmentRef.type`, `<modul>_<tool-rolle>_data`,
   `ux_`/`ix_`, PK-Spalte `id`) und Typen (`TIMESTAMP WITH TIME ZONE`, feste Längenraster).

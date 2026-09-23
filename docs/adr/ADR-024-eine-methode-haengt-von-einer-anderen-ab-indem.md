@@ -1,5 +1,7 @@
 # ADR-24: Eine Methode hängt von einer anderen ab, indem sie deren Angabe verlangt
 
+> **Stand 2026-09-23:** Die lebende Kette ist länger als unten beschrieben; siehe Nachtrag.
+
 **Entscheidung** (**umgesetzt**): Abhängigkeiten zwischen Verfahren brauchen keine eigenen
 Begriffe. Ein Modul schreibt beim Einrichten einen Claim, ein anderes verlangt ihn per
 `ClaimRequirement` — und `requires` entscheidet damit nicht mehr nur über das **Angebot**, sondern
@@ -48,3 +50,10 @@ Schreibvorgang abweicht, wäre schlimmer als keine.
 - `AttributeType` trägt mit `PASSWORD_EXISTS` erstmals eine Aussage, die nichts über die **Person**
   sagt, sondern über die Credentials des Kontos. Bewusst dort und nicht in einem zweiten
   Mechanismus: Das Claim-Log verwaltet ohnehin genau die Lebensdauer, um die es hier geht.
+
+**Nachtrag (2026-09-23)**: Neben `enroll-password` verlangt seit ADR-17 auch `enroll-email`
+`ClaimRequirement(EMAIL, PROVEN)` (`auth_email/Descriptors.kt`). Eine zurückgenommene Adresse nimmt
+also Passwort **und** E-Mail-Login mit. Die Aussage „die einzige Angabe auf einen Anker“ unter
+„Kosten“ ist damit überholt: `EMAIL` wird an zwei Stellen verlangt, und `ident-kvnr` verlangt
+zusätzlich `NAME`/`VORNAME`/`GEBURTSDATUM` (ADR-18) — dort allerdings nur als Angebotsbedingung
+eines Identifizierungsschritts, nicht als Voraussetzung eines Credentials.

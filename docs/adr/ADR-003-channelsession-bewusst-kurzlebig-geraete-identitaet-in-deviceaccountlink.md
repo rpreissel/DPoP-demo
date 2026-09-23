@@ -1,10 +1,10 @@
 # ADR-3: `ChannelSession` bewusst kurzlebig, Geräte-Identität in `DeviceAccountLink`
 
-**Entscheidung**: `ChannelSession` hat eine begrenzte Aufbewahrungsfrist (30 Tage, [Betrieb](07-betrieb.md)) und
+**Entscheidung**: `ChannelSession` hat eine begrenzte Aufbewahrungsfrist (30 Tage, [Betrieb](../07-betrieb.md)) und
 trägt keine langlebige Geräte-Zuordnung. Die einzige dauerhafte Zuordnung Gerät -> Account
 (`bindingKeyRef -> accountId`) liegt in `DeviceAccountLink`, einer eigenen Tabelle
-([Domänenmodell](02-domaenenmodell.md) Abschnitt 1,
-[DPoP-Bindung](09-dpop.md) Abschnitt 3).
+([Domänenmodell](../02-domaenenmodell.md) Abschnitt 1,
+[DPoP-Bindung](../09-dpop.md) Abschnitt 3).
 
 **Erwogene Alternative**: `ChannelSession` selbst langlebig machen und die
 Geräte-Wiedererkennung darüber lösen — ein wiederkehrendes Gerät würde dieselbe Session

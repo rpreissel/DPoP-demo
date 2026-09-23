@@ -85,19 +85,19 @@ identifiziertes Konto nimmt eine fremde Bestätigung nie an: Gehört der Kanal n
 Zweitaccount-Fall, Abschnitt 2), bekommt der Lauf sein eigenes Konto, sonst wird er abgewiesen.
 `recordClaims` schreibt PersonId wie E-Mail über den gemeinsamen Claim-/Ankerpfad. Anlage, Claims und
 Journey-Zustand teilen dieselbe Transaktion; ein Konflikt rollt auch den neuen Account zurück.
-Bekannte Konten werden ausschließlich über Anker aufgelöst ([12-entscheidungen.md](12-entscheidungen.md)
+Bekannte Konten werden ausschließlich über Anker aufgelöst ([12-entscheidungen.md](../12-entscheidungen.md)
 ADR-19) — für eid-Bestätigungen ist das die kartengebundene `restricted_id`, ohne Anker-Treffer
 bleibt es beim neuen Interessenten.
 Bei einem `Identified` auf ein bereits gebundenes Konto erzwingt die Account-Schicht Erstbindung, Unveränderlichkeit der PersonId und
 Ankerbesitz. Findet der Schritt ein **anderes** Konto als das, mit dem die Journey arbeitet, geht
-das vorläufige der beiden im anderen auf ([12-entscheidungen.md](12-entscheidungen.md) ADR-20) —
+das vorläufige der beiden im anderen auf ([12-entscheidungen.md](../12-entscheidungen.md) ADR-20) —
 gemeint ist das Konto ohne PersonId, auf dem nie ein Zugangsmittel eingerichtet wurde. Ist es das
 Konto der Journey, wechselt sie zum gefundenen und läuft noch einmal durch `afterIdentification`;
 ist es das gefundene, bleibt sie stehen und übernimmt dessen Daten. Sind beide echt, bleibt es beim
 `409`.
 
 **Web-Kanal:** `REGISTER` ist neben `KC_SELECT_METHOD` ein zweiter, Web-nutzbarer Entry-Intent —
-`PATCH /kc/channels/{channelSessionId}` mit `intent=register` ([05-api.md](05-api.md)
+`PATCH /kc/channels/{channelSessionId}` mit `intent=register` ([05-api.md](../05-api.md)
 Abschnitt 3). Kein natives Registrierungsformular: `ident-fsc`/`ident-eid` und `enroll-*` laufen
 über dieselben Web-Tool-Renderer wie jeder andere Schritt. Für diesen Kanal gilt zusätzlich eine
 dritte, kanalgebundene Pflicht — `PasswordObligation`, Abschnitt 8.

@@ -4,11 +4,9 @@
 only** — ein `KEYCLOAK`-Kanal hat nie einen `AuthContext` und braucht auch keinen: dessen Client
 hält bereits echte Keycloak-Tokens aus dem Browser-Login (`dpop-demo-web`) und erneuert sie direkt
 gegen Keycloak (`ChannelService.getToken` weist `KEYCLOAK` explizit mit `409` ab). Für `APP` bleibt
-der Endpunkt im Default-Profil das Mock-JWT (`TokenService`); im `keycloak`-Profil liefert er einen
-echten, von Keycloak signierten AccessToken (`KcTokenProvider`, [05-api.md](05-api.md) Abschnitt
-2) — gemeinsame `TokenProvider`-Schnittstelle, Umschaltung ausschließlich über Spring-Profile
-([04-orchestrierung.md](04-orchestrierung.md) kennt das gleiche Muster für
-`ChannelAccessGuard`).
+der Endpunkt im Default-Profil das Mock-JWT (`MockTokenProvider`, delegiert an `TokenService`); im `keycloak`-Profil liefert er einen
+echten, von Keycloak signierten AccessToken (`KcTokenProvider`, [05-api.md](../05-api.md) Abschnitt
+2) — gemeinsame `TokenProvider`-Schnittstelle, Umschaltung ausschließlich über Spring-Profile.
 
 Ein Step-up desselben Accounts stellt innerhalb dieser einen Keycloak-Session ein neues Token aus:
 `AccountTokenGrantType` markiert die von ihm angelegte
@@ -24,7 +22,7 @@ kopiert sie in dieselben `UserSessionModel`-Notes wie `OrchestratorAuthenticator
 `OrchestratorAcrAmrMapper` (Client-Scope `orchestrator-claims`) sie in den
 echten AccessToken schreibt. `KeycloakAdminClient.requestAccountToken`/`refreshAccountToken`
 authentifizieren sich dabei als
-Client `orchestrator-app-token` (V8) ohne jedes Recht, nicht als `orchestrator-admin` -
+Client `orchestrator-app-token` (Abschnitt „V8“ in `keycloak-migrations/.../V1__realm.kc.kts`) ohne jedes Recht, nicht als `orchestrator-admin` -
 genau das ist der Punkt dieses ADRs ("statt geteiltem Admin-Secret").
 
 Unabhängig vom Profil verwirft ein Step-up, der die `AuthEvidence` verändert
@@ -51,7 +49,10 @@ gepflegten Status-Flag.
 Der custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
 `AccountTokenGrantType`, Keycloaks pluggable `OAuth2GrantType`-SPI in
 `keycloak-server-spi-private`) verlangt zusätzlich eine damit signierte, kurzlebige Assertion
-(`sub`=accountId, `aud`=Grant-URN, `exp` <= 60s) und stellt erst dann einen echten AccessToken aus.
+(`sub`=accountId, `aud`=Grant-URN, `iat` Pflicht, `exp - iat` <= 60s, geprüft in
+`AccountAssertionTimes`) und stellt erst dann einen echten AccessToken aus. Die Obergrenze prüft
+der Grant selbst, nicht nur der Aussteller: Ein abgeflossener Account-Schlüssel kann so keine
+langlebige Assertion prägen.
 
 **Erwogene Alternativen**:
 
@@ -71,7 +72,7 @@ bleibt kurzlebig (`exp` <= 60s) und wird nur bei der ERSTEN Ausstellung oder bei
 ACR/AMR-Änderung gebraucht.
 
 **Kosten**: Ein weiterer, account-gebundener Datensatz (`orchestrator.keycloak_keypair`) mit eigenem
-Lebenszyklus (erzeugt bei Sync, gelöscht bei `AccountDeleted`, [07-betrieb.md](07-betrieb.md)
+Lebenszyklus (erzeugt bei Sync, gelöscht bei `AccountDeleted`, [07-betrieb.md](../07-betrieb.md)
 Abschnitt 3) sowie ein projektspezifisches Stück Keycloak-Erweiterung, das bei jedem
 Keycloak-Upgrade gegen die `server-spi-private`-Schnittstelle mitgeprüft werden muss.
 Demo-only: Der Private Key liegt unverschlüsselt in der Datenbank.
