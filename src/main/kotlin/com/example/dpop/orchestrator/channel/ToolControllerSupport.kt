@@ -123,7 +123,7 @@ class ToolControllerSupport(
         // membership in the current state's offer, which already excludes unavailable tools - but a
         // direct activation call must be re-checked here, defensively, against both availability
         // axes (docs/03-tool-architektur.md, availability).
-        if (toolId !in channel.availableClientTools || !toolAvailabilityService.isEnabled(toolId)) {
+        if (toolId !in channel.availableClientTools || !toolAvailabilityService.isEnabled(toolId, checkNotNull(channel.channel))) {
             throw OrchestratorException.invalidState("$toolId is not available on this channel")
         }
 

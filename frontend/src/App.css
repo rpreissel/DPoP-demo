@@ -1070,13 +1070,7 @@ button.small,
   margin: 0.5rem 0;
 }
 
-.tool-availability-group {
-  margin-top: 1.25rem;
-}
 
-.tool-availability-group h3 {
-  text-transform: capitalize;
-}
 
 @media (max-width: 1080px) {
   .app-shell {
@@ -1226,4 +1220,63 @@ button.small,
   font-weight: 700;
   letter-spacing: 0.15em;
   color: #111;
+}
+
+/* Admin: one ordered tool list per channel, side by side, stacked on narrow screens. */
+.tool-channel-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.tool-order-group h4 {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.tool-order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tool-order-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-order-arrows {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.tool-order-arrows button {
+  padding: 0.15rem 0.45rem;
+}
+
+.tool-order-name {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-order-reason {
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.tool-order-list li.tool-locked .tool-order-name code {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.tool-order-arrows button:disabled {
+  opacity: 0.25;
+  cursor: default;
 }

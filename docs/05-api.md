@@ -258,7 +258,7 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 
 `requiredAcr` (optional) erspart den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up. Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
 
-`availableTools` (Pflicht) erklärt, welche toolIds dieser Client aktivieren kann. Fest für die Lebensdauer des Kanals. Ein Tool außerhalb dieser Menge wird nie angeboten und auch bei direkter Aktivierung abgelehnt (`docs/03-tool-architektur.md`, Verfügbarkeit); zusätzlich kann das Backend jedes Tool global und zur Laufzeit sperren (`GET`/`PUT /orchestrator/admin/tools/.../availability` — ein Betriebsendpunkt, nicht Teil des App-Vertrags).
+`availableTools` (Pflicht) erklärt, welche toolIds dieser Client aktivieren kann. Fest für die Lebensdauer des Kanals. Ein Tool außerhalb dieser Menge wird nie angeboten und auch bei direkter Aktivierung abgelehnt (`docs/03-tool-architektur.md`, Verfügbarkeit); zusätzlich kann der Betreiber jedes Tool je Kanaltyp zur Laufzeit sperren und die Reihenfolge der Angebote je Kanaltyp festlegen (`GET /orchestrator/admin/tools/availability`, `PUT .../tools/{toolId}/availability/{APP|KEYCLOAK}`, `PUT .../tools/order/{APP|KEYCLOAK}` — Betriebsendpunkte, nicht Teil des App-Vertrags, ADR-32).
 
 ### `GET /channels/{channelSessionId}`
 

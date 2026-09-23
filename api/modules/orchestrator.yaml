@@ -125,6 +125,22 @@ components:
       required:
       - requiredAcr
       type: object
+    ChannelToolAvailability:
+      properties:
+        channel:
+          enum:
+          - APP
+          - KEYCLOAK
+          example: APP
+          type: string
+        tools:
+          items:
+            $ref: '#/components/schemas/ToolAvailabilityEntry'
+          type: array
+      required:
+      - channel
+      - tools
+      type: object
     DemoResetResult:
       properties:
         deletedAccounts:
@@ -158,11 +174,14 @@ components:
       type: object
     DisabledToolView:
       properties:
+        channel:
+          type: string
         reason:
           type: string
         toolId:
           type: string
       required:
+      - channel
       - toolId
       type: object
     JourneyLogEntryView:
@@ -347,12 +366,24 @@ components:
         reason:
           example: Wartungsfenster bis 18 Uhr
           type: string
+        role:
+          enum:
+          - IDENTIFICATION
+          - CORRELATION
+          - ENROLLMENT
+          - IDENTIFIED_AUTH
+          - LOOKUP_AUTH
+          - PEER_APPROVAL
+          - ATTESTATION
+          example: IDENTIFIED_AUTH
+          type: string
         toolId:
           example: auth-sms
           type: string
       required:
       - enabled
       - method
+      - role
       - toolId
       type: object
     ToolAvailabilityPutRequest:
@@ -381,6 +412,18 @@ components:
       - method
       - role
       - toolId
+      type: object
+    ToolOrderPutRequest:
+      properties:
+        toolIds:
+          example:
+          - auth-password
+          - auth-sms
+          items:
+            type: string
+          type: array
+      required:
+      - toolIds
       type: object
   securitySchemes:
     dpop:
@@ -448,8 +491,8 @@ paths:
       - 'Admin: accounts'
   /orchestrator/admin/demo-reset:
     post:
-      description: Deletes every account, lifts every tool lock and restores the ident-first registration order. The person
-        register (/mock-stammdaten) is a foreign system and stays as it is.
+      description: Deletes every account, restores the preset tool order and locks per channel and the ident-first registration
+        order. The person register (/mock-stammdaten) is a foreign system and stays as it is.
       operationId: reset
       responses:
         '200':
@@ -541,23 +584,10 @@ paths:
       responses:
         '200':
           content:
-            application/json:
-              example:
-              - enabled: true
-                method: sms
-                reason: null
-                toolId: auth-sms
-              - enabled: true
-                method: sms
-                reason: null
-                toolId: enroll-sms
-              - enabled: false
-                method: device
-                reason: Wartungsfenster bis 18 Uhr
-                toolId: auth-device
+            '*/*':
               schema:
                 items:
-                  $ref: '#/components/schemas/ToolAvailabilityEntry'
+                  $ref: '#/components/schemas/ChannelToolAvailability'
                 type: array
           description: OK
         default:
@@ -566,18 +596,58 @@ paths:
               schema:
                 $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      summary: List every catalog tool with its current backend-enabled state
+      summary: Every catalog tool per channel type, in that channel's order, with its enabled state
       tags:
       - 'Admin: tool availability'
-  /orchestrator/admin/tools/{toolId}/availability:
+  /orchestrator/admin/tools/order/{channel}:
     put:
-      description: Takes effect on the next step computed for any channel - no restart needed.
+      description: First entry is offered first. Tools left out move behind the listed ones. Applies to every selection screen
+        of that channel type (login, identification, enrollment) from its next step on.
+      operationId: putOrder
+      parameters:
+      - in: path
+        name: channel
+        required: true
+        schema:
+          enum:
+          - APP
+          - KEYCLOAK
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolOrderPutRequest'
+        required: true
+      responses:
+        '200':
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Set the order a channel type offers its tools in
+      tags:
+      - 'Admin: tool availability'
+  /orchestrator/admin/tools/{toolId}/availability/{channel}:
+    put:
+      description: Takes effect on the next step computed for any channel of that type - no restart needed.
       operationId: put
       parameters:
       - in: path
         name: toolId
         required: true
         schema:
+          type: string
+      - in: path
+        name: channel
+        required: true
+        schema:
+          enum:
+          - APP
+          - KEYCLOAK
           type: string
       requestBody:
         content:
@@ -594,7 +664,7 @@ paths:
               schema:
                 $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      summary: Enable or disable a tool
+      summary: Enable or disable a tool for one channel type
       tags:
       - 'Admin: tool availability'
   /orchestrator/api/v1/app/channels:
@@ -1618,9 +1688,9 @@ tags:
   name: 'Tool: Passwort'
 - description: The App facade's own endpoints - channel creation and the device-link read
   name: App channels
+- description: Operator kill-switch and order for tools, per channel type
+  name: 'Admin: tool availability'
 - description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
   name: 'Tool: E-Mail'
-- description: Operator kill-switch for individual tools
-  name: 'Admin: tool availability'
 - description: The kc facade's one facade-specific endpoint - upsert channel + advance journey
   name: KC channels

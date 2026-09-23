@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kernel.OrchestratorException
@@ -230,7 +231,7 @@ class JourneyService(
 
     /** Returns the complete current step, including selection options and prompts. */
     fun stepOf(journey: AuthJourney, channel: ChannelSession): Step =
-        routing.stepFor(codec.read(journey), routing.availableToolsOf(channel))
+        routing.stepFor(codec.read(journey), channel)
 
     // Tool interaction ---------------------------------------------------------
 
@@ -369,7 +370,7 @@ class JourneyService(
         is Transition.To -> {
             codec.write(journey, transition.state)
             journeyRepository.save(journey)
-            routing.stepFor(transition.state, routing.availableToolsOf(channel))
+            routing.stepFor(transition.state, channel)
         }
 
         is Transition.RequireSubJourney -> {
@@ -410,7 +411,7 @@ class JourneyService(
             // elsewhere (e.g. a separate Web-channel browser login). The Web channel's own logout
             // stays entirely Keycloak's (docs/07-betrieb.md Abschnitt 3) - never reaches this
             // transition for that channel.
-            if (channel.channel == ChannelSession.Channel.APP) {
+            if (channel.channel == ChannelType.APP) {
                 channel.authContextId
                     ?.let { authContextService.getAuthContext(it) }
                     ?.keycloakSessionId

@@ -213,7 +213,8 @@ function AccountsTab() {
       <div className="card">
         <h2>Demo zurücksetzen</h2>
         <p>
-          Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), hebt alle Tool-Sperren auf und stellt die
+          Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), setzt die Verfahren je Kanal auf die Voreinstellung
+          zurück (Reihenfolge und Sperren aus <code>demo.tool-defaults</code>) und stellt die
           Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenregister (/ext/) ist ein Fremdsystem und
           bleibt unverändert. Im Keycloak-Profil entstehen die Demo-Konten erst beim nächsten Start neu.
         </p>

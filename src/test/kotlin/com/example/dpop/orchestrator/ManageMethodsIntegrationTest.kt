@@ -105,7 +105,7 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 // here: its activation needs a real SDK run against the provider (that path is
                 // KobilBindingIntegrationTest's job). Switched off so this case stays about the
                 // single-candidate skip rather than about how many device methods exist.
-                put("/orchestrator/admin/tools/enroll-kobil/availability", """{"enabled":false,"reason":"single-candidate case"}""")
+                put("/orchestrator/admin/tools/enroll-kobil/availability/APP", """{"enabled":false,"reason":"single-candidate case"}""")
 
                 // sms, email, password and qr are now active - enroll-device is the one remaining
                 // catalog candidate (single-candidate skip goes straight to it; the "nothing left"

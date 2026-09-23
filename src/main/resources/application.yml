@@ -68,6 +68,18 @@ demo:
     username: admin
     password: admin
 
+  # Voreinstellung der Tools je Kanal (ToolDefaults): angewendet beim Start, wenn noch keine
+  # Tool-Einstellungen existieren, und von "Demo zurücksetzen". Die Reihenfolge wirkt nur
+  # innerhalb einer Rolle (ADR-32); disabled sperrt nur in diesem Kanal.
+  tool-defaults:
+    channels:
+      APP:
+        order: [ident-fsc, ident-eid, ident-kvnr, enroll-device, enroll-kobil, enroll-password, enroll-sms, enroll-email, enroll-qr, auth-device, auth-kobil, auth-password, auth-sms, auth-qr, auth-email, auth-password-lookup, auth-sms-lookup, auth-qr-lookup, auth-email-lookup, confirm-email, confirm-qr-login]
+        disabled: [enroll-qr, auth-qr, auth-email, auth-qr-lookup, auth-email-lookup]
+      KEYCLOAK:
+        order: [ident-fsc, ident-eid, ident-kvnr, enroll-email, enroll-password, enroll-qr, enroll-sms, enroll-kobil, enroll-device, auth-qr, auth-sms, auth-password, auth-device, auth-email, auth-kobil, auth-qr-lookup, auth-sms-lookup, auth-password-lookup, auth-email-lookup, confirm-email, confirm-qr-login]
+        disabled: [enroll-kobil, enroll-device, auth-device, auth-email, auth-kobil, auth-email-lookup]
+
 # Wie viele Instanzen dieses Systems laufen. Eine Aussage ueber die Umgebung, kein Schalter:
 # `multiple` schaltet nichts frei, sondern laesst DeploymentTopologyCheck beim Start pruefen, ob
 # der Code das ueberhaupt traegt (geplante Jobs ohne Sperre, Pepper pro Boot) - und mit einer

@@ -301,7 +301,7 @@ function ServerStatus() {
           <span className="value">
             {info.disabledTools.length === 0
               ? 'keine'
-              : info.disabledTools.map((t) => `${t.toolId}${t.reason ? ` (${t.reason})` : ''}`).join(', ')}
+              : info.disabledTools.map((t) => `${t.toolId} [${t.channel === 'APP' ? 'App' : 'Web'}]${t.reason ? ` (${t.reason})` : ''}`).join(', ')}
           </span>
         </li>
         <li>

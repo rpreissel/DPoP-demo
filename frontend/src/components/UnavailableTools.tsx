@@ -21,7 +21,8 @@ export function UnavailableTools({ availableTools }: UnavailableToolsProps) {
 
   useEffect(() => {
     fetchServerInfo()
-      .then((info) => setDisabled(info.disabledTools))
+      // Only locks for this channel type count here - a Web-only lock does not affect the App.
+      .then((info) => setDisabled(info.disabledTools.filter((t) => t.channel === 'APP')))
       .catch(() => setDisabled([]))
   }, [])
 

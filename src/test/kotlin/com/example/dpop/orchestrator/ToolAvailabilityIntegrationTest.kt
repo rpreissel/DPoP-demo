@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.ninjasquad.springmockk.MockkBean
@@ -30,6 +31,15 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
 
+    private fun adminAvailability(): List<Map<String, Any?>> = restTemplate.exchange(
+        "http://localhost:$port/orchestrator/admin/tools/availability", org.springframework.http.HttpMethod.GET,
+        org.springframework.http.HttpEntity<Void>(adminHeaders()),
+        object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
+    ).body!!
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any?>.tools(): List<Map<String, Any?>> = this["tools"] as List<Map<String, Any?>>
+
     /** Every toolId a response currently points at or lists as an option, whichever applies. */
     @Suppress("UNCHECKED_CAST")
     private fun offeredToolIds(response: Map<String, Any?>): List<String> {
@@ -55,7 +65,7 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
 
                 // The backend disables auth-sms WHILE the client is sitting on that very offer -
                 // nobody declined anything, the state in the DB is untouched.
-                toolAvailabilityService.disable("auth-sms", "suspected compromise")
+                toolAvailabilityService.disable("auth-sms", ChannelType.APP, "suspected compromise")
 
                 // A plain GET (no journey transition) already reflects it: live filtering in
                 // activatable(), not a snapshot frozen at the last state transition.
@@ -83,8 +93,8 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 then("the existing fallback to identification is reused, not a new dead end") {
 
                 seedRegisteredAccount()
-                toolAvailabilityService.disable("auth-sms", "maintenance")
-                toolAvailabilityService.disable("auth-password", "maintenance")
+                toolAvailabilityService.disable("auth-sms", ChannelType.APP, "maintenance")
+                toolAvailabilityService.disable("auth-password", ChannelType.APP, "maintenance")
 
                 val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val next = get("/orchestrator/api/v1/channels/$channelSessionId").next()
@@ -136,8 +146,8 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
         }
 
         given("the public catalog and the admin availability endpoints") {
-            `when`("listing the catalog, then toggling one tool off and on again") {
-                then("both endpoints agree on the current state") {
+            `when`("listing the catalog, then toggling one tool off for the App channel only") {
+                then("the admin view reflects it for App and leaves Web untouched") {
 
                 // GET /tools/catalog returns a JSON array, not the {channel,next,...} envelope, so
                 // the shared get() helper (which assumes an object body) doesn't fit here.
@@ -148,21 +158,47 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 ).body!!
                 catalogEntries.map { it["toolId"] } shouldContain "auth-sms"
 
-                var availability = restTemplate.exchange(
-                    "http://localhost:$port/orchestrator/admin/tools/availability", org.springframework.http.HttpMethod.GET,
-                    org.springframework.http.HttpEntity<Void>(adminHeaders()),
-                    object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
-                ).body!!
-                availability.first { it["toolId"] == "auth-sms" }["enabled"] shouldBe true
+                fun enabledIn(channel: String): Boolean? = adminAvailability()
+                    .first { it["channel"] == channel }.tools().first { it["toolId"] == "auth-sms" }["enabled"] as Boolean?
 
-                put("/orchestrator/admin/tools/auth-sms/availability", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
+                enabledIn("APP") shouldBe true
+                put("/orchestrator/admin/tools/auth-sms/availability/APP", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
+                enabledIn("APP") shouldBe false
+                enabledIn("KEYCLOAK") shouldBe true
 
-                availability = restTemplate.exchange(
-                    "http://localhost:$port/orchestrator/admin/tools/availability", org.springframework.http.HttpMethod.GET,
-                    org.springframework.http.HttpEntity<Void>(adminHeaders()),
-                    object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
-                ).body!!
-                availability.first { it["toolId"] == "auth-sms" }["enabled"] shouldBe false
+                }
+            }
+        }
+
+        given("an account with two auth methods, sms and password") {
+            `when`("the operator sets the App channel's order, then reverses it") {
+                then("the selection lists the options in exactly that order, live") {
+
+                seedRegisteredAccount()
+                put("/orchestrator/admin/tools/order/APP", """{"toolIds":["auth-password","auth-sms"]}""") shouldBe HttpStatus.OK
+                val created = post("/orchestrator/api/v1/app/channels")
+                @Suppress("UNCHECKED_CAST")
+                created.stepData()["options"] as List<String> shouldBe listOf("auth-password", "auth-sms")
+
+                put("/orchestrator/admin/tools/order/APP", """{"toolIds":["auth-sms","auth-password"]}""") shouldBe HttpStatus.OK
+                // Same journey, next screen: declining nothing, just re-reading after switching
+                // the order is not a new transition, so re-create to get a fresh offer rendered.
+                @Suppress("UNCHECKED_CAST")
+                post("/orchestrator/api/v1/app/channels").stepData()["options"] as List<String> shouldBe listOf("auth-sms", "auth-password")
+
+                }
+            }
+        }
+
+        given("an auth method switched off for the Web channel only") {
+            `when`("an App channel computes its offer") {
+                then("the App channel still offers it") {
+
+                seedRegisteredAccount()
+                toolAvailabilityService.disable("auth-sms", ChannelType.KEYCLOAK, "web only")
+
+                @Suppress("UNCHECKED_CAST")
+                post("/orchestrator/api/v1/app/channels").stepData()["options"] as List<String> shouldContain "auth-sms"
 
                 }
             }

@@ -1,42 +1,49 @@
 import { useEffect, useState } from 'react'
-import { fetchToolAvailability, setToolAvailability, type ToolAvailabilityEntry } from '../api.ts'
+import {
+  fetchToolAvailability,
+  setToolAvailability,
+  setToolOrder,
+  type ChannelToolAvailability,
+  type ChannelType,
+  type ToolAvailabilityEntry,
+  type MethodRole,
+} from '../api.ts'
 
-/**
- * The backend-side kill-switch (docs/03-tool-architektur.md, availability): global, takes effect
- * on the very next step of any journey - no DPoP, behind the admin login (AdminSecurityConfig) like
- * every operator endpoint, not part of the auth flow's `next`-driven routing (routing.ts) since it
- * isn't a step in any journey.
- */
-function groupByMethod(entries: ToolAvailabilityEntry[]): [string, ToolAvailabilityEntry[]][] {
-  const groups = new Map<string, ToolAvailabilityEntry[]>()
-  for (const entry of entries) {
-    const group = groups.get(entry.method)
-    if (group) group.push(entry)
-    else groups.set(entry.method, [entry])
-  }
-  return [...groups.entries()]
+const CHANNEL_LABELS: Record<ChannelType, string> = { APP: 'App-Kanal', KEYCLOAK: 'Web-Kanal' }
+
+/** One heading per role - each role is one kind of selection list the user sees. */
+const ROLE_LABELS: Record<MethodRole, string> = {
+  IDENTIFIED_AUTH: 'Anmelden - Konto bekannt',
+  LOOKUP_AUTH: 'Anmelden - über E-Mail-Adresse',
+  IDENTIFICATION: 'Identifizieren',
+  CORRELATION: 'Registerperson zuordnen',
+  ENROLLMENT: 'Einrichten',
+  ATTESTATION: 'E-Mail bestätigen',
+  PEER_APPROVAL: 'Web-Login bestätigen',
 }
 
+/**
+ * The operator's say over tools, per channel type (docs/03-tool-architektur.md, availability):
+ * one list per channel, in the order that channel offers its tools. ▲/▼ move a tool and save at
+ * once; the switch locks it for this channel only. Both act on the very next step of any journey.
+ * Behind the admin login like every operator endpoint.
+ */
 export function AdminToolAvailabilityView() {
-  const [entries, setEntries] = useState<ToolAvailabilityEntry[] | null>(null)
+  const [channels, setChannels] = useState<ChannelToolAvailability[] | null>(null)
   const [error, setError] = useState('')
-  // The tool whose lock reason is being asked for inline (instead of a blocking window.prompt).
-  const [locking, setLocking] = useState<string | null>(null)
-  const [reason, setReason] = useState('manuell gesperrt')
 
   function reload() {
     fetchToolAvailability()
-      .then(setEntries)
+      .then(setChannels)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
   useEffect(reload, [])
 
-  async function apply(toolId: string, enabled: boolean, lockReason?: string) {
+  async function run(action: () => Promise<void>) {
     try {
       setError('')
-      await setToolAvailability(toolId, enabled, lockReason)
-      setLocking(null)
+      await action()
       reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -45,57 +52,113 @@ export function AdminToolAvailabilityView() {
 
   return (
     <div className="card">
-      <h2>Tool-Verfügbarkeit</h2>
+      <h2>Verfahren je Kanal</h2>
       <p>
-        Globaler Kill-Switch pro Tool - wirkt sofort auf jede laufende Journey, kein Neustart nötig. Das ist
-        unabhängig davon, welche Tools ein einzelner Client bei Kanal-Erzeugung selbst als verfügbar erklärt
-        (die Checkliste "Erweitert" im App-Kanal) - beide Sperren wirken zusammen.
+        Reihenfolge und Sperre gelten je Kanal und wirken sofort, auch in laufenden Vorgängen: Jede Auswahl (Anmelden,
+        Identifizieren, Einrichten) zeigt ihre Verfahren in dieser Reihenfolge. Zusätzlich erklärt jeder Client selbst,
+        welche Verfahren er darstellen kann - beide Filter wirken zusammen.
       </p>
       {error && <p className="error-card">{error}</p>}
-      {entries === null ? (
+      {channels === null ? (
         !error && <p>Lädt…</p>
       ) : (
-        // Grouped by method, not just alphabetical by toolId - auth-sms/auth-sms-lookup/enroll-sms
-        // belong together, but "auth-*" and "enroll-*" would otherwise sort far apart. The server
-        // already returns entries pre-sorted by (method, toolId); grouping here just adds headings.
-        groupByMethod(entries).map(([method, group]) => (
-          <div key={method} className="tool-availability-group">
-            <h3>{method}</h3>
-            <ul className="status-list">
-              {group.map((entry) => (
-                <li key={entry.toolId}>
-                  <span className="label">{entry.toolId}</span>
-                  {locking === entry.toolId ? (
-                    <span className="value-with-action">
-                      <input
-                        aria-label={`Grund für die Sperre von ${entry.toolId}`}
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                      />
-                      <button className="small" onClick={() => apply(entry.toolId, false, reason || undefined)}>
-                        Sperren
-                      </button>
-                      <button className="secondary small" onClick={() => setLocking(null)}>
-                        Abbrechen
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="value-with-action">
-                      <span className="value">{entry.enabled ? 'aktiv' : `gesperrt${entry.reason ? ` (${entry.reason})` : ''}`}</span>
-                      <button
-                        className="secondary small"
-                        onClick={() => (entry.enabled ? setLocking(entry.toolId) : apply(entry.toolId, true))}
-                      >
-                        {entry.enabled ? 'Sperren…' : 'Freigeben'}
-                      </button>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))
+        <div className="tool-channel-columns">
+          {channels.map((c) => (
+            <ChannelToolList key={c.channel} channel={c} run={run} />
+          ))}
+        </div>
       )}
+    </div>
+  )
+}
+
+function ChannelToolList({ channel, run }: { channel: ChannelToolAvailability; run: (a: () => Promise<void>) => void }) {
+  // The tool whose lock reason is being asked for inline (instead of a blocking window.prompt).
+  const [locking, setLocking] = useState<string | null>(null)
+  const [reason, setReason] = useState('manuell gesperrt')
+  const ids = channel.tools.map((t) => t.toolId)
+
+  // Groups in the order the server lists them (it already sorts by role) - a selection only ever
+  // shows tools of one role, so that is where an order means something.
+  const groups: [MethodRole, ToolAvailabilityEntry[]][] = []
+  for (const tool of channel.tools) {
+    const last = groups.at(-1)
+    if (last && last[0] === tool.role) last[1].push(tool)
+    else groups.push([tool.role, [tool]])
+  }
+
+  /** Swaps [tool] with its neighbour in the same role and saves the channel's whole order. */
+  function move(group: ToolAvailabilityEntry[], index: number, by: -1 | 1) {
+    const order = [...ids]
+    const a = order.indexOf(group[index].toolId)
+    const b = order.indexOf(group[index + by].toolId)
+    ;[order[a], order[b]] = [order[b], order[a]]
+    run(() => setToolOrder(channel.channel, order))
+  }
+
+  function lock(tool: ToolAvailabilityEntry) {
+    run(async () => {
+      await setToolAvailability(tool.toolId, channel.channel, false, reason || undefined)
+      setLocking(null)
+    })
+  }
+
+  return (
+    <div>
+      <h3>{CHANNEL_LABELS[channel.channel]}</h3>
+      {groups.map(([role, group]) => (
+        <div key={role} className="tool-order-group">
+          <h4>{ROLE_LABELS[role]}</h4>
+          <ol className="tool-order-list">
+            {group.map((tool, index) => (
+              <li key={tool.toolId} className={tool.enabled ? '' : 'tool-locked'}>
+                <span className="tool-order-arrows">
+                  <button
+                    className="secondary small"
+                    aria-label={`${tool.toolId} nach oben`}
+                    disabled={index === 0}
+                    onClick={() => move(group, index, -1)}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    className="secondary small"
+                    aria-label={`${tool.toolId} nach unten`}
+                    disabled={index === group.length - 1}
+                    onClick={() => move(group, index, 1)}
+                  >
+                    ▼
+                  </button>
+                </span>
+                <span className="tool-order-name">
+                  <code>{tool.toolId}</code>
+                  {!tool.enabled && <span className="tool-order-reason">gesperrt{tool.reason ? `: ${tool.reason}` : ''}</span>}
+                </span>
+                {locking === tool.toolId ? (
+                  <span className="value-with-action">
+                    <input aria-label={`Grund für die Sperre von ${tool.toolId}`} value={reason} onChange={(e) => setReason(e.target.value)} />
+                    <button className="small" onClick={() => lock(tool)}>
+                      Sperren
+                    </button>
+                    <button className="secondary small" onClick={() => setLocking(null)}>
+                      Abbrechen
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className="secondary small"
+                    onClick={() =>
+                      tool.enabled ? setLocking(tool.toolId) : run(() => setToolAvailability(tool.toolId, channel.channel, true))
+                    }
+                  >
+                    {tool.enabled ? 'Sperren…' : 'Freigeben'}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
     </div>
   )
 }

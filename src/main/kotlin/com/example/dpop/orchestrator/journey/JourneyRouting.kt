@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.journey.state.AnswerableState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
@@ -45,9 +46,14 @@ class JourneyRouting(
     private val toolRegistry: ToolHandlerRegistry,
     private val toolAvailabilityService: ToolAvailabilityService
 ) {
-    /** Live, never cached: a backend disable must take effect on the very next step of an already-running journey. */
+    /**
+     * What the client declared it can render, minus what the operator switched off for this
+     * channel's type. Live, never cached: a backend disable must take effect on the very next step
+     * of an already-running journey.
+     */
     fun availableToolsOf(channel: ChannelSession): Set<ToolId> =
-        (channel.availableClientTools - toolAvailabilityService.disabledToolIds()).mapTo(mutableSetOf()) { ToolId(it) }
+        (channel.availableClientTools - toolAvailabilityService.disabledToolIds(channelTypeOf(channel)))
+            .mapTo(mutableSetOf()) { ToolId(it) }
 
     /**
      * `next` as a pure function of the state (docs/04-orchestrierung.md #4). The same
@@ -76,11 +82,15 @@ class JourneyRouting(
      * union rather than one object with everything optional: a state either offers a choice, or
      * auto-activates its single candidate, or waits for an answer.
      */
-    fun stepFor(state: JourneyState, availableTools: Set<ToolId>): Step {
+    fun stepFor(state: JourneyState, channel: ChannelSession): Step {
+        val availableTools = availableToolsOf(channel)
         val options = state.activatable(availableTools)
         val stepData: StepData? = when {
+            // Sorted here, where the list leaves for the client - not in the state's stored offer,
+            // which is frozen for the journey's lifetime: a changed order applies to a running
+            // journey's very next screen too.
             state is OfferingState && options.size > 1 -> SelectMethodStep(
-                options = options.map { it.value },
+                options = toolAvailabilityService.ordered(channelTypeOf(channel), options).map { it.value },
                 title = state.selectionTitle,
                 description = state.selectionDescription
             )
@@ -94,4 +104,7 @@ class JourneyRouting(
         }
         return Step(nextFor(state, availableTools), stepData)
     }
+
+    private fun channelTypeOf(channel: ChannelSession): ChannelType =
+        checkNotNull(channel.channel) { "Channel ${channel.channelSessionId} has no channel type" }
 }

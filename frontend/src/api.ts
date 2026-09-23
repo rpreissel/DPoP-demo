@@ -245,11 +245,31 @@ export function postToolSubResource(
   return call(dpop, 'POST', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}/${subPath}`, body)
 }
 
+export type MethodRole =
+  | 'IDENTIFIED_AUTH'
+  | 'LOOKUP_AUTH'
+  | 'IDENTIFICATION'
+  | 'CORRELATION'
+  | 'ENROLLMENT'
+  | 'ATTESTATION'
+  | 'PEER_APPROVAL'
+
 export interface ToolAvailabilityEntry {
   toolId: string
   method: string
+  /** Which kind of selection list the tool appears in - the order only matters within one role. */
+  role: MethodRole
   enabled: boolean
   reason?: string
+}
+
+/** APP = App-Kanal, KEYCLOAK = Web-Kanal. */
+export type ChannelType = 'APP' | 'KEYCLOAK'
+
+/** One channel type's tools, in the order that channel offers them. */
+export interface ChannelToolAvailability {
+  channel: ChannelType
+  tools: ToolAvailabilityEntry[]
 }
 
 /**
@@ -279,12 +299,17 @@ export function fetchToolCatalog(): Promise<{ toolId: string; method: string; ro
   return callPlain('GET', '/orchestrator/api/v1/tools/catalog')
 }
 
-export function fetchToolAvailability(): Promise<ToolAvailabilityEntry[]> {
-  return callPlain('GET', '/orchestrator/admin/tools/availability')
+export function fetchToolAvailability(): Promise<ChannelToolAvailability[]> {
+  return callPlain('GET', `${ADMIN_PATH}/tools/availability`)
 }
 
-export function setToolAvailability(toolId: string, enabled: boolean, reason?: string): Promise<void> {
-  return callPlain('PUT', `/orchestrator/admin/tools/${toolId}/availability`, { enabled, reason })
+export function setToolAvailability(toolId: string, channel: ChannelType, enabled: boolean, reason?: string): Promise<void> {
+  return callPlain('PUT', `${ADMIN_PATH}/tools/${toolId}/availability/${channel}`, { enabled, reason })
+}
+
+/** First entry is offered first; applies to every selection screen of that channel type. */
+export function setToolOrder(channel: ChannelType, toolIds: string[]): Promise<void> {
+  return callPlain('PUT', `${ADMIN_PATH}/tools/order/${channel}`, { toolIds })
 }
 
 export interface RegistrationOrderState {
@@ -349,7 +374,7 @@ export interface ServerInfo {
   keycloakBaseUrl?: string | null
   keycloakRealm?: string | null
   registrationEnrollFirst: boolean
-  disabledTools: { toolId: string; reason?: string | null }[]
+  disabledTools: { toolId: string; channel: ChannelType; reason?: string | null }[]
   demoDisclosure: boolean
 }
 

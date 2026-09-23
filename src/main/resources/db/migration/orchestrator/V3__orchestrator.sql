@@ -160,12 +160,16 @@ CREATE TABLE orchestrator.dpop_proof_replay (
 );
 CREATE INDEX ix_dpop_proof_replay_expires_at ON orchestrator.dpop_proof_replay (expires_at);
 
--- Runtime kill-switch per tool; no row = enabled.
+-- Operator settings per tool AND channel type (APP / KEYCLOAK): a runtime kill-switch and the
+-- tool's rank in that channel's selection lists. No row = enabled, unranked.
 CREATE TABLE orchestrator.tool_availability (
-    tool_id    VARCHAR(50) PRIMARY KEY,
+    tool_id    VARCHAR(50) NOT NULL,
+    channel    VARCHAR(32) NOT NULL,
     enabled    BOOLEAN     NOT NULL,
     reason     VARCHAR(255),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+    position   INTEGER,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT pk_tool_availability PRIMARY KEY (tool_id, channel)
 );
 
 -- One row per runtime feature flag; no row = off, the documented default of that flag. flag_key

@@ -11,7 +11,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-data class DisabledToolView(val toolId: String, val reason: String?)
+/** [channel]: APP or KEYCLOAK - a lock applies to one channel type. */
+data class DisabledToolView(val toolId: String, val channel: String, val reason: String?)
 
 data class ServerInfo(
     /** true under the `keycloak` Spring profile (real Keycloak), false without it - then there is no Web channel. */
@@ -47,7 +48,7 @@ class ServerInfoController(
             keycloakBaseUrl = if (keycloak) environment.getProperty("keycloak-sync.base-url") else null,
             keycloakRealm = if (keycloak) environment.getProperty("keycloak-sync.realm") else null,
             registrationEnrollFirst = featureFlagService.isEnabled(FeatureFlags.REGISTER_ENROLL_FIRST),
-            disabledTools = toolAvailabilityService.disabledEntries().map { (toolId, reason) -> DisabledToolView(toolId, reason) },
+            disabledTools = toolAvailabilityService.disabledEntries().map { DisabledToolView(it.toolId!!, it.channel!!.name, it.reason) },
             demoDisclosure = environment.getProperty("demo.disclosure", Boolean::class.java, true)
         )
     }

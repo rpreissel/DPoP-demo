@@ -91,14 +91,15 @@ Bibliothek teilen. Jede hat ein eigenes Farbschema (`index.css`), damit man ohne
   anderen Apps), *Begriffe & Doku* und *Server-Status* (liest nur das öffentliche
   `GET /orchestrator/demo/server-info`: Keycloak-Profil, Registrierungsreihenfolge, gesperrte Tools).
 - **App-Kanal** (`/app/`) — der DPoP-gebundene Orchestrator-Ablauf, ohne Tabs. Was nur diesen
-  Client betrifft (Startniveau, unterstützte Verfahren), steht unter „Erweitert“: Die
-  Verfügbarkeit erklärt der Client, nicht der Betreiber.
+  Client betrifft (Startniveau, unterstützte Verfahren), steht unter „Erweitert“: Welche
+  Verfahren er darstellen kann, erklärt der Client; sperren und ordnen kann der Betreiber je
+  Kanal auf der Admin-Seite.
 - **Web-Kanal** (`/web/`) — der echte Keycloak-Browser-Ablauf, ohne Tabs. Es gibt ihn nur mit dem
   Spring-Profil `keycloak`: Ohne Profil zeigt `/web/` einen Hinweis statt eines Logins, und die
   Kachel auf der Startseite ist deaktiviert (beides liest `server-info.keycloakProfile`). Einen
   simulierten Keycloak gibt es nicht mehr.
 - **Admin** (`/admin/`) — die Betreiber-Sicht, hinter dem Admin-Login (HTTP Basic auf
-  `/orchestrator/admin/**`, `AdminSecurityConfig`). Tabs *Einstellungen* (Tool-Sperren,
+  `/orchestrator/admin/**`, `AdminSecurityConfig`). Tabs *Einstellungen* (Verfahren je Kanal sperren und ordnen,
   Registrierungsreihenfolge, Keycloak-Sync, Entwickler-Links), *Journey-Log* über alle Konten und
   Geräte (mit Live-Aktualisierung) und *Konten* (löschen, Demo zurücksetzen).
 - **Personenregister** (`/ext/`) — das simulierte **Fremdsystem** (ADR-31): Personen, Freischaltcodes

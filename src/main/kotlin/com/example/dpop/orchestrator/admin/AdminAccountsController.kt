@@ -67,13 +67,13 @@ class AdminAccountsController(
     @PostMapping("demo-reset")
     @Operation(
         summary = "Put the demo back to its start",
-        description = "Deletes every account, lifts every tool lock and restores the ident-first registration order. " +
+        description = "Deletes every account, restores the preset tool order and locks per channel and the ident-first registration order. " +
             "The person register (/mock-stammdaten) is a foreign system and stays as it is."
     )
     fun reset(): DemoResetResult {
         val accountIds = accountService.allAccountIds()
         accountIds.forEach { accountDeletionService.deleteAccount(it) }
-        toolAvailabilityService.disabledToolIds().forEach { toolAvailabilityService.enable(it) }
+        toolAvailabilityService.applyDefaults()
         featureFlagService.setEnabled(FeatureFlags.REGISTER_ENROLL_FIRST, false)
         return DemoResetResult(deletedAccounts = accountIds.size)
     }

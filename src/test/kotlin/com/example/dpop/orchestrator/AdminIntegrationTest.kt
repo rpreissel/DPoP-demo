@@ -87,9 +87,9 @@ class AdminIntegrationTest : IntegrationTestSupport() {
         }
 
         given("a demo with accounts, a tool lock and the enroll-first order") {
-            then("the reset removes all of it") {
+            then("the reset removes the accounts and puts every setting back to its preset") {
                 seedRegisteredAccount()
-                put("/orchestrator/admin/tools/auth-sms/availability", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
+                put("/orchestrator/admin/tools/auth-sms/availability/APP", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
                 put("/orchestrator/admin/registration-order", """{"enrollFirst":true}""") shouldBe HttpStatus.OK
 
                 restTemplate.exchange(
@@ -100,7 +100,12 @@ class AdminIntegrationTest : IntegrationTestSupport() {
                 adminGet("/orchestrator/admin/registration-order")["enrollFirst"] shouldBe false
                 @Suppress("UNCHECKED_CAST")
                 val info = restTemplate.getForObject("http://localhost:$port/orchestrator/demo/server-info", Map::class.java)!!
-                info["disabledTools"] shouldBe emptyList<Any>()
+                @Suppress("UNCHECKED_CAST")
+                val locks = (info["disabledTools"] as List<Map<String, Any?>>).map { it["toolId"] to it["channel"] }
+                // The ad-hoc lock is gone, the preset ones (demo.tool-defaults) are back.
+                locks shouldNotContain ("auth-sms" to "APP")
+                locks shouldContain ("auth-email" to "APP")
+                locks shouldContain ("auth-device" to "KEYCLOAK")
             }
         }
     }
