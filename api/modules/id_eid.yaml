@@ -114,17 +114,33 @@ components:
         next:
           $ref: '#/components/schemas/Next'
         stepData:
-          additionalProperties:
-            type: object
-          description: 'Whatever the current step needs to render: missing fields, selection options, or a retry reason.'
-          example:
-            options:
-            - ident-fsc
-            - ident-eid
-          type: object
+          $ref: '#/components/schemas/StepData'
+          description: Whatever the current step needs to render. `@t` names the shape - see StepData.
       required:
       - channel
       type: object
+    Confirm:
+      allOf:
+      - $ref: '#/components/schemas/Prompt'
+      - properties:
+          cancelLabel:
+            type: string
+          confirmLabel:
+            type: string
+          destructive:
+            type: boolean
+        type: object
+      required:
+      - cancelLabel
+      - confirmLabel
+      - title
+    ConfirmStep:
+      description: The step waits for a yes/no answer; the prompt is authored by the backend.
+      properties:
+        prompt:
+          $ref: '#/components/schemas/Prompt'
+      required:
+      - prompt
     DemoInfo:
       additionalProperties: true
       properties:
@@ -143,6 +159,14 @@ components:
           format: int64
           type: integer
       type: object
+    FailedAttemptStep:
+      description: The attempt failed; retries remain.
+      properties:
+        error:
+          example: TAN ungueltig
+          type: string
+      required:
+      - error
     IdentEidPatchRequest:
       properties:
         geburtsdatum:
@@ -200,6 +224,26 @@ components:
       - lifecycle
       - stateType
       type: object
+    MessageStep:
+      description: A single candidate was auto-activated; this explains why the step appears.
+      properties:
+        message:
+          example: E-Mail-Bestaetigung ausstehend
+          type: string
+      required:
+      - message
+    MissingFields:
+      description: Which inputs this step is still waiting for.
+      properties:
+        missingFields:
+          example:
+          - tan
+          items:
+            example: '["tan"]'
+            type: string
+          type: array
+      required:
+      - missingFields
     Next:
       properties:
         context:
@@ -220,6 +264,61 @@ components:
       required:
       - step
       - type
+      type: object
+    Prompt:
+      discriminator:
+        mapping:
+          Confirm: '#/components/schemas/Confirm'
+        propertyName: '@t'
+      properties:
+        '@t':
+          type: string
+        description:
+          type: string
+        title:
+          type: string
+      required:
+      - '@t'
+    SelectMethodStep:
+      description: Several procedures are possible; the client shows a selection.
+      properties:
+        description:
+          type: string
+        options:
+          example:
+          - auth-password
+          - auth-device
+          items:
+            example: '["auth-password","auth-device"]'
+            type: string
+          type: array
+        title:
+          example: Wie moechten Sie sich anmelden?
+          type: string
+      required:
+      - options
+    StepData:
+      description: What the current step needs to render. `@t` names the shape; see the mapping on this schema for the ones
+        this deployment can produce.
+      discriminator:
+        mapping:
+          confirm: '#/components/schemas/ConfirmStep'
+          failed-attempt: '#/components/schemas/FailedAttemptStep'
+          message: '#/components/schemas/MessageStep'
+          missing-fields: '#/components/schemas/MissingFields'
+          select-method: '#/components/schemas/SelectMethodStep'
+        propertyName: '@t'
+      oneOf:
+      - $ref: '#/components/schemas/ConfirmStep'
+      - $ref: '#/components/schemas/FailedAttemptStep'
+      - $ref: '#/components/schemas/MessageStep'
+      - $ref: '#/components/schemas/MissingFields'
+      - $ref: '#/components/schemas/SelectMethodStep'
+      properties:
+        '@t':
+          type: string
+      required:
+      - '@t'
       type: object
   securitySchemes:
     dpop:

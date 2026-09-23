@@ -104,7 +104,7 @@ class IdentEidToolHandler(
 
     private fun outcomeFor(state: IdentEidState): ToolOutcome.InProgress {
         val (step, fields) = IdentEidFlow.describe(state)
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
     private fun mockDocumentNumber(toolSessionId: UUID): String =

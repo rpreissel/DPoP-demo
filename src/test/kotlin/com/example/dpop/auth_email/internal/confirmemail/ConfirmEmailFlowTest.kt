@@ -4,6 +4,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * Pure unit test for the decision table alone - mirrors `auth_sms`'s `EnrollSmsFlowTest`.
@@ -81,7 +82,7 @@ class ConfirmEmailFlowTest : BehaviorSpec({
             then("it asks for email at step input, with the demo address") {
                 val (step, fields) = ConfirmEmailState.AwaitingEmail.describe()
                 step shouldBe "input"
-                fields["missingFields"] shouldBe listOf("email")
+                fields shouldBe MissingFields(listOf("email"))
             }
         }
 
@@ -89,7 +90,7 @@ class ConfirmEmailFlowTest : BehaviorSpec({
             then("it asks for code at step codeInput") {
                 val issued = emailCodeGenerator.issue()
                 val state = ConfirmEmailState.AwaitingCode("max@example.com", issued.hash, issued.expiresAt)
-                state.describe() shouldBe ("codeInput" to mapOf("missingFields" to listOf("code")))
+                state.describe() shouldBe ("codeInput" to MissingFields(listOf("code")))
             }
         }
     }

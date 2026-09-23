@@ -216,16 +216,14 @@ class ToolControllerSupport(
 
         val step = journeyService.applyOutcome(journey, channel, descriptor, outcome)
 
-        // The DEMO_DATA_KEY bag travels inside ToolOutcome.data like any other tool-internal
-        // field, but never belongs in stepData (docs/05-api.md #2: production contract).
-        @Suppress("UNCHECKED_CAST")
-        val demoValues = step.stepData?.get(DEMO_DATA_KEY) as? Map<String, Any?>
-        val cleanedStepData = step.stepData?.minus(DEMO_DATA_KEY)?.ifEmpty { null }
+        // The DEMO_DATA_KEY bag arrives inside ToolOutcome.data like any other tool-internal
+        // field; JourneyService splits it off into Step.demo, because it never belongs in stepData
+        // (docs/05-api.md #2: production contract).
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,
-            stepData = cleanedStepData,
-            demo = demoInfo(journey, channel, demoValues),
+            stepData = step.stepData,
+            demo = demoInfo(journey, channel, step.demo),
             authData = channelService.authDataFor(channel)
         )
     }
@@ -307,18 +305,15 @@ class ToolControllerSupport(
         } else {
             journeyService.nextOf(journey, channel)
         }
-        // Same DEMO_DATA_KEY split as applyOutcome (docs/05-api.md #2: production contract never
-        // sees it in stepData) - without this, a resumed tool (e.g. after a reload) lost every demo
-        // hint (prefilled password, the persona picker) that its ORIGINAL activation attached,
-        // because this GET is the only response a resume ever gets to see for an active tool.
-        @Suppress("UNCHECKED_CAST")
-        val demoValues = freshOutcome?.data?.get(DEMO_DATA_KEY) as? Map<String, Any?>
-        val cleanedStepData = freshOutcome?.data?.minus(DEMO_DATA_KEY)?.ifEmpty { null }
+        // A resumed tool (e.g. after a reload) must still get the demo hints its ORIGINAL
+        // activation attached (prefilled password, the persona picker): this GET is the only
+        // response a resume ever sees for an active tool. Since ToolOutcome reports step data and
+        // demo values separately, there is nothing left to split here.
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = next,
-            stepData = cleanedStepData,
-            demo = demoInfo(journey, channel, demoValues),
+            stepData = freshOutcome?.stepData,
+            demo = demoInfo(journey, channel, freshOutcome?.demo),
             authData = channelService.authDataFor(channel)
         )
     }

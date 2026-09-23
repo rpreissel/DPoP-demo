@@ -43,6 +43,7 @@ import java.util.UUID
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import com.example.dpop.orchestrator.session.forLog
+import com.example.dpop.tool_spi.StepData
 
 /**
  * The channel-level entry points. Everything about WHICH tool comes next belongs to the journey
@@ -426,7 +427,7 @@ class ChannelService(
     private fun currentEvidence(channel: ChannelSession): AuthEvidence =
         channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence() ?: AuthEvidence(emptyList())
 
-    private fun respond(channel: ChannelSession, next: Next? = null, stepData: Map<String, Any?>? = null): ChannelResponse {
+    private fun respond(channel: ChannelSession, next: Next? = null, stepData: StepData? = null): ChannelResponse {
         // A terminal channel (docs/02-domaenenmodell.md #3) never has a next - regardless of what
         // a caller passed in, so no caller (e.g. a strategy's own now-meaningless placeholder
         // after account deletion) can accidentally resurrect a dead channel with a stray next.

@@ -256,17 +256,26 @@ components:
         next:
           $ref: '#/components/schemas/Next'
         stepData:
-          additionalProperties:
-            type: object
-          description: 'Whatever the current step needs to render: missing fields, selection options, or a retry reason.'
-          example:
-            options:
-            - ident-fsc
-            - ident-eid
-          type: object
+          $ref: '#/components/schemas/StepData'
+          description: Whatever the current step needs to render. `@t` names the shape - see StepData.
       required:
       - channel
       type: object
+    Confirm:
+      allOf:
+      - $ref: '#/components/schemas/Prompt'
+      - properties:
+          cancelLabel:
+            type: string
+          confirmLabel:
+            type: string
+          destructive:
+            type: boolean
+        type: object
+      required:
+      - cancelLabel
+      - confirmLabel
+      - title
     ConfirmEmailPatchRequest:
       properties:
         code:
@@ -291,6 +300,13 @@ components:
           example: ABCD-1234
           type: string
       type: object
+    ConfirmStep:
+      description: The step waits for a yes/no answer; the prompt is authored by the backend.
+      properties:
+        prompt:
+          $ref: '#/components/schemas/Prompt'
+      required:
+      - prompt
     DemoInfo:
       additionalProperties: true
       properties:
@@ -368,6 +384,14 @@ components:
           example: 123456
           type: string
       type: object
+    FailedAttemptStep:
+      description: The attempt failed; retries remain.
+      properties:
+        error:
+          example: TAN ungueltig
+          type: string
+      required:
+      - error
     IdentEidPatchRequest:
       properties:
         geburtsdatum:
@@ -460,8 +484,7 @@ components:
           format: date-time
           type: string
         detail:
-          additionalProperties:
-            type: object
+          additionalProperties: true
           type: object
         eventType:
           type: string
@@ -558,6 +581,29 @@ components:
       - tenantId
       - userId
       type: object
+    KobilActivationStep:
+      description: What the KOBIL SDK needs to activate this device.
+      properties:
+        activationCode:
+          type: string
+        kobilUserId:
+          type: string
+        missingFields:
+          items:
+            type: string
+          type: array
+        pin:
+          type: string
+        tenantId:
+          type: string
+        unlockSecret:
+          type: string
+      required:
+      - activationCode
+      - kobilUserId
+      - missingFields
+      - pin
+      - tenantId
     KobilLoginRequest:
       properties:
         pin:
@@ -578,6 +624,26 @@ components:
       required:
       - otp
       type: object
+    KobilOtpStep:
+      description: Waiting for the one-time password the KOBIL SDK produced.
+      properties:
+        kobilPin:
+          type: string
+        kobilUserId:
+          type: string
+        missingFields:
+          example:
+          - otp
+          items:
+            example: '["otp"]'
+            type: string
+          type: array
+        tenantId:
+          type: string
+      required:
+      - kobilUserId
+      - missingFields
+      - tenantId
     KobilPinReleaseRequest:
       properties:
         unlock:
@@ -625,6 +691,33 @@ components:
       required:
       - kind
       type: object
+    KobilUnlockStep:
+      description: The app must unlock the backend-held PIN; these are the accepted ways.
+      properties:
+        kobilUserId:
+          type: string
+        tenantId:
+          type: string
+        unlockOptions:
+          example:
+          - BIOMETRIC
+          - PIN
+          items:
+            example: '["BIOMETRIC","PIN"]'
+            type: string
+          type: array
+      required:
+      - kobilUserId
+      - tenantId
+      - unlockOptions
+    MessageStep:
+      description: A single candidate was auto-activated; this explains why the step appears.
+      properties:
+        message:
+          example: E-Mail-Bestaetigung ausstehend
+          type: string
+      required:
+      - message
     MethodsResponse:
       description: 'The account''s active authentication methods (docs/05-api.md #2). Never contains fsc.'
       properties:
@@ -652,6 +745,18 @@ components:
       required:
       - valid
       type: object
+    MissingFields:
+      description: Which inputs this step is still waiting for.
+      properties:
+        missingFields:
+          example:
+          - tan
+          items:
+            example: '["tan"]'
+            type: string
+          type: array
+      required:
+      - missingFields
     Next:
       properties:
         context:
@@ -683,6 +788,29 @@ components:
       required:
       - password
       - userVerification
+    Prompt:
+      discriminator:
+        mapping:
+          Confirm: '#/components/schemas/Confirm'
+        propertyName: '@t'
+      properties:
+        '@t':
+          type: string
+        description:
+          type: string
+        title:
+          type: string
+      required:
+      - '@t'
+    QrPairingStep:
+      description: 'A QR pairing in progress: the pairing code, and the verification code once known.'
+      properties:
+        pairingCode:
+          example: 7F3K-92QL
+          type: string
+        verificationCode:
+          example: '4711'
+          type: string
     RegistrationOrderState:
       properties:
         enrollFirst:
@@ -695,6 +823,55 @@ components:
       properties:
         restoreData:
           type: string
+      type: object
+    SelectMethodStep:
+      description: Several procedures are possible; the client shows a selection.
+      properties:
+        description:
+          type: string
+        options:
+          example:
+          - auth-password
+          - auth-device
+          items:
+            example: '["auth-password","auth-device"]'
+            type: string
+          type: array
+        title:
+          example: Wie moechten Sie sich anmelden?
+          type: string
+      required:
+      - options
+    StepData:
+      description: What the current step needs to render. `@t` names the shape; see the mapping on this schema for the ones
+        this deployment can produce.
+      discriminator:
+        mapping:
+          confirm: '#/components/schemas/ConfirmStep'
+          failed-attempt: '#/components/schemas/FailedAttemptStep'
+          kobil-activation: '#/components/schemas/KobilActivationStep'
+          kobil-otp: '#/components/schemas/KobilOtpStep'
+          kobil-unlock: '#/components/schemas/KobilUnlockStep'
+          message: '#/components/schemas/MessageStep'
+          missing-fields: '#/components/schemas/MissingFields'
+          qr-pairing: '#/components/schemas/QrPairingStep'
+          select-method: '#/components/schemas/SelectMethodStep'
+        propertyName: '@t'
+      oneOf:
+      - $ref: '#/components/schemas/ConfirmStep'
+      - $ref: '#/components/schemas/FailedAttemptStep'
+      - $ref: '#/components/schemas/KobilActivationStep'
+      - $ref: '#/components/schemas/KobilOtpStep'
+      - $ref: '#/components/schemas/KobilUnlockStep'
+      - $ref: '#/components/schemas/MessageStep'
+      - $ref: '#/components/schemas/MissingFields'
+      - $ref: '#/components/schemas/QrPairingStep'
+      - $ref: '#/components/schemas/SelectMethodStep'
+      properties:
+        '@t':
+          type: string
+      required:
+      - '@t'
       type: object
     TokenResponse:
       description: Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification

@@ -4,6 +4,7 @@ import com.example.dpop.auth_sms.internal.TanGenerator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * Pure unit test for the tan-vs-state decision. [AuthSmsLookupToolHandlerTest] would cover
@@ -62,7 +63,7 @@ class AuthSmsLookupFlowTest : BehaviorSpec({
             then("it asks for email at step auth") {
                 val (step, fields) = AuthSmsLookupState.AwaitingEmail.describe()
                 step shouldBe "auth"
-                fields["missingFields"] shouldBe listOf("email")
+                fields shouldBe MissingFields(listOf("email"))
             }
         }
 
@@ -70,7 +71,7 @@ class AuthSmsLookupFlowTest : BehaviorSpec({
             then("it asks for tan at step tanInput") {
                 val issued = tanGenerator.issue()
                 val state = AuthSmsLookupState.AwaitingTan(42L, issued.hash, issued.expiresAt)
-                state.describe() shouldBe ("tanInput" to mapOf("missingFields" to listOf("tan")))
+                state.describe() shouldBe ("tanInput" to MissingFields(listOf("tan")))
             }
         }
     }

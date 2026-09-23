@@ -83,6 +83,6 @@ class AuthPasswordUseToolHandler(
 
     private fun outcomeFor(): ToolOutcome.InProgress {
         val (step, fields) = AuthPasswordUseFlow.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = AuthPasswordUseFlow.demo())
     }
 }

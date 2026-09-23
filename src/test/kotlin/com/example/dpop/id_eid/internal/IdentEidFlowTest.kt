@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.time.LocalDate
+import com.example.dpop.tool_spi.MissingFields
 
 class IdentEidFlowTest : BehaviorSpec({
 
@@ -23,7 +24,7 @@ class IdentEidFlowTest : BehaviorSpec({
         val state = IdentEidState()
 
         then("it names step card - nothing is typed before the card is read") {
-            IdentEidFlow.describe(state) shouldBe ("card" to mapOf("missingFields" to IdentEidFlow.CARD_FIELDS))
+            IdentEidFlow.describe(state) shouldBe ("card" to MissingFields(IdentEidFlow.CARD_FIELDS))
         }
 
         then("decide() reports it as incomplete") {
@@ -35,7 +36,7 @@ class IdentEidFlowTest : BehaviorSpec({
         val state = IdentEidFlow.merge(IdentEidState(), cardFields)
 
         then("it names step pin") {
-            IdentEidFlow.describe(state) shouldBe ("pin" to mapOf("missingFields" to IdentEidFlow.PIN_FIELDS))
+            IdentEidFlow.describe(state) shouldBe ("pin" to MissingFields(IdentEidFlow.PIN_FIELDS))
         }
 
         then("decide() still reports it as incomplete") {

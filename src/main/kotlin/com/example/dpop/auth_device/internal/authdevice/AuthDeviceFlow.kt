@@ -1,6 +1,7 @@
 package com.example.dpop.auth_device.internal.authdevice
 
 import com.example.dpop.tool_api.UserVerification
+import com.example.dpop.tool_spi.StepData
 
 /**
  * Single-shot flow (docs/03-tool-architektur.md #3, the optional Flow pattern): the device proof
@@ -12,7 +13,7 @@ internal data object AuthDeviceState {
     val step: String get() = "auth"
 
     /** No `stepData` needed: the proof comes from a signed device API call, not a form. */
-    fun describe(): Pair<String, Map<String, Any?>?> = step to null
+    fun describe(): Pair<String, StepData?> = step to null
 }
 
 internal sealed interface AuthDeviceDecision {

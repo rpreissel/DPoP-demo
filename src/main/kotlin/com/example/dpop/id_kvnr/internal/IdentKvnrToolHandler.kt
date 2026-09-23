@@ -9,6 +9,7 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * toolId=ident-kvnr. Takes the one value an attestation cannot carry - the Versichertennummer -
@@ -68,5 +69,5 @@ class IdentKvnrToolHandler(
         return inProgress()
     }
 
-    private fun inProgress() = ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("kvnr")))
+    private fun inProgress() = ToolOutcome.InProgress(nextStep = "input", stepData = MissingFields(listOf("kvnr")))
 }

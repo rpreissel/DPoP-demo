@@ -3,6 +3,8 @@ package com.example.dpop.auth_email.internal.authemailuse
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
+import com.example.dpop.tool_spi.StepData
 
 private const val STEP_AUTH = "auth"
 private const val FIELD_CODE = "code"
@@ -17,7 +19,7 @@ internal data class AuthEmailUseState(val issuedCodeHash: String, val codeExpire
     val missingFields: List<String> get() = listOf(FIELD_CODE)
 
     /** Same derivation for start/patch/read - one place turns this state into `next.step`/`stepData`. */
-    fun describe(): Pair<String, Map<String, Any?>> = step to mapOf("missingFields" to missingFields)
+    fun describe(): Pair<String, StepData> = step to MissingFields(missingFields)
 
     companion object {
         /** Turns [AuthEmailUseToolSession]'s persisted columns back into a [AuthEmailUseState]. */

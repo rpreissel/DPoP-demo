@@ -96,7 +96,7 @@ class ConfirmEmailToolHandler(
                     // demoTan: reuses the existing demo-value plumbing (docs/05-api.md #2's `demo`
                     // object) - this is a demo, not a real mail gateway, and a second field for
                     // "the other kind of demo code" would be unnecessary special-casing.
-                    ToolOutcome.InProgress(nextStep = step, data = fields + demoData("tan" to issued.plainCode))
+                    ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainCode))
                 }
             }
 
@@ -120,7 +120,7 @@ class ConfirmEmailToolHandler(
 
     private fun outcomeFor(state: ConfirmEmailState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
     }
 
     private fun ConfirmEmailToolSession.toState(): ConfirmEmailState = ConfirmEmailState.of(

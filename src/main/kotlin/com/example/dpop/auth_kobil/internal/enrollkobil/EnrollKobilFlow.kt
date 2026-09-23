@@ -11,7 +11,7 @@ import com.example.dpop.tool_api.UserVerification
 internal data object EnrollKobilState {
     val step: String get() = "activate"
 
-    fun describe(): Pair<String, Map<String, Any?>?> = step to mapOf("missingFields" to MISSING_FIELDS)
+    fun describe(): Pair<String, List<String>> = step to MISSING_FIELDS
 
     private val MISSING_FIELDS = listOf("activated", "biometricConsent")
 }

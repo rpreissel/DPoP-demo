@@ -71,9 +71,9 @@ class AuthEmailLookupToolHandler(
         // a confirmed account address - otherwise there is nothing to send to.
         return if (confirmedEmail != null) {
             sendMockEmail(confirmedEmail, issued.plainCode)
-            ToolOutcome.InProgress(nextStep = step, data = fields + demoData("tan" to issued.plainCode))
+            ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainCode))
         } else {
-            ToolOutcome.InProgress(nextStep = step, data = fields)
+            ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
         }
     }
 
@@ -107,7 +107,7 @@ class AuthEmailLookupToolHandler(
 
     private fun outcomeFor(state: AuthEmailLookupState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
     }
 
     private fun AuthEmailLookupToolSession.toState(): AuthEmailLookupState = AuthEmailLookupState.of(

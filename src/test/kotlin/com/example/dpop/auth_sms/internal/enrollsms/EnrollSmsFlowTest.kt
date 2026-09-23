@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * Pure unit test for the decision table alone: no Spring, no repositories, no [EnrollSmsToolHandler] -
@@ -89,7 +90,7 @@ class EnrollSmsFlowTest : BehaviorSpec({
         `when`("AwaitingPhoneNumber") {
             then("it asks for phoneNumber at step enroll") {
                 EnrollSmsState.AwaitingPhoneNumber.describe() shouldBe
-                    ("enroll" to mapOf("missingFields" to listOf("phoneNumber")))
+                    ("enroll" to MissingFields(listOf("phoneNumber")))
             }
         }
 
@@ -97,7 +98,7 @@ class EnrollSmsFlowTest : BehaviorSpec({
             then("it asks for tan at step tanInput") {
                 val issued = tanGenerator.issue()
                 val state = EnrollSmsState.AwaitingTan("+491701234567", issued.hash, issued.expiresAt)
-                state.describe() shouldBe ("tanInput" to mapOf("missingFields" to listOf("tan")))
+                state.describe() shouldBe ("tanInput" to MissingFields(listOf("tan")))
             }
         }
     }

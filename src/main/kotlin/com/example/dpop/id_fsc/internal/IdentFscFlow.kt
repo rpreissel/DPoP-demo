@@ -1,6 +1,8 @@
 package com.example.dpop.id_fsc.internal
 
 import java.security.MessageDigest
+import com.example.dpop.tool_spi.StepData
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * Pure state of the ident-fsc flow (docs/03-tool-architektur.md #3, the optional Flow pattern) -
@@ -78,7 +80,7 @@ internal object IdentFscFlow {
     }
 
     /** Same derivation for start/patch/read - one place turns a state into `next.step`/`stepData`. */
-    fun describe(state: IdentFscState): Pair<String, Map<String, Any?>> = "input" to mapOf("missingFields" to missingFields(state))
+    fun describe(state: IdentFscState): Pair<String, StepData> = "input" to MissingFields(missingFields(state))
 
     fun evidenceHash(kvnr: String, fscHash: String): String = "sha256:" + hash("$kvnr:$fscHash")
 

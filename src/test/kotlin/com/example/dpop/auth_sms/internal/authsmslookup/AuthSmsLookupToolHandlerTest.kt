@@ -44,7 +44,8 @@ class AuthSmsLookupToolHandlerTest : BehaviorSpec({
 
                 outcome.shouldBeInstanceOf<ToolOutcome.InProgress>()
                 (outcome as ToolOutcome.InProgress).nextStep shouldBe "tanInput"
-                outcome.data?.get("demo").shouldNotBeNull()
+                // Der Demo-Anteil ist jetzt ein eigenes Feld, kein reservierter Schluessel in den Schrittdaten.
+                outcome.demo?.get("tan").shouldNotBeNull()
                 saved.captured.accountId shouldBe 42L
                 saved.captured.issuedTanHash.shouldNotBeNull()
             }
@@ -59,7 +60,7 @@ class AuthSmsLookupToolHandlerTest : BehaviorSpec({
 
                 outcome.shouldBeInstanceOf<ToolOutcome.InProgress>()
                 (outcome as ToolOutcome.InProgress).nextStep shouldBe "tanInput"
-                outcome.data?.get("demo") shouldBe null
+                outcome.demo?.get("tan") shouldBe null
                 saved.captured.accountId shouldBe null
             }
         }

@@ -30,6 +30,7 @@ import java.time.Instant
 import java.util.UUID
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.session.forLog
+import com.example.dpop.tool_spi.StepData
 
 /**
  * The machinery between the [IntentStrategy] SPI and the rest of the orchestrator: it turns a
@@ -265,7 +266,7 @@ class JourneyService(
             val active = checkNotNull(state.active) { "InProgress without an active tool" }
             codec.write(journey, state.withActive(active.copy(step = outcome.nextStep)))
             journeyRepository.save(journey)
-            Step(Next.tool(tool.toolId.value, outcome.nextStep, active.toolSessionId), outcome.data)
+            Step(Next.tool(tool.toolId.value, outcome.nextStep, active.toolSessionId), outcome.stepData, outcome.demo)
         }
 
         is ToolOutcome.Failed -> chargeAttempt(journey, channel, tool, outcome)
@@ -395,7 +396,7 @@ class JourneyService(
             // stale one the triggering event arrived with.
             codec.write(journey, transition.resumeState)
             val step = advance(journey, channel, JourneyEvent.ActionCompleted)
-            if (demoNotice == null) step else step.copy(stepData = mergeDemoData(step.stepData, demoNotice))
+            if (demoNotice == null) step else step.copy(demo = step.demo.orEmpty() + demoNotice)
         }
 
         Transition.Logout -> {
@@ -453,11 +454,6 @@ class JourneyService(
     }
 
     /** Folds a [JourneyActionExecutor.perform] demo notice into the already-computed next step's own `demo` block, if any. */
-    private fun mergeDemoData(stepData: Map<String, Any?>?, notice: Map<String, Any?>): Map<String, Any?> {
-        @Suppress("UNCHECKED_CAST")
-        val existingDemo = stepData?.get(DEMO_DATA_KEY) as? Map<String, Any?>
-        return stepData.orEmpty() + (DEMO_DATA_KEY to (existingDemo.orEmpty() + notice))
-    }
 
     private fun finish(journey: AuthJourney, channel: ChannelSession): Step {
         journey.consume()
@@ -500,7 +496,7 @@ class JourneyService(
             throw OrchestratorException.processAborted("Retry-Limit erreicht: ${outcome.reason}")
         }
         journeyRepository.save(journey)
-        return Step(nextOf(journey, channel), mapOf("error" to outcome.reason))
+        return Step(nextOf(journey, channel), FailedAttemptStep(outcome.reason))
     }
 
     // Cancellation fallout -------------------------------------------------------

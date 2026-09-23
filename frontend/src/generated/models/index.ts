@@ -385,11 +385,36 @@ export interface ChannelResponse {
      */
     next?: Next;
     /**
-     * Whatever the current step needs to render: missing fields, selection options, or a retry reason.
-     * @type {{ [key: string]: object; }}
+     * Whatever the current step needs to render. `@t` names the shape - see StepData.
+     * @type {StepData}
      * @memberof ChannelResponse
      */
-    stepData?: { [key: string]: object; };
+    stepData?: StepData;
+}
+/**
+ * 
+ * @export
+ * @interface Confirm
+ */
+export interface Confirm extends Prompt {
+    /**
+     * 
+     * @type {string}
+     * @memberof Confirm
+     */
+    cancelLabel: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof Confirm
+     */
+    confirmLabel: string;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof Confirm
+     */
+    destructive?: boolean;
 }
 /**
  * 
@@ -441,6 +466,19 @@ export interface ConfirmQrLoginPatchRequest {
      * @memberof ConfirmQrLoginPatchRequest
      */
     pairingCode?: string;
+}
+/**
+ * The step waits for a yes/no answer; the prompt is authored by the backend.
+ * @export
+ * @interface ConfirmStep
+ */
+export interface ConfirmStep {
+    /**
+     * 
+     * @type {Prompt}
+     * @memberof ConfirmStep
+     */
+    prompt: Prompt;
 }
 /**
  * 
@@ -574,6 +612,19 @@ export interface EnrollSmsPatchRequest {
      * @memberof EnrollSmsPatchRequest
      */
     tan?: string;
+}
+/**
+ * The attempt failed; retries remain.
+ * @export
+ * @interface FailedAttemptStep
+ */
+export interface FailedAttemptStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof FailedAttemptStep
+     */
+    error: string;
 }
 /**
  * 
@@ -749,10 +800,10 @@ export interface JourneyLogEntryView {
     createdAt: string;
     /**
      * 
-     * @type {{ [key: string]: object; }}
+     * @type {{ [key: string]: any; }}
      * @memberof JourneyLogEntryView
      */
-    detail: { [key: string]: object; };
+    detail: { [key: string]: any; };
     /**
      * 
      * @type {string}
@@ -878,6 +929,49 @@ export interface KobilActivateRequest {
     userId: string;
 }
 /**
+ * What the KOBIL SDK needs to activate this device.
+ * @export
+ * @interface KobilActivationStep
+ */
+export interface KobilActivationStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilActivationStep
+     */
+    activationCode: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilActivationStep
+     */
+    kobilUserId: string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof KobilActivationStep
+     */
+    missingFields: Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilActivationStep
+     */
+    pin: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilActivationStep
+     */
+    tenantId: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilActivationStep
+     */
+    unlockSecret?: string;
+}
+/**
  * 
  * @export
  * @interface KobilLoginRequest
@@ -914,6 +1008,37 @@ export interface KobilOtpResponse {
      * @memberof KobilOtpResponse
      */
     otp: string;
+}
+/**
+ * Waiting for the one-time password the KOBIL SDK produced.
+ * @export
+ * @interface KobilOtpStep
+ */
+export interface KobilOtpStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilOtpStep
+     */
+    kobilPin?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilOtpStep
+     */
+    kobilUserId: string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof KobilOtpStep
+     */
+    missingFields: Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilOtpStep
+     */
+    tenantId: string;
 }
 /**
  * 
@@ -1004,6 +1129,44 @@ export const KobilUnlockCredentialUserVerificationEnum = {
 export type KobilUnlockCredentialUserVerificationEnum = typeof KobilUnlockCredentialUserVerificationEnum[keyof typeof KobilUnlockCredentialUserVerificationEnum];
 
 /**
+ * The app must unlock the backend-held PIN; these are the accepted ways.
+ * @export
+ * @interface KobilUnlockStep
+ */
+export interface KobilUnlockStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilUnlockStep
+     */
+    kobilUserId: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KobilUnlockStep
+     */
+    tenantId: string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof KobilUnlockStep
+     */
+    unlockOptions: Array<string>;
+}
+/**
+ * A single candidate was auto-activated; this explains why the step appears.
+ * @export
+ * @interface MessageStep
+ */
+export interface MessageStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof MessageStep
+     */
+    message: string;
+}
+/**
  * The account's active authentication methods (docs/05-api.md #2). Never contains fsc.
  * @export
  * @interface MethodsResponse
@@ -1054,6 +1217,19 @@ export interface MgmtPasswordVerifyResponse {
      * @memberof MgmtPasswordVerifyResponse
      */
     valid: boolean;
+}
+/**
+ * Which inputs this step is still waiting for.
+ * @export
+ * @interface MissingFields
+ */
+export interface MissingFields {
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof MissingFields
+     */
+    missingFields: Array<string>;
 }
 /**
  * 
@@ -1110,6 +1286,50 @@ export interface PasswordUnlock extends KobilUnlockCredential {
 /**
  * 
  * @export
+ * @interface Prompt
+ */
+export interface Prompt {
+    /**
+     * 
+     * @type {string}
+     * @memberof Prompt
+     */
+    t: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof Prompt
+     */
+    description?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof Prompt
+     */
+    title?: string;
+}
+/**
+ * A QR pairing in progress: the pairing code, and the verification code once known.
+ * @export
+ * @interface QrPairingStep
+ */
+export interface QrPairingStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof QrPairingStep
+     */
+    pairingCode?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof QrPairingStep
+     */
+    verificationCode?: string;
+}
+/**
+ * 
+ * @export
  * @interface RegistrationOrderState
  */
 export interface RegistrationOrderState {
@@ -1133,6 +1353,37 @@ export interface RestoreDataResponse {
      */
     restoreData?: string;
 }
+/**
+ * Several procedures are possible; the client shows a selection.
+ * @export
+ * @interface SelectMethodStep
+ */
+export interface SelectMethodStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof SelectMethodStep
+     */
+    description?: string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof SelectMethodStep
+     */
+    options: Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof SelectMethodStep
+     */
+    title?: string;
+}
+/**
+ * @type StepData
+ * What the current step needs to render. `@t` names the shape; see the mapping on this schema for the ones this deployment can produce.
+ * @export
+ */
+export type StepData = { t: 'confirm' } & ConfirmStep | { t: 'failed-attempt' } & FailedAttemptStep | { t: 'kobil-activation' } & KobilActivationStep | { t: 'kobil-otp' } & KobilOtpStep | { t: 'kobil-unlock' } & KobilUnlockStep | { t: 'message' } & MessageStep | { t: 'missing-fields' } & MissingFields | { t: 'qr-pairing' } & QrPairingStep | { t: 'select-method' } & SelectMethodStep;
 /**
  * Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's a credential and stays server-side; refreshExpiresAt is the only thing about it exposed.
  * @export

@@ -3,6 +3,9 @@ package com.example.dpop.auth_kobil.internal.authkobil
 import com.example.dpop.kobil_mock.KobilOtpVerification
 import com.example.dpop.kobil_mock.KobilRisk
 import com.example.dpop.tool_api.UserVerification
+import com.example.dpop.auth_kobil.api.v1.KobilOtpStep
+import com.example.dpop.auth_kobil.api.v1.KobilUnlockStep
+import com.example.dpop.tool_spi.StepData
 
 /**
  * The two steps of auth-kobil. `unlock` is where the client proves it may have the PIN; `otp` is
@@ -15,7 +18,7 @@ import com.example.dpop.tool_api.UserVerification
 internal sealed interface AuthKobilState {
     val step: String
 
-    fun describe(): Pair<String, Map<String, Any?>?>
+    fun describe(): Pair<String, StepData>
 
     /**
      * [options] are the ways this particular credential can actually be unlocked - biometrics only
@@ -38,21 +41,15 @@ internal sealed interface AuthKobilState {
     ) : AuthKobilState {
         override val step get() = "unlock"
 
-        override fun describe(): Pair<String, Map<String, Any?>?> = step to mapOf(
-            "unlockOptions" to options,
-            "tenantId" to tenantId,
-            "kobilUserId" to kobilUserId,
-        )
+        override fun describe(): Pair<String, StepData> =
+            step to KobilUnlockStep(options, tenantId, kobilUserId)
     }
 
     data class AwaitingOtp(val tenantId: String, val kobilUserId: String) : AuthKobilState {
         override val step get() = "otp"
 
-        override fun describe(): Pair<String, Map<String, Any?>?> = step to mapOf(
-            "missingFields" to listOf("otp"),
-            "tenantId" to tenantId,
-            "kobilUserId" to kobilUserId,
-        )
+        override fun describe(): Pair<String, StepData> =
+            step to KobilOtpStep(listOf("otp"), tenantId, kobilUserId)
     }
 }
 

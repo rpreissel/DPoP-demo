@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.tool_spi.StepDataTypes
+import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springdoc.core.customizers.OperationCustomizer
 import org.springdoc.core.models.GroupedOpenApi
 import org.springframework.beans.factory.FactoryBean
@@ -55,11 +57,14 @@ class Registrar : ImportBeanDefinitionRegistrar {
     }
 
     /**
-     * The `OperationCustomizer`s are attached to every group explicitly. A group does NOT inherit
-     * the ones registered as plain beans - springdoc applies those to the ungrouped document only.
-     * Since every spec this project publishes comes from a group, a customizer that is not added
-     * here simply never runs, silently: the group's own `build()` is the whole configuration it
-     * gets.
+     * Customizers are attached to every group explicitly. A group does NOT inherit the ones
+     * registered as plain beans - springdoc applies those to the ungrouped document only. Since
+     * every spec this project publishes comes from a group, a customizer that is not added here
+     * simply never runs, and it fails silently: the group's own `build()` is the whole
+     * configuration it gets.
+     *
+     * This has now caught out two separate customizers (the security requirements, the StepData
+     * union), so both kinds are wired here rather than per customizer.
      */
     private fun register(registry: BeanDefinitionRegistry, group: String, packageToScan: String) {
         val definition = BeanDefinitionBuilder
@@ -115,7 +120,15 @@ class ModuleApiGroupFactoryBean(
     override fun getObject(): GroupedOpenApi = GroupedOpenApi.builder()
         .group(group)
         .packagesToScan(packageToScan)
-        .apply { context.getBeanProvider(OperationCustomizer::class.java).forEach { addOperationCustomizer(it) } }
+        .apply {
+            context.getBeanProvider(OperationCustomizer::class.java).forEach { addOperationCustomizer(it) }
+            context.getBeanProvider(OpenApiCustomizer::class.java).forEach { addOpenApiCustomizer(it) }
+            // Group-aware, so a module's contract lists only the step shapes it can answer with.
+            addOpenApiCustomizer(
+                context.getBean(StepDataSchemaCustomizer::class.java)
+                    .forPackage(packageToScan, context.getBeanProvider(StepDataTypes::class.java).toList())
+            )
+        }
         .build()
 }
 

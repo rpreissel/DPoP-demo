@@ -4,6 +4,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 class AuthEmailUseFlowTest : BehaviorSpec({
 
@@ -33,7 +34,7 @@ class AuthEmailUseFlowTest : BehaviorSpec({
 
     given("describe()") {
         then("it asks for code at step auth") {
-            state.describe() shouldBe ("auth" to mapOf("missingFields" to listOf("code")))
+            state.describe() shouldBe ("auth" to MissingFields(listOf("code")))
         }
     }
 

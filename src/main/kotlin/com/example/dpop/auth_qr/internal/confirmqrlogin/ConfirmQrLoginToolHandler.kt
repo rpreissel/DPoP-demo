@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.auth_qr.api.v1.QrPairingStep
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * toolId=confirm-qr-login: approve or decline a pending `auth-qr`/`auth-qr-lookup` pairing
@@ -36,7 +38,7 @@ class ConfirmQrLoginToolHandler(
         val data = ConfirmQrLoginToolSession(toolSessionId = toolSessionId)
         toolDataRepository.save(data)
         if (pairingCode.isNullOrBlank()) {
-            return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
+            return ToolOutcome.InProgress(nextStep = "input", stepData = MissingFields(listOf("pairingCode")))
         }
         return resolvePairingCode(data, pairingCode)
     }
@@ -90,7 +92,7 @@ class ConfirmQrLoginToolHandler(
 
     private fun resolvePairingCode(data: ConfirmQrLoginToolSession, pairingCode: String?): ToolOutcome {
         if (pairingCode.isNullOrBlank()) {
-            return ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
+            return ToolOutcome.InProgress(nextStep = "input", stepData = MissingFields(listOf("pairingCode")))
         }
         val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
         if (request == null || request.status != QrLoginStatus.PENDING || Instant.now().isAfter(request.expiresAt)) {
@@ -107,12 +109,12 @@ class ConfirmQrLoginToolHandler(
     fun read(toolSessionId: UUID): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown confirm-qr-login tool session: $toolSessionId" }
         return data.pairingCode?.let { confirmStepFor(it) }
-            ?: ToolOutcome.InProgress(nextStep = "input", data = mapOf("missingFields" to listOf("pairingCode")))
+            ?: ToolOutcome.InProgress(nextStep = "input", stepData = MissingFields(listOf("pairingCode")))
     }
 
     private fun confirmStepFor(pairingCode: String): ToolOutcome.InProgress {
         val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
-        return ToolOutcome.InProgress(nextStep = "confirm", data = mapOf("verificationCode" to request?.verificationCode))
+        return ToolOutcome.InProgress(nextStep = "confirm", stepData = QrPairingStep(pairingCode = null, verificationCode = request?.verificationCode))
     }
 
     companion object {

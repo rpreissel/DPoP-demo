@@ -76,7 +76,7 @@ class EnrollSmsToolHandler(
                 val (step, fields) = state.describe()
                 // demoTan: this is a demo, not a real SMS gateway - showing it in the UI means
                 // testers don't need server-log access (docs/06-ablaeufe.md #4).
-                ToolOutcome.InProgress(nextStep = step, data = fields + demoData("tan" to issued.plainTan))
+                ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainTan))
             }
 
             is EnrollSmsDecision.Complete -> {
@@ -108,7 +108,7 @@ class EnrollSmsToolHandler(
 
     private fun outcomeFor(state: EnrollSmsState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
     private fun EnrollSmsToolSession.toState(): EnrollSmsState = EnrollSmsState.of(

@@ -3,6 +3,8 @@ package com.example.dpop.id_eid.internal
 import com.example.dpop.tool_api.ClaimedIdentity
 import java.security.MessageDigest
 import java.time.LocalDate
+import com.example.dpop.tool_spi.StepData
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * Pure state of the ident-eid flow (docs/03-tool-architektur.md #3, the optional Flow pattern) -
@@ -67,9 +69,9 @@ internal object IdentEidFlow {
     fun pinMatchesMock(pinHash: String): Boolean = MessageDigest.isEqual(pinHash.toByteArray(), hash(MOCK_PIN).toByteArray())
 
     /** Same derivation for start/patch/read - one place turns a state into `next.step`/`stepData`. */
-    fun describe(state: IdentEidState): Pair<String, Map<String, Any?>> = when {
-        !hasCardFields(state) -> "card" to mapOf("missingFields" to CARD_FIELDS)
-        else -> "pin" to mapOf("missingFields" to PIN_FIELDS)
+    fun describe(state: IdentEidState): Pair<String, StepData> = when {
+        !hasCardFields(state) -> "card" to MissingFields(CARD_FIELDS)
+        else -> "pin" to MissingFields(PIN_FIELDS)
     }
 
     fun evidenceHash(pinHash: String, documentNumber: String): String = "sha256:" + hash("$pinHash:$documentNumber")

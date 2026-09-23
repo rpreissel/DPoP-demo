@@ -6,6 +6,8 @@ import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.demoData
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
+import com.example.dpop.tool_spi.StepData
 
 private const val STEP_INPUT = "input"
 private const val STEP_CODE_INPUT = "codeInput"
@@ -20,16 +22,16 @@ internal sealed interface ConfirmEmailState {
     /** `next.step` for this position. */
     val step: String
     val missingFields: List<String>
-    /** Merged into `stepData` alongside [missingFields] - only `AwaitingEmail` has anything here (the demo address). */
-    val extraData: Map<String, Any?> get() = emptyMap()
+    /** Demo-only values for this step - never part of the step data (tool_spi/Demo.kt). */
+    val demo: Map<String, Any?> get() = emptyMap()
 
     /** Same derivation for start/patch/read - one place turns this state into `next.step`/`stepData`. */
-    fun describe(): Pair<String, Map<String, Any?>> = step to (mapOf("missingFields" to missingFields) + extraData)
+    fun describe(): Pair<String, StepData> = step to MissingFields(missingFields)
 
     data object AwaitingEmail : ConfirmEmailState {
         override val step = STEP_INPUT
         override val missingFields = listOf(FIELD_EMAIL)
-        override val extraData = mapOf(demoData(FIELD_EMAIL to DEMO_EMAIL))
+        override val demo = mapOf(FIELD_EMAIL to DEMO_EMAIL)
     }
 
     data class AwaitingCode(val email: String, val issuedCodeHash: String, val codeExpiresAt: Instant) : ConfirmEmailState {

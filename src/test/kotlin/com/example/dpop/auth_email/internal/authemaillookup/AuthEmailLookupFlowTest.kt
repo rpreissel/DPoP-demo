@@ -4,6 +4,7 @@ import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 /** Pure unit test for the code-vs-state decision - mirrors `auth_sms`'s `AuthSmsLookupFlowTest`. */
 class AuthEmailLookupFlowTest : BehaviorSpec({
@@ -59,7 +60,7 @@ class AuthEmailLookupFlowTest : BehaviorSpec({
             then("it asks for email at step auth") {
                 val (step, fields) = AuthEmailLookupState.AwaitingEmail.describe()
                 step shouldBe "auth"
-                fields["missingFields"] shouldBe listOf("email")
+                fields shouldBe MissingFields(listOf("email"))
             }
         }
 
@@ -67,7 +68,7 @@ class AuthEmailLookupFlowTest : BehaviorSpec({
             then("it asks for code at step codeInput") {
                 val issued = emailCodeGenerator.issue()
                 val state = AuthEmailLookupState.AwaitingCode(42L, issued.hash, issued.expiresAt)
-                state.describe() shouldBe ("codeInput" to mapOf("missingFields" to listOf("code")))
+                state.describe() shouldBe ("codeInput" to MissingFields(listOf("code")))
             }
         }
     }

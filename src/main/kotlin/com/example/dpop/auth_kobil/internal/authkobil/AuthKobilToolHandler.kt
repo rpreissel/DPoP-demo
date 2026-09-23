@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.auth_kobil.api.v1.KobilOtpStep
 
 /**
  * toolId=auth-kobil: releases the backend-held PIN to an app that has unlocked locally, then
@@ -101,7 +102,8 @@ class AuthKobilToolHandler(
         val (step, fields) = AuthKobilState.AwaitingOtp(enrollment.kobilTenantId, enrollment.kobilUserId).describe()
         return ToolOutcome.InProgress(
             nextStep = step,
-            data = fields.orEmpty() + mapOf("kobilPin" to enrollment.pin),
+            // The released PIN belongs to this one response - see KobilOtpStep.kobilPin.
+            stepData = (fields as KobilOtpStep).copy(kobilPin = enrollment.pin),
         )
     }
 
@@ -127,7 +129,7 @@ class AuthKobilToolHandler(
 
     private fun inProgress(state: AuthKobilState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
     /** Redeems the one-time password at KOBIL and decides on the assertion behind it. */

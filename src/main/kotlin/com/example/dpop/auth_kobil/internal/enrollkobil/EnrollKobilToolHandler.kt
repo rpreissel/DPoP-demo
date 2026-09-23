@@ -17,6 +17,7 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import com.example.dpop.auth_kobil.api.v1.KobilActivationStep
 
 /**
  * toolId=enroll-kobil: provisions a user at KOBIL, mints the PIN this backend will keep, and
@@ -139,14 +140,15 @@ class EnrollKobilToolHandler(
         val (step, fields) = EnrollKobilState.describe()
         return ToolOutcome.InProgress(
             nextStep = step,
-            data = fields.orEmpty() + mapOf(
-                "tenantId" to session.kobilTenantId,
-                "kobilUserId" to session.kobilUserId,
-                "activationCode" to session.activationCode,
+            stepData = KobilActivationStep(
+                missingFields = fields,
+                tenantId = session.kobilTenantId,
+                kobilUserId = session.kobilUserId,
+                activationCode = session.activationCode,
                 // Handed over because the SDK's activation call takes it - the user never sees it.
-                "pin" to session.pin,
+                pin = session.pin,
                 // The app stores this behind its biometric prompt; only its hash outlives setup.
-                "unlockSecret" to session.unlockSecret,
+                unlockSecret = session.unlockSecret,
             ),
         )
     }

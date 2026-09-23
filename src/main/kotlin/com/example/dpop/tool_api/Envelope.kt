@@ -1,6 +1,7 @@
 package com.example.dpop.tool_api
 
 import com.example.dpop.tool_spi.FactorType
+import com.example.dpop.tool_spi.StepData
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
@@ -98,10 +99,9 @@ data class ChannelResponse(
     val channel: ChannelBlock,
     val next: Next? = null,
     @field:Schema(
-        description = "Whatever the current step needs to render: missing fields, selection options, or a retry reason.",
-        example = "{\"options\": [\"ident-fsc\", \"ident-eid\"]}"
+        description = "Whatever the current step needs to render. `@t` names the shape - see StepData."
     )
-    val stepData: Map<String, Any?>? = null,
+    val stepData: StepData? = null,
     @field:Schema(description = "Demo-only correlation IDs, never part of the production contract.")
     val demo: DemoInfo? = null,
     @field:Schema(description = "KEYCLOAK channels only (docs/05-api.md Abschnitt 3) - never present for APP.")

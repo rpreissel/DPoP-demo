@@ -67,9 +67,9 @@ class AuthSmsLookupToolHandler(
         // to an account with an active sms method - otherwise there is nothing to send to.
         return if (enrollment != null) {
             sendMockSms(enrollment.phoneNumber.orEmpty(), issued.plainTan)
-            ToolOutcome.InProgress(nextStep = step, data = fields + demoData("tan" to issued.plainTan))
+            ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainTan))
         } else {
-            ToolOutcome.InProgress(nextStep = step, data = fields)
+            ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
         }
     }
 
@@ -103,7 +103,7 @@ class AuthSmsLookupToolHandler(
 
     private fun outcomeFor(state: AuthSmsLookupState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
     }
 
     private fun AuthSmsLookupToolSession.toState(): AuthSmsLookupState = AuthSmsLookupState.of(

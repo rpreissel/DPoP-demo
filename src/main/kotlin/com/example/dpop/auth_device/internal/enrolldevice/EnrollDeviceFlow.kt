@@ -2,6 +2,7 @@ package com.example.dpop.auth_device.internal.enrolldevice
 
 import com.example.dpop.tool_api.DevicePublicKey
 import com.example.dpop.tool_api.UserVerification
+import com.example.dpop.tool_spi.StepData
 
 /**
  * Single-shot flow (docs/03-tool-architektur.md #3, the optional Flow pattern): the device proof
@@ -14,7 +15,7 @@ internal data object EnrollDeviceState {
     val step: String get() = "enroll"
 
     /** No `stepData` needed: the fields come from a signed device API call, not a form the client fills incrementally. */
-    fun describe(): Pair<String, Map<String, Any?>?> = step to null
+    fun describe(): Pair<String, StepData?> = step to null
 }
 
 internal data class EnrollDeviceInput(val devicePublicKey: DevicePublicKey, val userVerification: UserVerification, val deviceBindingKeyRef: String, val label: String?)

@@ -15,11 +15,24 @@ sealed interface ToolOutcome {
          */
         val nextStep: String,
         /**
-         * Whatever this step needs the client to see (a pairing code, a masked address).
-         * Client-facing and passed through as `stepData` unchanged - the orchestrator never reads
-         * into it, so a tool may shape it freely.
+         * What this step needs the client to see, as a declared shape ([StepData]). Passed through
+         * as `stepData` unchanged - the orchestrator still never reads into it, it only carries it.
+         *
+         * Declared rather than a free map: the shape is the interesting half of the answer, and a
+         * map left it out of the contract entirely. A tool that says nothing beyond "these inputs
+         * are missing" uses the shared [MissingFields]; anything of its own it declares in its own
+         * module (see [StepDataTypes]).
          */
-        val data: Map<String, Any?>? = null
+        val stepData: StepData? = null,
+
+        /**
+         * Demo-only values this step wants to show (a plaintext TAN, a prefilled address).
+         *
+         * Its own field rather than a reserved key inside the step data: it is explicitly not part
+         * of the production contract (see [DEMO_DATA_KEY]), and while both travelled in one map
+         * every reader had to remember to split them.
+         */
+        val demo: Map<String, Any?>? = null
     ) : ToolOutcome
 
     /**

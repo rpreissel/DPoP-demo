@@ -2,6 +2,7 @@ package com.example.dpop.auth_password.internal.enrollpassword
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import com.example.dpop.tool_spi.MissingFields
 
 class EnrollPasswordFlowTest : BehaviorSpec({
 
@@ -28,7 +29,7 @@ class EnrollPasswordFlowTest : BehaviorSpec({
         then("it asks for password at step enroll, with the demo password") {
             val (step, fields) = EnrollPasswordFlow.describe()
             step shouldBe "enroll"
-            fields["missingFields"] shouldBe listOf("password")
+            fields shouldBe MissingFields(listOf("password"))
         }
     }
 })

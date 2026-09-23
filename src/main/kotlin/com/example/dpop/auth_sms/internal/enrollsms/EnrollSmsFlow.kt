@@ -3,6 +3,8 @@ package com.example.dpop.auth_sms.internal.enrollsms
 import com.example.dpop.auth_sms.internal.TanGenerator
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
+import com.example.dpop.tool_spi.StepData
 
 private const val STEP_ENROLL = "enroll"
 private const val STEP_TAN_INPUT = "tanInput"
@@ -20,7 +22,7 @@ internal sealed interface EnrollSmsState {
     val missingFields: List<String>
 
     /** Same derivation for start/patch/read - one place turns this state into `next.step`/`stepData`. */
-    fun describe(): Pair<String, Map<String, Any?>> = step to mapOf("missingFields" to missingFields)
+    fun describe(): Pair<String, StepData> = step to MissingFields(missingFields)
 
     data object AwaitingPhoneNumber : EnrollSmsState {
         override val step = STEP_ENROLL

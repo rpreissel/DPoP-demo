@@ -3,6 +3,8 @@ package com.example.dpop.auth_sms.internal.authsmsuse
 import com.example.dpop.auth_sms.internal.TanGenerator
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
+import com.example.dpop.tool_spi.StepData
 
 private const val STEP_AUTH = "auth"
 private const val FIELD_TAN = "tan"
@@ -18,7 +20,7 @@ internal data class AuthSmsUseState(val issuedTanHash: String, val tanExpiresAt:
     val missingFields: List<String> get() = listOf(FIELD_TAN)
 
     /** Same derivation for start/patch/read - one place turns this state into `next.step`/`stepData`. */
-    fun describe(): Pair<String, Map<String, Any?>> = step to mapOf("missingFields" to missingFields)
+    fun describe(): Pair<String, StepData> = step to MissingFields(missingFields)
 
     companion object {
         /** Turns [AuthSmsUseToolSession]'s persisted columns back into a [AuthSmsUseState]. */

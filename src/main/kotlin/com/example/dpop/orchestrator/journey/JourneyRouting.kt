@@ -6,6 +6,7 @@ import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
@@ -15,7 +16,19 @@ import org.springframework.stereotype.Component
  * null only for a decision that ends the channel for good ([Transition.Logout]) -
  * ChannelService.respond() derives the real next itself in every other case.
  */
-data class Step(val next: Next?, val stepData: Map<String, Any?>? = null)
+/**
+ * One step as the client will see it.
+ *
+ * [demo] rides ALONGSIDE [stepData], not inside it. It used to be stuffed in under a reserved key
+ * and lifted back out by `ToolControllerSupport` - which only worked while stepData was an untyped
+ * map, and was always a misuse: the demo block is explicitly not part of the step's contract
+ * (tool_spi/Demo.kt). Now the two are simply two fields.
+ */
+data class Step(
+    val next: Next?,
+    val stepData: StepData? = null,
+    val demo: Map<String, Any?>? = null
+)
 
 /**
  * The routing phase of a journey step: turning a [JourneyState] into the `next` the client is
@@ -56,23 +69,29 @@ class JourneyRouting(
         }
     }
 
-    /** The complete current step, including selection options and prompts. */
+    /**
+     * The complete current step, including selection options and prompts.
+     *
+     * The three cases are mutually exclusive by construction, which is why [StepData] can be a
+     * union rather than one object with everything optional: a state either offers a choice, or
+     * auto-activates its single candidate, or waits for an answer.
+     */
     fun stepFor(state: JourneyState, availableTools: Set<ToolId>): Step {
         val options = state.activatable(availableTools)
-        val stepData = buildMap<String, Any?> {
-            if (state is OfferingState && options.size > 1) {
-                put("options", options.map { it.value })
-                put("title", state.selectionTitle)
-                state.selectionDescription?.let { put("description", it) }
-            }
+        val stepData: StepData? = when {
+            state is OfferingState && options.size > 1 -> SelectMethodStep(
+                options = options.map { it.value },
+                title = state.selectionTitle,
+                description = state.selectionDescription
+            )
             // Single-option auto-activate: the selection screen is skipped, so pass the
             // description as a contextual message so the tool form can explain WHY this
             // step is required (e.g. "E-Mail-Bestätigung ausstehend" during fast-access).
-            if (state is OfferingState && options.size == 1) {
-                state.selectionDescription?.let { put("message", it) }
-            }
-            if (state is AnswerableState) put("prompt", state.prompt)
+            state is OfferingState && options.size == 1 ->
+                state.selectionDescription?.let { MessageStep(it) }
+            state is AnswerableState -> ConfirmStep(state.prompt)
+            else -> null
         }
-        return Step(nextFor(state, availableTools), stepData.ifEmpty { null })
+        return Step(nextFor(state, availableTools), stepData)
     }
 }

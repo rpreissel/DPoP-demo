@@ -195,17 +195,33 @@ components:
         next:
           $ref: '#/components/schemas/Next'
         stepData:
-          additionalProperties:
-            type: object
-          description: 'Whatever the current step needs to render: missing fields, selection options, or a retry reason.'
-          example:
-            options:
-            - ident-fsc
-            - ident-eid
-          type: object
+          $ref: '#/components/schemas/StepData'
+          description: Whatever the current step needs to render. `@t` names the shape - see StepData.
       required:
       - channel
       type: object
+    Confirm:
+      allOf:
+      - $ref: '#/components/schemas/Prompt'
+      - properties:
+          cancelLabel:
+            type: string
+          confirmLabel:
+            type: string
+          destructive:
+            type: boolean
+        type: object
+      required:
+      - cancelLabel
+      - confirmLabel
+      - title
+    ConfirmStep:
+      description: The step waits for a yes/no answer; the prompt is authored by the backend.
+      properties:
+        prompt:
+          $ref: '#/components/schemas/Prompt'
+      required:
+      - prompt
     DemoInfo:
       additionalProperties: true
       properties:
@@ -247,6 +263,14 @@ components:
       required:
       - linked
       type: object
+    FailedAttemptStep:
+      description: The attempt failed; retries remain.
+      properties:
+        error:
+          example: TAN ungueltig
+          type: string
+      required:
+      - error
     JourneyDebugStep:
       properties:
         intent:
@@ -287,8 +311,7 @@ components:
           format: date-time
           type: string
         detail:
-          additionalProperties:
-            type: object
+          additionalProperties: true
           type: object
         eventType:
           type: string
@@ -369,6 +392,14 @@ components:
           example: loa2
           type: string
       type: object
+    MessageStep:
+      description: A single candidate was auto-activated; this explains why the step appears.
+      properties:
+        message:
+          example: E-Mail-Bestaetigung ausstehend
+          type: string
+      required:
+      - message
     MethodsResponse:
       description: 'The account''s active authentication methods (docs/05-api.md #2). Never contains fsc.'
       properties:
@@ -396,6 +427,18 @@ components:
       required:
       - valid
       type: object
+    MissingFields:
+      description: Which inputs this step is still waiting for.
+      properties:
+        missingFields:
+          example:
+          - tan
+          items:
+            example: '["tan"]'
+            type: string
+          type: array
+      required:
+      - missingFields
     Next:
       properties:
         context:
@@ -417,6 +460,20 @@ components:
       - step
       - type
       type: object
+    Prompt:
+      discriminator:
+        mapping:
+          Confirm: '#/components/schemas/Confirm'
+        propertyName: '@t'
+      properties:
+        '@t':
+          type: string
+        description:
+          type: string
+        title:
+          type: string
+      required:
+      - '@t'
     RegistrationOrderState:
       properties:
         enrollFirst:
@@ -429,6 +486,47 @@ components:
       properties:
         restoreData:
           type: string
+      type: object
+    SelectMethodStep:
+      description: Several procedures are possible; the client shows a selection.
+      properties:
+        description:
+          type: string
+        options:
+          example:
+          - auth-password
+          - auth-device
+          items:
+            example: '["auth-password","auth-device"]'
+            type: string
+          type: array
+        title:
+          example: Wie moechten Sie sich anmelden?
+          type: string
+      required:
+      - options
+    StepData:
+      description: What the current step needs to render. `@t` names the shape; see the mapping on this schema for the ones
+        this deployment can produce.
+      discriminator:
+        mapping:
+          confirm: '#/components/schemas/ConfirmStep'
+          failed-attempt: '#/components/schemas/FailedAttemptStep'
+          message: '#/components/schemas/MessageStep'
+          missing-fields: '#/components/schemas/MissingFields'
+          select-method: '#/components/schemas/SelectMethodStep'
+        propertyName: '@t'
+      oneOf:
+      - $ref: '#/components/schemas/ConfirmStep'
+      - $ref: '#/components/schemas/FailedAttemptStep'
+      - $ref: '#/components/schemas/MessageStep'
+      - $ref: '#/components/schemas/MissingFields'
+      - $ref: '#/components/schemas/SelectMethodStep'
+      properties:
+        '@t':
+          type: string
+      required:
+      - '@t'
       type: object
     TokenResponse:
       description: Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification

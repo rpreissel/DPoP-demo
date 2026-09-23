@@ -2,6 +2,7 @@ package com.example.dpop.auth_password.internal.authpasswordlookup
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import com.example.dpop.tool_spi.MissingFields
 
 class AuthPasswordLookupFlowTest : BehaviorSpec({
 
@@ -37,7 +38,7 @@ class AuthPasswordLookupFlowTest : BehaviorSpec({
         then("it reports exactly the given missing fields, with the demo values") {
             val (step, fields) = AuthPasswordLookupFlow.describe(listOf("password"))
             step shouldBe "auth"
-            fields["missingFields"] shouldBe listOf("password")
+            fields shouldBe MissingFields(listOf("password"))
         }
     }
 })

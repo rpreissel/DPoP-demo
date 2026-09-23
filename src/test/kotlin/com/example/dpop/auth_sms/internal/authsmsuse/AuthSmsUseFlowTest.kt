@@ -4,6 +4,7 @@ import com.example.dpop.auth_sms.internal.TanGenerator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.util.UUID
+import com.example.dpop.tool_spi.MissingFields
 
 class AuthSmsUseFlowTest : BehaviorSpec({
 
@@ -33,7 +34,7 @@ class AuthSmsUseFlowTest : BehaviorSpec({
 
     given("describe()") {
         then("it asks for tan at step auth") {
-            state.describe() shouldBe ("auth" to mapOf("missingFields" to listOf("tan")))
+            state.describe() shouldBe ("auth" to MissingFields(listOf("tan")))
         }
     }
 

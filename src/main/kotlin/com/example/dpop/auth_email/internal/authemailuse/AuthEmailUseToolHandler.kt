@@ -54,7 +54,7 @@ class AuthEmailUseToolHandler(
         sendMockEmail(email, issued.plainCode)
 
         val (step, fields) = AuthEmailUseState(issued.hash, issued.expiresAt).describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields + demoData("tan" to issued.plainCode))
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainCode))
     }
 
     /** Called directly by AuthEmailToolController, not generically dispatched (docs/08-projektrahmen.md A11). */
@@ -82,7 +82,7 @@ class AuthEmailUseToolHandler(
 
     private fun outcomeFor(state: AuthEmailUseState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
-        return ToolOutcome.InProgress(nextStep = step, data = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
     private fun AuthEmailUseToolSession.toState(): AuthEmailUseState = AuthEmailUseState.of(

@@ -2,6 +2,8 @@ package com.example.dpop.auth_password.internal.enrollpassword
 
 import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.demoData
+import com.example.dpop.tool_spi.MissingFields
+import com.example.dpop.tool_spi.StepData
 
 /**
  * Single-shot flow (docs/03-tool-architektur.md #3, the optional Flow pattern): a chosen password
@@ -29,8 +31,10 @@ internal object EnrollPasswordFlow {
     }
 
     /** Same derivation for start/patch/read - one place turns the state into `next.step`/`stepData`. */
-    fun describe(): Pair<String, Map<String, Any?>> =
-        "enroll" to mapOf("missingFields" to listOf("password"), demoData("password" to DEMO_PASSWORD))
+    fun describe(): Pair<String, StepData> = "enroll" to MissingFields(listOf("password"))
+
+    /** The fixed demo password, so a tester never has to remember one - never part of the step. */
+    fun demo(): Map<String, Any?> = mapOf("password" to DEMO_PASSWORD)
 
     const val MIN_PASSWORD_LENGTH = 8
 }

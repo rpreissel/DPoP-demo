@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
+import io.swagger.v3.oas.annotations.media.Schema
 
 data class JourneyLogEntryView(
     val channelSessionId: UUID,
@@ -19,6 +20,15 @@ data class JourneyLogEntryView(
     val eventType: String,
     /** The JourneyState subtype the journey was in when this event happened (e.g. "AwaitingTan") - null for a channel-level event. */
     val journeyState: String?,
+    /**
+     * Whatever the event had to say - strings, numbers, nested lists, depending on the event.
+     *
+     * `additionalProperties: true` rather than the default springdoc infers from `Map<String, Any?>`:
+     * that produces `additionalProperties: {type: object}`, which says the VALUES are objects. They
+     * are not - `mapOf("toolId" to ...)` puts a string in there. A generated client typed the map
+     * as `{ [key: string]: object }`, which is both unhelpful and wrong.
+     */
+    @field:Schema(additionalProperties = Schema.AdditionalPropertiesValue.TRUE)
     val detail: Map<String, Any?>,
     val createdAt: Instant
 )

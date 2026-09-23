@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.UUID
+import com.example.dpop.auth_qr.api.v1.QrPairingStep
 
 /**
  * toolId=auth-qr: the account is already known via the channel (step-up/re-auth on a resolved
@@ -78,7 +79,7 @@ class AuthQrToolHandler(
         val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
         return ToolOutcome.InProgress(
             nextStep = "waitForApp",
-            data = mapOf("pairingCode" to pairingCode, "verificationCode" to request?.verificationCode)
+            stepData = QrPairingStep(pairingCode, request?.verificationCode)
         )
     }
 }

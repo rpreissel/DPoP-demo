@@ -3,6 +3,8 @@ package com.example.dpop.auth_password.internal.authpasswordlookup
 import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import com.example.dpop.tool_spi.demoData
+import com.example.dpop.tool_spi.StepData
+import com.example.dpop.tool_spi.MissingFields
 
 /**
  * Single-shot flow (docs/03-tool-architektur.md #3, the optional Flow pattern): email+password
@@ -32,6 +34,9 @@ internal object AuthPasswordLookupFlow {
     }
 
     /** Same derivation for start/patch/read - one place turns missing fields into `next.step`/`stepData`. */
-    fun describe(missingFields: List<String> = listOf("email", "password")): Pair<String, Map<String, Any?>> =
-        "auth" to mapOf("missingFields" to missingFields, demoData("email" to DEMO_EMAIL, "password" to DEMO_PASSWORD))
+    fun describe(missingFields: List<String> = listOf("email", "password")): Pair<String, StepData> =
+        "auth" to MissingFields(missingFields)
+
+    /** Prefilled demo values, never part of the step (tool_spi/Demo.kt). */
+    fun demo(): Map<String, Any?> = mapOf("email" to DEMO_EMAIL, "password" to DEMO_PASSWORD)
 }
