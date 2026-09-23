@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.kernel.OrchestratorException
@@ -103,7 +104,7 @@ class ChannelService(
             null
         }
         val channel = sessionManagementService
-            .createChannelSession(bindingKeyRef, ChannelSession.Channel.APP, CHANNEL_TTL, linkedAccountId)
+            .createChannelSession(bindingKeyRef, ChannelType.APP, CHANNEL_TTL, linkedAccountId)
         channel.entryIntent = entryIntent
         // Fixed for the channel's whole lifetime (docs/03-tool-architektur.md, availability) - never
         // updated again, unlike the backend-wide kill-switch which is read live on every step.
@@ -164,7 +165,7 @@ class ChannelService(
     fun getToken(channelSessionId: UUID, bindingKeyRef: String, minValiditySeconds: Long): TokenResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         requireAuthenticated(channel)
-        if (channel.channel != ChannelSession.Channel.APP) {
+        if (channel.channel != ChannelType.APP) {
             throw OrchestratorException.invalidState("Token retrieval is only supported for APP channels")
         }
         val pair = tokenProvider.tokenFor(channel, minValiditySeconds)
@@ -431,7 +432,7 @@ class ChannelService(
      * response carries it, entry point and tool activation/PATCH alike, not just this class's own.
      */
     fun authDataFor(channel: ChannelSession): AuthData? {
-        if (channel.channel != ChannelSession.Channel.KEYCLOAK) return null
+        if (channel.channel != ChannelType.KEYCLOAK) return null
         val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         val amr = evidence?.currentAmr?.associateWith { evidence.currentAmrSource[it] ?: AmrSource.ORCHESTRATOR }
         val acr = evidence?.let {

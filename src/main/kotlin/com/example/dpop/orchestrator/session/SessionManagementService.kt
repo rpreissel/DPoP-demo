@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -30,7 +31,7 @@ class SessionManagementService(
      */
     fun createChannelSession(
         bindingKeyRef: String,
-        channel: ChannelSession.Channel,
+        channel: ChannelType,
         ttl: Duration,
         accountId: Long?
     ): ChannelSession {
@@ -64,7 +65,7 @@ class SessionManagementService(
         availableTools: Set<String>,
         entryIntent: AuthIntent = AuthIntent.KC_SELECT_METHOD
     ): ChannelSession {
-        val session = ChannelSession(ChannelSession.Channel.KEYCLOAK, null, Instant.now().plus(ttl))
+        val session = ChannelSession(ChannelType.KEYCLOAK, null, Instant.now().plus(ttl))
         session.channelSessionId = channelSessionId
         session.channelAnchor = channelAnchor
         session.accountId = accountId

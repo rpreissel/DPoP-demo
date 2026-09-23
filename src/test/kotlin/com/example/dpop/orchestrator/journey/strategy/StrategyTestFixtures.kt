@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.auth_device.AuthDeviceDescriptor
@@ -26,7 +27,6 @@ import com.example.dpop.id_kvnr.IdentKvnrDescriptor
 import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
-import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
@@ -132,6 +132,6 @@ object StrategyTestFixtures {
         linkedAccountId: Long? = account?.accountId,
         isSubJourney: Boolean = false,
         availableTools: Set<ToolId> = allToolIds,
-        channel: ChannelSession.Channel = ChannelSession.Channel.APP
+        channel: ChannelType = ChannelType.APP
     ) = JourneyContext(channel, account, evidence, acrFloor, bindingKeyRef, linkedAccountId, isSubJourney, policy, catalog, availableTools)
 }

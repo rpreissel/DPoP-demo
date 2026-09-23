@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
@@ -51,7 +52,7 @@ class KcTokenProviderTest : BehaviorSpec({
         accountService: AccountService = mockk(relaxed = true)
     ) = KcTokenProvider(authContextRepository, accountKeypairService, keycloakAdminClient, authEvidenceService, authPolicy, accountService)
 
-    fun appChannel(authContextId: UUID) = ChannelSession(channel = ChannelSession.Channel.APP).apply {
+    fun appChannel(authContextId: UUID) = ChannelSession(channel = ChannelType.APP).apply {
         this.authContextId = authContextId
     }
 

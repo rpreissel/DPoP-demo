@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -20,7 +21,7 @@ import java.util.UUID
 class ChannelSession(
     @Enumerated(EnumType.STRING)
     @Column(name = "channel", nullable = false, length = 32)
-    var channel: Channel? = null,
+    var channel: ChannelType? = null,
 
     /** APP-only (docs/02-domaenenmodell.md Abschnitt 1) - null on KEYCLOAK channels, which anchor via [channelAnchor] instead. */
     @Column(name = "binding_key_ref", length = 64)
@@ -161,8 +162,4 @@ class ChannelSession(
 
     val isExpired: Boolean
         get() = expiresAt?.let { Instant.now().isAfter(it) } ?: false
-
-    enum class Channel {
-        APP, KEYCLOAK
-    }
 }

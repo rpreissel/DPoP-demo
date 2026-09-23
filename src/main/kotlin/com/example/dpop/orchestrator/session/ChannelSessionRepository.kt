@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
@@ -15,12 +16,12 @@ interface ChannelSessionRepository : JpaRepository<ChannelSession, UUID> {
     fun findByExpiresAtBefore(cutoff: Instant, pageable: Pageable): List<ChannelSession>
 
     /**
-     * Every already-expired channel of one [ChannelSession.Channel] - `RetentionJob`
+     * Every already-expired channel of one [ChannelType] - `RetentionJob`
      * uses this for `KEYCLOAK` channels only, to find candidates for an
      * early, Keycloak-session-liveness-confirmed cleanup ahead of the normal retention window
      * [findByExpiresAtBefore] otherwise waits out for every channel alike.
      */
-    fun findByChannelAndExpiresAtBefore(channel: ChannelSession.Channel, cutoff: Instant): List<ChannelSession>
+    fun findByChannelAndExpiresAtBefore(channel: ChannelType, cutoff: Instant): List<ChannelSession>
 
     /** Every channel this account was ever bound to - used to invalidate them all on account deletion. */
     fun findByAccountId(accountId: Long): List<ChannelSession>

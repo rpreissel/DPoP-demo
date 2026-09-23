@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.retention
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.session.AuthContextRepository
 import com.example.dpop.orchestrator.session.AuthEvidenceRepository
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
@@ -72,7 +73,7 @@ class RetentionJob(
      */
     private fun confirmedDeadKcChannels(now: Instant): List<ChannelSession> {
         val client = keycloakAdminClient.getIfAvailable() ?: return emptyList()
-        return channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelSession.Channel.KEYCLOAK, now)
+        return channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelType.KEYCLOAK, now)
             .filter { channel ->
                 val accountId = channel.accountId
                 val sessionId = channel.durableKcSessionId

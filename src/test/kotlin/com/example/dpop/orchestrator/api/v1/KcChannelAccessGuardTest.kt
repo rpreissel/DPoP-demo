@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.channel.KcChannelAccessGuard
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.session.ChannelSession
@@ -17,7 +18,7 @@ import com.example.dpop.orchestrator.kernel.OrchestratorException
 class KcChannelAccessGuardTest : BehaviorSpec({
 
     fun channel(channelAnchor: String? = null) =
-        ChannelSession(ChannelSession.Channel.KEYCLOAK, null, Instant.now().plusSeconds(3600)).apply {
+        ChannelSession(ChannelType.KEYCLOAK, null, Instant.now().plusSeconds(3600)).apply {
             this.channelAnchor = channelAnchor
         }
 

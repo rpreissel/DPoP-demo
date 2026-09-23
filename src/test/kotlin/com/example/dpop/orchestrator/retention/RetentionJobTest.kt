@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.retention
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.AuthContextRepository
 import com.example.dpop.orchestrator.session.AuthEvidenceRepository
@@ -126,14 +127,14 @@ class RetentionJobTest : BehaviorSpec({
 
     given("an expired KEYCLOAK channel whose Keycloak session is confirmed gone") {
         then("deletes it immediately - no need to wait out the full 30-day retention") {
-            val kcChannel = ChannelSession(channel = ChannelSession.Channel.KEYCLOAK).apply {
+            val kcChannel = ChannelSession(channel = ChannelType.KEYCLOAK).apply {
                 channelSessionId = UUID.randomUUID()
                 accountId = 42L
                 durableKcSessionId = "kc-session-1"
             }
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
             every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
-            every { channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelSession.Channel.KEYCLOAK, any()) } returns listOf(kcChannel)
+            every { channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelType.KEYCLOAK, any()) } returns listOf(kcChannel)
             val client = mockk<KeycloakAdminClient>()
             every { client.isSessionAlive(42L, "kc-session-1") } returns false
             val provider = mockk<ObjectProvider<KeycloakAdminClient>> { every { getIfAvailable() } returns client }
@@ -146,18 +147,18 @@ class RetentionJobTest : BehaviorSpec({
 
     given("an expired KEYCLOAK channel whose Keycloak session is still alive, or whose status is unknown") {
         then("is never deleted early - only the confirmed-dead case skips the normal retention window") {
-            val stillAlive = ChannelSession(channel = ChannelSession.Channel.KEYCLOAK).apply {
+            val stillAlive = ChannelSession(channel = ChannelType.KEYCLOAK).apply {
                 channelSessionId = UUID.randomUUID(); accountId = 1L; durableKcSessionId = "alive"
             }
-            val unknownAccount = ChannelSession(channel = ChannelSession.Channel.KEYCLOAK).apply {
+            val unknownAccount = ChannelSession(channel = ChannelType.KEYCLOAK).apply {
                 channelSessionId = UUID.randomUUID(); accountId = 2L; durableKcSessionId = "unknown"
             }
-            val noDurableIdYet = ChannelSession(channel = ChannelSession.Channel.KEYCLOAK).apply {
+            val noDurableIdYet = ChannelSession(channel = ChannelType.KEYCLOAK).apply {
                 channelSessionId = UUID.randomUUID(); accountId = 3L; durableKcSessionId = null
             }
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
             every { channelSessionRepository.findByExpiresAtBefore(any(), any()) } returns emptyList()
-            every { channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelSession.Channel.KEYCLOAK, any()) } returns
+            every { channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelType.KEYCLOAK, any()) } returns
                 listOf(stillAlive, unknownAccount, noDurableIdYet)
             val client = mockk<KeycloakAdminClient>()
             every { client.isSessionAlive(1L, "alive") } returns true

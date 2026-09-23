@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.RetractionAnchor
@@ -250,7 +251,7 @@ class JourneyActionExecutor(
         journey.accountId = to
         channel.accountId = to
         channel.authEvidenceId?.let { authEvidenceService.rebindToAccount(it, to) }
-        if (channel.channel == ChannelSession.Channel.APP) {
+        if (channel.channel == ChannelType.APP) {
             channel.bindingKeyRef?.let { bindingKeyRef ->
                 if (sessionManagementService.findLinkedAccountId(bindingKeyRef) == from) {
                     sessionManagementService.linkDeviceToAccount(bindingKeyRef, to)
@@ -513,7 +514,7 @@ class JourneyActionExecutor(
      * accumulates dead DeviceAccountLink rows even if a strategy ever asked for this.
      */
     private fun linkDeviceTo(channel: ChannelSession, accountId: Long) {
-        if (channel.channel != ChannelSession.Channel.APP) return
+        if (channel.channel != ChannelType.APP) return
         val bindingKeyRef = checkNotNull(channel.bindingKeyRef) { "APP channel without a bindingKeyRef" }
         val previousAccountId = sessionManagementService.findLinkedAccountId(bindingKeyRef)
         sessionManagementService.linkDeviceToAccount(bindingKeyRef, accountId)
@@ -723,7 +724,7 @@ class JourneyActionExecutor(
             // Fresh login: start a new evidence trail rather than reuse a stale one.
             val evidenceId = checkNotNull(authEvidenceService.createForAccount(accountId).authEvidenceId)
             channel.authEvidenceId = evidenceId
-            if (channel.channel == ChannelSession.Channel.APP) {
+            if (channel.channel == ChannelType.APP) {
                 channel.authContextId = authContextService.createForAccount(accountId, evidenceId).authContextId
             }
         }

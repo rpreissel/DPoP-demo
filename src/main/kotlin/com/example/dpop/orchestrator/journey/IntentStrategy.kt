@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
@@ -7,7 +8,6 @@ import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.kernel.AcrLevels
-import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
@@ -84,7 +84,7 @@ data class JourneyContext(
      * type (e.g. a Web-only enrollment obligation) should read a declared fact, not an implicit
      * side effect of a different, APP-only concept.
      */
-    val channel: ChannelSession.Channel,
+    val channel: ChannelType,
     /** The account this journey concerns, once resolved - `null` before any identification/lookup. */
     val account: AccountProfile?,
     /** What this channel's session has already proven. */

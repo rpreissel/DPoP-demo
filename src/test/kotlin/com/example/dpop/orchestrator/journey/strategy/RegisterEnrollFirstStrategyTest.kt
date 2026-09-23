@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
 import com.example.dpop.auth_sms.AuthSmsUseDescriptor
@@ -15,7 +16,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -162,7 +162,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
         val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevel.LOA1, channel = ChannelSession.Channel.APP
+            acrFloor = AcrLevel.LOA1, channel = ChannelType.APP
         )
         val state = RegisterEnrollFirstState.EnrollFirstConfirmingEmail(Offer(listOf(ToolId("confirm-email"))))
 
@@ -184,7 +184,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
         val acc = account(method("sms", AcrLevel.LOA1), emailConfirmed = true)
         val theCtx = ctx(
             account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc),
-            acrFloor = AcrLevel.LOA1, channel = ChannelSession.Channel.KEYCLOAK
+            acrFloor = AcrLevel.LOA1, channel = ChannelType.KEYCLOAK
         )
         val state = RegisterEnrollFirstState.EnrollFirstConfirmingEmail(Offer(listOf(ToolId("confirm-email"))))
 
@@ -203,7 +203,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
         val theCtx = ctx(
             account = acc,
             evidence = evidence(listOf("sms", "password"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc),
-            acrFloor = AcrLevel.LOA1, channel = ChannelSession.Channel.KEYCLOAK
+            acrFloor = AcrLevel.LOA1, channel = ChannelType.KEYCLOAK
         )
         val state = RegisterEnrollFirstState.EnrollFirstPasswordObligation(Offer(listOf(ToolId("enroll-password"))))
 
