@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 /**
  * Backs the demo frontend's "Sync with Keycloak" settings button - only exists at all under the
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController
  * profile has no such endpoint to call.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/kc/sync")
+@RequestMapping("$API_V1/kc/sync")
 @Tag(name = "KC account sync", description = "Explicit full reconciliation between orchestrator accounts and Keycloak users - demo/debug only")
 @Profile("keycloak")
 class KeycloakSyncController(private val keycloakAccountSyncService: KeycloakAccountSyncService) {

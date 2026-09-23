@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_QR_TOOL_ID = "auth-qr"
 
@@ -37,7 +38,7 @@ class AuthQrToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-qr")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-qr")
     @Operation(summary = "Activate auth-qr", description = "No request body: toolId already carries kind and method.")
     fun activate(
         @PathVariable channelSessionId: UUID,
@@ -55,7 +56,7 @@ class AuthQrToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-qr")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-qr")
     @Operation(
         summary = "Poll for the APP side's decision",
         description = "No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen)."
@@ -69,7 +70,7 @@ class AuthQrToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-qr")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-qr")
     @Operation(summary = "Read the current auth-qr state")
     fun read(
         @PathVariable toolSessionId: UUID,

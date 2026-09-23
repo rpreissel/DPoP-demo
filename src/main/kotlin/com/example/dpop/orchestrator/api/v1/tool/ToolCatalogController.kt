@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 data class ToolCatalogEntry(
     @field:Schema(example = "auth-sms") val toolId: String,
@@ -24,7 +25,7 @@ data class ToolCatalogEntry(
  * by the demo admin UI to list what can be toggled.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/tools")
+@RequestMapping("$API_V1/tools")
 @Tag(name = "Tool catalog", description = "The full set of registered tools, independent of any journey")
 class ToolCatalogController(private val toolRegistry: ToolHandlerRegistry) {
 

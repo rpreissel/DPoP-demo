@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_PASSWORD_LOOKUP_TOOL_ID = "auth-password-lookup"
 
@@ -48,7 +49,7 @@ class AuthPasswordLookupToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password-lookup")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-password-lookup")
     @Operation(
         summary = "Activate auth-password-lookup",
         description = "No request body: toolId already carries kind and method.",
@@ -76,7 +77,7 @@ class AuthPasswordLookupToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-password-lookup")
     @Operation(
         summary = "Supply email and password together (self-verifying, single call)",
         responses = [
@@ -115,7 +116,7 @@ class AuthPasswordLookupToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password-lookup")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-password-lookup")
     @Operation(
         summary = "Read the current auth-password-lookup state",
         responses = [

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 /**
  * The kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3) - everything
@@ -29,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController
  * is a signed Keycloak peer-auth assertion in `Authorization`, never DPoP.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/kc/channels")
+@RequestMapping("$API_V1/kc/channels")
 @Tag(name = "KC channels", description = "The kc facade's one facade-specific endpoint - upsert channel + advance journey")
 @SecurityRequirement(name = "kc-peer-auth")
 class KcChannelController(

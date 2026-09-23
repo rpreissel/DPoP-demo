@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_SMS_LOOKUP_TOOL_ID = "auth-sms-lookup"
 
@@ -48,7 +49,7 @@ class AuthSmsLookupToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms-lookup")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-sms-lookup")
     @Operation(
         summary = "Activate auth-sms-lookup",
         description = "No request body: toolId already carries kind and method.",
@@ -76,7 +77,7 @@ class AuthSmsLookupToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms-lookup")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-sms-lookup")
     @Operation(
         summary = "Supply email, then TAN",
         description = "First call with email resolves the account and triggers the TAN send; a second call with tan confirms it.",
@@ -133,7 +134,7 @@ class AuthSmsLookupToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms-lookup")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-sms-lookup")
     @Operation(
         summary = "Read the current auth-sms-lookup state",
         responses = [

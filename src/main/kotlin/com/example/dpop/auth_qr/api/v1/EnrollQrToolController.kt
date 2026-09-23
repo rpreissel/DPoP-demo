@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val ENROLL_QR_TOOL_ID = "enroll-qr"
 
@@ -32,7 +33,7 @@ class EnrollQrToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-qr")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/enroll-qr")
     @Operation(summary = "Activate enroll-qr", description = "No request body: toolId already carries kind and method.")
     fun activate(
         @PathVariable channelSessionId: UUID,
@@ -46,7 +47,7 @@ class EnrollQrToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-qr")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/enroll-qr")
     @Operation(summary = "Confirm the opt-in", description = "No request body - the call itself is the confirmation.")
     fun patch(
         @PathVariable toolSessionId: UUID,
@@ -57,7 +58,7 @@ class EnrollQrToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-qr")
+    @GetMapping("$API_V1/tools/{toolSessionId}/enroll-qr")
     @Operation(summary = "Read the current enroll-qr state")
     fun read(
         @PathVariable toolSessionId: UUID,

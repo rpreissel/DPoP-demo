@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val CONFIRM_EMAIL_TOOL_ID = "confirm-email"
 
@@ -42,7 +43,7 @@ class ConfirmEmailToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-email")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/confirm-email")
     @Operation(
         summary = "Activate confirm-email",
         description = "No request body: toolId already carries kind and method.",
@@ -70,7 +71,7 @@ class ConfirmEmailToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/confirm-email")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/confirm-email")
     @Operation(
         summary = "Supply email, then the confirmation code",
         description = "First call with email triggers the code send; a second call with code confirms it.",
@@ -115,7 +116,7 @@ class ConfirmEmailToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/confirm-email")
+    @GetMapping("$API_V1/tools/{toolSessionId}/confirm-email")
     @Operation(
         summary = "Read the current confirm-email state",
         responses = [

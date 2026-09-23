@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 /**
  * Der oeffentliche Schluessel, mit dem sich der Orchestrator bei Keycloak als Client ausweist
@@ -19,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController
  * Assertion pruefen soll, kann sich ihr gegenueber schlecht vorher ausweisen.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/kc/client-jwks")
+@RequestMapping("$API_V1/kc/client-jwks")
 @Profile("keycloak")
 @Tag(name = "Keycloak-Kanal", description = "Oeffentlicher Schluessel der Client-Authentisierung des Orchestrators")
 class OrchestratorClientJwksController(private val signer: OrchestratorClientAssertionSigner) {

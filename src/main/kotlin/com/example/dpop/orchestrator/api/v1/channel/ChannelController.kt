@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.tool_api.API_V1
 
 /**
  * The App-facade-specific endpoints (docs/05-api.md #2): everything a channel offers once it
@@ -33,7 +34,7 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
  * here; a signed Keycloak assertion for the kc facade).
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/app/channels")
+@RequestMapping("$API_V1/app/channels")
 @Tag(name = "App channels", description = "The App facade's own endpoints - channel creation and the device-link read")
 @SecurityRequirement(name = "dpop")
 class ChannelCreationController(
@@ -77,7 +78,7 @@ class ChannelCreationController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val response = channelService.initializeChannel(bindingKeyRef, request.requiredAcr, request.intent, request.availableTools)
-        val location = uriBuilder.replacePath("/orchestrator/api/v1/channels/{channelSessionId}")
+        val location = uriBuilder.replacePath("$API_V1/channels/{channelSessionId}")
             .buildAndExpand(response.channel.channelSessionId).toUri()
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
@@ -91,7 +92,7 @@ class ChannelCreationController(
  * endpoint that IS facade-specific.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/channels")
+@RequestMapping("$API_V1/channels")
 @Tag(name = "Channels", description = "Facade-neutral channel resource - shared by every facade that creates one")
 @SecurityRequirement(name = "dpop")
 class ChannelController(

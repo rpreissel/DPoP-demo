@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 private const val PASSWORD_METHOD = "password"
 
@@ -44,7 +45,7 @@ class MgmtPasswordController(
     private val passwordCredentialPort: PasswordCredentialPort
 ) {
 
-    @PostMapping("/orchestrator/api/v1/tools/auth-password/mgmt/{accountId}")
+    @PostMapping("$API_V1/tools/auth-password/mgmt/{accountId}")
     @Operation(summary = "Verify a candidate password against the account's stored credential")
     fun verify(
         @PathVariable accountId: Long,
@@ -59,7 +60,7 @@ class MgmtPasswordController(
         return ResponseEntity.ok(MgmtPasswordVerifyResponse(valid))
     }
 
-    @PostMapping("/orchestrator/api/v1/tools/enroll-password/mgmt/{accountId}")
+    @PostMapping("$API_V1/tools/enroll-password/mgmt/{accountId}")
     @Operation(summary = "Replace the account's password credential with a new one")
     fun set(
         @PathVariable accountId: Long,

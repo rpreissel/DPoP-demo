@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_DEVICE_TOOL_ID = "auth-device"
 
@@ -46,7 +47,7 @@ class AuthDeviceToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-device")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-device")
     @Operation(
         summary = "Activate auth-device",
         description = "No request body: toolId already carries kind and method.",
@@ -81,7 +82,7 @@ class AuthDeviceToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-device")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-device")
     @Operation(
         summary = "Confirm device authentication",
         description = "Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after the user confirms the mocked PIN/biometric prompt.",
@@ -111,7 +112,7 @@ class AuthDeviceToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-device")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-device")
     @Operation(
         summary = "Read the current auth-device state",
         responses = [

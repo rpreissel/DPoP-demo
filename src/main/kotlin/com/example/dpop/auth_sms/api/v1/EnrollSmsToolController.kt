@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val ENROLL_SMS_TOOL_ID = "enroll-sms"
 
@@ -42,7 +43,7 @@ class EnrollSmsToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-sms")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/enroll-sms")
     @Operation(
         summary = "Activate enroll-sms",
         description = "No request body: toolId already carries kind and method.",
@@ -70,7 +71,7 @@ class EnrollSmsToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/enroll-sms")
     @Operation(
         summary = "Supply phone number, then TAN",
         description = "First call with phoneNumber triggers the TAN send; a second call with tan confirms it.",
@@ -115,7 +116,7 @@ class EnrollSmsToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-sms")
+    @GetMapping("$API_V1/tools/{toolSessionId}/enroll-sms")
     @Operation(
         summary = "Read the current enroll-sms state",
         responses = [

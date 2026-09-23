@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val ENROLL_KOBIL_TOOL_ID = "enroll-kobil"
 
@@ -55,7 +56,7 @@ class EnrollKobilToolController(
     private val toolEndpoint: ToolEndpoint,
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-kobil")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/enroll-kobil")
     @Operation(
         summary = "Activate enroll-kobil",
         description = "Provisions the KOBIL user and returns everything the app's SDK needs for its " +
@@ -85,7 +86,7 @@ class EnrollKobilToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-kobil")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/enroll-kobil")
     @Operation(
         summary = "Confirm the KOBIL activation",
         description = "Records the credential once KOBIL reports a bound device for this user.",
@@ -117,7 +118,7 @@ class EnrollKobilToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-kobil")
+    @GetMapping("$API_V1/tools/{toolSessionId}/enroll-kobil")
     @Operation(summary = "Read the current enroll-kobil state")
     fun read(
         @PathVariable toolSessionId: UUID,

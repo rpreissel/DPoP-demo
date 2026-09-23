@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val ENROLL_DEVICE_TOOL_ID = "enroll-device"
 
@@ -51,7 +52,7 @@ class EnrollDeviceToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-device")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/enroll-device")
     @Operation(
         summary = "Activate enroll-device",
         description = "No request body: toolId already carries kind and method.",
@@ -79,7 +80,7 @@ class EnrollDeviceToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-device")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/enroll-device")
     @Operation(
         summary = "Confirm device enrollment",
         description = "Body carries a self-signed device-proof JWT (typ=device-proof+jwt) over this exact URL, produced after the user confirms the mocked PIN/biometric prompt.",
@@ -109,7 +110,7 @@ class EnrollDeviceToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-device")
+    @GetMapping("$API_V1/tools/{toolSessionId}/enroll-device")
     @Operation(
         summary = "Read the current enroll-device state",
         responses = [

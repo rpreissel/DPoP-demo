@@ -33,6 +33,7 @@ import org.springframework.web.util.UriComponentsBuilder
 import java.net.URI
 import java.time.Duration
 import java.util.UUID
+import com.example.dpop.tool_api.API_V1
 
 /**
  * Plumbing shared by every tool-specific controller: binding check, throttling, tool-session
@@ -78,7 +79,7 @@ class ToolControllerSupport(
 
     override fun activationLocation(context: ToolContext, baseUri: URI): URI =
         UriComponentsBuilder.fromUri(baseUri)
-            .replacePath("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}")
+            .replacePath("$API_V1/tools/{toolSessionId}/{toolId}")
             .buildAndExpand(context.toolSessionId, context.toolId)
             .toUri()
 

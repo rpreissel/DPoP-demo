@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_PASSWORD_TOOL_ID = "auth-password"
 
@@ -46,7 +47,7 @@ class AuthPasswordToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-password")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-password")
     @Operation(
         summary = "Activate auth-password",
         description = "No request body: toolId already carries kind and method.",
@@ -80,7 +81,7 @@ class AuthPasswordToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-password")
     @Operation(
         summary = "Confirm the password against the account's enrolled credential",
         responses = [
@@ -108,7 +109,7 @@ class AuthPasswordToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-password")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-password")
     @Operation(
         summary = "Read the current auth-password state",
         responses = [

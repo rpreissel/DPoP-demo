@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val CONFIRM_QR_LOGIN_TOOL_ID = "confirm-qr-login"
 
@@ -47,7 +48,7 @@ class ConfirmQrLoginToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/confirm-qr-login")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/confirm-qr-login")
     @Operation(
         summary = "Activate confirm-qr-login",
         description = "Optional body: {pairingCode}, when already known (e.g. from a demo-link deep link) - skips the input step."
@@ -65,7 +66,7 @@ class ConfirmQrLoginToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/confirm-qr-login")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/confirm-qr-login")
     @Operation(
         summary = "Supply the pairing code, then the accept/reject decision",
         description = "First call: {pairingCode}. Once resolved: {decision: accept|reject}."
@@ -88,7 +89,7 @@ class ConfirmQrLoginToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/confirm-qr-login")
+    @GetMapping("$API_V1/tools/{toolSessionId}/confirm-qr-login")
     @Operation(summary = "Read the current confirm-qr-login state")
     fun read(
         @PathVariable toolSessionId: UUID,

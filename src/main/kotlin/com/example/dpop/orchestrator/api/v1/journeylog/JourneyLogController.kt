@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 /**
  * Cross-channel by design (docs/04-orchestrierung.md): every journey ever run under the caller's
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController
  * choose; no separate authorization check is needed beyond that resolution.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/journey-log")
+@RequestMapping("$API_V1/journey-log")
 @Tag(name = "Journey log", description = "Reichhaltiges, nach bindingKeyRef abrufbares Journey-Log (Debug/Demo, kein Audit-Trail)")
 @SecurityRequirement(name = "dpop")
 class JourneyLogController(

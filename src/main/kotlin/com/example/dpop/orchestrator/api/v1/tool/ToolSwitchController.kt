@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
+import com.example.dpop.tool_api.API_V1
 
 /**
  * `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` - "Back"/"Switch": abandons the
@@ -33,7 +34,7 @@ import java.util.UUID
  * is decided by the journey's current state, which is the orchestrator's own.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/tools/{toolSessionId}/{toolId}")
+@RequestMapping("$API_V1/tools/{toolSessionId}/{toolId}")
 @Tag(name = "Tools", description = "Abandoning an activated tool (Back/Switch)")
 @SecurityRequirement(name = "dpop")
 class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {

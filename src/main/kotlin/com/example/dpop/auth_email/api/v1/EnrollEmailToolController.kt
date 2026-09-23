@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val ENROLL_EMAIL_TOOL_ID = "enroll-email"
 
@@ -35,7 +36,7 @@ class EnrollEmailToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/enroll-email")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/enroll-email")
     @Operation(
         summary = "Activate enroll-email",
         description = "One shot: no request body, and the response already carries the completed outcome.",
@@ -63,7 +64,7 @@ class EnrollEmailToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/enroll-email")
+    @GetMapping("$API_V1/tools/{toolSessionId}/enroll-email")
     @Operation(summary = "Read the current enroll-email state")
     fun read(
         @PathVariable toolSessionId: UUID,

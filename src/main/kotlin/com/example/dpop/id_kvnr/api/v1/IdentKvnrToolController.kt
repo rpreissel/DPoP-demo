@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val IDENT_KVNR_TOOL_ID = "ident-kvnr"
 
@@ -44,7 +45,7 @@ class IdentKvnrToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/ident-kvnr")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/ident-kvnr")
     @Operation(
         summary = "Activate ident-kvnr",
         description = "No request body: toolId already carries kind and method.",
@@ -72,7 +73,7 @@ class IdentKvnrToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/ident-kvnr")
     @Operation(
         summary = "Supply the Versichertennummer",
         responses = [
@@ -101,7 +102,7 @@ class IdentKvnrToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr")
+    @GetMapping("$API_V1/tools/{toolSessionId}/ident-kvnr")
     @Operation(summary = "Read the current ident-kvnr state")
     fun read(
         @PathVariable toolSessionId: UUID,

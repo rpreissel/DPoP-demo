@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_KOBIL_TOOL_ID = "auth-kobil"
 
@@ -54,7 +55,7 @@ class AuthKobilToolController(
     private val accountDirectory: AccountDirectory,
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-kobil")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-kobil")
     @Operation(
         summary = "Activate auth-kobil",
         responses = [
@@ -91,7 +92,7 @@ class AuthKobilToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PostMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-kobil/pin-releases")
+    @PostMapping("$API_V1/tools/{toolSessionId}/auth-kobil/pin-releases")
     @Operation(
         summary = "Release the backend-held PIN",
         description = "The app presents either the locally stored unlock secret (guarded by its " +
@@ -132,7 +133,7 @@ class AuthKobilToolController(
         return ResponseEntity.status(status).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-kobil")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-kobil")
     @Operation(
         summary = "Redeem the one-time password",
         description = "The backend fetches the assertion behind the OTP from KOBIL, compares the " +
@@ -169,7 +170,7 @@ class AuthKobilToolController(
 
     private fun passwordAvailable(accountId: Long?) = passwordEnrollmentOf(accountId) != null
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-kobil")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-kobil")
     @Operation(summary = "Read the current auth-kobil state")
     fun read(
         @PathVariable toolSessionId: UUID,

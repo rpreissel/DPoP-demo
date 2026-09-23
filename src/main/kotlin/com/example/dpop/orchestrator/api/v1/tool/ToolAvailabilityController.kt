@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.example.dpop.tool_api.API_V1
 
 data class ToolAvailabilityEntry(
     @field:Schema(example = "auth-sms") val toolId: String,
@@ -35,7 +36,7 @@ data class ToolAvailabilityPutRequest(
  * do not expose this beyond a trusted operator network as-is.
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/admin/tools")
+@RequestMapping("$API_V1/admin/tools")
 @Tag(name = "Admin: tool availability", description = "Operator kill-switch for individual tools - no auth guard yet (demo scope)")
 class ToolAvailabilityController(
     private val toolAvailabilityService: ToolAvailabilityService,

@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val IDENT_EID_TOOL_ID = "ident-eid"
 
@@ -51,7 +52,7 @@ class IdentEidToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/ident-eid")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/ident-eid")
     @Operation(
         summary = "Activate ident-eid",
         description = "No request body: toolId already carries kind and method.",
@@ -79,7 +80,7 @@ class IdentEidToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-eid")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/ident-eid")
     @Operation(
         summary = "Supply the simulated card's Ausweisdaten, then the PIN",
         description = "Only the fields for the current step need to be sent; all of them together also completes in one call.",
@@ -130,7 +131,7 @@ class IdentEidToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/ident-eid")
+    @GetMapping("$API_V1/tools/{toolSessionId}/ident-eid")
     @Operation(
         summary = "Read the current ident-eid state",
         responses = [

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import com.example.dpop.orchestrator.session.SessionManagementService
+import com.example.dpop.tool_api.API_V1
 
 /**
  * Demo/debug-only read path for the Web-Kanal test UI's Journey-Log tab (`kc.oidc`'s own
@@ -22,7 +23,7 @@ import com.example.dpop.orchestrator.session.SessionManagementService
  * endpoint with its own bearer-proof kind ([KeycloakOidcTokenValidator]).
  */
 @RestController
-@RequestMapping("/orchestrator/api/v1/kc/me")
+@RequestMapping("$API_V1/kc/me")
 @Tag(name = "KC me", description = "Demo-only: read-your-own-journey-log via a real Keycloak AccessToken")
 @Profile("keycloak")
 class KcMeController(

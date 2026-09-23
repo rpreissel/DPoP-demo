@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_SMS_TOOL_ID = "auth-sms"
 
@@ -44,7 +45,7 @@ class AuthSmsToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-sms")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-sms")
     @Operation(
         summary = "Activate auth-sms",
         description = "No request body: toolId already carries kind and method.",
@@ -78,7 +79,7 @@ class AuthSmsToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-sms")
     @Operation(
         summary = "Confirm the TAN sent to the account's enrolled phone number",
         responses = [
@@ -107,7 +108,7 @@ class AuthSmsToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-sms")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-sms")
     @Operation(
         summary = "Read the current auth-sms state",
         responses = [

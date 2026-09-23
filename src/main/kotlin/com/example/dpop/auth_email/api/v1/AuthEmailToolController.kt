@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
+import com.example.dpop.tool_api.API_V1
 
 private const val AUTH_EMAIL_TOOL_ID = "auth-email"
 
@@ -40,7 +41,7 @@ class AuthEmailToolController(
     private val toolEndpoint: ToolEndpoint
 ) {
 
-    @PostMapping("/orchestrator/api/v1/channels/{channelSessionId}/tools/auth-email")
+    @PostMapping("$API_V1/channels/{channelSessionId}/tools/auth-email")
     @Operation(
         summary = "Activate auth-email",
         description = "No request body: toolId already carries kind and method.",
@@ -75,7 +76,7 @@ class AuthEmailToolController(
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
     }
 
-    @PatchMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-email")
+    @PatchMapping("$API_V1/tools/{toolSessionId}/auth-email")
     @Operation(
         summary = "Confirm the code sent to the account's confirmed email address",
         responses = [
@@ -103,7 +104,7 @@ class AuthEmailToolController(
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 
-    @GetMapping("/orchestrator/api/v1/tools/{toolSessionId}/auth-email")
+    @GetMapping("$API_V1/tools/{toolSessionId}/auth-email")
     @Operation(
         summary = "Read the current auth-email state",
         responses = [
