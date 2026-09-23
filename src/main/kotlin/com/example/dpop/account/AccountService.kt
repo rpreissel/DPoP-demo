@@ -35,6 +35,8 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Fired after a change to an account's current state (creation, anchors, methods) - the
@@ -42,8 +44,15 @@ import org.springframework.transaction.annotation.Transactional
  * `keycloak` Spring profile) listens for this to keep a mirrored Keycloak user in sync, but the
  * event itself is profile-agnostic. [accountId] alone (not a snapshot) - a listener re-reads the
  * current state via [AccountService.findAccount]. Appends to the audit logs do not fire it.
+ *
+ * At most ONE per account and transaction, however many changes that transaction makes (see
+ * [AccountService.announceChanged]): the event says "re-read this account", not "this one thing
+ * changed", so a second one for the same transaction would only start a second identical sync.
  */
 data class AccountChanged(val accountId: Long)
+
+/** Transaction resource holding the account ids [AccountService.announceChanged] already published for. */
+private const val ANNOUNCED_KEY = "account.AccountChanged.announced"
 
 /** Fired once an account row is actually gone - unlike [AccountChanged], nothing left to re-read, so this carries everything a listener gets. */
 data class AccountDeleted(val accountId: Long)
@@ -251,7 +260,7 @@ class AccountService(
             if (claim.attributeType.isLocalAnchor) {
                 lockForUpdate(accountId)
                 recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
-                eventPublisher.publishEvent(AccountChanged(accountId))
+                announceChanged(accountId)
             }
         }
     }
@@ -359,7 +368,7 @@ class AccountService(
     fun createUnidentifiedAccount(): AccountProfile {
         val account = accountRepository.save(Account(createdAt = Instant.now()))
         val accountId = checkNotNull(account.id) { "Account has no id" }
-        eventPublisher.publishEvent(AccountChanged(accountId))
+        announceChanged(accountId)
         return AccountProfile(accountId = accountId, personId = null, authenticationMethods = emptyList())
     }
 
@@ -512,7 +521,7 @@ class AccountService(
                 details = details
             ).also { it.id = instanceId; it.createdAt = now }
         )
-        eventPublisher.publishEvent(AccountChanged(accountId))
+        announceChanged(accountId)
         return getProfileOrThrow(accountId)
     }
 
@@ -526,7 +535,7 @@ class AccountService(
     fun deactivateAuthenticationMethod(accountId: Long, methodInstanceId: String): AccountProfile {
         lockForUpdate(accountId)
         findMethodInstance(accountId, methodInstanceId)?.takeIf { it.active }?.deactivate(Instant.now())
-        eventPublisher.publishEvent(AccountChanged(accountId))
+        announceChanged(accountId)
         return getProfileOrThrow(accountId)
     }
 
@@ -600,6 +609,35 @@ class AccountService(
 
     override fun activeInstanceEnrollment(accountId: Long, method: String, livesOnCallerKey: (instanceDetails: Map<String, Any?>?) -> Boolean): EnrollmentRef? =
         findActiveMethods(accountId, method).firstOrNull { livesOnCallerKey(it.details) }?.enrollmentRef
+
+    /**
+     * Publishes [AccountChanged] for [accountId] once per transaction. A single business step
+     * changes an account several times in one transaction - the demo seeder records anchors, claims
+     * and two methods, a registration step an anchor and a claim - and every one of those used to
+     * publish its own event. Each was delivered after the commit as its own async sync, all reading
+     * the same final state, all at the same time: redundant work, and in Keycloak's case a race
+     * (duplicate user, duplicate keypair). The first change registers the event; the listeners
+     * read the state as of commit anyway, so the later changes are already included.
+     *
+     * Outside a transaction (no synchronization active) there is nothing to coalesce with.
+     */
+    private fun announceChanged(accountId: Long) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            eventPublisher.publishEvent(AccountChanged(accountId))
+            return
+        }
+        @Suppress("UNCHECKED_CAST")
+        val announced = TransactionSynchronizationManager.getResource(ANNOUNCED_KEY) as MutableSet<Long>?
+            ?: mutableSetOf<Long>().also { set ->
+                TransactionSynchronizationManager.bindResource(ANNOUNCED_KEY, set)
+                TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                    override fun afterCompletion(status: Int) {
+                        TransactionSynchronizationManager.unbindResourceIfPossible(ANNOUNCED_KEY)
+                    }
+                })
+            }
+        if (announced.add(accountId)) eventPublisher.publishEvent(AccountChanged(accountId))
+    }
 
     private fun lockForUpdate(accountId: Long): Account =
         accountRepository.findForUpdate(accountId) ?: error("Account not found: $accountId")

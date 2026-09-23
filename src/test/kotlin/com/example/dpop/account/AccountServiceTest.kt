@@ -28,6 +28,8 @@ import io.mockk.verify
 import java.time.Instant
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Pure unit test: no Spring context, repositories mocked with MockK. Covers the claims-log write:
@@ -79,6 +81,48 @@ class AccountServiceTest : BehaviorSpec({
                 savedAnchors.single().accountId shouldBe 7L
                 verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
             }
+        }
+    }
+
+    given("one transaction that changes the same account twice") {
+        val accountRepository = mockk<AccountRepository>()
+        val accountClaimRepository = mockk<AccountClaimRepository>(relaxed = true)
+        val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
+        val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
+
+        val account = Account(createdAt = Instant.now()).apply { id = 7L }
+        every { accountRepository.findByIdOrNull(7L) } returns account
+        every { accountRepository.findForUpdate(7L) } returns account
+        every { accountAnchorRepository.findByAccountIdAndAttributeType(7L, any()) } returns null
+        every { accountAnchorRepository.findByAttributeTypeAndValue(any(), any()) } returns null
+        every { accountClaimRepository.findEstablished(any()) } returns emptyList()
+        every { accountClaimRepository.save(any()) } answers { firstArg() }
+        every { accountAnchorRepository.save(any()) } answers { firstArg() }
+
+        fun changeTwice() {
+            service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2), AcrLevel.LOA2)
+            service.recordClaim(7L, Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1), AcrLevel.LOA2)
+        }
+
+        fun inTransaction(block: () -> Unit) {
+            TransactionSynchronizationManager.initSynchronization()
+            try {
+                block()
+            } finally {
+                TransactionSynchronizationManager.getSynchronizations()
+                    .forEach { it.afterCompletion(TransactionSynchronization.STATUS_COMMITTED) }
+                TransactionSynchronizationManager.clearSynchronization()
+            }
+        }
+
+        then("it announces the account once - the listeners re-read the state as of commit anyway") {
+            inTransaction { changeTwice() }
+            verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
+
+            // The next transaction announces again: the set lives only as long as its transaction.
+            inTransaction { changeTwice() }
+            verify(exactly = 2) { eventPublisher.publishEvent(AccountChanged(7L)) }
         }
     }
 

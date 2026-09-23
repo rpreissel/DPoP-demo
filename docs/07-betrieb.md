@@ -136,6 +136,7 @@ Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte in drei unabh�
 - `dpop.secrets.otp-pepper` ist standardmäßig leer, das Pepper wird also bei jedem Start neu
   gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen.
 - Die `@Volatile`-Caches im `KeycloakAdminClient` gelten nur im eigenen Prozess.
+- `KeycloakAccountSyncListener` serialisiert die Syncs eines Kontos mit einer prozessinternen Sperre. Zwei Instanzen würden denselben Keycloak-User und dasselbe Keypair parallel anlegen.
 
 Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst beim zweiten Pod — als sporadisch
 fehlschlagende TAN-Prüfung. Deshalb steht es jetzt in der Konfiguration:

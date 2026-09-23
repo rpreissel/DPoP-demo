@@ -8,6 +8,7 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import org.springframework.context.annotation.Profile
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
@@ -25,7 +26,13 @@ class AccountKeypairService(
     private val repository: AccountKeycloakKeypairRepository
 ) {
 
-    /** Returns the existing keypair for [accountId], generating one on first call - never regenerated afterwards. */
+    /**
+     * Returns the existing keypair for [accountId], generating one on first call - never regenerated
+     * afterwards. Its own transaction, committed on return: [KeycloakAccountSyncListener] serializes
+     * syncs of one account, and the next sync in line must already see the keypair the previous one
+     * created - not only once the previous listener's whole transaction commits, after its lock is gone.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun keypairFor(accountId: Long): AccountKeycloakKeypair =
         repository.findByIdOrNull(accountId) ?: generate(accountId)
 
