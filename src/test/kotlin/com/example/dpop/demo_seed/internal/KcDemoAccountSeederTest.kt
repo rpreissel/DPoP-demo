@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.demo_seed.DemoAccountSeed
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.QrCredentialPort
 import com.example.dpop.tool_api.SmsCredentialPort
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
@@ -16,6 +17,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.util.UUID
 import org.springframework.aop.framework.ProxyFactory
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.DefaultApplicationArguments
@@ -46,7 +48,10 @@ class KcDemoAccountSeederTest(
             setTransactionManager(txManager)
             transactionAttributeSource = AnnotationTransactionAttributeSource()
         }
-        return ProxyFactory(KcDemoAccountSeeder(persons, accountService, passwords, sms)).apply {
+        val qr = mockk<QrCredentialPort>().also { port ->
+            every { port.optIn() } answers { EnrollmentRef("auth_qr.enrollment", UUID.randomUUID().toString()) }
+        }
+        return ProxyFactory(KcDemoAccountSeeder(persons, accountService, passwords, sms, qr)).apply {
             addAdvice(advice)
         }.proxy as ApplicationRunner
     }
@@ -103,7 +108,7 @@ class KcDemoAccountSeederTest(
             // dafuer zwei Faktorarten geseedet werden.
             ids.forEach { profileId ->
                 val methods = accountService.findAccount(profileId)?.activeAuthenticationMethods.orEmpty()
-                methods.map { it.method }.sorted() shouldBe listOf("password", "sms")
+                methods.map { it.method }.sorted() shouldBe listOf("password", "qr", "sms")
                 methods.map { it.enrolledUnderAcr }.toSet() shouldBe setOf("loa2")
             }
             verify(exactly = 3) { passwords.setNew(any()) }

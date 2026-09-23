@@ -4,6 +4,7 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.demo_seed.DemoAccountSeed
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.QrCredentialPort
 import com.example.dpop.tool_api.SmsCredentialPort
 import com.example.dpop.tool_api.resolveAccountByEmail
 import com.example.dpop.tool_api.resolveAccountByPersonId
@@ -21,8 +22,9 @@ import java.util.UUID
 
 /**
  * Demo-only: gives every demo_seed/V16__testdata.sql test person a real orchestrator account with a
- * confirmed address and two active login methods - `password` (KNOWLEDGE) and `sms` (POSSESSION),
- * the pair a step-up to LoA2 can actually combine - so the `keycloak` profile's
+ * confirmed address and three active login methods - `password` (KNOWLEDGE) and `sms` (POSSESSION),
+ * the pair a step-up to LoA2 can actually combine, plus the `qr` opt-in for the web channel's QR
+ * login - so the `keycloak` profile's
  * native-password/orchestrator-step-up flow
  * (Keycloak-eigene LoA-Subflow-Konfiguration, infra/tofu/keycloak's LoA-1/LoA-2 split) has something real
  * to demonstrate on first boot - LoA1 is native Keycloak password now, so the orchestrator itself
@@ -52,7 +54,8 @@ internal class KcDemoAccountSeeder(
     private val personDirectory: PersonDirectory,
     private val accountService: AccountService,
     private val passwordCredentialPort: PasswordCredentialPort,
-    private val smsCredentialPort: SmsCredentialPort
+    private val smsCredentialPort: SmsCredentialPort,
+    private val qrCredentialPort: QrCredentialPort
 ) : ApplicationRunner, DemoAccountSeed {
 
     private val log = LoggerFactory.getLogger(KcDemoAccountSeeder::class.java)
@@ -135,6 +138,15 @@ internal class KcDemoAccountSeeder(
                 profile.accountId,
                 "password",
                 passwordCredentialPort.setNew(DEMO_PASSWORD),
+                enrolledUnderAcr = SEEDED_ACR.value,
+                details = emptyMap()
+            )
+            // QR login opted in too, so the web channel's "Anmelden per QR-Code" works with a
+            // demo account right away - approved from the app after logging in there.
+            accountService.addAuthenticationMethod(
+                profile.accountId,
+                "qr",
+                qrCredentialPort.optIn(),
                 enrolledUnderAcr = SEEDED_ACR.value,
                 details = emptyMap()
             )

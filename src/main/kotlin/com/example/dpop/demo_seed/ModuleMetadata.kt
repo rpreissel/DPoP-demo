@@ -16,7 +16,8 @@ import org.springframework.modulith.ApplicationModule
  *
  * `account` for `recordClaim`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveByAnchor`/`anchorValue`;
  * `tool_api` for `PersonDirectory` (resolves the seeded persons), `PasswordCredentialPort`
- * (sets the demo password without depending on `auth_password` directly) and `SmsCredentialPort`
+ * (sets the demo password without depending on `auth_password` directly), `QrCredentialPort`
+ * (opts into QR login without depending on `auth_qr`) and `SmsCredentialPort`
  * (creates the sms enrollment without depending on `auth_sms` directly).
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`. Kotlin has no package
