@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1.kc
 
+import com.example.dpop.orchestrator.channel.KcChannelService
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
 import com.example.dpop.tool_api.ChannelResponse

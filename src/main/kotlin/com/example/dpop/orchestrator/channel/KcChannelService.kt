@@ -1,9 +1,7 @@
-package com.example.dpop.orchestrator.api.v1.kc
+package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.api.v1.KcChannelAccessGuard
 import com.example.dpop.orchestrator.kernel.OrchestratorException
-import com.example.dpop.orchestrator.api.v1.channel.ChannelService
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService

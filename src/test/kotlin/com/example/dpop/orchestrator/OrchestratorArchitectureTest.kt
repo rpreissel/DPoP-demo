@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.orchestrator.channel.DisclosingDemoDisclosure
+import com.example.dpop.orchestrator.channel.WithheldDemoDisclosure
 import com.tngtech.archunit.base.DescribedPredicate
 import com.tngtech.archunit.core.domain.JavaCall
 import com.tngtech.archunit.core.domain.JavaClass
@@ -44,6 +46,24 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                         "depending on one concrete strategy class breaks that (and was exactly today's bug: " +
                         "JourneyService referenced DeleteAccountStrategy.REQUIRED_ACR directly instead of a " +
                         "constant in the generic journey package)"
+                )
+                .check(classes)
+        }
+    }
+
+    given("the versioned HTTP layer (api.v1)") {
+        then("nothing outside it depends on it") {
+            // api.v1 is how requests reach the orchestrator: routes, request bodies, parameter
+            // binding, the OpenAPI description. The channel services, the access guards and the
+            // response shapes used to live there too, so everything the controllers call was
+            // "v1" - a second version could only have imported v1 or copied it. Now the arrow
+            // points one way: api.v1 -> channel/journey/session, never back.
+            noClasses()
+                .that().resideOutsideOfPackage("com.example.dpop.orchestrator.api..")
+                .should().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.api..")
+                .because(
+                    "api.v1 is the adapter; logic and response shapes live below it (channel, tool_api), " +
+                        "so a new API version can sit next to v1 without importing it"
                 )
                 .check(classes)
         }
@@ -237,8 +257,8 @@ class OrchestratorArchitectureTest : BehaviorSpec({
             // the values from every response rather than filtering them out of some.
             noClasses()
                 .that().resideOutsideOfPackage("com.example.dpop.tool_api..")
-                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.api.v1.DisclosingDemoDisclosure")
-                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.api.v1.WithheldDemoDisclosure")
+                .and().doNotHaveFullyQualifiedName(DisclosingDemoDisclosure::class.java.name)
+                .and().doNotHaveFullyQualifiedName(WithheldDemoDisclosure::class.java.name)
                 .should().callConstructorWhere(
                     DescribedPredicate.describe<JavaCall<*>>("construct a DemoInfo") { call ->
                         call.target.owner.fullName == "com.example.dpop.tool_api.DemoInfo"

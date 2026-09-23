@@ -8,7 +8,7 @@ package com.example.dpop.orchestrator.session
  * profile) delegates to the existing [TokenService] mock; [KcTokenProvider] (`keycloak` profile)
  * mints a real, Keycloak-signed token via the custom account-token grant instead. Same two-
  * implementation-per-contract shape as `ChannelAccessGuard`/`DeviceChannelAccessGuard`/
- * `KcChannelAccessGuard` - [com.example.dpop.orchestrator.api.v1.channel.ChannelService] depends
+ * `KcChannelAccessGuard` - [com.example.dpop.orchestrator.channel.ChannelService] depends
  * on this interface only, never on either implementation directly.
  */
 interface TokenProvider {

@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1
+package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.JourneyDebugStep

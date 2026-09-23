@@ -230,10 +230,12 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 - `OrchestratorArchitectureTest` prüft die Schichtung innerhalb von `orchestrator`, die Modulith nicht sieht:
   - Die Teilpakete müssen zyklenfrei sein (`slices().beFreeOfCycles()`). Es gab dort fünf Zyklen (`session` ↔ `policy`, `journey`, `journeylog`; `kc` ↔ `dpop`; `session` → `api.v1`); sie sind über das Paket `kernel` aufgelöst (Abschnitt 3 und [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md)).
   - Aus einer offenen Transaktion darf kein Keycloak-Aufruf herausgehen. Sonst hält die Transaktion Zeilensperren so lange, wie der fremde Dienst zum Antworten braucht. Einzige Ausnahme ist `KcTokenProvider`: dort ist das Token die Antwort selbst.
+  - Nichts außerhalb von `api` hängt an `api.v1`. Dort stehen nur Routen, Request-DTOs, Parameterbindung und die OpenAPI-Beschreibung. Die Kanal-Services, die Zugriffsprüfungen (`ChannelAccessGuard`), `DemoDisclosure` und die Antwortformen liegen darunter in `orchestrator/channel`. Die Antwortformen sind wie `ChannelResponse` in `tool_api` unversioniert, weil es eine globale Version gibt ([API](05-api.md) Abschnitt 1). Ein v2 könnte damit neben v1 stehen, ohne v1 zu importieren.
   - Nur `DemoDisclosure` erzeugt ein `DemoInfo`. Damit entfernt `demo.disclosure=false` die Klartext-TANs aus jeder Antwort, statt sie an einer von mehreren Stellen zu filtern ([ADR-28](adr/ADR-028-demo-werte-abschaltbar.md)).
 - `ToolSessionCoverageTest` prüft gegen das tatsächliche Schema, dass jede `*_tool_session`-Tabelle von einem Sweeper geleert wird ([Betrieb](07-betrieb.md) Abschnitt 3).
 - `EventPublicationRegistryTest` prüft, dass ein fehlschlagender `@ApplicationModuleListener` eine offene Zeile hinterlässt ([Betrieb](07-betrieb.md) Abschnitt 3a).
 - `checkOpenApiSnapshot` und `generateFrontendApiTypes` halten den API-Vertrag und die daraus erzeugten Frontend-Typen deckungsgleich ([API](05-api.md) Abschnitt 1).
+- `checkPublishedApiCompatibility` vergleicht den Vertrag mit dem veröffentlichten Stand `api/published/v1.yaml` und schlägt bei einem Bruch fehl; `ContractScopeTest`, `StepDataExamplesTest` und `DiscriminatorMappingTest` prüfen Umfang, Beispiele und Diskriminatoren des Vertrags ([API](05-api.md) Abschnitt 1).
 - Die CI führt zusätzlich `tsc -b` aus (vitest prüft keine Typen), dazu `oxlint` und die Playwright-Tests.
 
 ### Vorbedingungen in Integrationstests

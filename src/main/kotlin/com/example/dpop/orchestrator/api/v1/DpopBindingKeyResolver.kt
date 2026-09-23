@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.orchestrator.channel.DeviceChannelAccessGuard
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidationException
 import com.example.dpop.orchestrator.dpop.DpopValidator

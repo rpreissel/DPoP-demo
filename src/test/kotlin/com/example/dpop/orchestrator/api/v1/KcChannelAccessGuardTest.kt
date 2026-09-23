@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.orchestrator.channel.KcChannelAccessGuard
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.SessionManagementService

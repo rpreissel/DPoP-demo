@@ -1,5 +1,9 @@
 package com.example.dpop.orchestrator.api.v1.channel
 
+import com.example.dpop.orchestrator.channel.ChannelService
+import com.example.dpop.orchestrator.channel.MethodsResponse
+import com.example.dpop.orchestrator.channel.TokenResponse
+import com.example.dpop.orchestrator.channel.DeviceLinkResponse
 import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse

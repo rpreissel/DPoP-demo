@@ -1,9 +1,7 @@
 package com.example.dpop.orchestrator.api.v1.channel
 
-import com.example.dpop.tool_api.ActiveMethodView
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotEmpty
-import java.time.Instant
 import com.example.dpop.orchestrator.kernel.AuthIntent
 
 @Schema(
@@ -47,52 +45,4 @@ data class AnswerRequest(
 data class ChannelPatchRequest(
     @field:Schema(example = "loa3")
     val requiredAcr: String
-)
-
-@Schema(description = "The account's active authentication methods (docs/05-api.md #2). Never contains fsc.")
-data class MethodsResponse(
-    val methods: List<ActiveMethodView>
-)
-
-@Schema(
-    description = "Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and " +
-        "display its payload, no verification needed) plus both token lifetimes. The RefreshToken " +
-        "value itself is deliberately never part of this response - it's a credential and stays " +
-        "server-side; refreshExpiresAt is the only thing about it exposed."
-)
-data class TokenResponse(
-    @field:Schema(example = "eyJhbGciOiJub25lIn0.eyJzdWIiOiI0MiIsImFjciI6ImxvYTIiLCJhbXIiOlsic21zIl19.")
-    val accessToken: String,
-    val tokenType: String = "Bearer",
-    @field:Schema(example = "2026-08-28T18:05:00Z")
-    val accessExpiresAt: Instant,
-    @field:Schema(example = "2026-08-29T18:00:00Z")
-    val refreshExpiresAt: Instant
-)
-
-@Schema(
-    description = "Whether this device's DPoP key is already linked to an account (DeviceAccountLink, " +
-        "docs/02-domaenenmodell.md #1) - a pure read, no channel/journey created. Lets the entry screen show " +
-        "\"this device belongs to X\" before the user picks how to start."
-)
-/** One key-bound credential living on the calling device - see [DeviceLinkResponse.boundCredentials]. */
-data class BoundCredentialView(
-    @field:Schema(example = "kobil") val method: String,
-    @field:Schema(example = "dev-1a2b3c4d5e6f") val reference: String
-)
-
-data class DeviceLinkResponse(
-    val linked: Boolean,
-    @field:Schema(example = "42")
-    val accountId: Long? = null,
-    @field:Schema(example = "Max Muster", description = "Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.")
-    val personName: String? = null,
-    @field:Schema(
-        description = "Demo-only: what else this device is known by - one entry per key-bound " +
-            "credential of the linked account living on THIS key, with the reference its own " +
-            "method discloses (docs/09-dpop.md). The `device` method names its credential key, " +
-            "`kobil` the identifier the provider gave this phone. Absence is meaningful: a client " +
-            "that holds local data for a method no longer listed here is holding something stale."
-    )
-    val boundCredentials: List<BoundCredentialView> = emptyList()
 )

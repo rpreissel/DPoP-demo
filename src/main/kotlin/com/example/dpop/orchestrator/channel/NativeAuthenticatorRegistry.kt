@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1.kc
+package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.tool_spi.FactorType
 import org.springframework.stereotype.Component

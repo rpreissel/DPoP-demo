@@ -8,7 +8,7 @@ import java.time.Instant
  * always the calling flow run's own `channelSessionId` - unique per flow run, so two concurrent
  * flows sharing the same underlying SSO session (e.g. two tabs stepping up at once) never share an
  * anchor value. Deliberately NOT Keycloak's actual, durable `UserSessionModel` id - that value is
- * carried separately, only where RestoreData needs it (see [com.example.dpop.orchestrator.api.v1.kc.KcChannelService]),
+ * carried separately, only where RestoreData needs it (see [com.example.dpop.orchestrator.channel.KcChannelService]),
  * never as this claim.
  */
 data class PeerAuthAssertion(

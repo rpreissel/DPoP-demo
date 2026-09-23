@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1
+package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.session.ChannelSession
