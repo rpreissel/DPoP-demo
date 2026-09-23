@@ -501,10 +501,17 @@ components:
       type: object
   securitySchemes:
     dpop:
-      description: DPoP proof JWT (docs/09-dpop.md); required on every App-facade call.
+      description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the
+        binding key is derived from it and is never supplied by the caller.
       in: header
       name: DPoP
       type: apiKey
+    kcPeerAuth:
+      bearerFormat: JWT
+      description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
+        server-to-server, and the channel anchor comes out of the assertion.'
+      scheme: bearer
+      type: http
 info:
   description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
     the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
@@ -629,12 +636,6 @@ paths:
         A device that was already registered still gets offered LOGIN, not a fresh ident-fsc. To end a previous session first
         (logout), call DELETE on it before this.'
       operationId: createChannel
-      parameters:
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -663,6 +664,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Create a new App channel
       tags:
       - App channels
@@ -672,12 +675,6 @@ paths:
         other App-facade call already needs. Lets the entry screen show whose device this is before the user picks how to
         start.'
       operationId: getDeviceLink
-      parameters:
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -687,6 +684,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Whether this device is already linked to an account
       tags:
@@ -705,16 +704,13 @@ paths:
         schema:
           format: uuid
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '204':
           description: Logged out - no body.
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Log out (direct, no confirmation)
       tags:
@@ -728,11 +724,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '200':
@@ -754,6 +745,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Read the current channel state
       tags:
       - Channels
@@ -773,11 +766,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '200':
@@ -804,6 +792,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Delete the account of an already authenticated channel
       tags:
       - Channels
@@ -821,11 +811,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       requestBody:
         content:
@@ -854,6 +839,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Answer whatever the current step is waiting on
       tags:
       - Channels
@@ -874,11 +861,6 @@ paths:
           type: string
       - in: path
         name: attribute
-        required: true
-        schema:
-          type: string
-      - in: query
-        name: bindingKeyRef
         required: true
         schema:
           type: string
@@ -903,6 +885,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Withdraw a confirmed account attribute
       tags:
       - Channels
@@ -918,11 +902,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '200':
@@ -950,6 +929,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Voluntarily add another authentication method
       tags:
       - Channels
@@ -964,11 +945,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '200':
@@ -991,6 +967,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Get the fachliche ID-token claims
       tags:
       - Channels
@@ -1005,11 +983,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '200':
@@ -1029,6 +1002,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Cancel the current journey
       tags:
       - Channels
@@ -1045,11 +1020,6 @@ paths:
         schema:
           format: uuid
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -1059,6 +1029,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Read this channel's account's journey log
       tags:
@@ -1076,11 +1048,6 @@ paths:
         schema:
           format: uuid
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -1090,6 +1057,8 @@ paths:
           description: Confirmation prompt for the logout.
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Start a confirmed logout
       tags:
@@ -1107,11 +1076,6 @@ paths:
         schema:
           format: uuid
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -1128,6 +1092,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Read the account's active authentication methods
       tags:
@@ -1147,11 +1113,6 @@ paths:
           type: string
       - in: path
         name: methodInstanceId
-        required: true
-        schema:
-          type: string
-      - in: query
-        name: bindingKeyRef
         required: true
         schema:
           type: string
@@ -1179,6 +1140,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Deactivate an authentication method instance
       tags:
       - Channels
@@ -1194,11 +1157,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '200':
@@ -1219,6 +1177,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Confirm a WEB-channel QR login from this already-authenticated APP channel
       tags:
       - Channels
@@ -1232,11 +1192,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       requestBody:
         content:
@@ -1268,6 +1223,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Raise the channel's required ACR floor
       tags:
       - Channels
@@ -1284,11 +1241,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       - in: query
         name: minValiditySeconds
@@ -1312,6 +1264,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Get the mock Keycloak AccessToken
       tags:
       - Channels
@@ -1320,12 +1274,6 @@ paths:
       description: Every journey step ever recorded under the caller's own bindingKeyRef, newest first - across all channelSessionIds
         this device ever created.
       operationId: getJourneyLog
-      parameters:
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -1335,6 +1283,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Read this device's journey log
       tags:
@@ -1534,11 +1484,6 @@ paths:
         required: true
         schema:
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -1561,6 +1506,8 @@ paths:
           description: auth-sms abandoned during a fallback chain - offers the other loa2 candidates.
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Abandon this tool attempt
       tags:

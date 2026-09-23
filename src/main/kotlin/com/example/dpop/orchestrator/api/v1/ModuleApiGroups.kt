@@ -1,8 +1,12 @@
 package com.example.dpop.orchestrator.api.v1
 
+import org.springdoc.core.customizers.OperationCustomizer
 import org.springdoc.core.models.GroupedOpenApi
+import org.springframework.beans.factory.FactoryBean
 import org.springframework.beans.factory.support.BeanDefinitionBuilder
 import org.springframework.beans.factory.support.BeanDefinitionRegistry
+import org.springframework.context.ApplicationContext
+import org.springframework.context.ApplicationContextAware
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -50,11 +54,18 @@ class Registrar : ImportBeanDefinitionRegistrar {
         }
     }
 
+    /**
+     * The `OperationCustomizer`s are attached to every group explicitly. A group does NOT inherit
+     * the ones registered as plain beans - springdoc applies those to the ungrouped document only.
+     * Since every spec this project publishes comes from a group, a customizer that is not added
+     * here simply never runs, silently: the group's own `build()` is the whole configuration it
+     * gets.
+     */
     private fun register(registry: BeanDefinitionRegistry, group: String, packageToScan: String) {
         val definition = BeanDefinitionBuilder
-            .genericBeanDefinition(GroupedOpenApi::class.java) {
-                GroupedOpenApi.builder().group(group).packagesToScan(packageToScan).build()
-            }
+            .genericBeanDefinition(ModuleApiGroupFactoryBean::class.java)
+            .addConstructorArgValue(group)
+            .addConstructorArgValue(packageToScan)
             .beanDefinition
         registry.registerBeanDefinition("openApiGroup-$group", definition)
     }
@@ -79,6 +90,33 @@ class Registrar : ImportBeanDefinitionRegistrar {
     private companion object {
         private const val ROOT_PACKAGE = "com.example.dpop"
     }
+}
+
+/**
+ * Builds one [GroupedOpenApi] and hands it every registered [OperationCustomizer].
+ *
+ * A `FactoryBean` rather than a plain supplier, because the group needs the customizers and a
+ * supplier passed to `BeanDefinitionBuilder` gets no access to the bean factory. As a bean itself
+ * this class can simply ask for them.
+ */
+class ModuleApiGroupFactoryBean(
+    private val group: String,
+    private val packageToScan: String
+) : FactoryBean<GroupedOpenApi>, ApplicationContextAware {
+
+    private lateinit var context: ApplicationContext
+
+    override fun setApplicationContext(applicationContext: ApplicationContext) {
+        context = applicationContext
+    }
+
+    override fun getObjectType(): Class<*> = GroupedOpenApi::class.java
+
+    override fun getObject(): GroupedOpenApi = GroupedOpenApi.builder()
+        .group(group)
+        .packagesToScan(packageToScan)
+        .apply { context.getBeanProvider(OperationCustomizer::class.java).forEach { addOperationCustomizer(it) } }
+        .build()
 }
 
 /** Shared by the registrar and by `OpenApiSnapshotTest`, which names the combined group's file. */

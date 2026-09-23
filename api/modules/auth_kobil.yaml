@@ -253,10 +253,17 @@ components:
       - userVerification
   securitySchemes:
     dpop:
-      description: DPoP proof JWT (docs/09-dpop.md); required on every App-facade call.
+      description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the
+        binding key is derived from it and is never supplied by the caller.
       in: header
       name: DPoP
       type: apiKey
+    kcPeerAuth:
+      bearerFormat: JWT
+      description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
+        server-to-server, and the channel anchor comes out of the assertion.'
+      scheme: bearer
+      type: http
 info:
   description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
     the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
@@ -273,11 +280,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '201':
@@ -302,6 +304,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Activate auth-kobil
       tags:
       - 'Tool: KOBIL'
@@ -316,11 +320,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       responses:
         '201':
@@ -353,6 +352,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Activate enroll-kobil
       tags:
       - 'Tool: KOBIL'
@@ -366,11 +367,6 @@ paths:
         schema:
           format: uuid
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -380,6 +376,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Read the current auth-kobil state
       tags:
@@ -394,11 +392,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       requestBody:
         content:
@@ -427,6 +420,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Redeem the one-time password
       tags:
       - 'Tool: KOBIL'
@@ -441,11 +436,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       requestBody:
         content:
@@ -484,6 +474,8 @@ paths:
       security:
       - dpop: [
           ]
+      - kcPeerAuth: [
+          ]
       summary: Release the backend-held PIN
       tags:
       - 'Tool: KOBIL'
@@ -497,11 +489,6 @@ paths:
         schema:
           format: uuid
           type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
-          type: string
       responses:
         '200':
           content:
@@ -511,6 +498,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Read the current enroll-kobil state
       tags:
@@ -524,11 +513,6 @@ paths:
         required: true
         schema:
           format: uuid
-          type: string
-      - in: query
-        name: bindingKeyRef
-        required: true
-        schema:
           type: string
       requestBody:
         content:
@@ -557,6 +541,8 @@ paths:
           description: OK
       security:
       - dpop: [
+          ]
+      - kcPeerAuth: [
           ]
       summary: Confirm the KOBIL activation
       tags:

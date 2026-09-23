@@ -77,6 +77,28 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     )
                 }
             }
+
+            then("no endpoint claims the caller supplies its own bindingKeyRef") {
+                // @BindingKey is filled by DpopBindingKeyResolver from the DPoP proof header or the
+                // peer-auth assertion - never from the URL. springdoc does not know about argument
+                // resolvers and used to document it as a required query parameter on 74 paths, telling
+                // every client to put its own binding key in the URL. BindingKeyOpenApiConfig stops
+                // that; this keeps a newly added controller from reintroducing it.
+                val spec = canonicalize(
+                    RestTemplate().getForObject("http://localhost:$port/v3/api-docs/$COMBINED_GROUP", String::class.java)!!
+                )
+                if (spec.contains("name: bindingKeyRef")) {
+                    throw AssertionError(
+                        "bindingKeyRef steht wieder als Parameter in der Spec. Er kommt aus dem " +
+                            "DPoP-Header, nicht aus der URL - siehe BindingKeyOpenApiConfig."
+                    )
+                }
+                // And the endpoints must still say how a caller authenticates at all, otherwise
+                // removing the parameter would only replace one untruth with another.
+                if (!spec.contains("kcPeerAuth")) {
+                    throw AssertionError("Kein Endpunkt deklariert mehr die Peer-Auth-Alternative.")
+                }
+            }
         }
     }
 

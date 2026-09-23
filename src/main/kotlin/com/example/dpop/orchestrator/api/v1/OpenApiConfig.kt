@@ -45,15 +45,38 @@ class OpenApiConfig {
                         "scope for this build (docs/08-projektrahmen.md)."
                 )
         )
+        /**
+         * The two ways a caller proves who it is - which are the two branches of
+         * [DpopBindingKeyResolver]. Which endpoints accept them is stated per operation by
+         * [BindingKeyOpenApiConfig], because it differs: a few endpoints (the tool catalog, the
+         * mock-Keycloak fixtures) need neither.
+         */
         .components(
-            Components().addSecuritySchemes(
-                "dpop",
-                SecurityScheme()
-                    .type(SecurityScheme.Type.APIKEY)
-                    .`in`(SecurityScheme.In.HEADER)
-                    .name("DPoP")
-                    .description("DPoP proof JWT (docs/09-dpop.md); required on every App-facade call.")
-            )
+            Components()
+                .addSecuritySchemes(
+                    BindingKeyOpenApiConfig.DPOP_SCHEME,
+                    SecurityScheme()
+                        .type(SecurityScheme.Type.APIKEY)
+                        .`in`(SecurityScheme.In.HEADER)
+                        .name("DPoP")
+                        .description(
+                            "DPoP proof JWT, one per request, bound to method and URL " +
+                                "(docs/09-dpop.md). The App channel's proof; the binding key is " +
+                                "derived from it and is never supplied by the caller."
+                        )
+                )
+                .addSecuritySchemes(
+                    BindingKeyOpenApiConfig.PEER_AUTH_SCHEME,
+                    SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT")
+                        .description(
+                            "Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The " +
+                                "Web channel's proof: Keycloak calls server-to-server, and the " +
+                                "channel anchor comes out of the assertion."
+                        )
+                )
         )
 
     private fun tag(name: String, description: String) = Tag().name(name).description(description)
