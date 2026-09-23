@@ -1,169 +1,5 @@
 components:
   schemas:
-    ActiveMethodView:
-      description: 'One active authentication method instance. `id` addresses it for DELETE .../methods/{id} - method name
-        alone isn''t unique when a method allows multiple instances (e.g. several active `device` entries, one per physical
-        device). `label` is a user-chosen display name, set only for multi-instance methods; `null` for singleton ones (email/sms/password),
-        which the client labels from `method` itself. `enrolledUnderAcr`/`maxAcr`/`effectiveAcr`/`factorTypes` surface the
-        ADR-5 three-way cap (docs/12-entscheidungen.md): `effectiveAcr` is `min(enrolledUnderAcr, maxAcr)`, the level this
-        method can actually contribute right now, which can be lower than the tool''s own declared `maxAcr` if it was enrolled
-        while the session had proven less.'
-      properties:
-        effectiveAcr:
-          description: min(enrolledUnderAcr, maxAcr) - what this method actually contributes today.
-          example: loa1
-          type: string
-        enrolledUnderAcr:
-          description: The level the session had already proven at the moment this method was enrolled (ADR-5) - caps effectiveAcr
-            below maxAcr if lower.
-          example: loa1
-          type: string
-        factorTypes:
-          example:
-          - POSSESSION
-          items:
-            enum:
-            - KNOWLEDGE
-            - POSSESSION
-            - INHERENCE
-            type: string
-          type: array
-        id:
-          example: 7f3e2b1a-0c9d-4e8f-8a1b-2c3d4e5f6a7b
-          type: string
-        label:
-          example: Laptop
-          type: string
-        maxAcr:
-          description: This tool's own declared ceiling - never account/session-specific.
-          example: loa2
-          type: string
-        method:
-          example: sms
-          type: string
-      required:
-      - id
-      - method
-      type: object
-    AuthData:
-      properties:
-        accountId:
-          example: 42
-          format: int64
-          type: integer
-        acr:
-          example: loa2
-          type: string
-        amr:
-          additionalProperties:
-            type: string
-          description: 'Method -> who proved it: "orchestrator" for a completed orchestrator tool, "kc" for evidence a native
-            Keycloak authenticator already established (docs/05-api.md Abschnitt 3). Informational only - the orchestrator
-            alone still resolves the combined acr above, regardless of source.'
-          example:
-            password: kc
-            sms: orchestrator
-          type: object
-      type: object
-    ChannelBlock:
-      properties:
-        activeMethods:
-          description: All active authentication methods on the account, regardless of whether this session's currentAmr proved
-            them. currentAmr is session evidence (what THIS channel actually proved); activeMethods is the account's full
-            standing method list, unfiltered by device - a lost/stolen device's credential must be removable from any authenticated
-            session, not only from that device itself.
-          items:
-            $ref: '#/components/schemas/ActiveMethodView'
-          type: array
-        channelSessionId:
-          format: uuid
-          type: string
-        channelType:
-          description: Which facade this channel was opened through - APP (DPoP) or KEYCLOAK (docs/02-domaenenmodell.md Abschnitt
-            1). Fixed for the channel's whole lifetime.
-          example: APP
-          type: string
-        currentAcr:
-          example: loa2
-          type: string
-        currentAmr:
-          example:
-          - sms
-          - password
-          items:
-            type: string
-          type: array
-        state:
-          example: AUTHENTICATED
-          type: string
-      required:
-      - channelSessionId
-      - channelType
-      - state
-      type: object
-    ChannelResponse:
-      properties:
-        authData:
-          $ref: '#/components/schemas/AuthData'
-          description: KEYCLOAK channels only (docs/05-api.md Abschnitt 3) - never present for APP.
-        channel:
-          $ref: '#/components/schemas/ChannelBlock'
-        demo:
-          $ref: '#/components/schemas/DemoInfo'
-          description: Demo-only correlation IDs, never part of the production contract.
-        next:
-          $ref: '#/components/schemas/Next'
-        stepData:
-          $ref: '#/components/schemas/StepData'
-          description: Whatever the current step needs to render. `kind` names the shape - see StepData.
-      required:
-      - channel
-      type: object
-    Confirm:
-      allOf:
-      - $ref: '#/components/schemas/Prompt'
-      - properties:
-          cancelLabel:
-            type: string
-          confirmLabel:
-            type: string
-          destructive:
-            type: boolean
-        type: object
-      required:
-      - cancelLabel
-      - confirmLabel
-      - title
-    ConfirmStep:
-      description: The step waits for a yes/no answer; the prompt is authored by the backend.
-      properties:
-        kind:
-          enum:
-          - confirm
-          type: string
-        prompt:
-          $ref: '#/components/schemas/Prompt'
-      required:
-      - kind
-      - prompt
-    DemoInfo:
-      additionalProperties: true
-      properties:
-        accountId:
-          example: 42
-          format: int64
-          type: integer
-        journeys:
-          description: The running journey chain for this channel, outermost first - see [JourneyDebugStep]. Empty once nothing
-            is running.
-          items:
-            $ref: '#/components/schemas/JourneyDebugStep'
-          type: array
-        personId:
-          example: 7
-          format: int64
-          type: integer
-      type: object
     DeviceProofPatchRequest:
       properties:
         deviceProof:
@@ -173,192 +9,6 @@ components:
           example: Laptop
           type: string
       type: object
-    ErrorResponse:
-      description: |-
-        Every error response has this shape. The HTTP status is fixed per `error` code:
-
-        - `BAD_REQUEST`: 400
-        - `UNAUTHORIZED`: 401
-        - `BINDING_MISMATCH`: 403
-        - `NOT_FOUND`: 404
-        - `INVALID_STATE_TRANSITION`: 409
-        - `CONCURRENT_MODIFICATION`: 409
-        - `PROCESS_GONE`: 410
-        - `PROCESS_ABORTED`: 410
-        - `UNRESOLVABLE_REFERENCE`: 422
-        - `ACCOUNT_LOCKED`: 423
-        - `TOO_MANY_REQUESTS`: 429
-        - `INTERNAL_ERROR`: 500
-
-        A client must expect a code it does not know and handle it by its HTTP status.
-      properties:
-        error:
-          enum:
-          - BAD_REQUEST
-          - UNAUTHORIZED
-          - BINDING_MISMATCH
-          - NOT_FOUND
-          - INVALID_STATE_TRANSITION
-          - CONCURRENT_MODIFICATION
-          - PROCESS_GONE
-          - PROCESS_ABORTED
-          - UNRESOLVABLE_REFERENCE
-          - ACCOUNT_LOCKED
-          - TOO_MANY_REQUESTS
-          - INTERNAL_ERROR
-          type: string
-        message:
-          description: For people, not for program logic - branch on `error`. For INTERNAL_ERROR it is a fixed text; the details
-            of an unexpected failure stay in the server log.
-          example: Concurrent request on the same session - please retry.
-          type: string
-      required:
-      - error
-      - message
-    FailedAttemptStep:
-      description: The attempt failed; retries remain.
-      properties:
-        error:
-          example: TAN ungueltig
-          type: string
-        kind:
-          enum:
-          - failed-attempt
-          type: string
-      required:
-      - error
-      - kind
-    JourneyDebugStep:
-      properties:
-        intent:
-          example: DELETE_ACCOUNT
-          type: string
-        journeyId:
-          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-          type: string
-        lifecycle:
-          example: SUSPENDED
-          type: string
-        note:
-          description: 'Demo-only: why this journey''s current step looks the way it does - either why its tool became the
-            automatic choice, or why a selection among several is being shown at all. Null whenever the step already explains
-            itself (e.g. a Prompt), never part of the production contract.'
-          example: Gerät wiedererkannt - automatisch vorgeschlagen.
-          type: string
-        stateType:
-          example: ConfirmPending
-          type: string
-      required:
-      - intent
-      - journeyId
-      - lifecycle
-      - stateType
-      type: object
-    MessageStep:
-      description: A single candidate was auto-activated; this explains why the step appears.
-      properties:
-        kind:
-          enum:
-          - message
-          type: string
-        message:
-          example: E-Mail-Bestaetigung ausstehend
-          type: string
-      required:
-      - kind
-      - message
-    MissingFields:
-      description: Which inputs this step is still waiting for.
-      properties:
-        kind:
-          enum:
-          - missing-fields
-          type: string
-        missingFields:
-          example:
-          - tan
-          items:
-            example: '["tan"]'
-            type: string
-          type: array
-      required:
-      - kind
-      - missingFields
-    Next:
-      properties:
-        context:
-          example: authentication
-          type: string
-        step:
-          example: auth
-          type: string
-        toolId:
-          example: auth-sms
-          type: string
-        toolSessionId:
-          format: uuid
-          type: string
-        type:
-          example: tool
-          type: string
-      required:
-      - step
-      - type
-      type: object
-    Prompt:
-      discriminator:
-        mapping:
-          Confirm: '#/components/schemas/Confirm'
-        propertyName: kind
-      properties:
-        description:
-          type: string
-        kind:
-          type: string
-        title:
-          type: string
-      required:
-      - kind
-    SelectMethodStep:
-      description: Several procedures are possible; the client shows a selection.
-      properties:
-        description:
-          type: string
-        kind:
-          enum:
-          - select-method
-          type: string
-        options:
-          example:
-          - auth-password
-          - auth-device
-          items:
-            example: '["auth-password","auth-device"]'
-            type: string
-          type: array
-        title:
-          example: Wie moechten Sie sich anmelden?
-          type: string
-      required:
-      - kind
-      - options
-    StepData:
-      description: What the current step needs to render. `kind` names the shape; see the mapping on this schema for the ones
-        this deployment can produce.
-      discriminator:
-        mapping:
-          confirm: '#/components/schemas/ConfirmStep'
-          failed-attempt: '#/components/schemas/FailedAttemptStep'
-          message: '#/components/schemas/MessageStep'
-          missing-fields: '#/components/schemas/MissingFields'
-          select-method: '#/components/schemas/SelectMethodStep'
-        propertyName: kind
-      oneOf:
-      - $ref: '#/components/schemas/ConfirmStep'
-      - $ref: '#/components/schemas/FailedAttemptStep'
-      - $ref: '#/components/schemas/MessageStep'
-      - $ref: '#/components/schemas/MissingFields'
-      - $ref: '#/components/schemas/SelectMethodStep'
   securitySchemes:
     dpop:
       description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the
@@ -404,13 +54,13 @@ paths:
                   toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
                   type: tool
               schema:
-                $ref: '#/components/schemas/ChannelResponse'
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
           description: Created
         default:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
@@ -448,13 +98,13 @@ paths:
                   toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
                   type: tool
               schema:
-                $ref: '#/components/schemas/ChannelResponse'
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
           description: Created
         default:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
@@ -488,13 +138,13 @@ paths:
                   toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
                   type: tool
               schema:
-                $ref: '#/components/schemas/ChannelResponse'
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
           description: OK
         default:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
@@ -536,13 +186,13 @@ paths:
                   step: authenticated
                   type: orchestrator
               schema:
-                $ref: '#/components/schemas/ChannelResponse'
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
           description: OK
         default:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
@@ -579,13 +229,13 @@ paths:
                   toolSessionId: 9c858901-8a57-4791-81fe-4c455b099bc9
                   type: tool
               schema:
-                $ref: '#/components/schemas/ChannelResponse'
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
           description: OK
         default:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
@@ -628,13 +278,13 @@ paths:
                   step: authenticated
                   type: orchestrator
               schema:
-                $ref: '#/components/schemas/ChannelResponse'
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
           description: OK
         default:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [

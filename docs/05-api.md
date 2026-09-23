@@ -29,7 +29,7 @@ erreichte jede Stelle zu einem anderen Zeitpunkt.
 |---|---|---|
 | `api/openapi.yaml` | der App-Vertrag: alles unter `/orchestrator/api/v1` | Eingabe für beide Generatoren |
 | `api/published/v1.yaml` | der veröffentlichte Stand von v1 | Vergleichsbasis für `checkPublishedApiCompatibility` |
-| `api/modules/<modul>.yaml` | alle Endpunkte und DTOs dieses Moduls | zum Lesen und Reviewen |
+| `api/modules/<modul>.yaml` | alle Endpunkte und eigenen DTOs dieses Moduls; gemeinsame Schemas per `$ref` auf `../openapi.yaml` | zum Lesen und Reviewen |
 | `frontend/src/generated/` | die daraus erzeugten TypeScript-Typen | vom Frontend importiert, eingecheckt |
 | `keycloak-extension/build/generated/` | die daraus erzeugten Java-Modelle | von `OrchestratorClient` benutzt, nicht eingecheckt |
 
@@ -52,8 +52,20 @@ veröffentlichte Version angefasst wird.
 Beide YAML-Dateien entstehen im selben Testlauf aus derselben laufenden Anwendung
 (`OpenApiSnapshotTest`), können also nicht auseinanderlaufen. Die Modul-Dateien sind keine zweite
 Quelle, sondern ein Ausschnitt: eine Änderung an einem SMS-Endpunkt steht in
-`api/modules/auth_sms.yaml` (425 Zeilen) statt irgendwo in 4200 Zeilen. Die Gruppen leitet
+`api/modules/auth_sms.yaml` (knapp 500 Zeilen) statt irgendwo in 4700 Zeilen. Die Gruppen leitet
 `ModuleApiGroups` aus den vorhandenen `@RestController` ab, nicht aus einer gepflegten Liste.
+
+Ein Schema, das mehr als ein Modul benutzt und das im App-Vertrag steht (die Hülle
+`ChannelResponse` samt allem, was sie erreicht, `ErrorResponse`), steht nur in `api/openapi.yaml`;
+die Modul-Dateien verweisen mit `../openapi.yaml#/components/schemas/…` darauf. Sonst trüge jede
+Modul-Datei dieselben rund 360 Zeilen, und eine Änderung an der Hülle erschiene als zehn Diffs.
+Auch das ist abgeleitet, keine Liste: was nur ein Modul benutzt, bleibt in dessen Datei. Preis:
+`StepData` zeigt in der Modul-Datei die vollständige Union, nicht nur die Formen dieses Moduls.
+
+`api/openapi.yaml` bleibt trotzdem eine einzige Datei. Ein modularer Vertrag, der die
+Modul-Dateien per `$ref` einbindet, wurde ausprobiert: unter OpenAPI 3.1 löst swagger-parser
+externe Referenzen inline auf, beide Generatoren verlieren dann alle Modellnamen und das
+Diskriminator-Mapping, und openapi-diff vergleicht aufgeteilte Dateien nicht verlässlich.
 
 Was sonst noch dazugehört:
 

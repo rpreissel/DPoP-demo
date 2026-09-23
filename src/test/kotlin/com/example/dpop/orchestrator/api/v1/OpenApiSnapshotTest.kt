@@ -43,11 +43,11 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             then("every group matches its checked-in snapshot under api/") {
                 val update = System.getProperty(UPDATE_PROPERTY) == "true"
                 val outdated = mutableListOf<String>()
+                val specs = groups().associateWith { fetch(it) }
+                val shared = sharedSchemas(specs)
 
-                groups().forEach { group ->
-                    val raw = RestTemplate().getForObject("http://localhost:$port/v3/api-docs/$group", String::class.java)
-                        ?: error("springdoc lieferte keine Spec fuer die Gruppe '$group'")
-                    val live = canonicalize(raw)
+                specs.forEach { (group, spec) ->
+                    val live = render(if (group == CONTRACT_GROUP) spec else referenceShared(spec, shared))
                     val file = snapshotFor(group)
 
                     if (update) {
@@ -84,9 +84,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                 // resolvers and used to document it as a required query parameter on 74 paths, telling
                 // every client to put its own binding key in the URL. BindingKeyOpenApiConfig stops
                 // that; this keeps a newly added controller from reintroducing it.
-                val spec = canonicalize(
-                    RestTemplate().getForObject("http://localhost:$port/v3/api-docs/$CONTRACT_GROUP", String::class.java)!!
-                )
+                val spec = render(fetch(CONTRACT_GROUP))
                 if (spec.contains("name: bindingKeyRef")) {
                     throw AssertionError(
                         "bindingKeyRef steht wieder als Parameter in der Spec. Er kommt aus dem " +
@@ -119,20 +117,83 @@ class OpenApiSnapshotTest : BehaviorSpec() {
         if (group == CONTRACT_GROUP) SNAPSHOT else SNAPSHOT.parent.resolve("modules").resolve("$group.yaml")
 
     /**
+     * The group's spec as springdoc serves it, minus `servers`: springdoc fills that with the
+     * address this process happens to listen on, which under `RANDOM_PORT` differs every run. It
+     * describes one running instance, not the contract.
+     */
+    private fun fetch(group: String): Map<*, *> {
+        val raw = RestTemplate().getForObject("http://localhost:$port/v3/api-docs/$group", String::class.java)
+            ?: error("springdoc lieferte keine Spec fuer die Gruppe '$group'")
+        return JsonMapper().readValue(raw, Map::class.java).toMutableMap().apply { remove("servers") }
+    }
+
+    private fun schemasOf(spec: Map<*, *>): Map<*, *> =
+        ((spec["components"] as? Map<*, *>)?.get("schemas") as? Map<*, *>) ?: emptyMap<String, Any?>()
+
+    /**
+     * The schemas more than one module uses and the contract holds - the ones a module file
+     * references instead of repeating.
+     *
+     * Every tool endpoint answers with the shared envelope, so as a standalone document each module
+     * file used to carry `ChannelResponse` and everything it reaches - some 360 lines, identical in
+     * nine files. A change to the envelope showed up as ten diffs, and the few lines a module
+     * actually owns were hard to find between them.
+     *
+     * Derived, not listed. A schema only one module uses stays in that module's file, even though
+     * the contract has it too: that is what the file is for. One the contract lacks (admin or mock
+     * endpoints only) stays wherever it is used, since there is nothing to point at.
+     *
+     * `api/openapi.yaml` stays a single file on purpose. A modular contract with the modules as
+     * `$ref` targets was tried: under OpenAPI 3.1 swagger-parser inlines external references, and
+     * both generators lose every model name (`CreateChannel201ResponseStepDataOneOf3KindEnum`) and
+     * the discriminator mapping with them.
+     */
+    private fun sharedSchemas(specs: Map<String, Map<*, *>>): Set<String> {
+        val contract = schemasOf(specs.getValue(CONTRACT_GROUP)).keys.map { it.toString() }.toSet()
+        return specs.filterKeys { it != CONTRACT_GROUP }.values
+            .flatMap { spec -> schemasOf(spec).keys.map { it.toString() } }
+            .groupingBy { it }.eachCount()
+            .filter { (name, users) -> users > 1 && name in contract }
+            .keys
+    }
+
+    /**
+     * Drops the [shared] schemas from a module's spec and points its references at
+     * `../openapi.yaml` instead. The contract's version is the one referenced - for `StepData` that
+     * is the full union rather than the shapes this module can produce, which is the price of not
+     * repeating it.
+     */
+    private fun referenceShared(spec: Map<*, *>, shared: Set<String>): Map<*, *> {
+        val kept = schemasOf(spec).filterKeys { it.toString() !in shared }
+        val components = (spec["components"] as? Map<*, *>)?.toMutableMap()?.apply {
+            if (kept.isEmpty()) remove("schemas") else put("schemas", kept)
+        }
+        val trimmed = spec.toMutableMap().apply { if (components != null) put("components", components) }
+        return rewriteRefs(trimmed, shared) as Map<*, *>
+    }
+
+    /** `$ref`s and discriminator mappings alike: both are plain strings naming a local schema. */
+    private fun rewriteRefs(value: Any?, shared: Set<String>): Any? = when (value) {
+        is Map<*, *> -> value.mapValues { rewriteRefs(it.value, shared) }
+        is List<*> -> value.map { rewriteRefs(it, shared) }
+        is String ->
+            if (value.startsWith(LOCAL_SCHEMA_REF) && value.removePrefix(LOCAL_SCHEMA_REF) in shared) {
+                CONTRACT_SCHEMA_REF + value.removePrefix(LOCAL_SCHEMA_REF)
+            } else {
+                value
+            }
+        else -> value
+    }
+
+    /**
      * YAML rather than JSON, because this file is read by people in diffs: no quoting, no braces,
      * and long descriptions wrap as block text instead of running off as one escaped line.
      *
      * Keys are sorted recursively. springdoc builds its spec from hash-ordered maps, so without
      * this the snapshot would differ between two runs of unchanged code and the check would be
      * useless. Sorting also keeps a diff limited to what actually changed.
-     *
-     * `servers` is dropped rather than sorted: springdoc fills it with the address this process
-     * happens to listen on, which under `RANDOM_PORT` differs every run. It describes one running
-     * instance, not the contract.
      */
-    private fun canonicalize(raw: String): String {
-        val spec = JsonMapper().readValue(raw, Map::class.java).toMutableMap().apply { remove("servers") }
-
+    private fun render(spec: Map<*, *>): String {
         val options = DumperOptions().apply {
             defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
             // Keeps long descriptions readable as wrapped block scalars instead of one endless line.
@@ -155,6 +216,8 @@ class OpenApiSnapshotTest : BehaviorSpec() {
     companion object {
         private const val UPDATE_PROPERTY = "openapi.snapshot.update"
         private const val CONTRACT_GROUP = com.example.dpop.orchestrator.api.v1.CONTRACT_GROUP
+        private const val LOCAL_SCHEMA_REF = "#/components/schemas/"
+        private const val CONTRACT_SCHEMA_REF = "../openapi.yaml#/components/schemas/"
 
         /**
          * Repo-relative, resolved from the module directory the test runs in - `api/` rather than
