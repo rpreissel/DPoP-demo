@@ -58,6 +58,13 @@ jobs:
       - name: OpenAPI-Snapshot aktuell
         run: ./gradlew checkOpenApiSnapshot
 
+      # Und der Vertrag darf die bereits veroeffentlichte Version nicht brechen. Reihenfolge ist
+      # wichtig: erst muss der Snapshot zum Code passen, dann wird er gegen api/published/v1.yaml
+      # gehalten. Der Snapshot-Test macht jede Aenderung sichtbar, diese Pruefung sagt, ob sie
+      # brechend ist.
+      - name: Veroeffentlichte API-Version nicht gebrochen
+        run: ./gradlew checkPublishedApiCompatibility
+
       # Die erzeugten Frontend-Typen muessen zum Vertrag passen. Sonst koennte ein veralteter,
       # eingecheckter Generatorstand die Typpruefung oben gruen halten.
       - name: Generierte Frontend-Typen aktuell

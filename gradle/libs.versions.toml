@@ -11,6 +11,7 @@ mockk = "1.14.11"
 springmockk = "5.0.1"
 kover = "0.9.9"
 openapi-generator = "7.18.0"
+openapi-diff = "2.1.7"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
@@ -41,6 +42,7 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 # Jackson 3 Kotlin module: JourneyState is persisted as JSON (data classes + sealed hierarchies).
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi" }
+openapi-diff-cli = { module = "org.openapitools.openapidiff:openapi-diff-cli", version.ref = "openapi-diff" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-extensions-spring" }

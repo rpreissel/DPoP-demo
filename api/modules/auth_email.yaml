@@ -320,7 +320,7 @@ components:
       in: header
       name: DPoP
       type: apiKey
-    kcPeerAuth:
+    kc-peer-auth:
       bearerFormat: JWT
       description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
         server-to-server, and the channel anchor comes out of the assertion.'
@@ -364,7 +364,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate auth-email
       tags:
@@ -399,7 +399,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate auth-email-lookup
       tags:
@@ -434,7 +434,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate confirm-email
       tags:
@@ -468,7 +468,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate enroll-email
       tags:
@@ -503,7 +503,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current auth-email state
       tags:
@@ -544,7 +544,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Confirm the code sent to the account's confirmed email address
       tags:
@@ -578,7 +578,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current auth-email-lookup state
       tags:
@@ -636,7 +636,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Supply email, then code
       tags:
@@ -670,7 +670,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current confirm-email state
       tags:
@@ -727,7 +727,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Supply email, then the confirmation code
       tags:
@@ -752,7 +752,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current enroll-email state
       tags:

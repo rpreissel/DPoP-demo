@@ -185,6 +185,47 @@ tasks.register<Test>("updateOpenApiSnapshot") {
     outputs.upToDateWhen { false }
 }
 
+// Der Wachposten fuer bereits veroeffentlichte Versionen (docs/05-api.md).
+//
+// api/published/v1.yaml ist der Vertrag zum Zeitpunkt der Veroeffentlichung und wird NICHT neu
+// erzeugt. OpenApiSnapshotTest sichert "Code passt zu api/openapi.yaml"; dieser Vergleich sichert
+// "api/openapi.yaml bricht v1 nicht". Der Snapshot-Test macht jede Aenderung sichtbar, sagt aber
+// nichts darueber, ob sie brechend ist - und der gewohnte Weg ist dann, den Snapshot nachzuziehen.
+//
+// Eigene Konfiguration statt testImplementation: openapi-diff bringt swagger-parser mit, das mit
+// dem swagger-core von springdoc kollidiert, und jcl-over-slf4j, das mit Boots Logging kollidiert.
+val openapiDiff: Configuration by configurations.creating
+
+dependencies {
+    openapiDiff(variantOf(libs.openapi.diff.cli) { classifier("all") })
+}
+
+tasks.register<JavaExec>("checkPublishedApiCompatibility") {
+    group = "verification"
+    description = "Prueft api/openapi.yaml gegen die eingefrorene api/published/v1.yaml."
+    classpath = openapiDiff
+    mainClass.set("org.openapitools.openapidiff.cli.Main")
+    args(
+        layout.projectDirectory.file("api/published/v1.yaml").asFile.absolutePath,
+        layout.projectDirectory.file("api/openapi.yaml").asFile.absolutePath,
+        "--fail-on-incompatible"
+    )
+    inputs.file(layout.projectDirectory.file("api/published/v1.yaml"))
+    inputs.file(layout.projectDirectory.file("api/openapi.yaml"))
+    // Wie bei checkOpenApiSnapshot: ein Vertragsbruch darf nie als "up to date" durchgehen.
+    outputs.upToDateWhen { false }
+}
+
+// Der einzige legitime Weg, die eingefrorene Fassung zu aendern. Ihr Diff in einem PR ist das
+// Signal "hier wird eine veroeffentlichte Version angefasst".
+tasks.register<Copy>("publishApiVersion") {
+    group = "verification"
+    description = "Hebt den aktuellen Vertrag zur veroeffentlichten Fassung von v1."
+    from(layout.projectDirectory.file("api/openapi.yaml"))
+    into(layout.projectDirectory.dir("api/published"))
+    rename { "v1.yaml" }
+}
+
 // Die dritte Seite des Vertrags: die Frontend-Typen werden aus demselben Snapshot erzeugt, statt
 // wie bisher in types.ts von Hand nachgepflegt zu werden. Damit wird eine Backend-DTO-Aenderung
 // im Frontend zum TypeScript-Fehler statt zu einem `undefined` zur Laufzeit.

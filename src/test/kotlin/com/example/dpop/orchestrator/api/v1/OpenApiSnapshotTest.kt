@@ -95,7 +95,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                 }
                 // And the endpoints must still say how a caller authenticates at all, otherwise
                 // removing the parameter would only replace one untruth with another.
-                if (!spec.contains("kcPeerAuth")) {
+                if (!spec.contains(BindingKeyOpenApiConfig.PEER_AUTH_SCHEME)) {
                     throw AssertionError("Kein Endpunkt deklariert mehr die Peer-Auth-Alternative.")
                 }
             }

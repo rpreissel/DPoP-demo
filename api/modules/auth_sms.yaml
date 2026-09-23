@@ -320,7 +320,7 @@ components:
       in: header
       name: DPoP
       type: apiKey
-    kcPeerAuth:
+    kc-peer-auth:
       bearerFormat: JWT
       description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
         server-to-server, and the channel anchor comes out of the assertion.'
@@ -364,7 +364,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate auth-sms
       tags:
@@ -399,7 +399,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate auth-sms-lookup
       tags:
@@ -434,7 +434,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate enroll-sms
       tags:
@@ -469,7 +469,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current auth-sms state
       tags:
@@ -510,7 +510,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Confirm the TAN sent to the account's enrolled phone number
       tags:
@@ -544,7 +544,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current auth-sms-lookup state
       tags:
@@ -601,7 +601,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Supply email, then TAN
       tags:
@@ -635,7 +635,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current enroll-sms state
       tags:
@@ -692,7 +692,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Supply phone number, then TAN
       tags:

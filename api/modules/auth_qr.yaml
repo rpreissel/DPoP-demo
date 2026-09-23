@@ -322,7 +322,7 @@ components:
       in: header
       name: DPoP
       type: apiKey
-    kcPeerAuth:
+    kc-peer-auth:
       bearerFormat: JWT
       description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
         server-to-server, and the channel anchor comes out of the assertion.'
@@ -356,7 +356,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate auth-qr
       tags:
@@ -382,7 +382,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate auth-qr-lookup
       tags:
@@ -413,7 +413,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate confirm-qr-login
       tags:
@@ -439,7 +439,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Activate enroll-qr
       tags:
@@ -464,7 +464,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current auth-qr state
       tags:
@@ -489,7 +489,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Poll for the APP side's decision
       tags:
@@ -514,7 +514,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current auth-qr-lookup state
       tags:
@@ -539,7 +539,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Poll for the APP side's decision
       tags:
@@ -564,7 +564,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current confirm-qr-login state
       tags:
@@ -594,7 +594,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Supply the pairing code, then the accept/reject decision
       tags:
@@ -619,7 +619,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Read the current enroll-qr state
       tags:
@@ -644,7 +644,7 @@ paths:
       security:
       - dpop: [
           ]
-      - kcPeerAuth: [
+      - kc-peer-auth: [
           ]
       summary: Confirm the opt-in
       tags:
