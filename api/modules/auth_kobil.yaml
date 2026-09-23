@@ -208,6 +208,9 @@ components:
       type: object
     KobilUnlockCredential:
       discriminator:
+        mapping:
+          biometric: '#/components/schemas/BiometricUnlock'
+          password: '#/components/schemas/PasswordUnlock'
         propertyName: kind
       properties:
         kind:

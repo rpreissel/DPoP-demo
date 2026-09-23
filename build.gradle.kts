@@ -151,6 +151,11 @@ tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Der eingecheckte Vertrag ist eine Eingabe der Tests, nicht nur ihre Ausgabe:
+    // DiscriminatorMappingTest liest api/openapi.yaml direkt. Ohne diese Zeile haelt Gradle die
+    // Tests fuer aktuell, wenn sich nur der Vertrag geaendert hat - der Test laeuft dann nicht und
+    // meldet folgerichtig auch nichts.
+    inputs.dir(layout.projectDirectory.dir("api")).withPropertyName("apiContract")
 }
 
 // Der API-Vertrag wird von drei Seiten von Hand gelesen (Kotlin-DTOs, frontend/src/types.ts,
