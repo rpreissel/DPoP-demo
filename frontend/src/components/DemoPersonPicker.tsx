@@ -1,7 +1,7 @@
 import type { DemoPerson } from '../types'
 
 interface DemoPersonPickerProps {
-  /** Demo-only: all seeded personas. Renders nothing when fewer than two are offered. */
+  /** Demo-only: every register person. Renders nothing when fewer than two are offered. */
   demoPersons?: DemoPerson[]
   onSelect: (person: DemoPerson) => void
 }

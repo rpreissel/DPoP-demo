@@ -14,30 +14,32 @@ interface IdentEidCardFormProps {
     restrictedId: string
   }) => void
   error?: string
-  /** Demo-only: all seeded personas, offered as a picker that fills the whole card at once. */
+  /** Demo-only: every register person, offered as a picker that fills the whole card at once. */
   demoPersons?: DemoPerson[]
 }
 
 /** toolId=ident-eid / step=card: simulates reading the eID card's Ausweisdaten (possession factor). */
 export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardFormProps) {
-  const [name, setName] = useState('Muster')
-  const [vorname, setVorname] = useState('Max')
-  const [geburtsdatum, setGeburtsdatum] = useState('1985-06-15')
-  const [strasse, setStrasse] = useState('Musterstraße')
-  const [hausnummer, setHausnummer] = useState('1')
-  const [plz, setPlz] = useState('12345')
-  const [ort, setOrt] = useState('Musterstadt')
-  const [restrictedId, setRestrictedId] = useState('T0103005K1D5S0V8T9W6UM2RTX')
+  // Prefilled from the first register persona - no hard-coded test person of our own.
+  const first = demoPersons?.[0]
+  const [name, setName] = useState(first?.name ?? '')
+  const [vorname, setVorname] = useState(first?.vorname ?? '')
+  const [geburtsdatum, setGeburtsdatum] = useState(first?.geburtsdatum ?? '')
+  const [strasse, setStrasse] = useState(first?.strasse ?? '')
+  const [hausnummer, setHausnummer] = useState(first?.hausnummer ?? '')
+  const [plz, setPlz] = useState(first?.plz ?? '')
+  const [ort, setOrt] = useState(first?.ort ?? '')
+  const [restrictedId, setRestrictedId] = useState(first?.restrictedId ?? '')
 
   function selectPerson(person: DemoPerson) {
-    setName(person.name)
-    setVorname(person.vorname)
-    setGeburtsdatum(person.geburtsdatum)
-    setStrasse(person.strasse)
-    setHausnummer(person.hausnummer)
-    setPlz(person.plz)
-    setOrt(person.ort)
-    setRestrictedId(person.restrictedId)
+    setName(person.name ?? '')
+    setVorname(person.vorname ?? '')
+    setGeburtsdatum(person.geburtsdatum ?? '')
+    setStrasse(person.strasse ?? '')
+    setHausnummer(person.hausnummer ?? '')
+    setPlz(person.plz ?? '')
+    setOrt(person.ort ?? '')
+    setRestrictedId(person.restrictedId ?? '')
   }
 
   function handleSubmit(event: React.FormEvent) {

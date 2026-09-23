@@ -9,7 +9,7 @@ interface EmailPasswordLookupFormProps {
   demoPassword?: string
   /** Demo-only: the fixed email every account in this demo is confirmed with, prefilled so testers don't have to remember it. */
   demoEmail?: string
-  /** Demo-only: all seeded personas, offered as a picker that fills the email field. */
+  /** Demo-only: every register person, offered as a picker that fills the email field. */
   demoPersons?: DemoPerson[]
 }
 
@@ -27,7 +27,7 @@ export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEma
   }, [demoPassword])
 
   function selectPerson(person: DemoPerson) {
-    setEmail(person.email)
+    setEmail(person.email ?? '')
   }
 
   function handleSubmit(event: React.FormEvent) {

@@ -5,22 +5,24 @@ import type { DemoPerson } from '../../types'
 interface IdentFscFormProps {
   onSubmit: (fields: { kvnr: string; name: string; vorname: string; fsc: string }) => void
   error?: string
-  /** Demo-only: all seeded personas, offered as a picker that fills KVNR/name/vorname/FSC together. */
+  /** Demo-only: every register person, offered as a picker that fills KVNR/name/vorname/FSC together. */
   demoPersons?: DemoPerson[]
 }
 
 /** toolId=ident-fsc / step=input (docs/06-ablaeufe.md #2): KVNR, name, and the mailed FSC together. */
 export function IdentFscForm({ onSubmit, error, demoPersons }: IdentFscFormProps) {
-  const [kvnr, setKvnr] = useState('A123456789')
-  const [name, setName] = useState('Muster')
-  const [vorname, setVorname] = useState('Max')
-  const [fsc, setFsc] = useState('VALIDCODE')
+  // Prefilled from the first register persona - no hard-coded test person of our own (ADR-31).
+  const first = demoPersons?.[0]
+  const [kvnr, setKvnr] = useState(first?.kvnr ?? '')
+  const [name, setName] = useState(first?.name ?? '')
+  const [vorname, setVorname] = useState(first?.vorname ?? '')
+  const [fsc, setFsc] = useState(first?.fscCode ?? '')
 
   function selectPerson(person: DemoPerson) {
     setKvnr(person.kvnr)
-    setName(person.name)
-    setVorname(person.vorname)
-    setFsc(person.fscCode)
+    setName(person.name ?? '')
+    setVorname(person.vorname ?? '')
+    setFsc(person.fscCode ?? '')
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -32,9 +34,12 @@ export function IdentFscForm({ onSubmit, error, demoPersons }: IdentFscFormProps
     <div className="card">
       <h2>Identifikation per Freischaltcode</h2>
       <p>Geben Sie Ihre Versichertennummer, Ihren Namen und den zugesandten Freischaltcode ein.</p>
-      <div className="hint">
-        Testdaten vorbelegt: <code>{kvnr}</code> / <code>{name}</code>, <code>{vorname}</code> / Code <code>{fsc}</code>
-      </div>
+      {first && (
+        <div className="hint">
+          Testdaten vorbelegt: <code>{kvnr}</code> / <code>{name}</code>, <code>{vorname}</code> /{' '}
+          {fsc ? <>Code <code>{fsc}</code></> : <>kein gültiger Code im Briefkasten (Personenregister /ext/)</>}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">

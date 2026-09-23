@@ -7,7 +7,7 @@ interface EmailEnrollFormProps {
   error?: string
   /** Demo-only: the fixed email this demo always confirms, prefilled so testers don't have to invent one. */
   demoEmail?: string
-  /** Demo-only: all seeded personas, offered as a picker that fills the email field. */
+  /** Demo-only: every register person, offered as a picker that fills the email field. */
   demoPersons?: DemoPerson[]
 }
 
@@ -20,7 +20,7 @@ export function EmailEnrollForm({ onSubmit, error, demoEmail, demoPersons }: Ema
   }, [demoEmail])
 
   function selectPerson(person: DemoPerson) {
-    setEmail(person.email)
+    setEmail(person.email ?? '')
   }
 
   function handleSubmit(event: React.FormEvent) {

@@ -2,7 +2,6 @@ package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.JourneyDebugStep
-import com.example.dpop.tool_spi.DEMO_PERSONS
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 
@@ -10,7 +9,7 @@ import org.springframework.stereotype.Component
  * The only thing in the system that may put demo-only values into a response.
  *
  * What travels in the `demo` block is not decoration: a plaintext TAN, a plaintext confirmation
- * code, the fixed demo password, every seeded persona's KVNR, name, address and FSC code. That it
+ * code, the fixed demo password, every register persona's KVNR, name, address and FSC code. That it
  * is "never part of the production contract" used to be stated in a doc comment and nowhere
  * else - the two assembly sites built a [DemoInfo]
  * unconditionally, so a deployment that must not disclose any of it had nothing to switch off.
@@ -48,13 +47,13 @@ interface DemoDisclosure {
 /**
  * The disclosing implementation - active unless `demo.disclosure=false`.
  *
- * `persons` (all seeded demo personas) is attached here, once, for every caller rather than by
- * each tool's own `demo` values, so a frontend persona picker works everywhere without
- * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
+ * `persons` (every person in the register, see [DemoPersonas]) is attached here, once, for every
+ * caller rather than by each tool's own `demo` values, so a frontend persona picker works
+ * everywhere without touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
  */
 @Component
 @ConditionalOnProperty(name = ["demo.disclosure"], havingValue = "true", matchIfMissing = true)
-class DisclosingDemoDisclosure : DemoDisclosure {
+class DisclosingDemoDisclosure(private val personas: DemoPersonas) : DemoDisclosure {
 
     override fun assemble(
         accountId: Long?,
@@ -68,7 +67,7 @@ class DisclosingDemoDisclosure : DemoDisclosure {
             accountId = accountId,
             personId = personId,
             journeys = journeys,
-            values = (values ?: emptyMap()) + ("persons" to DEMO_PERSONS)
+            values = (values ?: emptyMap()) + ("persons" to personas.all())
         )
     }
 }

@@ -1,0 +1,297 @@
+components:
+  schemas:
+    BriefView:
+      properties:
+        code:
+          type: string
+        freischaltcodeId:
+          format: int64
+          type: integer
+        id:
+          format: int64
+          type: integer
+        personId:
+          format: int64
+          type: integer
+        versandtAm:
+          format: date-time
+          type: string
+      required:
+      - code
+      - freischaltcodeId
+      - id
+      - personId
+      - versandtAm
+      type: object
+    FreischaltcodeAusstellenRequest:
+      properties:
+        gueltigBis:
+          format: date-time
+          type: string
+      required:
+      - gueltigBis
+      type: object
+    FreischaltcodeView:
+      properties:
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          format: int64
+          type: integer
+        personId:
+          format: int64
+          type: integer
+        revokedAt:
+          format: date-time
+          type: string
+        valid:
+          type: boolean
+      required:
+      - expiresAt
+      - id
+      - personId
+      - valid
+      type: object
+    PersonData:
+      properties:
+        geburtsdatum:
+          format: date
+          type: string
+        hausnummer:
+          type: string
+        id:
+          format: int64
+          type: integer
+        kvnr:
+          type: string
+        name:
+          type: string
+        ort:
+          type: string
+        plz:
+          type: string
+        strasse:
+          type: string
+        vorname:
+          type: string
+      type: object
+  securitySchemes:
+    dpop:
+      description: DPoP proof JWT, one per request, bound to method and URL (docs/09-dpop.md). The App channel's proof; the
+        binding key is derived from it and is never supplied by the caller.
+      in: header
+      name: DPoP
+      type: apiKey
+    kc-peer-auth:
+      bearerFormat: JWT
+      description: 'Signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7). The Web channel''s proof: Keycloak calls
+        server-to-server, and the channel anchor comes out of the assertion.'
+      scheme: bearer
+      type: http
+info:
+  description: App-facing (orchestrator-first) API for the DPoP-bound registration and login demo. See docs/05-api.md for
+    the full contract; the Keycloak-facing kc facade is out of scope for this build (docs/08-projektrahmen.md).
+  title: DPoP-Demo Orchestrator API
+  version: v1
+openapi: 3.1.0
+paths:
+  /mock-stammdaten/briefe:
+    get:
+      description: Alle verschickten Briefe, neueste zuerst.
+      operationId: briefe
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/BriefView'
+                type: array
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Briefkasten
+      tags:
+      - Mock Personenregister
+  /mock-stammdaten/freischaltcodes/{freischaltcodeId}:
+    delete:
+      operationId: widerrufen
+      parameters:
+      - in: path
+        name: freischaltcodeId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      responses:
+        '200':
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Freischaltcode widerrufen
+      tags:
+      - Mock Personenregister
+  /mock-stammdaten/personen:
+    get:
+      operationId: personen
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/PersonData'
+                type: array
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Alle Personen im Register
+      tags:
+      - Mock Personenregister
+    post:
+      description: Die KVNR muss ein Buchstabe und neun Ziffern sein und darf noch nicht vergeben sein.
+      operationId: anlegen
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonData'
+        required: true
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PersonData'
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Person anlegen
+      tags:
+      - Mock Personenregister
+  /mock-stammdaten/personen/{personId}:
+    put:
+      description: Die KVNR bleibt unverändert.
+      operationId: aendern
+      parameters:
+      - in: path
+        name: personId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonData'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PersonData'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Stammdaten einer Person ändern
+      tags:
+      - Mock Personenregister
+  /mock-stammdaten/personen/{personId}/freischaltcodes:
+    get:
+      description: Ohne Klartext - den trägt nur der Brief.
+      operationId: freischaltcodes
+      parameters:
+      - in: path
+        name: personId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/FreischaltcodeView'
+                type: array
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Freischaltcodes einer Person
+      tags:
+      - Mock Personenregister
+    post:
+      description: Antwortet mit dem Brief, der den Klartext trägt.
+      operationId: ausstellen
+      parameters:
+      - in: path
+        name: personId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreischaltcodeAusstellenRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BriefView'
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Freischaltcode ausstellen
+      tags:
+      - Mock Personenregister
+tags:
+- description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: SMS'
+- description: Gerätebindung über den externen Dienstleister KOBIL
+  name: 'Tool: KOBIL'
+- description: Simuliertes Personenregister - kein Endpunkt dieser Anwendung, sondern das Fremdsystem
+  name: Mock Personenregister
+- description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
+  name: 'Tool: Gerät'
+- description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
+  name: 'Tool: Passwort'
+- description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
+  name: 'Tool: E-Mail'
+- description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
+  name: 'Tool: QR-Login'

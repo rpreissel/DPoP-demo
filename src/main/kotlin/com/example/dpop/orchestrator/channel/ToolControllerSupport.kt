@@ -19,7 +19,6 @@ import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_api.AuthorizedToolContext
 import com.example.dpop.tool_api.ToolContext
 import com.example.dpop.tool_api.ToolEndpoint
-import com.example.dpop.tool_spi.DEMO_PERSONS
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
@@ -329,7 +328,7 @@ class ToolControllerSupport(
     /**
      * personId is read back off the account rather than carried along - it is already stored there.
      *
-     * `persons` (all seeded demo personas) is attached here, once, for every tool - not by each
+     * `persons` (every register persona) is attached here, once, for every tool - not by each
      * tool's own `demo` values - so a frontend persona picker works everywhere without
      * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
      */

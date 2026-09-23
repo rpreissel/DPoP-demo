@@ -44,6 +44,7 @@ Diff mitten im Fließtext.
 | [ADR-28](adr/ADR-028-demo-werte-abschaltbar.md) | Demo-Werte lassen sich abschalten |
 | [ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md) | Spring Modulith' Event Publication Registry statt eigener Outbox-Tabelle |
 | [ADR-30](adr/ADR-030-eine-migration-je-modul.md) | Ein Flyway-Migrationsordner je Modul |
+| [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenregister, `id_fsc` fragt es direkt |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

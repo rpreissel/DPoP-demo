@@ -1,24 +1,20 @@
 package com.example.dpop.ext_stammdaten
 
 import com.example.dpop.ext_stammdaten.internal.PersonRepository
+import com.example.dpop.ext_stammdaten.internal.Person
 import com.example.dpop.tool_api.ClaimedIdentity
+import com.example.dpop.tool_api.Kvnr
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.normalizeKvnr
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+/** Raised when the register refuses a change; its refusals are not this application's error contract. */
+class PersonRejectedException(message: String) : RuntimeException(message)
 
 @Service
 class ExtStammdatenService(private val personRepository: PersonRepository) : PersonDirectory {
-
-    fun fetchStammdaten(): String {
-        val persons = personRepository.findAll()
-        if (persons.isEmpty()) {
-            return "ext_stammdaten: no persons found"
-        }
-        return persons.joinToString(separator = ", ", prefix = "ext_stammdaten: ") { p ->
-            "${p.vorname} ${p.name}"
-        }
-    }
 
     override fun findPersonIdByKvnr(kvnr: String): Long? =
         personRepository.findByKvnr(normalizeKvnr(kvnr))?.id
@@ -53,7 +49,41 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
     fun findPersonById(personId: Long): PersonData? =
         personRepository.findByIdOrNull(personId)?.toPersonData()
 
-    private fun com.example.dpop.ext_stammdaten.internal.Person.toPersonData() = PersonData(
+    // ------------------------------------------------------------------ register management (/ext/)
+
+    @Transactional(readOnly = true)
+    fun allePersonen(): List<PersonData> = personRepository.findAll().sortedBy { it.id }.map { it.toPersonData() }
+
+    /** @throws PersonRejectedException for a malformed or already registered KVNR. */
+    @Transactional
+    fun anlegen(input: PersonData): PersonData {
+        val kvnr = validKvnr(input.kvnr)
+        if (personRepository.findByKvnr(kvnr) != null) throw PersonRejectedException("KVNR $kvnr ist bereits registriert")
+        return personRepository.save(Person(kvnr = kvnr).apply { applyFrom(input) }).toPersonData()
+    }
+
+    /** @return null when no such person exists. The KVNR is the register's key and stays as it is. */
+    @Transactional
+    fun aendern(personId: Long, input: PersonData): PersonData? {
+        val person = personRepository.findByIdOrNull(personId) ?: return null
+        person.applyFrom(input)
+        return person.toPersonData()
+    }
+
+    private fun validKvnr(raw: String?): String =
+        Kvnr.ofOrNull(raw.orEmpty())?.value ?: throw PersonRejectedException("KVNR muss ein Buchstabe und neun Ziffern sein")
+
+    private fun Person.applyFrom(input: PersonData) {
+        name = input.name
+        vorname = input.vorname
+        geburtsdatum = input.geburtsdatum
+        strasse = input.strasse
+        hausnummer = input.hausnummer
+        plz = input.plz
+        ort = input.ort
+    }
+
+    private fun Person.toPersonData() = PersonData(
         id, kvnr, name, vorname, geburtsdatum, strasse, hausnummer, plz, ort
     )
 }

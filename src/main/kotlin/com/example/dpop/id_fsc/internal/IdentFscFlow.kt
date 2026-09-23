@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc.internal
 
+import com.example.dpop.ext_stammdaten.Freischaltcodes
 import java.security.MessageDigest
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.MissingFields
@@ -51,7 +52,7 @@ internal object IdentFscFlow {
         kvnr = input.kvnr ?: state.kvnr,
         name = input.name ?: state.name,
         vorname = input.vorname ?: state.vorname,
-        fscHash = input.fsc?.let { hash(it.trim()) } ?: state.fscHash,
+        fscHash = input.fsc?.let { Freischaltcodes.digest(it.trim()) } ?: state.fscHash,
         personId = input.personId ?: state.personId
     )
 

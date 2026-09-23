@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc.internal
 
+import com.example.dpop.ext_stammdaten.Freischaltcodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
@@ -15,11 +16,12 @@ import java.util.UUID
  * toolId=ident-fsc (docs/06-ablaeufe.md #2). Resolves KVNR/name/vorname/FSC into a person -
  * that resolution *is* the module's contribution, not just a yes/no check.
  *
- * [patch]'s [personId] parameter arrives pre-resolved: IdentFscToolController looks it up via
- * ext_stammdaten when a kvnr is supplied, since id_fsc must not depend on that module directly
- * (docs/08-projektrahmen.md #3: leaf modules stay decoupled from each other). The name check
- * goes back out over the same [PersonDirectory] port, exactly as `ident-eid` verifies its
- * Ausweisdaten - the master data itself never crosses.
+ * [patch]'s [personId] parameter arrives pre-resolved: IdentFscToolController looks it up over the
+ * [PersonDirectory] port when a kvnr is supplied, and the name check goes back out over the same
+ * port, exactly as `ident-eid` verifies its Ausweisdaten - the master data itself never crosses.
+ * The code check alone asks the register directly ([Freischaltcodes], ADR-31): the register issued
+ * the code, so it is the one to say whether it is valid - the same edge `auth_kobil` has to
+ * `kobil_mock`.
  *
  * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
@@ -28,7 +30,7 @@ import java.util.UUID
 class IdentFscToolHandler(
     private val descriptor: IdentFscDescriptor,
     private val repository: IdFscToolSessionRepository,
-    private val fscCodeRepository: FscCodeRepository,
+    private val freischaltcodes: Freischaltcodes,
     private val personDirectory: PersonDirectory
 ) {
 
@@ -68,9 +70,9 @@ class IdentFscToolHandler(
                 // The name is CHECKED, not merely collected - otherwise the two fields
                 // the form insists on would contribute nothing to the identification.
                 val nameMatches = personDirectory.matchesName(decision.personId, decision.name, decision.vorname)
-                val code = fscCodeRepository.findByPersonIdAndCodeHash(decision.personId, decision.fscHash)
+                val codeValid = freischaltcodes.pruefe(decision.personId, decision.fscHash)
 
-                when (IdentFscFlow.decideVerification(throttled, nameMatches, code != null && code.isValid)) {
+                when (IdentFscFlow.decideVerification(throttled, nameMatches, codeValid)) {
                     IdentFscVerifyDecision.Rejected ->
                         ToolOutcome.Failed("Freischaltcode ungueltig oder abgelaufen", attemptedPersonId = decision.personId)
 

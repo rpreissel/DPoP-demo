@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc.internal
 
+import com.example.dpop.ext_stammdaten.Freischaltcodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
@@ -11,7 +12,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
-import java.time.Instant
 import java.util.Optional
 import java.util.UUID
 
@@ -25,9 +25,9 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
     val repository = mockk<IdFscToolSessionRepository>()
-    val fscCodeRepository = mockk<FscCodeRepository>()
+    val freischaltcodes = mockk<Freischaltcodes>()
     val personDirectory = mockk<PersonDirectory>()
-    val handler = IdentFscToolHandler(IdentFscDescriptor, repository, fscCodeRepository, personDirectory)
+    val handler = IdentFscToolHandler(IdentFscDescriptor, repository, freischaltcodes, personDirectory)
 
     given("a fully filled-in ident-fsc session with a valid code and matching name") {
         val data = IdFscToolSession(
@@ -41,8 +41,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
         every { personDirectory.matchesName(7L, "Muster", "Max") } returns true
-        every { fscCodeRepository.findByPersonIdAndCodeHash(7L, "abc123") } returns
-            FscCode(personId = 7L, codeHash = "abc123", expiresAt = Instant.now().plusSeconds(600))
+        every { freischaltcodes.pruefe(7L, "abc123") } returns true
 
         `when`("verification runs") {
             then("it identifies, asserting the master-data attributes as claims under EXT_STAMMDATEN") {
