@@ -4,6 +4,7 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.Curve
 import com.nimbusds.jose.jwk.KeyUse
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 
 /**
@@ -15,8 +16,14 @@ import org.springframework.stereotype.Component
  * `kc.peer-auth.jwks-uri`, which points right back at this same backend's own `/mock-keycloak/
  * .well-known/jwks.json` - the mock signs with the key the validator already trusts, without
  * either side hand-copying key material.
+ *
+ * Absent under the `keycloak` profile. There `kc.peer-auth.jwks-uri` points at the real realm
+ * (`KeycloakSetupEnvironment`), so this key is trusted by nothing - but `GET .../signing-key` would
+ * still hand out a private key to anyone who asks. A mock that cannot do anything useful in a
+ * profile should not exist in it.
  */
 @Component
+@Profile("!keycloak")
 class MockKeycloakKeyProvider {
     val key = ECKeyGenerator(Curve.P_256)
         .keyID("mock-keycloak-1")

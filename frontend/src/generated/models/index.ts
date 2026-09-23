@@ -898,37 +898,6 @@ export interface KcChannelUpsertRequest {
     targetAcr?: string;
 }
 /**
- * 
- * @export
- * @interface KobilActivateRequest
- */
-export interface KobilActivateRequest {
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilActivateRequest
-     */
-    activationCode: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilActivateRequest
-     */
-    pin: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilActivateRequest
-     */
-    tenantId: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilActivateRequest
-     */
-    userId: string;
-}
-/**
  * What the KOBIL SDK needs to activate this device.
  * @export
  * @interface KobilActivationStep
@@ -970,44 +939,6 @@ export interface KobilActivationStep {
      * @memberof KobilActivationStep
      */
     unlockSecret?: string;
-}
-/**
- * 
- * @export
- * @interface KobilLoginRequest
- */
-export interface KobilLoginRequest {
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilLoginRequest
-     */
-    pin: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilLoginRequest
-     */
-    tenantId: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilLoginRequest
-     */
-    userId: string;
-}
-/**
- * 
- * @export
- * @interface KobilOtpResponse
- */
-export interface KobilOtpResponse {
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilOtpResponse
-     */
-    otp: string;
 }
 /**
  * Waiting for the one-time password the KOBIL SDK produced.
@@ -1059,45 +990,6 @@ export interface KobilPinReleaseRequest {
  * @export
  */
 export type KobilPinReleaseRequestUnlock = BiometricUnlock | PasswordUnlock;
-/**
- * 
- * @export
- * @interface KobilRiskSimulationRequest
- */
-export interface KobilRiskSimulationRequest {
-    /**
-     * 
-     * @type {Array<string>}
-     * @memberof KobilRiskSimulationRequest
-     */
-    risks: Array<KobilRiskSimulationRequestRisksEnum>;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilRiskSimulationRequest
-     */
-    tenantId: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KobilRiskSimulationRequest
-     */
-    userId: string;
-}
-
-
-/**
- * @export
- */
-export const KobilRiskSimulationRequestRisksEnum = {
-    ROOTED: 'ROOTED',
-    EMULATOR: 'EMULATOR',
-    DEBUGGER_ATTACHED: 'DEBUGGER_ATTACHED',
-    APP_TAMPERED: 'APP_TAMPERED',
-    OS_OUTDATED: 'OS_OUTDATED'
-} as const;
-export type KobilRiskSimulationRequestRisksEnum = typeof KobilRiskSimulationRequestRisksEnum[keyof typeof KobilRiskSimulationRequestRisksEnum];
-
 /**
  * 
  * @export
@@ -1328,19 +1220,6 @@ export interface QrPairingStep {
     verificationCode?: string;
 }
 /**
- * 
- * @export
- * @interface RegistrationOrderState
- */
-export interface RegistrationOrderState {
-    /**
-     * 
-     * @type {boolean}
-     * @memberof RegistrationOrderState
-     */
-    enrollFirst: boolean;
-}
-/**
  * The channel's current RestoreData, signed - null if there is nothing worth restoring yet.
  * @export
  * @interface RestoreDataResponse
@@ -1414,56 +1293,6 @@ export interface TokenResponse {
      * @memberof TokenResponse
      */
     tokenType?: string;
-}
-/**
- * 
- * @export
- * @interface ToolAvailabilityEntry
- */
-export interface ToolAvailabilityEntry {
-    /**
-     * 
-     * @type {boolean}
-     * @memberof ToolAvailabilityEntry
-     */
-    enabled: boolean;
-    /**
-     * 
-     * @type {string}
-     * @memberof ToolAvailabilityEntry
-     */
-    method: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof ToolAvailabilityEntry
-     */
-    reason?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof ToolAvailabilityEntry
-     */
-    toolId: string;
-}
-/**
- * 
- * @export
- * @interface ToolAvailabilityPutRequest
- */
-export interface ToolAvailabilityPutRequest {
-    /**
-     * 
-     * @type {boolean}
-     * @memberof ToolAvailabilityPutRequest
-     */
-    enabled: boolean;
-    /**
-     * 
-     * @type {string}
-     * @memberof ToolAvailabilityPutRequest
-     */
-    reason?: string;
 }
 /**
  * 

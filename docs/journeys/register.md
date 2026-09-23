@@ -120,7 +120,7 @@ Aktiviert über das Runtime-Feature-Flag `FeatureFlags.REGISTER_ENROLL_FIRST`
 (`"register-enroll-first"`), das `FeatureFlagService` (`@Service`, implementiert
 `FeatureFlagProvider`) aus der Tabelle `orchestrator.feature_flag` beisteuert — eine Zeile je
 Flag, keine Zeile heißt „aus". Gelesen/gesetzt wird es über
-`GET/PUT /orchestrator/api/v1/admin/registration-order` (`RegistrationOrderController`).
+`GET/PUT /orchestrator/admin/registration-order` (`RegistrationOrderController`).
 
 **Kernidee**: Kein Konto nötig, um zu starten — es entsteht erst lazy, beim ersten abgeschlossenen
 Enrollment (`JourneyService`s generisches `Action.AdoptCredential`-Handling), nicht schon bei der

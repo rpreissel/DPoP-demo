@@ -649,7 +649,7 @@ paths:
       summary: The mock's PRIVATE signing key - demo/test only
       tags:
       - Mock Keycloak
-  /orchestrator/api/v1/admin/registration-order:
+  /orchestrator/admin/registration-order:
     get:
       operationId: get
       responses:
@@ -677,7 +677,7 @@ paths:
       summary: Set REGISTER order
       tags:
       - 'Admin: registration order'
-  /orchestrator/api/v1/admin/tools/availability:
+  /orchestrator/admin/tools/availability:
     get:
       operationId: list
       responses:
@@ -705,7 +705,7 @@ paths:
       summary: List every catalog tool with its current backend-enabled state
       tags:
       - 'Admin: tool availability'
-  /orchestrator/api/v1/admin/tools/{toolId}/availability:
+  /orchestrator/admin/tools/{toolId}/availability:
     put:
       description: Takes effect on the next step computed for any channel - no restart needed.
       operationId: put

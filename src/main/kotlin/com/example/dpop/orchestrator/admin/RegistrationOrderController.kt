@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.api.v1.journey
+package com.example.dpop.orchestrator.admin
 
 import com.example.dpop.orchestrator.kernel.FeatureFlags
 import com.example.dpop.orchestrator.session.FeatureFlagService
@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import com.example.dpop.tool_api.API_V1
 
 data class RegistrationOrderState(val enrollFirst: Boolean)
 
@@ -23,7 +22,7 @@ data class RegistrationOrderState(val enrollFirst: Boolean)
  * `ToolAvailabilityController` - do not expose this beyond a trusted operator network as-is.
  */
 @RestController
-@RequestMapping("$API_V1/admin/registration-order")
+@RequestMapping("$ADMIN_API/registration-order")
 @Tag(name = "Admin: registration order", description = "Toggle between ident-first and enroll-first REGISTER - no auth guard yet (demo scope)")
 class RegistrationOrderController(private val featureFlagService: FeatureFlagService) {
 

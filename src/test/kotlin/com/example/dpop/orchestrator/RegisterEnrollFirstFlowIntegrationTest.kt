@@ -34,7 +34,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
     init {
         beforeEach {
             stubDpopWithFakeJwk(jwkThumbprintService)
-            put("/orchestrator/api/v1/admin/registration-order", """{"enrollFirst":true}""") shouldBe HttpStatus.OK
+            put("/orchestrator/admin/registration-order", """{"enrollFirst":true}""") shouldBe HttpStatus.OK
         }
     }
 

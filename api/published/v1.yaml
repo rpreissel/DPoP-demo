@@ -565,22 +565,6 @@ components:
           example: loa2
           type: string
       type: object
-    KobilActivateRequest:
-      properties:
-        activationCode:
-          type: string
-        pin:
-          type: string
-        tenantId:
-          type: string
-        userId:
-          type: string
-      required:
-      - activationCode
-      - pin
-      - tenantId
-      - userId
-      type: object
     KobilActivationStep:
       description: What the KOBIL SDK needs to activate this device.
       properties:
@@ -604,26 +588,6 @@ components:
       - missingFields
       - pin
       - tenantId
-    KobilLoginRequest:
-      properties:
-        pin:
-          type: string
-        tenantId:
-          type: string
-        userId:
-          type: string
-      required:
-      - pin
-      - tenantId
-      - userId
-      type: object
-    KobilOtpResponse:
-      properties:
-        otp:
-          type: string
-      required:
-      - otp
-      type: object
     KobilOtpStep:
       description: Waiting for the one-time password the KOBIL SDK produced.
       properties:
@@ -652,27 +616,6 @@ components:
           - $ref: '#/components/schemas/PasswordUnlock'
       required:
       - unlock
-      type: object
-    KobilRiskSimulationRequest:
-      properties:
-        risks:
-          items:
-            enum:
-            - ROOTED
-            - EMULATOR
-            - DEBUGGER_ATTACHED
-            - APP_TAMPERED
-            - OS_OUTDATED
-            type: string
-          type: array
-        tenantId:
-          type: string
-        userId:
-          type: string
-      required:
-      - risks
-      - tenantId
-      - userId
       type: object
     KobilUnlockCredential:
       discriminator:
@@ -811,13 +754,6 @@ components:
         verificationCode:
           example: '4711'
           type: string
-    RegistrationOrderState:
-      properties:
-        enrollFirst:
-          type: boolean
-      required:
-      - enrollFirst
-      type: object
     RestoreDataResponse:
       description: The channel's current RestoreData, signed - null if there is nothing worth restoring yet.
       properties:
@@ -896,36 +832,6 @@ components:
       - accessToken
       - refreshExpiresAt
       type: object
-    ToolAvailabilityEntry:
-      properties:
-        enabled:
-          example: true
-          type: boolean
-        method:
-          example: sms
-          type: string
-        reason:
-          example: Wartungsfenster bis 18 Uhr
-          type: string
-        toolId:
-          example: auth-sms
-          type: string
-      required:
-      - enabled
-      - method
-      - toolId
-      type: object
-    ToolAvailabilityPutRequest:
-      properties:
-        enabled:
-          example: false
-          type: boolean
-        reason:
-          example: Wartungsfenster bis 18 Uhr
-          type: string
-      required:
-      - enabled
-      type: object
     ToolCatalogEntry:
       properties:
         method:
@@ -962,182 +868,6 @@ info:
   version: v1
 openapi: 3.1.0
 paths:
-  /mock-keycloak/.well-known/jwks.json:
-    get:
-      operationId: jwks
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                additionalProperties:
-                  type: object
-                type: object
-          description: OK
-      summary: The mock's public key, in the shape kc.peer-auth.jwks-uri expects
-      tags:
-      - Mock Keycloak
-  /mock-keycloak/signing-key:
-    get:
-      description: Real Keycloak never exposes this; the Mock-Keycloak frontend fetches it once to sign peer-auth assertions
-        client-side, standing in for the real Authenticator SPI plugin.
-      operationId: signingKey
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                additionalProperties:
-                  type: object
-                type: object
-          description: OK
-      summary: The mock's PRIVATE signing key - demo/test only
-      tags:
-      - Mock Keycloak
-  /mock-kobil/activate:
-    post:
-      description: Binds this device to the user and creates the device identifier. The activation code is spent in the process.
-      operationId: activate_21
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KobilActivateRequest'
-        required: true
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                additionalProperties:
-                  type: string
-                type: object
-          description: OK
-      summary: MC SDK ActivateEvent
-      tags:
-      - Mock KOBIL
-  /mock-kobil/login:
-    post:
-      description: Checks the device, files an assertion, and returns only the one-time password that points at it. The assertion
-        itself never reaches the caller.
-      operationId: login
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KobilLoginRequest'
-        required: true
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/KobilOtpResponse'
-          description: OK
-      summary: MC SDK LoginEvent
-      tags:
-      - Mock KOBIL
-  /mock-kobil/simulate-risk:
-    post:
-      description: Has no counterpart in the real product. Without it the risk-rejection path would only ever be reachable
-        from a test.
-      operationId: simulateRisk
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KobilRiskSimulationRequest'
-        required: true
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                additionalProperties:
-                  type: object
-                type: object
-          description: OK
-      summary: 'Demo switch: what this device''s sensors report from now on'
-      tags:
-      - Mock KOBIL
-  /orchestrator/api/v1/admin/registration-order:
-    get:
-      operationId: get
-      responses:
-        '200':
-          content:
-            '*/*':
-              schema:
-                $ref: '#/components/schemas/RegistrationOrderState'
-          description: OK
-      summary: Current REGISTER order
-      tags:
-      - 'Admin: registration order'
-    put:
-      description: Takes effect for the next brand-new REGISTER journey - a running one keeps whichever order it started with.
-      operationId: put_1
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegistrationOrderState'
-        required: true
-      responses:
-        '200':
-          description: OK
-      summary: Set REGISTER order
-      tags:
-      - 'Admin: registration order'
-  /orchestrator/api/v1/admin/tools/availability:
-    get:
-      operationId: list
-      responses:
-        '200':
-          content:
-            application/json:
-              example:
-              - enabled: true
-                method: sms
-                reason: null
-                toolId: auth-sms
-              - enabled: true
-                method: sms
-                reason: null
-                toolId: enroll-sms
-              - enabled: false
-                method: device
-                reason: Wartungsfenster bis 18 Uhr
-                toolId: auth-device
-              schema:
-                items:
-                  $ref: '#/components/schemas/ToolAvailabilityEntry'
-                type: array
-          description: OK
-      summary: List every catalog tool with its current backend-enabled state
-      tags:
-      - 'Admin: tool availability'
-  /orchestrator/api/v1/admin/tools/{toolId}/availability:
-    put:
-      description: Takes effect on the next step computed for any channel - no restart needed.
-      operationId: put
-      parameters:
-      - in: path
-        name: toolId
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ToolAvailabilityPutRequest'
-        required: true
-      responses:
-        '200':
-          description: OK
-      summary: Enable or disable a tool
-      tags:
-      - 'Admin: tool availability'
   /orchestrator/api/v1/app/channels:
     post:
       description: 'Always mints a brand-new ChannelSession for this DPoP-bound device (docs/02-domaenenmodell.md #3: the
@@ -4312,8 +4042,6 @@ paths:
       tags:
       - Tools
 tags:
-- description: Operator kill-switch for individual tools - no auth guard yet (demo scope)
-  name: 'Admin: tool availability'
 - description: Facade-neutral channel resource - shared by every facade that creates one
   name: Channels
 - description: Gerätebindung über den externen Dienstleister KOBIL
@@ -4330,20 +4058,14 @@ tags:
   name: 'Tool: SMS'
 - description: Abandoning an activated tool (Back/Switch)
   name: Tools
-- description: Toggle between ident-first and enroll-first REGISTER - no auth guard yet (demo scope)
-  name: 'Admin: registration order'
 - description: Simulated eID card read, then PIN - attests what the card shows
   name: 'Tool: eID'
-- description: Simuliertes KOBIL-Backend - kein Endpunkt dieser Anwendung, sondern der Fremddienst
-  name: Mock KOBIL
 - description: Stateless password verify/set for Keycloak's native credential
   name: KC password management
 - description: Reichhaltiges, nach bindingKeyRef abrufbares Journey-Log (Debug/Demo, kein Audit-Trail)
   name: Journey log
 - description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: Passwort'
-- description: Demo-only signing key for the Mock-Keycloak frontend - not a real Keycloak endpoint
-  name: Mock Keycloak
 - description: The App facade's own endpoints - channel creation and the device-link read
   name: App channels
 - description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'

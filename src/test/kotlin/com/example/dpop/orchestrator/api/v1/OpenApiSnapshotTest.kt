@@ -85,7 +85,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                 // every client to put its own binding key in the URL. BindingKeyOpenApiConfig stops
                 // that; this keeps a newly added controller from reintroducing it.
                 val spec = canonicalize(
-                    RestTemplate().getForObject("http://localhost:$port/v3/api-docs/$COMBINED_GROUP", String::class.java)!!
+                    RestTemplate().getForObject("http://localhost:$port/v3/api-docs/$CONTRACT_GROUP", String::class.java)!!
                 )
                 if (spec.contains("name: bindingKeyRef")) {
                     throw AssertionError(
@@ -116,7 +116,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
      * of all of them.
      */
     private fun snapshotFor(group: String) =
-        if (group == COMBINED_GROUP) SNAPSHOT else SNAPSHOT.parent.resolve("modules").resolve("$group.yaml")
+        if (group == CONTRACT_GROUP) SNAPSHOT else SNAPSHOT.parent.resolve("modules").resolve("$group.yaml")
 
     /**
      * YAML rather than JSON, because this file is read by people in diffs: no quoting, no braces,
@@ -154,7 +154,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
 
     companion object {
         private const val UPDATE_PROPERTY = "openapi.snapshot.update"
-        private const val COMBINED_GROUP = com.example.dpop.orchestrator.api.v1.COMBINED_GROUP
+        private const val CONTRACT_GROUP = com.example.dpop.orchestrator.api.v1.CONTRACT_GROUP
 
         /**
          * Repo-relative, resolved from the module directory the test runs in - `api/` rather than

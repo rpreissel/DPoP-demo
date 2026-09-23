@@ -21,15 +21,33 @@ Die fachliche Bedeutung der Antworten — insbesondere `next` — ergibt sich au
 
 ### Der Vertrag: `api/`
 
-Den Vertrag lesen drei Stellen: die Kotlin-DTOs selbst, das Frontend und das JSON-Parsing in
-`keycloak-extension` (`OrchestratorClient`, `OrchestratorNextDispatch`). Vorher war er dreimal von
-Hand geschrieben, und eine geänderte Antwort erreichte jede Stelle zu einem anderen Zeitpunkt.
+Den Vertrag lesen drei Stellen: die Kotlin-DTOs selbst, das Frontend und `keycloak-extension`
+(`OrchestratorClient`). Vorher war er dreimal von Hand geschrieben, und eine geänderte Antwort
+erreichte jede Stelle zu einem anderen Zeitpunkt.
 
 | Datei | Inhalt | Wofür |
 |---|---|---|
-| `api/openapi.yaml` | der vollständige Vertrag | Eingabe für den Codegenerator |
-| `api/modules/<modul>.yaml` | nur die Endpunkte und DTOs dieses Moduls | zum Lesen und Reviewen |
-| `frontend/src/generated/` | die daraus erzeugten TypeScript-Typen | vom Frontend importiert |
+| `api/openapi.yaml` | der App-Vertrag: alles unter `/orchestrator/api/v1` | Eingabe für beide Generatoren |
+| `api/published/v1.yaml` | der veröffentlichte Stand von v1 | Vergleichsbasis für `checkPublishedApiCompatibility` |
+| `api/modules/<modul>.yaml` | alle Endpunkte und DTOs dieses Moduls | zum Lesen und Reviewen |
+| `frontend/src/generated/` | die daraus erzeugten TypeScript-Typen | vom Frontend importiert, eingecheckt |
+| `keycloak-extension/build/generated/` | die daraus erzeugten Java-Modelle | von `OrchestratorClient` benutzt, nicht eingecheckt |
+
+**Was zum App-Vertrag gehört, entscheidet der Pfad.** `api/openapi.yaml` enthält genau die
+Endpunkte unter `API_V1`, abgeleitet aus der Konstante, nicht aus einer Ausschlussliste. Zwei Arten
+von Endpunkten liegen bewusst woanders: Betriebsendpunkte unter `/orchestrator/admin` (Tool-Sperre,
+Registrierungsreihenfolge) und die Stellvertreter externer Systeme unter `/mock-*`. Auf beide darf
+sich kein App-Client verlassen. Stünden sie im eingefrorenen Stand, meldete der
+Kompatibilitätsvergleich ihr späteres Entfernen als Bruch des App-Vertrags. Dokumentiert sind sie
+trotzdem: in der Datei ihres Moduls unter `api/modules/`.
+
+**Versionierung.** Es gibt eine globale Version, weil die Antworthülle `ChannelResponse` in jeder
+Antwort jedes Moduls steckt; eine brechende Änderung an ihr trifft alle Endpunkte zugleich.
+Die meisten Änderungen sind additiv und brauchen keine neue Version. Dafür prüft
+`checkPublishedApiCompatibility` in der CI jede Änderung gegen `api/published/v1.yaml`
+(openapi-diff) und schlägt bei einem Bruch fehl. Ein bewusster neuer Stand wird mit
+`./gradlew publishApiVersion` übernommen; der Diff dieser Datei im PR ist das Signal, dass eine
+veröffentlichte Version angefasst wird.
 
 Beide YAML-Dateien entstehen im selben Testlauf aus derselben laufenden Anwendung
 (`OpenApiSnapshotTest`), können also nicht auseinanderlaufen. Die Modul-Dateien sind keine zweite
@@ -218,7 +236,7 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 
 `requiredAcr` (optional) erspart den Umweg über ein niedriges Einstiegsniveau mit anschließendem Step-up. Das Backend rechnet mit `max(Policy-Anforderung, Client-Wunsch)`.
 
-`availableTools` (Pflicht) erklärt, welche toolIds dieser Client aktivieren kann. Fest für die Lebensdauer des Kanals. Ein Tool außerhalb dieser Menge wird nie angeboten und auch bei direkter Aktivierung abgelehnt (`docs/03-tool-architektur.md`, Verfügbarkeit); zusätzlich kann das Backend jedes Tool global und zur Laufzeit sperren (`GET`/`PUT /admin/tools/.../availability`).
+`availableTools` (Pflicht) erklärt, welche toolIds dieser Client aktivieren kann. Fest für die Lebensdauer des Kanals. Ein Tool außerhalb dieser Menge wird nie angeboten und auch bei direkter Aktivierung abgelehnt (`docs/03-tool-architektur.md`, Verfügbarkeit); zusätzlich kann das Backend jedes Tool global und zur Laufzeit sperren (`GET`/`PUT /orchestrator/admin/tools/.../availability` — ein Betriebsendpunkt, nicht Teil des App-Vertrags).
 
 ### `GET /channels/{channelSessionId}`
 

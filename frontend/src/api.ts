@@ -275,11 +275,11 @@ export function fetchToolCatalog(): Promise<{ toolId: string; method: string; ro
 }
 
 export function fetchToolAvailability(): Promise<ToolAvailabilityEntry[]> {
-  return callPlain('GET', '/orchestrator/api/v1/admin/tools/availability')
+  return callPlain('GET', '/orchestrator/admin/tools/availability')
 }
 
 export function setToolAvailability(toolId: string, enabled: boolean, reason?: string): Promise<void> {
-  return callPlain('PUT', `/orchestrator/api/v1/admin/tools/${toolId}/availability`, { enabled, reason })
+  return callPlain('PUT', `/orchestrator/admin/tools/${toolId}/availability`, { enabled, reason })
 }
 
 export interface RegistrationOrderState {
@@ -288,11 +288,11 @@ export interface RegistrationOrderState {
 
 /** REGISTER's "Enrollment zuerst" experiment (docs/04-orchestrierung.md) - global, takes effect for the next brand-new REGISTER journey. */
 export function fetchRegistrationOrder(): Promise<RegistrationOrderState> {
-  return callPlain('GET', '/orchestrator/api/v1/admin/registration-order')
+  return callPlain('GET', '/orchestrator/admin/registration-order')
 }
 
 export function setRegistrationOrder(enrollFirst: boolean): Promise<void> {
-  return callPlain('PUT', '/orchestrator/api/v1/admin/registration-order', { enrollFirst })
+  return callPlain('PUT', '/orchestrator/admin/registration-order', { enrollFirst })
 }
 
 export interface KeycloakSyncResult {

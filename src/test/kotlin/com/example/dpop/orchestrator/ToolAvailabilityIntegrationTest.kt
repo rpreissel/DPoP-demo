@@ -149,16 +149,16 @@ class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {
                 catalogEntries.map { it["toolId"] } shouldContain "auth-sms"
 
                 var availability = restTemplate.exchange(
-                    "http://localhost:$port/orchestrator/api/v1/admin/tools/availability", org.springframework.http.HttpMethod.GET,
+                    "http://localhost:$port/orchestrator/admin/tools/availability", org.springframework.http.HttpMethod.GET,
                     org.springframework.http.HttpEntity<Void>(headers()),
                     object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
                 ).body!!
                 availability.first { it["toolId"] == "auth-sms" }["enabled"] shouldBe true
 
-                put("/orchestrator/api/v1/admin/tools/auth-sms/availability", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
+                put("/orchestrator/admin/tools/auth-sms/availability", """{"enabled":false,"reason":"test"}""") shouldBe HttpStatus.OK
 
                 availability = restTemplate.exchange(
-                    "http://localhost:$port/orchestrator/api/v1/admin/tools/availability", org.springframework.http.HttpMethod.GET,
+                    "http://localhost:$port/orchestrator/admin/tools/availability", org.springframework.http.HttpMethod.GET,
                     org.springframework.http.HttpEntity<Void>(headers()),
                     object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {}
                 ).body!!

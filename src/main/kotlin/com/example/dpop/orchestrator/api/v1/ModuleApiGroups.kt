@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.api.v1
 import com.example.dpop.tool_spi.StepDataTypes
 import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springdoc.core.customizers.OperationCustomizer
+import com.example.dpop.tool_api.API_V1
 import org.springdoc.core.models.GroupedOpenApi
 import org.springframework.beans.factory.FactoryBean
 import org.springframework.beans.factory.support.BeanDefinitionBuilder
@@ -30,9 +31,14 @@ import org.springframework.web.bind.annotation.RestController
  * tool catalog, the retention sweep and the Flyway locations follow - a list would be one more
  * place to forget it.
  *
- * [COMBINED_GROUP] stays the input for the code generator (`generateFrontendApiTypes`): the
- * response envelope is shared by every module, so generating from the per-module files would
- * produce the same types again and again.
+ * [CONTRACT_GROUP] is the published app contract and the input for both generators: the response
+ * envelope is shared by every module, so generating from the per-module files would produce the
+ * same types again and again. It holds exactly what lies under [API_V1] - derived from the path
+ * constant, not from a list of exclusions. Operator endpoints (`/orchestrator/admin`) and the
+ * stand-ins for external systems (`/mock-*`) live elsewhere on purpose: they are not something an
+ * app client may rely on, and once frozen in `api/published/v1.yaml` they could never be removed
+ * without the compatibility check calling it a break. They still appear in their module's own
+ * file under `api/modules/`, so they stay documented and reviewed.
  */
 @Configuration
 @Import(Registrar::class)
@@ -50,9 +56,9 @@ class ModuleApiGroups
 class Registrar : ImportBeanDefinitionRegistrar {
 
     override fun registerBeanDefinitions(metadata: AnnotationMetadata, registry: BeanDefinitionRegistry) {
-        register(registry, COMBINED_GROUP, ROOT_PACKAGE)
+        register(registry, CONTRACT_GROUP, ROOT_PACKAGE, "$API_V1/**")
         modulesWithEndpoints().forEach { module ->
-            register(registry, module, "$ROOT_PACKAGE.$module")
+            register(registry, module, "$ROOT_PACKAGE.$module", null)
         }
     }
 
@@ -66,11 +72,12 @@ class Registrar : ImportBeanDefinitionRegistrar {
      * This has now caught out two separate customizers (the security requirements, the StepData
      * union), so both kinds are wired here rather than per customizer.
      */
-    private fun register(registry: BeanDefinitionRegistry, group: String, packageToScan: String) {
+    private fun register(registry: BeanDefinitionRegistry, group: String, packageToScan: String, pathsToMatch: String?) {
         val definition = BeanDefinitionBuilder
             .genericBeanDefinition(ModuleApiGroupFactoryBean::class.java)
             .addConstructorArgValue(group)
             .addConstructorArgValue(packageToScan)
+            .addConstructorArgValue(pathsToMatch)
             .beanDefinition
         registry.registerBeanDefinition("openApiGroup-$group", definition)
     }
@@ -106,7 +113,9 @@ class Registrar : ImportBeanDefinitionRegistrar {
  */
 class ModuleApiGroupFactoryBean(
     private val group: String,
-    private val packageToScan: String
+    private val packageToScan: String,
+    /** Null for a module group: it documents everything its module serves. */
+    private val pathsToMatch: String?
 ) : FactoryBean<GroupedOpenApi>, ApplicationContextAware {
 
     private lateinit var context: ApplicationContext
@@ -121,6 +130,7 @@ class ModuleApiGroupFactoryBean(
         .group(group)
         .packagesToScan(packageToScan)
         .apply {
+            pathsToMatch?.let { pathsToMatch(it) }
             context.getBeanProvider(OperationCustomizer::class.java).forEach { addOperationCustomizer(it) }
             context.getBeanProvider(OpenApiCustomizer::class.java).forEach { addOpenApiCustomizer(it) }
             // Group-aware, so a module's contract lists only the step shapes it can answer with.
@@ -132,5 +142,5 @@ class ModuleApiGroupFactoryBean(
         .build()
 }
 
-/** Shared by the registrar and by `OpenApiSnapshotTest`, which names the combined group's file. */
-const val COMBINED_GROUP = "alle"
+/** Shared by the registrar and by `OpenApiSnapshotTest`, which names the contract's file. */
+const val CONTRACT_GROUP = "app-vertrag"

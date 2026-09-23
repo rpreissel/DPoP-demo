@@ -24,7 +24,7 @@ class DeleteAccountIntegrationTest : IntegrationTestSupport() {
     init {
         given("an account registered via 'Enrollment zuerst', never identified (personId == null)") {
             then("loa1 already satisfies the gate - no STEP_UP to loa2, straight to the re-confirmation step") {
-                put("/orchestrator/api/v1/admin/registration-order", """{"enrollFirst":true}""") shouldBe org.springframework.http.HttpStatus.OK
+                put("/orchestrator/admin/registration-order", """{"enrollFirst":true}""") shouldBe org.springframework.http.HttpStatus.OK
 
                 val channelSessionId = (post("/orchestrator/api/v1/app/channels", """{"intent":"register"}""")).channel()["channelSessionId"] as String
                 confirmEmail(channelSessionId)

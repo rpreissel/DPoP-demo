@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.kc
 import com.nimbusds.jose.jwk.JWKSet
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.context.annotation.Profile
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController
  * (verifying, via `kc.peer-auth.jwks-uri`) can agree on the same key without hand-copying it.
  */
 @RestController
+@Profile("!keycloak") // see MockKeycloakKeyProvider
 @RequestMapping("/mock-keycloak")
 @Tag(name = "Mock Keycloak", description = "Demo-only signing key for the Mock-Keycloak frontend - not a real Keycloak endpoint")
 class MockKeycloakKeyController(private val keyProvider: MockKeycloakKeyProvider) {
