@@ -14,7 +14,7 @@ class RequireSubJourneyInvariantTest : BehaviorSpec({
     given("a sub-journey request") {
         `when`("resuming at a state that carries an offer") {
             then("it is rejected at construction - the offer must be recomputed on return") {
-                val e = shouldThrow<IllegalArgumentException> {
+                val e = shouldThrow<IllegalStateException> {
                     Transition.RequireSubJourney(
                         intent = AuthIntent.RE_IDENTIFY,
                         seedWith = FastAccessState.Start,

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.tool
 
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
@@ -36,7 +37,7 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
     }
 
     fun descriptorOf(toolId: ToolId): ToolDescriptor =
-        descriptorsByToolId[toolId] ?: throw NoSuchElementException("Unknown toolId: $toolId")
+        descriptorsByToolId[toolId] ?: throw OrchestratorException.notFound("Unknown toolId: $toolId")
 
     fun descriptors(): List<ToolDescriptor> = descriptorsByToolId.values.toList()
 }

@@ -614,6 +614,61 @@ export interface EnrollSmsPatchRequest {
     tan?: string;
 }
 /**
+ * Every error response has this shape. The HTTP status is fixed per `error` code:
+ * 
+ * - `BAD_REQUEST`: 400
+ * - `UNAUTHORIZED`: 401
+ * - `BINDING_MISMATCH`: 403
+ * - `NOT_FOUND`: 404
+ * - `INVALID_STATE_TRANSITION`: 409
+ * - `CONCURRENT_MODIFICATION`: 409
+ * - `PROCESS_GONE`: 410
+ * - `PROCESS_ABORTED`: 410
+ * - `UNRESOLVABLE_REFERENCE`: 422
+ * - `ACCOUNT_LOCKED`: 423
+ * - `TOO_MANY_REQUESTS`: 429
+ * - `INTERNAL_ERROR`: 500
+ * 
+ * A client must expect a code it does not know and handle it by its HTTP status.
+ * @export
+ * @interface ErrorResponse
+ */
+export interface ErrorResponse {
+    /**
+     * 
+     * @type {string}
+     * @memberof ErrorResponse
+     */
+    error: ErrorResponseErrorEnum;
+    /**
+     * For people, not for program logic - branch on `error`. For INTERNAL_ERROR it is a fixed text; the details of an unexpected failure stay in the server log.
+     * @type {string}
+     * @memberof ErrorResponse
+     */
+    message: string;
+}
+
+
+/**
+ * @export
+ */
+export const ErrorResponseErrorEnum = {
+    BAD_REQUEST: 'BAD_REQUEST',
+    UNAUTHORIZED: 'UNAUTHORIZED',
+    BINDING_MISMATCH: 'BINDING_MISMATCH',
+    NOT_FOUND: 'NOT_FOUND',
+    INVALID_STATE_TRANSITION: 'INVALID_STATE_TRANSITION',
+    CONCURRENT_MODIFICATION: 'CONCURRENT_MODIFICATION',
+    PROCESS_GONE: 'PROCESS_GONE',
+    PROCESS_ABORTED: 'PROCESS_ABORTED',
+    UNRESOLVABLE_REFERENCE: 'UNRESOLVABLE_REFERENCE',
+    ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
+    TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
+    INTERNAL_ERROR: 'INTERNAL_ERROR'
+} as const;
+export type ErrorResponseErrorEnum = typeof ErrorResponseErrorEnum[keyof typeof ErrorResponseErrorEnum];
+
+/**
  * The attempt failed; retries remain.
  * @export
  * @interface FailedAttemptStep

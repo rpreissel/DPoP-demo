@@ -32,7 +32,7 @@ class AuthEvidenceService(
      */
     fun rebindToAccount(authEvidenceId: UUID, accountId: Long) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
-            ?: throw IllegalArgumentException("AuthEvidence not found: $authEvidenceId")
+            ?: error("AuthEvidence not found: $authEvidenceId")
         evidence.accountId = accountId
         authEvidenceRepository.save(evidence)
         authContextRepository.findByAuthEvidenceId(authEvidenceId).forEach { authContext ->
@@ -45,7 +45,7 @@ class AuthEvidenceService(
     /** A single completed orchestrator tool's own proof (docs/04-orchestrierung.md #1) - a one-off event, merged via [AuthEvidence.addAmr]. Each [updates] entry carries its own `MethodEvidence.source`. */
     fun applyEvidence(authEvidenceId: UUID, updates: List<MethodEvidence>) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
-            ?: throw IllegalArgumentException("AuthEvidence not found: $authEvidenceId")
+            ?: error("AuthEvidence not found: $authEvidenceId")
         evidence.addAmr(updates)
         authEvidenceRepository.save(evidence)
         invalidateCachedTokens(authEvidenceId)
@@ -62,7 +62,7 @@ class AuthEvidenceService(
      */
     fun applyEvidenceUpdate(authEvidenceId: UUID, updates: List<MethodEvidence>, source: String) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
-            ?: throw IllegalArgumentException("AuthEvidence not found: $authEvidenceId")
+            ?: error("AuthEvidence not found: $authEvidenceId")
         evidence.replaceForSource(source, updates)
         authEvidenceRepository.save(evidence)
         invalidateCachedTokens(authEvidenceId)

@@ -359,7 +359,7 @@ class AccountService(
     @Transactional
     fun createUnidentifiedAccount(): AccountProfile {
         val account = accountRepository.save(Account(createdAt = Instant.now()))
-        val accountId = requireNotNull(account.id) { "Account has no id" }
+        val accountId = checkNotNull(account.id) { "Account has no id" }
         eventPublisher.publishEvent(AccountChanged(accountId))
         return AccountProfile(accountId = accountId, personId = null, authenticationMethods = emptyList())
     }
@@ -396,8 +396,8 @@ class AccountService(
      */
     @Transactional
     fun absorbProvisionalAccount(from: Long, into: Long) {
-        require(from != into) { "absorbProvisionalAccount($from): an account cannot absorb itself" }
-        val source = findAccount(from) ?: throw IllegalArgumentException("Account not found: $from")
+        check(from != into) { "absorbProvisionalAccount($from): an account cannot absorb itself" }
+        val source = findAccount(from) ?: error("Account not found: $from")
         if (!source.isProvisional) {
             throw IdentityConflictException("Konto $from ist kein vorlaeufiges Konto und kann nicht aufgehen")
         }
@@ -603,7 +603,7 @@ class AccountService(
         findActiveMethods(accountId, method).firstOrNull { livesOnCallerKey(it.details) }?.enrollmentRef
 
     private fun lockForUpdate(accountId: Long): Account =
-        accountRepository.findForUpdate(accountId) ?: throw IllegalArgumentException("Account not found: $accountId")
+        accountRepository.findForUpdate(accountId) ?: error("Account not found: $accountId")
 
     private fun findMethodInstance(accountId: Long, methodInstanceId: String): AccountAuthMethod? {
         val id = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return null
@@ -611,10 +611,10 @@ class AccountService(
     }
 
     private fun getProfileOrThrow(accountId: Long): AccountProfile =
-        findAccount(accountId) ?: throw IllegalArgumentException("Account not found: $accountId")
+        findAccount(accountId) ?: error("Account not found: $accountId")
 
     private fun toProfile(account: Account): AccountProfile {
-        val accountId = requireNotNull(account.id) { "Account has no id" }
+        val accountId = checkNotNull(account.id) { "Account has no id" }
         val anchors = accountAnchorRepository.findByAccountId(accountId).associateBy { it.attributeType }
         val emailAnchor = anchors[AttributeType.EMAIL]
         return AccountProfile(

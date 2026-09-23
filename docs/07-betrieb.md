@@ -17,6 +17,15 @@ Standardfehler (Ist und Soll):
 - `422 Unprocessable Entity`: fachlich unverarbeitbar, kein Nutzereingabefehler (z. B. unbekannte `enrollmentRef`, fehlendes Enrollment)
 - `423 Locked`: Account durch zu viele fehlgeschlagene AUTH-Versuche gesperrt (`ACCOUNT_LOCKED`, `OrchestratorException.accountLocked()`, Abschnitt 4)
 - `429 Too Many Requests`: Rate-Limit erreicht, kein Sperrzustand des Accounts (`OrchestratorException.tooManyRequests()`, Abschnitt 4 — `ChannelCreationThrottleService`, gezählt je `bindingKeyRef`)
+- `500 Internal Server Error`: eine interne Annahme ist verletzt (`INTERNAL_ERROR`). Die Antwort trägt einen festen Text, die Details stehen nur im Log.
+
+**Form und Quelle.** Jede Fehlerantwort hat die Form `ErrorResponse` (`{"error": "<CODE>", "message": "..."}`) und steht so im Vertrag, als `default`-Antwort an jeder Operation. Welcher Code welchen Status hat, legt das Enum `ErrorCode` fest (`orchestrator/kernel`); die Liste im Vertrag wird daraus erzeugt. Ein Code und sein Status lassen sich deshalb nicht mehr getrennt wählen. Clients verzweigen auf `error`, nie auf den Text, und müssen mit einem Code rechnen, den sie noch nicht kennen.
+
+**Welche Exception wozu führt.** Die Regel, auf die sich der Handler verlässt:
+
+- `require` / `IllegalArgumentException` nur für eine abgelehnte **Eingabe des Clients** → `400`, der Text geht so hinaus.
+- `check` / `checkNotNull` / `error()` für eine verletzte **interne Annahme** → `500` mit festem Text. Früher wurde daraus pauschal `409 INVALID_STATE_TRANSITION` mit dem Rohtext; damit sahen interne Prüfungen wie ein fachlicher Konflikt aus und gaben Interna preis.
+- Ein echter fachlicher Konflikt ist immer ausdrücklich: `OrchestratorException.invalidState(...)`.
 
 Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Versuche mit verbleibenden Retries — sie liefern `200` plus `next` (Retry-Regel in [Orchestrierung](04-orchestrierung.md)).
 

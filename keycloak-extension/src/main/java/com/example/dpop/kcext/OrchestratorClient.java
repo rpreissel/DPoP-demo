@@ -280,10 +280,15 @@ final class OrchestratorClient {
             this.status = status;
             String parsedCode = null;
             String parsedMessage = body;
+            // Field names from the generated contract model, so a rename breaks the compile. Read as
+            // a tree rather than as that model: its enum rejects a code this build does not know,
+            // and the contract says a client must expect new codes.
             try {
                 JsonNode node = MAPPER.readTree(body);
-                if (node.hasNonNull("error")) parsedCode = node.get("error").asText();
-                if (node.hasNonNull("message")) parsedMessage = node.get("message").asText();
+                String errorField = com.example.dpop.kcext.api.model.ErrorResponse.JSON_PROPERTY_ERROR;
+                String messageField = com.example.dpop.kcext.api.model.ErrorResponse.JSON_PROPERTY_MESSAGE;
+                if (node.hasNonNull(errorField)) parsedCode = node.get(errorField).asText();
+                if (node.hasNonNull(messageField)) parsedMessage = node.get(messageField).asText();
             } catch (Exception ignored) {
                 // Not JSON - fall back to the raw body as the message.
             }

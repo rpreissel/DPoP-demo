@@ -1,6 +1,8 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.orchestrator.kernel.ErrorCode
 import com.example.dpop.tool_api.IdentityConflictException
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -32,7 +34,7 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
         then("domain binding conflicts use the existing 409 contract") {
             val response = handler.handleIdentityConflict(IdentityConflictException("Person binding cannot change"))
             response.statusCode shouldBe HttpStatus.CONFLICT
-            response.body?.get("error") shouldBe "INVALID_STATE_TRANSITION"
+            response.body?.error shouldBe ErrorCode.INVALID_STATE_TRANSITION
         }
 
         for (constraint in listOf("ux_anchor_value", "ux_anchor_account_type")) {
@@ -41,8 +43,8 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
                     ConstraintViolationException("private SQL data", SQLException("private value", "23505"), constraint)
                 )
                 response.statusCode shouldBe HttpStatus.CONFLICT
-                response.body?.get("error") shouldBe "INVALID_STATE_TRANSITION"
-                response.body?.get("message") shouldBe "Identity claim conflicts with an existing account binding"
+                response.body?.error shouldBe ErrorCode.INVALID_STATE_TRANSITION
+                response.body?.message shouldBe "Identity claim conflicts with an existing account binding"
             }
         }
 
@@ -73,6 +75,20 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
             }
         }
 
+        then("a broken internal assumption is a 500 whose text reveals nothing") {
+            val response = handler.handleIllegalState(IllegalStateException("auth-kobil enrollment 42 no longer exists"))
+            response.statusCode shouldBe HttpStatus.INTERNAL_SERVER_ERROR
+            response.body?.error shouldBe ErrorCode.INTERNAL_ERROR
+            response.body?.message.orEmpty() shouldNotContain "42"
+        }
+
+        then("rejected client input is a 400 that tells the caller what was wrong") {
+            val response = handler.handleIllegalArgument(IllegalArgumentException("Unknown acr level: loa9"))
+            response.statusCode shouldBe HttpStatus.BAD_REQUEST
+            response.body?.error shouldBe ErrorCode.BAD_REQUEST
+            response.body?.message shouldBe "Unknown acr level: loa9"
+        }
+
         `when`("two requests race on the same AuthJourney and Hibernate throws ObjectOptimisticLockingFailureException") {
             val response = handler.handleConcurrentModification(
                 ObjectOptimisticLockingFailureException("process_session", "some-id")
@@ -80,7 +96,7 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
 
             then("it maps to 409 Conflict with error CONCURRENT_MODIFICATION") {
                 response.statusCode shouldBe HttpStatus.CONFLICT
-                response.body?.get("error") shouldBe "CONCURRENT_MODIFICATION"
+                response.body?.error shouldBe ErrorCode.CONCURRENT_MODIFICATION
             }
         }
     }

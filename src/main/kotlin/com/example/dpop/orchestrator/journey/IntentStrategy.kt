@@ -231,7 +231,7 @@ sealed interface Transition {
             //
             // Enforced rather than documented: "every caller gets it right" is not a property a
             // safety rule may rest on, however true it happens to be right now.
-            require(resumeWith !is OfferingState) {
+            check(resumeWith !is OfferingState) {
                 "resumeWith must not be an OfferingState (${resumeWith::class.simpleName}): a sub-journey's " +
                     "whole point is that the situation changed, so the offer has to be recomputed on return"
             }

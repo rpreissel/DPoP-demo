@@ -137,7 +137,7 @@ class TokenServiceTest : BehaviorSpec({
             val repository = mockk<AuthContextRepository>()
             every { repository.findById(authContextId) } returns Optional.empty()
 
-            io.kotest.assertions.throwables.shouldThrow<IllegalArgumentException> {
+            io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
                 service(repository).tokenFor(authContextId)
             }
         }

@@ -130,7 +130,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     }
 
     override fun enrollmentCandidates(ctx: CandidateContext): List<ToolId> {
-        val account = requireNotNull(ctx.account) { "enrollmentCandidates requires an account in CandidateContext" }
+        val account = checkNotNull(ctx.account) { "enrollmentCandidates requires an account in CandidateContext" }
         val activeMethods = account.authenticationMethods.filter { it.active }.map { it.method }.toSet()
         return toolRegistry.descriptors()
             .filter { it.role.category == ToolCategory.ENROLL }
@@ -145,7 +145,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
     override fun authCandidates(ctx: CandidateContext): List<ToolId> {
         val evidence = ctx.evidence
         val requiredAcr = ctx.requiredAcr
-        val account = requireNotNull(ctx.account) { "authCandidates requires an account in CandidateContext" }
+        val account = checkNotNull(ctx.account) { "authCandidates requires an account in CandidateContext" }
         val bindingKeyRef = ctx.bindingKeyRef
         val linkedAccountId = ctx.linkedAccountId
         val availableTools = ctx.availableTools

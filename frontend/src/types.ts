@@ -26,6 +26,7 @@ export type {
   BoundCredentialView,
   ChannelBlock,
   DeviceLinkResponse,
+  ErrorResponse,
   JourneyDebugStep,
   Next,
 } from './generated/models'

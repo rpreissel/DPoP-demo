@@ -1,4 +1,4 @@
-import { ApiError, type ApiCallLogEntry } from './api'
+import { ApiError, parseErrorBody, type ApiCallLogEntry } from './api'
 import { createPeerAuthAssertion, type KcSigningKey } from './kcSigning'
 import type { ChannelResponse } from './types'
 
@@ -24,15 +24,7 @@ async function call<T>(method: string, path: string, anchor: { kcAuthSessionId?:
   }
   if (!response.ok) {
     const text = await response.text()
-    let errorCode: string | undefined
-    let message = text || `${method} ${path} failed: ${response.status}`
-    try {
-      const parsed = JSON.parse(text) as { error?: string; message?: string }
-      errorCode = parsed.error
-      message = parsed.message ?? message
-    } catch {
-      // Response body wasn't the documented {error, message} shape - fall back to raw text.
-    }
+    const { errorCode, message } = parseErrorBody(text, text || `${method} ${path} failed: ${response.status}`)
     for (const l of listeners) l({ method, path, requestBody: body, status: response.status, error: message })
     throw new ApiError(response.status, errorCode, message)
   }

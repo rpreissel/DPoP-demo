@@ -217,7 +217,7 @@ class ChannelService(
         methods.orEmpty().map { m ->
             val descriptor = toolRegistry.descriptors().firstOrNull { it.method == m.method }
             ActiveMethodView(
-                id = requireNotNull(m.id) { "Active method without an id" },
+                id = checkNotNull(m.id) { "Active method without an id" },
                 method = m.method,
                 label = m.label,
                 factorTypes = descriptor?.factorTypes?.toList(),

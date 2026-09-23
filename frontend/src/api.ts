@@ -1,5 +1,20 @@
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
+import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, ErrorResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
+import { ErrorResponseErrorEnum } from './generated/models'
+
+/**
+ * Reads an error body. The shape is the contract's `ErrorResponse`; anything else (a proxy's HTML
+ * page, an empty body) falls back to the raw text, so an error never gets lost in parsing.
+ * `errorCode` stays a plain string: the contract says a client must expect codes it does not know.
+ */
+export function parseErrorBody(text: string, fallback: string): { errorCode: string | undefined; message: string } {
+  try {
+    const parsed = JSON.parse(text) as Partial<ErrorResponse>
+    return { errorCode: parsed.error, message: parsed.message ?? fallback }
+  } catch {
+    return { errorCode: undefined, message: fallback }
+  }
+}
 
 /** Carries the server's own error/message (docs/07-betrieb.md #1) instead of a raw fetch string. */
 export class ApiError extends Error {
@@ -67,16 +82,8 @@ async function call<T>(dpop: DpopKeyPair, method: string, path: string, body?: u
   }
   if (!response.ok) {
     const text = await response.text()
-    let errorCode: string | undefined
-    let message = text || `${method} ${path} failed: ${response.status}`
-    try {
-      const parsed = JSON.parse(text) as { error?: string; message?: string }
-      errorCode = parsed.error
-      message = parsed.message ?? message
-    } catch {
-      // Response body wasn't the documented {error, message} shape - fall back to raw text.
-    }
-    if (!isRetry && errorCode === 'CONCURRENT_MODIFICATION') {
+    const { errorCode, message } = parseErrorBody(text, text || `${method} ${path} failed: ${response.status}`)
+    if (!isRetry && errorCode === ErrorResponseErrorEnum.CONCURRENT_MODIFICATION) {
       await new Promise((resolve) => setTimeout(resolve, CONCURRENT_MODIFICATION_RETRY_DELAY_MS))
       return call(dpop, method, path, body, true)
     }

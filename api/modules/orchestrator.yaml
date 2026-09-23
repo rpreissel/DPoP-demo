@@ -263,6 +263,48 @@ components:
       required:
       - linked
       type: object
+    ErrorResponse:
+      description: |-
+        Every error response has this shape. The HTTP status is fixed per `error` code:
+
+        - `BAD_REQUEST`: 400
+        - `UNAUTHORIZED`: 401
+        - `BINDING_MISMATCH`: 403
+        - `NOT_FOUND`: 404
+        - `INVALID_STATE_TRANSITION`: 409
+        - `CONCURRENT_MODIFICATION`: 409
+        - `PROCESS_GONE`: 410
+        - `PROCESS_ABORTED`: 410
+        - `UNRESOLVABLE_REFERENCE`: 422
+        - `ACCOUNT_LOCKED`: 423
+        - `TOO_MANY_REQUESTS`: 429
+        - `INTERNAL_ERROR`: 500
+
+        A client must expect a code it does not know and handle it by its HTTP status.
+      properties:
+        error:
+          enum:
+          - BAD_REQUEST
+          - UNAUTHORIZED
+          - BINDING_MISMATCH
+          - NOT_FOUND
+          - INVALID_STATE_TRANSITION
+          - CONCURRENT_MODIFICATION
+          - PROCESS_GONE
+          - PROCESS_ABORTED
+          - UNRESOLVABLE_REFERENCE
+          - ACCOUNT_LOCKED
+          - TOO_MANY_REQUESTS
+          - INTERNAL_ERROR
+          type: string
+        message:
+          description: For people, not for program logic - branch on `error`. For INTERNAL_ERROR it is a fixed text; the details
+            of an unexpected failure stay in the server log.
+          example: Concurrent request on the same session - please retry.
+          type: string
+      required:
+      - error
+      - message
     FailedAttemptStep:
       description: The attempt failed; retries remain.
       properties:
@@ -629,6 +671,12 @@ paths:
                   type: object
                 type: object
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: The mock's public key, in the shape kc.peer-auth.jwks-uri expects
       tags:
       - Mock Keycloak
@@ -646,6 +694,12 @@ paths:
                   type: object
                 type: object
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: The mock's PRIVATE signing key - demo/test only
       tags:
       - Mock Keycloak
@@ -659,6 +713,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/RegistrationOrderState'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: Current REGISTER order
       tags:
       - 'Admin: registration order'
@@ -674,6 +734,12 @@ paths:
       responses:
         '200':
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: Set REGISTER order
       tags:
       - 'Admin: registration order'
@@ -702,6 +768,12 @@ paths:
                   $ref: '#/components/schemas/ToolAvailabilityEntry'
                 type: array
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: List every catalog tool with its current backend-enabled state
       tags:
       - 'Admin: tool availability'
@@ -724,6 +796,12 @@ paths:
       responses:
         '200':
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: Enable or disable a tool
       tags:
       - 'Admin: tool availability'
@@ -760,6 +838,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: New channel - an unrecognized device lands on the identification choice.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -781,6 +865,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeviceLinkResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -806,6 +896,12 @@ paths:
       responses:
         '204':
           description: Logged out - no body.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -841,6 +937,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: Resumed mid-step-up, waiting on an SMS TAN.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -889,6 +991,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: Confirmation prompt for the account deletion.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -936,6 +1044,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: Device binding accepted after a lookup login - journey settles into authenticated.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -982,6 +1096,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: The address was withdrawn; nothing required it.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1027,6 +1147,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: Already AUTHENTICATED with sms+password - offered the still-missing methods.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1065,6 +1191,12 @@ paths:
                 additionalProperties: true
                 type: object
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1100,6 +1232,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: A cancelled REGISTER journey restarts the same entry intent from scratch.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1128,6 +1266,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/JourneyLogResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1156,6 +1300,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: Confirmation prompt for the logout.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1191,6 +1341,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/MethodsResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1238,6 +1394,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: The sms method instance was removed - password alone still satisfies loa1.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1275,6 +1437,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: Already at loa2 - confirm-qr-login offered directly.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1322,6 +1490,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: loa3 requested, current evidence (loa2) doesn't satisfy it - offers the candidate methods.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1363,6 +1537,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1383,6 +1563,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/JourneyLogResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]
@@ -1434,6 +1620,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: First call for a fresh Keycloak flow run - offers every kc-usable method.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - kc-peer-auth: [
           ]
@@ -1472,6 +1664,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/RestoreDataResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - kc-peer-auth: [
           ]
@@ -1505,6 +1703,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/MgmtPasswordVerifyResponse'
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - kc-peer-auth: [
           ]
@@ -1537,6 +1741,12 @@ paths:
                   $ref: '#/components/schemas/ToolCatalogEntry'
                 type: array
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: List every registered tool
       tags:
       - Tool catalog
@@ -1564,6 +1774,12 @@ paths:
       responses:
         '200':
           description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - kc-peer-auth: [
           ]
@@ -1608,6 +1824,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChannelResponse'
           description: auth-sms abandoned during a fallback chain - offers the other loa2 candidates.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       security:
       - dpop: [
           ]

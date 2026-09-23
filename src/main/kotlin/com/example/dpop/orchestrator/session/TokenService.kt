@@ -48,7 +48,7 @@ class TokenService(
      * where possible (silent refresh) or a full re-issuance if that too has expired.
      */
     fun tokenFor(authContextId: UUID, minValiditySeconds: Long = DEFAULT_MIN_VALIDITY_SECONDS): TokenPair {
-        val authContext = requireNotNull(authContextRepository.findByIdOrNull(authContextId)) {
+        val authContext = checkNotNull(authContextRepository.findByIdOrNull(authContextId)) {
             "AuthContext not found: $authContextId"
         }
         val now = Instant.now()
@@ -77,7 +77,7 @@ class TokenService(
 
     /** The fachliche (business) ID-token claims - a separate JSON shape from the AccessToken, on purpose. */
     fun idClaims(authContextId: UUID): Map<String, Any?> {
-        val authContext = requireNotNull(authContextRepository.findByIdOrNull(authContextId)) {
+        val authContext = checkNotNull(authContextRepository.findByIdOrNull(authContextId)) {
             "AuthContext not found: $authContextId"
         }
         val account = authContext.accountId?.let { accountService.findAccount(it) }

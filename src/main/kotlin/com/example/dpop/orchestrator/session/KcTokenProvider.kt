@@ -52,10 +52,10 @@ class KcTokenProvider(
 
     override fun tokenFor(channel: ChannelSession, minValiditySeconds: Long): TokenPair {
         val authContextId = channel.authContextId!!
-        val authContext = requireNotNull(authContextRepository.findByIdOrNull(authContextId)) {
+        val authContext = checkNotNull(authContextRepository.findByIdOrNull(authContextId)) {
             "AuthContext not found: $authContextId"
         }
-        val accountId = requireNotNull(authContext.accountId) { "AuthContext $authContextId has no accountId" }
+        val accountId = checkNotNull(authContext.accountId) { "AuthContext $authContextId has no accountId" }
         val now = Instant.now()
 
         val currentExpiry = authContext.accessExpiresAt
@@ -106,7 +106,7 @@ class KcTokenProvider(
      * correct instead of relying on a sync that is best-effort by design anyway.
      */
     private fun signAssertion(authContext: AuthContext): String {
-        val accountId = requireNotNull(authContext.accountId)
+        val accountId = checkNotNull(authContext.accountId)
         val keypair = accountKeypairService.keypairFor(accountId)
         val account = accountService.findAccount(accountId)
         val activeMethods = account?.activeAuthenticationMethods?.map { it.method }?.distinct().orEmpty()
