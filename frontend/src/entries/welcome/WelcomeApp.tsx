@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../../App.css'
 import { describeError, fetchServerInfo, type ServerInfo } from '../../api'
+import { markAsStartWindow } from '../../startWindow'
 import { useHashTab } from '../../useHashTab'
 
 const TAB_KEYS = ['uebersicht', 'begriffe', 'status'] as const
@@ -25,6 +26,9 @@ export function WelcomeApp() {
   // Whether the Web channel exists at all (only with the `keycloak` profile) - null while loading,
   // then the tile stays a link until we know otherwise.
   const [keycloak, setKeycloak] = useState<boolean | null>(null)
+
+  // This tab is where "← Startseite" in every app tab switches back to (startWindow.ts).
+  useEffect(markAsStartWindow, [])
 
   useEffect(() => {
     fetchServerInfo()

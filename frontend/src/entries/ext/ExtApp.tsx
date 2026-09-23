@@ -60,7 +60,7 @@ export function ExtApp() {
 
   return (
     <div className="web-shell channel-ext">
-      <ChannelNav badge="🏛️ Personenregister" tabs={TABS} sub={tab} onSelectTab={setTab} onBack={() => { window.location.href = '/' }} />
+      <ChannelNav badge="🏛️ Personenregister" tabs={TABS} sub={tab} onSelectTab={setTab} />
       <div className="web-page">
         <div className="ext-banner">
           Simuliertes <strong>Fremdsystem</strong>: das externe Personenregister. Unsere Anwendung liest es nur über{' '}

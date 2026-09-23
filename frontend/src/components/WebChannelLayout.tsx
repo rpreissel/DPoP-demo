@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { ChannelNav } from './ChannelNav'
 
 interface Props {
-  onBack: () => void
   children: ReactNode
 }
 
@@ -12,10 +11,10 @@ interface Props {
  * plus a wider content column to still read as a website rather than a native app screen. No
  * tabs: the journey log and the operator settings live on /admin/.
  */
-export function WebChannelLayout({ onBack, children }: Props) {
+export function WebChannelLayout({ children }: Props) {
   return (
     <div className="web-shell channel-web">
-      <ChannelNav badge="🌐 Web-Kanal" onBack={onBack} />
+      <ChannelNav badge="🌐 Web-Kanal" />
       <div className="web-page">{children}</div>
     </div>
   )

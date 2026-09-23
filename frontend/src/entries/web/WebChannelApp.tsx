@@ -21,7 +21,7 @@ export function WebChannelApp() {
   }, [])
 
   return (
-    <WebChannelLayout onBack={() => { window.location.href = '/' }}>
+    <WebChannelLayout>
       {keycloak === true && <WebChannelView />}
       {keycloak === false && <WebChannelUnavailable />}
     </WebChannelLayout>

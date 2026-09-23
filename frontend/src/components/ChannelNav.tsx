@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { goToStart } from '../startWindow'
 
 export interface NavTab<K extends string> {
   key: K
@@ -11,7 +12,6 @@ interface Props<K extends string> {
   tabs?: readonly NavTab<K>[]
   sub?: K
   onSelectTab?: (sub: K) => void
-  onBack: () => void
   /** Right-hand extras next to the tabs (e.g. the admin page's logout). */
   actions?: ReactNode
 }
@@ -20,13 +20,14 @@ interface Props<K extends string> {
  * Shared top bar for every page with tabs (App/Web channel, Admin, Personenregister) - identical
  * markup everywhere so the pages read as "the same kind of thing, different color", not unrelated
  * UIs. The back button is its own labeled control (not folded into the badge) so "go back to
- * Startseite" stays recognizable on every page.
+ * Startseite" stays recognizable on every page - and it switches to the start tab rather than
+ * reloading the start page here (goToStart).
  */
-export function ChannelNav<K extends string>({ badge, tabs = [], sub, onSelectTab, onBack, actions }: Props<K>) {
+export function ChannelNav<K extends string>({ badge, tabs = [], sub, onSelectTab, actions }: Props<K>) {
   return (
     <nav className="channel-topbar" aria-label={`${badge}-Bereiche`}>
       <div className="channel-topbar-brand">
-        <button className="secondary small back-button" onClick={onBack} aria-label="Zurück zur Startseite">
+        <button className="secondary small back-button" onClick={goToStart} aria-label="Zurück zur Startseite">
           ← Startseite
         </button>
         <span className="channel-badge">{badge}</span>

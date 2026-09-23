@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { ChannelNav } from './ChannelNav'
 
 interface Props {
-  onBack: () => void
   children: ReactNode
 }
 
@@ -12,10 +11,10 @@ interface Props {
  * tabs: the channel shows only what its user sees; the journey log and the operator settings
  * live on /admin/.
  */
-export function AppChannelFrame({ onBack, children }: Props) {
+export function AppChannelFrame({ children }: Props) {
   return (
     <div className="app-frame channel-app">
-      <ChannelNav badge="📱 App-Kanal" onBack={onBack} />
+      <ChannelNav badge="📱 App-Kanal" />
       <div className="app">{children}</div>
     </div>
   )

@@ -37,14 +37,10 @@ export function AdminApp() {
 
   useEffect(() => onAdminLoggedOut(() => setLoggedIn(false)), [])
 
-  const back = () => {
-    window.location.href = '/'
-  }
-
   if (!loggedIn) {
     return (
       <div className="web-shell channel-admin">
-        <ChannelNav badge="🛠️ Admin" onBack={back} />
+        <ChannelNav badge="🛠️ Admin" />
         <div className="web-page">
           <LoginForm onLoggedIn={() => setLoggedIn(true)} />
         </div>
@@ -59,7 +55,6 @@ export function AdminApp() {
         tabs={TABS}
         sub={tab}
         onSelectTab={setTab}
-        onBack={back}
         actions={
           <button className="secondary small" onClick={clearAdminCredentials}>
             Abmelden

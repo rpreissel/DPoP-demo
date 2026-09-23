@@ -729,7 +729,7 @@ export function AppChannelApp() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <AppChannelFrame onBack={() => { window.location.href = '/' }}>
+        <AppChannelFrame>
           {error && (
             <div className="card error-card">
               <h2>Fehler</h2>
