@@ -20,10 +20,10 @@ Modulgrenze im Code nicht galt.
 
 Flyway prüft Migrationen über ihre Prüfsumme. Eine bereits angewendete Migration aufzuteilen
 ändert diese Prüfsummen, und Flyway lehnt den Start gegen eine bestehende Datenbank ab.
-**Jede Datenbank, die den alten Stand hat, muss gelöscht und neu angelegt werden** — lokal also
-`data/`, dazu ein etwaiges Podman-Volume. Für diese Demo ist das billig: Die Testdaten kommen aus
-`demo_seed/V16__testdata.sql`, die Anwendung baut sich beim ersten Start wieder auf.
-Für ein echtes Deployment wäre derselbe Schritt nicht billig.
+Jede Datenbank mit dem alten Stand muss neu angelegt werden. Lokal passiert das von selbst:
+`orchestrator.schema.FlywayResetConfig` löscht eine H2-Datei, die nicht mehr passt, und baut sie
+neu auf — die Testdaten kommen aus `demo_seed/V16__testdata.sql`. Bei jeder anderen Datenbank
+bricht Flyway ab, und dort wäre derselbe Schritt nicht billig.
 
 [ADR-4](ADR-004-flyway-neubaseline-statt-migration-des-altcodes.md) hat aus demselben Grund schon
 einmal neu baseliniert; insofern ist das hier die zweite Anwendung einer bereits getroffenen

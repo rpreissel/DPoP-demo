@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator
+package com.example.dpop.orchestrator.schema
 
 import org.slf4j.LoggerFactory
 import org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer

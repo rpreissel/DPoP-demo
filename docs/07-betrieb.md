@@ -228,7 +228,10 @@ Diagramm der tragenden Tabellen: [02-domaenenmodell.md](02-domaenenmodell.md) Ab
   ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
 - **Aufbewahrung**: Jede Aufräumabfrage läuft als ein einzelnes Statement über viele Zeilen und hat
   einen Index auf ihrer Stichtagsspalte.
-- **Migrationen**: `V1`/`V2` sind eine Neubaseline ohne Produktivdaten (lokale H2-Dateien setzt
-  `FlywayResetConfig` bei Checksummen-Abweichung zurück). Ab dem ersten produktiven Einsatz sind
-  Migrationen ausschließlich additiv; Tabellen mit ≥ 10 Mio. Zeilen werden in wiederholbaren Portionen
-  nachgezogen.
+- **Migrationen**: eine Datei je Modul unter `db/migration/<modul>/`
+  ([ADR-30](adr/ADR-030-eine-migration-je-modul.md)), der Bestand ist eine Neubaseline ohne
+  Produktivdaten. Passt eine lokale H2-Datei nicht mehr zu den Migrationen, löscht
+  `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf — ein `rm -rf data/`
+  von Hand ist nicht nötig. Das greift ausschließlich bei H2; bei jeder anderen Datenbank bricht
+  Flyway ab, wie es soll. Ab dem ersten produktiven Einsatz sind Migrationen ausschließlich additiv;
+  Tabellen mit ≥ 10 Mio. Zeilen werden in wiederholbaren Portionen nachgezogen.

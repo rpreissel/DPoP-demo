@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.session
+package com.example.dpop.orchestrator.schema
 
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.api.FlywayException
