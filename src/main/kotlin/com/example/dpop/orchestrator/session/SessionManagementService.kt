@@ -92,7 +92,7 @@ class SessionManagementService(
     }
 
     /**
-     * requiredAcr is always a lower bound: only raises, never lowers (docs/05-api.md #9).
+     * requiredAcr is always a lower bound: only raises, never lowers (docs/05-api.md, "POST /channels/{channelSessionId}/step-ups").
      * Compared against the EFFECTIVE floor (default applied), not the raw nullable column -
      * otherwise an explicit "loa1" would silently undercut the implicit loa2 baseline.
      */

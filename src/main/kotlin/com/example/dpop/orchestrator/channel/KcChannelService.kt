@@ -138,7 +138,7 @@ class KcChannelService(
 
         // restoredFactors only ever arrives paired with a channel THIS call just created (see
         // restoreDataToken's own doc) - applied as the entry journey's own Anfangs-Übergang
-        // (docs/ideen/journey-strategie-vereinheitlichung.md #3, JourneyService.start's
+        // (docs/04-orchestrierung.md, "RestoreData als erster Übergang"; JourneyService.start's
         // `seedAction`), so the journey's own first decision already sees the real picture, not a
         // stale, evidence-blind snapshot immediately superseded a moment later.
         var response = if (isFreshChannel && restoredFactors.isNotEmpty()) {
@@ -150,8 +150,8 @@ class KcChannelService(
             channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
         }
 
-        // What a native Keycloak authenticator already established THIS run (docs/ideen/web-
-        // keycloak-kanal.md #8/#9) - combined into the SAME evidence an orchestrator tool proof
+        // What a native Keycloak authenticator already established THIS run (docs/05-api.md,
+        // Abschnitt 3; ADR-8) - combined into the SAME evidence an orchestrator tool proof
         // would produce, via JourneyService.applyEvidenceUpdate, then re-derived into the response
         // actually returned. Always applied to an already-existing journey (either the one just
         // started above, or one from an earlier call on this same channel) - never restoredFactors
@@ -169,8 +169,8 @@ class KcChannelService(
     }
 
     /**
-     * Fetched once by the Authenticator's end-of-flow lifecycle hook (docs/ideen/web-keycloak-
-     * kanal.md #6), never bundled into [upsertChannel]'s own response - see [RestoreData]'s own
+     * Fetched once by the Authenticator's end-of-flow lifecycle hook (docs/05-api.md,
+     * Abschnitt 3, restore-data), never bundled into [upsertChannel]'s own response - see [RestoreData]'s own
      * doc for why. [kcSessionId] is what the returned token gets bound to (see
      * [RestoreDataCodec]) - the fresh UserSessionModel id the caller just learned from Keycloak's
      * own runtime, which this backend has no independent way to know yet at this point. `null` for

@@ -108,8 +108,8 @@ public class OrchestratorResumeAuthenticator implements AuthenticationFlowCallba
 
     @Override
     public void onTopFlowSuccess(AuthenticationFlowModel topFlow) {
-        // Fires once, at the true end of the WHOLE top-level flow (docs/ideen/web-keycloak-
-        // kanal.md #6) - after LoA-1/LoA-2, whichever ran, are already done. No AuthenticationFlowContext
+        // Fires once, at the true end of the WHOLE top-level flow (docs/05-api.md,
+        // Abschnitt 3, restore-data) - after LoA-1/LoA-2, whichever ran, are already done. No AuthenticationFlowContext
         // available here (only the flow model) - session.getContext().getAuthenticationSession()
         // is the same pattern Keycloak's own ConditionalLoaAuthenticator.onTopFlowSuccess uses.
         AuthenticationSessionModel authSession = session.getContext().getAuthenticationSession();

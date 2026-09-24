@@ -119,8 +119,8 @@ value class ClaimSource(val value: String) {
 }
 
 /**
- * The three classes of trust a [ClaimSource] can carry, ordered by precedence (docs/ideen/
- * claims-modell-und-vertrauensanker.md: trust level first, recency only as a tie-breaker
+ * The three classes of trust a [ClaimSource] can carry, ordered by precedence
+ * (docs/02-domaenenmodell.md, Abschnitt 6: trust level first, recency only as a tie-breaker
  * WITHIN one level). Higher [rank] outranks lower.
  */
 enum class TrustLevel(val rank: Int) {
@@ -147,7 +147,7 @@ const val PASSWORD_EXISTS_MARKER = "true"
  * One attribute value a completed tool run asserts about its subject, with its provenance: WHO
  * established it ([source]) and at what assurance ([establishedAcr]). The typed claims-
  * model counterpart to the untyped `auditDetails` blob - a subset of the declaring descriptor's
- * [ToolDescriptor.claims], at most one per [AttributeType] (docs/ideen/
+ * [ToolDescriptor.claims], at most one per [AttributeType] (docs/archiv/
  * claims-modell-und-vertrauensanker.md).
  */
 data class Claim(

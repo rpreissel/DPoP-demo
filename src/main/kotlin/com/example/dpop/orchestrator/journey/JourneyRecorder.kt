@@ -59,8 +59,8 @@ class JourneyRecorder(
             // it, the journey log would show every tool outcome in full but go silent on every
             // Keycloak-native factor, even though it's just as real a step in the journey's path.
             // snake_case, not PascalCase: JourneyService buckets this at the machine's discretion,
-            // not as a real `event::class.simpleName` transition (naming convention, docs/ideen/
-            // journey-strategie-vereinheitlichung.md #4) - and deliberately not named similarly to
+            // not as a real `event::class.simpleName` transition (naming convention: snake_case for
+            // entries that are no transition) - and deliberately not named similarly to
             // "EvidenceReported" (the real transition's own log entry), so the two cannot be
             // confused for one another.
             journeyLogService.record(channel.forLog(), journey.forLog(), "native_evidence_synced",

@@ -35,8 +35,8 @@ import org.springframework.stereotype.Component
  * [DeleteAccountState]).
  *
  * That re-proof's own outcome is deliberately never recorded as `MethodEvidence` (a known
- * behaviour change from the pre-`transition()` design, docs/ideen/journey-strategie-
- * vereinheitlichung.md #5): unlike every other proof in this journey, it authorizes exactly one
+ * behaviour change from the pre-`transition()` design, docs/journeys/
+ * delete-account.md): unlike every other proof in this journey, it authorizes exactly one
  * immediate action, never a durable claim about what this account can prove again later - so it
  * goes straight to [Action.DeleteAccount] instead of first through [Action.AcceptProof].
  */

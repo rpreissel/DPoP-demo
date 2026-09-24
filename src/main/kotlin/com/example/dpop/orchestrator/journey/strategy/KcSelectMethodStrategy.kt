@@ -43,8 +43,8 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
         when (state) {
             is KcSelectMethodState.SelectMethod -> when (event) {
                 // Evidence may already satisfy the floor before this very first offer - a seeded
-                // RestoreData Anfangs-Übergang (docs/ideen/journey-strategie-vereinheitlichung.md
-                // #3) can run before Started ever fires - so Started cannot blindly re-show
+                // RestoreData first transition (docs/04-orchestrierung.md, "RestoreData als erster
+                // Übergang") can run before Started ever fires - so Started cannot blindly re-show
                 // `state`, it must re-check exactly like any other proof.
                 is JourneyEvent.Started -> afterProof(ctx)
                 is JourneyEvent.Completed -> Transition.Perform(proofAction(state, event), resumeState = state)

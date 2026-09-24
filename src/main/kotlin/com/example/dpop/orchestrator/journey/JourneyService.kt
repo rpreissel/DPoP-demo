@@ -91,8 +91,8 @@ class JourneyService(
      * concrete wish the journey exists for (a step-up target, a method to remove) - without it
      * the strategy's own [IntentStrategy.initialState] applies.
      *
-     * [seedAction] is the journey's Anfangs-Übergang (docs/ideen/journey-strategie-vereinheit
-     * lichung.md #3): a mechanical action that runs BEFORE `initialState()`, decided by no
+     * [seedAction] is the journey's first transition (docs/04-orchestrierung.md, "RestoreData als
+     * erster Übergang"): a mechanical action that runs BEFORE `initialState()`, decided by no
      * strategy - today only `KcChannelService`'s RestoreData case
      * ([Action.ApplyRestoredEvidence]). It is still a real, logged transition (`"Entry"`), just
      * one no [IntentStrategy] ever sees: by the time [IntentStrategy.initialState] runs, its
@@ -313,8 +313,8 @@ class JourneyService(
      *
      * A fresh channel's FIRST evidence, primed from a resubmitted RestoreData token rather than
      * proved just now, is instead applied as [Action.ApplyRestoredEvidence] - [start]'s own
-     * `seedAction`, run BEFORE any journey's `initialState()` (docs/ideen/journey-strategie-
-     * vereinheitlichung.md #3) - never through this method, which requires an already-running
+     * `seedAction`, run BEFORE any journey's `initialState()` (docs/04-orchestrierung.md,
+     * "RestoreData als erster Übergang") - never through this method, which requires an already-running
      * journey to fire [JourneyEvent.EvidenceReported] against.
      *
      * Called on EVERY evidence-bearing call for [source]: [updates] is the CALLER's complete,

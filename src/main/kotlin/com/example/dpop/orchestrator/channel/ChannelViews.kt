@@ -63,8 +63,8 @@ data class DeviceLinkResponse(
 )
 
 /**
- * One method a native Keycloak authenticator just proved THIS flow run (docs/ideen/web-keycloak-
- * kanal.md #6/#8/#9). Deliberately just two ids, not method/loa/factorTypes too - those are fixed
+ * One method a native Keycloak authenticator just proved THIS flow run (docs/05-api.md,
+ * Abschnitt 3; ADR-8). Deliberately just two ids, not method/loa/factorTypes too - those are fixed
  * per authenticator TYPE, so they come from [NativeAuthenticatorDescriptor] (looked up by
  * [nativeToolId]) instead of being resent on every proof, exactly like an orchestrator tool's own
  * evidence is priced from its `ToolDescriptor` rather than resent on every outcome. [nativeToolId]

@@ -20,8 +20,8 @@ import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
 /**
- * Approve or decline a WEB-channel `auth-qr`/`auth-qr-lookup` pairing (docs/ideen/qr-login-ueber-
- * app.md #4). Reachable both as an entry intent (cold app, `POST /app/channels`) and on an
+ * Approve or decline a WEB-channel `auth-qr`/`auth-qr-lookup` pairing (docs/journeys/
+ * confirm-peer-login.md). Reachable both as an entry intent (cold app, `POST /app/channels`) and on an
  * already-authenticated channel ([AuthIntent.CONFIRM_PEER_LOGIN]'s own doc) - both land on
  * [ConfirmPeerLoginState.Requested] and share this one gate.
  *

@@ -39,7 +39,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  *
  * A completed tool always turns into a [Transition.Perform] first, resumed with
  * [JourneyEvent.ActionCompleted] against the SAME state once that action has run
- * (docs/ideen/journey-strategie-vereinheitlichung.md #2) - tests that used to assert the
+ * (docs/04-orchestrierung.md, "Die vier Phasen eines Übergangs") - tests that used to assert the
  * post-effect outcome directly now assert both steps: the `Perform` naming the [Action], then the
  * `ActionCompleted` follow-up against a context already reflecting what that action established.
  */

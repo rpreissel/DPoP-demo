@@ -6,8 +6,8 @@ import com.example.dpop.tool_spi.AttributeType
 
 /**
  * The small, explicit rules that make some [AttributeType]s anchors - values accounts and
- * identities are looked up BY - and others mere projection attributes (docs/ideen/
- * claims-modell-und-vertrauensanker.md, "Zwei Sorten Auflösung"). `tool_spi` stays free of this
+ * identities are looked up BY - and others mere projection attributes (docs/02-domaenenmodell.md,
+ * Abschnitt 6; ADR-19). `tool_spi` stays free of this
  * persistence-adjacent knowledge on purpose; it lives here in `tool_api` instead.
  */
 

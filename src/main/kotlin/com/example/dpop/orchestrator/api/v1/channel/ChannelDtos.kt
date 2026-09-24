@@ -41,7 +41,7 @@ data class AnswerRequest(
     val answer: String
 )
 
-@Schema(description = "Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md #9).")
+@Schema(description = "Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md, step-ups).")
 data class ChannelPatchRequest(
     @field:Schema(example = "loa3")
     val requiredAcr: String

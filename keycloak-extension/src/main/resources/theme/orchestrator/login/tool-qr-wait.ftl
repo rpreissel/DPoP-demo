@@ -12,8 +12,8 @@
         </div>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
-            <#-- Manuelle Eingabe ist ein gleichwertiger Weg, kein Fallback (docs/ideen/qr-login-
-                 ueber-app.md #6) - der Code muss deshalb hier auch gut lesbar/abschreibbar stehen,
+            <#-- Manuelle Eingabe ist ein gleichwertiger Weg, kein Fallback (docs/journeys/
+                 confirm-peer-login.md) - der Code muss deshalb hier auch gut lesbar/abschreibbar stehen,
                  nicht nur im QR-Bild bzw. versteckt in der Demo-Link-URL. -->
             <p>${t.of("Pairing-Code")}: <strong class="orchestrator-qr-code">${pairingCode}</strong></p>
         </div>

@@ -115,8 +115,8 @@ components:
           type: string
       type: object
     ChannelPatchRequest:
-      description: 'Raises the channel''s durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md
-        #9).'
+      description: Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md,
+        step-ups).
       properties:
         requiredAcr:
           example: loa3
@@ -264,11 +264,11 @@ components:
             flow run's channel). Must match what GET .../restore-data was called with to produce this exact restoreData token.
           type: string
         restoreData:
-          description: 'A signed RestoreData token this same UserSession''s channel returned earlier via GET .../restore-data,
-            resubmitted verbatim (docs/ideen/web-keycloak-kanal.md #6) - the bulk, one-shot way to seed a brand-new channel
-            with what a PRIOR, unrelated flow run already established, as opposed to accountId/amr above which report what
-            THIS flow run just proved. Both are merged into the channel the same way; only restoreData may already be meaningfully
-            old by the time it arrives here. Opaque to every caller but the orchestrator itself - see RestoreDataCodec.'
+          description: A signed RestoreData token this same UserSession's channel returned earlier via GET .../restore-data,
+            resubmitted verbatim (docs/05-api.md, section 3) - the bulk, one-shot way to seed a brand-new channel with what
+            a PRIOR, unrelated flow run already established, as opposed to accountId/amr above which report what THIS flow
+            run just proved. Both are merged into the channel the same way; only restoreData may already be meaningfully old
+            by the time it arrives here. Opaque to every caller but the orchestrator itself - see RestoreDataCodec.
           type: string
         targetAcr:
           example: loa2
@@ -1300,7 +1300,7 @@ paths:
       - Channels
   /orchestrator/api/v1/channels/{channelSessionId}/step-ups:
     post:
-      description: 'The App channel''s step-up trigger (docs/05-api.md #9). Only raises, never lowers.'
+      description: The App channel's step-up trigger (docs/05-api.md, step-ups). Only raises, never lowers.
       operationId: raiseRequiredAcr
       parameters:
       - in: path

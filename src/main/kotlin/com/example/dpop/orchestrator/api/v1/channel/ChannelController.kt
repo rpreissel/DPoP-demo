@@ -130,7 +130,7 @@ class ChannelController(
     @PostMapping("/{channelSessionId}/step-ups")
     @Operation(
         summary = "Raise the channel's required ACR floor",
-        description = "The App channel's step-up trigger (docs/05-api.md #9). Only raises, never lowers.",
+        description = "The App channel's step-up trigger (docs/05-api.md, step-ups). Only raises, never lowers.",
         responses = [
             ApiResponse(
                 responseCode = "200",

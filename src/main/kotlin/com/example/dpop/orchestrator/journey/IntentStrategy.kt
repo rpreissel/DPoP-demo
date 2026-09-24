@@ -337,8 +337,8 @@ sealed interface Action {
 
     /**
      * Prime a fresh channel's evidence from [methods] before this journey's own first decision -
-     * the Anfangs-Übergang ([JourneyService.start]'s `seedAction`, docs/ideen/journey-strategie-
-     * vereinheitlichung.md #3), never a strategy's own decision: no strategy ever sees this
+     * the Anfangs-Übergang ([JourneyService.start]'s `seedAction`, docs/04-orchestrierung.md,
+     * "RestoreData als erster Übergang"), never a strategy's own decision: no strategy ever sees this
      * action, it is applied mechanically before `initialState()` even runs.
      */
     data class ApplyRestoredEvidence(

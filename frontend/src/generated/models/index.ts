@@ -342,7 +342,7 @@ export const ChannelCreateRequestIntentEnum = {
 export type ChannelCreateRequestIntentEnum = typeof ChannelCreateRequestIntentEnum[keyof typeof ChannelCreateRequestIntentEnum];
 
 /**
- * Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md #9).
+ * Raises the channel's durable required-ACR floor; the step-up trigger of the App channel (docs/05-api.md, step-ups).
  * @export
  * @interface ChannelPatchRequest
  */
@@ -923,7 +923,7 @@ export interface KcChannelUpsertRequest {
      */
     kcSessionId?: string;
     /**
-     * A signed RestoreData token this same UserSession's channel returned earlier via GET .../restore-data, resubmitted verbatim (docs/ideen/web-keycloak-kanal.md #6) - the bulk, one-shot way to seed a brand-new channel with what a PRIOR, unrelated flow run already established, as opposed to accountId/amr above which report what THIS flow run just proved. Both are merged into the channel the same way; only restoreData may already be meaningfully old by the time it arrives here. Opaque to every caller but the orchestrator itself - see RestoreDataCodec.
+     * A signed RestoreData token this same UserSession's channel returned earlier via GET .../restore-data, resubmitted verbatim (docs/05-api.md, section 3) - the bulk, one-shot way to seed a brand-new channel with what a PRIOR, unrelated flow run already established, as opposed to accountId/amr above which report what THIS flow run just proved. Both are merged into the channel the same way; only restoreData may already be meaningfully old by the time it arrives here. Opaque to every caller but the orchestrator itself - see RestoreDataCodec.
      * @type {string}
      * @memberof KcChannelUpsertRequest
      */
