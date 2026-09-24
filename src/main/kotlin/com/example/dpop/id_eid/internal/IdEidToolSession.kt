@@ -21,7 +21,6 @@ class IdEidToolSession(
     var vorname: String? = null,
     var geburtsdatum: LocalDate? = null,
     var strasse: String? = null,
-    var hausnummer: String? = null,
     var plz: String? = null,
     var ort: String? = null,
 

@@ -36,7 +36,6 @@ object IdentNectDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.STRASSE, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.HAUSNUMMER, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.PLZ, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId)),
         // eID via Nect reads the same card pseudonym as ident-eid - the same person's card is

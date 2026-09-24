@@ -7,8 +7,6 @@ components:
         geburtsdatum:
           format: date
           type: string
-        hausnummer:
-          type: string
         issuingState:
           type: string
         name:

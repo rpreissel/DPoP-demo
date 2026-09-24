@@ -13,8 +13,8 @@ export interface NectAttributes {
   name?: string
   vorname?: string
   geburtsdatum?: string
+  /** Street and house number in one line, as eID and PID deliver it. */
   strasse?: string
-  hausnummer?: string
   plz?: string
   ort?: string
   restrictedId?: string

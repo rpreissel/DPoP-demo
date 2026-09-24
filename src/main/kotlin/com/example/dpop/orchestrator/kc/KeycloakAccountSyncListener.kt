@@ -6,6 +6,7 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.ext_stammdaten.PersonData
+import com.example.dpop.ext_stammdaten.strassenzeile
 import com.example.dpop.tool_spi.AttributeType
 import java.time.Instant
 import org.springframework.context.annotation.Profile
@@ -114,7 +115,7 @@ internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
  */
 internal val MIRRORED_CLAIM_TYPES = setOf(
     AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
-    AttributeType.STRASSE, AttributeType.HAUSNUMMER, AttributeType.PLZ, AttributeType.ORT
+    AttributeType.STRASSE, AttributeType.PLZ, AttributeType.ORT
 )
 
 /** What one account mirrors into its Keycloak user - shared by the listener's and service's sync paths. */
@@ -154,8 +155,8 @@ internal fun stammdatenAttributes(personId: Long?, person: PersonData?, attested
     personId?.let { put("personId", it.toString()) }
     person?.kvnr?.let { put("kvnr", it) }
     (person?.geburtsdatum?.toString() ?: attested[AttributeType.GEBURTSDATUM])?.let { put("geburtsdatum", it) }
-    (person?.strasse ?: attested[AttributeType.STRASSE])?.let { put("strasse", it) }
-    (person?.hausnummer ?: attested[AttributeType.HAUSNUMMER])?.let { put("hausnummer", it) }
+    // One street line, register-bound or attested alike: the register's two fields joined.
+    (person?.strassenzeile ?: attested[AttributeType.STRASSE])?.let { put("strasse", it) }
     (person?.plz ?: attested[AttributeType.PLZ])?.let { put("plz", it) }
     (person?.ort ?: attested[AttributeType.ORT])?.let { put("ort", it) }
 }

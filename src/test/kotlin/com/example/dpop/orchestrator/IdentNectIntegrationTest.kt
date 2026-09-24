@@ -36,7 +36,7 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
         }
 
         val max = """"name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15""""
-        val maxAddress = """"strasse":"Musterstraße","hausnummer":"1","plz":"12345","ort":"Musterstadt""""
+        val maxAddress = """"strasse":"Musterstraße 1","plz":"12345","ort":"Musterstadt""""
 
         /** What the jump page does when the user finishes there; answers where Nect sends the browser. */
         fun finishAtNect(caseId: String, procedure: String, attributes: String, pin: String? = null, expiryDate: String? = null): String {
@@ -105,6 +105,31 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
                 val claimed = claimedAttributesOf(run.channelSessionId).joinToString()
                 claimed shouldContain "name"
                 claimed shouldNotContain "strasse"
+            }
+        }
+
+        given("a passport whose chip spells the names its own way") {
+            then("ident-kvnr still binds the register person - names compare in MRZ form") {
+                val run = start()
+                finishAtNect(
+                    run.caseId, "epass",
+                    """"name":"MUSTER","vorname":"MAX","geburtsdatum":"1985-06-15","documentNumber":"C01X00T47","issuingState":"D"""",
+                    expiryDate = "2099-01-01"
+                )
+                report(run.toolSessionId, run.caseId)
+
+                val kvnrSession = post("/orchestrator/api/v1/channels/${run.channelSessionId}/tools/ident-kvnr").nextRaw()["toolSessionId"] as String
+                patch("/orchestrator/api/v1/tools/$kvnrSession/ident-kvnr", """{"kvnr":"A123456789"}""")
+
+                jdbcTemplate.queryForObject(
+                    """
+                    SELECT COUNT(*) FROM account.anchor an
+                    JOIN orchestrator.channel_session cs ON cs.account_id = an.account_id
+                    WHERE cs.id = CAST(? AS UUID) AND an.attribute_type = 'person_id'
+                    """,
+                    Int::class.java,
+                    run.channelSessionId
+                ) shouldBe 1
             }
         }
 

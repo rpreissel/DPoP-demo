@@ -225,12 +225,16 @@ das so ab:
 - Das Pass-Ablaufdatum prüft Nect selbst und gibt es nicht weiter. Ein Wallet-Pseudonym gibt es
   nicht mehr.
 
-Offen:
+Folgen für das übrige Modell (umgesetzt 2026-09-24):
 
-- Straße und Hausnummer kommen bei eID und PID als **ein** Feld; unser Modell trennt sie (eigenes
-  Issue).
-- Pass-Namen sind MRZ-transliteriert. Ein Registerabgleich mit Umlauten würde daran scheitern;
-  der Mock bildet das nicht nach.
+- Straße und Hausnummer kommen bei eID und PID als **ein** Feld. `AttributeType.STRASSE` ist
+  deshalb die ganze Straßenzeile, `HAUSNUMMER` gibt es nicht mehr. Nur das Register trennt beide
+  (P-4) und setzt sie an seiner Grenze zusammen (`PersonData.strassenzeile`), auch für den
+  Keycloak-Spiegel.
+- Der Pass liefert Namen in MRZ-Schreibweise (`MUELLER`), die eID in Großbuchstaben (`MÜLLER`).
+  Das Register vergleicht Namen daher in MRZ-Form (`MrzName`): Großschreibung, Ä→AE, ß→SS,
+  Diakritika weg, Name und Vorname als ein Namensfeld, gekürzt auf die 39 Zeichen des Passes.
+  Die Sprungseite liefert beim Pass die Namen in dieser Form.
 
 ## 8) Web-Kanal
 

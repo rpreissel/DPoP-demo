@@ -37,8 +37,7 @@ class IdentEidToolHandlerTest : BehaviorSpec({
             name = "Muster",
             vorname = "Max",
             geburtsdatum = LocalDate.of(1970, 1, 1),
-            strasse = "Musterweg",
-            hausnummer = "1",
+            strasse = "Musterweg 1",
             plz = "12345",
             ort = "Musterstadt",
             restrictedId = "T0103005K1D5S0V8T9W6UM2RTX"
@@ -55,8 +54,7 @@ class IdentEidToolHandlerTest : BehaviorSpec({
                     Claim(AttributeType.NAME, "Muster", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.VORNAME, "Max", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.GEBURTSDATUM, "1970-01-01", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.STRASSE, "Musterweg", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.HAUSNUMMER, "1", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.STRASSE, "Musterweg 1", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.PLZ, "12345", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.ORT, "Musterstadt", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr)

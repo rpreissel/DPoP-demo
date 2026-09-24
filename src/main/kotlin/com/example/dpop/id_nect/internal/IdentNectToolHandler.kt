@@ -101,7 +101,6 @@ class IdentNectToolHandler(
             a.vorname?.let { AttributeType.VORNAME to it },
             a.geburtsdatum?.let { AttributeType.GEBURTSDATUM to it.toString() },
             a.strasse?.let { AttributeType.STRASSE to it },
-            a.hausnummer?.let { AttributeType.HAUSNUMMER to it },
             a.plz?.let { AttributeType.PLZ to it },
             a.ort?.let { AttributeType.ORT to it },
             // Only the eID chip carries the card pseudonym (ADR-19); a passport or wallet

@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.ext_stammdaten.Freischaltcodes
+import com.example.dpop.ext_stammdaten.strassenzeile
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import org.springframework.stereotype.Component
 
@@ -16,8 +17,8 @@ data class DemoPerson(
     val name: String?,
     val vorname: String?,
     val email: String?,
+    /** Street and house number in one line - as the eID card shows it, not as the register splits it. */
     val strasse: String?,
-    val hausnummer: String?,
     val plz: String?,
     val ort: String?,
     val geburtsdatum: String?,
@@ -52,8 +53,7 @@ class DemoPersonas(
             name = person.name,
             vorname = person.vorname,
             email = extras?.email,
-            strasse = person.strasse,
-            hausnummer = person.hausnummer,
+            strasse = person.strassenzeile,
             plz = person.plz,
             ort = person.ort,
             geburtsdatum = person.geburtsdatum?.toString(),

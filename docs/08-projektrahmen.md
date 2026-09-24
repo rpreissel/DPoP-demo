@@ -170,7 +170,7 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 | P-1 | H2 mit dateibasierter DB und In-Memory-Tests. | `application.yml` und `application-test.yml` entsprechend konfiguriert |
 | P-2 | Schema-Aufbau erfolgt mit Flyway, ein Migrationsordner je Modul. | `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst |
 | P-3 | Zugriff auf Personen erfolgt über Spring Data JPA. | `PersonRepository extends JpaRepository` |
-| P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort` |
+| P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bezeugt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STRASSE`), wie eID und PID sie liefern; das Register setzt `strassenzeile` an seiner Grenze zusammen |
 | P-5 | Testdaten werden beim Start eingespielt. | Flyway-Migration oder Initialisierungsroutine vorhanden |
 | P-6 | FSC-Testdaten stehen beim Start zur Verfügung. | Flyway-Migration legt gültige FSC-Codes für die Testpersonen an |
 

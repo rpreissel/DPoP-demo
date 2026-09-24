@@ -10,7 +10,7 @@
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "card">
                 <p class="orchestrator-hint">Demo-Modus: Das Auslesen der Karte wird simuliert.</p>
-                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"name":"name","vorname":"vorname","geburtsdatum":"geburtsdatum","strasse":"strasse","hausnummer":"hausnummer","plz":"plz","ort":"ort"}' />
+                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"name":"name","vorname":"vorname","geburtsdatum":"geburtsdatum","strasse":"strasse","plz":"plz","ort":"ort"}' />
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
                         <label for="name" class="${properties.kcLabelClass!}">Nachname</label>
@@ -25,15 +25,10 @@
                     <label for="geburtsdatum" class="${properties.kcLabelClass!}">Geburtsdatum</label>
                     <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" value="1985-06-15"/>
                 </div>
-                <div class="orchestrator-grid-2">
-                    <div class="${properties.kcFormGroupClass!}">
-                        <label for="strasse" class="${properties.kcLabelClass!}">Straße</label>
-                        <input type="text" id="strasse" name="strasse" class="${properties.kcInputClass!}" value="Musterstraße"/>
-                    </div>
-                    <div class="${properties.kcFormGroupClass!}">
-                        <label for="hausnummer" class="${properties.kcLabelClass!}">Hausnummer</label>
-                        <input type="text" id="hausnummer" name="hausnummer" class="${properties.kcInputClass!}" value="1"/>
-                    </div>
+                <#-- Die Karte liefert Straße und Hausnummer in einem Feld (Street). -->
+                <div class="${properties.kcFormGroupClass!}">
+                    <label for="strasse" class="${properties.kcLabelClass!}">Straße und Hausnummer</label>
+                    <input type="text" id="strasse" name="strasse" class="${properties.kcInputClass!}" value="Musterstraße 1"/>
                 </div>
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">

@@ -987,8 +987,8 @@ val stammdatenClaims = listOf(
     "personId" to "person_id",
     "kvnr" to "kvnr",
     "geburtsdatum" to "geburtsdatum",
+    // Strasse und Hausnummer in einer Zeile, wie eID und PID sie bezeugen (AttributeType.STRASSE).
     "strasse" to "strasse",
-    "hausnummer" to "hausnummer",
     "plz" to "plz",
     "ort" to "ort",
 )

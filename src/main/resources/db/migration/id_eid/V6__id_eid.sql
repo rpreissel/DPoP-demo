@@ -13,7 +13,6 @@ CREATE TABLE id_eid.ident_tool_session (
     vorname         VARCHAR(255),
     geburtsdatum    DATE,
     strasse         VARCHAR(255),
-    hausnummer      VARCHAR(20),
     plz             VARCHAR(10),
     ort             VARCHAR(255),
     restricted_id   VARCHAR(64),

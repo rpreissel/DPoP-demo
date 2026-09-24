@@ -1,5 +1,6 @@
 package com.example.dpop.ext_stammdaten
 
+import com.example.dpop.ext_stammdaten.internal.MrzName
 import com.example.dpop.ext_stammdaten.internal.PersonRepository
 import com.example.dpop.ext_stammdaten.internal.Person
 import com.example.dpop.tool_api.ClaimedIdentity
@@ -22,22 +23,28 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
 
     override fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
-        // null = the attestation didn't include the attribute; it is not compared. Same exact
-        // comparison as before for the attributes that ARE present.
-        return (claimed.name == null || person.name == claimed.name) &&
-            (claimed.vorname == null || person.vorname == claimed.vorname) &&
+        // null = the attestation didn't include the attribute; it is not compared. Names compare
+        // in MRZ form (MrzName): a document reads them differently than the register writes them.
+        // The street line compares against the register's own two fields, joined.
+        return namesMatch(person, claimed.name, claimed.vorname) &&
             (claimed.geburtsdatum == null || person.geburtsdatum == claimed.geburtsdatum) &&
-            (claimed.strasse == null || person.strasse == claimed.strasse) &&
-            (claimed.hausnummer == null || person.hausnummer == claimed.hausnummer) &&
-            (claimed.plz == null || person.plz == claimed.plz) &&
-            (claimed.ort == null || person.ort == claimed.ort)
+            (claimed.strasse == null || MrzName.of(person.toPersonData().strassenzeile.orEmpty()) == MrzName.of(claimed.strasse)) &&
+            (claimed.plz == null || person.plz == claimed.plz?.trim()) &&
+            (claimed.ort == null || MrzName.of(person.ort.orEmpty()) == MrzName.of(claimed.ort))
     }
 
     override fun matchesPersonalien(personId: Long, name: String, vorname: String, geburtsdatum: LocalDate): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
-        return person.name.equals(name.trim(), ignoreCase = true) &&
-            person.vorname.equals(vorname.trim(), ignoreCase = true) &&
-            person.geburtsdatum == geburtsdatum
+        return namesMatch(person, name, vorname) && person.geburtsdatum == geburtsdatum
+    }
+
+    /** Both names present: the whole MRZ name field, cut like a passport's; one alone: that one. */
+    private fun namesMatch(person: Person, name: String?, vorname: String?): Boolean = when {
+        name != null && vorname != null ->
+            MrzName.sameName(name, vorname, person.name.orEmpty(), person.vorname.orEmpty())
+        else ->
+            (name == null || MrzName.of(name) == MrzName.of(person.name.orEmpty())) &&
+                (vorname == null || MrzName.of(vorname) == MrzName.of(person.vorname.orEmpty()))
     }
 
     override fun displayName(personId: Long): String? {

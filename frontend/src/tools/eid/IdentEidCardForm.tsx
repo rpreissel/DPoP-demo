@@ -7,8 +7,8 @@ interface IdentEidCardFormProps {
     name: string
     vorname: string
     geburtsdatum: string
+    /** Street and house number in one line - the card's `Street` carries both. */
     strasse: string
-    hausnummer: string
     plz: string
     ort: string
     restrictedId: string
@@ -26,7 +26,6 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
   const [vorname, setVorname] = useState(first?.vorname ?? '')
   const [geburtsdatum, setGeburtsdatum] = useState(first?.geburtsdatum ?? '')
   const [strasse, setStrasse] = useState(first?.strasse ?? '')
-  const [hausnummer, setHausnummer] = useState(first?.hausnummer ?? '')
   const [plz, setPlz] = useState(first?.plz ?? '')
   const [ort, setOrt] = useState(first?.ort ?? '')
   const [restrictedId, setRestrictedId] = useState(first?.restrictedId ?? '')
@@ -36,7 +35,6 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
     setVorname(person.vorname ?? '')
     setGeburtsdatum(person.geburtsdatum ?? '')
     setStrasse(person.strasse ?? '')
-    setHausnummer(person.hausnummer ?? '')
     setPlz(person.plz ?? '')
     setOrt(person.ort ?? '')
     setRestrictedId(person.restrictedId ?? '')
@@ -44,7 +42,7 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit({ name, vorname, geburtsdatum, strasse, hausnummer, plz, ort, restrictedId })
+    onSubmit({ name, vorname, geburtsdatum, strasse, plz, ort, restrictedId })
   }
 
   return (
@@ -76,12 +74,8 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
           />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-strasse">Straße</label>
+          <label htmlFor="eid-strasse">Straße und Hausnummer</label>
           <input id="eid-strasse" value={strasse} onChange={(e) => setStrasse(e.target.value)} required />
-        </div>
-        <div className="form-group">
-          <label htmlFor="eid-hausnummer">Hausnummer</label>
-          <input id="eid-hausnummer" value={hausnummer} onChange={(e) => setHausnummer(e.target.value)} required />
         </div>
         <div className="form-group">
           <label htmlFor="eid-plz">PLZ</label>

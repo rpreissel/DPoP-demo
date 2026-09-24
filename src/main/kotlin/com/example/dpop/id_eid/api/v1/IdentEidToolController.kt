@@ -32,8 +32,8 @@ data class IdentEidPatchRequest(
     @field:Schema(example = "Muster") val name: String? = null,
     @field:Schema(example = "Max") val vorname: String? = null,
     @field:Schema(example = "1985-03-12") val geburtsdatum: LocalDate? = null,
-    @field:Schema(example = "Musterstraße") val strasse: String? = null,
-    @field:Schema(example = "1") val hausnummer: String? = null,
+    @field:Schema(description = "Straße und Hausnummer in einer Zeile, wie die Karte sie liefert", example = "Musterstraße 1")
+    val strasse: String? = null,
     @field:Schema(example = "10117") val plz: String? = null,
     @field:Schema(example = "Berlin") val ort: String? = null,
     @field:Schema(example = "T0103005T4UY6CQ1B3LN0T28WJ") val restrictedId: String? = null,
@@ -118,7 +118,6 @@ class IdentEidToolController(
             vorname = body.vorname,
             geburtsdatum = body.geburtsdatum,
             strasse = body.strasse,
-            hausnummer = body.hausnummer,
             plz = body.plz,
             ort = body.ort,
             restrictedId = body.restrictedId,

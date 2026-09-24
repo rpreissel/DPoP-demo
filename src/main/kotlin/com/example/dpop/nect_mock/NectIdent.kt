@@ -56,8 +56,8 @@ data class NectAttributes(
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
+    /** Street and house number in one line, as eID (`Street`) and PID (`street_address`) deliver it. */
     val strasse: String? = null,
-    val hausnummer: String? = null,
     val plz: String? = null,
     val ort: String? = null,
     /** [NectAttribute.EID_PSEUDONYM]. */
@@ -70,7 +70,7 @@ data class NectAttributes(
         if (name != null) add(NectAttribute.FAMILY_NAME)
         if (vorname != null) add(NectAttribute.GIVEN_NAMES)
         if (geburtsdatum != null) add(NectAttribute.BIRTH_DATE)
-        if (listOf(strasse, hausnummer, plz, ort).any { it != null }) add(NectAttribute.ADDRESS)
+        if (listOf(strasse, plz, ort).any { it != null }) add(NectAttribute.ADDRESS)
         if (restrictedId != null) add(NectAttribute.EID_PSEUDONYM)
         if (documentNumber != null || issuingState != null) add(NectAttribute.DOCUMENT_ID)
     }
@@ -82,7 +82,6 @@ data class NectAttributes(
             vorname = keep(NectAttribute.GIVEN_NAMES, vorname),
             geburtsdatum = keep(NectAttribute.BIRTH_DATE, geburtsdatum),
             strasse = keep(NectAttribute.ADDRESS, strasse),
-            hausnummer = keep(NectAttribute.ADDRESS, hausnummer),
             plz = keep(NectAttribute.ADDRESS, plz),
             ort = keep(NectAttribute.ADDRESS, ort),
             restrictedId = keep(NectAttribute.EID_PSEUDONYM, restrictedId),

@@ -79,7 +79,6 @@ class IdentEidToolHandler(
                         Claim(AttributeType.VORNAME, checkNotNull(decision.claimed.vorname), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.GEBURTSDATUM, checkNotNull(decision.claimed.geburtsdatum).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.STRASSE, checkNotNull(decision.claimed.strasse), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.HAUSNUMMER, checkNotNull(decision.claimed.hausnummer), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.PLZ, checkNotNull(decision.claimed.plz), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.ORT, checkNotNull(decision.claimed.ort), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.EID_RESTRICTED_ID, decision.restrictedId, ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
@@ -111,14 +110,13 @@ class IdentEidToolHandler(
         "MOCK" + toolSessionId.toString().replace("-", "").take(9).uppercase()
 
     private fun IdEidToolSession.toState(): IdentEidState =
-        IdentEidState(name, vorname, geburtsdatum, strasse, hausnummer, plz, ort, restrictedId, pinHash)
+        IdentEidState(name, vorname, geburtsdatum, strasse, plz, ort, restrictedId, pinHash)
 
     private fun IdEidToolSession.applyState(state: IdentEidState) {
         name = state.name
         vorname = state.vorname
         geburtsdatum = state.geburtsdatum
         strasse = state.strasse
-        hausnummer = state.hausnummer
         plz = state.plz
         ort = state.ort
         restrictedId = state.restrictedId

@@ -730,12 +730,6 @@ export interface IdentEidPatchRequest {
      * @type {string}
      * @memberof IdentEidPatchRequest
      */
-    hausnummer?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof IdentEidPatchRequest
-     */
     name?: string;
     /**
      * 
@@ -762,7 +756,7 @@ export interface IdentEidPatchRequest {
      */
     restrictedId?: string;
     /**
-     * 
+     * Straße und Hausnummer in einer Zeile, wie die Karte sie liefert
      * @type {string}
      * @memberof IdentEidPatchRequest
      */

@@ -11,8 +11,8 @@ data class EidPatchFields(
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
+    /** Street and house number in one line, as the card's `Street` carries them. */
     val strasse: String? = null,
-    val hausnummer: String? = null,
     val plz: String? = null,
     val ort: String? = null,
     val restrictedId: String? = null,

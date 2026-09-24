@@ -31,14 +31,14 @@ enum class AttributeType(val wireName: String) {
      *  docs/ideen/claims-modell-und-vertrauensanker.md). */
     GEBURTSDATUM("geburtsdatum"),
     /**
-     * Street name, first of the four address fields ([STRASSE], [HAUSNUMMER], [PLZ], [ORT]) - the
-     * same German wire names the eID card and `ext_stammdaten.person` use, so a card read's claim
-     * values map 1:1 onto register columns. All four are master-data fields like [GEBURTSDATUM]:
-     * register-owned for bound accounts, claim-log rows are attestation history.
+     * Street AND house number in one line, first of the three address fields ([STRASSE], [PLZ],
+     * [ORT]) - the way documents attest it: the eID card's `Street` (`HEIDESTRASSE 17`, BSI
+     * TR-03130) and the EUDI PID's `address.street_address` both carry the number inside. The
+     * register keeps the two apart (docs/08-projektrahmen.md P-4) and joins them at its own
+     * boundary. All three are master-data fields like [GEBURTSDATUM]: register-owned for bound
+     * accounts, claim-log rows are attestation history.
      */
     STRASSE("strasse"),
-    /** House number, kept apart from [STRASSE] because the eID card delivers it as its own field. */
-    HAUSNUMMER("hausnummer"),
     /** Postal code. */
     PLZ("plz"),
     /** City/town. */

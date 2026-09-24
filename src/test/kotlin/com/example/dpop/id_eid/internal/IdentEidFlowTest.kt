@@ -12,8 +12,7 @@ class IdentEidFlowTest : BehaviorSpec({
         name = "Muster",
         vorname = "Max",
         geburtsdatum = LocalDate.of(1990, 1, 1),
-        strasse = "Musterstr.",
-        hausnummer = "1",
+        strasse = "Musterstr. 1",
         plz = "12345",
         ort = "Musterstadt",
         restrictedId = "T0103005K1D5S0V8T9W6UM2RTX"

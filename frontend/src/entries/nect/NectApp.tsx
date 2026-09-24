@@ -19,7 +19,7 @@ const PROCEDURES: { key: NectProcedure; label: string; hint: string; deliverable
   {
     key: 'epass',
     label: '🛂 Reisepass',
-    hint: 'Chip auslesen, Selfie mit dem Passbild abgleichen - der Chip wird ganz gelesen, weitergegeben wird nur Angefragtes. Eine Adresse enthält der Pass nicht.',
+    hint: 'Chip auslesen, Selfie mit dem Passbild abgleichen - der Chip wird ganz gelesen, weitergegeben wird nur Angefragtes. Namen stehen dort in MRZ-Schreibweise (MUELLER statt Müller), eine Adresse enthält der Pass nicht.',
     deliverable: ['family_name', 'given_names', 'birth_date', 'document_id'],
   },
   {
@@ -39,19 +39,38 @@ const REQUESTABLE_LABELS: Record<NectRequestable, string> = {
   document_id: 'Dokumentnummer und Ausstellerstaat (nur Reisepass)',
 }
 
-type PersonFields = Pick<NectAttributes, 'name' | 'vorname' | 'geburtsdatum' | 'strasse' | 'hausnummer' | 'plz' | 'ort'>
+type PersonFields = Pick<NectAttributes, 'name' | 'vorname' | 'geburtsdatum' | 'strasse' | 'plz' | 'ort'>
 const PERSON_FIELDS: { key: keyof PersonFields; label: string; attribute: NectRequestable; type?: string }[] = [
   { key: 'name', label: 'Name', attribute: 'family_name' },
   { key: 'vorname', label: 'Vorname', attribute: 'given_names' },
   { key: 'geburtsdatum', label: 'Geburtsdatum', attribute: 'birth_date', type: 'date' },
-  { key: 'strasse', label: 'Straße', attribute: 'address' },
-  { key: 'hausnummer', label: 'Hausnummer', attribute: 'address' },
+  { key: 'strasse', label: 'Straße und Hausnummer', attribute: 'address' },
   { key: 'plz', label: 'PLZ', attribute: 'address' },
   { key: 'ort', label: 'Ort', attribute: 'address' },
 ]
 
 function fieldsOf(p: RegisterPerson): PersonFields {
-  return { name: p.name, vorname: p.vorname, geburtsdatum: p.geburtsdatum, strasse: p.strasse, hausnummer: p.hausnummer, plz: p.plz, ort: p.ort }
+  // The register keeps street and number apart; eID and PID carry them as one line.
+  const strasse = [p.strasse, p.hausnummer].filter(Boolean).join(' ') || undefined
+  return { name: p.name, vorname: p.vorname, geburtsdatum: p.geburtsdatum, strasse, plz: p.plz, ort: p.ort }
+}
+
+const MRZ_TRANSLITERATIONS: Record<string, string> = { Ä: 'AE', Ö: 'OE', Ü: 'UE', ß: 'SS', ẞ: 'SS', Æ: 'AE', Ø: 'OE', Å: 'AA', Œ: 'OE' }
+
+/**
+ * A name as the passport chip carries it (ICAO 9303, MRZ): upper case, umlauts spelled out,
+ * other diacritics dropped, separators as spaces here. The chip holds nothing else - what Nect
+ * reads off a passport is this form, not the one printed on the data page.
+ */
+function mrzName(name: string | undefined): string | undefined {
+  if (!name) return name
+  return [...name.trim().toUpperCase()]
+    .map((c) => MRZ_TRANSLITERATIONS[c] ?? c)
+    .join('')
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
 }
 
 function inYears(years: number): string {
@@ -116,7 +135,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
   const [selfieMatches, setSelfieMatches] = useState(true)
   // EUDI: what the holder releases. The name is what makes the identification worth anything.
   const [released, setReleased] = useState<Record<keyof PersonFields, boolean>>({
-    name: true, vorname: true, geburtsdatum: true, strasse: true, hausnummer: true, plz: true, ort: true,
+    name: true, vorname: true, geburtsdatum: true, strasse: true, plz: true, ort: true,
   })
   const [busy, setBusy] = useState(false)
 
@@ -156,7 +175,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
     const attributes: NectAttributes = procedure === 'eid'
       ? { ...read, ...(offered.includes('eid_pseudonym') ? { restrictedId: pseudonym('NECT-EID', person) } : {}) }
       : procedure === 'epass'
-        ? { name: person.name, vorname: person.vorname, geburtsdatum: person.geburtsdatum, documentNumber, issuingState: 'D' }
+        ? { name: mrzName(person.name), vorname: mrzName(person.vorname), geburtsdatum: person.geburtsdatum, documentNumber, issuingState: 'D' }
         : read
     void leave(() =>
       nectApi.abschliessen(caseId, procedure, attributes, procedure === 'eid' ? pin : undefined, procedure === 'epass' ? expiryDate : undefined),

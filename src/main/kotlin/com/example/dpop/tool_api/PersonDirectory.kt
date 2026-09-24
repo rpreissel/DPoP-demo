@@ -15,16 +15,17 @@ interface PersonDirectory {
     /**
      * Whether the stammdaten on file for [personId] match every attribute in [claimed] - lets an
      * identification tool verify a claimed identity (e.g. eID Ausweisdaten) without ever handing
-     * the master data itself back across the port, same rule as [findPersonIdByKvnr].
+     * the master data itself back across the port, same rule as [findPersonIdByKvnr]. Names
+     * compare in their passport (MRZ) form - case, umlaut spelling and diacritics do not count,
+     * because each document writes them its own way (`MUELLER` on a chip, `MÜLLER` on an eID card).
      */
     fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean
 
     /**
      * Whether name and birthdate on file for [personId] match - the narrow sibling of
      * [matchesStammdaten], for a procedure that only ever learns what a person types in
-     * (`ident-fsc`), not a full set of Ausweisdaten. Unlike [matchesStammdaten] the names compare
-     * forgivingly (trimmed, case-insensitive): they are typed, not read off a chip. Same rule: the
-     * answer crosses the port, the master data never does.
+     * (`ident-fsc`), not a full set of Ausweisdaten. Names compare the same way as there. Same
+     * rule: the answer crosses the port, the master data never does.
      */
     fun matchesPersonalien(personId: Long, name: String, vorname: String, geburtsdatum: LocalDate): Boolean
 
@@ -56,8 +57,8 @@ data class ClaimedIdentity(
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
+    /** Street and house number in one line, as a document attests it (`AttributeType.STRASSE`). */
     val strasse: String? = null,
-    val hausnummer: String? = null,
     val plz: String? = null,
     val ort: String? = null
 )

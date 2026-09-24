@@ -85,7 +85,6 @@ val AttributeType.authority: AttributeAuthority
         AttributeType.VORNAME,
         AttributeType.GEBURTSDATUM,
         AttributeType.STRASSE,
-        AttributeType.HAUSNUMMER,
         AttributeType.PLZ,
         AttributeType.ORT -> AttributeAuthority.ExtStammdaten
         AttributeType.PHONE_NUMBER,
@@ -131,7 +130,6 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.VORNAME,
     AttributeType.GEBURTSDATUM,
     AttributeType.STRASSE,
-    AttributeType.HAUSNUMMER,
     AttributeType.PLZ,
     AttributeType.ORT,
     AttributeType.PHONE_NUMBER,

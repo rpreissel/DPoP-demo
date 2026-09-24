@@ -22,8 +22,8 @@ internal data class IdentEidState(
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
+    /** Street and house number in one line - the card's `Street` carries both. */
     val strasse: String? = null,
-    val hausnummer: String? = null,
     val plz: String? = null,
     val ort: String? = null,
     val restrictedId: String? = null,
@@ -44,7 +44,6 @@ internal object IdentEidFlow {
         vorname = fields.vorname ?: state.vorname,
         geburtsdatum = fields.geburtsdatum ?: state.geburtsdatum,
         strasse = fields.strasse ?: state.strasse,
-        hausnummer = fields.hausnummer ?: state.hausnummer,
         plz = fields.plz ?: state.plz,
         ort = fields.ort ?: state.ort,
         restrictedId = fields.restrictedId ?: state.restrictedId,
@@ -58,7 +57,6 @@ internal object IdentEidFlow {
             vorname = state.vorname.orEmpty(),
             geburtsdatum = checkNotNull(state.geburtsdatum),
             strasse = state.strasse.orEmpty(),
-            hausnummer = state.hausnummer.orEmpty(),
             plz = state.plz.orEmpty(),
             ort = state.ort.orEmpty()
         )
@@ -78,7 +76,7 @@ internal object IdentEidFlow {
 
     private fun hasCardFields(state: IdentEidState) =
         !state.name.isNullOrBlank() && !state.vorname.isNullOrBlank() && state.geburtsdatum != null &&
-            !state.strasse.isNullOrBlank() && !state.hausnummer.isNullOrBlank() &&
+            !state.strasse.isNullOrBlank() &&
             !state.plz.isNullOrBlank() && !state.ort.isNullOrBlank() &&
             !state.restrictedId.isNullOrBlank()
 
@@ -86,7 +84,7 @@ internal object IdentEidFlow {
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     /** Everything the card itself shows - read in one go, nothing typed by the user beforehand. */
-    val CARD_FIELDS = listOf("name", "vorname", "geburtsdatum", "strasse", "hausnummer", "plz", "ort", "restrictedId")
+    val CARD_FIELDS = listOf("name", "vorname", "geburtsdatum", "strasse", "plz", "ort", "restrictedId")
     val PIN_FIELDS = listOf("pin")
 
     /** Fixed test PIN for the mock, same role as `ident-fsc`'s `VALIDCODE` (docs/08-projektrahmen.md P-5/P-6). */

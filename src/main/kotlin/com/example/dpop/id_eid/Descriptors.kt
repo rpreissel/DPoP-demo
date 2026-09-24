@@ -45,7 +45,6 @@ object IdentEidDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.STRASSE, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.HAUSNUMMER, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.PLZ, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.EID_RESTRICTED_ID, ClaimSource.of(toolId))

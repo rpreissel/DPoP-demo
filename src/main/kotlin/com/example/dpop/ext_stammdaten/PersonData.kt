@@ -19,3 +19,11 @@ data class PersonData(
     val plz: String? = null,
     val ort: String? = null
 )
+
+/**
+ * Street and house number as one line - the form documents attest an address in
+ * (`AttributeType.STRASSE`). The register keeps them apart (docs/08-projektrahmen.md P-4); this is
+ * where the two meet. An extension, not a member, so it stays out of the register's own API.
+ */
+val PersonData.strassenzeile: String?
+    get() = listOfNotNull(strasse?.trim()?.ifBlank { null }, hausnummer?.trim()?.ifBlank { null }).joinToString(" ").ifBlank { null }

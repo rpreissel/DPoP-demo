@@ -76,7 +76,7 @@ class NectIdentTest : BehaviorSpec({
             val nect = fixture()
             val case = nect.createCase("/app/", setOf(NectAttribute.FAMILY_NAME, NectAttribute.GIVEN_NAMES))
             nect.caseView(case.caseId)?.requested shouldBe listOf("family_name", "given_names")
-            val read = max.copy(strasse = "Heidestraße", hausnummer = "17", plz = "51147", ort = "Köln", restrictedId = "NECT-EID-1")
+            val read = max.copy(strasse = "Heidestraße 17", plz = "51147", ort = "Köln", restrictedId = "NECT-EID-1")
 
             nect.complete(case.caseId, NectProcedure.EID, read, pin = "123456")
 

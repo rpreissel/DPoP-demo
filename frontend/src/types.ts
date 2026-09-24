@@ -79,8 +79,8 @@ export interface DemoPerson {
   vorname?: string | null
   /** Our account data, not the register's - only set for the seeded personas. */
   email?: string | null
+  /** Street and house number in one line - as the eID card shows it, not as the register splits it. */
   strasse?: string | null
-  hausnummer?: string | null
   plz?: string | null
   ort?: string | null
   geburtsdatum?: string | null

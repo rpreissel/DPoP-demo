@@ -39,7 +39,7 @@ class AttributeRulesTest : BehaviorSpec({
             AttributeType.entries.filter { it.authority == AttributeAuthority.ExtStammdaten } shouldBe
                 listOf(
                     AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
-                    AttributeType.STRASSE, AttributeType.HAUSNUMMER, AttributeType.PLZ, AttributeType.ORT
+                    AttributeType.STRASSE, AttributeType.PLZ, AttributeType.ORT
                 )
         }
         then("a method module owns what it enrolled itself") {
