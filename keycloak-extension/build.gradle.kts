@@ -51,7 +51,7 @@ dependencies {
     testImplementation("org.keycloak:keycloak-model-storage:$keycloakVersion")
     testImplementation("org.keycloak:keycloak-common:$keycloakVersion")
     testImplementation("org.keycloak:keycloak-core:$keycloakVersion")
-    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     // KcTextCatalog: eigene Nutzertexte aus den kompilierten Klassen einsammeln (docs/adr/ADR-033).
     testImplementation(libs.asm.tree)
