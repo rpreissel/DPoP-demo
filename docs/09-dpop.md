@@ -1,25 +1,24 @@
 # DPoP-Bindung
 
-Wie der Kanal kryptographisch an das Gerät gebunden wird. Der daraus abgeleitete
-`binding_key_ref` beweist ausschließlich, welches GERÄT spricht — er ist bewusst **kein**
+Dieses Kapitel beschreibt, wie der Kanal kryptografisch an das Gerät gebunden wird. Der daraus
+abgeleitete `binding_key_ref` beweist nur, welches GERÄT gerade spricht. Er ist bewusst **kein**
 Schlüssel, über den eine `ChannelSession` gefunden oder wiederverwendet wird
-([02-domaenenmodell.md](02-domaenenmodell.md)). Eine konkrete Session wiederzuerkennen ist
-Sache der `channelSessionId`, die der Client selbst merken muss.
+([02-domaenenmodell.md](02-domaenenmodell.md)). Eine bestimmte Sitzung erkennt man an ihrer
+`channelSessionId`, und die muss sich der Client selbst merken.
 
 ---
 
 ## 1) Prinzip
 
-Das Frontend erzeugt beim ersten Start ein ECDSA-P-256-Schlüsselpaar und persistiert es im
-Browser (IndexedDB). Der öffentliche Schlüssel wird als JWK in jedem DPoP-Proof übertragen.
-Das Backend leitet daraus einen JWK-Thumbprint nach RFC 7638 ab und führt ihn fachlich als
-`binding_key_ref`.
+Das Frontend erzeugt beim ersten Start ein Schlüsselpaar (ECDSA P-256) und speichert es im Browser
+(IndexedDB). Den öffentlichen Schlüssel schickt es als JWK in jedem DPoP-Proof mit. Das Backend
+berechnet daraus einen JWK-Thumbprint nach RFC 7638 und führt ihn fachlich als `binding_key_ref`.
 
-Terminologie: Der DPoP-Thumbprint heißt fachlich durchgängig `binding_key_ref`. Die
-Kryptografie-Berechnung bleibt im Paket `orchestrator/dpop` unter RFC-7638-Begriffen
+Zu den Begriffen: Der DPoP-Thumbprint heißt fachlich überall `binding_key_ref`. Nur die
+kryptografische Berechnung im Paket `orchestrator/dpop` verwendet die Begriffe aus RFC 7638
 (`JwkThumbprintService`).
 
-Alle Requests des App-Kanals tragen den Header `DPoP: <proof>`.
+Alle Anfragen des App-Kanals tragen den Header `DPoP: <proof>`.
 
 ---
 
@@ -27,35 +26,105 @@ Alle Requests des App-Kanals tragen den Header `DPoP: <proof>`.
 
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
-| D-1 | Im Frontend wird ein DPoP-fähiges Schlüsselpaar erzeugt. | Asymmetrisches Keypair (ECDSA P-256) mit Web Crypto API |
-| D-2 | Das DPoP-Keypair wird im Browser persistiert. | Wiederverwendung über Seitenneuladungen hinweg |
-| D-3 | Der private DPoP-Schlüssel ist nicht exportierbar. | Erzeugung mit `extractable=false`; die öffentliche JWK bleibt für den Proof-Header exportierbar |
-| D-4 | Der öffentliche DPoP-Schlüssel ist im Frontend einsehbar. | Anzeige des `jwk`-Teils im UI |
-| D-5 | Alle Aufrufe der App-Fassade werden mit DPoP abgesichert. | Header `DPoP` enthält ein valides DPoP-Proof-JWT |
-| D-6 | DPoP-Proofs werden gegen Replay-Angriffe abgesichert. | Wiederverwendung derselben Kombination aus JWK-Thumbprint und `jti` wird mit HTTP `401` abgewiesen |
-| D-7 | DPoP-Proofs haben eine begrenzte Gültigkeit über `iat`. | Proofs mit zu altem `iat` werden mit HTTP `401` abgewiesen |
-| D-8 | Das `iat`-Zeitfenster ist konfigurierbar. | `max-age-seconds` und `max-clock-skew-seconds` werden über `application.yml` gesetzt und im Validator verwendet |
+| D-1 | Das Frontend erzeugt ein Schlüsselpaar, das sich für DPoP eignet. | Asymmetrisches Schlüsselpaar (ECDSA P-256) über die Web Crypto API |
+| D-2 | Das DPoP-Schlüsselpaar wird im Browser gespeichert. | Es bleibt über das Neuladen der Seite hinweg erhalten |
+| D-3 | Der private DPoP-Schlüssel lässt sich nicht exportieren. | Erzeugt mit `extractable=false`; der öffentliche Schlüssel (JWK) bleibt für den Proof-Header exportierbar |
+| D-4 | Der öffentliche DPoP-Schlüssel ist im Frontend sichtbar. | Die Oberfläche zeigt den `jwk`-Teil an |
+| D-5 | Alle Aufrufe des App-Zugangs sind mit DPoP abgesichert. | Der Header `DPoP` enthält ein gültiges DPoP-Proof-JWT |
+| D-6 | DPoP-Proofs lassen sich nicht wiederverwenden. | Wird dieselbe Kombination aus JWK-Thumbprint und `jti` erneut benutzt, antwortet der Server mit `401` |
+| D-7 | DPoP-Proofs gelten nur begrenzte Zeit, gemessen an `iat`. | Proofs mit zu altem `iat` werden mit `401` abgewiesen |
+| D-8 | Das Zeitfenster für `iat` ist einstellbar. | `max-age-seconds` und `max-clock-skew-seconds` stehen in `application.yml` und werden bei der Prüfung verwendet |
 
-D-6 wird über `orchestrator.dpop_proof_replay` gelöst: Der Primärschlüssel-Insert **ist** die Prüfung
-(kein Read-then-Write), überlebt einen Neustart und gilt über Replicas hinweg. Der Schlüssel ist
-SHA-256(`thumbprint:jti`) mit fester Breite (`VARCHAR(64)`): ein clientgewählter `jti` kann damit
-weder die Schlüssellänge sprengen noch den Index aufblähen, in den dieses System am häufigsten
-schreibt. Für den Produktivbetrieb bleibt eine Skalierungsgrenze bestehen: Die Tabelle bekommt
-pro authentifiziertem Request eine neue Zeile; abgelaufene Einträge entfernt ein geplanter Job minütlich. Sie nach Zeit zu partitionieren oder durch einen
-dauerhaften Key-Value-Store zu ersetzen, ist eine Infrastrukturentscheidung und bewusst
-zurückgestellt.
+D-6 löst die Tabelle `orchestrator.dpop_proof_replay`. Das Einfügen mit dem Primärschlüssel **ist**
+die Prüfung; es wird nicht erst gelesen und dann geschrieben. Die Prüfung überlebt so einen Neustart
+und gilt für alle Instanzen gemeinsam. Der Schlüssel ist SHA-256(`thumbprint:jti`) mit fester Länge
+(`VARCHAR(64)`). Ein vom Client gewähltes `jti` kann damit weder die Schlüssellänge überschreiten noch
+den Index aufblähen, in den dieses System am häufigsten schreibt.
+
+Für den Produktivbetrieb bleibt eine Grenze bei der Skalierung: Die Tabelle erhält für jede
+angemeldete Anfrage eine neue Zeile; abgelaufene Einträge löscht ein geplanter Job jede Minute. Die
+Tabelle nach Zeit zu partitionieren oder durch einen dauerhaften Schlüssel-Wert-Speicher zu
+ersetzen, ist eine Entscheidung über die Infrastruktur und bewusst zurückgestellt.
 
 ---
 
 ## 3) Bindung an die ChannelSession
 
-- Der Kanaleinstieg (`POST /orchestrator/api/v1/app/channels`) legt **immer** eine neue `ChannelSession` an — er sucht nie nach einer bestehenden über `binding_key_ref`. Eine bereits laufende Session wiederaufzunehmen ist Sache von `GET /orchestrator/api/v1/channels/{channelSessionId}` mit der vom Client gemerkten `channelSessionId` ([05-api.md](05-api.md)).
-- Bei jedem Request gegen eine konkrete `channelSessionId` muss `ChannelSession.bindingKeyRef` mit dem aktuellen DPoP-Ableitungswert übereinstimmen; andernfalls `403` (Binding-Mismatch, siehe [07-betrieb.md](07-betrieb.md)). Das gilt für `GET`/`PATCH`/`cancel`/`logout` gleichermaßen.
-- Pro `binding_key_ref` können über die Zeit mehrere `ChannelSession`-Datensätze entstehen (jeder Kanaleinstieg ohne bekannte `channelSessionId` legt einen neuen an, z. B. nach Logout oder wenn der Client seine gemerkte ID verloren hat); ein erzwungener 1:1-Bezug besteht nicht.
-- Damit ein bereits registriertes Gerät trotzdem nicht jedes Mal neu `ident-fsc` durchlaufen muss, existiert `DeviceAccountLink` (`binding_key_ref -> accountId`, [02-domaenenmodell.md](02-domaenenmodell.md)) als eigener, von der einzelnen `ChannelSession` unabhängiger Datensatz. Der Kanaleinstieg liest ihn, um eine frische `ChannelSession` direkt mit `accountId` vorzubelegen (-> Login statt Registrierung).
-- Zeitpunkt bewusst gewählt, nicht `AUTHENTICATED` und nicht `Identified`: Der Link entsteht/aktualisiert sich, sobald `Completed.Enrolled` ein erstes Auth-Mittel anlegt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1) — nicht erst, wenn der Kanal sein eigenes `requiredAcr` erreicht. Ein Kanal, der z. B. `loa2` verlangt, bricht nach nur einem `loa1`-Mittel noch nicht ab; wird die Session danach abgebrochen, soll ein neues Gerät-Login trotzdem direkt das vorhandene Mittel anbieten, statt auf das (kanalspezifische) Erreichen von `loa2` zu warten. Bei bloßer Identifikation (`Completed.Identified`) entsteht dagegen **kein** Link: Ohne ein angelegtes Auth-Mittel hat ein neuer Kanal nichts, womit er die Identität erneut zuverlässig prüfen kann. Der Besitz des DPoP-Schlüssels allein würde dann als Login-Nachweis gelten. Ein Kanal ohne Link nach abgebrochener Registrierung durchläuft deshalb bewusst wieder vollständig `ident-fsc`.
-- **Drei Schlüssel, drei Rollen — nicht zu verwechseln.** (1) Der **DPoP-Kanalschlüssel**: bindet Requests an diesen Kanal, und sein Ableitungswert (`bindingKeyRef`) ist das, woran `DeviceAccountLink` und jedes `keyBinding` hängen. (2) Das **`auth_device`-Credential**: ein eigenes, nicht-extrahierbares Schlüsselpaar, mit dem der Client seinen Besitz selbst signiert. (3) Das **KOBIL-Unlock-Secret**: kein Schlüssel im Kryptosinn, sondern ein Geheimnis, das die App biometriegeschützt hält und vorzeigt, damit das Backend den KOBIL-PIN freigibt ([Abläufe](06-ablaeufe.md) Abschnitt 7). Nur (1) bindet den Kanal; (2) und (3) sind Credentials, und bei (3) liegt der eigentliche Gerätebeweis nicht hier, sondern beim Anbieter — dessen eigene Gerätekennung `GET .../app/channels/device-link` in `boundCredentials` mitliefert, neben dem `device`-Credential-Schlüssel.
-- **Beim Umbinden muss auch der Client aufräumen.** Serverseitig widerruft `JourneyActionExecutor.linkDeviceTo` jedes schlüsselgebundene Credential des vorherigen Kontos. Für `device` reicht das: Der lokale Schlüssel wird dadurch wertlos, ein Versuch damit scheitert. Für `kobil` nicht — dort liegt im Browser ein **Geheimnis**, das den PIN freigeben würde. Der Client löscht es deshalb, sobald `device-link` keine `kobil`-Bindung mehr aufführt (`tools/kobil/localData.ts`) — ein Geheimnis, das nichts mehr freigibt, bleibt nicht im Browser liegen.
-- Ein Wechsel zwischen Registrierung und Anmeldung ändert den Kanal nicht: Innerhalb EINER `ChannelSession` bleibt die `channelSessionId` stabil, nur der interne Prozess wechselt.
-- **Umbinden nur nach Zustimmung — dafür sorgt der Aufbau, nicht die Sorgfalt im Einzelfall.** Es gibt zwei Wege zu einer Gerätebindung, und nur einer darf umbinden: Der *implizite* Weg (ein Ablauf war erfolgreich, `AuthIntent.bindsDeviceImplicitly`) bindet ausschließlich, wenn der Schlüssel frei ist oder schon auf dasselbe Konto zeigt — zeigt er auf ein fremdes, passiert gar nichts. Der *explizite* Weg (`Action.LinkDevice` nach einem Prompt) darf umbinden und widerruft dabei. Ob hier unbemerkt umgebunden wird, hängt damit nicht daran, ob die jeweilige Strategie an den Fall gedacht hat. `RegisterEnrollFirstStrategy` fragt deshalb an anderer Stelle als `RegisterStrategy`: Letztere identifiziert zuerst und kann direkt danach fragen, Erstere bindet beim ersten Enrollment, und dort ist das Konto gerade erst entstanden und trägt noch keine Identität — sie fragt daher erst am **Ende** der Journey (`EnrollFirstConfirmDeviceRebind`), nach der optionalen Identifizierung. Ablehnen beendet die Registrierung ohne Gerätebindung; das Konto bleibt über die Lookup-Verfahren voll nutzbar.
-- `DeviceAccountLink` ist immer 1:1: ein `binding_key_ref` zeigt zu jedem Zeitpunkt auf höchstens ein Konto. Identifiziert sich auf einem bereits verlinkten Gerät jemand anderes neu (`intent=register`, "Zweitaccount", [04-orchestrierung.md](04-orchestrierung.md) "REGISTER"), wird die Bindung nicht unbemerkt überschrieben, sondern erst nach Rückfrage übertragen (`RegisterState.ConfirmDeviceRebind`). Bei Zustimmung wird zusätzlich **jedes** schlüsselgebundene Credential des bisherigen Kontos für diesen Schlüssel deaktiviert und sein Enrollment-Datensatz gelöscht (`AccountDeletionService.revokeMethod`); heute sind das `device` und `kobil`, und `JourneyActionExecutor` findet sie über `keyBinding != null`, nie über eine `toolId`-Liste. Bei Ablehnung bricht die Journey ab und die alte Bindung bleibt bestehen. Unabhängig davon gilt beim Ermitteln der Kandidaten ohnehin: Ein geräte-gebundenes Credential (`ToolDescriptor.usableByCaller`, [03-tool-architektur.md](03-tool-architektur.md)) ist nur nutzbar, solange `DeviceAccountLink` für seinen Schlüssel noch auf genau das Konto zeigt, dem es gehört.
+- Der Einstieg in den Kanal (`POST /orchestrator/api/v1/app/channels`) legt **immer** eine neue
+  `ChannelSession` an. Er sucht nie über den `binding_key_ref` nach einer bestehenden. Eine bereits
+  laufende Sitzung setzt man mit `GET /orchestrator/api/v1/channels/{channelSessionId}` fort, mit
+  der `channelSessionId`, die sich der Client gemerkt hat ([05-api.md](05-api.md)).
+- Bei jeder Anfrage an eine bestimmte `channelSessionId` muss `ChannelSession.bindingKeyRef` zu dem
+  Wert passen, der aus dem aktuellen DPoP-Proof berechnet wird. Sonst antwortet der Server mit `403`
+  (Bindung passt nicht, siehe [07-betrieb.md](07-betrieb.md)). Das gilt für `GET`, `PATCH`, `cancel`
+  und `logout` gleichermaßen.
+- Zu einem `binding_key_ref` können mit der Zeit mehrere `ChannelSession`s entstehen: Jeder Einstieg
+  ohne bekannte `channelSessionId` legt eine neue an, z. B. nach dem Abmelden oder wenn der Client
+  seine gemerkte ID verloren hat. Eine feste 1:1-Beziehung gibt es nicht.
+- Damit ein bereits registriertes Gerät nicht jedes Mal erneut `ident-fsc` durchlaufen muss, gibt es
+  `DeviceAccountLink` (`binding_key_ref -> accountId`, [02-domaenenmodell.md](02-domaenenmodell.md)).
+  Dieser Datensatz ist unabhängig von der einzelnen `ChannelSession`. Der Einstieg in den Kanal liest
+  ihn und belegt eine neue `ChannelSession` gleich mit der `accountId` vor. Es geht dann um eine
+  Anmeldung statt um eine Registrierung.
+- **Wann die Verknüpfung entsteht, ist bewusst gewählt** – weder beim Erreichen von `AUTHENTICATED`
+  noch bei `Identified`. Sie entsteht oder ändert sich, sobald `Completed.Enrolled` das erste
+  Anmeldeverfahren anlegt ([Orchestrierung](04-orchestrierung.md) Abschnitt 1), und nicht erst, wenn
+  der Kanal sein eigenes `requiredAcr` erreicht. Ein Kanal, der zum Beispiel `loa2` verlangt, ist
+  nach einem einzigen `loa1`-Verfahren noch nicht fertig. Bricht die Sitzung danach ab, soll eine
+  neue Anmeldung auf dem Gerät trotzdem gleich das vorhandene Verfahren anbieten. Sie soll nicht
+  warten, bis `loa2` erreicht ist, denn dieses Ziel gilt nur für diesen einen Kanal.
+  Nach einer bloßen Identifizierung (`Completed.Identified`) entsteht dagegen **keine** Verknüpfung.
+  Ohne eingerichtetes Anmeldeverfahren hätte ein neuer Kanal nichts, womit er die Identität erneut
+  zuverlässig prüfen kann; allein der Besitz des DPoP-Schlüssels würde dann als Anmeldung gelten. Ein
+  Kanal ohne Verknüpfung nach einer abgebrochenen Registrierung durchläuft deshalb bewusst wieder das
+  ganze `ident-fsc`.
+- **Drei Schlüssel mit drei Aufgaben, die man nicht verwechseln darf:**
+  1. Der **DPoP-Schlüssel des Kanals** bindet die Anfragen an diesen Kanal. An dem daraus berechneten
+     Wert (`bindingKeyRef`) hängen `DeviceAccountLink` und jedes `keyBinding`.
+  2. Das **Credential von `auth_device`** ist ein eigenes, nicht exportierbares Schlüsselpaar. Damit
+     signiert der Client den Nachweis, dass er das Gerät besitzt.
+  3. Das **Entsperrgeheimnis von KOBIL** ist kein Schlüssel im kryptografischen Sinn, sondern ein
+     Geheimnis. Die App verwahrt es geschützt durch Biometrie und legt es vor, damit das Backend den
+     KOBIL-PIN freigibt ([Abläufe](06-ablaeufe.md) Abschnitt 7).
+
+  Nur der erste bindet den Kanal. Die beiden anderen sind Credentials. Beim dritten liegt der
+  eigentliche Nachweis über das Gerät nicht bei uns, sondern beim Anbieter. Dessen eigene
+  Gerätekennung liefert `GET .../app/channels/device-link` in `boundCredentials` mit, neben dem
+  Schlüssel des `device`-Credentials.
+- **Beim Umbinden muss auch der Client aufräumen.** Auf dem Server widerruft
+  `JourneyActionExecutor.linkDeviceTo` jedes an den Schlüssel gebundene Credential des bisherigen
+  Kontos. Für `device` reicht das: Der Schlüssel im Browser wird dadurch wertlos, und jeder Versuch
+  damit scheitert. Für `kobil` reicht es nicht, denn dort liegt im Browser ein **Geheimnis**, das den
+  PIN freigeben würde. Der Client löscht es deshalb, sobald `device-link` keine `kobil`-Bindung mehr
+  aufführt (`tools/kobil/localData.ts`). Ein Geheimnis, das nichts mehr freigibt, bleibt so nicht im
+  Browser liegen.
+- Wechselt der Ablauf zwischen Registrierung und Anmeldung, bleibt der Kanal derselbe: Innerhalb
+  EINER `ChannelSession` bleibt die `channelSessionId` gleich; nur der Vorgang dahinter wechselt.
+- **Umgebunden wird nur mit Zustimmung, und das stellt der Aufbau sicher, nicht die Sorgfalt im
+  Einzelfall.** Es gibt zwei Wege zu einer Gerätebindung, und nur einer darf umbinden:
+  - Der *implizite* Weg (ein Ablauf war erfolgreich, `AuthIntent.bindsDeviceImplicitly`) bindet nur,
+    wenn der Schlüssel noch frei ist oder schon auf dasselbe Konto zeigt. Zeigt er auf ein fremdes
+    Konto, geschieht gar nichts.
+  - Der *ausdrückliche* Weg (`Action.LinkDevice` nach einer Rückfrage) darf umbinden und widerruft
+    dabei.
+
+  Ob unbemerkt umgebunden wird, hängt damit nicht davon ab, ob die jeweilige Strategie an diesen Fall
+  gedacht hat. `RegisterEnrollFirstStrategy` fragt deshalb an einer anderen Stelle als
+  `RegisterStrategy`. `RegisterStrategy` identifiziert zuerst und kann direkt danach fragen.
+  `RegisterEnrollFirstStrategy` bindet beim ersten eingerichteten Verfahren; zu diesem Zeitpunkt ist
+  das Konto gerade erst entstanden und hat noch keine Identität. Sie fragt deshalb erst am **Ende**
+  der Journey (`EnrollFirstConfirmDeviceRebind`), nach der freiwilligen Identifizierung. Lehnt der
+  Nutzer ab, endet die Registrierung ohne Gerätebindung. Das Konto bleibt über die Anmeldung per
+  E-Mail-Adresse voll nutzbar.
+- `DeviceAccountLink` ist immer 1:1: Ein `binding_key_ref` zeigt zu jedem Zeitpunkt auf höchstens ein
+  Konto. Weist sich auf einem bereits verknüpften Gerät jemand anderes neu aus (`intent=register`,
+  „Zweitaccount“, siehe [`REGISTER`](journeys/register.md)), wird die Bindung nicht unbemerkt
+  überschrieben. Sie wird erst nach einer Rückfrage übertragen (`RegisterState.ConfirmDeviceRebind`).
+  Stimmt der Nutzer zu, wird zusätzlich **jedes** an diesen Schlüssel gebundene Credential des
+  bisherigen Kontos deaktiviert, und sein Datensatz im Methodenmodul wird gelöscht
+  (`AccountDeletionService.revokeMethod`). Heute sind das `device` und `kobil`; `JourneyActionExecutor`
+  findet sie über `keyBinding != null` und nie über eine Liste von `toolId`s. Lehnt der Nutzer ab,
+  bricht die Journey ab, und die alte Bindung bleibt bestehen. Unabhängig davon gilt ohnehin bei der
+  Auswahl der Kandidaten: Ein gerätegebundenes Credential (`ToolDescriptor.usableByCaller`,
+  [03-tool-architektur.md](03-tool-architektur.md)) ist nur nutzbar, solange `DeviceAccountLink` für
+  seinen Schlüssel noch auf genau das Konto zeigt, dem es gehört.

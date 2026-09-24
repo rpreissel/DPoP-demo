@@ -1,6 +1,6 @@
 # Domänenmodell
 
-Die Entitäten des Zielmodells, ihre Zustände und die Regeln, nach denen sie persistiert werden.
+Die Entitäten des Zielmodells, ihre Zustände und die Regeln, nach denen sie gespeichert werden.
 Wie die Tools darauf aufsetzen, beschreibt [03-tool-architektur.md](03-tool-architektur.md).
 
 ---
@@ -46,139 +46,285 @@ classDiagram
   }
   class SessionEvent { UUID channelSessionId; UUID journeyId; string eventType }
 
-  ChannelSession "1" --> "0..*" AuthJourney : has
-  AuthJourney "0..1" --> "0..*" AuthJourney : sub-journey of
-  ChannelSession "1" --> "0..1" AuthEvidence : proven-by
-  ChannelSession "1" --> "0..1" AuthContext : APP tokens
-  AuthContext "0..1" --> "1" AuthEvidence : paired-with
-  AuthJourney "0..1" --> "1" AuthEvidence : updates
-  ChannelSession "1" --> "0..*" SessionEvent : audited-by
+  ChannelSession "1" --> "0..*" AuthJourney : führt
+  AuthJourney "0..1" --> "0..*" AuthJourney : Sub-Journey von
+  ChannelSession "1" --> "0..1" AuthEvidence : Nachweise
+  ChannelSession "1" --> "0..1" AuthContext : Tokens (nur APP)
+  AuthContext "0..1" --> "1" AuthEvidence : gehört zu
+  AuthJourney "0..1" --> "1" AuthEvidence : ergänzt
+  ChannelSession "1" --> "0..*" SessionEvent : protokolliert
 ```
 
-`DeviceAccountLink` ist bewusst **nicht** mit `ChannelSession` verknüpft: die einzige langlebige, von einer einzelnen `ChannelSession` unabhängige Zuordnung Gerät -> Account (`bindingKeyRef -> accountId`), Details in [DPoP-Bindung](09-dpop.md) Abschnitt 3. **APP-only**: Im Web-Kanal bleibt `bindingKeyRef` `null`.
+`DeviceAccountLink` ist bewusst **nicht** mit `ChannelSession` verknüpft. Es ist die einzige
+langlebige Zuordnung von Gerät zu Konto (`bindingKeyRef -> accountId`) und hängt an keiner
+einzelnen `ChannelSession`; Details in [DPoP-Bindung](09-dpop.md) Abschnitt 3. Es gibt sie **nur im
+App-Kanal**: Im Web-Kanal bleibt `bindingKeyRef` `null`.
 
-**Kanal-Anker, je Fassade verschieden.** `APP` nutzt `bindingKeyRef` (den Geräteschlüssel, geprüft gegen den DPoP-Proof), `KEYCLOAK`
-nutzt `channelAnchor`. Das ist immer der eigene `channelSessionId`-Wert DIESES Flow-Durchlaufs,
-mitgeführt in der Peer-Auth-Assertion — bewusst nicht Keycloaks langlebiges `UserSessionModel`,
-sonst würden zwei GLEICHZEITIGE Flow-Durchläufe derselben SSO-Session denselben Anker teilen.
-`ChannelAccessGuard` ([05-api.md](05-api.md) Abschnitt 3) hat je Nachweisform eine
+**Kanal-Anker, je Zugang verschieden.** `APP` nutzt `bindingKeyRef`, also den Geräteschlüssel, den
+der DPoP-Proof belegt. `KEYCLOAK` nutzt `channelAnchor`: Das ist immer der eigene
+`channelSessionId`-Wert **dieses** Login-Durchlaufs, mitgeschickt in der Peer-Auth-Assertion. Es ist
+bewusst nicht Keycloaks langlebiges `UserSessionModel`; sonst würden sich zwei **gleichzeitige**
+Login-Durchläufe derselben SSO-Sitzung denselben Anker teilen. `ChannelAccessGuard`
+([05-api.md](05-api.md) Abschnitt 3) hat für jede der beiden Nachweisformen eine eigene
 Implementierung; die Ressource dahinter (`ChannelSession`) ist in beiden Fällen dieselbe.
 
 ---
 
 ## 2) Zustand statt Vererbung
 
-- `AuthJourney` ist eine flache Entity ohne Subklassen. Was sich je Intent unterscheidet, steckt im `JourneyState` — einer abgeschlossenen Zustandsmenge **pro Intent** ([Orchestrierung](04-orchestrierung.md)). Das Verhalten dazu steht in einer `IntentStrategy` je Intent, weil es Services braucht (`AuthPolicy`, `AccountService`, Tool-Katalog), die eine JPA-Entity nicht halten darf.
-- Persistiert wird der Zustand als `stateType` (abfragbarer Diskriminator) plus `state` (JSON der Attribute).
-- Bewusst **nicht** auf der `AuthJourney`: die laufende Challenge. Das gewählte Tool steckt als `ToolRef` im `JourneyState`, die Challenge ausschließlich im jeweiligen Methodenmodul (strikte Regel in [Tool-Architektur](03-tool-architektur.md)).
-- Ebenfalls **nicht** vorhanden: gespeicherte `next*`-Felder. `next` ist eine reine Funktion des Zustands.
+- `AuthJourney` ist eine flache Entity ohne Unterklassen. Was sich je Intent unterscheidet, steckt
+  im `JourneyState`, einer abgeschlossenen Menge von Zuständen **je Intent**
+  ([Orchestrierung](04-orchestrierung.md)). Das Verhalten dazu steht in einer eigenen
+  `IntentStrategy` je Intent. Es braucht nämlich Services (`AuthPolicy`, `AccountService`,
+  Tool-Katalog), die eine JPA-Entity nicht halten darf.
+- Gespeichert wird der Zustand als `stateType` (ein Unterscheidungsmerkmal, nach dem sich
+  abfragen lässt) plus `state` (die Attribute als JSON).
+- Bewusst **nicht** auf der `AuthJourney` liegt die laufende Challenge. Das gewählte Tool steht als
+  `ToolRef` im `JourneyState`; die Challenge selbst kennt ausschließlich das jeweilige
+  Methodenmodul (strikte Regel in [Tool-Architektur](03-tool-architektur.md)).
+- Ebenfalls **nicht** vorhanden sind gespeicherte `next*`-Felder. `next` ergibt sich allein aus dem
+  Zustand.
 
 ---
 
 ## 3) Zustandsdiagramme
 
-### ChannelSession-Zustände
+### Zustände der ChannelSession
 
 ```mermaid
 stateDiagram-v2
   [*] --> ANONYMOUS
-  ANONYMOUS --> REGISTERING: start registration
-  ANONYMOUS --> AUTHENTICATED: start login + success
-  REGISTERING --> AUTHENTICATED: registration success + auth context created
-  REGISTERING --> ANONYMOUS: cancel or timeout
-  AUTHENTICATED --> STEP_UP_REQUIRED: resource requires higher acr
-  STEP_UP_REQUIRED --> STEP_UP_IN_PROGRESS: step-up process started
-  STEP_UP_IN_PROGRESS --> AUTHENTICATED: achieved acr >= required acr
-  AUTHENTICATED --> LOGGED_OUT: logout
-  AUTHENTICATED --> EXPIRED: ttl reached
+  ANONYMOUS --> REGISTERING: Registrierung beginnt
+  ANONYMOUS --> AUTHENTICATED: Login beginnt und gelingt
+  REGISTERING --> AUTHENTICATED: Registrierung gelungen, Auth-Kontext angelegt
+  REGISTERING --> ANONYMOUS: Abbruch oder Zeitablauf
+  AUTHENTICATED --> STEP_UP_REQUIRED: Ressource verlangt höheres acr
+  STEP_UP_REQUIRED --> STEP_UP_IN_PROGRESS: Step-up gestartet
+  STEP_UP_IN_PROGRESS --> AUTHENTICATED: erreichtes acr >= gefordertes acr
+  AUTHENTICATED --> LOGGED_OUT: Abmelden
+  AUTHENTICATED --> EXPIRED: Lebensdauer abgelaufen
   LOGGED_OUT --> [*]
   EXPIRED --> [*]
 ```
 
-### AuthJourney-Lebenszyklus
+### Lebenszyklus der AuthJourney
 
-Der Lebenszyklus sagt nur, **ob** die Journey noch läuft. Wo sie steht, sagt der intent-eigene `JourneyState` ([Orchestrierung](04-orchestrierung.md)); die Schritte innerhalb eines Tools gehören zu `ToolState`.
+Der Lebenszyklus sagt nur, **ob** die Journey noch läuft. Wo sie gerade steht, sagt der
+`JourneyState` des jeweiligen Intents ([Orchestrierung](04-orchestrierung.md)); die Schritte
+innerhalb eines Tools gehören zu `ToolState`.
 
 ```mermaid
 stateDiagram-v2
   [*] --> STARTED
-  STARTED --> STARTED: tool completed, weiteres Tool nötig
+  STARTED --> STARTED: Tool abgeschlossen, weiteres Tool nötig
   STARTED --> SUSPENDED: wartet auf eine Sub-Journey
   SUSPENDED --> STARTED: Sub-Journey abgeschlossen
   STARTED --> CONSUMED: Ziel erreicht, auf Kanal und Nachweis angewandt
   STARTED --> FAILED: Versuchsbudget erschöpft oder Abbruch (410)
-  STARTED --> CANCELLED: explicit cancel
+  STARTED --> CANCELLED: ausdrücklich abgebrochen
   CANCELLED --> [*]
   CONSUMED --> [*]
   FAILED --> [*]
 ```
 
-`SUCCEEDED` und `EXPIRED` stehen noch im Enum, werden aber nie gesetzt: Eine erfolgreiche Journey geht
-direkt auf `CONSUMED`, ihr Ablauf wird nur über `expiresAt` geprüft
+`SUCCEEDED` und `EXPIRED` stehen noch im Enum, werden aber nie gesetzt: Eine erfolgreiche Journey
+wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expiresAt` geprüft
 ([Lebenszyklus](journeys/lebenszyklus-unabhaengig-vom-intent.md)).
 
 ---
 
-## 4) Enumerationen
+## 4) Aufzählungstypen
 
-- `ChannelType`: `APP`, `KEYCLOAK` — welche Fassade den Kanal geöffnet hat, für dessen ganze Lebenszeit fest ([05-api.md](05-api.md) Abschnitt 3).
-- `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`, `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
-- `AuthIntent`: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `KC_SELECT_METHOD`, `STEP_UP`, `MANAGE_AUTH_METHODS`, `CONFIRM_PEER_LOGIN`, `DELETE_ACCOUNT`, `LOGOUT`, `RE_IDENTIFY` — das Ziel *und* der Weg dorthin ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). `DELETE_ACCOUNT` und `MANAGE_AUTH_METHODS` setzen einen bereits `AUTHENTICATED`-Kanal voraus; `DELETE_ACCOUNT` verlangt erst die unbedingte Ja/Nein-Bestätigung (`Prompt`, [API](05-api.md) Abschnitt "Das `Prompt`-Objekt"), dann das `selfServiceAcrFloor`-Gate (loa2, für ein nie identifiziertes Konto nur loa1) und einen frisch bewiesenen aktiven Faktor.
-- `JourneyLifecycle`: `STARTED`, `SUSPENDED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`, `CONSUMED`
-- `ToolCategory`: `IDENT`, `ENROLL`, `AUTH`, `SIDE_ACTION`, `ATTEST` — das Modul gibt sie selbst an; `SIDE_ACTION` bestätigt eine Anfrage auf einem anderen Kanal und trägt nichts zum Nachweis des eigenen Kanals bei, `ATTEST` bestätigt ein kontoeigenes Attribut (etwa die E-Mail-Adresse) und trägt ebenfalls nichts zum Niveau bei ([Tool-Architektur](03-tool-architektur.md)).
-- `FactorType`: `KNOWLEDGE`, `POSSESSION`, `INHERENCE` — gibt das Modul ebenfalls selbst an, Grundlage der MFA-Prüfung ([Orchestrierung](04-orchestrierung.md))
+- `ChannelType`: `APP`, `KEYCLOAK` – über welchen Zugang der Kanal geöffnet wurde; das bleibt für
+  seine ganze Lebenszeit fest ([05-api.md](05-api.md) Abschnitt 3).
+- `ChannelState`: `ANONYMOUS`, `REGISTERING`, `AUTHENTICATED`, `STEP_UP_REQUIRED`,
+  `STEP_UP_IN_PROGRESS`, `LOGGED_OUT`, `EXPIRED`
+- `AuthIntent`: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `KC_SELECT_METHOD`, `STEP_UP`,
+  `MANAGE_AUTH_METHODS`, `CONFIRM_PEER_LOGIN`, `DELETE_ACCOUNT`, `LOGOUT`, `RE_IDENTIFY` – das Ziel
+  *und* der Weg dorthin ([Orchestrierung](04-orchestrierung.md) Abschnitt 1). `DELETE_ACCOUNT` und
+  `MANAGE_AUTH_METHODS` setzen einen Kanal voraus, der schon `AUTHENTICATED` ist. `DELETE_ACCOUNT`
+  verlangt zuerst in jedem Fall die Ja/Nein-Bestätigung (`Prompt`, [API](05-api.md) Abschnitt
+  "Das `Prompt`-Objekt"). Danach muss die Sitzung die Schwelle `selfServiceAcrFloor` erreichen
+  (loa2, für ein nie identifiziertes Konto nur loa1), und ein aktiver Faktor muss frisch
+  nachgewiesen sein.
+- `JourneyLifecycle`: `STARTED`, `SUSPENDED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`,
+  `CONSUMED`
+- `ToolCategory`: `IDENT`, `ENROLL`, `AUTH`, `SIDE_ACTION`, `ATTEST` – das Modul gibt sie selbst
+  an. `SIDE_ACTION` bestätigt eine Anfrage auf einem anderen Kanal und trägt nichts zum Nachweis
+  des eigenen Kanals bei. `ATTEST` bestätigt ein Attribut, das dem Konto gehört (etwa die
+  E-Mail-Adresse), und trägt ebenfalls nichts zum Niveau bei
+  ([Tool-Architektur](03-tool-architektur.md)).
+- `FactorType`: `KNOWLEDGE`, `POSSESSION`, `INHERENCE` – gibt das Modul ebenfalls selbst an; darauf
+  beruht die MFA-Prüfung ([Orchestrierung](04-orchestrierung.md)).
 
 ---
 
-## 5) Persistenz-Regeln
+## 5) Regeln fürs Speichern
 
-- `ChannelSession.channelSessionId` ist stabil und opaque; App/Web kennen nur diese technische Referenz.
-- Routing wird **nicht** gespeichert: `next` folgt aus dem `JourneyState` ([Orchestrierung](04-orchestrierung.md) Abschnitt 4); `stepData` baut der konkrete Handler aus dem methodenspezifischen Zustand auf.
-- `accountId` mit klarer Rollenteilung: `AuthJourney.accountId` wird während der laufenden Journey ermittelt, `ChannelSession.accountId` erst bei erfolgreichem Prozessabschluss daraus übernommen und gilt nur für diesen Kanal. Die langlebige Zuordnung Gerät -> Account liegt in `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3).
-- `ChannelSession` ist kurzlebig (Aufbewahrung: [Betrieb](07-betrieb.md)) und wird **nie** über `bindingKeyRef` gesucht oder wiederverwendet. Fortsetzen verlangt die vom Client gemerkte `channelSessionId` (`GET`); ein Kanaleinstieg ohne bekannte ID legt immer eine neue `ChannelSession` an. `DeviceAccountLink` führt ein registriertes Gerät trotzdem direkt in den passenden Anmeldepfad.
-- Der Nachweis einer Sitzung liegt in `AuthEvidence`, nicht im `AuthContext` (der nur die Tokens des App-Kanals verwaltet): Je Verfahren hält ein `amrEvidence`-Eintrag Methode, Niveau und Faktorarten fest. `currentAmr` und `currentFactorTypes` sind Sichten darauf; die Faktorarten stehen im Eintrag selbst, statt aus dem `amr`-Namen abgeleitet zu werden — `amr`-Werte benennen Verfahren, nicht Faktorarten. Das aktuelle Niveau wird nie gespeichert, sondern bei Bedarf aus dem Nachweis berechnet.
-- Zwei Ebenen: `ChannelSession.acrFloor` ist die **dauerhafte Untergrenze** des Kanals (überlebt einzelne Journeys), `StepUpState.targetAcr` das **Ziel des konkreten Laufs** und kann höher liegen. Gating rechnet mit dem Maximum beider Werte.
-- Ein vom Client genanntes `requiredAcr` ist stets eine Untergrenze, nie eine Erlaubnis: Das Backend setzt `max(Policy-Anforderung, Client-Wunsch)`.
+- `ChannelSession.channelSessionId` ist stabil und nach außen bedeutungslos; App und Web kennen nur
+  diese technische Referenz.
+- Das Routing wird **nicht** gespeichert: `next` folgt aus dem `JourneyState`
+  ([Orchestrierung](04-orchestrierung.md) Abschnitt 4). `stepData` baut der jeweilige Handler aus
+  dem Zustand seines Verfahrens auf.
+- `accountId` hat an zwei Stellen klar getrennte Aufgaben: `AuthJourney.accountId` wird ermittelt,
+  während die Journey läuft. `ChannelSession.accountId` wird erst nach erfolgreichem Abschluss von
+  dort übernommen und gilt nur für diesen Kanal. Die langlebige Zuordnung von Gerät zu Konto liegt
+  in `DeviceAccountLink` ([DPoP-Bindung](09-dpop.md) Abschnitt 3).
+- `ChannelSession` ist kurzlebig (Aufbewahrung: [Betrieb](07-betrieb.md)). Sie wird **nie** über
+  `bindingKeyRef` gesucht oder wiederverwendet. Um fortzusetzen, braucht es die `channelSessionId`,
+  die sich der Client gemerkt hat (`GET`); ein Einstieg ohne bekannte ID legt immer eine neue
+  `ChannelSession` an. Ein registriertes Gerät kommt über `DeviceAccountLink` trotzdem direkt auf
+  den passenden Weg zur Anmeldung.
+- Der Nachweis einer Sitzung liegt in `AuthEvidence`, nicht im `AuthContext`; der verwaltet nur die
+  Tokens des App-Kanals. Je Verfahren hält ein `amrEvidence`-Eintrag Methode, Niveau und
+  Faktorarten fest. `currentAmr` und `currentFactorTypes` sind Sichten darauf. Die Faktorarten
+  stehen im Eintrag selbst, statt aus dem `amr`-Namen abgeleitet zu werden, denn `amr`-Werte
+  benennen Verfahren, nicht Faktorarten. Das aktuelle Niveau wird nie gespeichert, sondern bei
+  Bedarf aus dem Nachweis berechnet.
+- Zwei Ebenen: `ChannelSession.acrFloor` ist die **dauerhafte Untergrenze** des Kanals und
+  überlebt einzelne Journeys. `StepUpState.targetAcr` ist das **Ziel des jeweiligen Laufs** und
+  kann höher liegen. Geprüft wird gegen das höhere der beiden Niveaus.
+- Ein vom Client genanntes `requiredAcr` ist immer eine Untergrenze, nie eine Erlaubnis: Das
+  Backend setzt `max(Policy-Anforderung, Client-Wunsch)`.
 
 ---
 
 ## 6) Konto-Identität: Claims, Anker, Konsolidierung
 
-- `Account` ist nur die Identität des Kontos und die Zeile, über die Änderungen an ihm gesperrt werden (`id`, `createdAt`, `version`). Der aktuelle Zustand steht in eigenen, kontobezogenen Zeilen (`AccountAnchor`, `AccountAuthMethod`). Jede Änderung daran lädt die Kontozeile mit `OPTIMISTIC_FORCE_INCREMENT`; schreiben zwei Vorgänge gleichzeitig, bekommt der zweite `409 CONCURRENT_MODIFICATION`. Die Historie (`AccountClaim`, `AccountIdentification`) wird nur angefügt und erhöht die Version nie.
-- `AccountProfile` bleibt die typisierte Leseprojektion: `personId` (die Partnernummer, optional, [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-34) und `email`/`emailConfirmedAt` werden aus den Ankern gelesen, nicht aus eigenen Spalten; `AnchorRule.allowsReplacement` unterscheidet: `email` änderbar, `personId` nach Erstbindung unveränderlich. Daran hängen zwei Regeln, die jeweils an einer Stelle einen Namen haben, statt als Bedingung an mehreren Stellen zu stehen: `isUnidentified` (keine PersonId — das Konto darf eine Identität annehmen; zugleich die Rolle Interessent, ADR-34) und `isProvisional` (zusätzlich nie ein Zugangsmittel eingerichtet, deaktivierte zählen mit — das Konto darf gelöscht oder mit einem anderen zusammengeführt werden, ADR-20).
-- **Drei Rollen** ergeben sich aus den Ankern, ohne eigenes Statusfeld (ADR-34): **Versicherter** — das Konto hat eine Person mit Versicherungsnummer (`VERSNR`-Anker); **Partner** — eine Person ist zugeordnet (`PERSON_ID`, die Partnernummer), aber ohne Versicherungsnummer; **Interessent** — keine Person zugeordnet. Die App-Anzeige leitet die Rolle aus den ID-Claims `personId` und `versnr` ab, die live aus dem Verzeichnis kommen. Das Personenverzeichnis sichert die Grundlage im Schema: eine KVNR nur zusammen mit einer Versicherungsnummer (`ck_person_kvnr_nur_versichert`), jede Versicherungsnummer nur einmal (`ux_person_versnr`). Über den Port `PersonDirectory` fragt die Anwendung es ab (`findPersonIdByKvnr`, `findPersonIdByPartnernr`, `versnrOf`, `matchesStammdaten`, `matchesPersonalien`, `displayName`).
-- `AccountAuthMethod` ist eine eingerichtete Methodeninstanz (`method`, `active`/`deactivatedAt`, `enrolledUnderAcr`, `label`, `details`) mit der `EnrollmentRef` als echten Spalten (`enrollment_type`, `enrollment_id`) — die einzige Stelle, an der Konto und Credential verknüpft sind. Die Credential-Zeile gehört dem Methodenmodul; deaktivierte Instanzen bleiben stehen. Die Methode `email` hat kein Modul-Credential: ihre Referenz ist der EMAIL-Anker (`EMAIL_ANCHOR_ENROLLMENT`).
-- `AccountIdentification` ist der Audit-Datensatz jeder Identifizierung: Verfahren, erreichtes LoA, Zeitpunkt und der Nachweis, auf dem sie beruht ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1); für Entscheidungen wird er nie gelesen.
-- `AccountRetraction` (`account.retraction`) macht einen Wert ungültig: eine Widerrufszeile mit eigenem Vertrauensanker (`RetractionAnchor`: `ACCOUNT_MANAGEMENT`, `PERSON_DIRECTORY`, `OPERATOR`), Grund und Zeitpunkt ([12-entscheidungen.md](12-entscheidungen.md) ADR-12). „Aktuell gültig" heißt: alle Angaben minus die Widerrufe. Der Vergleich läuft über die Zeit — ein Widerruf entkräftet nur Angaben, die vor ihm liegen; ein danach neu bestätigter Wert gilt wieder. Es gibt vier Auslöser. Wird eine Methode entfernt, nimmt das über `auth_method_id` deren Angaben zurück (nur die mit `AttributeAuthority.MethodModule`). Wird ein Anker an derselben Stelle ersetzt, wird der alte Wert widerrufen (`ACCOUNT_MANAGEMENT`, Grund „anker-ersetzt"), damit Log und Anker übereinstimmen. Und seit ADR-24 lässt sich ein Attribut **direkt** zurücknehmen (`AccountService.retractAttribute`, Grund „attribute withdrawn"); das löscht zusätzlich die Anker-Zeile. Und meldet das Personenverzeichnis per `PersonChanged` eine neue oder entfernte KVNR bzw. Versicherungsnummer, widerruft `AccountService.applyDirectoryChange` den alten Wert (`PERSON_DIRECTORY`) und schreibt einen neuen, falls es ihn gibt (ADR-34). Nur über den direkten Widerruf ist eine bestätigte Adresse überhaupt zu verlieren: `confirm-email` schreibt seine Angabe als ATTESTATION, also ganz ohne `auth_method_id`, und EMAIL gehört ohnehin dem Konto selbst — kein Methodenwiderruf erreicht sie.
-- `AccountClaim` ist das Herkunfts-Log: jede je bestätigte *Änderung* (`AttributeType`, Wert, Quelle — Spalte `claim_source`, im Code `ClaimSource` —, `AcrLevel`); es wird nur angefügt, nie geändert. Protokolliert werden Änderungen, nicht Durchläufe: Eine Angabe, die identisch bereits gilt (gleicher Typ, Wert, Quelle und Methodeninstanz), wird nicht erneut geschrieben — ein eID-Lauf auf unveränderter Karte kostet keine sieben Zeilen. Eine `normalized_value`-Spalte (`@PrePersist`/`@PreUpdate`) hält die Normalisierungsregel an genau einer Stelle. Die Quelle sagt, wer für einen Wert einsteht: das Personenverzeichnis (`PERSON_DIRECTORY`, Wire `person_directory`), ein Verfahren selbst (`ClaimSource.of(toolId)`, z. B. `ident-eid`), der Nutzer (`SELF_REPORTED`) oder der Demo-Seed (`DEMO_BOOTSTRAP`). Daraus folgt ihr Rang (`TrustLevel`: `STAMMDATEN` vor `PROVEN` vor `SELF_REPORTED`); gilt für ein Attribut mehr als ein Wert, entscheidet zuerst der Rang, dann die Zeit.
-- Wo ein Attribut seine Autorität hat, steht deklariert im Code: `AttributeType.authority` (`tool_api/AttributeRules.kt`) kennt `Local` (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL` — lokal in `account.anchor`; dieser Fall trägt die Ankerregeln gleich mit), `PersonDirectory` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE` (Straße mit Hausnummer), `PLZ`, `ORT` — live über `PersonDirectory` gelesen, lokal nur als Claim-Historie geloggt) und `MethodModule` (`PHONE_NUMBER`, `PASSWORD_EXISTS` — in der Enrollment-Zeile des Methodenmoduls). `AnchorRule.bindingStrength` sagt daneben, wie stark ein Treffer darauf eine Identität bindet.
-- Einen Anker zu schreiben **verlangt** ein Mindestniveau: `AnchorRule.acrFloor` deklariert je Attributtyp, welches Niveau das *Erstbinden* (`establish`) und welches das *Ersetzen* (`replace`) mindestens voraussetzt. `EMAIL` bindet bei `loa1`, ersetzt aber erst ab `loa2`. `PERSON_ID` verlangt schon zum Erstbinden `loa2`; `allowsReplacement = false` bleibt daneben die führende Regel. `VERSNR` und `EID_RESTRICTED_ID` binden und ersetzen ab `loa2` (eine neue Versicherungsnummer, eine neue Karte). Geprüft wird an der einzigen Schreibstelle (`AccountService.recordAnchor`); wer darunter liegt, wird abgewiesen (`409`).
-- `account.anchor.established_acr` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`: das **tatsächlich bewiesene** Niveau, begrenzt nach ADR-5.
-- `AccountAnchor` löst die lokal geführten Attribute (`AttributeAuthority.Local`: `PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL`) auf ein Konto auf, hält sie eindeutig und ist zugleich ihr einziger Speicherort: `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem Lookup, `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen Wert je Konto und Attributtyp. KVNR und Partnernummer werden ausschließlich live über `ext_personenverzeichnis` (`findPersonIdByKvnr`/`findPersonIdByPartnernr`) zur PersonId und anschließend zum lokalen PersonId-Anker aufgelöst. Ein Anker, der bereits einem anderen Konto gehört, wird abgewiesen ([12-entscheidungen.md](12-entscheidungen.md) ADR-11). Ändert das Personenverzeichnis KVNR oder Versicherungsnummer, zieht das Konto Claim bzw. `VERSNR`-Anker per Event nach (ADR-34).
-- `IdentityMatchingService.resolve` beantwortet „gehört diese bestätigte Identität zu einem bestehenden Konto?" **ausschließlich über Anker** (ADR-19): `resolveByAnchor` prüft die Anker-Claims in Reihenfolge ihrer `AnchorRule.bindingStrength`, ohne Treffer bleibt nur `Unresolved`. Über Attributkombinationen aus der Claim-Historie wird nicht mehr aufgelöst; Name, Vorname und Geburtsdatum dienen nur noch dem Abgleich gegen `ext_personenverzeichnis` (`verifyToolAttestedConsistency`, `attestedIdentityMatches`).
-- Herleitung und noch nicht umgesetzte Ausbaustufen (Konto-Merge): [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md); Entscheidungen: [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-11/ADR-12/ADR-13/ADR-19; Vereinheitlichung von `personId` und `email` auf denselben Claim-/Anker-Pfad: [ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md).
+- `Account` ist nur die Identität des Kontos und die Zeile, über die Änderungen am Konto gesperrt
+  werden (`id`, `createdAt`, `version`). Der aktuelle Zustand steht in eigenen Zeilen je Konto
+  (`AccountAnchor`, `AccountAuthMethod`). Jede Änderung daran lädt die Kontozeile mit
+  `OPTIMISTIC_FORCE_INCREMENT`; schreiben zwei Vorgänge gleichzeitig, bekommt der zweite
+  `409 CONCURRENT_MODIFICATION`. Die Historie (`AccountClaim`, `AccountIdentification`) wird nur
+  ergänzt und erhöht die Version nie.
+- `AccountProfile` ist die typisierte Sicht zum Lesen. `personId` (die Partnernummer, optional,
+  [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-34) und `email`/`emailConfirmedAt`
+  kommen aus den Ankern, nicht aus eigenen Spalten. `AnchorRule.allowsReplacement` legt fest, was
+  sich ändern darf: `email` ja, `personId` nach der ersten Bindung nicht mehr. Daran hängen zwei
+  Regeln, die jeweils an genau einer Stelle einen Namen haben, statt als Bedingung an mehreren
+  Stellen zu stehen:
+  - `isUnidentified`: Das Konto hat keine PersonId und darf deshalb eine Identität annehmen; das
+    ist zugleich die Rolle Interessent (ADR-34).
+  - `isProvisional`: Außerdem wurde nie ein Zugangsmittel eingerichtet (deaktivierte zählen mit).
+    Ein solches Konto darf gelöscht oder mit einem anderen zusammengeführt werden (ADR-20).
+- **Drei Rollen** ergeben sich aus den Ankern, ohne eigenes Statusfeld (ADR-34):
+  - **Versicherter**: Das Konto gehört zu einer Person mit Versicherungsnummer (`VERSNR`-Anker).
+  - **Partner**: Eine Person ist zugeordnet (`PERSON_ID`, die Partnernummer), aber ohne
+    Versicherungsnummer.
+  - **Interessent**: Es ist keine Person zugeordnet.
+
+  Die App leitet die angezeigte Rolle aus den ID-Claims `personId` und `versnr` ab, die live aus
+  dem Personenverzeichnis kommen. Das Personenverzeichnis sichert die Grundlage im Schema ab: Eine
+  KVNR gibt es nur zusammen mit einer Versicherungsnummer (`ck_person_kvnr_nur_versichert`), und
+  jede Versicherungsnummer gibt es nur einmal (`ux_person_versnr`). Die Anwendung fragt das
+  Personenverzeichnis über den Port `PersonDirectory` ab (`findPersonIdByKvnr`,
+  `findPersonIdByPartnernr`, `versnrOf`, `matchesStammdaten`, `matchesPersonalien`,
+  `displayName`).
+- `AccountAuthMethod` ist ein eingerichtetes Verfahren eines Kontos (`method`,
+  `active`/`deactivatedAt`, `enrolledUnderAcr`, `label`, `details`). Die `EnrollmentRef` steht darin
+  als echte Spalten (`enrollment_type`, `enrollment_id`); das ist die einzige Stelle, an der Konto
+  und Credential verknüpft sind. Die Zeile mit dem Credential gehört dem Methodenmodul;
+  deaktivierte Einträge bleiben stehen. Die Methode `email` hat kein eigenes Credential im Modul:
+  Ihre Referenz ist der EMAIL-Anker (`EMAIL_ANCHOR_ENROLLMENT`).
+- `AccountIdentification` protokolliert jede Identifizierung für die Revision: Verfahren,
+  erreichtes LoA, Zeitpunkt und den Nachweis, auf dem sie beruht
+  ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1). Für Entscheidungen wird es nie gelesen.
+- `AccountRetraction` (`account.retraction`) macht einen Wert ungültig. Jede Widerrufszeile nennt,
+  wer widerruft (`RetractionAnchor`: `ACCOUNT_MANAGEMENT`, `PERSON_DIRECTORY`, `OPERATOR`), den
+  Grund und den Zeitpunkt ([12-entscheidungen.md](12-entscheidungen.md) ADR-12). „Aktuell gültig"
+  heißt: alle Angaben abzüglich der Widerrufe. Maßgeblich ist die Zeit: Ein Widerruf entkräftet nur
+  Angaben, die vor ihm liegen; ein danach neu bestätigter Wert gilt wieder. Es gibt vier Auslöser:
+  - Wird ein Verfahren entfernt, nimmt das über `auth_method_id` dessen Angaben zurück (nur die mit
+    `AttributeAuthority.MethodModule`).
+  - Wird ein Anker durch einen neuen Wert ersetzt, wird der alte widerrufen
+    (`ACCOUNT_MANAGEMENT`, Grund „anker-ersetzt"), damit Protokoll und Anker übereinstimmen.
+  - Seit ADR-24 lässt sich ein Attribut **direkt** zurücknehmen (`AccountService.retractAttribute`,
+    Grund „attribute withdrawn"); dabei wird auch die Zeile des Ankers gelöscht.
+  - Meldet das Personenverzeichnis per `PersonChanged` eine neue oder entfernte KVNR bzw.
+    Versicherungsnummer, widerruft `AccountService.applyDirectoryChange` den alten Wert
+    (`PERSON_DIRECTORY`) und schreibt den neuen, falls es einen gibt (ADR-34).
+
+  Eine bestätigte E-Mail-Adresse lässt sich nur über den direkten Widerruf verlieren: `confirm-email`
+  schreibt seine Angabe als ATTESTATION, also ganz ohne `auth_method_id`, und die E-Mail-Adresse
+  gehört ohnehin dem Konto selbst. Kein Widerruf eines Verfahrens erreicht sie.
+- `AccountClaim` protokolliert die Herkunft jeder bestätigten *Änderung* (`AttributeType`, Wert,
+  Quelle – Spalte `claim_source`, im Code `ClaimSource` –, `AcrLevel`). Es wird nur ergänzt, nie
+  geändert. Protokolliert werden Änderungen, nicht Durchläufe: Eine Angabe, die genau so schon gilt
+  (gleicher Typ, Wert, Quelle und Verfahren), wird nicht noch einmal geschrieben. Ein eID-Lauf mit
+  unveränderter Karte erzeugt also keine sieben neuen Zeilen. Die Spalte `normalized_value`
+  (`@PrePersist`/`@PreUpdate`) hält die Regel zur Normalisierung an genau einer Stelle fest.
+
+  Die Quelle sagt, wer für einen Wert einsteht: das Personenverzeichnis (`PERSON_DIRECTORY`, in der
+  Datenbank `person_directory`), ein Verfahren selbst (`ClaimSource.of(toolId)`, z. B. `ident-eid`),
+  der Nutzer (`SELF_REPORTED`) oder die Demo-Startdaten (`DEMO_BOOTSTRAP`). Daraus folgt ihr Rang
+  (`TrustLevel`: `STAMMDATEN` vor `PROVEN` vor `SELF_REPORTED`). Gibt es für ein Attribut mehr als
+  einen Wert, entscheidet zuerst der Rang, dann die Zeit.
+- Wem ein Attribut gehört, steht deklariert im Code: `AttributeType.authority`
+  (`tool_api/AttributeRules.kt`) kennt drei Fälle:
+  - `Local` (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL`): Der Wert liegt im Konto in
+    `account.anchor`; dieser Fall bringt die Regeln für Anker gleich mit.
+  - `PersonDirectory` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE` (Straße mit
+    Hausnummer), `PLZ`, `ORT`): Der Wert wird live über `PersonDirectory` gelesen; im Konto steht
+    nur die Historie der Claims.
+  - `MethodModule` (`PHONE_NUMBER`, `PASSWORD_EXISTS`): Der Wert steht in der Enrollment-Zeile des
+    Methodenmoduls.
+
+  `AnchorRule.bindingStrength` sagt zusätzlich, wie stark ein Treffer auf einem Anker eine
+  Identität bindet.
+- Einen Anker zu schreiben **verlangt** ein Mindestniveau: `AnchorRule.acrFloor` legt je
+  Attributtyp fest, welches Niveau die *erste Bindung* (`establish`) und welches das *Ersetzen*
+  (`replace`) mindestens voraussetzt. `EMAIL` lässt sich schon bei `loa1` binden, aber erst ab
+  `loa2` ersetzen. `PERSON_ID` verlangt schon für die erste Bindung `loa2`; daneben gilt vorrangig
+  `allowsReplacement = false`. `VERSNR` und `EID_RESTRICTED_ID` lassen sich ab `loa2` binden und
+  ersetzen (eine neue Versicherungsnummer, eine neue Karte). Geprüft wird an der einzigen Stelle,
+  die Anker schreibt (`AccountService.recordAnchor`); liegt die Sitzung darunter, wird der
+  Schreibversuch abgewiesen (`409`).
+- `account.anchor.established_acr` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`:
+  das **tatsächlich nachgewiesene** Niveau, begrenzt nach ADR-5.
+- `AccountAnchor` ordnet die lokal geführten Attribute (`AttributeAuthority.Local`: `PERSON_ID`,
+  `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL`) einem Konto zu, hält sie eindeutig und ist zugleich ihr
+  einziger Speicherort. `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem
+  einfachen Nachschlagen; `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen
+  Wert je Konto und Attributtyp. KVNR und Partnernummer werden ausschließlich live über
+  `ext_personenverzeichnis` (`findPersonIdByKvnr`/`findPersonIdByPartnernr`) zur PersonId und damit
+  zum lokalen PersonId-Anker aufgelöst. Ein Anker, der schon einem anderen Konto gehört, wird
+  abgewiesen ([12-entscheidungen.md](12-entscheidungen.md) ADR-11). Ändert das
+  Personenverzeichnis KVNR oder Versicherungsnummer, zieht das Konto den Claim bzw. den
+  `VERSNR`-Anker per Event nach (ADR-34).
+- `IdentityMatchingService.resolve` beantwortet die Frage „Gehört diese bestätigte Identität zu
+  einem bestehenden Konto?" **ausschließlich über Anker** (ADR-19). `resolveByAnchor` prüft die
+  Anker-Claims in der Reihenfolge ihrer `AnchorRule.bindingStrength`; ohne Treffer bleibt nur
+  `Unresolved`. Über Kombinationen von Attributen aus der Claim-Historie wird nicht mehr
+  aufgelöst. Name, Vorname und Geburtsdatum dienen nur noch dem Abgleich mit
+  `ext_personenverzeichnis` (`verifyToolAttestedConsistency`, `attestedIdentityMatches`).
+- Herleitung und noch nicht umgesetzte Ausbaustufen (Zusammenführen von Konten):
+  [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md).
+  Entscheidungen: [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-11/ADR-12/ADR-13/ADR-19.
+  Wie `personId` und `email` auf denselben Weg über Claims und Anker gebracht werden:
+  [ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md).
 
 ---
 
 ## 7) Tabellenmodell
 
-Das Schema steht in `src/main/resources/db/migration/<modul>/`, eine Datei je Modul, die Konventionen
-dahinter in [07-betrieb.md](07-betrieb.md) Abschnitt 6 und [12-entscheidungen.md](12-entscheidungen.md)
-ADR-14/ADR-16. Die Diagramme zeigen die tragenden Tabellen mit ihren identifizierenden Spalten,
-nicht jede Spalte. Jedes Modul hat ein eigenes Datenbankschema; der qualifizierte Name nennt den
-Besitzer ([12-entscheidungen.md](12-entscheidungen.md) ADR-16).
+Das Schema steht in `src/main/resources/db/migration/<modul>/`, eine Datei je Modul; die
+Konventionen dazu in [07-betrieb.md](07-betrieb.md) Abschnitt 6 und
+[12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16. Die Diagramme zeigen die tragenden
+Tabellen mit ihren identifizierenden Spalten, nicht jede Spalte. Jedes Modul hat ein eigenes
+Datenbankschema; der qualifizierte Name nennt das Modul, dem die Tabelle gehört
+([12-entscheidungen.md](12-entscheidungen.md) ADR-16).
 
-**Linienarten:** Eine durchgezogene Linie ist ein echter Fremdschlüssel — den gibt es
-ausschließlich **innerhalb** eines Schemas. Eine gestrichelte Linie ist ein Bezug über Schemagrenzen:
-eine indizierte Spalte ohne Constraint. Aufgeräumt wird sie über die API des besitzenden Moduls
-(`EnrollmentCleanup`, `AccountDeletionService`), nie per Kaskade.
+**Linienarten:** Eine durchgezogene Linie ist ein echter Fremdschlüssel. Solche gibt es
+ausschließlich **innerhalb** eines Schemas. Eine gestrichelte Linie ist ein Bezug über
+Schemagrenzen hinweg: eine indizierte Spalte ohne Constraint. Aufgeräumt wird sie über die API des
+Moduls, dem die Daten gehören (`EnrollmentCleanup`, `AccountDeletionService`), nie per Kaskade.
 
 ### Konto
 
 ```mermaid
 erDiagram
   account.account ||--o{ account.anchor : "hat aktuellen Ankerwert"
-  account.account ||--o{ account.auth_method : "hat Methodeninstanz"
+  account.account ||--o{ account.auth_method : "hat eingerichtetes Verfahren"
   account.account ||--o{ account.claim : "bestätigt (nur anfügen)"
   account.account ||--o{ account.identification : "identifiziert (nur anfügen)"
   account.account ||--o{ account.retraction : "widerruft (nur anfügen)"
@@ -196,7 +342,7 @@ erDiagram
     bigint account_id FK
     varchar attribute_type UK "ux(account_id, attribute_type)"
     varchar normalized_value UK "ux(attribute_type, normalized_value)"
-    varchar established_acr "tatsächlich bewiesenes Niveau, begrenzt"
+    varchar established_acr "tatsächlich nachgewiesenes Niveau, begrenzt"
   }
   account.auth_method {
     uuid id PK "adressiert von DELETE .../methods/{id}"
@@ -212,7 +358,7 @@ erDiagram
     varchar claim_value "wie bezeugt"
     varchar normalized_value "Normalform (@PrePersist)"
     varchar claim_source "z.B. person_directory, ident-eid"
-    uuid auth_method_id "ix; von welcher Methodeninstanz die Angabe stammt"
+    uuid auth_method_id "ix; von welchem Verfahren die Angabe stammt"
     varchar established_acr
   }
   account.retraction {
@@ -225,7 +371,7 @@ erDiagram
     bigint account_id FK
     varchar method "welches Verfahren"
     varchar achieved_acr
-    json details "Nachweisanker"
+    json details "Nachweis"
   }
   auth_sms.enrollment {
     bigint id PK
@@ -253,20 +399,21 @@ erDiagram
   }
 ```
 
-`account` trägt selbst keinen Fakt: `personId`, `versnr`, `restricted_id` und `email` stehen als Anker in `account.anchor`,
-die Methodenliste in `account.auth_method` (Abschnitt 6). Die Credential-Tabellen der
-Methodenmodule (hier beispielhaft `auth_sms.enrollment`, `auth_device.enrollment`) haben bewusst
-**keine** `account_id`: Sie entstehen im Tool-Handler, bevor die Orchestrierung das Konto kennt.
-Die einzige Verknüpfung ist `account.auth_method.enrollment_type/enrollment_id`. `auth_email` hat aus demselben Grund keine eigene Credential-Tabelle: Das
-Credential *ist* der EMAIL-Anker.
+Die Tabelle `account.account` selbst trägt keine Fakten: `personId`, `versnr`, `restricted_id` und
+`email` stehen als Anker in `account.anchor`, die Liste der Verfahren in `account.auth_method`
+(Abschnitt 6). Die Credential-Tabellen der Methodenmodule (hier beispielhaft
+`auth_sms.enrollment` und `auth_device.enrollment`) haben bewusst **keine** `account_id`: Sie
+entstehen im Tool-Handler, bevor die Orchestrierung das Konto kennt. Die einzige Verknüpfung ist
+`account.auth_method.enrollment_type/enrollment_id`. Aus demselben Grund hat `auth_email` keine
+eigene Credential-Tabelle: Das Credential *ist* der EMAIL-Anker.
 
-### Orchestrierung und Tool-Arbeitsdaten
+### Orchestrierung und Arbeitsdaten der Tools
 
 ```mermaid
 erDiagram
   orchestrator.channel_session ||--o{ orchestrator.auth_journey : "führt Lauf"
-  orchestrator.auth_journey ||--o{ orchestrator.tool_session : "aktiviert Tool"
-  orchestrator.channel_session }o--o| orchestrator.auth_context : "APP: Token-Buchhaltung"
+  orchestrator.auth_journey ||--o{ orchestrator.tool_session : "startet Tool"
+  orchestrator.channel_session }o--o| orchestrator.auth_context : "APP: Tokens"
   orchestrator.channel_session }o--o| orchestrator.auth_evidence : "Nachweise dieses Kanals"
   orchestrator.auth_context }o--o| orchestrator.auth_evidence : "bewertet"
   orchestrator.auth_journey }o..o| orchestrator.auth_journey : "parent_journey_id (ohne FK)"
@@ -281,24 +428,24 @@ erDiagram
     varchar binding_key_ref "ck: genau bei channel = APP gesetzt"
     varchar state
     varchar acr_floor "dauerhafte Untergrenze des Kanals"
-    timestamp expires_at "ix, Retention"
+    timestamp expires_at "ix, Aufbewahrung"
   }
   orchestrator.auth_journey {
     uuid id PK
     uuid channel_session_id FK
     varchar intent
     varchar lifecycle
-    varchar state_type "abfragbarer Diskriminator"
+    varchar state_type "abfragbares Unterscheidungsmerkmal"
     json state "JourneyState, kein next_*"
   }
   orchestrator.tool_session {
     uuid id PK
     uuid journey_id FK
-    timestamp expires_at "ix, Retention"
+    timestamp expires_at "ix, Aufbewahrung"
   }
   orchestrator.auth_context {
     uuid id PK
-    varchar access_token "der Token selbst, kein Handle - Cache"
+    varchar access_token "das Token selbst als Zwischenspeicher, kein Verweis"
     varchar refresh_token "nie im Frontend"
     timestamp access_expires_at
   }
@@ -315,7 +462,7 @@ erDiagram
   auth_sms.enroll_tool_session {
     uuid tool_session_id PK
     varchar issued_tan_hash
-    timestamp created_at "ix, Retention"
+    timestamp created_at "ix, Aufbewahrung"
   }
   auth_sms.auth_tool_session {
     uuid tool_session_id PK
@@ -324,21 +471,22 @@ erDiagram
   }
 ```
 
-`orchestrator.auth_evidence` und `orchestrator.auth_context` sind getrennt: Nachweise hat jeder
-Kanal (der KEYCLOAK-Kanal legt nie einen `AuthContext` an) und sind die Wahrheit, aus der die
-Policy rechnet — der Token ist nur die daraus ausgestellte, verwerfbare Kopie
+`orchestrator.auth_evidence` und `orchestrator.auth_context` sind getrennt. Nachweise hat jeder
+Kanal (der KEYCLOAK-Kanal legt nie einen `AuthContext` an), und sie sind die Wahrheit, mit der die
+Policy rechnet. Das Token ist nur eine daraus ausgestellte Kopie, die man verwerfen kann
 ([12-entscheidungen.md](12-entscheidungen.md) ADR-15).
 
-Die `*_tool_session`-Tabellen liegen im Schema ihres Moduls, obwohl ihr Lebenszyklus an der
-`orchestrator.tool_session` hängt: Ihr Primärschlüssel *ist* die `tool_session_id`, ein
-Fremdschlüssel darauf würde also über eine Schemagrenze gehen. `auth_sms.enroll_tool_session` ist die Modulhälfte
-derselben `orchestrator.tool_session`, keine vierte Session-Ebene. Jedes Methodenmodul ist gleich
-aufgebaut: ein langlebiges `<modul>.enrollment` plus je eine kurzlebige
-`<modul>.<tool-rolle>_tool_session` pro Tool; die Tabellen eines Moduls stehen in seiner eigenen Migration unter `db/migration/<modul>/`.
+Die `*_tool_session`-Tabellen liegen im Schema ihres Moduls, obwohl ihr Lebenszyklus an
+`orchestrator.tool_session` hängt. Ihr Primärschlüssel *ist* die `tool_session_id`; ein
+Fremdschlüssel darauf würde also über eine Schemagrenze gehen. `auth_sms.enroll_tool_session` ist
+der Teil derselben `orchestrator.tool_session`, der im Modul liegt, keine vierte Sitzungsebene.
+Jedes Methodenmodul ist gleich aufgebaut: ein langlebiges `<modul>.enrollment` und für jedes Tool
+eine kurzlebige `<modul>.<tool-rolle>_tool_session`. Die Tabellen eines Moduls stehen in seiner
+eigenen Migration unter `db/migration/<modul>/`.
 
 Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.session_event` und
-`orchestrator.journey_log` (Session-IDs sind dort historische Werte, keine Referenzen — die
-Aufzeichnung überlebt die Sessions), `orchestrator.attempt_throttle`, `orchestrator.dpop_proof_replay`,
-`orchestrator.tool_availability`, `orchestrator.feature_flag`,
+`orchestrator.journey_log` (die Sitzungs-IDs dort sind historische Werte, keine Verweise; die
+Aufzeichnung überlebt die Sitzungen), `orchestrator.attempt_throttle`,
+`orchestrator.dpop_proof_replay`, `orchestrator.tool_availability`, `orchestrator.feature_flag`,
 `orchestrator.keycloak_keypair`, `orchestrator.node_signing_key` und `orchestrator.event_publication`
 (die Event-Publication-Registry von Spring Modulith, ADR-29).

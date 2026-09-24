@@ -1,61 +1,68 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `LOOKUP_LOGIN`
 
-Anmelden ohne gepaartes Gerät: Der Nutzer nennt einen Identifikator (E-Mail) und weist eine seiner
-Methoden nach. Angeboten wird der abgeleitete Satz aller `MethodRole.LOOKUP_AUTH`-Tools, nicht
-`AuthPolicy.candidateTools` — das bräuchte einen bereits aufgelösten Account.
+Anmelden ohne gekoppeltes Gerät: Der Nutzer gibt seine E-Mail-Adresse an und weist eines seiner
+Verfahren nach. Angeboten werden alle Tools mit der Rolle `MethodRole.LOOKUP_AUTH`. Die
+Kandidatenliste von `AuthPolicy.candidateTools` passt hier nicht, denn sie setzt ein bereits
+gefundenes Konto voraus.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Start
-  Start --> Credential: Login-Verfahren ohne Gerätebindung verfügbar
+  Start --> Credential: Anmeldeverfahren ohne Gerätebindung verfügbar
   Start --> [*]: keines verfügbar - Abort
   Credential --> Credential: ein Tool abgelehnt, weitere übrig
   Credential --> [*]: alle abgelehnt - Cancel
   Credential --> AdditionalFactor: Nachweis erbracht, acrFloor noch nicht erreicht
-  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, kein Rebind-Konflikt
-  Credential --> ConfirmDeviceRebind: Nachweis erbracht, anderes Konto war auf dem Gerät gebunden
+  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, Gerät nicht anders gebunden
+  Credential --> ConfirmDeviceRebind: Nachweis erbracht, Gerät war an ein anderes Konto gebunden
   AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
   AdditionalFactor --> [*]: alle abgelehnt - Cancel
-  Credential --> RE_IDENTIFY: Nachweis erbracht, keine kombinierbare Methode übrig, Re-Identifizierung möglich
-  AdditionalFactor --> OfferBinding: acrFloor erreicht, kein Rebind-Konflikt
-  AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, anderes Konto war auf dem Gerät gebunden
-  AdditionalFactor --> RE_IDENTIFY: keine kombinierbare Methode übrig, Re-Identifizierung möglich
+  Credential --> RE_IDENTIFY: Nachweis erbracht, kein kombinierbares Verfahren übrig, erneute Identifizierung möglich
+  AdditionalFactor --> OfferBinding: acrFloor erreicht, Gerät nicht anders gebunden
+  AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, Gerät war an ein anderes Konto gebunden
+  AdditionalFactor --> RE_IDENTIFY: kein kombinierbares Verfahren übrig, erneute Identifizierung möglich
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
-  RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
+  RE_IDENTIFY --> [*]: abgelehnt oder nicht möglich (Cancel/Abort)
   OfferBinding --> Finished: Nutzer stimmt zu -> Gerät wird wiedererkannt
   OfferBinding --> Finished: Nutzer lehnt ab -> keine Bindung
   ConfirmDeviceRebind --> Finished: Nutzer stimmt zu -> Gerät wird umgebunden
-  ConfirmDeviceRebind --> Finished: Nutzer lehnt ab -> Login bleibt bestehen, alte Bindung bleibt
+  ConfirmDeviceRebind --> Finished: Nutzer lehnt ab -> Anmeldung und alte Bindung bleiben
   Finished --> [*]
 
   note right of Credential
-    Kein Identifying, das einen
-    ACCOUNT ÜBERNIMMT: ohne bekannten
-    Account ist Identifizierung hier
-    kein Login-Weg. RE_IDENTIFY ist
-    anders - es bestätigt nur den
-    bereits aufgelösten Account.
+    Hier gibt es kein Identifying,
+    das ein Konto ÜBERNIMMT: Ohne
+    bekanntes Konto ist Identifizieren
+    hier kein Weg zur Anmeldung.
+    RE_IDENTIFY ist etwas anderes:
+    Es bestätigt nur das bereits
+    gefundene Konto.
   end note
 ```
 
-`OfferBinding` fragt optional: „Dieses Gerät für künftige Logins wiedererkennen?" Dafür erfüllt es
-das allgemeine Markerinterface `AnswerableState` (Abschnitt 5), damit der gemeinsame Mechanismus den
-Zustand erkennt, ohne `LookupLoginState.OfferBinding` zu kennen. Löst der Login ein anderes Konto auf als
-das für dieses Gerät eingetragene, wechselt die Journey in `ConfirmDeviceRebind`: dieselbe
-Ja/Nein-Mechanik mit destruktivem Hinweis. Ablehnung verwirft nur die Umbindung, nicht den Login.
+**Das Gerät wiedererkennen.** `OfferBinding` stellt eine freiwillige Frage: „Dieses Gerät für
+künftige Anmeldungen wiedererkennen?“ Dafür implementiert der Zustand das allgemeine
+Markierungs-Interface `AnswerableState` (Orchestrierung, Abschnitt 5). So erkennt der gemeinsame
+Mechanismus den Zustand, ohne `LookupLoginState.OfferBinding` zu kennen. Gehört das Gerät bereits
+einem anderen Konto als dem gerade angemeldeten, wechselt die Journey nach `ConfirmDeviceRebind`.
+Dort läuft dieselbe Ja/Nein-Frage, mit einem Hinweis, dass die alte Bindung verloren geht. Lehnt der
+Nutzer ab, entfällt nur das Umbinden; die Anmeldung selbst bleibt bestehen.
 
-Die Gerätewiedererkennung (`DeviceAccountLink`) — eine dauerhafte Zuordnung Gerät → Account —
-entsteht hier **nur** nach Zustimmung, nie als Nebenwirkung des Logins.
+Die dauerhafte Zuordnung von Gerät zu Konto (`DeviceAccountLink`) entsteht in dieser Journey
+**nur** mit Zustimmung und nie nebenbei beim Anmelden.
 
-`AdditionalFactor` erzwingt die eigene `acrFloor` des Kanals (Abschnitt 8). Bleibt danach
-keine kombinierbare Methode übrig, springt die Strategie in die geteilte `RE_IDENTIFY`-SubJourney
-(Abschnitt „RE_IDENTIFY") statt selbst eine Re-Identifizierung anzubieten. Nach ihrem Abschluss
-prüft `Start` erneut per `settleOrRaise`. Dieser Intent hat bewusst **keinen** Enrollment-Fallback;
-Re-Identifizierung bleibt erlaubt, weil dabei kein Credential auf einem ungeprüften Gerät entsteht.
+**Wenn das Niveau nicht reicht.** `AdditionalFactor` setzt die Untergrenze des Kanals durch
+(`acrFloor`, Orchestrierung, Abschnitt 8). Bleibt danach kein kombinierbares Verfahren übrig,
+bietet die Strategie die erneute Identifizierung nicht selbst an. Sie startet stattdessen die
+gemeinsam genutzte Sub-Journey [`RE_IDENTIFY`](re-identify.md). Ist diese fertig, prüft `Start`
+mit `settleOrRaise` erneut. Diese Journey bietet bewusst **nicht** an, ein weiteres Verfahren
+einzurichten. Die erneute Identifizierung ist dagegen erlaubt, weil dabei kein Credential auf einem
+ungeprüften Gerät entsteht.
 
-**Enumeration-Schutz**: Eine unbekannte E-Mail liefert dieselbe Antwortform wie ein aufgelöster
-Account mit fehlgeschlagenem Nachweis — nie eine eigene Fehlerform, auch nicht im Timing der
-Demo-Werte ([API](../05-api.md)). Bewusst nicht weiter gehärtet (kein Timing-Padding).
+**Schutz vor dem Ausforschen von Adressen:** Eine unbekannte E-Mail-Adresse erhält dieselbe Antwort
+wie ein gefundenes Konto, dessen Nachweis fehlschlägt. Es gibt keine eigene Fehlerform dafür, auch
+nicht darin, wann Demo-Werte in der Antwort erscheinen ([API](../05-api.md)). Weiter gehärtet ist
+das bewusst nicht; die Antwortzeiten werden zum Beispiel nicht angeglichen.

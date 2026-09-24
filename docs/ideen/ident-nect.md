@@ -1,10 +1,11 @@
 # Idee: Identifikation über Nect (`ident-nect`)
 
-Status: **Umgesetzt als Demo mit Mock** (2026-09-23), nur im App-Kanal; die echte Anbindung (Abschnitt 9) und der Web-Kanal (Abschnitt 8) sind offen. Abweichungen vom Konzept stehen in Abschnitt 12. Fasst die beiden früheren Papiere
-„ext-ident als Tool anbinden“ und „ext-ident in den Modulith integrieren“ (2026-08-31) zusammen
-und gleicht sie mit dem heutigen Code ab. Neu: ein **Mock-Fremdsystem** mit Jumppage und Masken
-für eID, ePass und EUDI-Wallet, damit das Verfahren in der Demo ohne Nect-Zugang durchspielbar
-ist.
+Status: **Als Demo mit simuliertem Dienst umgesetzt** (2026-09-23), nur im App-Kanal. Offen sind die
+echte Anbindung (Abschnitt 9) und der Web-Kanal (Abschnitt 8). Abweichungen vom Konzept stehen in
+Abschnitt 12. Das Dokument fasst die beiden früheren Papiere „ext-ident als Tool anbinden“ und
+„ext-ident in den Modulith integrieren“ (2026-08-31) zusammen und gleicht sie mit dem heutigen Code
+ab. Neu ist ein **simuliertes Fremdsystem** mit Sprungseite und Formularen für eID, ePass und
+EUDI-Wallet, damit sich das Verfahren in der Demo ohne Zugang zu Nect durchspielen lässt.
 
 ---
 
@@ -14,21 +15,22 @@ Der Microservice `ext-ident` identifiziert Personen über den Dienstleister **Ne
 
 1. Ein aufrufendes Backend erzeugt ein signiertes **Order-JWT** (`sub`, `challenge`,
    `data.callback_uri`, `data.process`, `data.loa`) und reicht es mit einer PKCE-Challenge ein
-   (`POST /public/v1/tkapp`). ext-ident legt einen `IdentCase` an und gibt eine `redirect_uri`
-   zurück.
-2. Der Nutzer durchläuft auf der **Nect-Jumppage** das Verfahren (eID, ePass oder Video-Ident).
+   (`POST /public/v1/tkapp`). ext-ident legt einen Vorgang (`IdentCase`) an und gibt eine
+   `redirect_uri` zurück.
+2. Der Nutzer durchläuft auf der **Sprungseite von Nect** das Verfahren (eID, ePass oder Video-Ident).
 3. Nect meldet das Ergebnis asynchron an ext-ident (`PUT /protected/cases/{caseId}`) und leitet
    den Browser zur `callback_uri` zurück.
-4. Das Backend löst ein (`POST /public/v1/tkapp/{caseId}` mit `code_verifier`), ext-ident holt
-   die Ausweisdaten, gleicht sie mit TKeasy ab und stellt ein signiertes **Confirmation-JWT** aus.
+4. Das Backend löst den Vorgang ein (`POST /public/v1/tkapp/{caseId}` mit `code_verifier`). ext-ident
+   holt die Ausweisdaten, gleicht sie mit TKeasy ab und stellt ein signiertes **Confirmation-JWT** aus.
 
-`ext-ident` besteht aus `ext-ident-server` (~45 Klassen: Order-Validierung, Case-Lifecycle,
-Nect-Anbindung, TKeasy-Abgleich, Confirmation, Terminierung), `nect-rest-client` (~15 Klassen)
-und `ext-ident-devtools` (Nect-Mock mit Thymeleaf-UI für Teststages).
+`ext-ident` besteht aus `ext-ident-server` (etwa 45 Klassen: Prüfung der Order, Lebenszyklus der
+Vorgänge, Anbindung an Nect, Abgleich mit TKeasy, Confirmation, Beenden der Vorgänge),
+`nect-rest-client` (etwa 15 Klassen) und `ext-ident-devtools` (ein simuliertes Nect mit
+Thymeleaf-Oberfläche für Testumgebungen).
 
-Im DPoP-demo gibt es zwei `IDENTIFICATION`-Tools (`ident-fsc`, `ident-eid`) und ein
-Zuordnungs-Tool (`ident-kvnr`, `CORRELATION`). `ident-nect` wäre das erste Tool, bei dem der
-Nutzer die Anwendung **per Redirect** verlässt.
+In dieser Demo gab es damals zwei Tools zur Identifizierung (`ident-fsc`, `ident-eid`) und ein Tool
+zur Zuordnung (`ident-kvnr`, `CORRELATION`). `ident-nect` wäre das erste Tool, bei dem der Nutzer
+die Anwendung **per Weiterleitung** verlässt.
 
 ---
 
@@ -36,12 +38,12 @@ Nutzer die Anwendung **per Redirect** verlässt.
 
 | Damals | Heute | Folge für Nect |
 |---|---|---|
-| „Tools arbeiten rein intern; eine Backend-zu-Backend-Kante bricht das Muster“ | Fremdsysteme sind eigene Module mit direkter, deklarierter Kante: `auth_kobil → kobil_mock` (`KobilSsms`), `id_fsc → ext_personenverzeichnis` (`Freischaltcodes`, ADR-31) | Der Architektur-Einwand gegen die Anbindung entfällt. Nect wird ein weiteres Fremdsystem: `nect_mock` in der Demo, echte Anbindung dahinter austauschbar |
+| „Tools arbeiten rein intern; eine direkte Abhängigkeit zwischen Backends bricht das Muster“ | Fremdsysteme sind eigene Module mit einer direkten, deklarierten Abhängigkeit: `auth_kobil → kobil_mock` (`KobilSsms`), `id_fsc → ext_personenverzeichnis` (`Freischaltcodes`, ADR-31) | Der Einwand aus Sicht der Architektur entfällt. Nect wird ein weiteres Fremdsystem: in der Demo `nect_mock`, dahinter austauschbar gegen die echte Anbindung |
 | Tool liefert `Completed.Identified(personId, …)` | ADR-18: Wer nur Ausweisdaten bestätigt, löst keine Person auf (`ident-eid`); die Zuordnung übernimmt `ident-kvnr` | Abschnitt 4 entscheidet die Rolle neu |
-| Nur das App-Frontend betrachtet | Web-Kanal-Tools rendert die Keycloak-Extension (`WebToolRenderer`); Sperre je Kanal (ADR-32) | Start nur im App-Kanal, Web später (Abschnitt 8) |
-| „Session-Cookie überlebt den Redirect“ | Der App-Kanal hat keine Cookies: `channelSessionId` in localStorage, DPoP-Schlüssel in IndexedDB, Fortsetzen per `GET /channels/{id}`; Deep-Link-Muster `/app/?intent=confirm_peer_login&pairingCode=…` | Rücksprung als Deep-Link `/app/?tool=ident-nect&caseId=…` (Abschnitt 6) |
+| Nur das Frontend der App betrachtet | Die Tools im Web-Kanal zeigt die Keycloak-Erweiterung an (`WebToolRenderer`); Sperre je Kanal (ADR-32) | Start nur im App-Kanal, Web später (Abschnitt 8) |
+| „Das Sitzungs-Cookie übersteht die Weiterleitung“ | Der App-Kanal hat keine Cookies: `channelSessionId` in localStorage, DPoP-Schlüssel in IndexedDB, Fortsetzen per `GET /channels/{id}`; Muster für Deep-Links `/app/?intent=confirm_peer_login&pairingCode=…` | Rücksprung als Deep-Link `/app/?tool=ident-nect&caseId=…` (Abschnitt 6) |
 | Tabellen ohne Schema (`nect_ident_case`) | Ein Datenbankschema je Modul (ADR-16), Arbeitsdaten als `<modul>.<rolle>_tool_session` | `id_nect.ident_tool_session`, `nect_mock.ident_case` |
-| Terminierung per `@Scheduled` + ShedLock | Einzelinstanz (`DeploymentTopologyCheck`), Tool-Arbeitsdaten räumt je Modul ein `ToolSessionSweeper` ab | Kein ShedLock; Sweeper wie bei den übrigen Tools |
+| Beenden der Vorgänge per `@Scheduled` und ShedLock | Eine einzige Instanz (`DeploymentTopologyCheck`); die Arbeitsdaten der Tools räumt je Modul ein `ToolSessionSweeper` auf | Kein ShedLock; Aufräumen wie bei den übrigen Tools |
 | Descriptor mit `toolId`/`method`/`role`/`factorTypes`/`maxAcr` | Dazu `claims` (`ClaimDeclaration`), `startStep`; `Completed.Identified` trägt Claims und `auditDetails` | Descriptor in Abschnitt 5 entsprechend |
 
 ---
@@ -49,18 +51,18 @@ Nutzer die Anwendung **per Redirect** verlässt.
 ## 3) Zielbild
 
 ```
-App-Kanal (Browser-Tab "Smartphone")          Nect-Mock (Browser-Tab bzw. Redirect)
+App-Kanal (Browser-Tab "Smartphone")          simuliertes Nect (Browser-Tab bzw. Weiterleitung)
         │                                                │
         │ 1. ident-nect aktivieren                      │
         ▼                                                │
-  id_nect ──── NectService (Kante) ────► nect_mock      │
-        │   createCase(callback, loa)      Case anlegen  │
+  id_nect ── NectService (Abhängigkeit) ──► nect_mock  │
+        │   createCase(callback, loa)   Vorgang anlegen  │
         │◄──────────── jumpUrl ─────────────┘            │
         │                                                │
-        │ 2. Redirect zur Jumppage  ─────────────────────►  /nect/?case=…
+        │ 2. Weiterleitung zur Sprungseite ────────────────►  /nect/?case=…
         │                                                │   Verfahren wählen:
         │                                                │   eID · ePass · EUDI-Wallet
-        │                                                │   Maske ausfüllen, abschließen
+        │                                                │   Formular ausfüllen, abschließen
         │ 3. Rücksprung  ◄───────────────────────────────┘   /app/?tool=ident-nect&caseId=…
         │
         │ 4. PATCH {caseId}  →  id_nect holt Ergebnis beim Fremdsystem
@@ -68,29 +70,31 @@ App-Kanal (Browser-Tab "Smartphone")          Nect-Mock (Browser-Tab bzw. Redire
   ToolOutcome.Completed.Identified (Kartendaten als Claims)  →  weiter wie bei ident-eid
 ```
 
-- **`id_nect`** ist das Tool-Modul (Descriptor, Controller, Handler) nach dem Muster von
-  `id_eid`. Es kennt Nect nur über eine schmale Schnittstelle `NectService`.
+- **`id_nect`** ist das Tool-Modul (Descriptor, Controller, Handler) nach dem Muster von `id_eid`. Es
+  kennt Nect nur über eine schmale Schnittstelle `NectService`.
 - **`nect_mock`** ist das simulierte Fremdsystem nach dem Muster von `kobil_mock`:
-  `allowedDependencies = []`, eigenes Schema, zwei Gesichter – `NectService` für unser Backend und
-  die HTTP-Fassade `/mock-nect/*` für die Jumppage.
-- **Echte Anbindung** (Abschnitt 9) ersetzt später nur die Implementierung von `NectService`;
-  Tool, Frontend-Rücksprung und Outcome bleiben gleich.
+  `allowedDependencies = []`, eigenes Schema und zwei Schnittstellen, `NectService` für unser Backend
+  und die HTTP-Schnittstelle `/mock-nect/*` für die Sprungseite.
+- Die **echte Anbindung** (Abschnitt 9) ersetzt später nur die Umsetzung von `NectService`. Tool,
+  Rücksprung im Frontend und Ergebnis bleiben gleich.
 
 ---
 
-## 4) Rolle: Kartendaten bestätigen, nicht Person auflösen
+## 4) Rolle: Kartendaten bestätigen, keine Person finden
 
 Nect bestätigt, was auf dem Dokument steht. Eine KVNR oder Partnernummer trägt kein Ausweis,
 kein Pass und keine Wallet-PID. ext-ident gleicht zwar selbst mit TKeasy ab, weil ihm die Order
-den `sub` schon nennt – in unserem Ablauf ist beim Identifizieren aber noch keine Person bekannt.
+den `sub` schon nennt. In unserem Ablauf ist beim Identifizieren aber noch keine Person bekannt.
 
 **Empfehlung: angleichen an `ident-eid`** (ADR-18/19): `ident-nect` meldet die bestätigten
 Attribute als Claims mit `ClaimSource.of("ident-nect")`, keine `PERSON_ID`. Die Zuordnung zur
-Person im Personenverzeichnis läuft danach wie heute über `ident-kvnr`. Kein zweiter Weg für dieselbe Frage.
+Person im Personenverzeichnis läuft danach wie heute über `ident-kvnr`. So gibt es keinen zweiten Weg
+für dieselbe Frage.
 
-Die Alternative – `ident-nect` ruft selbst `PersonDirectory.matchesStammdaten` und meldet eine
-`PERSON_ID` wie `ident-fsc` – wäre eine zweite Zuordnungslogik neben `ident-kvnr` und lohnt nur,
-wenn Nect künftig mit bekannter KVNR gestartet wird (Re-Identifikation eines bekannten Kontos).
+Die Alternative wäre, dass `ident-nect` selbst `PersonDirectory.matchesStammdaten` aufruft und wie
+`ident-fsc` eine `PERSON_ID` meldet. Das wäre eine zweite Logik zur Zuordnung neben `ident-kvnr` und
+lohnt sich nur, wenn Nect künftig mit bekannter KVNR gestartet wird (erneute Identifizierung eines
+bekannten Kontos).
 
 **Wiedererkennung:** `ident-eid` nutzt die `restrictedId` als lokalen Anker. Die Entsprechung je
 Verfahren:
@@ -99,7 +103,7 @@ Verfahren:
 |---|---|---|
 | eID | Restricted Identifier (Pseudonym je Diensteanbieter) | wie `ident-eid` |
 | ePass | Dokumentnummer + Ausstellerstaat | wechselt mit jedem neuen Pass – wie eine neue Karte (ADR-19) |
-| EUDI-Wallet | – | die PID trägt kein Pseudonym gegenüber der vertrauenden Stelle (Abschnitt 7); Pseudonyme laufen im ARF getrennt über Passkeys |
+| EUDI-Wallet | – | die PID enthält kein Pseudonym gegenüber der vertrauenden Stelle (Abschnitt 7); Pseudonyme laufen im ARF getrennt über Passkeys |
 
 ---
 
@@ -117,8 +121,8 @@ object IdentNectDescriptor : ToolDescriptor {
 }
 ```
 
-`maxAcr` ist die Obergrenze; das **erreichte** Niveau meldet jeder Lauf selbst, abhängig vom
-Verfahren, das der Nutzer auf der Jumppage gewählt hat:
+`maxAcr` ist die Obergrenze. Das **erreichte** Niveau meldet jeder Durchlauf selbst, abhängig vom
+Verfahren, das der Nutzer auf der Sprungseite gewählt hat:
 
 | Verfahren | amr | factorTypes des Laufs | achievedAcr (Vorschlag) |
 |---|---|---|---|
@@ -130,32 +134,34 @@ Verfahren, das der Nutzer auf der Jumppage gewählt hat:
 
 | step | Wer | Was |
 |---|---|---|
-| `redirect` | App | `stepData` `nect-redirect` (`jumpUrl`, `caseId`); Button „Weiter zu Nect“ leitet weiter; nach dem Rücksprung `PATCH {caseId}` ohne weiteren Klick |
+| `redirect` | App | `stepData` `nect-redirect` (`jumpUrl`, `caseId`); der Knopf „Weiter zu Nect“ leitet weiter; nach dem Rücksprung folgt `PATCH {caseId}` ohne weiteren Klick |
 | – | Backend | Ergebnis beim Fremdsystem holen, Claims ableiten, `Completed.Identified` oder `Failed` |
 
 ### Arbeitsdaten
 
-`id_nect.ident_tool_session (tool_session_id, case_id, created_at)` – Schlüssel ist die
-`tool_session_id` (KONVENTIONEN.md), aufgeräumt vom `ToolSessionSweeper` des Moduls. Die
+`id_nect.ident_tool_session (tool_session_id, case_id, created_at)`. Der Schlüssel ist die
+`tool_session_id` (KONVENTIONEN.md); aufgeräumt wird über den `ToolSessionSweeper` des Moduls. Die
 Ausweisdaten selbst speichert `id_nect` nicht; sie gehen als Claims an das Konto.
 
 ---
 
 ## 6) Redirect und Rücksprung im App-Kanal
 
-1. Der Tool-Schritt `redirect` liefert `jumpUrl = /nect/?case={caseId}`. Die `callback_uri`, die
-   `id_nect` beim Anlegen des Case mitgibt, ist `/app/`; Nect hängt `?nectCaseId={caseId}` an.
-2. Der Browser verlässt die App-Seite. `channelSessionId` (localStorage) und DPoP-Schlüssel
-   (IndexedDB) überleben das – genau wie beim Neuladen.
+1. Der Schritt `redirect` des Tools liefert `jumpUrl = /nect/?case={caseId}`. Die `callback_uri`, die
+   `id_nect` beim Anlegen des Vorgangs mitgibt, ist `/app/`; Nect hängt `?nectCaseId={caseId}` an.
+2. Der Browser verlässt die Seite der App. `channelSessionId` (localStorage) und DPoP-Schlüssel
+   (IndexedDB) bleiben dabei erhalten, genau wie beim Neuladen.
 3. Beim Rücksprung setzt die App den Kanal wie gewohnt fort (`GET /channels/{id}`), liest
    `nectCaseId` aus der URL (wie `pairingCode`), bereinigt die URL und schickt
    `PATCH /tools/{toolSessionId}/ident-nect {caseId}`. Die `toolSessionId` kommt aus `next`.
-4. Passt die `caseId` nicht zur Tool-Session, ist das ein `Failed` – ein fremder Case kann so
-   nicht eingelöst werden. Jeder Case ist nur einmal einlösbar (Replay-Schutz im Fremdsystem).
+4. Passt die `caseId` nicht zur Tool-Session, ist das ein `Failed`; ein fremder Vorgang lässt sich so
+   nicht einlösen. Jeder Vorgang lässt sich nur einmal einlösen (Schutz vor Wiederholung im
+   Fremdsystem).
 
-Bricht der Nutzer auf der Jumppage ab (oder scheitert die Identifizierung), kommt er ebenfalls nur
-mit `?nectCaseId=…` zurück; erst das Einlösen zeigt den Ausgang. Das Tool meldet `Failed`, die App
-bietet „Erneut versuchen“ (`PATCH {retry: true}` legt einen neuen Case an) oder „Anderes Verfahren“.
+Bricht der Nutzer auf der Sprungseite ab (oder scheitert die Identifizierung), kommt er ebenfalls nur
+mit `?nectCaseId=…` zurück; erst das Einlösen zeigt den Ausgang. Das Tool meldet `Failed`, und die App
+bietet „Erneut versuchen“ (`PATCH {retry: true}` legt einen neuen Vorgang an) oder „Anderes Verfahren“
+an.
 
 ---
 
@@ -166,20 +172,20 @@ bietet „Erneut versuchen“ (`PATCH {retry: true}` legt einen neuen Case an) o
 - Modul `nect_mock`, `allowedDependencies = []`, Schema `nect_mock` mit
   `ident_case (id, callback_uri, loa, status, procedure, result JSON, created_at, redeemed_at)`.
 - `NectService` (für `id_nect`): `createCase(callbackUri, loa): Case(id, jumpUrl)`,
-  `redeem(caseId): NectResult?` – liefert das Ergebnis genau einmal, danach `null`.
-- HTTP-Fassade `/mock-nect/*` (für die Jumppage): `GET cases/{id}` (Status, verlangtes Niveau),
-  `POST cases/{id}/result` (Verfahren + Attribute), `POST cases/{id}/cancel`. Wie `/mock-kobil`
-  außerhalb von `/orchestrator`, ohne Login: Es ist das fremde System.
+  `redeem(caseId): NectResult?`. Es liefert das Ergebnis genau einmal, danach `null`.
+- HTTP-Schnittstelle `/mock-nect/*` (für die Sprungseite): `GET cases/{id}` (Status, verlangtes Niveau),
+  `POST cases/{id}/result` (Verfahren + Attribute), `POST cases/{id}/cancel`. Wie `/mock-kobil` liegt sie
+  außerhalb von `/orchestrator` und braucht keine Anmeldung, denn es ist das fremde System.
 
-### Frontend: Jumppage `/nect/`
+### Frontend: Sprungseite `/nect/`
 
-Eigene Vite-Seite wie `/personenverzeichnis/`, sichtbar ein fremdes System (eigenes Theme, Banner „Simulierter
-Identifizierungsdienst“, eigenes Tab-Icon). Aufbau:
+Eine eigene Vite-Seite wie `/personenverzeichnis/`, erkennbar als fremdes System (eigenes Theme, Banner
+„Simulierter Identifizierungsdienst“, eigenes Symbol im Tab). Aufbau:
 
 1. **Einstieg:** „Identifizierung für *DPoP-Demo*“, verlangtes Niveau, Auswahl
    **Online-Ausweis (eID)** · **Reisepass (ePass)** · **EUDI-Wallet**; dazu „Abbrechen“.
-2. **Maske je Verfahren** (vorbelegbar aus den Demo-Personen des Personenverzeichnisses, wie heute im
-   eID-Formular):
+2. **Ein Formular je Verfahren**, vorbelegbar aus den Demo-Personen des Personenverzeichnisses, wie
+   heute im eID-Formular:
 
 | Verfahren | Simulierte Schritte | Felder | Besonderheit |
 |---|---|---|---|
@@ -190,8 +196,8 @@ Identifizierungsdienst“, eigenes Tab-Icon). Aufbau:
 3. **Abschluss:** „Identifizierung abschließen“ speichert das Ergebnis im Mock und leitet zur
    `callback_uri`; „Identifizierung fehlgeschlagen“ und „Abbrechen“ führen die Fehlerwege vor.
 
-So zeigt die Demo drei Dinge, die heute nicht sichtbar sind: das Verlassen der Anwendung, dass
-verschiedene Dokumente verschieden viel bestätigen (ePass ohne Adresse, Wallet nur das Geteilte)
+So zeigt die Demo drei Dinge, die bisher nicht sichtbar waren: dass man die Anwendung verlässt, dass
+verschiedene Dokumente verschieden viel bestätigen (ePass ohne Adresse, Wallet nur das Freigegebene)
 und dass das erreichte Niveau vom gewählten Verfahren abhängt.
 
 ---
@@ -225,12 +231,12 @@ das so ab:
 - Das Pass-Ablaufdatum prüft Nect selbst und gibt es nicht weiter. Ein Wallet-Pseudonym gibt es
   nicht mehr.
 
-Folgen für das übrige Modell (umgesetzt 2026-09-24):
+Folgen für das übrige Modell (umgesetzt am 2026-09-24):
 
 - Straße und Hausnummer kommen bei eID und PID als **ein** Feld. `AttributeType.STRASSE` ist
   deshalb die ganze Straßenzeile, `HAUSNUMMER` gibt es nicht mehr. Nur das Personenverzeichnis trennt beide
-  (P-4) und setzt sie an seiner Grenze zusammen (`PersonData.strassenzeile`), auch für den
-  Keycloak-Spiegel.
+  (P-4) und setzt sie an seiner Schnittstelle zusammen (`PersonData.strassenzeile`), auch für die
+  Spiegelung nach Keycloak.
 - Der Pass liefert Namen in MRZ-Schreibweise (`MUELLER`), die eID in Großbuchstaben (`MÜLLER`).
   Das Personenverzeichnis vergleicht Namen daher in MRZ-Form (`MrzName`): Großschreibung, Ä→AE, ß→SS,
   Diakritika weg, Name und Vorname als ein Namensfeld, gekürzt auf die 39 Zeichen des Passes.
@@ -238,50 +244,50 @@ Folgen für das übrige Modell (umgesetzt 2026-09-24):
 
 ## 8) Web-Kanal
 
-Im Web-Kanal rendert die Keycloak-Extension die Tool-Schritte. Ein Redirect aus der
-Keycloak-Anmeldeseite heraus und zurück in denselben Login (Keycloak-`login-actions`, gebunden an
-die Anmeldesitzung) ist ein eigenes Stück Arbeit. **Vorschlag:** zunächst nur App-Kanal –
-`ident-nect` in `demo.tool-defaults` für `KEYCLOAK` gesperrt (ADR-32); der Web-Client bietet es
-mangels Renderer ohnehin nicht an. Web später mit einem `WebToolRenderer`, der den Redirect über
-eine Keycloak-Action-URL als `callback_uri` zurückführt.
+Im Web-Kanal zeigt die Keycloak-Erweiterung die Schritte der Tools an. Eine Weiterleitung aus der
+Anmeldeseite von Keycloak hinaus und zurück in dieselbe Anmeldung (`login-actions` von Keycloak,
+gebunden an die Anmeldesitzung) ist eine eigene Aufgabe. **Vorschlag:** zunächst nur im App-Kanal, mit `ident-nect` in `demo.tool-defaults` für `KEYCLOAK`
+gesperrt (ADR-32); der Web-Client bietet es mangels Renderer ohnehin nicht an. Das Web käme später
+mit einem `WebToolRenderer`, der die Weiterleitung über eine Action-URL von Keycloak als
+`callback_uri` zurückführt.
 
 ---
 
 ## 9) Echte Anbindung: über ext-ident oder direkt an Nect
 
-`NectService` bekommt zwei Implementierungen, per Profil gewählt: den Mock und eine echte.
+`NectService` bekommt zwei Umsetzungen, die per Profil gewählt werden: die simulierte und eine echte.
 
 | Kriterium | A: ext-ident als Dienst anbinden | B: ext-ident-Logik ins Modul holen, Nect direkt |
 |---|---|---|
-| Muster | Fremdsystem-Kante wie `kobil_mock` – seit ADR-31 etabliert | ebenso; Nect ist das Fremdsystem |
-| Inter-Service-Sicherheit | Order-JWT, Confirmation-JWT, PKCE, JWKS, Issuer-Whitelist nötig | entfällt (~40 % des ext-ident-Codes) |
-| Betrieb | zwei Systeme, ein Netzwerk-Hop mehr | ein Deployment, Nect als einzige externe Stelle |
-| Callback | Nect → ext-ident | Nect → Modulith (`PUT /callbacks/nect/{caseId}`, ohne Login; Schutz über unvorhersagbare `caseId` + Zustandsprüfung, wie in ext-ident) |
-| TKeasy-Abgleich | in ext-ident | entfällt hier – Zuordnung über `ident-kvnr` (Abschnitt 4) |
-| Aufwand | ~3–5 Tage | ~7–9 Tage (NectClient portieren, Case-Domäne, Callback) |
-| Andere Konsumenten | ext-ident bleibt nutzbar | müssten eigene Anbindung bauen |
+| Muster | Abhängigkeit zu einem Fremdsystem wie `kobil_mock`, seit ADR-31 üblich | ebenso; Nect ist das Fremdsystem |
+| Sicherheit zwischen den Diensten | Order-JWT, Confirmation-JWT, PKCE, JWKS und eine Liste erlaubter Aussteller nötig | entfällt (etwa 40 % des Codes von ext-ident) |
+| Betrieb | zwei Systeme, ein Netzwerkweg mehr | eine einzige Installation, Nect als einzige externe Stelle |
+| Rückmeldung | Nect → ext-ident | Nect → Modulith (`PUT /callbacks/nect/{caseId}`, ohne Anmeldung; geschützt über eine nicht vorhersagbare `caseId` und eine Prüfung des Zustands, wie in ext-ident) |
+| Abgleich mit TKeasy | in ext-ident | entfällt hier; Zuordnung über `ident-kvnr` (Abschnitt 4) |
+| Aufwand | etwa 3–5 Tage | etwa 7–9 Tage (NectClient übernehmen, Vorgänge abbilden, Rückmeldung) |
+| Andere Nutzer des Dienstes | ext-ident bleibt nutzbar | müssten eine eigene Anbindung bauen |
 
-**Empfehlung:** Für die Demo zuerst der Mock (Abschnitt 7) – er braucht keinen Zugang und zeigt
-alle Wege. Für einen echten Test **A**, solange ext-ident andere Konsumenten hat; **B**, wenn nur
-dieses System Nect nutzt. Der Wechsel betrifft nur die `NectService`-Implementierung.
+**Empfehlung:** Für die Demo zuerst der simulierte Dienst (Abschnitt 7): Er braucht keinen Zugang und
+zeigt alle Wege. Für einen echten Test **A**, solange ext-ident noch andere Nutzer hat; **B**, wenn nur
+dieses System Nect nutzt. Der Wechsel betrifft nur die Umsetzung von `NectService`.
 
-Bei **A** gilt aus dem ersten Papier weiter: Option „PKCE serverseitig“ – das Backend erzeugt
-`code_verifier`/`code_challenge`, reicht die Order selbst ein und löst selbst ein; das Frontend
-sieht nur die `redirect_uri` und den Rücksprung. Offene Punkte dort: Issuer-Whitelist und
-`process`-Wert bei ext-ident, Audience der Confirmation, Einmal-Einlösung.
+Bei **A** gilt aus dem ersten Papier weiter die Option „PKCE auf dem Server“: Das Backend erzeugt
+`code_verifier` und `code_challenge`, reicht die Order selbst ein und löst sie selbst ein. Das Frontend
+sieht nur die `redirect_uri` und den Rücksprung. Offen sind dort: die Liste erlaubter Aussteller und
+der Wert von `process` bei ext-ident, die Audience der Confirmation und das nur einmalige Einlösen.
 
 ---
 
-## 10) Aufwand (Demo mit Mock)
+## 10) Aufwand (Demo mit simuliertem Dienst)
 
 | Paket | Aufwand |
 |---|---|
-| `nect_mock`: Schema, `NectService`, `/mock-nect`-Fassade | 1 Tag |
-| Jumppage `/nect/` mit drei Masken, Theme, Vorbelegung | 1,5–2 Tage |
-| `id_nect`: Descriptor, Controller, Handler, Tool-Session, Sweeper | 1 Tag |
-| App: Tool-Formular `redirect`/`waiting`, Deep-Link-Rücksprung | 0,5–1 Tag |
-| Tests (Handler, Integration inkl. Rücksprung, Mock) und Doku | 1 Tag |
-| **Summe** | **~5–6 Tage** |
+| `nect_mock`: Schema, `NectService`, HTTP-Schnittstelle `/mock-nect` | 1 Tag |
+| Sprungseite `/nect/` mit drei Formularen, Theme, Vorbelegung | 1,5–2 Tage |
+| `id_nect`: Descriptor, Controller, Handler, Tool-Session, Aufräumen | 1 Tag |
+| App: Formular des Tools für `redirect`/`waiting`, Rücksprung per Deep-Link | 0,5–1 Tag |
+| Tests (Handler, Integration mit Rücksprung, simulierter Dienst) und Doku | 1 Tag |
+| **Summe** | **etwa 5–6 Tage** |
 
 ---
 
@@ -289,31 +295,32 @@ sieht nur die `redirect_uri` und den Rücksprung. Offene Punkte dort: Issuer-Whi
 
 1. Rolle bestätigt? (Abschnitt 4: Kartendaten + `ident-kvnr` statt eigener Zuordnung.)
 2. Niveau je Verfahren (Abschnitt 5) fachlich richtig, insbesondere ePass?
-3. Soll die Jumppage im selben Tab laufen (Redirect, näher an der Realität) oder in einem neuen
-   (bequemer in der Demo)? Vorschlag: selber Tab.
-4. Web-Kanal: wann und mit welchem Rücksprung aus Keycloak heraus?
-5. Echte Anbindung A oder B – hängt an den übrigen Konsumenten von ext-ident.
+3. Soll die Sprungseite im selben Tab laufen (Weiterleitung, näher an der Wirklichkeit) oder in einem
+   neuen (bequemer in der Demo)? Vorschlag: im selben Tab.
+4. Web-Kanal: Wann, und mit welchem Rücksprung aus Keycloak heraus?
+5. Echte Anbindung A oder B? Das hängt davon ab, wer ext-ident sonst noch nutzt.
 
 ---
 
 ## 12) Umsetzung (2026-09-23)
 
-- Module `id_nect` (Tool) und `nect_mock` (Fremdsystem, `allowedDependencies = ["texts"]` – nur die
-  Textbibliothek, ADR-33), Kante
-  `id_nect → nect_mock` deklariert wie `auth_kobil → kobil_mock`. Die App spricht nur mit dem
-  Orchestrator; die Sprungseite nur mit `/mock-nect`; das Ergebnis holt das Backend direkt bei
-  `NectIdent.redeem` ab (einmalig, nur für den Case der eigenen Tool-Session).
-- amr je Verfahren: `nect-eid`, `nect-epass`, `nect-eudi` (Entscheidung Rene). Weil amr damit nicht
-  mehr gleich `method` ist, erkennt `DefaultAuthPolicy.reIdentCandidates` „in dieser Sitzung schon
-  benutzt“ zusätzlich über die `toolId` hinter der Evidence (`amrSourceId`).
+- Module `id_nect` (Tool) und `nect_mock` (Fremdsystem, `allowedDependencies = ["texts"]`, also nur
+  die Textbibliothek, ADR-33). Die Abhängigkeit `id_nect → nect_mock` ist deklariert wie
+  `auth_kobil → kobil_mock`. Die App spricht nur mit dem Orchestrator, die Sprungseite nur mit
+  `/mock-nect`. Das Ergebnis holt das Backend direkt über `NectIdent.redeem` ab (nur einmal und nur für
+  den Vorgang der eigenen Tool-Session).
+- `amr` je Verfahren: `nect-eid`, `nect-epass`, `nect-eudi` (Entscheidung von Rene). Weil `amr` damit
+  nicht mehr gleich `method` ist, erkennt `DefaultAuthPolicy.reIdentCandidates` „in dieser Sitzung
+  schon benutzt“ zusätzlich über die `toolId` hinter dem Nachweis (`amrSourceId`).
 - Der Pass liefert keine Adresse, die Wallet nur die freigegebenen Felder; `EID_RESTRICTED_ID` nur
   beim eID-Verfahren (Nect-eigenes Pseudonym, nicht dasselbe wie bei `ident-eid`).
-- Nur App-Kanal: dort als erstes Identifikationsverfahren einsortiert. Der Web-Kanal bietet es nicht an, weil die
-  keycloak-extension keinen Renderer dafür hat (der Client deklariert, was er kann) – keine
-  zusätzliche Sperre im Backend.
-- Offene Fragen 1–3 damit entschieden: Rolle wie Abschnitt 4, Niveaus wie Tabelle, selber Tab.
+- Nur im App-Kanal, dort als erstes Verfahren zur Identifizierung einsortiert. Der Web-Kanal bietet es
+  nicht an, weil die Keycloak-Erweiterung keinen Renderer dafür hat (der Client gibt selbst an, was er
+  kann). Eine zusätzliche Sperre im Backend gibt es nicht.
+- Die offenen Fragen 1–3 sind damit entschieden: Rolle wie in Abschnitt 4, Niveaus wie in der
+  Tabelle, im selben Tab.
 - Abweichung vom Entwurf: Statt einer Schnittstelle `NectService` ruft `id_nect` direkt die Klasse
   `nect_mock.NectIdent` (`createCase`/`redeem`/`caseView`), wie `auth_kobil → KobilSsms` (ADR-31).
-  Für die echte Anbindung (Abschnitt 9) wäre daraus erst eine Schnittstelle zu ziehen. Ebenso hängt
-  `nect_mock` nicht an nichts (`[]`, wie oben entworfen), sondern an `texts`.
+  Für die echte Anbindung (Abschnitt 9) müsste man daraus erst eine Schnittstelle machen. Außerdem
+  hat `nect_mock` nicht, wie oben entworfen, gar keine Abhängigkeit (`[]`), sondern eine auf `texts`.
 

@@ -4,32 +4,32 @@
 
 - **Projekt**: `dpop-demo` (Spring Boot Modulith + React/TypeScript).
 - **Arbeitsverzeichnis**: `/Users/rene/Develop/opencode/DPoP-demo`
-- **Single Source of Truth (fachlich)**: `docs/` (Zielbild hat Vorrang vor aktuellem Code).
+- **Maßgebliche fachliche Quelle**: `docs/` (das Zielbild hat Vorrang vor dem aktuellen Code).
 
 ## Token-sparender Lesepfad für Agents
 
 1. **Immer zuerst**: `docs/00-agent-quickstart.md`
 2. Danach **nur gezielt** das benötigte Detaildokument:
    - Architektur/Module: `docs/08-projektrahmen.md`
-   - Flows/Orchestrierung: `docs/04-orchestrierung.md`, `docs/06-ablaeufe.md`
+   - Abläufe/Orchestrierung: `docs/04-orchestrierung.md`, `docs/06-ablaeufe.md`
      (einzelne Journey: `docs/journeys/<intent>.md`; einzelne Entscheidung: `docs/adr/`)
    - API: `docs/05-api.md`
    - DPoP: `docs/09-dpop.md`
    - Frontend: `docs/10-frontend.md`
-3. `docs/README.md` nur für Navigation/Lesepfade, nicht als Pflichtlektüre.
+3. `docs/README.md` nur zur Orientierung und für die Lesepfade, nicht als Pflichtlektüre.
 
 ## Dokumentationsregeln
 
 - Neue Anforderungen in das **thematisch passende** Dokument einarbeiten.
-- Prompt-Wortlaut nicht zitieren, sondern in strukturierte Aussagen überführen.
-- Bei Konflikt zwischen Code und Doku gilt das dokumentierte Zielbild.
+- Den Wortlaut eines Prompts nicht zitieren, sondern in geordnete Aussagen umsetzen.
+- Widersprechen sich Code und Doku, gilt das dokumentierte Zielbild.
 
 ## Arbeitsregeln (kurz)
 
-- Keine globalen Installationen ohne explizite Freigabe.
-- Kein Push/Remote-Operationen ohne explizite Anweisung.
-- Vor Commits nur beabsichtigte Dateien stagen und Status/Diff prüfen.
-- Für lang laufende Prozesse (`bootRun`) bevorzugt Tests oder Hintergrundlauf.
+- Nichts global installieren ohne ausdrückliche Freigabe.
+- Kein Push und keine anderen Remote-Operationen ohne ausdrückliche Anweisung.
+- Vor einem Commit nur die gewollten Dateien vormerken (`git add`) und Status und Diff prüfen.
+- Lang laufende Prozesse (`bootRun`) möglichst durch Tests ersetzen oder im Hintergrund starten.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
 ## Beads Issue Tracker

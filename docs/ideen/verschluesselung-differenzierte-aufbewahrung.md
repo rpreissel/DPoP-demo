@@ -1,288 +1,315 @@
-# Idee: Envelope Encryption für differenzierte Aufbewahrung/Retraction
+# Idee: Umschlagverschlüsselung für unterschiedliche Aufbewahrung und Widerrufe
 
-> **Status: offen, nicht entschieden.** Diskussionsvorschlag, keine Implementierungsfreigabe.
-> Betrifft [02-domaenenmodell.md](../02-domaenenmodell.md) §6 (`AccountClaim`/`AccountAnchor`/
-> `AccountRetraction`) und die Aufbewahrungsregeln in [07-betrieb.md](../07-betrieb.md). Im
-> Projekt existiert aktuell **keine** Verschlüsselung ruhender Daten — alle PII-Spalten sind
-> Klartext (`db/migration/<modul>/`); vorhandener Krypto-Code beschränkt sich auf PBKDF2-Passwort-Hashing,
-> HMAC (TAN/E-Mail-Code, Throttle) und EC-Keygen für Keycloak-Assertions. Eine „eID max. 1 Jahr"-
-> Regel existiert nirgends in der Doku — sie dient hier nur als illustratives Beispiel.
+> **Status: offen, nicht entschieden.** Ein Vorschlag zur Diskussion, keine Freigabe zur Umsetzung.
+> Er betrifft [02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 6 (`AccountClaim`,
+> `AccountAnchor`, `AccountRetraction`) und die Regeln zur Aufbewahrung in
+> [07-betrieb.md](../07-betrieb.md). Im Projekt werden gespeicherte Daten derzeit **nicht**
+> verschlüsselt; alle Spalten mit personenbezogenen Daten stehen im Klartext
+> (`db/migration/<modul>/`). Der vorhandene kryptografische Code beschränkt sich auf das Hashen von
+> Passwörtern mit PBKDF2, auf HMAC (TAN, E-Mail-Code, Zähler) und auf das Erzeugen von EC-Schlüsseln
+> für die Assertions von Keycloak. Eine Regel „eID-Daten höchstens ein Jahr“ steht nirgends in der
+> Doku; sie dient hier nur als Beispiel.
 
 ## Kontext
 
-Frage: Gibt es eine Technik, mit der man pro Account **einen** Schlüssel hat, aber trotzdem
-einzelne Datenfelder mit unterschiedlichen Aufbewahrungsfristen oder Retraction-Policies absichern
-kann? Konkrete Beispiele: E-Mail-Bestätigung wird zurückgezogen; eID-Daten dürfen maximal ein Jahr
-aufbewahrt werden. Schlüsselaufbewahrung (wo/wie der Account-Schlüssel selbst liegt) ist
-ausdrücklich **nicht** Teil der Frage.
+Die Frage: Gibt es eine Technik, mit der man je Konto **einen** Schlüssel hat und trotzdem einzelne
+Daten mit unterschiedlichen Aufbewahrungsfristen oder Regeln für Widerrufe schützen kann? Konkrete
+Beispiele: Die Bestätigung einer E-Mail-Adresse wird zurückgenommen; eID-Daten dürfen höchstens ein
+Jahr aufbewahrt werden. Wo und wie der Schlüssel des Kontos selbst aufbewahrt wird, gehört
+ausdrücklich **nicht** zur Frage.
 
-**Ist-Zustand (verifiziert):**
-- Im Projekt existiert aktuell **keine** Verschlüsselung ruhender Daten. Alle PII-Spalten
-  (`account.claim.claim_value`, `account.anchor.normalized_value`,
-  `ext_personenverzeichnis.person.*`, `id_eid.ident_tool_session.*`) sind Klartext-`VARCHAR`/`DATE`
-  (`db/migration/<modul>/`). Vorhandener Krypto-Code ist nur PBKDF2 (Passwort-Hash), HMAC (TAN/E-Mail-Code,
-  Throttle) und EC-Keygen für Keycloak-Assertions — `AccountKeycloakKeypair.privateKeyJwk` ist
-  explizit als „Demo-only: plaintext, not encrypted at rest" dokumentiert
-  (`AccountKeycloakKeypair.kt:16-17`).
-- Eine „eID max. 1 Jahr"-Regel existiert nirgends in der Doku — das ist ein hypothetisches
-  Beispiel. `id_eid.ident_tool_session` fällt heute unter die generische 24h-Regel für
-  `*_tool_session` (`07-betrieb.md:42`).
-- Retraction funktioniert heute rein logisch: `AccountRetraction` invalidiert `AccountClaim`-Zeilen
-  zeitbasiert („Angaben minus Widerrufe", `02-domaenenmodell.md:142`), löscht aber nur den
-  `AccountAnchor` physisch (ADR-12). Die zugehörige `AccountClaim`-Zeile bleibt für immer im
-  Klartext liegen — Löschfrist dafür „noch nicht entschieden" (`07-betrieb.md:52`).
-- Alle Löschung heute: harte SQL-`DELETE`s über geplante `*RetentionJob`s auf indizierten
-  Cutoff-Spalten (`07-betrieb.md:40-65`), kein Soft-Delete/Tombstone irgendwo.
+**Heutiger Stand (geprüft):**
 
-Ziel dieses Dokuments: das Konzept **Envelope Encryption mit Crypto-Shredding** erklären, es genau
-auf das bestehende Claim/Anchor/Retraction-Modell übertragen und zwei konkrete Szenarien
-durchspielen.
+- Gespeicherte Daten werden derzeit **nicht** verschlüsselt. Alle Spalten mit personenbezogenen
+  Daten (`account.claim.claim_value`, `account.anchor.normalized_value`,
+  `ext_personenverzeichnis.person.*`, `id_eid.ident_tool_session.*`) sind `VARCHAR` bzw. `DATE` im
+  Klartext (`db/migration/<modul>/`). Kryptografisch gibt es nur PBKDF2 (Hash des Passworts), HMAC
+  (TAN, E-Mail-Code, Zähler) und das Erzeugen von EC-Schlüsseln für die Assertions von Keycloak.
+  `AccountKeycloakKeypair.privateKeyJwk` ist ausdrücklich als „Demo-only: plaintext, not encrypted at
+  rest“ dokumentiert (`AccountKeycloakKeypair.kt:16-17`).
+- Eine Regel „eID-Daten höchstens ein Jahr“ steht nirgends in der Doku; sie ist ein angenommenes
+  Beispiel. `id_eid.ident_tool_session` fällt heute unter die allgemeine Frist von 24 Stunden für
+  `*_tool_session` ([07-betrieb.md](../07-betrieb.md) Abschnitt 3).
+- Ein Widerruf wirkt heute nur logisch: `AccountRetraction` macht Zeilen in `AccountClaim` anhand der
+  Zeitpunkte ungültig („Angaben minus Widerrufe“, [02-domaenenmodell.md](../02-domaenenmodell.md)
+  Abschnitt 6). Tatsächlich gelöscht wird aber nur der `AccountAnchor` (ADR-12). Die zugehörige Zeile
+  in `AccountClaim` bleibt für immer im Klartext liegen; die Frist dafür ist „noch nicht entschieden“
+  ([07-betrieb.md](../07-betrieb.md) Abschnitt 3).
+- Gelöscht wird heute immer hart, mit SQL-`DELETE` in geplanten `*RetentionJob`s auf Spalten mit
+  Index, die den Stichtag enthalten ([07-betrieb.md](../07-betrieb.md) Abschnitt 3). Ein nur
+  markierendes Löschen gibt es nirgends.
 
----
-
-## 1) Die Technik: Envelope Encryption + Crypto-Shredding
-
-Statt Daten direkt mit einem einzigen, langlebigen Account-Schlüssel zu verschlüsseln, bekommt
-jede Einheit an Daten ihren **eigenen Data Encryption Key (DEK)**. Dieser DEK wird seinerseits vom
-**Account Master Key (AMK)** — genau ein Schlüssel pro Account — verschlüsselt („gewrapped").
-
-**Warum ein einziger Account-Schlüssel allein nicht reicht:** Ein symmetrischer Schlüssel reicht
-immer genau so weit, beim Lesen wie beim Zerstören. Teilen sich EMAIL-Claim und
-EID-Claims denselben Schlüssel, kann man das EMAIL-Chiffrat nicht dauerhaft unlesbar machen, ohne
-entweder auch die EID-Daten zu zerstören oder vorher den Rest umzuschlüsseln — was wieder bedeutet,
-jede andere Zeile finden und anfassen zu müssen.
-
-Mit einem DEK pro Dateneinheit löst sich das: Das Löschen **eines** kleinen (~32 Byte) DEK macht
-genau dessen Chiffrat dauerhaft unlesbar — ohne andere Zeilen anzufassen, ohne Umschlüsselung, ohne
-ein `DELETE`, das die eigentliche (ggf. große, indizierte, FK-referenzierte) Nutzdatenzeile finden
-und aus Backups/WAL entfernen müsste. Das ist das Standardmuster „Crypto-Shredding"/„Crypto
-Erasure" — es macht aus einem Datenlöschproblem ein Problem des Löschens eines winzigen Schlüssels.
+Ziel dieses Dokuments ist, das Konzept **Umschlagverschlüsselung mit kryptografischem Löschen** zu
+erklären, es genau auf das bestehende Modell aus Claims, Ankern und Widerrufen zu übertragen und zwei
+konkrete Fälle durchzuspielen.
 
 ---
 
-## 2) Granularität: wohin die DEKs mappen
+## 1) Die Technik: Umschlagverschlüsselung und kryptografisches Löschen
 
-Drei Kandidaten, bewertet gegen das bestehende Modell (`02-domaenenmodell.md` §6):
+Die Daten werden nicht direkt mit einem einzigen, langlebigen Schlüssel des Kontos verschlüsselt.
+Stattdessen bekommt jede Einheit von Daten ihren **eigenen Datenschlüssel** (Data Encryption Key,
+DEK). Dieser Datenschlüssel wird seinerseits mit dem **Hauptschlüssel des Kontos** (Account Master
+Key, AMK) verschlüsselt, also „eingepackt“. Einen Hauptschlüssel gibt es genau einmal je Konto. Im
+Englischen heißt das Verfahren *Envelope Encryption*.
 
-| Granularität | Bewertung |
+**Warum ein einziger Schlüssel je Konto nicht reicht:** Ein symmetrischer Schlüssel reicht beim Lesen
+genau so weit wie beim Zerstören. Teilen sich der EMAIL-Claim und die eID-Claims denselben Schlüssel,
+kann man die verschlüsselte E-Mail-Adresse nicht dauerhaft unlesbar machen, ohne auch die eID-Daten
+zu zerstören oder vorher alles andere neu zu verschlüsseln. Dafür müsste man wieder jede andere Zeile
+finden und ändern.
+
+Mit einem Datenschlüssel je Einheit löst sich das: Löscht man **einen** kleinen Datenschlüssel (etwa
+32 Byte), wird genau der damit verschlüsselte Inhalt dauerhaft unlesbar. Andere Zeilen bleiben
+unberührt, nichts muss neu verschlüsselt werden, und es braucht kein `DELETE`, das die eigentliche
+(möglicherweise große, indizierte und über Fremdschlüssel verknüpfte) Zeile finden und auch aus
+Sicherungen und dem Transaktionslog (WAL) entfernen müsste. Das ist das übliche Muster
+„kryptografisches Löschen“ (*Crypto-Shredding* oder *Crypto Erasure*). Es macht aus dem Löschen von
+Daten das Löschen eines winzigen Schlüssels.
+
+---
+
+## 2) Wie fein: wofür es je einen Datenschlüssel gibt
+
+Drei Möglichkeiten, bewertet am bestehenden Modell ([02-domaenenmodell.md](../02-domaenenmodell.md)
+Abschnitt 6):
+
+| Einheit | Bewertung |
 |---|---|
-| **(a) Ein DEK pro `AttributeType`** (z. B. ein Schlüssel für alle EMAIL-Claims eines Accounts) | Zu grob: an `account.claim` wird nur angefügt, ein Account hat oft mehrere historische Zeilen desselben Typs (alte/korrigierte/zurückgezogene/neu bestätigte E-Mail). Ein Widerruf entkräftet nur Claims *vor* ihm — ein danach neu bestätigter Wert zählt wieder (ADR-12). Ein gemeinsamer DEK würde beim Shredden auch aktuell gültige Claims desselben Typs mit zerstören. **Verworfen als primärer Mechanismus.** |
-| **(b) Ein DEK pro `AccountClaim`-Zeile** | Trifft die Granularität von `AccountRetraction`, ist aber unnötig fein: ein eID-Scan schreibt 8 Zeilen (`EID_RESTRICTED_ID`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE`, `HAUSNUMMER`, `PLZ`, `ORT`) in einem `recordClaims`-Aufruf (`AccountService.kt:131-183`) — 8 DEKs für einen fachlichen Vorgang. **Verworfen zugunsten von (b').** |
-| **(b') Ein DEK pro Claim-Batch** (= eine `recordClaims`-Transaktion) | Neues, schmales Feld `claim_batch_id` (UUID), einmal pro `recordClaims`-Aufruf erzeugt und an alle in diesem Aufruf gespeicherten Zeilen gehängt. `AccountClaim.authMethodId` taugt dafür NICHT als Gruppierungsschlüssel — für Identifizierungs-Claims (`ident-eid`) ist es laut Code-Kommentar immer `null` (`AccountClaim.kt:46-49`, „claims from identification tools produce no credential"). Auch `claimSource` allein reicht nicht: `ClaimSource.of(toolId)` = `"ident-eid"` ist für jeden eID-Lauf gleich und würde eine Neuidentifizierung Jahre später fälschlich mit dem ersten Lauf verschmelzen. Ein Batch-DEK bündelt genau das, was fachlich als ein Vorgang zusammengehört (~8x weniger Schlüssel für eID) und lässt trotzdem jeden Scan seine eigene 1-Jahres-Uhr behalten. Kosten: Muss ein einzelnes Attribut innerhalb eines Batches vorzeitig unabhängig sterben, braucht das ein Re-Key der übrigen Zeilen des Batches — im bestehenden Retraction-Modell aber ein Randfall: der Anker-Ersatz-Trigger (ADR-12) trifft nur die drei lokal verankerten Attribute (PERSON_ID/EID_RESTRICTED_ID/EMAIL), die übrigen eID-Felder sind `PERSON_DIRECTORY`-Autorität und laufen nur als Konsistenz-Log, nicht einzeln retrahiert. **Empfohlen als primärer Mechanismus für `account.claim`.** |
-| **(c) Ein DEK pro Retention-Klasse** (kleines Enum, z. B. `EID_RESTRICTED`, `STANDARD_CLAIM`) | Grober und billiger zu verwalten, aber periodisches Re-Keying nötig, sobald eine Zeile der Klasse vorzeitig sterben muss. **Empfohlen als pragmatischer Mechanismus für die kurzlebigen Tool-Session-PII-Tabellen** (`id_eid.ident_tool_session` u. ä.), wo ohnehin alles binnen ~24h fällt und selbst ein Batch-DEK Overkill wäre. |
+| **(a) Ein Datenschlüssel je `AttributeType`** (z. B. ein Schlüssel für alle EMAIL-Claims eines Kontos) | Zu grob. `account.claim` wird nur ergänzt, und ein Konto hat oft mehrere historische Zeilen desselben Typs (alte, korrigierte, zurückgenommene, neu bestätigte E-Mail-Adresse). Ein Widerruf entkräftet nur Claims, die *vor* ihm liegen; ein danach neu bestätigter Wert gilt wieder (ADR-12). Ein gemeinsamer Datenschlüssel würde beim Löschen auch gültige Claims desselben Typs mit zerstören. **Als Hauptweg verworfen.** |
+| **(b) Ein Datenschlüssel je Zeile in `AccountClaim`** | Passt zur Einheit von `AccountRetraction`, ist aber unnötig fein: Ein Lauf von `ident-eid` schreibt sieben Zeilen (`EID_RESTRICTED_ID`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE`, `PLZ`, `ORT`) in einem Aufruf von `recordClaims`. Das wären sieben Datenschlüssel für einen einzigen fachlichen Vorgang. **Zugunsten von (b') verworfen.** |
+| **(b') Ein Datenschlüssel je Gruppe von Claims** (= eine Transaktion von `recordClaims`) | Ein neues, schmales Feld `claim_batch_id` (UUID), einmal je Aufruf von `recordClaims` erzeugt und an alle Zeilen gehängt, die in diesem Aufruf gespeichert werden. `AccountClaim.authMethodId` eignet sich dafür NICHT: Bei Claims aus einer Identifizierung (`ident-eid`) ist es laut Kommentar im Code immer `null` (`AccountClaim.kt:46-49`, „claims from identification tools produce no credential“). Auch `claimSource` allein reicht nicht: `ClaimSource.of(toolId)` ist für jeden Lauf von `ident-eid` gleich (`"ident-eid"`) und würde eine erneute Identifizierung Jahre später fälschlich mit dem ersten Lauf zusammenwerfen. Ein Datenschlüssel je Gruppe fasst genau zusammen, was fachlich ein Vorgang ist (bei der eID etwa siebenmal weniger Schlüssel), und lässt trotzdem jedem Lesen der Karte seine eigene Frist von einem Jahr. Der Preis: Muss ein einzelnes Attribut einer Gruppe vorzeitig und für sich allein ungültig werden, müssen die übrigen Zeilen der Gruppe neu verschlüsselt werden. Im bestehenden Modell der Widerrufe ist das aber ein Randfall: Das Ersetzen eines Ankers (ADR-12) betrifft nur die lokal verankerten Attribute (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL`). Die übrigen eID-Felder gehören dem Personenverzeichnis und stehen nur als Historie im Log; sie werden nicht einzeln widerrufen. **Als Hauptweg für `account.claim` empfohlen.** |
+| **(c) Ein Datenschlüssel je Aufbewahrungsklasse** (kleines Enum, z. B. `EID_RESTRICTED`, `STANDARD_CLAIM`) | Gröber und billiger zu verwalten. Sobald aber eine Zeile der Klasse vorzeitig gelöscht werden muss, braucht es regelmäßig eine Neuverschlüsselung. **Als pragmatischer Weg für die kurzlebigen Arbeitsdaten der Tools mit personenbezogenen Daten empfohlen** (`id_eid.ident_tool_session` und ähnliche): Dort fällt ohnehin alles innerhalb von etwa 24 Stunden weg, und selbst ein Schlüssel je Gruppe wäre zu viel des Guten. |
 
-**Warum an bestehender Granularität andocken statt neue Taxonomie erfinden:** `02-domaenenmodell.md`
-§6 und ADR-12 haben die Entscheidung „was ist die Einheit eines Fakts" bereits getroffen. Der
-Claim-Batch ist keine neue Taxonomie, sondern nur die explizit gemachte Transaktionsgrenze, die
-`recordClaims` ohnehin schon zieht.
+**Warum an die bestehende Einteilung anknüpfen, statt eine neue zu erfinden:**
+[02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 6 und ADR-12 haben schon entschieden, was
+die Einheit eines Fakts ist. Die Gruppe von Claims ist keine neue Einteilung, sondern macht nur die
+Grenze der Transaktion sichtbar, die `recordClaims` ohnehin zieht.
 
-**`account.anchor` bleibt unverschlüsselt — bewusst, nicht aus Nachlässigkeit** (Abschnitt 3a).
-
----
-
-## 3a) Suchbarkeit: `AccountAnchor` bleibt die unverschlüsselte Projektion, die sie schon ist
-
-Envelope Encryption löst Vertraulichkeit, nicht Suchbarkeit — verschlüsselte Werte lassen sich
-nicht per Gleichheits-Index finden. Das wäre normalerweise ein eigenes Problem (Blind Index mit
-globalem Pepper), aber hier lohnt sich der Blick auf die tatsächliche Aufgabenteilung im Code
-zuerst:
-
-- **`AccountAnchor.resolveByAnchor`** (`AccountService.kt:504`, Interface `AccountDirectory.kt:23`)
-  liest **ausschließlich** `AccountAnchorRepository` — nie den Claim-Log. `AccountAnchor` ist laut
-  Doku bereits „die Auflösungs- und Eindeutigkeits-**Projektion**" (`02-domaenenmodell.md:147`),
-  strukturell getrennt vom historischen `AccountClaim`-Log. Sie trägt nur 3 Attributtypen
-  (`PERSON_ID`, `EID_RESTRICTED_ID`, `EMAIL`) — Referenzwerte/Pseudonyme plus eine E-Mail-Adresse,
-  nicht die eigentlich sensiblen eID-Inhalte (Name, Geburtsdatum, Adresse), die ausschließlich im
-  Claim-Log liegen.
-- **Der Widerruf ist für `AccountAnchor` bereits gelöst — ohne Krypto:** ADR-12 löscht die
-  Anker-Zeile beim Widerruf physisch per `DELETE`. Das ist stärker als Crypto-Shredding (kein
-  Chiffrat bleibt liegen, das mit einem später kompromittierten Schlüssel wieder lesbar würde — die
-  Zeile ist schlicht weg). Der ganze Verschlüsselungsaufwand ist für den Anker nie nötig gewesen;
-  nötig ist er für den **Claim-Log**, der laut `07-betrieb.md:52` beim Widerruf gerade *nicht*
-  gelöscht wird.
-
-**Konsequenz:** `AccountAnchor` bleibt Klartext, kein Blind Index, kein zweiter globaler Pepper.
-Suchbarkeit ist damit kein zusätzlicher Baustein, sondern entfällt — die bestehende Trennung
-Anker (suchbar, schmal, schon hart löschbar) vs. Claim-Log (historisch, breit, bisher unbegrenzt
-aufbewahrt) trägt die Anforderung bereits.
-
-**Offener Punkt, keine Krypto-Frage:** Gilt „eID max. 1 Jahr" auch für die `EID_RESTRICTED_ID`-
-Anker-Zeile selbst — den „Wiedererkennungsanker" für einen Interessenten (`Claims.kt:18-23`)? Falls
-ja, reicht ein weiterer `*RetentionJob`, der diese Anker-Zeile nach 1 Jahr hart löscht — aber ein
-Nutzer, der vor über einem Jahr per eID identifiziert wurde, würde dann auf einem neuen Gerät nicht
-mehr wiedererkannt, ohne erneute eID-Prüfung. Eine Produktentscheidung, hier nicht getroffen.
-
-**`AccountClaim`s eigener Index** (`ix(attribute_type, normalized_value, account_id)`, genutzt in
-`recordClaims`' Dedup-Check `findEstablished`) betrifft das nicht: hier ist der Account **schon
-bekannt** (Methodenparameter) — kein Henne-Ei-Problem. Vergleich kann nach Entschlüsselung der
-wenigen bestehenden Claims dieses Kontos in Anwendungscode passieren.
+**`account.anchor` bleibt unverschlüsselt, und zwar bewusst, nicht aus Nachlässigkeit** (Abschnitt 3a).
 
 ---
 
-## 3) Wie „ein Schlüssel pro Account" trotzdem stimmt
+## 3a) Suchen: `AccountAnchor` bleibt die unverschlüsselte, abgeleitete Tabelle, die sie schon ist
 
-Aus Account-Sicht gibt es genau **einen** Schlüssel: den Account Master Key (AMK). Wo/wie der AMK
-selbst verwahrt wird (KMS, HSM, passphrase-abgeleitet, Shamir-Split …), ist bewusst ausgeklammert —
-als offene Folgefrage markiert, nicht entworfen (Abschnitt 6).
+Umschlagverschlüsselung löst die Vertraulichkeit, nicht die Suche. Verschlüsselte Werte lassen sich
+nicht über einen Index auf Gleichheit finden. Normalerweise wäre das ein eigenes Problem (ein
+„Blind Index“ mit einem gemeinsamen Pepper). Hier lohnt sich aber zuerst ein Blick darauf, wie die
+Aufgaben im Code tatsächlich verteilt sind:
 
-Der AMK hat nur eine Aufgabe: jeden DEK zu wrappen. Falls/wenn umgesetzt:
+- **`AccountAnchor.resolveByAnchor`** (in `AccountService`, Schnittstelle `AccountDirectory`) liest
+  **ausschließlich** über `AccountAnchorRepository`, nie das Claim-Log. `AccountAnchor` ist laut Doku
+  schon die abgeleitete Tabelle zum Finden von Konten und zur Sicherung der Eindeutigkeit
+  ([02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 6), im Aufbau getrennt vom historischen
+  Log in `AccountClaim`. Sie enthält nur vier Attributtypen (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`,
+  `EMAIL`): Kennungen und Pseudonyme sowie eine E-Mail-Adresse, aber nicht die eigentlich sensiblen
+  Inhalte der eID (Name, Geburtsdatum, Adresse). Diese liegen ausschließlich im Claim-Log.
+- **Für `AccountAnchor` ist der Widerruf schon gelöst, ganz ohne Kryptografie:** Nach ADR-12 wird die
+  Zeile des Ankers beim Widerruf tatsächlich gelöscht. Das ist stärker als kryptografisches Löschen:
+  Es bleibt kein verschlüsselter Inhalt liegen, der mit einem später gestohlenen Schlüssel wieder
+  lesbar würde; die Zeile ist einfach weg. Für den Anker war der ganze Aufwand der Verschlüsselung also
+  nie nötig. Nötig ist er für das **Claim-Log**, das beim Widerruf gerade *nicht* gelöscht wird
+  ([07-betrieb.md](../07-betrieb.md) Abschnitt 3).
 
-- `account.claim` bekommt (über die `claim_batch_key`-Tabelle, Abschnitt 5) einen wrapped DEK pro
-  Batch. `claim_value`/`normalized_value` werden zu Chiffrat.
-- `account.anchor` bleibt unverändert Klartext (Abschnitt 3a).
-- Für den Retention-Klassen-Ansatz: eine neue kleine Tabelle
+**Die Folge:** `AccountAnchor` bleibt im Klartext, ohne Blind Index und ohne zweiten gemeinsamen
+Pepper. Die Suche wird damit kein zusätzlicher Baustein, sondern entfällt als Problem. Die bestehende
+Trennung trägt die Anforderung schon: der Anker (durchsuchbar, schmal, schon hart löschbar) und das
+Claim-Log (historisch, breit, bisher ohne Frist aufbewahrt).
+
+**Offene Frage, aber keine Frage der Kryptografie:** Gilt „eID-Daten höchstens ein Jahr“ auch für die
+Zeile des Ankers `EID_RESTRICTED_ID` selbst, also für das Merkmal, an dem ein Interessent
+wiedererkannt wird? Falls ja, genügt ein weiterer `*RetentionJob`, der diese Zeile nach einem Jahr
+hart löscht. Ein Nutzer, der vor mehr als einem Jahr mit der eID identifiziert wurde, würde dann aber
+auf einem neuen Gerät nicht mehr ohne erneute Prüfung der eID wiedererkannt. Das ist eine
+Produktentscheidung, die hier nicht getroffen wird.
+
+**Die Suche in `recordClaims`**, die bereits geltende Angaben erkennt (`findEstablished`), ist davon
+nicht betroffen: Dort ist das Konto **schon bekannt** (es wird als Parameter übergeben), es gibt also
+kein Henne-Ei-Problem. Der Vergleich kann im Anwendungscode geschehen, nachdem die wenigen
+bestehenden Claims dieses Kontos entschlüsselt wurden.
+
+---
+
+## 3) Warum es trotzdem „ein Schlüssel je Konto“ ist
+
+Aus Sicht des Kontos gibt es genau **einen** Schlüssel: den Hauptschlüssel des Kontos. Wo und wie er
+selbst aufbewahrt wird (KMS, HSM, aus einer Passphrase abgeleitet, nach Shamir aufgeteilt …), ist
+bewusst ausgeklammert und als offene Anschlussfrage vermerkt, nicht entworfen (Abschnitt 6).
+
+Der Hauptschlüssel hat nur eine Aufgabe: jeden Datenschlüssel einzupacken. Falls es umgesetzt wird:
+
+- `account.claim` bekommt je Gruppe einen eingepackten Datenschlüssel (über die Tabelle
+  `claim_batch_key`, Abschnitt 5). `claim_value` und `normalized_value` werden verschlüsselt
+  gespeichert.
+- `account.anchor` bleibt unverändert im Klartext (Abschnitt 3a).
+- Für den Weg über Aufbewahrungsklassen gibt es eine neue kleine Tabelle
   `account.retention_class_key` (`account_id`, `retention_class`, `wrapped_dek`, `nonce`).
 
-Es gibt also genau ein Geheimnis, das ein Account „besitzt" (den AMK); die DEK-Schicht ist ein
-internes Implementierungsdetail des Verschlüsselungsdienstes. Wrap/Unwrap und
-Encrypt/Decrypt sind reines `javax.crypto` (AES-256-GCM) — dieselbe Paketfamilie, die das Projekt
-für PBKDF2/HMAC schon nutzt, also keine neue Abhängigkeit.
+Es gibt also genau ein Geheimnis, das einem Konto gehört (den Hauptschlüssel). Die Schicht der
+Datenschlüssel ist ein internes Detail des Verschlüsselungsdienstes. Das Einpacken und Auspacken
+sowie das Ver- und Entschlüsseln erledigt reines `javax.crypto` (AES-256-GCM). Das ist dieselbe
+Paketfamilie, die das Projekt für PBKDF2 und HMAC schon nutzt; es braucht also keine neue
+Abhängigkeit.
 
 ---
 
-## 4) Durchgespielte Szenarien
+## 4) Zwei durchgespielte Fälle
 
-**E-Mail-Bestätigung wird zurückgezogen.** Heute: `AccountRetraction` wird geschrieben, der
-`AccountAnchor` für EMAIL physisch gelöscht (ADR-12), aber die `AccountClaim`-Zeile(n) für EMAIL
-bleiben unbegrenzt im Klartext liegen (`07-betrieb.md:52`, Frist „noch nicht entschieden"). Ein
-EMAIL-`recordClaims`-Aufruf ist typischerweise ein Batch mit nur einer Zeile — die
-Batch-Granularität kostet hier nichts. Mit Claim-Batch-DEKs: derselbe Widerruf löscht zusätzlich
-den DEK dieses Batches (sofort oder nach einer Karenz-/Audit-Frist). Die Zeile selbst kann
-strukturell erhalten bleiben — `attribute_type`, `claim_source`, `established_acr`, Zeitstempel
-bleiben unverschlüsselte Metadaten für Audit-Zwecke — nur `claim_value`/`normalized_value` werden
-dauerhaft unlesbares Chiffrat. Das schließt genau die Lücke, die ADR-12 offen lässt, ohne auf eine
-Entscheidung zur physischen Massenlöschung warten zu müssen.
+**Die Bestätigung einer E-Mail-Adresse wird zurückgenommen.** Heute wird eine `AccountRetraction`
+geschrieben und der `AccountAnchor` für EMAIL gelöscht (ADR-12). Die Zeilen in `AccountClaim` für
+EMAIL bleiben aber ohne Frist im Klartext liegen ([07-betrieb.md](../07-betrieb.md) Abschnitt 3,
+Frist „noch nicht entschieden“). Ein Aufruf von `recordClaims` für EMAIL ist meist eine Gruppe mit
+nur einer Zeile; die Einteilung in Gruppen kostet hier also nichts. Mit einem Datenschlüssel je Gruppe
+löscht derselbe Widerruf zusätzlich den Datenschlüssel dieser Gruppe, sofort oder nach einer Frist
+für Audit und Karenz. Die Zeile selbst kann erhalten bleiben: `attribute_type`, `claim_source`,
+`established_acr` und die Zeitstempel bleiben als unverschlüsselte Angaben für das Audit stehen; nur
+`claim_value` und `normalized_value` werden dauerhaft unlesbar. Das schließt genau die Lücke, die
+ADR-12 offen lässt, ohne dass man auf eine Entscheidung über das massenhafte Löschen von Zeilen
+warten muss.
 
-**eID-Daten, max. 1 Jahr.** Ein `ident-eid`-Lauf schreibt 8 Claims mit gemeinsamer `claim_batch_id`
-in einem `recordClaims`-Aufruf. Reines DEK-Löschen reicht hier **nicht**: „Aktuell gültig" wird im
-bestehenden Modell als „Angaben minus Widerrufe" berechnet (`02-domaenenmodell.md:142`) —
-rein über `AccountRetraction`-Zeilen, unabhängig von Lesbarkeit. Ohne Retraction hielte die
-Konsolidierungslogik (`findEstablished`, `AccountProfile.establishedClaims`, der Dedup-Check in
-`recordClaims`) die Claims weiterhin für gültig, während sie tatsächlich unlesbares Chiffrat sind —
-ein unbemerkter Widerspruch zwischen Logik- und Krypto-Zustand, potenziell ein Entschlüsselungsfehler
-an Stellen, die von „vorhanden" ausgehen.
+**eID-Daten, höchstens ein Jahr.** Ein Lauf von `ident-eid` schreibt sieben Claims mit gemeinsamer
+`claim_batch_id` in einem Aufruf von `recordClaims`. Hier reicht es **nicht**, nur den Datenschlüssel
+zu löschen. Was „aktuell gilt“, berechnet das bestehende Modell als „Angaben minus Widerrufe“
+([02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 6), also allein anhand der Zeilen in
+`AccountRetraction`, ganz unabhängig davon, ob sich ein Wert noch lesen lässt. Ohne Widerruf hielte die
+Logik, die gültige Werte bestimmt (`findEstablished`, `AccountProfile.establishedClaims`, die Prüfung
+auf doppelte Angaben in `recordClaims`), die Claims weiter für gültig, obwohl sie längst unlesbar
+sind. Logischer und kryptografischer Zustand würden unbemerkt auseinanderlaufen, und an Stellen, die
+von „vorhanden“ ausgehen, könnte das Entschlüsseln fehlschlagen.
 
 Der `RetentionJob` muss deshalb **in einer Transaktion** zwei Dinge tun: (a) für jeden betroffenen
-Attributtyp des Batches eine `AccountRetraction`-Zeile schreiben, (b) die `claim_batch_key`-Zeile
-löschen. Für (a) fehlt aktuell ein passender `RetractionAnchor`-Fall: die bestehenden drei
-(`ACCOUNT_MANAGEMENT`, `PERSON_DIRECTORY`, `OPERATOR` — Letzterer laut Code-Kommentar explizit „a
-human operator, with a reason") decken einen automatisch fristbasierten Widerruf nicht ab; ein
-vierter Fall (`RETENTION_POLICY`) wäre nötig, damit „wer widerruft" für einen Scheduled Job nicht
-fälschlich als menschliche Operator-Aktion erscheint.
+Attributtyp der Gruppe eine Zeile in `AccountRetraction` schreiben und (b) die Zeile in
+`claim_batch_key` löschen. Für (a) fehlt derzeit ein passender Wert in `RetractionAnchor`. Die
+bestehenden drei (`ACCOUNT_MANAGEMENT`, `PERSON_DIRECTORY`, `OPERATOR`, Letzterer laut Kommentar im
+Code ausdrücklich „a human operator, with a reason“) decken einen automatischen Widerruf nach Ablauf
+einer Frist nicht ab. Ein vierter Wert (`RETENTION_POLICY`) wäre nötig, damit ein geplanter Job bei
+„wer widerruft“ nicht fälschlich als Eingriff eines Menschen erscheint.
 
-Eine spätere Neuidentifizierung (neue Karte, neue `claim_batch_id`) bekommt ihre eigene,
-unabhängige Frist. Im Kern strukturell dasselbe Muster, das schon produktiv läuft (`*RetentionJob`,
-`07-betrieb.md:40-55`) — nur dass der Job hier zusätzlich die Retraction-Buchhaltung übernimmt, die
-bei einem nutzerausgelösten Widerruf (E-Mail-Beispiel oben) der auslösende Vorgang selbst liefert.
-
----
-
-## 5) Neu vs. wiederverwendet
-
-**Neu** (falls/wenn umgesetzt):
-- Neues Feld `claim_batch_id` (UUID, nullable erlaubt für Altdaten) auf `account.claim`, einmal
-  pro `recordClaims`-Aufruf erzeugt.
-- Eine `account.claim_batch_key`-Tabelle (`account_id`, `claim_batch_id`, `wrapped_dek`, `nonce`)
-  statt eines Spaltenpaars direkt auf `account.claim` — passt besser zur 1:n-Beziehung
-  Batch→Zeilen.
-- Ein kleiner `ClaimCryptoService` im `account`-Modul (`javax.crypto.Cipher`, AES-256-GCM),
-  analog zu `PasswordHasher.kt`.
-- Für den Tool-Session-Pfad: `account.retention_class_key`-Tabelle plus Lookup in den
-  betroffenen Modulen.
-- Neuer `RetractionAnchor.RETENTION_POLICY`-Fall, damit ein fristbasierter, automatischer Widerruf
-  nicht fälschlich als menschliche `OPERATOR`-Aktion erscheint (Abschnitt 4).
-
-**Wiederverwendet, unverändert:**
-- Eigenes Schema pro Modul (bleibt im `account`-Schema).
-- Das bestehende `*RetentionJob`-Muster — DEK-Löschung ist nur ein weiterer cutoff-getriebener Job.
-- Die Trennung zwischen `AccountClaim` (nur anfügen) und `AccountAnchor` (Projektion) und die
-  `AccountRetraction`-Granularität (ADR-12) — der DEK setzt exakt auf die schon vorhandene Zeile auf.
+Eine spätere erneute Identifizierung (neue Karte, neue `claim_batch_id`) bekommt ihre eigene,
+unabhängige Frist. Im Kern ist das derselbe Aufbau, der schon im Betrieb läuft (`*RetentionJob`,
+[07-betrieb.md](../07-betrieb.md) Abschnitt 3). Neu ist nur, dass der Job hier auch die Widerrufe
+einträgt, die bei einem vom Nutzer ausgelösten Widerruf (Beispiel E-Mail oben) der auslösende Vorgang
+selbst liefert.
 
 ---
 
-## 6) Ausdrücklich außen vor gelassen
+## 5) Was neu wäre und was bleibt
 
-Wo und wie der **AMK selbst** verwahrt, geschützt und rotiert wird (KMS, HSM, ein vom
-Anwendungsprozess gehaltenes Master-Secret, Shamir-Split …) ist eine separate, bewusst
-ausgeklammerte Folgefrage — nicht Teil dieses Vorschlags. Sie ist praktisch relevant: ein AMK im
-Klartext in der Anwendungskonfiguration wäre kaum besser als der heutige Zustand, vgl. die ehrliche
-Anmerkung bei `AccountKeycloakKeypair.privateKeyJwk` („Demo-only: plaintext, not encrypted at
-rest").
+**Neu** (falls es umgesetzt wird):
 
----
+- Ein neues Feld `claim_batch_id` (UUID; für alte Daten darf es leer sein) in `account.claim`,
+  einmal je Aufruf von `recordClaims` erzeugt.
+- Eine Tabelle `account.claim_batch_key` (`account_id`, `claim_batch_id`, `wrapped_dek`, `nonce`)
+  statt zweier zusätzlicher Spalten direkt in `account.claim`. Das passt besser zur 1:n-Beziehung
+  zwischen Gruppe und Zeilen.
+- Ein kleiner `ClaimCryptoService` im Modul `account` (`javax.crypto.Cipher`, AES-256-GCM), nach dem
+  Vorbild von `PasswordHasher.kt`.
+- Für die Arbeitsdaten der Tools: eine Tabelle `account.retention_class_key` und das Nachschlagen
+  darin in den betroffenen Modulen.
+- Ein neuer Wert `RetractionAnchor.RETENTION_POLICY`, damit ein automatischer Widerruf nach Ablauf
+  einer Frist nicht fälschlich als Eingriff eines Menschen (`OPERATOR`) erscheint (Abschnitt 4).
 
-## 7) Trade-offs / Ehrlichkeit
+**Unverändert übernommen:**
 
-- **Crypto-Shredding ist nicht automatisch DSGVO-konforme Löschung.** Wenn Backups/WAL/Replikate
-  Chiffrat *und* DEK gemeinsam einfangen (z. B. ein nächtlicher Dump vor dem DEK-Delete, ein
-  nachhinkender Replica), ist der „gelöschte" Wert bis zum Altern dieser Kopie wiederherstellbar.
-  Die Backup-Politik für die DEK-Tabelle muss mindestens so aggressiv sein wie die für die
-  Nutzdatentabelle — eine echte betriebliche Abhängigkeit, kein Detail.
-- **Performance-Kosten**: ein Encrypt/Decrypt pro Claim-Zugriff (AES-GCM ist schnell, bei
-  Demo-Umfang vernachlässigbar).
-- **Neuer Single Point of Failure**: Geht die DEK-Tabelle verloren (Korruption, versehentliches
-  Bulk-Delete, unvollständiges Backup-Restore), werden schlagartig *alle* Claims *aller* Accounts
-  unlesbar — ein härteres Fehlerbild als der heutige Klartext-Zustand. Die DEK-Tabelle braucht eine
-  eigene, entsprechend strenge Backup-Disziplin.
-- **Demo-Rahmen**: Bewusst keine KMS-Integration vorgeschlagen — kleinstmögliche umsetzbare
-  Variante (`javax.crypto`, keine neue Abhängigkeit, Wiederverwendung des `RetentionJob`-Musters).
-  Für einen Produktivbetrieb wäre die AMK-Verwahrungsfrage (Abschnitt 6) vor einer echten Nutzung
-  zwingend zu klären.
+- Ein eigenes Schema je Modul (alles bleibt im Schema `account`).
+- Das bestehende Muster der `*RetentionJob`s: Das Löschen von Datenschlüsseln ist nur ein weiterer
+  Job, der nach einem Stichtag arbeitet.
+- Die Trennung zwischen `AccountClaim` (wird nur ergänzt) und `AccountAnchor` (abgeleitete Tabelle)
+  sowie die Einheit von `AccountRetraction` (ADR-12). Der Datenschlüssel setzt genau auf der schon
+  vorhandenen Zeile auf.
 
 ---
 
-## 8) Produktionsvolumen
+## 6) Ausdrücklich ausgeklammert
 
-Grobe Schätzung, keine belastbare Kapazitätsplanung — illustriert an der Größenordnung eines
-großen gesetzlichen Krankenversicherers (~11 Mio. Versicherte).
-
-- **Key-Tabellen-Wachstum:** ~3–5 Claim-Batches/Account über die Kontolebensdauer ⇒
-  **30–55 Mio. Zeilen** in `claim_batch_key` (6–10 GB bei ~150–200 Byte/Zeile). An sich moderat,
-  aber eine neue, bei jedem Claim-Zugriff mitgelesene Tabelle.
-- **Eigentlicher Engpass ist nicht die Verschlüsselung, sondern der AMK-Unwrap.** AES-256-GCM ist
-  bei jeder realistischen Last vernachlässigbar. Liegt der AMK hinter einem KMS/HSM, bedeutet ein
-  naives „AMK pro Claim-Zugriff entschlüsseln" einen Netzwerk-Roundtrip (~10–20ms) plus
-  KMS-Ratenlimits (z. B. AWS KMS default ~5.500–10.000 Req/s je Schlüssel) plus Kosten pro Call —
-  bei Millionen Logins/Tag potenziell das dominierende Kostenzentrum. **Mitigation:** AMK einmal
-  pro Session/Request entschlüsseln und im Prozessspeicher cachen (nie persistiert, kurze TTL) —
-  KMS-Traffic skaliert dann mit Session-Zahl, nicht mit Claim-Zugriffszahl.
-- **N+1 beim Lesen** (K Batches ⇒ K DEK-Unwraps für die volle Historie, z. B.
-  DSGVO-Art.-15-Auskunft) ist unkritisch: kontoscoped, K klein. Der Regelfall (aktueller Wert)
-  liest ohnehin `AccountAnchor` (Abschnitt 3a), nicht den Claim-Log — die teuren Multi-Batch-Reads
-  sind die Ausnahme, nicht der Login-Pfad.
-- **`RetentionJob` darf nicht gegen den wachsenden Claim-Log joinen.** `expires_at` muss **zur
-  Schreibzeit** in `recordClaims` direkt auf `claim_batch_key` gespeichert werden (die
-  Attributtypen des Batches und ihre Retention-Regel sind zu dem Zeitpunkt bekannt) — der Job
-  bleibt dann ein simples indiziertes `DELETE ... WHERE expires_at < now()`, das bestehende
-  Muster. Daraus folgt eine zu erzwingende Invariante: Ein Batch darf nur Attributtypen **derselben**
-  Retention-Policy bündeln, sonst gewinnt beim Löschen die längste Frist.
-- **Der Schaden wird bei Produktionsmengen konkret, nicht nur theoretisch.** Verlust der Key-Tabelle
-  trifft bei 30–55 Mio. Zeilen nicht ein Konto, sondern alle gleichzeitig — eher ein
-  Totalausfall-Szenario als ein gewöhnlicher Tabellenverlust. Braucht eigene, strengere SLOs
-  (RPO nahe 0), eher einen eigenen überwachten Datastore als „eine weitere Tabelle im
-  `account`-Schema".
-- **Echter Vorteil bei Prod-Volumen: AMK-Rotation wird billig.** Rotation berührt nur die kleine
-  Key-Tabelle (AMK neu wrappen), nicht die 30–55 Mio. PII-tragenden `AccountClaim`-Zeilen. Bei
-  einem einzigen flachen Schlüssel ohne DEK-Schicht wäre Rotation ein Full-Re-Encrypt aller
-  Nutzdaten — bei Prod-Volumen ein mehrtägiges Projekt. Hier zahlt sich die DEK-Schicht bei
-  echtem Volumen aus, nicht nur konzeptionell.
+Wo und wie der **Hauptschlüssel selbst** aufbewahrt, geschützt und regelmäßig erneuert wird (KMS,
+HSM, ein Geheimnis im Anwendungsprozess, nach Shamir aufgeteilt …), ist eine eigene, bewusst
+ausgeklammerte Anschlussfrage und nicht Teil dieses Vorschlags. Sie ist aber praktisch wichtig: Ein
+Hauptschlüssel im Klartext in der Konfiguration der Anwendung wäre kaum besser als der heutige
+Zustand; vergleiche den offenen Hinweis bei `AccountKeycloakKeypair.privateKeyJwk` („Demo-only:
+plaintext, not encrypted at rest“).
 
 ---
 
-## Betroffene Dateien (nur zur späteren Referenz, falls umgesetzt)
+## 7) Abwägungen, offen gesagt
 
-- `src/main/kotlin/com/example/dpop/account/internal/AccountClaim.kt` (neues `claim_batch_id`-Feld)
-- `src/main/kotlin/com/example/dpop/account/AccountService.kt` (`recordClaims`: eine `claim_batch_id` pro Aufruf erzeugen)
-- `src/main/kotlin/com/example/dpop/account/internal/AccountAnchor.kt` (unverändert — Referenz für die Abgrenzung in Abschnitt 3a)
+- **Kryptografisches Löschen ist nicht von selbst ein Löschen im Sinne der DSGVO.** Enthalten
+  Sicherungen, Transaktionslog oder Replikate den verschlüsselten Inhalt *und* den Datenschlüssel
+  zusammen (etwa eine nächtliche Sicherung von vor dem Löschen des Schlüssels oder ein Replikat, das
+  hinterherhinkt), lässt sich der „gelöschte“ Wert wiederherstellen, bis diese Kopie verfallen ist.
+  Die Sicherungen der Tabelle mit den Datenschlüsseln müssen deshalb mindestens so kurz aufbewahrt
+  werden wie die der Tabelle mit den Daten. Das ist eine echte Abhängigkeit im Betrieb, kein Detail.
+- **Rechenaufwand:** Bei jedem Zugriff auf einen Claim wird einmal ver- oder entschlüsselt.
+  AES-GCM ist schnell; im Umfang der Demo fällt das nicht ins Gewicht.
+- **Eine neue Stelle, an der alles hängt:** Geht die Tabelle mit den Datenschlüsseln verloren
+  (beschädigt, versehentlich massenhaft gelöscht, unvollständig wiederhergestellt), werden auf einen
+  Schlag *alle* Claims *aller* Konten unlesbar. Das ist ein härterer Fehlerfall als der heutige
+  Klartext. Diese Tabelle braucht eine eigene, entsprechend strenge Sicherung.
+- **Rahmen der Demo:** Bewusst wird keine Anbindung an ein KMS vorgeschlagen, sondern die kleinste
+  umsetzbare Variante (`javax.crypto`, keine neue Abhängigkeit, das Muster der `RetentionJob`s
+  wiederverwendet). Für einen Produktivbetrieb müsste die Frage nach der Aufbewahrung des
+  Hauptschlüssels (Abschnitt 6) vor dem ersten echten Einsatz geklärt sein.
+
+---
+
+## 8) Mengen im Produktivbetrieb
+
+Eine grobe Schätzung, keine belastbare Planung der Kapazität, veranschaulicht an der Größe einer
+großen gesetzlichen Krankenkasse (etwa 11 Millionen Versicherte).
+
+- **Wachstum der Schlüsseltabelle:** Etwa 3 bis 5 Gruppen von Claims je Konto über dessen Lebensdauer
+  ergeben **30 bis 55 Millionen Zeilen** in `claim_batch_key` (6 bis 10 GB bei etwa 150 bis 200 Byte
+  je Zeile). Das ist für sich genommen überschaubar, aber es ist eine neue Tabelle, die bei jedem
+  Zugriff auf einen Claim mitgelesen wird.
+- **Der eigentliche Engpass ist nicht das Verschlüsseln, sondern das Auspacken mit dem
+  Hauptschlüssel.** AES-256-GCM fällt bei jeder realistischen Last nicht ins Gewicht. Liegt der
+  Hauptschlüssel aber hinter einem KMS oder HSM, bedeutet ein einfaches „Hauptschlüssel bei jedem
+  Zugriff auf einen Claim entschlüsseln“ jedes Mal einen Weg über das Netz (etwa 10 bis 20 ms), dazu
+  die Grenzen des KMS für Anfragen je Sekunde (bei AWS KMS etwa 5.500 bis 10.000 je Schlüssel) und
+  Kosten je Aufruf. Bei Millionen Anmeldungen am Tag könnte das der größte Kostenblock werden.
+  **Abhilfe:** Den Hauptschlüssel einmal je Sitzung oder Anfrage entschlüsseln und im Arbeitsspeicher
+  vorhalten (nie gespeichert, kurze Lebensdauer). Die Last auf dem KMS wächst dann mit der Zahl der
+  Sitzungen und nicht mit der Zahl der Zugriffe auf Claims.
+- **Viele einzelne Schlüssel beim Lesen der ganzen Historie** (K Gruppen ergeben K Auspackvorgänge,
+  etwa für eine Auskunft nach Art. 15 DSGVO) sind unkritisch, weil es nur um ein Konto geht und K klein
+  ist. Im Normalfall (aktueller Wert) wird ohnehin `AccountAnchor` gelesen (Abschnitt 3a), nicht das
+  Claim-Log. Das teure Lesen vieler Gruppen ist die Ausnahme und liegt nicht auf dem Weg der Anmeldung.
+- **`RetentionJob` darf das wachsende Claim-Log nicht per Join durchsuchen.** `expires_at` muss **schon
+  beim Schreiben** in `recordClaims` direkt in `claim_batch_key` gespeichert werden; die Attributtypen
+  der Gruppe und ihre Aufbewahrungsregel sind zu diesem Zeitpunkt bekannt. Der Job bleibt dann ein
+  einfaches `DELETE ... WHERE expires_at < now()` über einen Index, wie beim bestehenden Muster.
+  Daraus folgt eine Regel, die erzwungen werden muss: Eine Gruppe darf nur Attributtypen mit
+  **derselben** Aufbewahrungsregel enthalten, sonst setzt sich beim Löschen die längste Frist durch.
+- **Bei Produktivmengen wird der mögliche Schaden greifbar.** Geht die Schlüsseltabelle mit 30 bis
+  55 Millionen Zeilen verloren, trifft das nicht ein Konto, sondern alle zugleich. Das ist eher ein
+  Totalausfall als der Verlust einer gewöhnlichen Tabelle. Die Tabelle braucht eigene, strengere
+  Zusagen für Verfügbarkeit und Wiederherstellung (fast kein Datenverlust erlaubt) und eher einen
+  eigenen, überwachten Datenspeicher als „noch eine Tabelle im Schema `account`“.
+- **Ein echter Vorteil bei großen Mengen: Den Hauptschlüssel zu erneuern wird billig.** Dabei ändert
+  sich nur die kleine Schlüsseltabelle (die Datenschlüssel werden mit dem neuen Hauptschlüssel neu
+  eingepackt), nicht die 30 bis 55 Millionen Zeilen in `AccountClaim` mit personenbezogenen Daten. Mit
+  einem einzigen Schlüssel ohne Datenschlüssel müsste man beim Erneuern alle Daten neu verschlüsseln,
+  bei Produktivmengen ein Vorhaben über mehrere Tage. Hier lohnt sich die Schicht der Datenschlüssel
+  bei echten Mengen also nicht nur in der Theorie.
+
+---
+
+## Betroffene Dateien (nur als Hinweis für eine spätere Umsetzung)
+
+- `src/main/kotlin/com/example/dpop/account/internal/AccountClaim.kt` (neues Feld `claim_batch_id`)
+- `src/main/kotlin/com/example/dpop/account/AccountService.kt` (`recordClaims`: je Aufruf eine
+  `claim_batch_id` erzeugen)
+- `src/main/kotlin/com/example/dpop/account/internal/AccountAnchor.kt` (unverändert; Bezugspunkt für
+  die Abgrenzung in Abschnitt 3a)
 - `src/main/kotlin/com/example/dpop/account/internal/AccountRetraction.kt`
 - `docs/12-entscheidungen.md` (neues ADR für diese Entscheidung)
-- `docs/07-betrieb.md` (bestehendes `*RetentionJob`-Muster erweitern)
+- `docs/07-betrieb.md` (bestehendes Muster der `*RetentionJob`s erweitern)
 
 ## Nächster Schritt
 
-Offene Anschlussfragen, falls dieses Vorhaben weiterverfolgt wird: (1) AMK-Verwahrung
-(Abschnitt 6), (2) ob Claim-Batch-DEKs für *alle* Attributtypen oder nur für die sensiblen
-(EID_*, EMAIL) eingeführt werden, (3) Migrationsstrategie für bereits im Klartext bestehende
-Claims, (4) ob die 1-Jahres-Frist für eID-Daten auch die `EID_RESTRICTED_ID`-Anker-Zeile treffen
-soll und die damit verbundene Wiedererkennungs-Konsequenz (Abschnitt 3a), (5) Einführung von
-`RetractionAnchor.RETENTION_POLICY` für automatisch fristbasierte Widerrufe (Abschnitt 4).
+Wird das Vorhaben weiterverfolgt, sind diese Anschlussfragen offen: (1) die Aufbewahrung des
+Hauptschlüssels (Abschnitt 6), (2) ob es Datenschlüssel je Gruppe für *alle* Attributtypen gibt oder
+nur für die sensiblen (`EID_*`, `EMAIL`), (3) wie bestehende Claims im Klartext umgestellt werden,
+(4) ob die Frist von einem Jahr für eID-Daten auch die Zeile des Ankers `EID_RESTRICTED_ID` treffen
+soll, mit den Folgen für das Wiedererkennen (Abschnitt 3a), und (5) die Einführung von
+`RetractionAnchor.RETENTION_POLICY` für automatische Widerrufe nach Ablauf einer Frist (Abschnitt 4).

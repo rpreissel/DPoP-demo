@@ -1,47 +1,48 @@
 # ADR-8: Keycloak führt seine eigenen nativen Schritte selbst, statt alles zu delegieren oder über Identity-Brokering zu gehen
 
-> **Stand 2026-09-23:** Der Orchestrator wird inzwischen an mehr Stellen gerufen als nur für
-> `KC_SELECT_METHOD`, und die Passwortprüfung läuft zustandslos über ihn. Die Entscheidung gilt;
+> **Stand 2026-09-23:** Der Orchestrator wird inzwischen an mehr Stellen aufgerufen als nur für
+> `KC_SELECT_METHOD`, und die Prüfung des Passworts läuft zustandslos über ihn. Die Entscheidung gilt;
 > siehe Nachtrag.
 
-**Entscheidung** (umgesetzt): Der Web-Kanal lässt Keycloak seine eigene, native
-Authentifizierungs-Flow-Konfiguration (Conditional-LoA-Subflows, natives Passwort-Login) fahren
-und ruft den Orchestrator nur innerhalb einer laufenden, persistenten `AuthJourney` für die
-Schritte auf, die Keycloak nicht kann (`KC_SELECT_METHOD`, [04-orchestrierung.md](../04-orchestrierung.md)
-Abschnitt 3). Der Orchestrator bleibt für die Dauer eines Flow-Durchlaufs alleinige, kombinierende
-ACR/AMR-Instanz ([05-api.md](../05-api.md) Abschnitt 3).
+**Entscheidung** (umgesetzt): Im Web-Kanal führt Keycloak seine eigenen Anmeldeabläufe so aus, wie
+er sie selbst konfiguriert (Conditional-LoA-Subflows, eigene Passwortanmeldung). Den Orchestrator
+ruft er nur für die Schritte auf, die er selbst nicht kann, und zwar innerhalb einer laufenden,
+gespeicherten `AuthJourney` ([`KC_SELECT_METHOD`](../journeys/kc-select-method.md)). Solange ein
+solcher Ablauf läuft, bestimmt allein der Orchestrator ACR und AMR und fasst dabei die Nachweise
+zusammen ([05-api.md](../05-api.md) Abschnitt 3).
 
 **Erwogene Alternativen**:
 
-- **Orchestrator als externer OIDC-Identity-Provider** (Identity Brokering, Browser-Redirect zu
-  einer eigenen Orchestrator-Web-UI): verletzt die
-  Leitplanke "Browser spricht nie mit dem Orchestrator" direkt.
-- **Volle Journey-Delegation** (Keycloak rendert jedes Formular über einen einzigen generischen
-  Authenticator): architektonisch sauber, verzichtet aber komplett auf Keycloaks
-  eingebaute Fähigkeiten (natives Passwort-Login, OTP/TOTP, WebAuthn/Passkey,
-  Social-Login-Brokering, Conditional-LoA) — genau die Fähigkeiten, derentwegen
-  eine Keycloak-Anbindung überhaupt Sinn ergibt.
-- **Zustandslose Einzel-Tool-Aufrufe ohne Journey** (Keycloak führt die Journey weiter selbst, ruft den
-  Orchestrator nur für isolierte Faktoren ohne begleitende `ChannelSession` auf):
-  ohne die persistente Journey verliert der Orchestrator die
-  Fähigkeit, mehrere eigene Tools im selben Login zu einem gemeinsamen Nachweis zu verrechnen. Bleibt
-  sinnvoll für Touchpoints außerhalb eines zusammenhängenden Flows (eine
-  Keycloak-„Required Action", eine Aktion in der Account-Konsole).
+- **Orchestrator als externer OIDC-Identity-Provider** (Identity Brokering: Der Browser wird zu einer
+  eigenen Weboberfläche des Orchestrators weitergeleitet). Das verletzt direkt die Grundregel „Der
+  Browser spricht nie mit dem Orchestrator“.
+- **Die ganze Journey an den Orchestrator abgeben** (Keycloak zeigt jedes Formular über einen
+  einzigen allgemeinen Authenticator an). Das ist in der Architektur sauber, verzichtet aber ganz auf
+  die eingebauten Fähigkeiten von Keycloak (eigene Passwortanmeldung, OTP/TOTP, WebAuthn/Passkey,
+  Anmeldung über soziale Netzwerke, Conditional-LoA). Genau wegen dieser Fähigkeiten ergibt eine
+  Anbindung an Keycloak überhaupt Sinn.
+- **Einzelne Tools zustandslos aufrufen, ohne Journey** (Keycloak führt den Ablauf selbst und ruft
+  den Orchestrator nur für einzelne Verfahren auf, ohne dazugehörige `ChannelSession`). Ohne die
+  gespeicherte Journey kann der Orchestrator mehrere eigene Tools in derselben Anmeldung nicht mehr
+  zu einem gemeinsamen Nachweis zusammenfassen. Sinnvoll bleibt das für einzelne Aktionen außerhalb
+  eines zusammenhängenden Ablaufs (eine „Required Action“ in Keycloak, eine Aktion in der
+  Kontoverwaltung).
 
-**Kosten**: Split-Brain-Risiko zwischen zwei Zustandshaltern — abgefedert dadurch, dass jede Seite
-eine nicht überlappende Zuständigkeit trägt (Keycloak entscheidet OB und WELCHES ACR-Level
-angefragt ist, der Orchestrator WAS innerhalb einer Stufe passiert und wie sich mehrere Nachweise
-zu einem Gesamt-ACR kombinieren).
+**Kosten**: Zwei Systeme führen Zustand, und ihre Sicht kann auseinanderlaufen. Das Risiko wird
+dadurch begrenzt, dass sich ihre Zuständigkeiten nicht überschneiden: Keycloak entscheidet, OB und
+WELCHES Niveau angefragt wird. Der Orchestrator entscheidet, WAS innerhalb dieser Stufe geschieht
+und wie mehrere Nachweise zu einem gemeinsamen ACR zusammenkommen.
 
 **Nachtrag (2026-09-23)**:
-- *Weitere Einstiege.* Der kc-Kanal nimmt neben `KC_SELECT_METHOD` auch `REGISTER` an
+- *Weitere Einstiege.* Der Keycloak-Kanal nimmt neben `KC_SELECT_METHOD` auch `REGISTER` an
   (`KcChannelService.entryIntentFor`), und `MANAGE_AUTH_METHODS` läuft als Required Action mit
   eigener Journey (`OrchestratorManageMethodsRequiredAction`, [05-api.md](../05-api.md) Abschnitt 3).
-  Beides sind Schritte, die Keycloak selbst nicht kann; der Grundsatz „nur dafür“ bleibt.
-- *Passwort.* Das Passwort-Credential prüft Keycloak nicht mehr selbst: `OrchestratorStorageProvider`
-  (UserStorage mit `federationLink`) ruft dafür zustandslos, ohne Kanal und Journey,
-  `MgmtPasswordController` auf. Das ist die oben verworfene Form „zustandslose Einzel-Tool-Aufrufe“,
-  hier bewusst im Login-Flow: Es wird kein Nachweis verrechnet, der Orchestrator ist nur der
-  Credential-Speicher. Das native Passwort-Formular und die LoA-Steuerung bleiben bei Keycloak.
+  Beides sind Schritte, die Keycloak selbst nicht kann; der Grundsatz „nur dafür“ gilt weiter.
+- *Passwort.* Das Passwort prüft Keycloak nicht mehr selbst. `OrchestratorStorageProvider`
+  (UserStorage mit `federationLink`) ruft dafür zustandslos, ohne Kanal und ohne Journey,
+  `MgmtPasswordController` auf. Das ist die oben verworfene Form „einzelne Tools zustandslos
+  aufrufen“, hier bewusst mitten in der Anmeldung: Es wird kein Nachweis zusammengefasst, der
+  Orchestrator dient nur als Speicher für das Credential. Das eigene Passwortformular von Keycloak und
+  die Steuerung des Niveaus bleiben bei Keycloak.
 
 ---

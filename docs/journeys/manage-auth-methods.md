@@ -1,13 +1,13 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `MANAGE_AUTH_METHODS`
 
 ```mermaid
 stateDiagram-v2
-  [*] --> AddRequested: Methode hinzufügen
-  [*] --> RemoveRequested: Methode entfernen
-  [*] --> RetractAttributeRequested: Attribut zurückziehen (DELETE .../attributes/email)
+  [*] --> AddRequested: Verfahren hinzufügen
+  [*] --> RemoveRequested: Verfahren entfernen
+  [*] --> RetractAttributeRequested: Attribut zurücknehmen (DELETE .../attributes/email)
 
   AddRequested --> AddRequested: Step-up nötig, danach erneut geprüft
   RemoveRequested --> RemoveRequested: Step-up nötig, danach erneut geprüft
@@ -15,40 +15,48 @@ stateDiagram-v2
 
   AddRequested --> Enrolling: selfServiceAcrFloor erreicht
   AddRequested --> Finished: selfServiceAcrFloor erreicht, aber nichts mehr einzurichten
-  RemoveRequested --> Finished: selfServiceAcrFloor erreicht, Methode samt abhängiger Verfahren widerrufen
-  RetractAttributeRequested --> Finished: selfServiceAcrFloor erreicht, Attribut zurückgezogen, abhängige Verfahren fallen mit
+  RemoveRequested --> Finished: selfServiceAcrFloor erreicht, Verfahren samt abhängiger Verfahren widerrufen
+  RetractAttributeRequested --> Finished: selfServiceAcrFloor erreicht, Attribut zurückgenommen, abhängige Verfahren entfallen mit
   Enrolling --> Enrolling: anderes Tool gewählt
-  Enrolling --> Finished: eine Methode eingerichtet
+  Enrolling --> Finished: ein Verfahren eingerichtet
   Finished --> [*]
 
   note right of AddRequested
-    Kein eigener Warte-Zustand:
-    die Journey ist SUSPENDED,
-    der Wunsch bleibt stehen.
+    Kein eigener Wartezustand:
+    Die Journey ist SUSPENDED,
+    der Wunsch bleibt erhalten.
   end note
 ```
 
-`AddRequested`/`RemoveRequested`/`RetractAttributeRequested` (die beiden letzten tragen die
-`methodInstanceId` bzw. den `attributeType`) sind zugleich der Wunsch vor der Prüfung auf
-`selfServiceAcrFloor` und der Wartezustand während eines Step-ups; ein abgelehnter Step-up beendet
-die Journey (`Cancel`), statt denselben Step-up erneut anzubieten. `Enrolling` trägt Angebot und
-Ablehnungen.
+**Wunsch und Wartezustand zugleich.** `AddRequested`, `RemoveRequested` und
+`RetractAttributeRequested` halten den Wunsch des Nutzers fest. `RemoveRequested` enthält dafür die
+`methodInstanceId`, `RetractAttributeRequested` den `attributeType`. Derselbe Zustand gilt vor der
+Prüfung gegen `selfServiceAcrFloor` und während eines Step-ups, auf den er wartet. Lehnt der Nutzer
+den Step-up ab, endet die Journey (`Cancel`); derselbe Step-up wird nicht erneut angeboten.
+`Enrolling` enthält das Angebot und die bisherigen Ablehnungen.
 
-`MANAGE_AUTH_METHODS` ist der einzige Intent ohne Policy-Ziel: **ein** erfolgreiches Enrollment
-beendet ihn, unabhängig vom Niveau. Eine zweite Methode braucht eine neue Journey.
+`MANAGE_AUTH_METHODS` ist der einzige Intent ohne Ziel in der Richtlinie: Die Journey endet, sobald
+**ein** Verfahren erfolgreich eingerichtet ist, unabhängig vom erreichten Niveau. Für ein zweites
+Verfahren beginnt eine neue Journey.
 
-Dass gewartet wird, sagen `JourneyLifecycle.SUSPENDED` und die `parentJourneyId` der Kind-Journey
-— deshalb überlebt der Wunsch den Step-up: Nach dessen Abschluss wird derselbe Zustand erneut
-ausgewertet, prüft die Vorbedingung neu und führt aus, was ursprünglich verlangt war.
+Dass die Journey wartet, erkennt man an `JourneyLifecycle.SUSPENDED` und an der `parentJourneyId`
+der Kind-Journey. Deshalb geht der Wunsch beim Step-up nicht verloren: Ist der Step-up fertig, wird
+derselbe Zustand erneut ausgewertet. Er prüft die Vorbedingung noch einmal und führt dann aus, was
+ursprünglich verlangt war.
 
-Die Vorbedingung folgt derselben Logik wie die `enrolledUnderAcr`-Begrenzung (Abschnitt 8):
-Niemand soll sich aus eigener Kraft mehr Rechte verschaffen. Eine übernommene Session darf also
-keine Methoden hinzufügen oder entfernen. Das geforderte Niveau selbst liefert die geteilte Funktion `selfServiceAcrFloor`
-(`orchestrator/journey/IntentStrategy.kt`, auch von `DeleteAccountStrategy` genutzt): `loa2` für
-ein identifiziertes Konto, aber nur `loa1` für ein nie identifiziertes (`personId == null`, der
-"Enrollment zuerst"-Fall). Dort gibt es keine gebundene Identität, die eine übernommene Session
-zusätzlich beschädigen könnte. Und `loa2` wäre für ein solches Konto ohnehin nie erreichbar: Die
-MFA-Kombinationsregel begrenzt jede Erhöhung auf das höchste `enrolledUnderAcr` seiner Methoden, und
-das liegt bei einem nie identifizierten Konto immer bei `loa1`. Das Entfernen prüft zusätzlich,
-dass der Account danach die Untergrenze des Kanals noch erreichen kann (`409`, Schutz vor dem
-Aussperren).
+**Welches Niveau verlangt wird.** Die Vorbedingung folgt derselben Überlegung wie die Begrenzung
+durch `enrolledUnderAcr` (Orchestrierung, Abschnitt 8): Niemand soll sich aus eigener Kraft mehr
+Rechte verschaffen. Wer eine Sitzung übernommen hat, darf deshalb keine Verfahren hinzufügen oder
+entfernen. Das geforderte Niveau liefert die gemeinsam genutzte Funktion `selfServiceAcrFloor`
+(`orchestrator/journey/IntentStrategy.kt`; `DeleteAccountStrategy` nutzt sie auch):
+
+- Für ein identifiziertes Konto ist es `loa2`.
+- Für ein Konto, das nie identifiziert wurde (`personId == null`, etwa aus dem Experiment „Erst
+  Anmeldeverfahren einrichten“), reicht `loa1`. Bei einem solchen Konto gibt es keine gebundene
+  Identität, die eine übernommene Sitzung zusätzlich schädigen könnte. Außerdem wäre `loa2` dort nie
+  erreichbar: Die Regel für kombinierte Verfahren begrenzt jede Erhöhung auf das höchste
+  `enrolledUnderAcr` der Verfahren eines Kontos, und das ist bei einem nie identifizierten Konto
+  immer `loa1`.
+
+Beim Entfernen wird zusätzlich geprüft, ob das Konto danach die Untergrenze des Kanals noch
+erreichen kann. Wenn nicht, antwortet der Server mit `409`; so kann sich niemand selbst aussperren.

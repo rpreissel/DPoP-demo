@@ -1,4 +1,4 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `STEP_UP`
@@ -6,31 +6,33 @@
 ```mermaid
 stateDiagram-v2
   [*] --> Start
-  Start --> AuthChoice: kombinierbare Methoden vorhanden
-  Start --> RE_IDENTIFY: keine kombinierbare Methode, Re-Identifizierung möglich
+  Start --> AuthChoice: kombinierbare Verfahren vorhanden
+  Start --> RE_IDENTIFY: kein kombinierbares Verfahren, erneute Identifizierung möglich
   Start --> [*]: weder noch - Abort
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
-  AuthChoice --> RE_IDENTIFY: keine kombinierbare Methode übrig oder alle abgelehnt, Re-Identifizierung möglich
-  AuthChoice --> [*]: alle abgelehnt, keine Re-Identifizierung möglich - Cancel
+  AuthChoice --> RE_IDENTIFY: kein kombinierbares Verfahren übrig oder alle abgelehnt, erneute Identifizierung möglich
+  AuthChoice --> [*]: alle abgelehnt, keine erneute Identifizierung möglich - Cancel
   AuthChoice --> Finished: targetAcr erreicht
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
-  RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
+  RE_IDENTIFY --> [*]: abgelehnt oder nicht möglich (Cancel/Abort)
   Finished --> [*]
 
   note right of RE_IDENTIFY
-    Eigene geteilte SubJourney,
-    kein Zustand dieses Intents -
-    siehe unten.
+    Eigene, gemeinsam genutzte
+    Sub-Journey, kein Zustand
+    dieses Intents.
   end note
 ```
 
-Jeder Zustand trägt `targetAcr` (das Ziel dieses Laufs, nicht die dauerhafte Untergrenze des
-Kanals, Abschnitt 8) und `startingAcr`; `AuthChoice` zusätzlich Angebot und Ablehnungen. Mit
-`allowReIdentification = false` (so fordert `CONFIRM_PEER_LOGIN` seinen Step-up an) entfällt der
-Weg über `RE_IDENTIFY` ganz: Dann endet der Lauf mit `Abort` bzw. `Cancel`.
+Jeder Zustand enthält `targetAcr` und `startingAcr`. `targetAcr` ist das Ziel dieses einen Laufs,
+nicht die dauerhafte Untergrenze des Kanals (Orchestrierung, Abschnitt 8). `AuthChoice` enthält
+außerdem das Angebot und die bisherigen Ablehnungen.
 
-Schließt keine aktive Methode die Lücke (etwa ein Account mit nur einer aktiven Methode, die
-`loa1` erreicht), springt die Strategie in die geteilte `RE_IDENTIFY`-SubJourney
-statt selbst eine Re-Identifizierung anzubieten (Abschnitt „RE_IDENTIFY" unten). Nach ihrem
-Abschluss (`SubJourneyFinished`) prüft `Start` per `finishOrContinue` erneut, ob der Nachweis jetzt
-reicht.
+`CONFIRM_PEER_LOGIN` fordert seinen Step-up mit `allowReIdentification = false` an. Dann entfällt
+der Weg über `RE_IDENTIFY` ganz, und die Journey endet mit `Abort` oder `Cancel`.
+
+Kann kein aktives Verfahren die Lücke schließen, bietet die Strategie die erneute Identifizierung
+nicht selbst an. Sie startet stattdessen die gemeinsam genutzte Sub-Journey
+[`RE_IDENTIFY`](re-identify.md). Das betrifft etwa ein Konto mit nur einem aktiven Verfahren, das
+allein `loa1` erreicht. Ist die Sub-Journey fertig (`SubJourneyFinished`), prüft `Start` mit
+`finishOrContinue` erneut, ob der Nachweis jetzt reicht.

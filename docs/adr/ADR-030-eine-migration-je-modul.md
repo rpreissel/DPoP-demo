@@ -1,19 +1,20 @@
 # ADR-30: Ein Flyway-Migrationsordner je Modul
 
 **Entscheidung.** Jedes Modul bringt sein Schema in einem eigenen Ordner
-`db/migration/<modul>/` mit, meist eine Datei (der Orchestrator hat drei). Im Wurzelverzeichnis der Migrationen liegt keine SQL-Datei mehr.
+`db/migration/<modul>/` mit, meist als eine Datei (der Orchestrator hat drei). Im obersten
+Verzeichnis der Migrationen liegt keine SQL-Datei mehr.
 `ModuleMigrationLocations` findet die Ordner beim Start selbst.
 
 ## Vorher
 
 `V1__schema.sql` legte auf 589 Zeilen die Schemas und Tabellen aller Module an, dazu kamen
-`V2__testdata.sql` und `V4__node_signing_key.sql` im Wurzelverzeichnis. Nur `auth_kobil` hatte
+`V2__testdata.sql` und `V4__node_signing_key.sql` im obersten Verzeichnis. Nur `auth_kobil` hatte
 bereits eine eigene Datei.
 
 Das passte nicht zum Rest: Jedes Modul hat sein eigenes Datenbankschema
 ([ADR-16](ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md)), seine eigenen Controller
-und seine eigene Aufräum-Logik — aber die Tabellen dazu standen in einer Datei, die alle Module
-teilten. Ein neues Methodenmodul musste sie anfassen. Das war die letzte Stelle, an der die
+und seine eigene Logik zum Aufräumen, aber die Tabellen dazu standen in einer Datei, die sich alle
+Module teilten. Ein neues Methodenmodul musste sie anfassen. Das war die letzte Stelle, an der die
 Modulgrenze im Code nicht galt.
 
 ## Was es kostet
@@ -26,8 +27,8 @@ neu auf — die Testdaten kommen aus `demo_seed/V16__testdata.sql`. Bei jeder an
 bricht Flyway ab, und dort wäre derselbe Schritt nicht billig.
 
 [ADR-4](ADR-004-flyway-neubaseline-statt-migration-des-altcodes.md) hat aus demselben Grund schon
-einmal neu baseliniert; insofern ist das hier die zweite Anwendung einer bereits getroffenen
-Entscheidung, nicht eine neue.
+einmal eine neue Ausgangsbasis geschaffen. Insofern wird hier eine bereits getroffene Entscheidung
+zum zweiten Mal angewendet und keine neue getroffen.
 
 ## Aufteilung und Reihenfolge
 
@@ -38,14 +39,14 @@ zugleich brauchen. Später hinzugekommene Module hängen sich mit der nächsten 
 (`nect_mock` V17, `id_nect` V18).
 
 Fremdschlüssel gibt es weiterhin nur innerhalb eines Schemas (ADR-16). Ein Verweis in ein anderes
-Modul ist eine indizierte Spalte, keine Fremdschlüsselbeziehung. Genau deshalb ist die Aufteilung
-überhaupt möglich, ohne die Reihenfolge fragil zu machen.
+Modul ist eine Spalte mit Index, keine Fremdschlüsselbeziehung. Genau deshalb ist die Aufteilung
+überhaupt möglich, ohne dass die Reihenfolge empfindlich wird.
 
 ## Alternative: V1 als Grundbestand stehen lassen
 
 Neue Migrationen wären ab jetzt in die Modulordner gegangen, die alten wären geblieben. Keine
-Datenbank wäre ungültig geworden. Dagegen sprach, dass der Grundbestand — also fast das ganze
-Schema — weiter in einer geteilten Datei gestanden hätte und die Aufteilung nur für Neues gegolten
+Datenbank wäre ungültig geworden. Dagegen sprach, dass der Grundbestand, also fast das ganze
+Schema, weiter in einer gemeinsamen Datei gestanden hätte und die Aufteilung nur für Neues gegolten
 hätte.
 
 ## Wo die gemeinsamen Regeln stehen

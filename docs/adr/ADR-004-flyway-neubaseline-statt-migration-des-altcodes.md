@@ -1,26 +1,26 @@
-# ADR-4: Flyway-Neubaseline statt Migration des Altcodes
+# ADR-4: Neue Flyway-Ausgangsbasis statt Migration des Altcodes
 
 > **Nachtrag.** `V1__schema.sql` ist inzwischen in eine Datei je Modul aufgeteilt, siehe
 > [ADR-30](ADR-030-eine-migration-je-modul.md). Die Aussagen unten gelten unverändert; nur die
 > Datei, auf die sie sich beziehen, gibt es so nicht mehr.
 
 
-**Entscheidung**: `V1__schema.sql` ersetzt die komplette frühere Migrationshistorie (`V1`–`V16`
-im ursprünglichen Code) durch einen sauberen Neubau, statt sie fortzuschreiben.
+**Entscheidung**: `V1__schema.sql` ersetzt alle früheren Migrationen (`V1`–`V16` im ursprünglichen
+Code) durch einen sauberen Neubau, statt sie weiterzuführen.
 
-**Erwogene Alternative**: Den Altcode Schritt für Schritt migrieren — `Attempt`-Terminologie zu
-`ToolSession`/`ToolOutcome`, URL-Pfade auf den Tool-Namespace, Klartext-TAN nachträglich hashen.
+**Erwogene Alternative**: Den alten Code Schritt für Schritt umstellen: die Begriffe rund um
+`Attempt` auf `ToolSession`/`ToolOutcome`, die URL-Pfade auf den Bereich der Tools, und TANs im
+Klartext nachträglich hashen.
 
-**Warum diese**: Der Alt-Stand unterschied sich strukturell so stark vom Zielbild (andere
-Terminologie, kein `ToolDescriptor`/`AuthPolicy`, unverschlüsselte TANs), dass eine
-Schritt-für-Schritt-Migration mehr Zwischenzustände und damit mehr Fehlerquellen erzeugt hätte als
-ein Neubau. Für eine Demo mit lokaler H2-Datei entfällt außerdem das übliche Gegenargument
-Datenverlust.
+**Warum diese**: Der alte Stand war im Aufbau so weit vom Ziel entfernt (andere Begriffe, kein
+`ToolDescriptor` und keine `AuthPolicy`, TANs im Klartext), dass eine schrittweise Umstellung mehr
+Zwischenzustände und damit mehr Fehlerquellen erzeugt hätte als ein Neubau. Bei einer Demo mit einer
+lokalen H2-Datei entfällt außerdem das übliche Gegenargument, der Verlust von Daten.
 
-**Kosten**: Diese Entscheidung ist an den Kontext gebunden — bei echten Bestandsdaten wäre eine
-Neubaseline nicht vertretbar.
+**Kosten**: Die Entscheidung gilt nur in diesem Rahmen. Mit echten Bestandsdaten wäre eine neue
+Ausgangsbasis nicht vertretbar.
 
-**Nachtrag**: Eine zweite Neubaseline hat die danach wieder aufgelaufenen 37 Migrationen
-zusammengeführt — mit Modellbereinigung, siehe ADR-14.
+**Nachtrag**: Eine zweite neue Ausgangsbasis hat die danach wieder angesammelten 37 Migrationen
+zusammengefasst und dabei das Modell bereinigt, siehe ADR-14.
 
 ---

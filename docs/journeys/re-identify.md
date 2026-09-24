@@ -1,13 +1,19 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `RE_IDENTIFY`
 
-Geteilt von `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP` und `REGISTER` (über `AuthEnrollCore.offerEnrollment`,
-wenn ein neues Verfahren erst nach frischer Identifizierung eingerichtet werden darf; jeweils oben
-verlinkt) sowie vom „Enrollment zuerst"-Experiment (`RegisterEnrollFirstStrategy`, Abschnitt
-„REGISTER") — eine einzige Implementierung statt fünf fast identischer. Nie ein Entry-Intent, nur über
-`Transition.RequireSubJourney` erreichbar.
+Die erneute Identifizierung ist eine gemeinsam genutzte Sub-Journey. Sie wird von diesen Journeys
+angefordert:
+
+- [`FAST_ACCESS`](fast-access.md), [`LOOKUP_LOGIN`](lookup-login.md) und [`STEP_UP`](step-up.md);
+- [`REGISTER`](register.md), und zwar über `AuthEnrollCore.offerEnrollment`, wenn ein neues
+  Verfahren erst nach einer erneuten Identifizierung eingerichtet werden darf;
+- dem Experiment „Erst Anmeldeverfahren einrichten“ (`RegisterEnrollFirstStrategy`, siehe
+  [`REGISTER`](register.md)).
+
+Es gibt nur diese eine Umsetzung statt fünf fast gleicher. `RE_IDENTIFY` ist nie der Einstieg einer
+Journey; man erreicht sie nur über `Transition.RequireSubJourney`.
 
 ```mermaid
 stateDiagram-v2
@@ -20,23 +26,31 @@ stateDiagram-v2
   Finished --> [*]
 ```
 
-`OfferReIdent` fragt immer zuerst per `AnswerableState`-Prompt („Erneut identifizieren?"), nie als
-unbemerkter Rückfall. `Identifying` trägt `targetAcr`/`startingAcr` sowie Angebot und Ablehnungen;
-`ident-fsc` erreicht `loa2`, `ident-eid`/`ident-nect` `loa3` im Alleingang.
+`OfferReIdent` fragt immer zuerst nach („Erneut identifizieren?“, über `AnswerableState`). Die
+erneute Identifizierung beginnt also nie unbemerkt. `Identifying` enthält `targetAcr` und
+`startingAcr` sowie das Angebot und die bisherigen Ablehnungen. Allein erreicht `ident-fsc` das
+Niveau `loa2`, `ident-eid` und `ident-nect` erreichen `loa3`.
 
-Der Standardtext („Sicherheitsniveau mit den vorhandenen Anmeldeverfahren nicht erreichbar") passt
-nur für `FAST_ACCESS`/`LOOKUP_LOGIN`/`STEP_UP`; für `RegisterEnrollFirstStrategy`s abschließendes
-Angebot ist er falsch. Deshalb trägt `ReIdentifyState` (und darüber `forSubJourney(targetAcr,
-startingAcr, wording)`) ein optionales `Wording` (Titel/Beschreibung/Button-Text für `OfferReIdent`
-und `Identifying`), das nur dieser Aufrufer belegt; `null` behält den Standardtext. Gleiches Muster
-wie `StepUpState.forSubJourney`s `reason`.
+**Eigener Text für das Experiment.** Der Standardtext („Sicherheitsniveau mit den vorhandenen
+Anmeldeverfahren nicht erreichbar“) passt nur für `FAST_ACCESS`, `LOOKUP_LOGIN` und `STEP_UP`. Für
+das abschließende Angebot von `RegisterEnrollFirstStrategy` ist er falsch. Deshalb hat
+`ReIdentifyState` ein optionales Feld `Wording` mit Titel, Beschreibung und Knopftext für
+`OfferReIdent` und `Identifying`. Gesetzt wird es über `forSubJourney(targetAcr, startingAcr,
+wording)`, und nur dieser eine Aufrufer belegt es. Bleibt es `null`, gilt der Standardtext. Das
+folgt demselben Muster wie `reason` in `StepUpState.forSubJourney`.
 
-`startingAcr` steuert, wohin `cancelledTo` bei Ablehnung zurückfällt: `"none"` heißt, der aufrufende
-Kanal war nicht authentifiziert (`FAST_ACCESS`/`LOOKUP_LOGIN`) → `ANONYMOUS`; ein echtes Niveau
-heißt `AUTHENTICATED` (`STEP_UP`) → das bleibt er auch, eine abgelehnte Re-Identifizierung meldet
-keine laufende Session ab.
+**Wohin eine Ablehnung führt.** `startingAcr` bestimmt, in welchen Zustand der Kanal bei Ablehnung
+zurückfällt (`cancelledTo`):
 
-`transition()` liefert für ein erfolgreiches `Identified` immer dieselbe `Action.RecordIdentification`; weil hier stets ein Konto gebunden ist, wirkt sie als Bestätigung, nicht als
-Übernahme: Die identifizierte Person muss zum bereits bekannten Account passen (`409` bei
-Abweichung), unabhängig davon, welcher Intent die SubJourney angefordert hat. Einzige Ausnahme ist
-ein noch nie identifiziertes Konto („Enrollment zuerst"), das die Identität hier erstmals übernimmt.
+- `"none"` bedeutet, dass der aufrufende Kanal noch nicht angemeldet war (`FAST_ACCESS`,
+  `LOOKUP_LOGIN`). Er fällt auf `ANONYMOUS` zurück.
+- Ein echtes Niveau bedeutet, dass der Kanal bereits angemeldet war (`STEP_UP`). Er bleibt
+  `AUTHENTICATED`, denn eine abgelehnte erneute Identifizierung meldet keine laufende Sitzung ab.
+
+**Bestätigen, nicht übernehmen.** Für ein erfolgreiches `Identified` liefert `transition()` immer
+dieselbe `Action.RecordIdentification`. Weil hier stets schon ein Konto gebunden ist, bestätigt sie
+die Identität nur und übernimmt kein anderes Konto: Die identifizierte Person muss zum bereits
+bekannten Konto passen, sonst antwortet der Server mit `409`. Das gilt unabhängig davon, welcher
+Intent die Sub-Journey angefordert hat. Einzige Ausnahme ist ein Konto, das noch nie identifiziert
+wurde (aus dem Experiment „Erst Anmeldeverfahren einrichten“). Es übernimmt die Identität hier zum
+ersten Mal.

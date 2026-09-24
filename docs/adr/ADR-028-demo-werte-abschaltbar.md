@@ -8,24 +8,25 @@
 Im `demo`-Block der Antwort stehen die TAN im Klartext, das feste Demo-Passwort und von jeder
 Testperson KVNR, Name, Adresse und Freischaltcode. Dass das „nie Teil des Produktionsvertrags" ist,
 stand als Kommentar an `tool_spi.DEMO_DATA_KEY`. Zwei Stellen bauten den Block aber ohne jede
-Bedingung. Ein Deployment, das diese Werte nicht ausliefern darf, hatte nichts zum Abschalten.
+Bedingung. Eine Installation, die diese Werte nicht ausliefern darf, hatte nichts, womit sie sie abschalten
+konnte.
 
-## Alternative: ein Flag an den beiden Stellen
+## Alternative: ein Schalter an den beiden Stellen
 
-`if (!demoEnabled) return null` wäre kürzer gewesen. Dagegen spricht: man müsste dann per Test
-absichern, dass wirklich jede Stelle das Flag prüft, und eine dritte Stelle könnte den
-bedingungslosen Pfad wieder einführen. Mit einer Bean, die es nur je nach Property `demo.disclosure` gibt (`@ConditionalOnProperty`,
-zwei Implementierungen in `DemoDisclosure.kt`), gibt es den Pfad nicht, über
-den die Werte hinausgehen könnten.
+`if (!demoEnabled) return null` wäre kürzer gewesen. Dagegen spricht: Man müsste dann per Test
+absichern, dass wirklich jede Stelle den Schalter prüft, und eine dritte Stelle könnte den Weg ohne
+Bedingung wieder einführen. Mit einer Bean, die es nur abhängig von der Property `demo.disclosure`
+gibt (`@ConditionalOnProperty`, zwei Umsetzungen in `DemoDisclosure.kt`), gibt es gar keinen Weg,
+über den die Werte hinausgehen könnten.
 
 ## Kosten
 
-Eine Indirektion: die beiden Aufrufer übergeben ihre Bestandteile, statt das `DemoInfo` selbst zu
-bauen. Dazu eine ArchUnit-Regel.
+Ein Umweg mehr: Die beiden Aufrufer übergeben ihre Bestandteile, statt das `DemoInfo` selbst zu
+bauen. Dazu kommt eine ArchUnit-Regel.
 
 ## Nicht entschieden
 
-Der Default bleibt eingeschaltet. Das Projekt ist eine Demo, und die Werte sind ihr Zweck.
+Voreingestellt bleiben die Werte eingeschaltet. Das Projekt ist eine Demo, und die Werte sind ihr Zweck.
 Entschieden ist nur, dass man sie mit einer Einstellung abschalten kann.
 
 Siehe [05-api.md](../05-api.md) Abschnitt 2 (`demo`).

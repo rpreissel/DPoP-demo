@@ -5,40 +5,44 @@
 > `IdentityResolver`/`Resolution`, `ClaimRequirement`/`ClaimDeclaration` auf `ToolDescriptor`
 > (seit ADR-18 generisch geprüft, nicht mehr nur für E-Mail),
 > E-Mail als generischer Anker ohne `auth_email`-Sonderabhängigkeit auf `account`) ist vollständig
-> im Code. Die drei fachlichen Grundfragen (Interessenten-Verzweigung, Merge-Verhalten,
-> Form des Widerrufs) sind entschieden: [ADR-10 bis ADR-12](../12-entscheidungen.md); die
-> Schema-Form: [ADR-14](../12-entscheidungen.md). `Completed.Identified` trägt `PERSON_ID` nur
-> noch als Claim, kein separates Feld mehr — und seit ADR-18 gar nicht mehr zwingend: ein Tool darf
-> bestätigen, ohne jemanden aufzulösen, womit der Interessent aus ADR-10 über eID tatsächlich
-> erreichbar ist. Maßgeblich für den Ist-Stand ist der Code, nicht die
-> SQL-Entwürfe in der Git-Historie dieser Datei. ADR-19 hat die Auflösung danach auf Anker
-> allein gestellt (`restricted_id` als dritter lokaler Anker neben `person_id` und `email` – seit ADR-34 kommt `versnr` hinzu,
-> Attributkombination als Auflösungsschicht entfernt) — auch das ist im Code maßgeblich.
+> im Code. Die drei fachlichen Grundfragen (Verzweigung für Interessenten, Verhalten
+> beim Zusammenführen, Form des Widerrufs) sind entschieden: [ADR-10 bis ADR-12](../12-entscheidungen.md); die
+> Form des Schemas: [ADR-14](../12-entscheidungen.md). `Completed.Identified` enthält `PERSON_ID` nur
+> noch als Claim, nicht mehr als eigenes Feld, und seit ADR-18 nicht einmal mehr zwingend: Ein Tool
+> darf bestätigen, ohne eine Person zu finden. Erst damit ist der Interessent aus ADR-10 über die eID
+> tatsächlich erreichbar. Maßgeblich für den Ist-Stand ist der Code, nicht die
+> SQL-Entwürfe in der Git-Historie dieser Datei. ADR-19 hat die Suche nach dem Konto danach
+> ausschließlich auf Anker gestellt: `restricted_id` wurde der dritte lokale Anker neben `person_id` und
+> `email` (seit ADR-34 kommt `versnr` hinzu), und die Suche über die Kombination von Attributen ist
+> entfernt. Auch dafür ist der Code maßgeblich.
 
-Offen geblieben ist nur die Skalierungsfrage unten — sie betrifft eine Produktivgröße
-(10 Mio. Konten), die diese Demo nie erreicht, und ist bewusst als Formvorgabe für den Fall
-aufgehoben, dass das Modell einmal dorthin wächst.
+Offen geblieben ist nur die Frage der Größe unten. Sie betrifft einen Umfang im Produktivbetrieb
+(10 Millionen Konten), den diese Demo nie erreicht. Sie ist bewusst als Vorgabe für den Fall
+aufgehoben, dass das Modell einmal so groß wird.
 
 ## Skalierung: zehn Millionen Konten
 
 Größenordnung: 10M `account`-Zeilen, `account.claim` bei 2-8 Zeilen pro Konto also
 **20-80M Zeilen**. Zwei Grundsätze, falls das Modell dorthin wächst:
 
-- **Die häufigen Abfragen bleiben typisierte Zeilen-Lookups.** Auf diesen Pfaden wird nie über ein EAV-Modell gelesen - jede
-  Abfrage (`account` per PK, `account.anchor` per `(attribute_type, value)`,
-  `orchestrator.device_account_link` per `binding_key_ref`) bleibt B-Tree auf engen Spalten.
-- **Rückwärts-Lookup** (Wert -> Account) braucht **normalisierte Werte** (kleingeschriebene
-  E-Mail, kanonisierte Telefonnummer) - ein Index über Rohwerte wäre ein Fehler
+- **Die häufigen Abfragen lesen weiterhin gezielt einzelne Zeilen mit festen Spalten.** Auf diesen
+  Wegen wird nie über ein Modell aus Attribut-Wert-Paaren gelesen. Jede Abfrage (`account` über den
+  Primärschlüssel, `account.anchor` über `(attribute_type, value)`,
+  `orchestrator.device_account_link` über `binding_key_ref`) nutzt weiter einen B-Baum-Index auf
+  schmalen Spalten.
+- **Die Suche vom Wert zum Konto** braucht **normalisierte Werte** (kleingeschriebene E-Mail-Adresse,
+  Telefonnummer in einheitlicher Form). Ein Index über die ursprünglichen Werte wäre ein Fehler
   (`Foo@x.de` ≠ `foo@x.de`). `AttributeType.anchorRule`/`normalizeAnchorValue` leisten das
   bereits pro Typ.
-- **Das Log (`account.claim`) braucht keinen Rückwärts-Index** - generische Mismatch-Abfragen
-  über alle Attribute sind selten und analytisch; dort genügt ein Scan oder ein gezielter
-  Index, kein dauerhaft gepflegter.
-- **Bestandsmigration bei 10M ist kein Einzel-Statement**: in wiederholbaren Portionen nachziehen, mit
-  festgehaltenem Fortschritt - keine Transaktion, die Locks auf Bestandstabellen hält.
-- **`KeycloakAccountSyncService` lädt heute alle Accounts in den Speicher**
-  (`accountService.allAccountIds()` -> `findAll()`): bei 10M ein Full-Table-Load pro Sync,
-  unabhängig vom Claims-Modell ein offener Befund - muss gestaffelter Batch werden
-  (seitenweise über `id`).
-- **Demo bleibt unberührt**: H2 ohne Partitionierung; das oben ist Form-Vorgabe für den Fall
-  eines Wachstumsschritts, keine Anweisung für den nächsten Montag.
+- **Das Log (`account.claim`) braucht keinen Index für die Suche vom Wert zum Konto.** Allgemeine
+  Abfragen nach Abweichungen über alle Attribute sind selten und dienen der Auswertung. Dafür genügt
+  ein Durchsuchen der Tabelle oder ein eigens angelegter Index, der nicht dauerhaft gepflegt wird.
+- **Bestehende Daten bei 10 Millionen Konten umzustellen, ist keine einzelne SQL-Anweisung.** Man
+  stellt sie in wiederholbaren Portionen um und hält den Fortschritt fest, statt mit einer einzigen
+  Transaktion Sperren auf den Tabellen zu halten.
+- **`KeycloakAccountSyncService` lädt heute alle Konten in den Speicher**
+  (`accountService.allAccountIds()` -> `findAll()`). Bei 10 Millionen Konten wäre das bei jedem
+  Abgleich die ganze Tabelle. Unabhängig vom Claims-Modell ist das ein offener Befund; der Abgleich
+  muss dann in Portionen laufen (seitenweise über `id`).
+- **Die Demo bleibt davon unberührt**: H2 ohne Partitionierung. Das oben ist eine Vorgabe für den
+  Fall, dass das Modell wächst, und keine Aufgabe für die nächste Zeit.

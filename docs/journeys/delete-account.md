@@ -1,10 +1,10 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `DELETE_ACCOUNT`
 
-Self-Service-Löschung des eigenen Accounts. Die Bestätigung kommt immer zuerst, nie hinter einem
-Step-up versteckt.
+Mit dieser Journey löscht ein Nutzer sein eigenes Konto. Die Bestätigung kommt immer zuerst und
+wird nie hinter einem Step-up versteckt.
 
 ```mermaid
 stateDiagram-v2
@@ -17,19 +17,25 @@ stateDiagram-v2
   STEP_UP --> [*]: SubJourneyCancelled -> Cancel
   ConfirmationRequired --> ConfirmationRequired: ein Tool abgelehnt, weitere übrig
   ConfirmationRequired --> [*]: alle abgelehnt -> Cancel
-  ConfirmationRequired --> Finished: Nachweis erbracht -> Account gelöscht, Logout
+  ConfirmationRequired --> Finished: Nachweis erbracht -> Konto gelöscht, Abmeldung
   Finished --> [*]
 ```
 
-`ConfirmPending` ist ein `AnswerableState` mit `destructive: true`-Prompt. Nach Zustimmung greift
-dasselbe `selfServiceAcrFloor`-Gate wie bei `MANAGE_AUTH_METHODS` (Abschnitt 3, `Action.DeleteAccount
-.requiredAcr` delegiert an dieselbe Funktion). Der abschließende Re-Proof
-(irgendein aktiver Faktor, beliebiges Niveau) bleibt Pflicht, nie eine Löschung, die unbemerkt von selbst passiert; musste
-ein Step-up laufen, zählt dessen Nachweis bereits. Der Übergang am Ende ist
-`Transition.Perform(Action.DeleteAccount, resumeState = ConfirmPending)`, aufgelöst zu
-`Transition.Logout` sobald die Journey mit `ActionCompleted` fortgesetzt wird: Account löschen,
-Kanal beenden. `JourneyActionExecutor` prüft `requiredAcr(account)` unmittelbar vor der Ausführung erneut
-nach (wie beim Selbst-Aussperr-Check vor `Action.RevokeAuthMethod`).
-Der Nachweis in `ConfirmationRequired` läuft direkt in `Action.DeleteAccount`, nie über
-`Action.AcceptProof` — er autorisiert genau diese eine Löschung, nie eine dauerhafte
-`MethodEvidence` (Abschnitt 5).
+`ConfirmPending` ist ein `AnswerableState`; seine Frage ist als folgenschwer markiert
+(`destructive: true`). Nach der Zustimmung gilt dieselbe Schwelle wie bei
+[`MANAGE_AUTH_METHODS`](manage-auth-methods.md): `Action.DeleteAccount.requiredAcr` ruft dieselbe
+Funktion `selfServiceAcrFloor` auf.
+
+Zum Schluss muss der Nutzer immer noch einmal ein Verfahren nachweisen (ein beliebiges aktives, auf
+beliebigem Niveau). So wird ein Konto nie unbemerkt gelöscht. Musste vorher ein Step-up laufen,
+zählt dessen Nachweis bereits.
+
+Der letzte Übergang ist `Transition.Perform(Action.DeleteAccount, resumeState = ConfirmPending)`.
+Wird die Journey danach mit `ActionCompleted` fortgesetzt, wird daraus `Transition.Logout`: Das Konto
+wird gelöscht und der Kanal beendet. Unmittelbar vor der Ausführung prüft `JourneyActionExecutor`
+`requiredAcr(account)` noch einmal, so wie vor `Action.RevokeAuthMethod` geprüft wird, ob sich der
+Nutzer aussperren würde.
+
+Der Nachweis in `ConfirmationRequired` führt direkt zu `Action.DeleteAccount` und nie über
+`Action.AcceptProof`. Er erlaubt genau diese eine Löschung und wird nie zu einem dauerhaften
+Nachweis der Sitzung (`MethodEvidence`, Orchestrierung, Abschnitt 5).

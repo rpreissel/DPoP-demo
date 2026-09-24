@@ -6,17 +6,16 @@ trägt keine langlebige Geräte-Zuordnung. Die einzige dauerhafte Zuordnung Ger�
 ([Domänenmodell](../02-domaenenmodell.md) Abschnitt 1,
 [DPoP-Bindung](../09-dpop.md) Abschnitt 3).
 
-**Erwogene Alternative**: `ChannelSession` selbst langlebig machen und die
-Geräte-Wiedererkennung darüber lösen — ein wiederkehrendes Gerät würde dieselbe Session
-fortsetzen.
+**Erwogene Alternative**: `ChannelSession` selbst langlebig machen und das Wiedererkennen des Geräts
+darüber lösen. Ein wiederkehrendes Gerät würde dann dieselbe Sitzung fortsetzen.
 
-**Warum diese**: Eine Session, die ein Gerät über Wochen repräsentiert, vermischt zwei
-Lebensdauern in einer Entity: den Kanal-Vorgang (Stunden) und die
-Geräte-Identität (dauerhaft). Der `bindingKeyRef` beweist
-nur, welches Gerät spricht, nie, welche Session fortzusetzen ist; eine wiederkehrende
-`ChannelSession` wird deshalb **immer** neu angelegt und nur mit `accountId` vorbefüllt.
+**Warum diese**: Eine Sitzung, die ein Gerät über Wochen darstellt, vermischt zwei Lebensdauern in
+einer Entität: die Nutzung eines Kanals (Stunden) und die Identität des Geräts (dauerhaft). Der
+`bindingKeyRef` beweist nur, welches Gerät spricht, nie, welche Sitzung fortzusetzen ist. Kommt ein
+Gerät wieder, wird deshalb **immer** eine neue `ChannelSession` angelegt und nur mit der
+`accountId` vorbelegt.
 
-**Kosten**: Zwei Konzepte statt eines — die Geräte-Bindung muss explizit über
+**Kosten**: Zwei Konzepte statt eines: Die Bindung des Geräts muss ausdrücklich in
 `DeviceAccountLink` nachgeschlagen werden.
 
 ---

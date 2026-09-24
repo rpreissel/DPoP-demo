@@ -1,14 +1,18 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `KC_SELECT_METHOD`
 
-Der Default-Entry-Intent des `KEYCLOAK`-Kanals für Login/Step-up ([05-api.md](../05-api.md)
-Abschnitt 3, `ADR-8` in [12-entscheidungen.md](../12-entscheidungen.md)); `REGISTER` ist der zweite
-Web-Entry (Abschnitt "REGISTER" oben). Ein einziger Zustand, der ohne jede Bedingung alle kc-nutzbaren
-Tools als einen `selectMethod`-Schritt anbietet — keine Fallback-Kette, kein Enrollment-Angebot,
-und VOR dem Anbieten keine Prüfung, ob das Vorhandene schon reicht: Keycloaks native Flow-Konfiguration
-(Conditional-LoA-Subflows) entscheidet bereits, OB und WELCHES Niveau angefragt ist.
+Mit diesem Intent beginnt im `KEYCLOAK`-Kanal jede Anmeldung und jeder Step-up, wenn nichts anderes
+angegeben ist ([05-api.md](../05-api.md) Abschnitt 3, ADR-8 in
+[12-entscheidungen.md](../12-entscheidungen.md)). Der zweite mögliche Einstieg im Web-Kanal ist
+[`REGISTER`](register.md).
+
+Die Journey hat nur einen einzigen Zustand. Er bietet ohne jede Bedingung alle Tools, die im
+Keycloak-Kanal nutzbar sind, in einem gemeinsamen `selectMethod`-Schritt an. Es gibt keine Kette von
+Ausweichwegen und kein Angebot, ein Verfahren einzurichten. Es wird vor dem Angebot auch nicht
+geprüft, ob das Vorhandene schon reicht. Das entscheidet bereits Keycloak selbst: Seine
+Ablaufkonfiguration (Conditional-LoA-Subflows) legt fest, ob und welches Niveau angefragt wird.
 
 ```mermaid
 stateDiagram-v2
@@ -18,14 +22,16 @@ stateDiagram-v2
   SelectMethod --> Finished: Nachweis erbracht, Niveau erreicht
 ```
 
-Bedient zwei Web-Kanal-Fälle mit derselben Zustandsform, unterschieden nur durch
+Derselbe Zustand bedient zwei Fälle im Web-Kanal. Sie unterscheiden sich nur im Feld
 `accountAlreadyKnown`:
 
-- **Initialer Login** (`ctx.account` ist `null`): löst den Account selbst über Lookup-Login-Tools
-  auf (`CandidateTools.forLookupLogin`), nie über Identifikation.
-- **Step-up** (Account bereits auf dem Kanal gesetzt, bevor die Journey beginnt): nur Auth-Tools
-  für diesen Account.
+- **Erste Anmeldung** (`ctx.account` ist `null`): Die Journey findet das Konto selbst, und zwar über
+  die Anmelde-Tools, die mit der E-Mail-Adresse arbeiten (`CandidateTools.forLookupLogin`), nie über
+  eine Identifizierung.
+- **Step-up** (das Konto ist schon vor Beginn der Journey auf dem Kanal gesetzt): Angeboten werden nur
+  Anmelde-Tools für dieses Konto.
 
-Jedes Ereignis (`Started`, `EvidenceReported`, `ActionCompleted`) prüft erneut, ob das Vorhandene
-reicht, und baut die Kandidatenliste komplett frisch auf — ein Nachweis (natives Keycloak-Verfahren oder
-RestoreData) kann schon vor dem allerersten Angebot vorliegen.
+Bei jedem Ereignis (`Started`, `EvidenceReported`, `ActionCompleted`) prüft die Journey erneut, ob
+das Vorhandene reicht, und baut die Kandidatenliste ganz neu auf. Ein Nachweis kann nämlich schon
+vorliegen, bevor überhaupt etwas angeboten wurde, etwa aus einem eigenen Verfahren von Keycloak oder
+aus RestoreData.

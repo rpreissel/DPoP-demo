@@ -22,7 +22,7 @@ In fast allen Fällen lag ein Typ im falschen Paket:
 | Typ | lag in | ist aber |
 |---|---|---|
 | `AuthIntent` | `journey` | ein Begriff, den der ganze Orchestrator benutzt |
-| `AmrSource` | `session` | eine Aussage über die Herkunft eines Nachweises, also Policy, nicht Persistenz |
+| `AmrSource` | `session` | eine Aussage über die Herkunft eines Nachweises, also eine Frage der Richtlinie, nicht der Speicherung |
 | `AcrLevels` | `session` | dasselbe |
 | `OrchestratorException` | `api.v1` | der Fehlertyp aller Schichten, nicht nur der Web-Schicht |
 
@@ -36,8 +36,8 @@ Diese Typen liegen jetzt in `kernel`. Damit sind vier der fünf Zyklen weg, ohne
   zwei kleine Wertklassen (`LoggedChannel`, `LoggedJourney`). Der Aufrufer gibt damit explizit an,
   welche Felder protokolliert werden — das ist zugleich die vollständige Liste dessen, was in der
   Tabelle landet.
-- **Die Retention** löscht Sessions *und* Journeys. Sie gehört deshalb über beide Pakete und nicht
-  in eines hinein: neues Paket `orchestrator.retention`.
+- **Das Aufräumen nach Ablauf der Fristen** löscht Sessions *und* Journeys. Es gehört deshalb über
+  beide Pakete und nicht in eines hinein: neues Paket `orchestrator.retention`.
 
 ## Alternative: Modulith-Substrukturen
 

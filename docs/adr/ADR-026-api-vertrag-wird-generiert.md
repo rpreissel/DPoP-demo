@@ -38,18 +38,19 @@ dagegen aus.
 Die Spec beschrieb an drei Stellen nicht das, was tatsächlich übertragen wird. Solange sie niemand
 las, fiel das nicht auf:
 
-- `Set<FactorType>` wurde zu einem TypeScript-`Set`. `JSON.parse` liefert aber ein Array. Die
-  Wire-DTOs verwenden jetzt `List`; die Mengen-Semantik bleibt im Backend.
+- `Set<FactorType>` wurde zu einem TypeScript-`Set`. `JSON.parse` liefert aber ein Array. Die DTOs,
+  die übertragen werden, verwenden jetzt `List`; die Bedeutung als Menge bleibt im Backend.
 - Der `@JsonAnyGetter`-Teil von `DemoInfo` stand als verschachteltes `values` in der Spec, wird aber
   flach eingebettet (`demo.tan`, nicht `demo.values.tan`). Jetzt `additionalProperties`.
-- Derselbe Tag-Name hatte an drei bis vier Controllern verschiedene Beschreibungen. Tags werden
-  jetzt einmal zentral deklariert. Der Generator hatte die Spec deswegen als ungültig abgelehnt.
+- Derselbe Tag hatte an drei bis vier Controllern verschiedene Beschreibungen. Deswegen hatte der
+  Generator die Spec als ungültig abgelehnt. Tags werden jetzt einmal an zentraler Stelle deklariert.
 
 ## Pflichtfelder
 
-springdoc übernimmt Kotlins Non-Null nicht in `required`. Statt im Client festzulegen, welche Felder
-immer vorhanden sind, macht das jetzt `KotlinRequiredModelConverter` an der Quelle: eine
-nicht-nullable Property ohne Default wird `required`. Der Client übernimmt das nur.
+springdoc übernimmt nicht nach `required`, dass ein Feld in Kotlin nie `null` ist. Statt im Client
+festzulegen, welche Felder immer vorhanden sind, erledigt das jetzt `KotlinRequiredModelConverter` an
+der Quelle: Eine Property, die nicht `null` sein kann und keinen Standardwert hat, wird `required`. Der
+Client übernimmt das nur.
 
 Siehe [05-api.md](../05-api.md) Abschnitt 1.
 
@@ -57,15 +58,15 @@ Siehe [05-api.md](../05-api.md) Abschnitt 1.
 
 - `api/openapi.yaml` ist nicht „geschrieben“, sondern ein Erzeugnis: `OpenApiSnapshotTest`
   schreibt sie aus dem laufenden Code (`./gradlew updateOpenApiSnapshot`) und prüft sie in `check`.
-- Daneben entstehen im selben Lauf `api/modules/<modul>.yaml` zum Reviewen; gemeinsame Schemas
-  verweisen dort per `../openapi.yaml#/components/schemas/…` auf den Vertrag statt ihn zu
-  kopieren.
+- Im selben Lauf entstehen daneben `api/modules/<modul>.yaml`, damit man Änderungen je Modul prüfen
+  kann. Gemeinsame Schemas verweisen dort über `../openapi.yaml#/components/schemas/…` auf den
+  Vertrag, statt ihn zu kopieren.
 - `api/published/v1.yaml` ist der eingefrorene Stand von v1. `checkPublishedApiCompatibility`
   (openapi-diff) prüft jede Änderung dagegen, `publishApiVersion` hebt einen neuen Stand an.
 - Der dritte Leser aus „Vorher“ ist teilweise erledigt: `keycloak-extension` erzeugt ihre
   Java-Modelle ebenfalls aus `api/openapi.yaml` (`generateOrchestratorModels`, nicht
   eingecheckt) und liest `ChannelResponse`/`ErrorResponse` getypt. Von Hand geparst sind dort noch
   `restoreData`, die Methodenliste und die Passwortprüfung.
-- Der eingecheckte Generator-Stand mit `git diff`-Prüfung gilt nur fürs Frontend. Nach
+- Den eingecheckten Stand des Generators mit Prüfung per `git diff` gibt es nur für das Frontend. Nach
   `updateOpenApiSnapshot` also zusätzlich `./gradlew generateFrontendApiTypes`.
 - Alles Nähere: [05-api.md](../05-api.md) Abschnitt 1.

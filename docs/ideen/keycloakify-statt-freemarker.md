@@ -1,104 +1,110 @@
-# Idee: Keycloakify statt FreeMarker für Login/Registrierung/Methodenverwaltung
+# Idee: Keycloakify statt FreeMarker für Anmeldung, Registrierung und Verwaltung der Verfahren
 
-Status: **Konzept, nicht umgesetzt**. Die Methodenverwaltung im Web-Kanal läuft inzwischen über eine
-Keycloak Required Action ([API](../05-api.md), "Anmeldeverfahren verwalten im Web-Kanal") — die
-Grundlage, auf der eine spätere Keycloakify-Migration für die Methodenverwaltung aufsetzen würde.
+Status: **Konzept, nicht umgesetzt**. Die Verwaltung der Anmeldeverfahren im Web-Kanal läuft
+inzwischen über eine Required Action von Keycloak ([API](../05-api.md), „Anmeldeverfahren verwalten
+im Web-Kanal“). Darauf würde eine spätere Umstellung auf Keycloakify für diese Verwaltung aufbauen.
 
 ---
 
 ## 1) Ausgangslage
 
-Login, Registrierung und (perspektivisch) Methodenverwaltung im Web-Kanal werden heute komplett
-über handgeschriebene FreeMarker-Templates gerendert
+Anmeldung, Registrierung und künftig die Verwaltung der Verfahren im Web-Kanal zeigt Keycloak heute
+vollständig über von Hand geschriebene FreeMarker-Vorlagen an
 (`keycloak-extension/src/main/resources/theme/orchestrator/login/`: `theme.properties`,
-`orchestrator-tool.ftl` als generischer Scaffold, plus Templates pro Tool wie `tool-sms-auth.ftl`,
-`tool-email-*.ftl`, `tool-password-*.ftl`, `demo-person-picker.ftl`). Frage: Lässt sich das durch
-React-Komponenten via [Keycloakify](https://www.keycloakify.dev/) ersetzen, und ist Keycloakify
-für die Methodenverwaltung überhaupt geeignet?
+`orchestrator-tool.ftl` als allgemeines Grundgerüst und dazu eine Vorlage je Tool wie
+`tool-sms-auth.ftl`, `tool-email-*.ftl`, `tool-password-*.ftl`, `demo-person-picker.ftl`). Die Frage:
+Lässt sich das durch React-Komponenten mit [Keycloakify](https://www.keycloakify.dev/) ersetzen, und
+eignet sich Keycloakify überhaupt für die Verwaltung der Verfahren?
 
-## 2) Was Keycloak-seitig tatsächlich passiert
+## 2) Was in Keycloak tatsächlich passiert
 
-Der Web-Kanal ist nicht nur Theming — tiefe Keycloak-SPI-Logik steuert, *welches* Template mit
-*welchen* `stepData`-Attributen gerendert wird: `OrchestratorAuthenticator`,
-`OrchestratorUpdateAuthenticator`, `OrchestratorResumeAuthenticator`, `WebToolRendererSpi` (+
-Renderer-Factories pro Tool), `OrchestratorPasswordStorageProvider`, `OrchestratorAcrAmrMapper`,
-`PeerAuthAssertionSigner` u. a. (`keycloak-extension/src/main/java/com/example/dpop/kcext/`).
-**Keycloakify würde nur die Rendering-Schicht ersetzen** (FreeMarker → React-Bundle), nicht diese
-SPI-Logik — der Java-Code bliebe unverändert. Eine sauber abgegrenzte, risikoarme Änderung.
+Der Web-Kanal ist mehr als ein Theme. Code in Keycloak, der tief über dessen Schnittstellen für
+Erweiterungen (SPI) eingebunden ist, entscheidet, *welche* Vorlage mit *welchen* Werten aus
+`stepData` angezeigt wird: `OrchestratorAuthenticator`, `OrchestratorUpdateAuthenticator`,
+`OrchestratorResumeAuthenticator`, `WebToolRendererSpi` (mit einer Renderer-Factory je Tool),
+`OrchestratorPasswordStorageProvider`, `OrchestratorAcrAmrMapper`, `PeerAuthAssertionSigner` und
+weitere (`keycloak-extension/src/main/java/com/example/dpop/kcext/`). **Keycloakify würde nur die
+Darstellung ersetzen** (FreeMarker durch ein React-Bundle), nicht diese Logik; der Java-Code bliebe
+unverändert. Das wäre eine klar abgegrenzte Änderung mit geringem Risiko.
 
-## 3) Warum Keycloakify für dieses Projekt passt
+## 3) Warum Keycloakify zu diesem Projekt passt
 
-- Keycloakify unterstützt explizit **vollständig eigene, nicht-standardmäßige Pages** (nicht nur
-  die Stock-Keycloak-Seiten wie `login.ftl`/`register.ftl`): eine Page-Datei mit `pageId`, der
-  exakt dem bisherigen FTL-Dateinamen entspricht (z. B. `tool-sms-auth.ftl` → `tool-sms-auth.tsx`),
-  plus `kcContextExtensionPerPage` für zusätzliche Attribute. Das bildet genau ab, was
-  `WebToolRenderer` heute tut: pro Tool ein `createForm("tool-xxx.ftl")` mit `setAttribute(...)`.
-- Seiten, die nicht überschrieben werden, fallen automatisch auf Keycloaks Standard-Theme zurück —
-  erlaubt inkrementelle Migration.
-- Der Browser spricht weiterhin **nur mit Keycloak** — keine Änderung an der Leitplanke
-  "Browser spricht nie mit dem Orchestrator" ([12-entscheidungen.md](../12-entscheidungen.md)
-  ADR-8). Nur das Rendering-Backend wechselt.
-- Passt zur bestehenden Regel "rohes `stepData` durchreichen, nicht vorab extrahieren": der
-  generische `orchestrator-tool.ftl`-Scaffold (ein Input pro `stepData`-Key) lässt sich 1:1 als
-  generische React-Fallback-Komponente nachbauen, mit gezielten Overrides pro Tool.
+- Keycloakify unterstützt ausdrücklich **ganz eigene Seiten**, nicht nur die Standardseiten von
+  Keycloak wie `login.ftl` oder `register.ftl`. Dafür gibt es eine Datei je Seite mit einer
+  `pageId`, die genau dem bisherigen Namen der FTL-Datei entspricht (z. B. `tool-sms-auth.ftl` →
+  `tool-sms-auth.tsx`), und `kcContextExtensionPerPage` für zusätzliche Werte. Das entspricht genau
+  dem, was `WebToolRenderer` heute tut: je Tool ein `createForm("tool-xxx.ftl")` mit
+  `setAttribute(...)`.
+- Seiten, die nicht ersetzt werden, fallen von selbst auf das Standard-Theme von Keycloak zurück.
+  Man kann also schrittweise umstellen.
+- Der Browser spricht weiterhin **nur mit Keycloak**. An der Grundregel „Der Browser spricht nie mit
+  dem Orchestrator“ ([12-entscheidungen.md](../12-entscheidungen.md) ADR-8) ändert sich nichts; nur
+  die Technik der Darstellung wechselt.
+- Es passt zur bestehenden Regel, `stepData` unverändert durchzureichen und nicht vorab einzelne
+  Werte herauszuziehen: Das allgemeine Grundgerüst `orchestrator-tool.ftl` (ein Eingabefeld je
+  Schlüssel in `stepData`) lässt sich direkt als allgemeine React-Komponente nachbauen, die immer
+  dann greift, wenn es für ein Tool keine eigene Seite gibt.
 
-## 4) Integrationspunkt in Keycloak
+## 4) Wo es in Keycloak eingebunden wird
 
-- Keycloakify baut ein Theme (JAR oder entpacktes `theme/`-Verzeichnis), das Keycloak wie jedes
-  andere Theme lädt. Es ersetzt ausschließlich den Inhalt von
-  `keycloak-extension/src/main/resources/theme/orchestrator/login/` — die Realm-Konfiguration
-  (`login_theme=orchestrator`, über `keycloak-migrations/*.kc.kts` gesetzt) bleibt unverändert,
-  ebenso alle Java-SPI-Provider.
-- Neues npm-Paket nötig, da aktuell **kein** npm-Workspace existiert (`frontend/` ist das einzige
-  JS-Paket, kein Root-`package.json`, siehe `settings.gradle.kts` — nur Gradle-Submodule).
-  Empfehlung: eigenständiges Paket, z. B. `keycloak-theme/`, **nicht** in die bestehende
-  `frontend/`-Debug-Dashboard-SPA integriert — andere Zielgruppe (Keycloak-Theme-Build vs.
-  Demo-SPA), eigener Build-/Storybook-Zyklus.
-- Build-Wiring analog zum bestehenden Muster: Root `build.gradle.kts` hat bereits
-  `npmInstall`/`npmBuild`-Exec-Tasks für `frontend/` sowie `stageKeycloakArtifact`, das
-  Theme-Dateien nach `build/podman/keycloak/theme/` kopiert. Für `keycloak-theme/` dieselbe Kette
-  ergänzen.
-- Kein Zusammenhang mit dem Java-`shadowJar`-Build der `keycloak-extension` — Theme-Artefakt und
-  SPI-Provider-Jar sind unabhängige Artefakte, die nur im selben Container-Image landen.
+- Keycloakify baut ein Theme (als JAR oder als entpacktes Verzeichnis `theme/`), das Keycloak wie
+  jedes andere Theme lädt. Es ersetzt nur den Inhalt von
+  `keycloak-extension/src/main/resources/theme/orchestrator/login/`. Die Konfiguration des Realms
+  (`login_theme=orchestrator`, gesetzt über `keycloak-migrations/*.kc.kts`) bleibt unverändert,
+  ebenso alle Java-Erweiterungen.
+- Es braucht ein neues npm-Paket, weil es derzeit **keinen** npm-Workspace gibt: `frontend/` ist das
+  einzige JavaScript-Paket, und es gibt kein `package.json` im obersten Verzeichnis (siehe
+  `settings.gradle.kts`, dort stehen nur Gradle-Teilprojekte). Empfehlung: ein eigenständiges Paket,
+  z. B. `keycloak-theme/`, und **nicht** in die bestehende Demo-App in `frontend/` einbauen. Die
+  Zielgruppe ist eine andere (Theme für Keycloak statt Demo-Oberfläche), und es hat einen eigenen
+  Ablauf für Build und Storybook.
+- Die Einbindung in den Build folgt dem bestehenden Muster: Die `build.gradle.kts` im obersten
+  Verzeichnis hat bereits die Tasks `npmInstall` und `npmBuild` für `frontend/` sowie
+  `stageKeycloakArtifact`, das die Dateien des Themes nach `build/podman/keycloak/theme/` kopiert.
+  Für `keycloak-theme/` ergänzt man dieselbe Kette.
+- Mit dem Java-Build `shadowJar` der `keycloak-extension` hat das nichts zu tun. Das Theme und das
+  JAR mit den Erweiterungen sind unabhängige Ergebnisse, die nur im selben Container-Image landen.
 
-## 5) Methodenverwaltung: drei Optionen, keine Vorentscheidung
+## 5) Verwaltung der Verfahren: drei Möglichkeiten, noch keine Entscheidung
 
-Für die Methodenverwaltung selbst (siehe [API](../05-api.md), "Anmeldeverfahren verwalten im
-Web-Kanal", für den orchestrator-seitigen Mechanismus) gibt es beim Rendering drei Optionen:
+Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschreibt [API](../05-api.md),
+„Anmeldeverfahren verwalten im Web-Kanal“) gibt es bei der Darstellung drei Möglichkeiten:
 
-- **(A) Gleicher Mechanismus wie Login, nur andere Rendering-Schicht** — Keycloakify rendert die
-  Required-Action-Seiten genauso wie die Login-Seiten, über denselben
-  `WebToolRenderer`/Custom-Page-Mechanismus. Empfohlen als Startpunkt: keine Architekturänderung,
-  folgt direkt aus Abschnitt 3/4.
-- **(B) Keycloak natives Account-Theme + Account-REST-API.** Vermutlich blockiert: Keycloaks
-  Account-REST-API bietet keine Möglichkeit, nicht-standardmäßige Credential-Typen (E-Mail,
-  Passwort-Backend des Orchestrators, SMS, QR) anzulegen/zu aktualisieren, nur zu löschen. Würde
-  außerdem die Zuständigkeit für Journey und `AuthPolicy` teilweise vom Orchestrator zu Keycloak
-  verschieben — widerspricht der bisherigen Entscheidung, dass der Orchestrator alleiniger
-  Eigentümer der Methodenverwaltung bleibt.
-- **(C) Externe UI mit eigenem Backend** (BFF), das server-zu-server mit dem Orchestrator spricht
-  — strukturell analog zu dem, was `OrchestratorAuthenticator` innerhalb von Keycloak bereits tut
-  (Peer-Auth-Assertion statt DPoP). Verletzt **nicht** die "Browser spricht nie mit dem
-  Orchestrator"-Leitplanke, da der Browser nur mit dem eigenen BFF spricht — erfordert aber eine
-  neue Peer-Auth-Vertrauensgrenze vergleichbar mit der, die Keycloak heute selbst hat. Pro:
-  entkoppelt die Verwaltungs-UI komplett von Keycloaks Theme-/Session-Mechanik, eigener
-  Deploy-Zyklus. Contra: neue Server-Komponente, neuer Betriebs-/Sicherheitsaufwand für ein reines
-  Selbstbedienungs-Feature.
+- **(A) Derselbe Mechanismus wie bei der Anmeldung, nur eine andere Darstellung.** Keycloakify zeigt
+  die Seiten der Required Action genauso an wie die Seiten der Anmeldung, über denselben
+  Mechanismus mit `WebToolRenderer` und eigenen Seiten. Das empfiehlt sich als Anfang: Die
+  Architektur ändert sich nicht, und es folgt direkt aus den Abschnitten 3 und 4.
+- **(B) Das eigene Account-Theme von Keycloak mit dessen Account-REST-API.** Vermutlich nicht
+  möglich: Die Account-REST-API von Keycloak kann Credentials, die Keycloak selbst nicht kennt
+  (E-Mail, das Passwort im Orchestrator, SMS, QR), nicht anlegen oder ändern, sondern nur löschen.
+  Außerdem würde die Zuständigkeit für Journey und `AuthPolicy` teilweise vom Orchestrator zu Keycloak
+  wandern. Das widerspricht der bisherigen Entscheidung, dass allein der Orchestrator die Verfahren
+  verwaltet.
+- **(C) Eine eigene Oberfläche mit eigenem Backend** (ein „Backend for Frontend“), das direkt von
+  Server zu Server mit dem Orchestrator spricht. Im Aufbau entspricht das dem, was
+  `OrchestratorAuthenticator` innerhalb von Keycloak schon tut (Assertion zwischen den Servern statt
+  DPoP). Die Grundregel „Der Browser spricht nie mit dem Orchestrator“ bleibt dabei **gewahrt**, weil
+  der Browser nur mit dem eigenen Backend spricht. Es entsteht aber eine neue Vertrauensgrenze, ähnlich
+  der, die Keycloak heute selbst hat. Dafür spricht: Die Oberfläche der Verwaltung ist ganz von den
+  Themes und Sitzungen in Keycloak getrennt und lässt sich unabhängig ausliefern. Dagegen spricht: eine
+  neue Serverkomponente und neuer Aufwand für Betrieb und Sicherheit, nur für eine Funktion zur
+  Selbstverwaltung.
 
-| | Aufwand | Neue Vertrauensgrenze | Architektur-Konsistenz | Blockiert durch |
+| | Aufwand | Neue Vertrauensgrenze | Passt zur Architektur | Blockiert durch |
 |---|---|---|---|---|
-| A: In-Keycloak (Required Action) | niedrig | nein | hoch | — |
-| B: Account-Console/REST | mittel–hoch | nein (nutzt Keycloak) | niedrig | fehlende Custom-Credential-API |
-| C: Externe UI + eigenes BFF | hoch | ja (neues BFF) | mittel | — |
+| A: in Keycloak (Required Action) | niedrig | nein | gut | — |
+| B: Account-Console/REST | mittel bis hoch | nein (nutzt Keycloak) | schlecht | fehlende API für eigene Credentials |
+| C: eigene Oberfläche mit eigenem Backend | hoch | ja (neues Backend) | mittel | — |
 
-## 6) Nächste Schritte (falls umgesetzt)
+## 6) Nächste Schritte (falls es umgesetzt wird)
 
-1. `keycloak-theme/`-Paket anlegen (Keycloakify-CLI-Scaffold, React + TypeScript, Vitest/
-   Storybook wie im restlichen Projekt üblich).
-2. Bestehende FTL-Dateien als Referenz für Custom-Page-`pageId`s und benötigte
-   `stepData`-Attribute durchgehen (1:1-Mapping FTL-Dateiname → Keycloakify-Page-Komponente).
-3. Generischen Fallback (`orchestrator-tool.ftl`-Äquivalent) zuerst bauen, dann gezielt
-   Tool-für-Tool-Overrides ergänzen — inkrementelle Migration.
-4. Gradle-Staging (`npmInstall`/`npmBuild`/`stageKeycloakArtifact`) analog zum bestehenden
-   `frontend/`-Wiring ergänzen.
-5. End-to-End gegen echtes Keycloak (Podman-Compose) testen.
+1. Das Paket `keycloak-theme/` anlegen (Grundgerüst über die Kommandozeile von Keycloakify, React und
+   TypeScript, dazu Vitest und Storybook wie im übrigen Projekt).
+2. Die bestehenden FTL-Dateien durchgehen: Welche `pageId`s brauchen die eigenen Seiten, und welche
+   Werte aus `stepData` werden gebraucht? (Jede FTL-Datei wird zu genau einer Seitenkomponente von
+   Keycloakify.)
+3. Zuerst die allgemeine Komponente bauen, die `orchestrator-tool.ftl` entspricht, und dann Tool für
+   Tool eigene Seiten ergänzen, also schrittweise umstellen.
+4. Die Tasks in Gradle (`npmInstall`, `npmBuild`, `stageKeycloakArtifact`) nach dem Vorbild von
+   `frontend/` ergänzen.
+5. Von Anfang bis Ende gegen ein echtes Keycloak testen (Podman Compose).

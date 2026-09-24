@@ -1,118 +1,202 @@
 # Fehler, Konsistenz und Lebenszyklus
 
-Fehlervertrag, transaktionale Zusagen und die Frage, wie lange welche Daten aufbewahrt werden.
+Dieses Kapitel beschreibt den Fehlervertrag, was transaktional zugesagt ist und wie lange welche
+Daten aufbewahrt werden.
 
 ---
 
 ## 1) Fehlervertrag
 
-Standardfehler (Ist und Soll):
+Die üblichen Fehlerantworten (heutiger Stand und Ziel):
 
-- `400 Bad Request`: invalid payload / structurally invalid request
-- `401 Unauthorized`: missing/invalid DPoP, invalid channel trust
-- `403 Forbidden`: binding mismatch, policy violation
-- `404 Not Found`: unknown session/process
-- `409 Conflict`: invalid state transition, disallowed action, concurrent process on same channel session, conflicting account claims
-- `410 Gone`: process expired/consumed/abgebrochen nach erschöpften Retries
-- `422 Unprocessable Entity`: fachlich unverarbeitbar, kein Nutzereingabefehler (z. B. unbekannte `enrollmentRef`, fehlendes Enrollment)
-- `423 Locked`: Account durch zu viele fehlgeschlagene AUTH-Versuche gesperrt (`ACCOUNT_LOCKED`, `OrchestratorException.accountLocked()`, Abschnitt 4)
-- `429 Too Many Requests`: Rate-Limit erreicht, kein Sperrzustand des Accounts (`OrchestratorException.tooManyRequests()`, Abschnitt 4 — `ChannelCreationThrottleService`, gezählt je `bindingKeyRef`)
-- `500 Internal Server Error`: eine interne Annahme ist verletzt (`INTERNAL_ERROR`). Die Antwort trägt eine feste Text-Referenz, die Details stehen nur im Log.
+- `400 Bad Request`: ungültiger Inhalt oder formal ungültige Anfrage.
+- `401 Unauthorized`: DPoP-Nachweis fehlt oder ist ungültig, oder dem Kanal wird nicht vertraut.
+- `403 Forbidden`: Die Bindung passt nicht, oder eine Regel verbietet die Aktion.
+- `404 Not Found`: Sitzung oder Vorgang unbekannt.
+- `409 Conflict`: unzulässiger Zustandswechsel, nicht erlaubte Aktion, ein zweiter gleichzeitiger
+  Vorgang auf derselben `ChannelSession` oder widersprüchliche Angaben zum Konto.
+- `410 Gone`: Der Vorgang ist abgelaufen, bereits verbraucht oder nach zu vielen Fehlversuchen
+  abgebrochen.
+- `422 Unprocessable Entity`: fachlich nicht verarbeitbar, ohne dass der Nutzer etwas falsch
+  eingegeben hat (z. B. unbekannte `enrollmentRef`, fehlende Einrichtung).
+- `423 Locked`: Das Konto ist nach zu vielen fehlgeschlagenen Anmeldeversuchen gesperrt
+  (`ACCOUNT_LOCKED`, `OrchestratorException.accountLocked()`, Abschnitt 4).
+- `429 Too Many Requests`: Eine Mengenbegrenzung ist erreicht; das Konto ist dabei nicht gesperrt
+  (`OrchestratorException.tooManyRequests()`, Abschnitt 4: `ChannelCreationThrottleService`,
+  gezählt je `bindingKeyRef`).
+- `500 Internal Server Error`: Eine interne Annahme ist verletzt (`INTERNAL_ERROR`). Die Antwort
+  enthält eine feste Text-Referenz; die Einzelheiten stehen nur im Log.
 
-**Form und Quelle.** Jede Fehlerantwort hat die Form `ErrorResponse` (`{"error": "<CODE>", "text": {"key": …, "args": …}}`, der Text als Referenz wie in [05-api.md](05-api.md) Abschnitt „Texte“) und steht so im Vertrag, als `default`-Antwort an jeder Operation. Welcher Code welchen Status hat, legt das Enum `ErrorCode` fest (`orchestrator/kernel`); die Liste im Vertrag wird daraus erzeugt. Ein Code und sein Status lassen sich deshalb nicht mehr getrennt wählen. Clients verzweigen auf `error`, nie auf den Text, und müssen mit einem Code rechnen, den sie noch nicht kennen.
+**Form und Quelle.** Jede Fehlerantwort hat die Form `ErrorResponse`
+(`{"error": "<CODE>", "text": {"key": …, "args": …}}`; der Text ist eine Referenz wie in
+[05-api.md](05-api.md), Abschnitt „Texte“). So steht sie auch im Vertrag, als `default`-Antwort
+jeder Operation. Welcher Code zu welchem Status gehört, legt das Enum `ErrorCode` fest
+(`orchestrator/kernel`), und die Liste im Vertrag wird daraus erzeugt. Code und Status lassen sich
+deshalb nicht mehr unabhängig voneinander wählen. Clients entscheiden anhand von `error`, nie
+anhand des Textes, und müssen mit Codes rechnen, die sie noch nicht kennen.
 
-**Welche Exception wozu führt.** Die Regel, auf die sich der Handler verlässt:
+**Welche Exception wozu führt.** Auf diese Regel verlässt sich die zentrale Fehlerbehandlung:
 
-- `require` / `IllegalArgumentException` nur für eine abgelehnte **Eingabe des Clients** → `400`, der Text geht so hinaus.
-- `check` / `checkNotNull` / `error()` für eine verletzte **interne Annahme** → `500` mit festem Text. Früher wurde daraus pauschal `409 INVALID_STATE_TRANSITION` mit dem Rohtext; damit sahen interne Prüfungen wie ein fachlicher Konflikt aus und gaben Interna preis.
-- Ein echter fachlicher Konflikt ist immer ausdrücklich: `OrchestratorException.invalidState(...)`.
+- `require` bzw. `IllegalArgumentException` nur, wenn eine **Eingabe des Clients** abgelehnt wird.
+  Das ergibt `400`, und der Text geht unverändert hinaus.
+- `check`, `checkNotNull` und `error()`, wenn eine **interne Annahme** verletzt ist. Das ergibt
+  `500` mit festem Text. Früher wurde daraus pauschal `409 INVALID_STATE_TRANSITION` mit dem
+  Originaltext. Interne Prüfungen sahen damit wie ein fachlicher Konflikt aus und verrieten Interna.
+- Ein echter fachlicher Konflikt wird immer ausdrücklich gemeldet:
+  `OrchestratorException.invalidState(...)`.
 
-Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Versuche mit verbleibenden Retries — sie liefern `200` plus `next` (Retry-Regel in [Orchestrierung](04-orchestrierung.md)).
+Ausdrücklich **kein** Fehler sind fehlende Pflichtfelder und Fehlversuche, nach denen noch weitere
+Versuche erlaubt sind. Sie liefern `200` und ein `next` (Regel für Wiederholungen in
+[Orchestrierung](04-orchestrierung.md)).
 
-## 2) Konsistenz-Regeln
+## 2) Konsistenzregeln
 
-- Pro `ChannelSession` darf höchstens eine **laufende** `AuthJourney` existieren. Eine Journey, die auf eine Sub-Journey wartet, ist `SUSPENDED` und zählt nicht mit ([Orchestrierung](04-orchestrierung.md)).
-- `AuthJourney` darf nur auf gültige Folgezustände wechseln — sowohl im Lebenszyklus als auch im intent-eigenen `JourneyState`.
-- `AuthContext` wird nur bei `SUCCEEDED` aktualisiert.
-- Jede relevante Transition erzeugt einen `SessionEvent` Audit-Eintrag.
-- Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) führt Journey-Übernahme, Account-Eintrag, Claim-Log und `AuthContext`-Nachweis in einer einzigen Transaktion zusammen — entweder alles oder nichts. Das Methodenmodul schreibt seine Tool-/Enrollment-Daten bereits beim `PATCH` in einer eigenen Transaktion; scheitert die Journey-Übernahme, bleibt die Moduldatenzeile bestehen, wird aber nicht als Account-Credential aktiviert.
-- Auch neue Accounts, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung rollt der Verlierer vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`; kein automatischer Wiederholungsversuch. Unique-Verletzungen von `ux_anchor_value`/`ux_anchor_account_type` werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler.
-- Der Demo-Seed (nur im `keycloak`-Profil) verwendet eine eigene transaktionale Klammer um Anlage und Claim-Übernahme; er ist create-only: Eine Testperson, deren PERSON_ID- oder EMAIL-Anker bereits auf ein Konto auflöst (früherer Seed-Lauf oder ein halbfertiger Registrierungs-Interessent), wird komplett übersprungen — das bestehende Konto bleibt unverändert, es wird nichts vervollständigt. Bei Neustarts entstehen so keine zusätzlichen Bootstrap-Claims.
-- Nicht transaktional ist der SMS-Versand als externer Effekt: Ein Rollback macht eine bereits versendete SMS nicht rückgängig. Das ist ein Zustellthema, kein Konsistenzproblem — die zugehörige `issuedTanHash`-Zeile wurde mit zurückgerollt und läuft ins Leere.
+- Je `ChannelSession` darf höchstens eine **laufende** `AuthJourney` existieren. Eine Journey, die
+  auf eine Sub-Journey wartet, ist `SUSPENDED` und zählt nicht mit
+  ([Orchestrierung](04-orchestrierung.md)).
+- Eine `AuthJourney` darf nur in gültige Folgezustände wechseln, sowohl im Lebenszyklus als auch im
+  Zustand ihres Intents (`JourneyState`).
+- `AuthContext` wird nur aktualisiert, wenn eine Journey erfolgreich abgeschlossen ist.
+- Jeder wichtige Übergang erzeugt einen Audit-Eintrag (`SessionEvent`).
+- **Eine Transaktion für alles:** Verarbeitet der Orchestrator ein `ToolOutcome.Completed`
+  ([Orchestrierung](04-orchestrierung.md)), speichert er in einer einzigen Transaktion den neuen
+  Journey-Zustand, den Konto-Eintrag, das Claim-Log und den Nachweis der Sitzung (`AuthEvidence`).
+  Entweder gelingt alles oder nichts. Das Methodenmodul speichert seine Tool- und
+  Einrichtungsdaten schon beim `PATCH` in einer eigenen Transaktion. Scheitert danach der Schritt
+  in der Journey, bleibt die Zeile des Moduls zwar stehen, wird aber nicht als Credential des
+  Kontos aktiviert.
+- Auch neue Konten, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen liegen in dieser
+  Transaktion. Ein Konto wird nicht vorab in einer eigenen Transaktion (`REQUIRES_NEW`)
+  festgeschrieben. Binden zwei Vorgänge gleichzeitig, wird der unterlegene vollständig
+  zurückgerollt und erhält `409 INVALID_STATE_TRANSITION`; einen automatischen neuen Versuch gibt
+  es nicht. Verstöße gegen die Eindeutigkeit von `ux_anchor_value` und `ux_anchor_account_type`
+  werden auch dann gezielt übersetzt, wenn sie erst beim Schreiben oder Festschreiben auffallen.
+  Unbekannte Integritätsfehler bleiben Serverfehler.
+- Der Demo-Seed (nur im `keycloak`-Profil) legt Konto und Claims in einer eigenen Transaktion an. Er
+  legt nur an und ändert nie etwas. Löst der PERSON_ID- oder EMAIL-Anker einer Testperson bereits
+  ein Konto auf (aus einem früheren Seed-Lauf oder als halb fertig registrierter Interessent), wird
+  die Testperson ganz übersprungen. Das bestehende Konto bleibt unverändert und wird nicht ergänzt.
+  So entstehen bei Neustarts keine zusätzlichen Claims aus dem Seed.
+- Nicht transaktional ist der SMS-Versand, denn er wirkt nach außen: Ein Zurückrollen macht eine
+  bereits verschickte SMS nicht rückgängig. Das betrifft nur die Zustellung, nicht die Konsistenz.
+  Die zugehörige Zeile mit `issuedTanHash` wurde mit zurückgerollt, und der Code in der SMS passt
+  zu nichts mehr.
 
 ## 3) Aufbewahrung und Löschung
 
-Session-Daten enthalten Personenbezug (KVNR, Name, Telefonnummer) und Geheimnis-Derivate (`issuedTanHash`) und werden nach Prozessende nie wieder gelesen. Sie werden deshalb aktiv gelöscht, nicht aufbewahrt.
+Die Daten einer Sitzung enthalten Personenbezug (KVNR, Name, Telefonnummer) und Werte, die aus
+Geheimnissen abgeleitet sind (`issuedTanHash`). Nach dem Ende des Vorgangs werden sie nie wieder
+gelesen. Deshalb werden sie aktiv gelöscht und nicht aufbewahrt.
 
-Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
+Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
 
-| Objekt | Frist läuft ab | Richtwert | Grund |
+| Objekt | Frist beginnt mit | Richtwert | Grund |
 |---|---|---|---|
-| `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h (`tool-session.retention`) | Personenbezug und TAN-Hash. Jedes Methodenmodul löscht seine eigenen Tabellen selbst (`*RetentionJob` implementiert `ToolSessionSweeper`); Frist und Intervall stehen dagegen nur einmal, in `tool_api/ToolSessionRetention.kt`. Bei `auth_kobil.enroll_tool_session` ist die Frist besonders wichtig: dort liegen während einer laufenden Einrichtung KOBIL-PIN und Unlock-Secret im Klartext ([ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)) |
-| `kobil_mock.*` (Fremdsystem) | — | **kein** Cleanup durch uns | `kobil_mock` simuliert KOBIL und untersteht nicht unserer Aufbewahrung. Dass es überhaupt persistiert, ist Voraussetzung und nicht Bequemlichkeit: ohne das würde nach jedem Neustart jede `auth_kobil.enrollment`-Zeile auf einen Nutzer zeigen, den es beim Anbieter nicht mehr gibt |
-| `nect_mock.*`, `ext_personenverzeichnis.*` (Fremdsysteme) | — | **kein** Cleanup durch uns | simulierte Fremdsysteme wie `kobil_mock`; auch die Briefe des Personenverzeichnisses mit den Freischaltcodes im Klartext bleiben dort, wie Papier beim Empfänger |
-| `QrLoginRequest` | `expiresAt` | 24 h | Pairing-Anfrage, nach Ablauf (5 Min.) wirkungslos; von `AuthQrRetentionJob` mit abgeräumt |
-| `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Replay-Schutz gilt nur im Akzeptanzfenster eines Proofs |
-| `orchestrator.tool_session` | `expiresAt` | 24 h | reiner Lifecycle-Rest |
-| `AuthJourney` | `consumedAt` / `expiresAt` | 7 Tage | Korrelation für Support-Rückfragen |
-| `AuthContext` | Logout / Ende der `ChannelSession` | sofort | enthält Token-Referenzen |
-| `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | `JourneyLogEntry` fragt den Log über die Channel-Menge ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
-| `SessionEvent` | `createdAt` | 90 Tage | eigene Audit-Frist, überlebt die Sessions bewusst |
-| `JourneyLogEntry` | `createdAt` | 30 Tage | bewusst gleich `ChannelSession`, da nur über die Channel-Menge abgefragt. Debug-/Demo-Trace, NICHT der Audit-Trail — das bleibt `SessionEvent` |
-| `*Enrollment` (Modul-Credentials) | — | kein Session-Cleanup | lebt bis zur Kontolöschung (erreicht über `account.auth_method`, auch deaktivierte Instanzen) |
-| `account.*` (Anker, Methoden, Claim-, Identifizierungs- und Widerrufs-Log) | — | kein Session-Cleanup | gehört dem Konto, kaskadiert mit dessen Löschung. **Offen** ([12-entscheidungen.md](12-entscheidungen.md) ADR-12): Frist für das gemeinsame Löschen von Claim- und Widerrufszeile noch nicht entschieden |
-| `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
-| `AttemptThrottle` | letzter Zähler-Update | 7 Tage | weit über dem längsten Fenster/Lockout (15 Min.); ein Aufräumlauf rührt nie eine Zeile an, deren Sperre noch läuft. Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4) |
-| `orchestrator.keycloak_keypair` | — | kein Session-Cleanup | Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 2); gelöscht bei `AccountDeleted`, nicht über `RetentionJob` |
+| `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h (`tool-session.retention`) | Personenbezug und TAN-Hash. Jedes Methodenmodul löscht seine eigenen Tabellen selbst (`*RetentionJob` implementiert `ToolSessionSweeper`); Frist und Intervall stehen dagegen nur einmal, in `tool_api/ToolSessionRetention.kt`. Bei `auth_kobil.enroll_tool_session` ist die Frist besonders wichtig: Dort liegen während einer laufenden Einrichtung KOBIL-PIN und Entsperrgeheimnis im Klartext ([ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)) |
+| `kobil_mock.*` (Fremdsystem) | — | **kein** Aufräumen durch uns | `kobil_mock` simuliert KOBIL und unterliegt nicht unseren Aufbewahrungsregeln. Dass es seine Daten überhaupt speichert, ist nötig und keine Bequemlichkeit: Sonst würde nach jedem Neustart jede `auth_kobil.enrollment`-Zeile auf einen Nutzer zeigen, den es beim Anbieter nicht mehr gibt |
+| `nect_mock.*`, `ext_personenverzeichnis.*` (Fremdsysteme) | — | **kein** Aufräumen durch uns | simulierte Fremdsysteme wie `kobil_mock`. Auch die Briefe des Personenverzeichnisses mit den Freischaltcodes im Klartext bleiben dort, wie Papier beim Empfänger |
+| `QrLoginRequest` | `expiresAt` | 24 h | Kopplungsanfrage, nach Ablauf (5 Min.) wirkungslos; `AuthQrRetentionJob` räumt sie mit auf |
+| `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Der Schutz vor wiederholten Proofs gilt nur in dem Zeitfenster, in dem ein Proof angenommen wird |
+| `orchestrator.tool_session` | `expiresAt` | 24 h | nur noch Angaben zum Lebenszyklus |
+| `AuthJourney` | `consumedAt` / `expiresAt` | 7 Tage | Zuordnung bei Rückfragen an den Support |
+| `AuthContext` | Abmeldung / Ende der `ChannelSession` | sofort | enthält Verweise auf Tokens |
+| `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | `JourneyLogEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
+| `SessionEvent` | `createdAt` | 90 Tage | eigene Frist für das Audit, überlebt die Sitzungen bewusst |
+| `JourneyLogEntry` | `createdAt` | 30 Tage | bewusst so lang wie `ChannelSession`, weil nur über die Menge der Kanäle abgefragt. Ablaufprotokoll für Fehlersuche und Demo, NICHT das Audit — das bleibt `SessionEvent` |
+| `*Enrollment` (Credentials der Module) | — | kein Aufräumen mit der Sitzung | lebt bis zur Löschung des Kontos (erreichbar über `account.auth_method`, auch deaktivierte Instanzen) |
+| `account.*` (Anker, Methoden, Claim-, Identifizierungs- und Widerrufs-Log) | — | kein Aufräumen mit der Sitzung | gehört dem Konto und wird mit ihm gelöscht. **Offen** ([12-entscheidungen.md](12-entscheidungen.md) ADR-12): Die Frist, nach der Claim- und Widerrufszeile gemeinsam gelöscht werden, ist noch nicht entschieden |
+| `DeviceAccountLink` | — | kein Aufräumen mit der Sitzung | Identität des Geräts (`bindingKeyRef -> accountId`), überlebt bewusst jede einzelne `ChannelSession` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
+| `AttemptThrottle` | letzte Änderung des Zählers | 7 Tage | weit länger als das längste Zählfenster und die längste Sperre (15 Min.); ein Aufräumlauf löscht nie eine Zeile, deren Sperre noch läuft. Gilt für die Zähler aller Bereiche (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4) |
+| `orchestrator.keycloak_keypair` | — | kein Aufräumen mit der Sitzung | Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 2); wird bei `AccountDeleted` gelöscht, nicht über `RetentionJob` |
 
-Umgang mit den Referenzen:
+Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
 
-- **Besitzkette** (`ChannelSession` -> `AuthJourney` -> `orchestrator.tool_session` -> die Modulhälfte `<modul>.*_tool_session`): wird von innen nach außen abgeräumt. Weil die Fristen von innen nach außen wachsen, ergibt sich diese Reihenfolge automatisch.
-- **Moduldaten**: Welche Zeilen gelöscht werden, entscheidet jedes Modul selbst. Nur das Modul weiß, welche seiner Tabellen zur Session gehören und welche (`*_enrollment`) zum Konto. Wann gelöscht wird, steht an einer Stelle (`tool-session.retention`) und wird von einem gemeinsamen Scheduler (`ToolSessionRetentionDriver`) ausgelöst.
+- **Besitzkette** (`ChannelSession` → `AuthJourney` → `orchestrator.tool_session` → der Teil im
+  Modul, `<modul>.*_tool_session`): Sie wird von innen nach außen aufgeräumt. Weil die Fristen von
+  innen nach außen länger werden, ergibt sich diese Reihenfolge von selbst.
+- **Daten der Module:** Welche Zeilen gelöscht werden, entscheidet jedes Modul selbst. Nur das Modul
+  weiß, welche seiner Tabellen zur Sitzung gehören und welche (`*_enrollment`) zum Konto. Wann
+  gelöscht wird, steht dagegen an einer einzigen Stelle (`tool-session.retention`), und ein
+  gemeinsamer Zeitplaner (`ToolSessionRetentionDriver`) stößt es an.
 
-  Vorher hatte jedes Modul einen eigenen `@Scheduled`-Job mit einer eigenen Konstante `private val RETENTION = 24h`: zehn Kopien derselben Frist. Ein Modul ohne Job fiel dabei niemandem auf, weil nichts fehlschlug — es fehlte einfach eine Datei. So blieben die Zeilen in `id_kvnr.ident_tool_session` dauerhaft stehen. `ToolSessionCoverageTest` prüft jetzt gegen das tatsächliche Schema, dass jede `*_tool_session`-Tabelle von einem Sweeper geleert wird, auch eine später hinzukommende.
+  Früher hatte jedes Modul einen eigenen `@Scheduled`-Job mit einer eigenen Konstante
+  `private val RETENTION = 24h`, also zehn Kopien derselben Frist. Fehlte einem Modul der Job, fiel
+  das niemandem auf, weil nichts fehlschlug; es fehlte einfach eine Datei. So blieben die Zeilen in
+  `id_kvnr.ident_tool_session` dauerhaft stehen. Heute prüft `ToolSessionCoverageTest` gegen das
+  tatsächliche Schema, dass ein Aufräumlauf jede `*_tool_session`-Tabelle leert, auch eine später
+  hinzukommende.
 
-  Schlägt der Sweep eines Moduls fehl, laufen die übrigen trotzdem. Sonst würden Daten ihre Frist überleben, weil an anderer Stelle ein Fehler auftrat.
-- **Das Audit hängt an nichts**: `SessionEvent` hält `channelSessionId`/`processSessionId` als historische Werte, nicht als Fremdschlüssel — das Audit muss die Sessions überleben und speichert nur `payloadHash` statt Nutzdaten. IDs, die ins Leere zeigen, sind erwartet und kein Defekt.
-- **Eine Methode zu widerrufen hat bei KOBIL eine Außenhälfte.** `KobilEnrollmentCleanup` löscht nicht nur unsere Zeile, sondern räumt auch den Nutzer beim Anbieter ab — sonst bliebe dort ein gebundenes Gerät stehen, von dem hier niemand mehr etwas weiß. Dieser zweite Aufruf wirkt nach außen und liegt außerhalb der Transaktion — wie der gemockte SMS-Versand: Unsere Zeile verschwindet in jedem Fall.
-- **Account-Objekte sind für den Session-Cleanup tabu**: die Modul-Credentials (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören dem Account bzw. dem Gerät, nicht der Session. `account.identification` überlebt damit bewusst auch die Audit-Frist der `SessionEvent`s.
-- **Kontolöschung räumt zusätzlich zwei Session-Tabellen für die gelöschte `accountId` auf**, obwohl beide keinen Fremdschlüssel auf `account` tragen: `orchestrator.journey_log` (über **zwei** Schlüssel — Konto **und** dessen Channel-Sessions, da Einträge vor der Kontobindung `account_id = NULL` tragen) und `orchestrator.attempt_throttle` (nur die Scopes `ACCOUNT`/`ACCOUNT_SEND`; `BINDING_KEY`/`CONTACT_SEND` ließen sich sonst durch eine Neuregistrierung zurücksetzen). `AccountDeletionService.deleteAccount` erledigt das explizit, unabhängig von den Fristen oben.
-- **`KEYCLOAK`-Kanäle: Aufräumen fragt bei Keycloak nach, statt blind auf Zeit zu vertrauen.** Logout gehört im Web-Kanal vollständig Keycloak ([05-api.md](05-api.md) Abschnitt 3). `RetentionJob` prüft deshalb für abgelaufene `KEYCLOAK`-Kanäle per Keycloak-Admin-API, ob die Session noch lebt (`ChannelSession.durableKcSessionId`), und räumt bei bestätigt beendeter Session sofort auf. Eine nicht bestätigbare Antwort (kein Client im aktiven Profil, Admin-API nicht erreichbar) fällt auf die normale zeitbasierte Frist zurück.
+  Scheitert der Aufräumlauf eines Moduls, laufen die übrigen trotzdem. Sonst würden Daten länger
+  aufbewahrt als erlaubt, nur weil an anderer Stelle ein Fehler auftrat.
+- **Das Audit hängt an keiner anderen Tabelle:** `SessionEvent` speichert `channelSessionId` und
+  `journeyId` als historische Werte, nicht als Fremdschlüssel. Das Audit muss die Sitzungen
+  überleben und speichert statt der Nutzdaten nur deren Hash (`payloadHash`). IDs, die auf nichts
+  mehr zeigen, sind deshalb erwartet und kein Fehler.
+- **Bei KOBIL betrifft das Widerrufen eines Verfahrens auch den Anbieter.** `KobilEnrollmentCleanup`
+  löscht nicht nur unsere Zeile, sondern entfernt auch den Nutzer beim Anbieter. Sonst bliebe dort
+  ein gebundenes Gerät stehen, von dem bei uns niemand mehr weiß. Dieser zweite Aufruf wirkt nach
+  außen und liegt deshalb außerhalb der Transaktion, genau wie der simulierte SMS-Versand. Unsere
+  Zeile verschwindet in jedem Fall.
+- **Objekte des Kontos sind beim Aufräumen der Sitzungen tabu:** Die Credentials der Module
+  (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören
+  dem Konto bzw. dem Gerät, nicht der Sitzung. `account.identification` überlebt damit bewusst auch
+  die Audit-Frist der `SessionEvent`s.
+- **Wird ein Konto gelöscht, räumt das zusätzlich zwei Sitzungstabellen für diese `accountId` auf**,
+  obwohl keine von beiden einen Fremdschlüssel auf `account` hat:
+  - `orchestrator.journey_log`, und zwar über **zwei** Schlüssel: das Konto **und** seine
+    `ChannelSession`s, weil Einträge aus der Zeit vor der Bindung an das Konto
+    `account_id = NULL` haben;
+  - `orchestrator.attempt_throttle`, aber nur die Bereiche `ACCOUNT` und `ACCOUNT_SEND`. Würden auch
+    `BINDING_KEY` und `CONTACT_SEND` gelöscht, ließen sich diese Zähler durch eine neue
+    Registrierung zurücksetzen.
 
-  Diese Abfrage läuft vor und außerhalb der Löschtransaktion. `RetentionJob` ist nicht transaktional und fragt nur ab; gelöscht wird in `SessionRetentionSweeper`. Andernfalls würde ein Lauf über hunderte Kandidaten Zeilensperren so lange halten, wie Keycloak zum Antworten braucht. `OrchestratorArchitectureTest` prüft diese Regel jetzt für den ganzen Orchestrator.
+  `AccountDeletionService.deleteAccount` erledigt das ausdrücklich und unabhängig von den Fristen
+  oben.
+- **Bei `KEYCLOAK`-Kanälen fragt das Aufräumen bei Keycloak nach, statt sich nur auf die Zeit zu
+  verlassen.** Die Abmeldung im Web-Kanal gehört ganz Keycloak ([05-api.md](05-api.md)
+  Abschnitt 3). `RetentionJob` prüft deshalb für abgelaufene `KEYCLOAK`-Kanäle über die Admin-API
+  von Keycloak, ob die Sitzung dort noch besteht (`ChannelSession.durableKcSessionId`). Ist sie
+  nachweislich beendet, wird sofort aufgeräumt. Lässt sich das nicht klären (kein Client im aktiven
+  Profil, Admin-API nicht erreichbar), gilt die normale zeitbasierte Frist.
+
+  Diese Abfrage läuft vor der Löschtransaktion und außerhalb von ihr. `RetentionJob` ist nicht
+  transaktional und fragt nur ab; gelöscht wird in `SessionRetentionSweeper`. Sonst würde ein Lauf
+  über Hunderte Kandidaten Zeilensperren so lange halten, wie Keycloak zum Antworten braucht.
+  `OrchestratorArchitectureTest` prüft diese Regel inzwischen für den ganzen Orchestrator.
 
 ## 3a) Keycloak-Spiegelung: offene Zustellungen stehen in einer Tabelle
 
-Neben Konto-Änderungen löst auch eine Änderung im Personenverzeichnis die Spiegelung aus: `PersonChanged`
-→ Konto (`applyDirectoryChange`) → `AccountChanged(changed)` → Keycloak, beide Schritte als Einträge dieser
-Tabelle (ADR-34). Berührt die Änderung nichts Gespiegeltes, entfällt der Keycloak-Aufruf.
+Nicht nur Änderungen am Konto lösen die Spiegelung aus, sondern auch Änderungen im
+Personenverzeichnis: `PersonChanged` → Konto (`applyDirectoryChange`) → `AccountChanged(changed)`
+→ Keycloak. Beide Schritte stehen als Einträge in dieser Tabelle (ADR-34). Betrifft die Änderung
+nichts, was nach Keycloak gespiegelt wird, unterbleibt der Aufruf.
 
-Jedes Konto mit bestätigter E-Mail-Adresse wird als Keycloak-Nutzer gespiegelt
-(`KeycloakAccountSyncListener`, nur im `keycloak`-Profil); ohne Adresse fehlt Keycloak der
-Benutzername, das folgt mit der ersten Bestätigung. Die Spiegelung läuft nach dem Commit und ist absichtlich best-effort: Ein
-fehlgeschlagener Keycloak-Aufruf darf eine bereits abgeschlossene Kontoänderung nicht nachträglich
-scheitern lassen.
+Jedes Konto mit bestätigter E-Mail-Adresse wird als Nutzer in Keycloak gespiegelt
+(`KeycloakAccountSyncListener`, nur im `keycloak`-Profil). Ohne Adresse fehlt Keycloak der
+Benutzername; die Spiegelung folgt dann mit der ersten Bestätigung. Sie läuft erst nach dem
+Festschreiben und bewusst ohne Garantie: Ein fehlgeschlagener Aufruf bei Keycloak darf eine bereits
+abgeschlossene Kontoänderung nicht nachträglich scheitern lassen.
 
-Früher blieb bei einem Fehler aber gar nichts zurück. Als Wiederholung gab es nur „irgendwann
-ändert sich das Konto nochmal" — für ein Konto, das sich nie wieder ändert, also keine. Das Konto
-existierte, der Keycloak-Nutzer fehlte, eine Anmeldung war unmöglich, und nirgends stand, dass das
-so ist.
+Früher blieb bei einem Fehler aber gar nichts zurück. Wiederholt wurde nur, wenn sich das Konto
+irgendwann noch einmal änderte, bei einem Konto, das sich nie wieder ändert, also nie. Das Konto
+existierte, der Nutzer in Keycloak fehlte, eine Anmeldung war unmöglich, und nirgends stand, dass
+es so war.
 
 Dafür gibt es jetzt die **Event Publication Registry** von Spring Modulith
 ([ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md)):
 
 - Der Listener ist ein `@ApplicationModuleListener`. Bevor die Transaktion der Kontoänderung
-  committet, schreibt Modulith eine Zeile nach `orchestrator.event_publication`.
-- Die Zeile wird erst geschlossen, wenn die Methode ohne Fehler zurückkehrt. Deshalb fängt der
-  Listener Fehler **nicht** mehr ab: Die Exception ist das Signal „nicht erledigt".
-- Zugestellt wird auf einem eigenen Thread (`keycloakSyncExecutor`), also ein Sync nach dem
-  anderen, über alle Konten hinweg. Die Registry garantiert nur die Zustellung, nicht die
-  Reihenfolge: mit Springs gemeinsamem Async-Pool liefen die Syncs mehrerer Konten parallel, und
-  Keycloak lehnte parallele Anlagen auf einem frischen Realm teils ab.
-- Offene Zeilen werden nach fünf Minuten erneut zugestellt
-  (`spring.modulith.events.staleness.*`) und beim Neustart ebenfalls
-  (`republish-outstanding-events-on-restart`).
-- Die Zeile enthält Status, Zahl der Zustellversuche und den Zeitpunkt der letzten Wiederholung.
+  festgeschrieben wird, schreibt Modulith eine Zeile nach `orchestrator.event_publication`.
+- Die Zeile wird erst abgeschlossen, wenn die Methode ohne Fehler zurückkehrt. Deshalb fängt der
+  Listener Fehler **nicht** mehr ab: Die Exception ist das Signal „nicht erledigt“.
+- Zugestellt wird auf einem eigenen Thread (`keycloakSyncExecutor`), also ein Abgleich nach dem
+  anderen, über alle Konten hinweg. Die Registry garantiert nur, dass zugestellt wird, nicht in
+  welcher Reihenfolge. Mit dem gemeinsamen Async-Pool von Spring liefen die Abgleiche mehrerer
+  Konten parallel, und Keycloak lehnte gleichzeitige Anlagen in einem frischen Realm teilweise ab.
+- Offene Zeilen werden nach fünf Minuten erneut zugestellt (`spring.modulith.events.staleness.*`),
+  ebenso beim Neustart (`republish-outstanding-events-on-restart`).
+- Die Zeile enthält den Status, die Zahl der Zustellversuche und den Zeitpunkt der letzten
+  Wiederholung.
 
 Was noch offen ist, lässt sich damit abfragen:
 
@@ -123,137 +207,151 @@ WHERE completion_date IS NULL
 ORDER BY publication_date;
 ```
 
-Zwei Dinge, die man wissen muss:
+Zwei Dinge sollte man wissen:
 
 - `spring.modulith.events.jdbc.schema: orchestrator` ist zwingend. Ohne diese Einstellung sucht die
-  Registry die Tabelle im Standardschema, findet sie nicht und schreibt nichts — ohne
+  Registry die Tabelle im Standardschema, findet sie nicht und schreibt nichts, ohne jede
   Fehlermeldung. `EventPublicationRegistryTest` prüft deshalb, dass ein fehlschlagender Listener
-  tatsächlich eine offene Zeile hinterlässt.
-- Die Tabelle legt Flyway an (`orchestrator/V15__event_publication.sql`), nicht Modulith. Die Datei ist
-  unverändert aus dem `spring-modulith-events-jdbc`-Jar übernommen und muss beim Anheben der
-  Modulith-Version damit verglichen werden.
+  wirklich eine offene Zeile hinterlässt.
+- Die Tabelle legt Flyway an (`orchestrator/V15__event_publication.sql`), nicht Modulith. Die Datei
+  ist unverändert aus dem Jar `spring-modulith-events-jdbc` übernommen. Beim Wechsel auf eine neue
+  Modulith-Version muss man sie damit vergleichen.
 
-`KeycloakSessionLogoutListener` benutzt die Registry bewusst nicht. Eine nicht beendete
-Keycloak-Session läuft von selbst nach wenigen Minuten ab; ein fehlender Keycloak-Nutzer bleibt.
-Nur der zweite Fall braucht eine Wiederholung.
+`KeycloakSessionLogoutListener` nutzt die Registry bewusst nicht. Eine nicht beendete Sitzung in
+Keycloak läuft nach wenigen Minuten von selbst ab; ein fehlender Nutzer in Keycloak fehlt dagegen
+dauerhaft. Nur der zweite Fall braucht eine Wiederholung.
 
-## 3b) Das System läuft als eine Instanz
+## 3b) Das System läuft als eine einzige Instanz
 
-Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte an vier unabhängigen Stellen:
+Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte an vier voneinander unabhängigen
+Stellen:
 
-- drei `@Scheduled`-Jobs (Tool-Session-Sweep, `RetentionJob`, DPoP-Replay-Cleanup) ohne Sperre oder
-  Leader-Election. Bei mehreren Instanzen liefe jeder Lauf mehrfach parallel.
-- `dpop.secrets.otp-pepper` ist standardmäßig leer, das Pepper wird also bei jedem Start neu
+- Drei `@Scheduled`-Jobs (Aufräumen der Tool-Sessions, `RetentionJob`, Aufräumen des Schutzes vor
+  wiederholten DPoP-Proofs) laufen ohne Sperre und ohne Wahl einer führenden Instanz. Bei mehreren
+  Instanzen liefe jeder Lauf mehrfach parallel.
+- `dpop.secrets.otp-pepper` ist standardmäßig leer; der Pepper wird also bei jedem Start neu
   gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen, und
-  die `CONTACT_SEND`-Zähler wären je Instanz verschieden.
-- Die `@Volatile`-Caches im `KeycloakAdminClient` gelten nur im eigenen Prozess.
-- `KeycloakAccountSyncListener` arbeitet alle Syncs nacheinander auf einem prozessinternen Thread ab (`keycloakSyncExecutor`). Zwei Instanzen würden denselben Keycloak-User und dasselbe Keypair parallel anlegen.
+  jede Instanz hätte eigene `CONTACT_SEND`-Zähler.
+- Die `@Volatile`-Zwischenspeicher im `KeycloakAdminClient` gelten nur im eigenen Prozess.
+- `KeycloakAccountSyncListener` arbeitet alle Abgleiche nacheinander auf einem Thread des eigenen
+  Prozesses ab (`keycloakSyncExecutor`). Zwei Instanzen würden denselben Keycloak-Nutzer und
+  dasselbe Schlüsselpaar gleichzeitig anlegen.
 
-Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst beim zweiten Pod — als sporadisch
-fehlschlagende TAN-Prüfung. Deshalb steht es jetzt in der Konfiguration:
+Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst mit der zweiten Instanz, als
+gelegentlich fehlschlagende TAN-Prüfung. Deshalb steht es jetzt in der Konfiguration:
 
 ```yaml
 deployment:
   instances: single   # oder: multiple
 ```
 
-`multiple` schaltet nichts frei. Es ist eine Aussage über die Umgebung, und
-`DeploymentTopologyCheck` prüft beim Start, ob der Code das trägt. Wenn nicht, bricht der Start mit
-einer Liste dessen ab, was fehlt. Sobald die Voraussetzungen da sind — eine gemeinsame Sperre für
-die Jobs, ein gesetztes Pepper —, ist diese Prüfung die Stelle, an der man sie lockert.
+`multiple` schaltet nichts frei. Der Wert beschreibt die Umgebung, und `DeploymentTopologyCheck`
+prüft beim Start, ob der Code dafür geeignet ist. Wenn nicht, bricht der Start mit einer Liste
+dessen ab, was fehlt. Sobald die Voraussetzungen erfüllt sind (eine gemeinsame Sperre für die Jobs,
+ein fest gesetzter Pepper), ist diese Prüfung die Stelle, an der man sie lockert.
 
-## 4) Kontosperre, Rate-Limits und Versand-Drosselung (Brute-Force-/Bombing-Schutz)
+## 4) Kontosperre, Mengenbegrenzung und Versanddrosselung (Schutz vor Ausprobieren und Massenversand)
 
-Gemeinsame Basis: `AttemptThrottle` (Entität, PK `(scope, subject)`) + `AttemptCounter`
-(`src/main/kotlin/com/example/dpop/orchestrator/session/`). `scope` (`ThrottleScope`) trennt
-mehrere Zählräume, die sich denselben Mechanismus, aber nie denselben Schlüsselraum teilen — je ein
-benannter `@Service` mit eigenen Limits:
+Gemeinsame Grundlage sind `AttemptThrottle` (Entität, Primärschlüssel `(scope, subject)`) und
+`AttemptCounter` (`src/main/kotlin/com/example/dpop/orchestrator/session/`). `scope`
+(`ThrottleScope`) trennt mehrere Zählbereiche. Sie teilen sich denselben Mechanismus, nie aber
+dieselben Schlüssel. Jeder Bereich hat einen eigenen `@Service` mit eigenen Grenzen:
 
-| Service | Scope | Zählt | Antwort bei Überschreitung |
+| Service | Bereich | Zählt | Antwort, wenn die Grenze überschritten ist |
 |---|---|---|---|
-| `LoginThrottleService` | `ACCOUNT` | Fehlgeschlagene AUTH-Versuche gegen ein Konto | `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH; bei LOOKUP_AUTH in die gewöhnliche "E-Mail/Code ungültig"-Antwort eingebettet (sonst ließe sich daraus ablesen, ob ein Konto existiert) |
-| `IdentThrottleService` | `PERSON` | Fehlgeschlagene IDENT-Versuche gegen eine Person (`ident-fsc` rät ein Geheimnis; ein Treffer übernimmt das Konto). Greift nur, wo der Versuch überhaupt eine Person benennt — `ident-eid` bestätigt seit ADR-18 nur die Karte und löst niemanden auf, seine PIN-Versuche begrenzt das Retry-Budget der Tool-Session | immer in die gewöhnliche Fehlerantwort gefaltet, nie eigener Fehler |
-| `ChannelCreationThrottleService` | `BINDING_KEY` | Kanaleröffnungen pro DPoP-Binding-Key (rollierendes Fenster, jeder Versuch zählt) | `429 Too Many Requests` |
-| `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | TAN-/Code-**Versendungen**, unabhängig von richtig/falsch (rollierendes Fenster, 3/10 Min) | `ACCOUNT_SEND` (LOOKUP_AUTH) in die gewöhnliche Fehlerantwort gefaltet; `CONTACT_SEND` (Self-Service-ENROLL, Subject als HMAC-SHA256 mit dem OTP-Pepper statt Klartext) darf offen als eigener Fehler zurückkommen |
+| `LoginThrottleService` | `ACCOUNT` | Fehlgeschlagene Anmeldeversuche an einem Konto | `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH. Bei LOOKUP_AUTH steckt die Sperre in der gewöhnlichen Antwort „E-Mail oder Code ungültig“; sonst ließe sich daraus ablesen, ob ein Konto existiert |
+| `IdentThrottleService` | `PERSON` | Fehlgeschlagene Identifizierungsversuche für eine Person (`ident-fsc` rät ein Geheimnis, und ein Treffer übernimmt das Konto). Zählt nur, wo der Versuch überhaupt eine Person benennt: `ident-eid` bestätigt seit ADR-18 nur die Karte und findet niemanden; seine PIN-Versuche begrenzt die erlaubte Zahl von Versuchen der Tool-Session | immer in der gewöhnlichen Fehlerantwort, nie als eigener Fehler |
+| `ChannelCreationThrottleService` | `BINDING_KEY` | Eröffnete Kanäle je DPoP-Schlüssel (gleitendes Zeitfenster, jeder Versuch zählt) | `429 Too Many Requests` |
+| `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | **Versendete** TANs und Codes, egal ob sie später richtig eingegeben werden (gleitendes Zeitfenster, 3 in 10 Min.) | `ACCOUNT_SEND` (LOOKUP_AUTH) steckt in der gewöhnlichen Fehlerantwort. `CONTACT_SEND` (Einrichten durch den Nutzer selbst; der Schlüssel ist ein HMAC-SHA256 mit dem OTP-Pepper statt der Adresse im Klartext) darf offen als eigener Fehler zurückkommen |
 
-- Warum zusätzlich zu `ToolSession.retryCount` nötig (Retry-Regel in
+- **Warum das zusätzlich zu `ToolSession.retryCount` nötig ist** (Regel für Wiederholungen in
   [Orchestrierung](04-orchestrierung.md) Abschnitt 1): `retryCount` zählt nur innerhalb *eines*
-  Tool-Anlaufs; per erneutem `POST .../tools/{toolId}` (bzw. bei LOOKUP-Tools erneutem `PATCH` auf
-  derselben `toolSessionId`) startet ein Client jederzeit einen neuen. `ACCOUNT`/`PERSON` schließen
-  das für falsche Rateversuche; `ACCOUNT_SEND`/`CONTACT_SEND` schließen zusätzlich das reine
-  *Neu-Versenden*, das nie ein falscher Rateversuch ist und deshalb `recordFailure` nie
-  auslöst — ohne sie wäre `auth-sms-lookup`/`auth-email-lookup`/`enroll-sms`/`confirm-email` ein
-  freies SMS-/Mail-Bombing.
-- ENROLL-Fehlschläge selbst bleiben außerhalb von `LoginThrottleService`/
+  Tool-Starts. Mit einem neuen `POST .../tools/{toolId}` (bei den Tools, die über die E-Mail-Adresse
+  arbeiten, mit einem neuen `PATCH` auf derselben `toolSessionId`) kann ein Client jederzeit neu
+  beginnen. `ACCOUNT` und `PERSON` begrenzen deshalb falsche Rateversuche. `ACCOUNT_SEND` und
+  `CONTACT_SEND` begrenzen zusätzlich das bloße *erneute Versenden*. Das ist nie ein falscher
+  Rateversuch und löst deshalb nie `recordFailure` aus. Ohne diese Zähler könnte man über
+  `auth-sms-lookup`, `auth-email-lookup`, `enroll-sms` und `confirm-email` beliebig viele SMS und
+  E-Mails an fremde Empfänger auslösen.
+- Fehlschläge beim Einrichten zählen weder bei `LoginThrottleService` noch bei
   `IdentThrottleService` (`ToolControllerSupport.chargeThrottles`, `ToolCategory.ENROLL -> Unit`):
-  beim Einrichten wird kein bestehendes Credential erraten. Der Versand *während* eines
-  ENROLL-Vorgangs wird separat über `CONTACT_SEND` begrenzt (Zeile oben).
-- Schwellwerte Fehlversuche: `MAX_FAILURES = 5`, `LOCKOUT_DURATION = 15 Minuten`. Schwellwerte
-  Kanaleröffnung: `20`/`5 Minuten`. Schwellwerte Versand: `3`/`10 Minuten`.
-- Jeder Zähler erhöht sich über ein einziges atomares `UPDATE` unter der Zeilensperre, die das
-  Statement selbst nimmt — nie per Lesen-dann-Schreiben, sonst wäre das tatsächliche Budget
-  `Limit × Parallelität`, und die Sperre ließe sich überspringen. Eine fehlende Zählerzeile
-  wird nach dem Muster „erst `UPDATE`, nur bei 0 getroffenen Zeilen anlegen, dann erneut `UPDATE`"
-  behandelt (`AttemptThrottleRowInitializer`, eigene Transaktion).
-- Ein erfolgreicher AUTH-/IDENT-Abschluss setzt den jeweiligen Zähler zurück (`recordSuccess`).
-  Versand- und Kanal-Throttles kennen keinen Reset — sie sind reine rollierende Fenster.
-- Aufbewahrung: siehe Tabelle in Abschnitt 3.
+  Beim Einrichten wird kein vorhandenes Credential erraten. Den Versand *während* des Einrichtens
+  begrenzt `CONTACT_SEND` (Tabelle oben).
+- Grenzwerte: bei Fehlversuchen `MAX_FAILURES = 5` und `LOCKOUT_DURATION = 15 Minuten`; beim Eröffnen
+  von Kanälen 20 in 5 Minuten; beim Versand 3 in 10 Minuten.
+- Jeder Zähler wird mit einer einzigen atomaren `UPDATE`-Anweisung erhöht, unter der Zeilensperre,
+  die diese Anweisung selbst setzt. Er wird nie erst gelesen und dann geschrieben: Sonst wäre das
+  tatsächliche Budget „Grenze × Zahl gleichzeitiger Anfragen“, und die Sperre ließe sich umgehen.
+  Fehlt die Zeile für einen Zähler, gilt: erst `UPDATE`; wurde keine Zeile getroffen, die Zeile
+  anlegen und das `UPDATE` wiederholen (`AttemptThrottleRowInitializer`, in einer eigenen
+  Transaktion).
+- Eine erfolgreiche Anmeldung oder Identifizierung setzt den jeweiligen Zähler zurück
+  (`recordSuccess`). Die Zähler für Versand und Kanaleröffnung werden nie zurückgesetzt; sie sind
+  reine gleitende Zeitfenster.
+- Aufbewahrung: siehe die Tabelle in Abschnitt 3.
 
-## 5) QR-Login (`auth_qr`): Pairing-Code-Sicherheit
+## 5) QR-Login (`auth_qr`): Sicherheit des Pairing-Codes
 
-`confirm-qr-login`s `input`-Schritt nimmt einen vom Nutzer eingegebenen oder per Deep-Link
-vorbefüllten `pairingCode` entgegen ([Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`):
+Der Schritt `input` von `confirm-qr-login` nimmt einen `pairingCode` entgegen, den der Nutzer
+eingibt oder den ein Deep-Link vorausfüllt ([`CONFIRM_PEER_LOGIN`](journeys/confirm-peer-login.md)):
 
-- **QR-Jacking-Schutz**: `verificationCode` (dreistellig) wird auf beiden Bildschirmen gezeigt und
-  nur per Auge verglichen, nie übertragen oder eingegeben — das nimmt dem Angriff die Wirkung, bei dem ein
-  Angreifer den eigenen QR-Code vom Opfer bestätigen lässt. Schützt **nicht** gegen einen
-  Angreifer, der in Echtzeit beide Seiten kontrolliert (Live-Relay/MITM).
-- **Atomarer Zustandsübergang**: `accept`/`reject` schreiben bedingt (`WHERE status = 'PENDING'`,
-  `QrLoginRequestRepository.resolveIfPending`) — `0` betroffene Zeilen heißt „bereits entschieden
-  oder abgelaufen", nie zwei Accounts gleichzeitig als `resolvingAccountId`.
-- **`pairingCode`-Entropie**: 8 Zeichen aus einem verwechslungsarmen Alphabet (Crockford-Base32-
-  artig, ohne `I`/`L`/`O`/`U`), ~40 Bit — bewusst niedriger als ein reiner API-Token, weil ein
-  Mensch den Code fehlerfrei abschreiben können muss.
+- **Schutz davor, einen fremden QR-Code zu bestätigen:** Ein dreistelliger `verificationCode`
+  erscheint auf beiden Bildschirmen und wird nur mit dem Auge verglichen, nie übertragen oder
+  eingegeben. Damit läuft der Angriff ins Leere, bei dem ein Angreifer seinen eigenen QR-Code vom Opfer
+  bestätigen lässt. **Nicht** geschützt ist gegen einen Angreifer, der beide Seiten in Echtzeit
+  kontrolliert und weiterleitet (Man-in-the-Middle).
+- **Unteilbarer Zustandswechsel:** `accept` und `reject` schreiben nur unter einer Bedingung
+  (`WHERE status = 'PENDING'`, `QrLoginRequestRepository.resolveIfPending`). Wird keine Zeile
+  getroffen, war die Anfrage bereits entschieden oder abgelaufen. So können nie zwei Konten
+  gleichzeitig als `resolvingAccountId` eingetragen werden.
+- **Zufallsgehalt des `pairingCode`:** 8 Zeichen aus einem Alphabet mit wenig Verwechslungsgefahr
+  (ähnlich Crockford-Base32, ohne `I`, `L`, `O` und `U`), etwa 40 Bit. Das ist bewusst weniger als
+  bei einem reinen API-Token, weil ein Mensch den Code fehlerfrei abschreiben können muss.
 
-**Noch offener Punkt**: Weil manuelle Eingabe ein regulärer Weg ist, bräuchte der `input`-Schritt
-einen eigenen, IP-/anonymen Zähler auf fehlgeschlagene `pairingCode`-Lookups — `AttemptThrottle`
-(Abschnitt 4) greift hier nicht, da noch kein Account bekannt ist. Aktuell **nicht implementiert**.
+**Noch offen:** Weil die Eingabe von Hand ein regulärer Weg ist, bräuchte der Schritt `input` einen
+eigenen Zähler für fehlgeschlagene Suchen nach einem `pairingCode`, etwa je IP-Adresse oder ohne
+Bezug auf ein Konto. `AttemptThrottle` (Abschnitt 4) hilft hier nicht, weil noch kein Konto bekannt
+ist. Das ist derzeit **nicht umgesetzt**.
 
-`QrLoginRequest.expiresAt` (5 Minuten, `QR_LOGIN_TTL`) orientiert sich an bestehenden TAN-Timeouts
-(`enroll-sms`/`auth-sms`); abgelaufene Zeilen sind beim Lesen unwirksam und werden von
-`AuthQrRetentionJob` abgeräumt (Abschnitt 3).
+`QrLoginRequest.expiresAt` (5 Minuten, `QR_LOGIN_TTL`) orientiert sich an den Laufzeiten der
+bestehenden TANs (`enroll-sms`/`auth-sms`). Abgelaufene Zeilen sind beim Lesen wirkungslos, und
+`AuthQrRetentionJob` räumt sie auf (Abschnitt 3).
 
 ## 6) Datenbankschema: Konventionen
 
-Das Schema steht in `src/main/resources/db/migration/<modul>/`, ein Ordner je Modul; die Regeln
-stehen in `db/migration/KONVENTIONEN.md` und gelten für jede Tabelle ([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16/ADR-30).
-Diagramm der tragenden Tabellen: [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
+Das Schema liegt in `src/main/resources/db/migration/<modul>/`, ein Ordner je Modul. Die Regeln
+stehen in `db/migration/KONVENTIONEN.md` und gelten für jede Tabelle
+([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16/ADR-30). Ein Diagramm der wichtigsten
+Tabellen zeigt [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
 
-- **Besitz ist strukturell**: Ein Datenbankschema je Modul, und jede Tabelle liegt im Schema
-  ihres Moduls (`account.anchor`, `auth_sms.enrollment`). Tabellennamen bleiben kurz, weil das
-  Schema den Modulnamen schon trägt.
-- **Fremdschlüssel** nur innerhalb eines Schemas; modulübergreifende Bezüge (z. B. `account_id` in
-  Orchestrator-Tabellen) sind indizierte Spalten und werden über die Modul-APIs aufgeräumt.
-- **Namen**: Langlebige Credentials heißen `<modul>.enrollment`, und dieser qualifizierte Name ist
+- **Besitz ist im Aufbau verankert:** Jedes Modul hat ein eigenes Datenbankschema, und jede Tabelle
+  liegt im Schema ihres Moduls (`account.anchor`, `auth_sms.enrollment`). Die Tabellennamen bleiben
+  kurz, weil das Schema den Modulnamen schon enthält.
+- **Fremdschlüssel** gibt es nur innerhalb eines Schemas. Bezüge über Modulgrenzen hinweg (z. B.
+  `account_id` in Tabellen des Orchestrators) sind Spalten mit Index und werden über die
+  Schnittstellen der Module aufgeräumt.
+- **Namen:** Dauerhafte Credentials heißen `<modul>.enrollment`, und dieser vollständige Name ist
   `EnrollmentRef.type`. Die Arbeitsdaten eines Tool-Durchlaufs heißen
-  `<modul>.<tool-rolle>_tool_session` — ihr Schlüssel *ist* die `tool_session_id`, die Zeile ist
-  also die Modulhälfte der `orchestrator.tool_session`. PK-Spalte immer `id`, Referenzen
-  `<tabelle>_id`. Indizes und Constraints tragen kein Modulpräfix (`ux_anchor_value`).
-- **Typen**: Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
-  `VARCHAR(16)`, Tool-IDs/Methoden/Attributtypen/Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
-- **Anker**: Jeder Schreibvorgang auf `account.anchor` verlangt ein Mindestniveau nach
-  `AnchorRule.acrFloor` (Erstbinden und Ersetzen getrennt); `established_acr` hält das
-  tatsächlich bewiesene, nach ADR-5 begrenzte Niveau ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
-- **Konto**: Über `account.account` werden Änderungen gesperrt; der aktuelle Zustand steht in
-  eigenen Zeilen, die Historie wird nur angefügt
-  ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
-- **Aufbewahrung**: Jede Aufräumabfrage läuft als ein einzelnes Statement über viele Zeilen und hat
+  `<modul>.<tool-rolle>_tool_session`. Ihr Schlüssel *ist* die `tool_session_id`; die Zeile ist
+  also der Teil von `orchestrator.tool_session`, der im Modul liegt. Die Primärschlüsselspalte heißt
+  immer `id`, Verweise heißen `<tabelle>_id`. Indizes und Constraints tragen kein Modulpräfix
+  (`ux_anchor_value`).
+- **Typen:** Zeitpunkte `TIMESTAMP WITH TIME ZONE`, Enum-Werte `VARCHAR(32)`, ACR-Werte
+  `VARCHAR(16)`, Tool-IDs, Methoden, Attributtypen und Quellen `VARCHAR(50)`, Hashes `VARCHAR(64)`.
+- **Anker:** Jeder Schreibvorgang auf `account.anchor` verlangt ein Mindestniveau nach
+  `AnchorRule.acrFloor` (für das erste Binden und das Ersetzen getrennt). `established_acr` hält das
+  tatsächlich nachgewiesene, nach ADR-5 begrenzte Niveau fest ([Domänenmodell](02-domaenenmodell.md)
+  Abschnitt 6).
+- **Konto:** Änderungen werden über `account.account` gesperrt. Der aktuelle Zustand steht in
+  eigenen Zeilen; die Historie wird nur ergänzt, nie geändert ([Domänenmodell](02-domaenenmodell.md)
+  Abschnitt 6).
+- **Aufbewahrung:** Jede Aufräumabfrage ist eine einzige SQL-Anweisung über viele Zeilen und hat
   einen Index auf ihrer Stichtagsspalte.
-- **Migrationen**: grundsätzlich eine Datei je Modul unter `db/migration/<modul>/` (`orchestrator` hat
-  zusätzlich `V14__node_signing_key.sql` und `V15__event_publication.sql`)
-  ([ADR-30](adr/ADR-030-eine-migration-je-modul.md)), der Bestand ist eine Neubaseline ohne
-  Produktivdaten. Passt eine lokale H2-Datei nicht mehr zu den Migrationen, löscht
-  `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf — ein `rm -rf data/`
-  von Hand ist nicht nötig. Das greift ausschließlich bei H2; bei jeder anderen Datenbank bricht
-  Flyway ab, wie es soll. Ab dem ersten produktiven Einsatz sind Migrationen ausschließlich additiv;
-  Tabellen mit ≥ 10 Mio. Zeilen werden in wiederholbaren Portionen nachgezogen.
+- **Migrationen:** grundsätzlich eine Datei je Modul unter `db/migration/<modul>/`; `orchestrator`
+  hat zusätzlich `V14__node_signing_key.sql` und `V15__event_publication.sql`
+  ([ADR-30](adr/ADR-030-eine-migration-je-modul.md)). Der heutige Stand ist eine neue Ausgangsbasis
+  ohne Produktivdaten. Passt eine lokale H2-Datei nicht mehr zu den Migrationen, löscht
+  `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf; `rm -rf data/` von
+  Hand ist nicht nötig. Das gilt ausschließlich für H2. Bei jeder anderen Datenbank bricht Flyway
+  ab, wie es soll. Ab dem ersten produktiven Einsatz sind Migrationen nur noch additiv, und Tabellen
+  mit 10 Millionen Zeilen oder mehr werden in wiederholbaren Portionen umgestellt.

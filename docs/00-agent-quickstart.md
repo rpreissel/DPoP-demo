@@ -1,36 +1,43 @@
-# Agent Quickstart (Token-sparend)
+# Schnelleinstieg für Agents (Token-sparend)
 
-Ziel: In <2 Minuten genug Kontext, um sicher zu implementieren, ohne den kompletten `docs/`-Baum zu laden.
+Ziel: In unter zwei Minuten genug Überblick, um sicher zu implementieren, ohne den ganzen
+`docs/`-Ordner zu laden.
 
 ## 1) Was ist das Projekt?
 
-- `dpop-demo`: Spring Boot Modulith (Kotlin) + React/TypeScript.
-- Zweck: DPoP-gesicherter Registrierungs-/Login-Flow gegen Keycloak-konformes Zielbild.
-- Architekturprinzip: Orchestrator steuert Journeys; Methodenmodule sind nur über SPI gekoppelt.
+- `dpop-demo`: Spring Boot Modulith (Kotlin) mit React/TypeScript.
+- Zweck: ein mit DPoP gesicherter Ablauf für Registrierung und Login, ausgerichtet auf ein
+  Keycloak-konformes Zielbild.
+- Grundprinzip: Der Orchestrator steuert die Journeys; die Methodenmodule hängen nur über
+  Schnittstellen (SPI) an ihm.
 
-## 2) Kernbegriffe (minimal)
+## 2) Kernbegriffe (das Nötigste)
 
-- **ChannelSession**: Kanal-Kontext (App/Web), überdauert einzelne Verfahren, aber bewusst kurzlebig (ADR-3); die dauerhafte Geräte-Zuordnung liegt in `DeviceAccountLink`
-- **AuthIntent**: Nutzerziel (z. B. Registrieren, Step-up)
-- **AuthJourney**: laufender Ablauf pro Intent
-- **ToolSession**: konkrete Instanz eines Verfahrensschritts
-- **AuthContext**: IAM/Token-Kontext inkl. ACR/AMR
+- **ChannelSession**: der Kontext eines Kanals (App oder Web). Sie überdauert einzelne Verfahren,
+  ist aber bewusst kurzlebig (ADR-3); welches Gerät zu welchem Konto gehört, steht dauerhaft in
+  `DeviceAccountLink`.
+- **AuthIntent**: das Ziel des Nutzers, z. B. Registrieren oder Step-up.
+- **AuthJourney**: ein laufender Ablauf zu einem Intent.
+- **ToolSession**: ein einzelner Durchlauf eines Verfahrensschritts.
+- **AuthEvidence** / **AuthContext**: die Nachweise einer Sitzung (daraus folgen ACR und AMR)
+  bzw. die Tokens des App-Kanals.
 
 ## 3) Wo finde ich welches Detail?
 
 | Frage | Datei |
 |---|---|
-| Modulgrenzen, Stack, Versionen | `08-projektrahmen.md` |
-| Orchestrator-Entscheidungen/Policy | `04-orchestrierung.md` |
-| Ein einzelner Ablauf im Detail | `journeys/<intent>.md` (nicht den ganzen 04er laden) |
+| Modulgrenzen, Technik, Versionen | `08-projektrahmen.md` |
+| Entscheidungen und Regeln des Orchestrators | `04-orchestrierung.md` |
+| Ein einzelner Ablauf im Detail | `journeys/<intent>.md` (nicht das ganze Kapitel 04 laden) |
 | Warum etwas so ist | `12-entscheidungen.md` (Index) -> `adr/ADR-NNN-*.md` |
 | API-Verträge und Routen | `05-api.md` |
 | Schrittfolgen der Verfahren | `06-ablaeufe.md` |
-| DPoP-Validierung und Binding | `09-dpop.md` |
-| Frontend-Verhalten/Routing | `10-frontend.md` |
+| DPoP-Prüfung und Gerätebindung | `09-dpop.md` |
+| Verhalten des Frontends, Routing | `10-frontend.md` |
 
 ## 4) Arbeitsregeln für Agents
 
-- Doku beschreibt das Zielbild; bei Abweichung hat Doku Vorrang.
+- Die Doku beschreibt das Zielbild; weicht der Code ab, hat die Doku Vorrang.
 - Änderungen immer im passenden Dokument ergänzen, nicht in Sammelnotizen.
-- Nur benötigte Kapitel öffnen; `docs/README.md` ist Navigation, kein Pflicht-Read.
+- Nur die benötigten Kapitel öffnen; `docs/README.md` dient der Orientierung und muss nicht
+  gelesen werden.

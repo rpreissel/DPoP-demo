@@ -1,17 +1,17 @@
-> Eine Journey aus dem Katalog. Die gemeinsame Lesehilfe zu den Diagrammen steht in
+> Eine Journey aus dem Katalog. Wie die Diagramme zu lesen sind, erklärt
 > [../04-orchestrierung.md](../04-orchestrierung.md), Abschnitt 3.
 
 # `FAST_ACCESS`
 
-Erst die Fallback-Kette vom bequemsten zum aufwendigsten Weg, danach die Pflichtzustände für den
-nächsten Login.
+Die schnelle Anmeldung versucht zuerst die bequemen Wege und weicht Schritt für Schritt auf
+aufwendigere aus. Danach folgen die Pflichtzustände, die für die nächste Anmeldung sorgen.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Start
-  Start --> PreferredAuth: verknüpftes Gerät mit Device-Methode
-  Start --> AuthChoice: Account bekannt, andere Methoden vorhanden
-  Start --> REGISTER: nichts Vorhandenes greift
+  Start --> PreferredAuth: verknüpftes Gerät mit Geräteschlüssel
+  Start --> AuthChoice: Konto bekannt, andere Verfahren vorhanden
+  Start --> REGISTER: nichts Vorhandenes passt
 
   PreferredAuth --> AuthChoice: abgelehnt
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
@@ -21,54 +21,59 @@ stateDiagram-v2
   AuthChoice --> Finished: Nachweis reicht für das geforderte Niveau
   PreferredAuth --> Enrolling: Konto erreicht das Niveau nicht
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
-  PreferredAuth --> RE_IDENTIFY: Sitzung unter loa2 - Einrichtung erst nach frischer Identifizierung
-  AuthChoice --> RE_IDENTIFY: Sitzung unter loa2 - Einrichtung erst nach frischer Identifizierung
+  PreferredAuth --> RE_IDENTIFY: Sitzung unter loa2 - Einrichten erst nach erneuter Identifizierung
+  AuthChoice --> RE_IDENTIFY: Sitzung unter loa2 - Einrichten erst nach erneuter Identifizierung
 
-  Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
+  Enrolling --> Enrolling: Verfahren eingerichtet, Niveau reicht noch nicht
   Enrolling --> Finished: Niveau erreicht
 
-  Enrolling --> RE_IDENTIFY: keine Einrichtung schließt die Lücke, Re-Identifizierung möglich
+  Enrolling --> RE_IDENTIFY: kein Einrichten schließt die Lücke, erneute Identifizierung möglich
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
-  RE_IDENTIFY --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
+  RE_IDENTIFY --> [*]: abgelehnt oder nicht möglich (Cancel/Abort)
 
   REGISTER --> Start: REGISTER-Journey fertig (SubJourneyFinished)
-  REGISTER --> [*]: abgelehnt/nicht möglich (Cancel/Abort)
+  REGISTER --> [*]: abgelehnt oder nicht möglich (Cancel/Abort)
 
   Finished --> [*]
 
   note right of AuthChoice
-    Zustände 1-2: Fallback.
+    PreferredAuth und AuthChoice
+    sind Ausweichzustände:
     Ablehnen führt weiter.
   end note
   note right of Enrolling
-    Pflichtzustand: nur Erfüllen
-    führt weiter. Geteilter
-    Werttyp mit REGISTER
-    (siehe Abschnitt "REGISTER").
+    Pflichtzustand: Nur Erfüllen
+    führt weiter. Wird mit REGISTER
+    gemeinsam genutzt.
   end note
   note right of RE_IDENTIFY
-    Eigene geteilte SubJourney,
-    kein Zustand dieses Intents -
-    siehe Abschnitt "RE_IDENTIFY".
+    Eigene, gemeinsam genutzte
+    Sub-Journey, kein Zustand
+    dieses Intents.
   end note
   note right of REGISTER
-    REGISTERs eigene Journey als
-    Voraussetzung, gleiches Muster
-    wie RE_IDENTIFY - siehe unten.
+    Die Journey von REGISTER als
+    vorgeschalteter Schritt, nach
+    demselben Muster wie RE_IDENTIFY.
   end note
 ```
 
-`PreferredAuth` trägt genau die eine vorgeschlagene `toolId`; `AuthChoice`/`Enrolling` tragen
-Angebot und Ablehnungen (Fallback- bzw. Pflichtsemantik, s. o.) und sind geteilte Werttypen mit
-`RegisterState` (Abschnitt „REGISTER" unten). `Enrolling` trägt zusätzlich `emailObligation`, das
-`FAST_ACCESS` selbst nie setzt (immer `false`) — nur ein Lauf über `RegisterState.Identifying`
-kennt die E-Mail-Pflicht (Abschnitt 8).
+`PreferredAuth` enthält genau das eine vorgeschlagene Tool (`toolId`). `AuthChoice` und
+`Enrolling` enthalten das Angebot und die bisherigen Ablehnungen. Sie werden mit `RegisterState`
+gemeinsam genutzt (siehe [`REGISTER`](register.md)). `Enrolling` hat zusätzlich das Feld
+`emailObligation`. `FAST_ACCESS` setzt es nie (es bleibt `false`); die E-Mail-Pflicht gibt es nur,
+wenn die Journey über `RegisterState.Identifying` gelaufen ist (Orchestrierung, Abschnitt 8).
 
-`FAST_ACCESS` identifiziert nie selbst: Fehlt ein Account oder ist jede Methode abgelehnt, läuft
-`REGISTER`s eigene Journey als `Transition.RequireSubJourney`-Voraussetzung; schließt in
-`Enrolling` keine Einrichtung die Lücke, fragt die geteilte `RE_IDENTIFY`-SubJourney (Abschnitt
-„RE_IDENTIFY" unten). Nach `SubJourneyFinished` prüft `Start` per `afterProof` erneut, ob der
+`FAST_ACCESS` identifiziert nie selbst:
+
+- Gibt es kein Konto, oder hat der Nutzer jedes Verfahren abgelehnt, startet die Journey von
+  [`REGISTER`](register.md) als vorgeschalteter Schritt (`Transition.RequireSubJourney`).
+- Kann in `Enrolling` kein Einrichten die Lücke schließen, fragt die gemeinsam genutzte Sub-Journey
+  [`RE_IDENTIFY`](re-identify.md) nach einer erneuten Identifizierung.
+
+Ist die Sub-Journey fertig (`SubJourneyFinished`), prüft `Start` mit `afterProof` erneut, ob der
 Nachweis reicht.
 
-In einem Fallback-Zustand sammelt `declined` die verworfenen Tools, in einem Pflichtzustand
-**nicht** (s. o.).
+Der Unterschied zwischen beiden Zustandsarten zeigt sich in `declined`: In einem Ausweichzustand
+sammelt das Feld die abgelehnten Tools, in einem Pflichtzustand **nicht**, denn dort führt Ablehnen
+nicht weiter.
