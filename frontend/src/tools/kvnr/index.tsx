@@ -21,7 +21,7 @@ export const identKvnr: ToolModule = {
     if (ctx.step === 'input') {
       return (
         <IdentKvnrForm
-          onSubmit={(kvnr) => submitViaPatch(ctx, { kvnr })}
+          onSubmit={(identifier) => submitViaPatch(ctx, identifier)}
           onSkip={ctx.onSkip}
           skipLabel={SKIP_LABEL}
           error={attemptError(ctx)}

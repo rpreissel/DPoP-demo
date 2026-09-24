@@ -6,20 +6,21 @@ interface DemoPersonPickerProps {
   /** Demo-only: every register person. Renders nothing when fewer than two are offered. */
   demoPersons?: DemoPerson[]
   /**
-   * The KVNR the form currently holds. When given, the picker follows it instead of starting over
-   * at the first person each time it mounts - a form that remounts it (going back a page) would
-   * otherwise show one person above another person's fields.
+   * The Partnernummer of the person the form currently holds, '' when its fields match nobody.
+   * When given, the picker follows it instead of starting over at the first person each time it
+   * mounts - a form that remounts it (going back a page) would otherwise show one person above
+   * another person's fields.
    */
-  selectedKvnr?: string
+  selectedPersonId?: string
   onSelect: (person: DemoPerson) => void
 }
 
 /** Shared by ident forms (id_fsc/id_eid) that prefill several fields (KVNR, name, address, ...) at once from one persona. */
-export function DemoPersonPicker({ demoPersons, selectedKvnr, onSelect }: DemoPersonPickerProps) {
+export function DemoPersonPicker({ demoPersons, selectedPersonId, onSelect }: DemoPersonPickerProps) {
   if (!demoPersons || demoPersons.length < 2) return null
-  const matched = selectedKvnr === undefined || demoPersons.some((p) => p.kvnr === selectedKvnr)
+  const matched = selectedPersonId === undefined || demoPersons.some((p) => p.personId === selectedPersonId)
   const selection =
-    selectedKvnr === undefined ? { defaultValue: demoPersons[0].kvnr } : { value: matched ? selectedKvnr : '' }
+    selectedPersonId === undefined ? { defaultValue: demoPersons[0].personId } : { value: matched ? selectedPersonId : '' }
   return (
     <div className="form-group demo-picker">
       <label htmlFor="demoPerson">
@@ -29,7 +30,7 @@ export function DemoPersonPicker({ demoPersons, selectedKvnr, onSelect }: DemoPe
         id="demoPerson"
         {...selection}
         onChange={(e) => {
-          const person = demoPersons.find((p) => p.kvnr === e.target.value)
+          const person = demoPersons.find((p) => p.personId === e.target.value)
           if (person) onSelect(person)
         }}
       >
@@ -39,8 +40,8 @@ export function DemoPersonPicker({ demoPersons, selectedKvnr, onSelect }: DemoPe
           </option>
         )}
         {demoPersons.map((person) => (
-          <option key={person.kvnr} value={person.kvnr}>
-            {person.vorname} {person.name} ({person.kvnr})
+          <option key={person.personId} value={person.personId}>
+            {person.vorname} {person.name} ({person.kvnr ?? person.personId})
           </option>
         ))}
       </select>

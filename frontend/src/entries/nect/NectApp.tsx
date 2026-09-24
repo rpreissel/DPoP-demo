@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import '../../App.css'
 import { ChannelNav } from '../../components/ChannelNav'
-import { registerApi, type RegisterPerson } from '../../extApi'
+import { personenverzeichnisApi, type RegisterPerson } from '../../personenverzeichnisApi'
 import { nectApi, type NectAttributes, type NectCaseView, type NectProcedure, type NectRequestable } from '../../nectApi'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
@@ -152,7 +152,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
 
   // Demo convenience only: prefill from the simulated register, as if the user owned that card.
   useEffect(() => {
-    registerApi
+    personenverzeichnisApi
       .personen()
       .then((ps) => {
         setPersonen(ps)

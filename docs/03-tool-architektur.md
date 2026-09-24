@@ -197,13 +197,13 @@ Obergrenzen aus ADR-5.
 
 **Wann welche Kategorie**, für das nächste Attribut: Darüber entscheiden `ClaimSource` (wer für
 den Wert einsteht) und `AttributeType.authority` (wem der aktuelle Wert gehört). Steht das Register
-dafür ein (`EXT_STAMMDATEN`), ist es `IDENT`. Steht das Verfahren selbst dafür ein
+dafür ein (`PERSON_DIRECTORY`), ist es `IDENT`. Steht das Verfahren selbst dafür ein
 (`ClaimSource.of(toolId)`) und gehört der Wert dem Konto (`AttributeAuthority.Local`), ist es
 `ATTEST`. Gehört er dem Methodenmodul (`MethodModule`), ist es `ENROLL`. Über die KVNR lässt sich keine Kontrolle nachweisen, nur die
 Zugehörigkeit zur Person — also `IDENT`, kein `attest-kvnr`.
 
 Ein dritter Fall fehlte in dieser Regel und wurde mit ADR-18 nachgetragen: **Steht das Verfahren
-selbst (`ClaimSource.of(toolId)`) für einen Wert ein, den `EXT_STAMMDATEN` verwaltet, ist es
+selbst (`ClaimSource.of(toolId)`) für einen Wert ein, den `PERSON_DIRECTORY` verwaltet, ist es
 `IDENT`** — so liegt der Fall bei `ident-eid`, das Name, Vorname, Geburtsdatum, die Adresse und die
 kartengebundene `restricted_id` von der Karte liest. `ATTEST` wäre dafür falsch, und zwar nicht
 wegen des Datenbesitzes, sondern weil `ATTEST` per Definition *nichts* zur ACR/AMR-Bilanz beiträgt
@@ -235,12 +235,12 @@ Ein Methodenmodul darf sich intern frei organisieren — nur `ToolOutcome` verl�
 
 ## 4) Wo der Controller lebt: `tool_api` als Modulgrenze
 
-Der `@RestController` eines Tools lebt **im selben Modul wie sein Handler** (z. B. `id_fsc.api.v1.IdentFscToolController`, `auth_sms.api.v1.AuthSmsToolController`), nicht im `orchestrator`. Der Orchestrator kennt kein Methodenmodul namentlich — `orchestrator/ModuleMetadata.kt` deklariert `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten"]`, ohne `id_fsc`, `auth_sms`, `auth_password`, `auth_email` oder `auth_device`.
+Der `@RestController` eines Tools lebt **im selben Modul wie sein Handler** (z. B. `id_fsc.api.v1.IdentFscToolController`, `auth_sms.api.v1.AuthSmsToolController`), nicht im `orchestrator`. Der Orchestrator kennt kein Methodenmodul namentlich — `orchestrator/ModuleMetadata.kt` deklariert `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_personenverzeichnis"]`, ohne `id_fsc`, `auth_sms`, `auth_password`, `auth_email` oder `auth_device`.
 
 Ermöglicht wird das durch das gemeinsame SPI-Modul `tool_api` (`allowedDependencies = ["tool_spi"]`), das beide Seiten kennen dürfen:
 
 - **`ToolEndpoint`** — Session-/Journey-Mechanik jedes Tool-Controllers (Aktivierung starten, Kontext laden, Ergebnis anwenden, Journey abbrechen). Implementiert von `ToolControllerSupport` im `orchestrator`, per Konstruktor injiziert.
-- **`AccountDirectory`** / **`PersonDirectory`** / **`DeviceProofs`** — schmale Lese-/Prüf-Ports auf Konto-, Personen- und Geräte-Nachweis-Daten (z. B. `auth-sms-lookup` zum Auflösen eines Kontos über E-Mail). Implementiert von `AccountService` (`account`), `ExtStammdatenService` (`ext_stammdaten`) bzw. `DeviceProofValidator` (`orchestrator`) — jeweils direkt am Domänenservice, ohne separate Adapterklasse. Den Freischaltcode prüft `id_fsc` dagegen nicht über einen Port, sondern direkt beim Register (`ext_stammdaten.Freischaltcodes`, ADR-31) — dieselbe Form wie `auth_kobil → kobil_mock.KobilSsms`.
+- **`AccountDirectory`** / **`PersonDirectory`** / **`DeviceProofs`** — schmale Lese-/Prüf-Ports auf Konto-, Personen- und Geräte-Nachweis-Daten (z. B. `auth-sms-lookup` zum Auflösen eines Kontos über E-Mail). Implementiert von `AccountService` (`account`), `Personenverzeichnis` (`ext_personenverzeichnis`) bzw. `DeviceProofValidator` (`orchestrator`) — jeweils direkt am Domänenservice, ohne separate Adapterklasse. Den Freischaltcode prüft `id_fsc` dagegen nicht über einen Port, sondern direkt beim Register (`ext_personenverzeichnis.Freischaltcodes`, ADR-31) — dieselbe Form wie `auth_kobil → kobil_mock.KobilSsms`.
 - **`EnrollmentCleanup`** — die Gegenrichtung: ein Schreib-Port AUS einem Methodenmodul heraus, für den Fall der Account-Löschung ([API](05-api.md), "Account löschen"). Jedes Modul mit eigener Langzeit-Credential-Tabelle (`auth_sms.enrollment`, `auth_password.enrollment`, `auth_device.enrollment`, `auth_qr.enrollment` — Tabellenname = `EnrollmentRef.type`) bringt eine `@Component`-Implementierung mit, die per `enrollmentType` angesprochen wird; `auth_email` braucht keine, weil die bestätigte E-Mail dem Account-Modul gehört (Abschnitt 2). `AccountDeletionService` (`orchestrator`) sammelt `List<EnrollmentCleanup>` wie `ToolHandlerRegistry` die `ToolDescriptor`-Beans ein — ohne dass `orchestrator` oder `account` ein Methodenmodul beim Namen kennen müsste.
 - **Envelope-DTOs** (`ChannelResponse`, `ChannelBlock`, `ActiveMethodView`, `Next`, `DemoInfo`) — die gemeinsame Antwortform, die jeder Tool-Controller zurückgibt.
 - **`ToolSwitchController`** — der einzige generische, toolId-lose Controller (Tool wechseln oder abbrechen, ohne tool-spezifische Logik). Er liegt im Orchestrator (`orchestrator.api.v1.tool`), nicht in einem Methodenmodul und auch nicht in `tool_api`: Was nach dem Abbruch kommt, entscheidet der Zustand der Journey, und `tool_api` ist der Vertrag zwischen den Modulen, keine Web-Schicht.

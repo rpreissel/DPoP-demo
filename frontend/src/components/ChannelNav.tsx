@@ -18,7 +18,7 @@ interface Props<K extends string> {
 }
 
 /**
- * Shared top bar for every page with tabs (App/Web channel, Admin, Personenregister) - identical
+ * Shared top bar for every page with tabs (App/Web channel, Admin, Personenverzeichnis) - identical
  * markup everywhere so the pages read as "the same kind of thing, different color", not unrelated
  * UIs. The back button is its own labeled control (not folded into the badge) so "go back to
  * Startseite" stays recognizable on every page - and it switches to the start tab rather than

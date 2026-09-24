@@ -101,7 +101,7 @@ class RegisterStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"))))
             then("adopts the identity, then offers it via the shared AuthChoice, rather than enrollment") {
-                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
+                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)
@@ -115,7 +115,7 @@ class RegisterStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, acrFloor = AcrLevel.LOA1)
             val state = RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"))))
             then("adopts the identity, then asks for the address FIRST - before any method is offered") {
-                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
+                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))
                 val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
                     Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)
@@ -170,7 +170,7 @@ class RegisterStrategyTest : BehaviorSpec({
         val state = RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"))))
 
         then("asks for confirmation first, before offering any method - never silently rebinds") {
-            val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
+            val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
                 Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)

@@ -49,7 +49,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             shouldThrow<IllegalStateException> {
                 strategy.transition(
                     state,
-                    JourneyEvent.Completed(com.example.dpop.id_fsc.IdentFscDescriptor, ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))),
+                    JourneyEvent.Completed(com.example.dpop.id_fsc.IdentFscDescriptor, ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))),
                     ctx()
                 )
             }

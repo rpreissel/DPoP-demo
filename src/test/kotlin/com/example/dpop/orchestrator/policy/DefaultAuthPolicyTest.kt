@@ -56,7 +56,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
 
     fun account(vararg methods: AuthMethodView) = AccountProfile(
-        accountId = 1L, personId = 1L, authenticationMethods = methods.toList()
+        accountId = 1L, personId = "P000000001", authenticationMethods = methods.toList()
     )
 
     fun method(method: String, enrolledUnderAcr: AcrLevel, active: Boolean = true) =

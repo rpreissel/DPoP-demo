@@ -21,7 +21,7 @@ export const APP_TEXTS = '/orchestrator/api/v1/texts'
 /** The simulated foreign systems bring their own. */
 export const NECT_TEXTS = '/mock-nect/texts'
 export const KOBIL_TEXTS = '/mock-kobil/texts'
-export const REGISTER_TEXTS = '/mock-stammdaten/texts'
+export const PERSONENVERZEICHNIS_TEXTS = '/mock-personenverzeichnis/texts'
 
 const SUPPORTED = ['de', 'en'] as const
 type Language = (typeof SUPPORTED)[number]

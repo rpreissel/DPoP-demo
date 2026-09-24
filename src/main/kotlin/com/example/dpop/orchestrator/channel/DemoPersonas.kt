@@ -1,8 +1,8 @@
 package com.example.dpop.orchestrator.channel
 
-import com.example.dpop.ext_stammdaten.ExtStammdatenService
-import com.example.dpop.ext_stammdaten.Freischaltcodes
-import com.example.dpop.ext_stammdaten.strassenzeile
+import com.example.dpop.ext_personenverzeichnis.Personenverzeichnis
+import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
+import com.example.dpop.ext_personenverzeichnis.strassenzeile
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import org.springframework.stereotype.Component
 
@@ -10,10 +10,13 @@ import org.springframework.stereotype.Component
  * One demo persona as the frontend's persona picker receives it. Everything the register knows
  * comes from the register, live; only what the register cannot know is demo configuration here:
  * the e-mail address (our account data) and the eID card's restricted identifier (the card mock).
- * A person created on `/ext/` therefore shows up here right away, with those two left empty.
+ * A person created on `/personenverzeichnis/` therefore shows up here right away, with those two left empty.
  */
 data class DemoPerson(
-    val kvnr: String,
+    /** The Partnernummer - every person has one (ADR-34). */
+    val personId: String,
+    /** Only for a person insured with us, and even then possibly missing for a while. */
+    val kvnr: String?,
     val name: String?,
     val vorname: String?,
     val email: String?,
@@ -30,26 +33,29 @@ data class DemoPerson(
 private data class DemoPersonExtras(val email: String, val restrictedId: String)
 
 /**
- * Keyed by KVNR, for the three persons `demo_seed/V16__testdata.sql` seeds. The first matches
+ * Keyed by Partnernummer, for the persons `demo_seed/V16__testdata.sql` seeds - the one key that
+ * never changes (a KVNR does, now and then) and that a Partner has too. The first matches
  * [DEMO_EMAIL], so the single-value e-mail prefill of the lookup tools stays the first persona's.
  */
 private val DEMO_PERSON_EXTRAS = mapOf(
-    "A123456789" to DemoPersonExtras(DEMO_EMAIL, "T0103005K1D5S0V8T9W6UM2RTX"),
-    "B987654321" to DemoPersonExtras("erika.beispiel@example.com", "T0208011X7Y2Q4M6B3LT0T28WJ"),
-    "C111111111" to DemoPersonExtras("jane.doe@example.com", "T0304223A9B1N7K5D2PN1S44QE"),
+    "P000000001" to DemoPersonExtras(DEMO_EMAIL, "T0103005K1D5S0V8T9W6UM2RTX"),
+    "P000000002" to DemoPersonExtras("erika.beispiel@example.com", "T0208011X7Y2Q4M6B3LT0T28WJ"),
+    "P000000003" to DemoPersonExtras("jane.doe@example.com", "T0304223A9B1N7K5D2PN1S44QE"),
+    "P000000004" to DemoPersonExtras("paula.schulz@example.com", "T0405337C2D8R5H9F1QW3V61MZ"),
 )
 
 /** Reads the personas off the register - only [DisclosingDemoDisclosure] calls this. */
 @Component
 class DemoPersonas(
-    private val register: ExtStammdatenService,
+    private val register: Personenverzeichnis,
     private val freischaltcodes: Freischaltcodes,
 ) {
     fun all(): List<DemoPerson> = register.allePersonen().mapNotNull { person ->
-        val kvnr = person.kvnr ?: return@mapNotNull null
-        val extras = DEMO_PERSON_EXTRAS[kvnr]
+        val personId = person.id ?: return@mapNotNull null
+        val extras = DEMO_PERSON_EXTRAS[personId]
         DemoPerson(
-            kvnr = kvnr,
+            personId = personId,
+            kvnr = person.kvnr,
             name = person.name,
             vorname = person.vorname,
             email = extras?.email,
@@ -57,7 +63,7 @@ class DemoPersonas(
             plz = person.plz,
             ort = person.ort,
             geburtsdatum = person.geburtsdatum?.toString(),
-            fscCode = person.id?.let { freischaltcodes.juengsterGueltigerCode(it) },
+            fscCode = freischaltcodes.juengsterGueltigerCode(personId),
             restrictedId = extras?.restrictedId
         )
     }

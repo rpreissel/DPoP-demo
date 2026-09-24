@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 
 data class AdminAccountView(
     val accountId: Long,
-    val personId: Long?,
+    val personId: String?,
     val displayName: String?,
     val email: String?,
     /** Active method names, one per instance (several devices show up several times). */
@@ -76,7 +76,7 @@ class AdminAccountsController(
     @Operation(
         summary = "Put the demo back to its start",
         description = "Deletes every account, restores the preset tool order and locks per channel and the ident-first registration order, then creates the demo accounts again (keycloak profile). " +
-            "The person register (/mock-stammdaten) is a foreign system and stays as it is."
+            "The person register (/mock-personenverzeichnis) is a foreign system and stays as it is."
     )
     fun reset(): DemoResetResult {
         val accountIds = accountService.allAccountIds()

@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.tool_spi.Partnernr
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 
@@ -26,11 +27,11 @@ sealed interface AttributeAuthority {
     data class Local(val anchor: AnchorRule) : AttributeAuthority
 
     /**
-     * Owned by the master-data backend and read live through [PersonDirectory] whenever it is
+     * Owned by the master-data backend and read live through the [PersonDirectory][com.example.dpop.tool_api.PersonDirectory] port whenever it is
      * needed - never projected into a local column, so it cannot go stale. Local claim-log rows
      * for these types are history (what was asserted, by whom, when), never the current truth.
      */
-    data object ExtStammdaten : AttributeAuthority
+    data object PersonDirectory : AttributeAuthority
 
     /**
      * Owned by the method module that enrolled it, in its own `<module>.enrollment` row (e.g.
@@ -74,6 +75,11 @@ val AttributeType.authority: AttributeAuthority
         AttributeType.PERSON_ID -> AttributeAuthority.Local(
             AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
         )
+        // Set when a person with a Versicherungsnummer is bound, replaced/released when the
+        // Personenverzeichnis reports a change (ADR-34) - can change value, never account.
+        AttributeType.VERSNR -> AttributeAuthority.Local(
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
+        )
         AttributeType.EID_RESTRICTED_ID -> AttributeAuthority.Local(
             AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
         )
@@ -86,7 +92,7 @@ val AttributeType.authority: AttributeAuthority
         AttributeType.GEBURTSDATUM,
         AttributeType.STRASSE,
         AttributeType.PLZ,
-        AttributeType.ORT -> AttributeAuthority.ExtStammdaten
+        AttributeType.ORT -> AttributeAuthority.PersonDirectory
         AttributeType.PHONE_NUMBER,
         // MethodModule is what makes the dependency work: retractClaimsOf retracts exactly these
         // when the owning method instance is revoked, so "the account has a password" stops being
@@ -109,14 +115,14 @@ val AttributeType.isLocalAnchor: Boolean
 /**
  * Canonical form of [value] for storage and lookup, applied identically on write
  * (`AccountService` stores the normalized form) and on read (`AccountDirectory.resolveByAnchor`).
- * `PERSON_ID` normalizes to the canonical decimal representation of its `Long` value;
- * `EMAIL`/`KVNR` go through [Email]/[Kvnr] - an invalid value throws rather than falling back to a
+ * `PERSON_ID`/`VERSNR`/`EMAIL`/`KVNR` go through [Partnernr]/[Versnr]/[Email]/[Kvnr] - an invalid value throws rather than falling back to a
  * weaker match. Calling this for a non-anchor attribute type is a contract error: it throws
  * instead of silently handing back the raw value.
  */
 fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
-    AttributeType.PERSON_ID -> value.trim().toLong().toString()
+    AttributeType.PERSON_ID -> Partnernr.of(value).value
     AttributeType.EID_RESTRICTED_ID -> value.trim()
+    AttributeType.VERSNR -> Versnr.of(value).value
     AttributeType.EMAIL -> Email.of(value).value
     AttributeType.KVNR -> {
         // Format-validate first (Kvnr.of throws IllegalArgumentException for a malformed value,

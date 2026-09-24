@@ -15,6 +15,9 @@ components:
         name:
           example: Muster
           type: string
+        partnernr:
+          example: P000000004
+          type: string
         vorname:
           example: Max
           type: string

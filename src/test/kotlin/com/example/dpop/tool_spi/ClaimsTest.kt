@@ -28,7 +28,7 @@ class ClaimsTest : BehaviorSpec({
 
     given("ClaimSource") {
         then("the two named constants carry their wire values") {
-            ClaimSource.EXT_STAMMDATEN.value shouldBe "ext_stammdaten"
+            ClaimSource.PERSON_DIRECTORY.value shouldBe "person_directory"
             ClaimSource.SELF_REPORTED.value shouldBe "self-reported"
         }
         then("of() names the proving tool by its toolId") {
@@ -42,7 +42,7 @@ class ClaimsTest : BehaviorSpec({
             (TrustLevel.PROVEN.rank > TrustLevel.SELF_REPORTED.rank) shouldBe true
         }
         then("ClaimSource.trustLevel maps every source kind to its level") {
-            ClaimSource.EXT_STAMMDATEN.trustLevel shouldBe TrustLevel.STAMMDATEN
+            ClaimSource.PERSON_DIRECTORY.trustLevel shouldBe TrustLevel.STAMMDATEN
             ClaimSource.SELF_REPORTED.trustLevel shouldBe TrustLevel.SELF_REPORTED
             ClaimSource.of(ToolId("ident-eid")).trustLevel shouldBe TrustLevel.PROVEN
         }
@@ -52,13 +52,13 @@ class ClaimsTest : BehaviorSpec({
         val claim = Claim(
             attributeType = AttributeType.KVNR,
             value = "A123456789",
-            source = ClaimSource.EXT_STAMMDATEN,
+            source = ClaimSource.PERSON_DIRECTORY,
             establishedAcr = AcrLevel.LOA2
         )
         then("carries value, provenance and assurance") {
             claim.attributeType shouldBe AttributeType.KVNR
             claim.value shouldBe "A123456789"
-            claim.source shouldBe ClaimSource.EXT_STAMMDATEN
+            claim.source shouldBe ClaimSource.PERSON_DIRECTORY
             claim.establishedAcr shouldBe AcrLevel.LOA2
         }
         then("establishedAcr defaults to null") {
@@ -66,10 +66,10 @@ class ClaimsTest : BehaviorSpec({
         }
         then("rejects malformed shared identity values") {
             shouldThrow<IllegalStateException> {
-                Claim(AttributeType.PERSON_ID, "not-a-number", ClaimSource.EXT_STAMMDATEN).validateValue()
+                Claim(AttributeType.PERSON_ID, "not-a-number", ClaimSource.PERSON_DIRECTORY).validateValue()
             }
             shouldThrow<IllegalStateException> {
-                Claim(AttributeType.GEBURTSDATUM, "31.12.1970", ClaimSource.EXT_STAMMDATEN).validateValue()
+                Claim(AttributeType.GEBURTSDATUM, "31.12.1970", ClaimSource.PERSON_DIRECTORY).validateValue()
             }
             shouldThrow<IllegalStateException> {
                 Claim(AttributeType.EMAIL, " ", ClaimSource.SELF_REPORTED).validateValue()
@@ -87,9 +87,9 @@ class ClaimsTest : BehaviorSpec({
 
     given("ClaimDeclaration") {
         then("declares an attribute type with the source a run asserts it with") {
-            val declaration = ClaimDeclaration(AttributeType.KVNR, ClaimSource.EXT_STAMMDATEN)
+            val declaration = ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY)
             declaration.attributeType shouldBe AttributeType.KVNR
-            declaration.source shouldBe ClaimSource.EXT_STAMMDATEN
+            declaration.source shouldBe ClaimSource.PERSON_DIRECTORY
         }
     }
 
@@ -101,7 +101,7 @@ class ClaimsTest : BehaviorSpec({
             override val factorTypes = setOf(FactorType.POSSESSION)
             override val maxAcr = AcrLevel.LOA2
             override val claims = setOf(
-                ClaimDeclaration(AttributeType.KVNR, ClaimSource.EXT_STAMMDATEN),
+                ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY),
                 ClaimDeclaration(AttributeType.EMAIL, ClaimSource.of(toolId))
             )
         }
@@ -109,7 +109,7 @@ class ClaimsTest : BehaviorSpec({
             assertClaimsCovered(
                 descriptor,
                 listOf(
-                    Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2),
+                    Claim(AttributeType.KVNR, "A123456789", ClaimSource.PERSON_DIRECTORY, AcrLevel.LOA2),
                     Claim(AttributeType.EMAIL, "a@b.de", ClaimSource.of(descriptor.toolId))
                 )
             )
@@ -119,7 +119,7 @@ class ClaimsTest : BehaviorSpec({
         }
         then("rejects an undeclared attribute type") {
             shouldThrow<IllegalStateException> {
-                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN)))
+                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY)))
             }.message shouldContain "declares none"
         }
         then("rejects a claim source that differs from the declaration") {
@@ -132,8 +132,8 @@ class ClaimsTest : BehaviorSpec({
                 assertClaimsCovered(
                     descriptor,
                     listOf(
-                        Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN),
-                        Claim(AttributeType.KVNR, "A987654321", ClaimSource.EXT_STAMMDATEN)
+                        Claim(AttributeType.KVNR, "A123456789", ClaimSource.PERSON_DIRECTORY),
+                        Claim(AttributeType.KVNR, "A987654321", ClaimSource.PERSON_DIRECTORY)
                     )
                 )
             }.message shouldContain "more than one claim"

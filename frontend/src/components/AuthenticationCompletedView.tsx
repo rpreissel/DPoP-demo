@@ -126,10 +126,17 @@ export function AuthenticationCompletedView({
   }, [dpop, channelSessionId])
 
   const personName = typeof claims?.name === 'string' ? claims.name : undefined
-  // personId in the ID claims is the register binding itself: present = Versicherter, absent =
-  // Interessent (ADR-10/18 - full identity possibly attested, but no register person assigned).
-  // Shown compactly in parentheses behind the name, not as its own status row.
-  const accountStatus = claims ? (claims.personId != null ? t('Versicherter') : t('Interessent')) : undefined
+  // The role (ADR-34): versnr = insured with us (Versicherter); personId alone = known to the
+  // Personenverzeichnis but not insured here (Partner); neither = Interessent (ADR-10/18 - full
+  // identity possibly attested, but no person assigned). Shown compactly in parentheses behind the
+  // name, not as its own status row.
+  const accountStatus = claims
+    ? claims.versnr != null
+      ? t('Versicherter')
+      : claims.personId != null
+        ? t('Partner')
+        : t('Interessent')
+    : undefined
 
   return (
     <>

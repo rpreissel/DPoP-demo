@@ -132,7 +132,7 @@ interface ToolEndpoint {
      * fold-it-into-the-ordinary-failure contract as [isLockedOut]; see `IdentThrottleService` for
      * why identification needs a counter of its own rather than the account one.
      */
-    fun isIdentLockedOut(personId: Long?): Boolean
+    fun isIdentLockedOut(personId: String?): Boolean
 
     /**
      * Whether a TAN/code SEND to [accountId] is currently over budget (see `SendThrottleService`).

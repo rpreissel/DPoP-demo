@@ -11,8 +11,8 @@ import org.springframework.modulith.ApplicationModule
  * alone (docs/04-orchestrierung.md #5) - the orchestrator never needs to know
  * `id_fsc` exists.
  *
- * One further edge, named rather than tolerated: `ext_stammdaten`, for the Freischaltcode check
- * only (`ext_stammdaten.Freischaltcodes`, ADR-31). The register issues the codes, so the ident
+ * One further edge, named rather than tolerated: `ext_personenverzeichnis`, for the Freischaltcode check
+ * only (`ext_personenverzeichnis.Freischaltcodes`, ADR-31). The register issues the codes, so the ident
  * tool asks it directly - the same shape as `auth_kobil` asking `kobil_mock`.
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`. Kotlin has no package
@@ -20,5 +20,5 @@ import org.springframework.modulith.ApplicationModule
  * `@PackageInfo`, so this otherwise-unused type serves as the package descriptor - no
  * `package-info.java` and no Java source set needed.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "ext_stammdaten", "texts"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "ext_personenverzeichnis", "texts"])
 internal class ModuleMetadata

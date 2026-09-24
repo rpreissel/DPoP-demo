@@ -994,6 +994,8 @@ step("browser-qr-test default scopes setzen") {
 val stammdatenClaims = listOf(
     "personId" to "person_id",
     "kvnr" to "kvnr",
+    // Versicherungsnummer - nur fuer bei uns Versicherte (ADR-34).
+    "versnr" to "versnr",
     "geburtsdatum" to "geburtsdatum",
     // Strasse und Hausnummer in einer Zeile, wie eID und PID sie bezeugen (AttributeType.STRASSE).
     "strasse" to "strasse",

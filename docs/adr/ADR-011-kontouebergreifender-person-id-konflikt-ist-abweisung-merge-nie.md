@@ -46,7 +46,7 @@ der Journey-Transaktion. Der Verlierer einer konkurrierenden Bindung erhält nac
 Rollback `409 INVALID_STATE_TRANSITION`.
 
 **KVNR-Zuständigkeit:** Die eindeutige, zeitlich änderbare KVNR wird ausschließlich durch
-`ext_stammdaten` verwaltet (Suchpfad KVNR → externe PersonId → lokaler PersonId-Anker → Account)
+`ext_personenverzeichnis` verwaltet (Suchpfad KVNR → externe PersonId → lokaler PersonId-Anker → Account)
 und ist kein lokaler Account-Ankertyp mehr. E-Mail bleibt
 dagegen ein im Account-System bestätigter, wechselbarer Anker.
 

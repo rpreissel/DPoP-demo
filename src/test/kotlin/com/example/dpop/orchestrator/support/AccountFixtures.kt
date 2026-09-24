@@ -116,10 +116,10 @@ class AccountFixtures(
         accountService.recordClaims(
             accountId,
             listOf(
-                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.EXT_STAMMDATEN, IDENT_ACR),
-                Claim(AttributeType.KVNR, kvnr, ClaimSource.EXT_STAMMDATEN, IDENT_ACR),
-                Claim(AttributeType.NAME, name, ClaimSource.EXT_STAMMDATEN, IDENT_ACR),
-                Claim(AttributeType.VORNAME, vorname, ClaimSource.EXT_STAMMDATEN, IDENT_ACR)
+                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
+                Claim(AttributeType.KVNR, kvnr, ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
+                Claim(AttributeType.NAME, name, ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
+                Claim(AttributeType.VORNAME, vorname, ClaimSource.PERSON_DIRECTORY, IDENT_ACR)
             ),
             provenAcr = IDENT_ACR
         )

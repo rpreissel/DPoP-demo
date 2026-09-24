@@ -25,7 +25,7 @@ describe('text catalog (scripts/text-catalog.mjs)', () => {
 
   it('files the foreign systems’ pages under their own bundle', () => {
     expect(bundleOf('entries/nect/NectApp.tsx')).toBe('nect')
-    expect(bundleOf('entries/ext/ExtApp.tsx')).toBe('register')
+    expect(bundleOf('entries/personenverzeichnis/PersonenverzeichnisApp.tsx')).toBe('personenverzeichnis')
     expect(bundleOf('kobilSdk.ts')).toBe('kobil')
     expect(bundleOf('tools/sms/index.tsx')).toBe('app')
   })

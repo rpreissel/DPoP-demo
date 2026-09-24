@@ -18,7 +18,7 @@ export function idOf(template) {
 export function bundleOf(pathInSrc) {
   const p = pathInSrc.split(sep).join('/')
   if (p.startsWith('entries/nect/')) return 'nect'
-  if (p.startsWith('entries/ext/')) return 'register'
+  if (p.startsWith('entries/personenverzeichnis/')) return 'personenverzeichnis'
   if (p === 'kobilSdk.ts') return 'kobil'
   return 'app'
 }

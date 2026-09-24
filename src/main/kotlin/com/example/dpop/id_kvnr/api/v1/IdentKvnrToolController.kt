@@ -29,7 +29,9 @@ import com.example.dpop.tool_api.API_V1
 private const val IDENT_KVNR_TOOL_ID = "ident-kvnr"
 
 data class IdentKvnrPatchRequest(
-    @field:Schema(example = "A123456789") val kvnr: String? = null
+    @field:Schema(example = "A123456789") val kvnr: String? = null,
+    /** Only without a KVNR (a Partner, ADR-34) - the client asks for the KVNR first, then for this. */
+    @field:Schema(example = "P000000004") val partnernr: String? = null
 )
 
 /**
@@ -75,7 +77,7 @@ class IdentKvnrToolController(
 
     @PatchMapping("$API_V1/tools/{toolSessionId}/ident-kvnr")
     @Operation(
-        summary = "Supply the Versichertennummer",
+        summary = "Supply the Versichertennummer - or, without one, the Partnernummer",
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -95,9 +97,14 @@ class IdentKvnrToolController(
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, IDENT_KVNR_TOOL_ID)
 
-        val kvnr = (request ?: IdentKvnrPatchRequest()).kvnr
-        val personId = kvnr?.let { personDirectory.findPersonIdByKvnr(normalizeKvnr(it)) }
-        val outcome = handler.patch(toolSessionId, kvnr, personId)
+        val body = request ?: IdentKvnrPatchRequest()
+        // The KVNR comes first (ADR-34): given, it alone decides; the Partnernummer only counts without one.
+        val personId = when {
+            !body.kvnr.isNullOrBlank() -> personDirectory.findPersonIdByKvnr(normalizeKvnr(body.kvnr))
+            !body.partnernr.isNullOrBlank() -> personDirectory.findPersonIdByPartnernr(body.partnernr)
+            else -> null
+        }
+        val outcome = handler.patch(toolSessionId, body.kvnr, body.partnernr, personId)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

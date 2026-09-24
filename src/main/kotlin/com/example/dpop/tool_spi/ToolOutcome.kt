@@ -55,7 +55,7 @@ sealed interface ToolOutcome {
         /** Set by a [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool that resolved an account before failing. */
         val attemptedAccountId: Long? = null,
         /** Set by an [IDENTIFICATION][MethodRole.IDENTIFICATION] tool that resolved a person before failing. */
-        val attemptedPersonId: Long? = null
+        val attemptedPersonId: String? = null
     ) : ToolOutcome
 
     /**
@@ -94,8 +94,8 @@ sealed interface ToolOutcome {
             val auditDetails: Map<String, Any?>? = null
         ) : Completed {
             /** The `PERSON_ID` claim's value, parsed - `null` when this run resolved nobody. */
-            val personId: Long?
-                get() = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }?.value?.trim()?.toLong()
+            val personId: String?
+                get() = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }?.value?.trim()
 
             init {
                 val personIdClaims = claims.count { it.attributeType == AttributeType.PERSON_ID }

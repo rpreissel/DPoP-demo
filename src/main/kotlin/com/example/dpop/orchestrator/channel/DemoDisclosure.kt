@@ -37,7 +37,7 @@ interface DemoDisclosure {
      */
     fun assemble(
         accountId: Long?,
-        personId: Long?,
+        personId: String?,
         journeys: List<JourneyDebugStep>,
         values: Map<String, Any?>? = null,
         includeWhenEmpty: Boolean = false
@@ -57,7 +57,7 @@ class DisclosingDemoDisclosure(private val personas: DemoPersonas) : DemoDisclos
 
     override fun assemble(
         accountId: Long?,
-        personId: Long?,
+        personId: String?,
         journeys: List<JourneyDebugStep>,
         values: Map<String, Any?>?,
         includeWhenEmpty: Boolean
@@ -82,7 +82,7 @@ class WithheldDemoDisclosure : DemoDisclosure {
 
     override fun assemble(
         accountId: Long?,
-        personId: Long?,
+        personId: String?,
         journeys: List<JourneyDebugStep>,
         values: Map<String, Any?>?,
         includeWhenEmpty: Boolean

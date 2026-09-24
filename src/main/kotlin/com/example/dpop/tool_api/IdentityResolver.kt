@@ -54,7 +54,7 @@ interface IdentityResolver {
      * would succeed vacuously ([ClaimedIdentity] skips `null` fields by design), which is exactly
      * the case this must refuse.
      */
-    fun attestedIdentityMatches(accountId: Long, personId: Long): Boolean
+    fun attestedIdentityMatches(accountId: Long, personId: String): Boolean
 }
 
 /** Result of resolving attested claims against the existing account stock. Never a boolean. */
@@ -106,7 +106,7 @@ sealed interface MatchedVia {
 
 /**
  * A tool-attested claim contradicts the person record behind its own anchor - e.g. eID
- * claims that don't line up with the ext_stammdaten person the kvnr resolves to. Thrown by
+ * claims that don't line up with the ext_personenverzeichnis person the kvnr resolves to. Thrown by
  * the central consistency check (tool-attested claims only; stammdaten-attested ones, like
  * ident-fsc's, were checked at the source). Surfaced by the orchestrator as an invalid
  * journey state - later in the chain than today's tool-PATCH rejection, so the journey

@@ -11,16 +11,22 @@ import java.time.LocalDate
  * taxonomy is a deliberate act (new enum case + descriptor updates), not a runtime config change.
  */
 enum class AttributeType(val wireName: String) {
-    /** The person row this account belongs to, as the master-data backend's (ext_stammdaten) PK. */
+    /** The person row this account belongs to, as the master-data backend's (ext_personenverzeichnis) PK. */
     PERSON_ID("person_id"),
     /** Krankenversichertennummer - the anchor a person is resolved by in the master data. */
     KVNR("kvnr"),
+    /**
+     * Versicherungsnummer - eight digits, only for a person insured with us. Kept by the
+     * Personenverzeichnis (changeable there); when it exists it is also a local account anchor,
+     * replaced whenever the Personenverzeichnis reports a new one (ADR-34).
+     */
+    VERSNR("versnr"),
     /**
      * Card-bound pseudonym from the eID read - this demo's stand-in for the real "Restricted
      * Identifier": fixed per physical card, it changes when a new card is issued, but is never
      * assigned to a different person. Hence the natural RECOGNITION anchor for an eid-identified
      * Interessent: a replaceable local account anchor (ADR-19), not a master-data attribute -
-     * ext_stammdaten never stores it.
+     * ext_personenverzeichnis never stores it.
      */
     EID_RESTRICTED_ID("restricted_id"),
     /** Family name. Master-data field for a bound account, attested history in the claim log. */
@@ -76,7 +82,7 @@ enum class AttributeType(val wireName: String) {
 
 /**
  * Nominal wrapper for the SOURCE a [Claim] was established by: the master-data backend
- * ([EXT_STAMMDATEN]), a concrete tool run ([of] a [ToolId] - e.g. an eID procedure), or nobody
+ * ([PERSON_DIRECTORY]), a concrete tool run ([of] a [ToolId] - e.g. an eID procedure), or nobody
  * but the user ([SELF_REPORTED]). Same value-class discipline as [ToolId]: the three kinds must
  * not be silently interchangeable the way raw Strings would be.
  */
@@ -85,8 +91,8 @@ value class ClaimSource(val value: String) {
     override fun toString(): String = value
 
     companion object {
-        /** The master-data backend (ext_stammdaten) - strongest trust level. */
-        val EXT_STAMMDATEN = ClaimSource("ext_stammdaten")
+        /** The master-data backend (ext_personenverzeichnis) - strongest trust level. */
+        val PERSON_DIRECTORY = ClaimSource("person_directory")
 
         /** A value the user entered with nothing backing it. */
         val SELF_REPORTED = ClaimSource("self-reported")
@@ -111,7 +117,7 @@ value class ClaimSource(val value: String) {
  * WITHIN one level). Higher [rank] outranks lower.
  */
 enum class TrustLevel(val rank: Int) {
-    /** Backed by the master-data backend, e.g. ext_stammdaten. */
+    /** Backed by the master-data backend, e.g. ext_personenverzeichnis. */
     STAMMDATEN(3),
     /** Proven by a tool run, e.g. an eID procedure or a confirmed email-code exchange. */
     PROVEN(2),
@@ -122,7 +128,7 @@ enum class TrustLevel(val rank: Int) {
 /** The [TrustLevel] this [ClaimSource] belongs to. */
 val ClaimSource.trustLevel: TrustLevel
     get() = when (this) {
-        ClaimSource.EXT_STAMMDATEN -> TrustLevel.STAMMDATEN
+        ClaimSource.PERSON_DIRECTORY -> TrustLevel.STAMMDATEN
         ClaimSource.SELF_REPORTED -> TrustLevel.SELF_REPORTED
         else -> TrustLevel.PROVEN
     }
@@ -154,7 +160,7 @@ data class Claim(
 
 /**
  * The invariants every [Claim] must satisfy whatever asserted it, checked before resolution or
- * persistence: a non-blank [Claim.value], a positive integer for `PERSON_ID`, and an ISO date for
+ * persistence: a non-blank [Claim.value], a [Partnernr] for `PERSON_ID`, and an ISO date for
  * `GEBURTSDATUM`. A violation is descriptor/handler drift, so it throws rather than returning a
  * verdict - see [assertClaimsCovered], which calls this for every reported claim.
  */
@@ -163,8 +169,8 @@ fun Claim.validateValue() {
         "${attributeType.wireName} claim must not be blank"
     }
     when (attributeType) {
-        AttributeType.PERSON_ID -> check(value.trim().toLongOrNull()?.let { it > 0 } == true) {
-            "person_id claim must be a positive integer"
+        AttributeType.PERSON_ID -> check(Partnernr.ofOrNull(value) != null) {
+            "person_id claim must be a Partnernummer (P and nine digits)"
         }
         AttributeType.GEBURTSDATUM -> check(runCatching { LocalDate.parse(value.trim()) }.isSuccess) {
             "geburtsdatum claim must be an ISO date"

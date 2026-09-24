@@ -62,7 +62,7 @@ class KcDemoAccountSeederTest(
             val passwords = mockk<PasswordCredentialPort>()
             val sms = mockk<SmsCredentialPort>()
             listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
-                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+                every { persons.findPersonIdByKvnr(kvnr) } returns "P%09d".format(index + 1)
             }
             every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
             every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
@@ -82,7 +82,7 @@ class KcDemoAccountSeederTest(
             val passwords = mockk<PasswordCredentialPort>()
             val sms = mockk<SmsCredentialPort>()
             listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
-                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+                every { persons.findPersonIdByKvnr(kvnr) } returns "P%09d".format(index + 1)
             }
             every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
             every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
@@ -90,7 +90,7 @@ class KcDemoAccountSeederTest(
             runner.run(DefaultApplicationArguments())
             val ids = accountService.allAccountIds().sorted()
             ids.size shouldBe 3
-            (1L..3L).map { accountService.resolveByAnchor(AttributeType.PERSON_ID, it.toString()) } shouldBe ids
+            (1..3).map { accountService.resolveByAnchor(AttributeType.PERSON_ID, "P%09d".format(it)) } shouldBe ids
             // PERSON_ID, EMAIL and PHONE_NUMBER per person - but only the first two are local
             // anchors; PHONE_NUMBER is AttributeAuthority.MethodModule and stays claim-log only.
             jdbc.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 9
@@ -120,7 +120,7 @@ class KcDemoAccountSeederTest(
             val passwords = mockk<PasswordCredentialPort>()
             val sms = mockk<SmsCredentialPort>()
             listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
-                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+                every { persons.findPersonIdByKvnr(kvnr) } returns "P%09d".format(index + 1)
             }
             every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
             every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
@@ -137,7 +137,7 @@ class KcDemoAccountSeederTest(
             seed(persons, passwords, sms).run(DefaultApplicationArguments())
             accountService.allAccountIds().size shouldBe 3
             // The Interessent keeps its email anchor and gains nothing: no PERSON_ID, no methods.
-            accountService.resolveByAnchor(AttributeType.PERSON_ID, "1") shouldBe null
+            accountService.resolveByAnchor(AttributeType.PERSON_ID, "P000000001") shouldBe null
             accountService.resolveByAnchor(AttributeType.EMAIL, "max.mustermann@example.com") shouldBe interessentId
             accountService.findAccount(interessentId)?.activeAuthenticationMethods shouldBe emptyList()
             verify(exactly = 2) { passwords.setNew(any()) }
@@ -149,7 +149,7 @@ class KcDemoAccountSeederTest(
             val passwords = mockk<PasswordCredentialPort>()
             val sms = mockk<SmsCredentialPort>()
             listOf("A123456789", "B987654321", "C111111111").forEachIndexed { index, kvnr ->
-                every { persons.findPersonIdByKvnr(kvnr) } returns index + 1L
+                every { persons.findPersonIdByKvnr(kvnr) } returns "P%09d".format(index + 1)
             }
             every { passwords.setNew(any()) } returns EnrollmentRef("password", "demo")
             every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
@@ -159,7 +159,7 @@ class KcDemoAccountSeederTest(
             val person1Account = accountService.createUnidentifiedAccount().accountId
             accountService.recordClaim(
                 person1Account,
-                Claim(AttributeType.PERSON_ID, "1", ClaimSource.DEMO_BOOTSTRAP),
+                Claim(AttributeType.PERSON_ID, "P000000001", ClaimSource.DEMO_BOOTSTRAP),
                 provenAcr = AcrLevel.LOA2
             )
             val foreignId = accountService.createUnidentifiedAccount().accountId
@@ -170,7 +170,7 @@ class KcDemoAccountSeederTest(
             )
             seed(persons, passwords, sms).run(DefaultApplicationArguments())
             accountService.allAccountIds().size shouldBe 4
-            accountService.resolveByAnchor(AttributeType.PERSON_ID, "1") shouldBe person1Account
+            accountService.resolveByAnchor(AttributeType.PERSON_ID, "P000000001") shouldBe person1Account
             accountService.resolveByAnchor(AttributeType.EMAIL, "max.mustermann@example.com") shouldBe foreignId
             accountService.anchorValue(person1Account, AttributeType.EMAIL) shouldBe null
             // Untouched means exactly that: no methods materialize on the pre-existing account.
@@ -181,7 +181,7 @@ class KcDemoAccountSeederTest(
             val persons = mockk<PersonDirectory>()
             val passwords = mockk<PasswordCredentialPort>()
             val sms = mockk<SmsCredentialPort>()
-            every { persons.findPersonIdByKvnr("A123456789") } returns 1L
+            every { persons.findPersonIdByKvnr("A123456789") } returns "P000000001"
             every { sms.enroll(any()) } answers { EnrollmentRef("auth_sms.enrollment", firstArg<String>()) }
             every { passwords.setNew(any()) } throws IllegalStateException("Demo password creation failed")
             shouldThrow<IllegalStateException> {

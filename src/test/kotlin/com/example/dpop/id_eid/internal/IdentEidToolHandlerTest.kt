@@ -18,7 +18,7 @@ import java.util.UUID
 
 /**
  * Pins the claims a successful ident-eid run asserts: exactly what the card showed, each under
- * the tool's own trust anchor - unlike ident-fsc's EXT_STAMMDATEN (see
+ * the tool's own trust anchor - unlike ident-fsc's PERSON_DIRECTORY (see
  * [com.example.dpop.id_fsc.internal.IdentFscToolHandlerTest]). Deliberately no PERSON_ID and no
  * KVNR: a card carries neither, and binding one is `ident-kvnr`'s act (ADR-18). The address
  * fields are claims like the name: the card bezeugte them, so the claim log records them (and

@@ -25,7 +25,7 @@ zusammengeführt, und das Schema folgt durchgängig deklarierten Regeln (Kopf vo
   konsolidiert" und „ist Anker" dieselbe Aussage geworden sind.
 - **Nachtrag**: Ihr zweiter Fall (`ExternalLiveLookup`) verschwand mit ihr, obwohl „kein lokaler
   Anker" danach Stammdaten-Hoheit (`NAME`) und Modul-Hoheit (`PHONE_NUMBER`) zugleich abdeckte;
-  er ist als `AttributeType.authority` (`Local`/`ExtStammdaten`/`MethodModule`, vollständig
+  er ist als `AttributeType.authority` (`Local`/`Personenverzeichnis`/`MethodModule`, vollständig
   aufgezählt) in `tool_api/AttributeRules.kt` zurückgeholt. **Nachtrag**: `AttributeAuthority` ist
   inzwischen ein `sealed interface`, und `Local` trägt seine `AnchorRule` selbst. Vorher standen
   Eigentümer und Ankerregeln als Flag plus nullable Feld nebeneinander, obwohl sie nie getrennt

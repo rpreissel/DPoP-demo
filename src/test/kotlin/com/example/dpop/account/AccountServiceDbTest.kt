@@ -59,7 +59,7 @@ class AccountServiceDbTest(
                 TransactionTemplate(transactionManager).executeWithoutResult {
                     val subject = accountService.createUnidentifiedAccount()
                     accountService.recordClaims(subject.accountId, listOf(
-                        Claim(AttributeType.PERSON_ID, "555", ClaimSource.EXT_STAMMDATEN),
+                        Claim(AttributeType.PERSON_ID, "P000000555", ClaimSource.PERSON_DIRECTORY),
                         Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED)
                     ), provenAcr = AcrLevel.LOA2)
                 }
@@ -67,7 +67,7 @@ class AccountServiceDbTest(
             accountService.allAccountIds() shouldBe listOf(holder.accountId)
             jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.claim", Int::class.java) shouldBe 1
             jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 1
-            accountService.resolveByAnchor(AttributeType.PERSON_ID, "555").shouldBeNull()
+            accountService.resolveByAnchor(AttributeType.PERSON_ID, "P000000555").shouldBeNull()
         }
 
         then("a failure after accepting every claim rolls back account, log, projection and anchors") {
@@ -75,7 +75,7 @@ class AccountServiceDbTest(
                 TransactionTemplate(transactionManager).executeWithoutResult {
                     val subject = accountService.createUnidentifiedAccount()
                     accountService.recordClaims(subject.accountId, listOf(
-                        Claim(AttributeType.PERSON_ID, "555", ClaimSource.EXT_STAMMDATEN),
+                        Claim(AttributeType.PERSON_ID, "P000000555", ClaimSource.PERSON_DIRECTORY),
                         Claim(AttributeType.EMAIL, "new@example.com", ClaimSource.SELF_REPORTED)
                     ), provenAcr = AcrLevel.LOA2)
                     error("Later journey step failed")
@@ -87,7 +87,7 @@ class AccountServiceDbTest(
         }
     }
 
-    for ((type, value) in listOf(AttributeType.PERSON_ID to "777", AttributeType.EMAIL to "shared@example.com")) {
+    for ((type, value) in listOf(AttributeType.PERSON_ID to "P000000777", AttributeType.EMAIL to "shared@example.com")) {
         given("two concurrent new accounts claiming the same ${type.wireName}") {
             then("one commits and the unique-conflict loser leaves no account or claims behind") {
                 val barrier = CyclicBarrier(2)
@@ -106,7 +106,7 @@ class AccountServiceDbTest(
                                 checkNotNull(TransactionTemplate(transactionManager).execute {
                                     accountService.resolveByAnchor(type, value).shouldBeNull()
                                     val subject = accountService.createUnidentifiedAccount()
-                                    accountService.recordClaim(subject.accountId, Claim(type, value, ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
+                                    accountService.recordClaim(subject.accountId, Claim(type, value, ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2)
                                     subject.accountId
                                 })
                             }
@@ -125,7 +125,7 @@ class AccountServiceDbTest(
                     jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.anchor", Int::class.java) shouldBe 1
                     val winner = checkNotNull(accountService.findAccount(winnerId))
                     when (type) {
-                        AttributeType.PERSON_ID -> winner.personId shouldBe value.toLong()
+                        AttributeType.PERSON_ID -> winner.personId shouldBe value
                         AttributeType.EMAIL -> winner.email shouldBe value
                         else -> error("Unexpected test attribute")
                     }
@@ -149,7 +149,7 @@ class AccountServiceDbTest(
                 accountService.recordClaims(
                     subject.accountId,
                     listOf(
-                        Claim(AttributeType.PERSON_ID, "555", ClaimSource.EXT_STAMMDATEN),
+                        Claim(AttributeType.PERSON_ID, "P000000555", ClaimSource.PERSON_DIRECTORY),
                         Claim(AttributeType.EMAIL, "taken@example.com", ClaimSource.SELF_REPORTED)
                     ), provenAcr = AcrLevel.LOA2)
             }
@@ -210,15 +210,15 @@ class AccountServiceDbTest(
     given("two accounts, the second trying to claim a person_id the first already holds") {
         then("the real unique index rejects it - exactly one owner survives") {
             val first = accountService.createUnidentifiedAccount()
-            accountService.recordClaim(first.accountId, Claim(AttributeType.PERSON_ID, "777", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
+            accountService.recordClaim(first.accountId, Claim(AttributeType.PERSON_ID, "P000000777", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2)
 
             val second = accountService.createUnidentifiedAccount()
             shouldThrow<IdentityConflictException> {
-                accountService.recordClaim(second.accountId, Claim(AttributeType.PERSON_ID, "777", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
+                accountService.recordClaim(second.accountId, Claim(AttributeType.PERSON_ID, "P000000777", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2)
             }
 
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account.anchor WHERE attribute_type = 'person_id' AND normalized_value = '777'",
+                "SELECT COUNT(*) FROM account.anchor WHERE attribute_type = 'person_id' AND normalized_value = 'P000000777'",
                 Int::class.java
             ) shouldBe 1
             accountService.findAccount(second.accountId)?.personId.shouldBeNull()
@@ -247,9 +247,9 @@ class AccountServiceDbTest(
         then("it stops counting although its log row stays") {
             val account = accountService.createUnidentifiedAccount()
             accountService.recordClaims(account.accountId, listOf(
-                Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN),
-                Claim(AttributeType.VORNAME, "Max", ClaimSource.EXT_STAMMDATEN),
-                Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.EXT_STAMMDATEN)
+                Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY),
+                Claim(AttributeType.VORNAME, "Max", ClaimSource.PERSON_DIRECTORY),
+                Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.PERSON_DIRECTORY)
             ), provenAcr = AcrLevel.LOA2)
             fun establishedValues() = accountService.establishedClaimValues(
                 account.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
@@ -359,7 +359,7 @@ class AccountServiceDbTest(
             shouldThrow<IdentityConflictException> {
                 accountService.recordClaim(
                     account.accountId,
-                    Claim(AttributeType.PERSON_ID, "4711", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2),
+                    Claim(AttributeType.PERSON_ID, "P000004711", ClaimSource.PERSON_DIRECTORY, AcrLevel.LOA2),
                     provenAcr = AcrLevel.LOA1
                 )
             }
@@ -440,13 +440,13 @@ class AccountServiceDbTest(
             accountService.addIdentification(provisional.accountId, "eid", "loa3", mapOf("provider" to "eid-mock-service"))
             val target = accountService.createUnidentifiedAccount()
             accountService.recordClaim(
-                target.accountId, Claim(AttributeType.PERSON_ID, "1", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2
+                target.accountId, Claim(AttributeType.PERSON_ID, "P000000001", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2
             )
 
             accountService.absorbProvisionalAccount(provisional.accountId, target.accountId)
 
             accountService.findAccount(provisional.accountId).shouldBeNull()
-            accountService.findAccount(target.accountId)!!.personId shouldBe 1L
+            accountService.findAccount(target.accountId)!!.personId shouldBe "P000000001"
             anchorRepository.findByAccountIdAndAttributeType(target.accountId, AttributeType.EID_RESTRICTED_ID)!!.value shouldBe
                 "T0103005K1D5S0V8T9W6UM2RTX"
             accountService.establishedClaimValues(target.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME)) shouldBe

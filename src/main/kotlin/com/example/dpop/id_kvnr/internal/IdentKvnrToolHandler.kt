@@ -1,5 +1,6 @@
 package com.example.dpop.id_kvnr.internal
 
+import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.texts.Text
 import com.example.dpop.id_kvnr.IdentKvnrDescriptor
 import com.example.dpop.tool_spi.AttributeType
@@ -13,8 +14,9 @@ import java.util.UUID
 import com.example.dpop.tool_spi.MissingFields
 
 /**
- * toolId=ident-kvnr. Takes the one value an attestation cannot carry - the Versichertennummer -
- * and turns it into the register's own person reference (docs/12-entscheidungen.md ADR-18).
+ * toolId=ident-kvnr. Takes the one value an attestation cannot carry - the Versichertennummer,
+ * or for a Partner without one the Partnernummer (ADR-34) - and turns it into the register's own
+ * person reference (docs/12-entscheidungen.md ADR-18).
  *
  * It proves nothing on its own and is never a standalone identification: it only runs on top of
  * an already attested identity ([IdentKvnrDescriptor.requires]), and the account module checks
@@ -26,7 +28,8 @@ import com.example.dpop.tool_spi.MissingFields
 @Component
 class IdentKvnrToolHandler(
     private val descriptor: IdentKvnrDescriptor,
-    private val repository: IdKvnrToolSessionRepository
+    private val repository: IdKvnrToolSessionRepository,
+    private val personDirectory: PersonDirectory
 ) {
 
     @Transactional
@@ -37,28 +40,35 @@ class IdentKvnrToolHandler(
 
     /**
      * [personId] is resolved by the controller via `PersonDirectory`, since `id_kvnr` must not
-     * depend on `ext_stammdaten` directly - same seam as `ident-fsc`.
+     * depend on `ext_personenverzeichnis` directly - same seam as `ident-fsc`.
+     *
+     * The KVNR comes first: given, [partnernr] is ignored - the controller resolved by it alone.
      *
      * An unknown KVNR answers exactly like one that resolves to somebody else's person: the
      * message never distinguishes the two, so this cannot be used to probe which numbers exist
      * (the same reasoning that folds a throttle lock into `ident-fsc`'s ordinary failure).
      */
     @Transactional
-    fun patch(toolSessionId: UUID, kvnr: String?, personId: Long?): ToolOutcome {
+    fun patch(toolSessionId: UUID, kvnr: String?, partnernr: String?, personId: String?): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-kvnr tool session: $toolSessionId" }
-        if (kvnr.isNullOrBlank()) return inProgress()
-        data.kvnr = kvnr
+        val byKvnr = !kvnr.isNullOrBlank()
+        if (!byKvnr && partnernr.isNullOrBlank()) return inProgress()
+        if (byKvnr) data.kvnr = kvnr else data.partnernr = partnernr
         repository.save(data)
 
-        personId ?: return ToolOutcome.Failed(Text("Versichertennummer konnte nicht zugeordnet werden"))
+        personId ?: return ToolOutcome.Failed(
+            if (byKvnr) Text("Versichertennummer konnte nicht zugeordnet werden") else Text("Partnernummer konnte nicht zugeordnet werden")
+        )
 
         return ToolOutcome.Completed.Identified(
             amr = listOf(descriptor.method),
             achievedAcr = descriptor.maxAcr,
             factorTypes = descriptor.factorTypes,
-            claims = listOf(
-                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                Claim(AttributeType.KVNR, kvnr, ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr)
+            claims = listOfNotNull(
+                Claim(AttributeType.PERSON_ID, personId, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                kvnr?.takeIf { it.isNotBlank() }?.let { Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) },
+                // Insured with us: the Versicherungsnummer becomes an anchor too (ADR-34).
+                personDirectory.versnrOf(personId)?.let { Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
             ),
             auditDetails = mapOf("methodVersion" to "1.0")
         )

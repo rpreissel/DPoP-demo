@@ -60,7 +60,7 @@ spring:
       # web-allow-others=false, der Zugriffe auf localhost begrenzt. Wer den auf true setzt,
       # oeffnet jedem, der den Port erreicht, vollen Lese-/Schreibzugriff auf die Datei-DB -
       # inklusive Passwort-Hashes (auth_password), Geraeteschluesseln (auth_device_enrollment),
-      # Freischaltcode-Hashes und Brief-Klartexte (ext_stammdaten), jedem lebenden KOBIL-PIN im Klartext (auth_kobil.enrollment,
+      # Freischaltcode-Hashes und Brief-Klartexte (ext_personenverzeichnis), jedem lebenden KOBIL-PIN im Klartext (auth_kobil.enrollment,
       # ADR-22 - der einzige Eintrag dieser Liste, der kein Hash und kein Derivat ist) und allen
       # Sessions. Also: nicht setzen.
       enabled: true

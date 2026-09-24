@@ -1,5 +1,6 @@
 package com.example.dpop.account
 
+import com.example.dpop.tool_api.PersonChanged
 import com.example.dpop.texts.Text
 import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountAnchor
@@ -49,8 +50,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * At most ONE per account and transaction, however many changes that transaction makes (see
  * [AccountService.announceChanged]): the event says "re-read this account", not "this one thing
  * changed", so a second one for the same transaction would only start a second identical sync.
+ *
+ * [changed] names the kinds of attributes when the cause is known and narrow - today only a change
+ * reported by the Personenverzeichnis (ADR-34) - so a listener can skip what does not concern it
+ * (the Keycloak sync ignores attributes it does not mirror). `null` means "anything may have
+ * changed": every other cause, and always re-read.
  */
-data class AccountChanged(val accountId: Long)
+data class AccountChanged(val accountId: Long, val changed: Set<AttributeType>? = null)
 
 /** Transaction resource holding the account ids [AccountService.announceChanged] already published for. */
 private const val ANNOUNCED_KEY = "account.AccountChanged.announced"
@@ -196,7 +202,7 @@ class AccountService(
      * `assertClaimsCovered` checks upstream, re-checked here so this method is safe on its own.
      * A locally owned attribute (`AttributeAuthority.Local`: `PERSON_ID`,
      * `EID_RESTRICTED_ID`, `EMAIL`) is additionally consolidated into its [AccountAnchor]; every
-     * other attribute is only logged here, its authority living elsewhere (`ext_stammdaten`, or a
+     * other attribute is only logged here, its authority living elsewhere (`ext_personenverzeichnis`, or a
      * method module's own row).
      *
      * The log is a change log, not a run log: a claim whose (type, value, source, method) is
@@ -630,9 +636,9 @@ class AccountService(
      *
      * Outside a transaction (no synchronization active) there is nothing to coalesce with.
      */
-    private fun announceChanged(accountId: Long) {
+    private fun announceChanged(accountId: Long, changed: Set<AttributeType>? = null) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            eventPublisher.publishEvent(AccountChanged(accountId))
+            eventPublisher.publishEvent(AccountChanged(accountId, changed))
             return
         }
         @Suppress("UNCHECKED_CAST")
@@ -645,7 +651,43 @@ class AccountService(
                     }
                 })
             }
-        if (announced.add(accountId)) eventPublisher.publishEvent(AccountChanged(accountId))
+        if (announced.add(accountId)) eventPublisher.publishEvent(AccountChanged(accountId, changed))
+    }
+
+    /**
+     * Follows a change the Personenverzeichnis reported (ADR-34) for the account bound to that
+     * person, if any: the KVNR claim and the Versicherungsnummer anchor are the only things the
+     * account stores itself - every other attribute is read live. The old value is retracted (the
+     * Personenverzeichnis no longer carries it), the new one recorded; a removed number just ends
+     * there - the KVNR may be missing for a while, and without a Versicherungsnummer the person is
+     * a Partner, no longer insured with us (roles, ADR-34).
+     *
+     * A named exception to "an anchor write is paid with the session's proven level": there is no
+     * session here, the Personenverzeichnis itself is the authority for these two identifiers -
+     * hence [DIRECTORY_ACR]. Only this method, only KVNR and VERSNR, and only for the account
+     * bound to exactly this person by its PERSON_ID anchor.
+     *
+     * @return the account that followed the change, or null when nobody is bound to the person.
+     */
+    @Transactional
+    fun applyDirectoryChange(change: PersonChanged): Long? {
+        val accountId = resolveByAnchor(AttributeType.PERSON_ID, change.personId) ?: return null
+        // First, so this transaction's one AccountChanged names what changed (the anchor write
+        // below would otherwise announce an unspecific one).
+        announceChanged(accountId, change.changed)
+        if (AttributeType.KVNR in change.changed) {
+            retractAttribute(accountId, AttributeType.KVNR, RetractionAnchor.PERSON_DIRECTORY, "KVNR im Personenverzeichnis geändert")
+            change.kvnr?.let {
+                recordClaims(accountId, listOf(Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
+            }
+        }
+        if (AttributeType.VERSNR in change.changed) {
+            retractAttribute(accountId, AttributeType.VERSNR, RetractionAnchor.PERSON_DIRECTORY, "Versicherungsnummer im Personenverzeichnis geändert")
+            change.versnr?.let {
+                recordClaims(accountId, listOf(Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
+            }
+        }
+        return accountId
     }
 
     private fun lockForUpdate(accountId: Long): Account =
@@ -665,7 +707,7 @@ class AccountService(
         val emailAnchor = anchors[AttributeType.EMAIL]
         return AccountProfile(
             accountId = accountId,
-            personId = anchors[AttributeType.PERSON_ID]?.value?.toLong(),
+            personId = anchors[AttributeType.PERSON_ID]?.value,
             authenticationMethods = accountAuthMethodRepository.findByAccountIdOrderByCreatedAt(accountId).map { it.toView() },
             email = emailAnchor?.value,
             emailConfirmedAt = emailAnchor?.establishedAt,
@@ -694,6 +736,11 @@ class AccountService(
         enrollmentRef = enrollmentRef,
         label = label
     )
+
+    private companion object {
+        /** What the Personenverzeichnis' own word counts as for [applyDirectoryChange] - the anchor floor of both identifiers. */
+        val DIRECTORY_ACR = AcrLevel.LOA2
+    }
 }
 
 /**

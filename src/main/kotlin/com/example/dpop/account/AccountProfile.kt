@@ -19,7 +19,7 @@ data class AuthMethodView(
 data class AccountProfile(
     val accountId: Long,
     /** Null for an account that was never identified - a deliberate, potentially permanent state (docs/04-orchestrierung.md, REGISTER "Enrollment zuerst"), not a short-lived gap. */
-    val personId: Long?,
+    val personId: String?,
     val authenticationMethods: List<AuthMethodView>,
     /** The account's EMAIL anchor, i.e. its normalized form. */
     val email: String? = null,

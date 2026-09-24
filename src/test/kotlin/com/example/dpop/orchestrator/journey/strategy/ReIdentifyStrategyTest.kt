@@ -49,7 +49,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
         val state = ReIdentifyState.Identifying(AcrLevel.LOA2, AcrLevel.LOA1, Offer(listOf(ToolId("ident-fsc"))))
 
         then("Identified always confirms the caller's already-known account, never adopts a different one") {
-            val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
+            val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))
             val event = JourneyEvent.Completed(IdentFscDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
                 Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)
@@ -154,7 +154,7 @@ class ReIdentifyStrategyTest : BehaviorSpec({
 
         `when`("a proof completes, then is resumed (ActionCompleted)") {
             then("finishes directly - the identification's own maxAcr already IS the achieved level") {
-                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "1", com.example.dpop.tool_spi.ClaimSource.EXT_STAMMDATEN)))
+                val outcome = ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))
                 val completed = JourneyEvent.Completed(IdentFscDescriptor, outcome)
                 strategy.transition(state, completed, theCtx) shouldBe
                     Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)

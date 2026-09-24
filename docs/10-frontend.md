@@ -104,8 +104,8 @@ Bibliothek teilen. Jede hat ein eigenes Farbschema (`index.css`), damit man ohne
   `/orchestrator/admin/**`, `AdminSecurityConfig`). Tabs *Einstellungen* (Verfahren je Kanal sperren und ordnen,
   Registrierungsreihenfolge, Keycloak-Sync, Entwickler-Links), *Journey-Log* über alle Konten und
   Geräte (mit Live-Aktualisierung) und *Konten* (löschen, Demo zurücksetzen).
-- **Personenregister** (`/ext/`) — das simulierte **Fremdsystem** (ADR-31): Personen, Freischaltcodes
-  und der Briefkasten mit den Klartext-Codes. Spricht nur `/mock-stammdaten/*`, nie `/orchestrator`.
+- **Personenverzeichnis** (`/personenverzeichnis/`) — das simulierte **Fremdsystem** (ADR-31): Personen, Freischaltcodes
+  und der Briefkasten mit den Klartext-Codes. Spricht nur `/mock-personenverzeichnis/*`, nie `/orchestrator`.
 
 Die Kanäle zeigen nur, was ein Nutzer dieses Kanals sähe. Das Journey-Log und alles, was die
 ganze Instanz umschaltet, liegt auf der Admin-Seite - dort über alle Konten, Geräte und Kanäle.
@@ -129,10 +129,10 @@ neuen Tab. Das ist ein Komfort-Manko beim Desktop-Testen, keine Funktionseinschr
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | FE-1 | Frontend auf Basis von React (aktuelle Version) und TypeScript. | siehe Versionstabelle in [08-projektrahmen.md](08-projektrahmen.md) |
-| FE-2 | Das Frontend kann autark betrieben werden. | `npm run dev` startet den Vite-Dev-Server, alle fünf Entry-Points erreichbar (`/`, `/app/`, `/web/`, `/admin/`, `/ext/`) |
-| FE-3 | Das Frontend kann über Spring Boot gehostet werden. | Ein Vite-Build mit fünf HTML-Entry-Points nach `src/main/resources/static`; `./gradlew bootRun` liefert es aus. `/app/`, `/web/`, `/admin/` und `/ext/` werden über explizite `WebMvcConfigurer`-Forwards ([WebConfig.kt](../src/main/kotlin/com/example/dpop/orchestrator/api/v1/WebConfig.kt)) auf ihre `index.html` aufgelöst — der Default-Resource-Handler löst nur den Root-Fall |
-| FE-4 | Im Entwicklungsmodus werden API-Requests weitergeleitet. | Vite-Dev-Server proxyt `/orchestrator` und `/mock-stammdaten` nach `http://localhost:8080`, für alle Apps gleichermaßen |
-| FE-5 | Das Frontend kommuniziert ausschließlich über den `orchestrator`. | Keine direkten Aufrufe an fachliche Module. **Eine benannte Ausnahme:** `src/kobilSdk.ts` ruft den Fremddienst KOBIL (`/mock-kobil/*`) direkt auf — auf einem echten Telefon wäre das nativer SDK-Code, und den Aufruf durch unser Backend zu leiten würde aus dem Fremddienst unbemerkt einen internen Aufruf machen. Genau diese Trennung ist der Punkt des Verfahrens ([Abläufe](06-ablaeufe.md) Abschnitt 7). Dasselbe gilt für die Seite `/ext/`, die das simulierte Personenregister (`/mock-stammdaten/*`) direkt bedient (ADR-31) |
+| FE-2 | Das Frontend kann autark betrieben werden. | `npm run dev` startet den Vite-Dev-Server, alle fünf Entry-Points erreichbar (`/`, `/app/`, `/web/`, `/admin/`, `/personenverzeichnis/`) |
+| FE-3 | Das Frontend kann über Spring Boot gehostet werden. | Ein Vite-Build mit fünf HTML-Entry-Points nach `src/main/resources/static`; `./gradlew bootRun` liefert es aus. `/app/`, `/web/`, `/admin/` und `/personenverzeichnis/` werden über explizite `WebMvcConfigurer`-Forwards ([WebConfig.kt](../src/main/kotlin/com/example/dpop/orchestrator/api/v1/WebConfig.kt)) auf ihre `index.html` aufgelöst — der Default-Resource-Handler löst nur den Root-Fall |
+| FE-4 | Im Entwicklungsmodus werden API-Requests weitergeleitet. | Vite-Dev-Server proxyt `/orchestrator` und `/mock-personenverzeichnis` nach `http://localhost:8080`, für alle Apps gleichermaßen |
+| FE-5 | Das Frontend kommuniziert ausschließlich über den `orchestrator`. | Keine direkten Aufrufe an fachliche Module. **Eine benannte Ausnahme:** `src/kobilSdk.ts` ruft den Fremddienst KOBIL (`/mock-kobil/*`) direkt auf — auf einem echten Telefon wäre das nativer SDK-Code, und den Aufruf durch unser Backend zu leiten würde aus dem Fremddienst unbemerkt einen internen Aufruf machen. Genau diese Trennung ist der Punkt des Verfahrens ([Abläufe](06-ablaeufe.md) Abschnitt 7). Dasselbe gilt für die Seite `/personenverzeichnis/`, die das simulierte Personenverzeichnis (`/mock-personenverzeichnis/*`) direkt bedient (ADR-31) |
 
 ---
 

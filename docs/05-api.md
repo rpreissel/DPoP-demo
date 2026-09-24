@@ -39,7 +39,7 @@ von Endpunkten liegen bewusst woanders: Betriebsendpunkte unter `/orchestrator/a
 Registrierungsreihenfolge, Keycloak-Sync, Journey-Log aller Konten, Konten löschen, Demo
 zurücksetzen; als einzige hinter einem Login, HTTP Basic mit `demo.admin.*`), der öffentliche,
 nur lesende Server-Status unter `/orchestrator/demo/server-info` und die Stellvertreter externer
-Systeme unter `/mock-*` (`/mock-kobil`, `/mock-stammdaten`, ADR-31). Auf keine davon darf
+Systeme unter `/mock-*` (`/mock-kobil`, `/mock-personenverzeichnis`, ADR-31). Auf keine davon darf
 sich ein App-Client verlassen. Stünden sie im eingefrorenen Stand, meldete der
 Kompatibilitätsvergleich ihr späteres Entfernen als Bruch des App-Vertrags. Dokumentiert sind sie
 trotzdem: in der Datei ihres Moduls unter `api/modules/`.
@@ -231,7 +231,7 @@ Self-Service-Löschung des eigenen Accounts auf einem bereits `AUTHENTICATED`-Ka
 1. `POST .../{channelSessionId}/account-deletions` (kein Body) startet die Journey und liefert sofort die Bestätigungsrückfrage: `next={"type":"orchestrator","context":"prompt","step":"confirm"}`, `stepData.prompt` mit `destructive: true`.
 2. `POST .../answer` mit `{"answer":"accept"}` (oder `"decline"`, bricht wie ein normales Cancel zurück auf `AUTHENTICATED`). Erst jetzt greift das Gate: reicht das aktuelle Niveau nicht, liefert die Antwort einen Step-up-Schritt; danach ruft der Client `account-deletions` erneut auf.
 3. Reichte das Niveau schon vorher (ein Nachweis unbekannten Alters), folgt ein frischer Nachweis über ein **beliebiges** aktives `auth-*`-Verfahren des Accounts, unabhängig vom damit erreichbaren Niveau (auch ein soeben bewiesener Faktor zählt erneut — anders als bei `STEP_UP`). Genau ein Verfahren reicht; mehrere ergeben dieselbe `next={"context":"auth","step":"selectMethod"}`-Auswahlseite. **Ausnahme**: musste Schritt 2 erst einen Step-up auslösen, zählt dieser Nachweis bereits als der hier geforderte.
-4. Nach erfolgreichem Nachweis wird der Account mit allem, was er exklusiv besitzt, unwiderruflich gelöscht: alle über `authenticationMethods` referenzierten Credential-Datensätze der Methodenmodule (aktive **und** abgelöste), der `DeviceAccountLink`, jeder `AuthContext` sowie die `account`-Zeile selbst. `person` (ext_stammdaten) bleibt unangetastet ([Tool-Architektur](03-tool-architektur.md), `EnrollmentCleanup`).
+4. Nach erfolgreichem Nachweis wird der Account mit allem, was er exklusiv besitzt, unwiderruflich gelöscht: alle über `authenticationMethods` referenzierten Credential-Datensätze der Methodenmodule (aktive **und** abgelöste), der `DeviceAccountLink`, jeder `AuthContext` sowie die `account`-Zeile selbst. `person` (ext_personenverzeichnis) bleibt unangetastet ([Tool-Architektur](03-tool-architektur.md), `EnrollmentCleanup`).
 5. Jede `ChannelSession`, die je an diesen Account gebunden war, wird serverseitig auf `LOGGED_OUT` gezwungen; ein anderes eingeloggtes Gerät braucht einen neuen `POST /channels`.
 5. Die Antwort auf den erfolgreichen Abschluss ist `channel.state="LOGGED_OUT"` ohne `next` — dieselbe Form wie ein normaler Logout.
 

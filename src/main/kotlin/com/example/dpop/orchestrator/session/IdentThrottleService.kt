@@ -22,14 +22,14 @@ import java.time.Duration
 @Transactional
 class IdentThrottleService(private val counter: AttemptCounter) {
 
-    fun isLocked(personId: Long): Boolean = counter.isLocked(ThrottleScope.PERSON, key(personId))
+    fun isLocked(personId: String): Boolean = counter.isLocked(ThrottleScope.PERSON, key(personId))
 
-    fun recordFailure(personId: Long) =
+    fun recordFailure(personId: String) =
         counter.recordFailure(ThrottleScope.PERSON, key(personId), MAX_FAILURES, LOCKOUT_DURATION)
 
-    fun recordSuccess(personId: Long) = counter.reset(ThrottleScope.PERSON, key(personId))
+    fun recordSuccess(personId: String) = counter.reset(ThrottleScope.PERSON, key(personId))
 
-    private fun key(personId: Long) = personId.toString()
+    private fun key(personId: String) = personId
 
     companion object {
         private const val MAX_FAILURES = 5

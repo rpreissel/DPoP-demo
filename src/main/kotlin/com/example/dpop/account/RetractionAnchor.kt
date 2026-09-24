@@ -14,7 +14,7 @@ enum class RetractionAnchor {
     ACCOUNT_MANAGEMENT,
 
     /** The master-data backend no longer carries the value (e.g. a KVNR that was deregistered). */
-    EXT_STAMMDATEN,
+    PERSON_DIRECTORY,
 
     /** A human operator, with a reason - the escape hatch for everything the two above do not cover. */
     OPERATOR

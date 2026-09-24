@@ -9,7 +9,7 @@ Adresse — jedes Kartenfeld ein eigener `AttributeType`, auch die Adressattribu
 auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuordnung zur
 Registerperson ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer ab, löst sie
 über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit
-`ClaimSource.EXT_STAMMDATEN`, denn dort bürgt tatsächlich das Register. Der zweite Akt wird direkt
+`ClaimSource.PERSON_DIRECTORY`, denn dort bürgt tatsächlich das Register. Der zweite Akt wird direkt
 angeboten (`RegisterState.Assigning`, `next` zeigt auf `ident-kvnr`) — ohne Ja/Nein-Frage davor,
 die nur dieselbe Frage doppelt stellen würde. Wer den Schritt abbricht („Jetzt nicht") oder eine
 unbekannte Nummer angibt, endet als vollwertig bestätigter **Interessent** (ADR-10) statt mit einem

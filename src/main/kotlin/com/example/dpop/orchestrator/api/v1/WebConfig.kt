@@ -26,6 +26,6 @@ class WebConfig(private val dpopBindingKeyResolver: DpopBindingKeyResolver) : We
 
     private companion object {
         /** One entry per Vite page (frontend/vite.config.ts `input`) besides the root welcome page. */
-        val PAGE_APPS = listOf("app", "web", "admin", "ext", "nect")
+        val PAGE_APPS = listOf("app", "web", "admin", "personenverzeichnis", "nect")
     }
 }

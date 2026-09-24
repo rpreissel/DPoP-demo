@@ -226,7 +226,7 @@ class ToolControllerSupport(
     override fun isLockedOut(accountId: Long?): Boolean =
         accountId?.let { loginThrottleService.isLocked(it) } ?: false
 
-    override fun isIdentLockedOut(personId: Long?): Boolean =
+    override fun isIdentLockedOut(personId: String?): Boolean =
         personId?.let { identThrottleService.isLocked(it) } ?: false
 
     override fun isSendThrottled(accountId: Long?): Boolean =

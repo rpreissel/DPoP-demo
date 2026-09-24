@@ -1,16 +1,16 @@
-# ADR-31: Der Freischaltcode liegt im Personenregister, `id_fsc` fragt es direkt
+# ADR-31: Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es direkt
 
-**Entscheidung** (**umgesetzt**): Die Freischaltcodes liegen in `ext_stammdaten.freischaltcode`,
-nicht mehr in `id_fsc.code`. `ext_stammdaten` stellt sie über die öffentliche Klasse
+**Entscheidung** (**umgesetzt**): Die Freischaltcodes liegen in `ext_personenverzeichnis.freischaltcode`,
+nicht mehr in `id_fsc.code`. `ext_personenverzeichnis` stellt sie über die öffentliche Klasse
 `Freischaltcodes` aus, widerruft sie und prüft sie. `id_fsc` ruft `Freischaltcodes.pruefe` direkt
-auf und deklariert dafür `ext_stammdaten` als dritte erlaubte Abhängigkeit.
+auf und deklariert dafür `ext_personenverzeichnis` als dritte erlaubte Abhängigkeit.
 
 ## Warum
 
 Den Freischaltcode vergibt das Register und verschickt ihn per Brief. Das Ident-Verfahren prüft
 ihn nur. Solange die Codes im Schema von `id_fsc` lagen, war das Tool zugleich Aussteller und
 Prüfer. In der Demo ließ sich das Ausstellen deshalb nicht als Vorgang im Fremdsystem zeigen,
-etwa auf der Oberfläche `/ext/`.
+etwa auf der Oberfläche `/personenverzeichnis/`.
 
 ## Warum direkt statt über einen Port
 
@@ -26,16 +26,16 @@ stellen alle Ident-Verfahren, nicht nur `id_fsc`.
 
 Das Register hält den Code nur als SHA-256-Hash (`Freischaltcodes.digest`, die einzige Definition;
 `demo_seed/V16__testdata.sql` rechnet in SQL dasselbe). Den Klartext trägt der simulierte Brief
-(`ext_stammdaten.brief`). Auch in der echten Welt gibt es diesen Klartext, nämlich auf Papier. Die
+(`ext_personenverzeichnis.brief`). Auch in der echten Welt gibt es diesen Klartext, nämlich auf Papier. Die
 Demo liest ihn aus dem Briefkasten, statt eine zweite fest verdrahtete Code-Liste zu pflegen.
 Demo-Rahmen wie bei [ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md): benannt,
 nicht verschwiegen.
 
 ## Kosten
 
-- Die Migrationen `ext_stammdaten/V1`, `id_fsc/V4` und `demo_seed/V16` wurden in place
+- Die Migrationen `ext_personenverzeichnis/V1`, `id_fsc/V4` und `demo_seed/V16` wurden in place
   umgeschrieben. Nach [ADR-30](ADR-030-eine-migration-je-modul.md) wird eine bestehende H2-Datei
   dadurch ungültig; `FlywayResetConfig` baut sie lokal neu auf.
 - Die Aussage „Methodenmodule hängen nur an `tool_spi`/`tool_api`" (Projektrahmen M-3) hat jetzt
   zwei benannte Ausnahmen, beide zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock` und
-  `id_fsc → ext_stammdaten`.
+  `id_fsc → ext_personenverzeichnis`.

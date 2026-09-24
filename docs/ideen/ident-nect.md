@@ -36,7 +36,7 @@ Nutzer die Anwendung **per Redirect** verlässt.
 
 | Damals | Heute | Folge für Nect |
 |---|---|---|
-| „Tools arbeiten rein intern; eine Backend-zu-Backend-Kante bricht das Muster“ | Fremdsysteme sind eigene Module mit direkter, deklarierter Kante: `auth_kobil → kobil_mock` (`KobilSsms`), `id_fsc → ext_stammdaten` (`Freischaltcodes`, ADR-31) | Der Architektur-Einwand gegen die Anbindung entfällt. Nect wird ein weiteres Fremdsystem: `nect_mock` in der Demo, echte Anbindung dahinter austauschbar |
+| „Tools arbeiten rein intern; eine Backend-zu-Backend-Kante bricht das Muster“ | Fremdsysteme sind eigene Module mit direkter, deklarierter Kante: `auth_kobil → kobil_mock` (`KobilSsms`), `id_fsc → ext_personenverzeichnis` (`Freischaltcodes`, ADR-31) | Der Architektur-Einwand gegen die Anbindung entfällt. Nect wird ein weiteres Fremdsystem: `nect_mock` in der Demo, echte Anbindung dahinter austauschbar |
 | Tool liefert `Completed.Identified(personId, …)` | ADR-18: Wer nur Ausweisdaten bestätigt, löst keine Person auf (`ident-eid`); die Zuordnung übernimmt `ident-kvnr` | Abschnitt 4 entscheidet die Rolle neu |
 | Nur das App-Frontend betrachtet | Web-Kanal-Tools rendert die Keycloak-Extension (`WebToolRenderer`); Sperre je Kanal (ADR-32) | Start nur im App-Kanal, Web später (Abschnitt 8) |
 | „Session-Cookie überlebt den Redirect“ | Der App-Kanal hat keine Cookies: `channelSessionId` in localStorage, DPoP-Schlüssel in IndexedDB, Fortsetzen per `GET /channels/{id}`; Deep-Link-Muster `/app/?intent=confirm_peer_login&pairingCode=…` | Rücksprung als Deep-Link `/app/?tool=ident-nect&caseId=…` (Abschnitt 6) |
@@ -173,7 +173,7 @@ bietet „Erneut versuchen“ (`PATCH {retry: true}` legt einen neuen Case an) o
 
 ### Frontend: Jumppage `/nect/`
 
-Eigene Vite-Seite wie `/ext/`, sichtbar ein fremdes System (eigenes Theme, Banner „Simulierter
+Eigene Vite-Seite wie `/personenverzeichnis/`, sichtbar ein fremdes System (eigenes Theme, Banner „Simulierter
 Identifizierungsdienst“, eigenes Tab-Icon). Aufbau:
 
 1. **Einstieg:** „Identifizierung für *DPoP-Demo*“, verlangtes Niveau, Auswahl

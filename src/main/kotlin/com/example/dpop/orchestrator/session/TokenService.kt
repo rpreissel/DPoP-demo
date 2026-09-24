@@ -89,6 +89,10 @@ class TokenService(
             "auth_time" to authContext.authTime?.epochSecond,
             "accountId" to authContext.accountId,
             "personId" to account?.personId,
+            // Together with personId the account's role (ADR-34): Versicherter with, Partner
+            // without a Versicherungsnummer, Interessent without a person at all. Read live - the
+            // Personenverzeichnis is its authority.
+            "versnr" to account?.personId?.let(personDirectory::versnrOf),
             "name" to displayName(account),
             "email" to account?.email,
             "email_verified" to (account?.emailConfirmed ?: false)

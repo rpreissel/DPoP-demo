@@ -9,7 +9,7 @@ import com.example.dpop.tool_api.resolveAccountByPersonId
 fun AccountService.findAccountByEmail(email: String): AccountProfile? =
     resolveAccountByEmail(email)?.let { findAccount(it) }
 
-fun AccountService.findAccountByPersonId(personId: Long): AccountProfile? =
+fun AccountService.findAccountByPersonId(personId: String): AccountProfile? =
     resolveAccountByPersonId(personId)?.let { findAccount(it) }
 
 /** KVNR ownership is current master data, not a historical claim or a local account anchor. */

@@ -146,8 +146,8 @@ data class JourneyDebugStep(
 data class DemoInfo(
     @field:Schema(example = "42")
     val accountId: Long? = null,
-    @field:Schema(example = "7")
-    val personId: Long? = null,
+    @field:Schema(example = "P000000001")
+    val personId: String? = null,
     @field:Schema(
         description = "The running journey chain for this channel, outermost first - see " +
             "[JourneyDebugStep]. Empty once nothing is running."

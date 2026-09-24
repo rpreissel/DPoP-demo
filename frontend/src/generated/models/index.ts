@@ -517,10 +517,10 @@ export interface DemoInfo {
     journeys?: Array<JourneyDebugStep>;
     /**
      * 
-     * @type {number}
+     * @type {string}
      * @memberof DemoInfo
      */
-    personId?: number;
+    personId?: string;
 }
 /**
  * 
@@ -803,6 +803,12 @@ export interface IdentFscPatchRequest {
      * @type {string}
      * @memberof IdentFscPatchRequest
      */
+    partnernr?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentFscPatchRequest
+     */
     vorname?: string;
 }
 /**
@@ -817,6 +823,12 @@ export interface IdentKvnrPatchRequest {
      * @memberof IdentKvnrPatchRequest
      */
     kvnr?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentKvnrPatchRequest
+     */
+    partnernr?: string;
 }
 /**
  * 

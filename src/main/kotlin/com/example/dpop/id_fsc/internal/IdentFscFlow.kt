@@ -1,6 +1,6 @@
 package com.example.dpop.id_fsc.internal
 
-import com.example.dpop.ext_stammdaten.Freischaltcodes
+import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
 import java.security.MessageDigest
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.MissingFields
@@ -14,24 +14,27 @@ import java.time.LocalDate
  */
 internal data class IdentFscState(
     val kvnr: String? = null,
+    /** Only without a KVNR (a Partner, ADR-34) - at most one of the two is set, see [IdentFscFlow.merge]. */
+    val partnernr: String? = null,
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
     val fscHash: String? = null,
-    val personId: Long? = null
+    val personId: String? = null
 )
 
 /** What one PATCH submitted - all optional, exactly the API's "only the changed part" rule. */
 internal data class IdentFscInput(
     val kvnr: String? = null,
+    val partnernr: String? = null,
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
     val fsc: String? = null,
-    val personId: Long? = null
+    val personId: String? = null
 ) {
     /** Whether this PATCH touched the personal data - which is then checked again, right away. */
-    val touchesPersonalien: Boolean get() = kvnr != null || name != null || vorname != null || geburtsdatum != null
+    val touchesPersonalien: Boolean get() = kvnr != null || partnernr != null || name != null || vorname != null || geburtsdatum != null
 }
 
 /**
@@ -42,36 +45,48 @@ internal data class IdentFscInput(
 internal sealed interface IdentFscDecision {
     data object Incomplete : IdentFscDecision
 
-    /** The personal data is complete but its KVNR resolved no person. */
+    /** The personal data is complete but its KVNR or Partnernummer resolved no person. */
     data object PersonNotFound : IdentFscDecision
 
     /** The personal data was just (re-)supplied: check it against the register first. */
     data class VerifyPersonalien(
-        val personId: Long,
+        val personId: String,
         val name: String,
         val vorname: String,
         val geburtsdatum: LocalDate
     ) : IdentFscDecision
 
     /** The personal data stands verified and a code is present: check the code. */
-    data class VerifyCode(val personId: Long, val fscHash: String) : IdentFscDecision
+    data class VerifyCode(val personId: String, val fscHash: String) : IdentFscDecision
 }
 
 internal object IdentFscFlow {
 
     /**
      * Applies one PATCH's fields on top of the current state - a later call may correct an earlier
-     * field. The person travels with the KVNR it was resolved from: a new KVNR that resolves no
-     * one must not leave the previous KVNR's person standing.
+     * field. The person travels with the identifier it was resolved from: a new KVNR or
+     * Partnernummer that resolves no one must not leave the previous one's person standing. The
+     * two identifiers exclude each other - the one this PATCH brings replaces the other, the KVNR
+     * first if it brings both (ADR-34; the controller resolves the same way). Blank clears.
      */
-    fun merge(state: IdentFscState, input: IdentFscInput): IdentFscState = IdentFscState(
-        kvnr = input.kvnr ?: state.kvnr,
-        name = input.name ?: state.name,
-        vorname = input.vorname ?: state.vorname,
-        geburtsdatum = input.geburtsdatum ?: state.geburtsdatum,
-        fscHash = input.fsc?.let { Freischaltcodes.digest(it.trim()) } ?: state.fscHash,
-        personId = if (input.kvnr != null) input.personId else state.personId
-    )
+    fun merge(state: IdentFscState, input: IdentFscInput): IdentFscState {
+        val kvnr = input.kvnr?.ifBlank { null }
+        val partnernr = input.partnernr?.ifBlank { null }
+        val (mergedKvnr, mergedPartnernr) = when {
+            kvnr != null -> kvnr to null
+            partnernr != null -> null to partnernr
+            else -> (if (input.kvnr != null) null else state.kvnr) to (if (input.partnernr != null) null else state.partnernr)
+        }
+        return IdentFscState(
+            kvnr = mergedKvnr,
+            partnernr = mergedPartnernr,
+            name = input.name ?: state.name,
+            vorname = input.vorname ?: state.vorname,
+            geburtsdatum = input.geburtsdatum ?: state.geburtsdatum,
+            fscHash = input.fsc?.let { Freischaltcodes.digest(it.trim()) } ?: state.fscHash,
+            personId = if (input.kvnr != null || input.partnernr != null) input.personId else state.personId
+        )
+    }
 
     fun decide(state: IdentFscState, input: IdentFscInput): IdentFscDecision {
         if (personalienMissing(state).isNotEmpty()) return IdentFscDecision.Incomplete
@@ -108,7 +123,8 @@ internal object IdentFscFlow {
     }
 
     private fun personalienMissing(state: IdentFscState): List<String> = listOfNotNull(
-        "kvnr".takeIf { state.kvnr.isNullOrBlank() },
+        // Either identifier will do; the client asks for the KVNR first (ADR-34).
+        "kvnr".takeIf { state.kvnr.isNullOrBlank() && state.partnernr.isNullOrBlank() },
         "name".takeIf { state.name.isNullOrBlank() },
         "vorname".takeIf { state.vorname.isNullOrBlank() },
         "geburtsdatum".takeIf { state.geburtsdatum == null }
@@ -117,7 +133,8 @@ internal object IdentFscFlow {
     /** Same derivation for start/patch/read - one place turns a state into `next.step`/`stepData`. */
     fun describe(state: IdentFscState): Pair<String, StepData> = "input" to MissingFields(missingFields(state))
 
-    fun evidenceHash(kvnr: String, fscHash: String): String = "sha256:" + hash("$kvnr:$fscHash")
+    /** [identifier] is the KVNR, or the Partnernummer for a Partner. */
+    fun evidenceHash(identifier: String, fscHash: String): String = "sha256:" + hash("$identifier:$fscHash")
 
     private fun hash(value: String): String =
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }

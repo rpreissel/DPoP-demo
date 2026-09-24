@@ -127,12 +127,12 @@ export function WelcomeApp() {
               )}
             </li>
             <li>
-              <a className="method-choice" href="/ext/" target="dpop-demo-register" aria-label={t('Zum Personenregister')}>
+              <a className="method-choice" href="/personenverzeichnis/" target="dpop-demo-register" aria-label={t('Zum Personenverzeichnis')}>
                 <span className="method-choice-icon" aria-hidden="true">
                   🏛️
                 </span>
                 <span className="method-choice-text">
-                  <span className="method-choice-label">{t('Personenregister - spielt ein fremdes System')}</span>
+                  <span className="method-choice-label">{t('Personenverzeichnis - spielt ein fremdes System')}</span>
                   <span className="method-choice-hint">
                     {t('Das externe Register mit den Stammdaten der Versicherten.')}{' '}
                     {t('Es stellt die Freischaltcodes aus und verschickt sie als Brief - der Briefkasten zeigt, was bei der Person ankäme.')}
@@ -179,7 +179,7 @@ export function WelcomeApp() {
                 <li>{t('SMS- und E-Mail-Versand - der Code steht direkt im Formular')}</li>
                 <li>{t('Der Brief mit dem Freischaltcode - der Briefkasten im Register')}</li>
                 <li>{t('Das Auslesen der eID-Karte und der Dienstleister KOBIL')}</li>
-                <li>{t('Das Personenregister selbst')}</li>
+                <li>{t('Das Personenverzeichnis selbst')}</li>
               </ul>
             </div>
           </div>

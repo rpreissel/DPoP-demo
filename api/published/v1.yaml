@@ -326,9 +326,8 @@ components:
             $ref: '#/components/schemas/JourneyDebugStep'
           type: array
         personId:
-          example: 7
-          format: int64
-          type: integer
+          example: P000000001
+          type: string
       type: object
     DeviceLinkResponse:
       properties:
@@ -484,6 +483,9 @@ components:
         name:
           example: Muster
           type: string
+        partnernr:
+          example: P000000004
+          type: string
         vorname:
           example: Max
           type: string
@@ -492,6 +494,9 @@ components:
       properties:
         kvnr:
           example: A123456789
+          type: string
+        partnernr:
+          example: P000000004
           type: string
       type: object
     IdentNectPatchRequest:
@@ -1308,8 +1313,10 @@ paths:
       - Channels
   /orchestrator/api/v1/channels/{channelSessionId}/idclaims:
     get:
-      description: Business-facing claims (accountId/personId/name/email/acr/amr/auth_time) - a separate resource from the
-        AccessToken's own claims, not encoded into it. name is the one place the client learns who is logged in (docs/05-api.md).
+      description: 'Business-facing claims (accountId/personId/versnr/name/email/acr/amr/auth_time) - a separate resource
+        from the AccessToken''s own claims, not encoded into it. name is the one place the client learns who is logged in
+        (docs/05-api.md); personId and versnr give the role (ADR-34): Versicherter with versnr, Partner with personId only,
+        Interessent with neither.'
       operationId: getIdClaims
       parameters:
       - in: path
@@ -1331,7 +1338,8 @@ paths:
                 auth_time: 1798567890
                 email: max.mustermann@example.com
                 name: Max Muster
-                personId: 7
+                personId: P000000001
+                versnr: '10000001'
               schema:
                 additionalProperties: true
                 type: object
@@ -4609,7 +4617,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Supply the Versichertennummer
+      summary: Supply the Versichertennummer - or, without one, the Partnernummer
       tags:
       - 'Tool: Versichertennummer'
   /orchestrator/api/v1/tools/{toolSessionId}/ident-nect:

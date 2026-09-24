@@ -4,7 +4,8 @@ import type { DemoPerson } from '../../types'
 import { t } from '../../texts'
 
 interface IdentKvnrFormProps {
-  onSubmit: (kvnr: string) => void
+  /** Either the KVNR or - only without one, for a Partner (ADR-34) - the Partnernummer. */
+  onSubmit: (identifier: { kvnr: string } | { partnernr: string }) => void
   /** Skips the step (ToolRenderContext.onSkip) - rendered right next to the submit button, because that is where the decision is made. */
   onSkip?: () => void
   skipLabel: string
@@ -20,10 +21,19 @@ interface IdentKvnrFormProps {
  */
 export function IdentKvnrForm({ onSubmit, onSkip, skipLabel, error, demoPersons }: IdentKvnrFormProps) {
   const [kvnr, setKvnr] = useState('A123456789')
+  const [partnernr, setPartnernr] = useState('')
+  // The KVNR is asked for first; the Partnernummer only when there is none (ADR-34).
+  const [withoutKvnr, setWithoutKvnr] = useState(false)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit(kvnr)
+    onSubmit(withoutKvnr ? { partnernr } : { kvnr })
+  }
+
+  function selectPerson(person: DemoPerson) {
+    setWithoutKvnr(!person.kvnr)
+    if (person.kvnr) setKvnr(person.kvnr)
+    else setPartnernr(person.personId)
   }
 
   return (
@@ -44,11 +54,24 @@ export function IdentKvnrForm({ onSubmit, onSkip, skipLabel, error, demoPersons 
       </p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
-        <DemoPersonPicker demoPersons={demoPersons} onSelect={(person) => setKvnr(person.kvnr)} />
-        <div className="form-group">
-          <label htmlFor="kvnr-input">{t('Versichertennummer')}</label>
-          <input id="kvnr-input" value={kvnr} onChange={(e) => setKvnr(e.target.value)} required />
-        </div>
+        <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
+        {withoutKvnr ? (
+          <div className="form-group">
+            <label htmlFor="partnernr-input">{t('Partnernummer')}</label>
+            <input id="partnernr-input" value={partnernr} placeholder="P000000000" onChange={(e) => setPartnernr(e.target.value)} required />
+            <button type="button" className="secondary small" onClick={() => setWithoutKvnr(false)}>
+              {t('Ich habe doch eine Versichertennummer')}
+            </button>
+          </div>
+        ) : (
+          <div className="form-group">
+            <label htmlFor="kvnr-input">{t('Versichertennummer')}</label>
+            <input id="kvnr-input" value={kvnr} onChange={(e) => setKvnr(e.target.value)} required />
+            <button type="button" className="secondary small" onClick={() => setWithoutKvnr(true)}>
+              {t('Ich habe keine Versichertennummer')}
+            </button>
+          </div>
+        )}
         <div className="form-actions">
           <button type="submit">{t('Zuordnen')}</button>
           {onSkip && (

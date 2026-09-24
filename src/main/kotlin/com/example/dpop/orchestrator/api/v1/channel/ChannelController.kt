@@ -456,16 +456,18 @@ class ChannelController(
     @GetMapping("/{channelSessionId}/idclaims")
     @Operation(
         summary = "Get the fachliche ID-token claims",
-        description = "Business-facing claims (accountId/personId/name/email/acr/amr/auth_time) - a separate " +
+        description = "Business-facing claims (accountId/personId/versnr/name/email/acr/amr/auth_time) - a separate " +
             "resource from the AccessToken's own claims, not encoded into it. name is the one place the client " +
-            "learns who is logged in (docs/05-api.md).",
+            "learns who is logged in (docs/05-api.md); personId and versnr give the role (ADR-34): Versicherter " +
+            "with versnr, Partner with personId only, Interessent with neither.",
         responses = [
             ApiResponse(
                 responseCode = "200",
                 content = [Content(mediaType = "application/json", schema = Schema(type = "object", additionalProperties = Schema.AdditionalPropertiesValue.TRUE), examples = [ExampleObject(value = """
                     {
                       "accountId": 42,
-                      "personId": 7,
+                      "personId": "P000000001",
+                      "versnr": "10000001",
                       "name": "Max Muster",
                       "email": "max.mustermann@example.com",
                       "acr": "loa2",

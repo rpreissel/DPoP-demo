@@ -94,7 +94,7 @@
   color: var(--text);
 }
 
-/* Personenregister (/ext/): ein simuliertes FREMDSYSTEM, darum bewusst eine dritte, amtlich-nüchterne
+/* Personenverzeichnis (/personenverzeichnis/): ein simuliertes FREMDSYSTEM, darum bewusst eine dritte, amtlich-nüchterne
    Palette (hell + Petrol) und eine Serifenschrift für Überschriften - man soll ohne Lesen merken,
    dass man hier nicht in unserer Anwendung ist. */
 .channel-ext {

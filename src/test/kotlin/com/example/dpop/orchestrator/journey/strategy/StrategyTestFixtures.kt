@@ -70,7 +70,7 @@ object StrategyTestFixtures {
     fun account(
         vararg methods: AuthMethodView,
         accountId: Long = 1L,
-        personId: Long? = 1L,
+        personId: String? = "P000000001",
         emailConfirmed: Boolean = true,
         attestedIdentity: Boolean = false
     ) = AccountProfile(

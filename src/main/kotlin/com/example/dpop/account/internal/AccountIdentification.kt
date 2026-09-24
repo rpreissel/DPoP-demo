@@ -15,7 +15,7 @@ import java.time.Instant
  * which level, when, and the proof anchors it produced ([details]: role, provider, provider
  * transaction id, method version, evidence hash, channel, journey - "dass und wie", never "was",
  * docs/06-ablaeufe.md #1). Complements [AccountClaim]: a claim names its source register (e.g.
- * `ext_stammdaten`), not the procedure that checked it. Never read for a decision - `AuthEvidence`
+ * `ext_personenverzeichnis`), not the procedure that checked it. Never read for a decision - `AuthEvidence`
  * is re-proven per session.
  *
  * One run can leave TWO rows, because ADR-18 splits an identification into two acts: attesting who

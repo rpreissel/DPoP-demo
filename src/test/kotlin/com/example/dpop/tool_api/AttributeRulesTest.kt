@@ -31,12 +31,12 @@ class AttributeRulesTest : BehaviorSpec({
                 AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
             )
         }
-        then("the locally anchored attributes are exactly PERSON_ID, EID_RESTRICTED_ID and EMAIL") {
+        then("the locally anchored attributes are exactly PERSON_ID, VERSNR, EID_RESTRICTED_ID and EMAIL") {
             AttributeType.entries.filter { it.isLocalAnchor } shouldBe
-                listOf(AttributeType.PERSON_ID, AttributeType.EID_RESTRICTED_ID, AttributeType.EMAIL)
+                listOf(AttributeType.PERSON_ID, AttributeType.VERSNR, AttributeType.EID_RESTRICTED_ID, AttributeType.EMAIL)
         }
         then("master data owns the identifying attributes it is the register for") {
-            AttributeType.entries.filter { it.authority == AttributeAuthority.ExtStammdaten } shouldBe
+            AttributeType.entries.filter { it.authority == AttributeAuthority.PersonDirectory } shouldBe
                 listOf(
                     AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
                     AttributeType.STRASSE, AttributeType.PLZ, AttributeType.ORT
@@ -86,11 +86,11 @@ class AttributeRulesTest : BehaviorSpec({
             }
         }
         `when`("normalizing a personId") {
-            then("it folds to the canonical decimal Long representation") {
-                AttributeType.PERSON_ID.normalizeAnchorValue(" 007 ") shouldBe "7"
+            then("it folds to the canonical Partnernummer - trimmed, uppercase") {
+                AttributeType.PERSON_ID.normalizeAnchorValue(" p000000007 ") shouldBe "P000000007"
             }
             then("an invalid value fails explicitly instead of falling back to weaker matching") {
-                shouldThrow<NumberFormatException> { AttributeType.PERSON_ID.normalizeAnchorValue("not-a-number") }
+                shouldThrow<IllegalArgumentException> { AttributeType.PERSON_ID.normalizeAnchorValue("7") }
             }
         }
         `when`("normalizing a restricted id") {

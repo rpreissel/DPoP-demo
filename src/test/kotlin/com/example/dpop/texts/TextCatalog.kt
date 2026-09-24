@@ -45,7 +45,7 @@ class TextCatalog private constructor(val entries: List<CatalogEntry>, val probl
         private const val ROOT = "com/example/dpop/"
 
         /** Foreign systems keep their own bundle; everything else is this application's. */
-        val FOREIGN_BUNDLES = mapOf("nect_mock" to "nect", "kobil_mock" to "kobil", "ext_stammdaten" to "register")
+        val FOREIGN_BUNDLES = mapOf("nect_mock" to "nect", "kobil_mock" to "kobil", "ext_personenverzeichnis" to "personenverzeichnis")
 
         /** The application's own classes, where [Text] itself was loaded from. */
         val application: TextCatalog by lazy {

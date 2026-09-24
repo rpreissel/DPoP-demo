@@ -13,7 +13,7 @@ Backend- und Frontend-Texte eines Bundles stehen in derselben Datei (die App lä
 ## Ablauf
 
 1. `./gradlew exportTexts` – schreibt den Quellkatalog je Bundle nach `build/texts/<bundle>/texts_source.properties`
-   (`id=Vorlage`, darüber die Fundstellen: `# Klasse.methode:Zeile` im Backend, `# frontend/src/…:Zeile` im Frontend). Bundles: `app` (die Anwendung), `nect`, `kobil`, `register`
+   (`id=Vorlage`, darüber die Fundstellen: `# Klasse.methode:Zeile` im Backend, `# frontend/src/…:Zeile` im Frontend). Bundles: `app` (die Anwendung), `nect`, `kobil`, `personenverzeichnis`
    (simulierte Fremdsysteme mit eigenem Ton), `keycloak` (eigene Texte der Login-Seite).
 2. Für jede Zielsprache `<lang>` (Argument, sonst alle Dateien in `prompts/`) und jedes Bundle:
    - Lies `prompts/<lang>.md` in diesem Skill-Verzeichnis – das ist die verbindliche Anweisung für Ton, Anrede und Begriffe.

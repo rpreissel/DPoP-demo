@@ -19,7 +19,7 @@ internal const val KVNR_METHOD = "kvnr"
  * (docs/12-entscheidungen.md ADR-18). An attestation like `ident-eid` establishes WHO someone is;
  * this tool answers whether that person is in the register, and binds the `PERSON_ID` anchor.
  *
- * [claims] rest on `EXT_STAMMDATEN`, not on this tool: the register supplies both values, this
+ * [claims] rest on `PERSON_DIRECTORY`, not on this tool: the register supplies both values, this
  * tool is only its channel - the same relationship `ident-fsc` has to the master data.
  *
  * [MethodRole.CORRELATION] states what this is: [maxAcr] is `loa2` although typing a KVNR proves
@@ -41,8 +41,9 @@ object IdentKvnrDescriptor : ToolDescriptor {
     override val factorTypes = emptySet<com.example.dpop.tool_spi.FactorType>()
     override val maxAcr = AcrLevel.LOA2
     override val claims = setOf(
-        ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.EXT_STAMMDATEN),
-        ClaimDeclaration(AttributeType.KVNR, ClaimSource.EXT_STAMMDATEN)
+        ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.VERSNR, ClaimSource.PERSON_DIRECTORY)
     )
 
     // Only offerable once an attestation established who the subject is - there must be

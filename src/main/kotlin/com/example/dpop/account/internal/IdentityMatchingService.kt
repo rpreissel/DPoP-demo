@@ -66,7 +66,7 @@ class IdentityMatchingService(
      * Per attribute the strongest surviving claim wins, recency only breaking ties within a
      * trust level ("Rangfolge schlägt Rezenz", docs/ideen/claims-modell-und-vertrauensanker.md).
      */
-    override fun attestedIdentityMatches(accountId: Long, personId: Long): Boolean {
+    override fun attestedIdentityMatches(accountId: Long, personId: String): Boolean {
         val attested = accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES)
         if (attested.isEmpty()) return false
         return personDirectory.matchesStammdaten(
@@ -82,16 +82,16 @@ class IdentityMatchingService(
     /**
      * Tool-attested claims get checked against the stammdaten behind their own kvnr before any
      * matching happens - the tool's word alone doesn't reach the stock. Stammdaten-attested
-     * claims (ident-fsc's, EXT_STAMMDATEN) skip this: their anchor IS the stammdaten backend,
+     * claims (ident-fsc's, PERSON_DIRECTORY) skip this: their anchor IS the stammdaten backend,
      * they were checked at the source. A kvnr that resolves to nobody passes - that's the
      * Interessent case, not a conflict.
      */
-    private fun verifyToolAttestedConsistency(claims: Set<Claim>, personId: Long?) {
+    private fun verifyToolAttestedConsistency(claims: Set<Claim>, personId: String?) {
         val kvnrClaim = claims.firstOrNull { it.attributeType == AttributeType.KVNR } ?: return
         if (kvnrClaim.source.trustLevel == TrustLevel.STAMMDATEN) return
         if (personId == null) return
         val personClaim = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }
-        if (personClaim != null && personClaim.value.trim().toLong() != personId) {
+        if (personClaim != null && personClaim.value.trim() != personId) {
             throw IdentityConflictException(Text("KVNR und PersonId verweisen auf unterschiedliche Personen"))
         }
         val claimed = ClaimedIdentity(
@@ -114,10 +114,10 @@ class IdentityMatchingService(
      * not whatever `Set` implementation a caller happens to pass in (a plain `HashSet` gives no
      * iteration-order guarantee at all).
      */
-    private fun resolveByAnchor(claims: Set<Claim>, externalPersonId: Long?): Resolution.ExistingAccount? {
+    private fun resolveByAnchor(claims: Set<Claim>, externalPersonId: String?): Resolution.ExistingAccount? {
         val matches = mutableListOf<Resolution.ExistingAccount>()
         externalPersonId?.let { personId ->
-            accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, personId.toString())
+            accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, personId)
                 ?.accountId?.let { matches.add(Resolution.ExistingAccount(it, MatchedVia.Anchor(AttributeType.PERSON_ID))) }
         }
         for (claim in claims

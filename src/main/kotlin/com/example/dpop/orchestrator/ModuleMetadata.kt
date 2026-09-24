@@ -15,6 +15,6 @@ import org.springframework.modulith.ApplicationModule
  * how this module went without an enforced boundary until now.
  */
 @ApplicationModule(
-    allowedDependencies = ["tool_spi", "tool_api", "account", "ext_stammdaten", "kcmigrate", "demo_seed", "texts"]
+    allowedDependencies = ["tool_spi", "tool_api", "account", "ext_personenverzeichnis", "kcmigrate", "demo_seed", "texts"]
 )
 internal class ModuleMetadata

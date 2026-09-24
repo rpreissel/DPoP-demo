@@ -8,9 +8,16 @@ import java.time.LocalDate
  */
 interface PersonDirectory {
     /**
-     * @return the person id for this KVNR, or `null` if no matching person is found.
+     * @return the person id (Partnernummer) for this KVNR, or `null` if no matching person is found.
      */
-    fun findPersonIdByKvnr(kvnr: String): Long?
+    fun findPersonIdByKvnr(kvnr: String): String?
+
+    /**
+     * @return the person id for this Partnernummer - its canonical form, since the Partnernummer is
+     *   the person id (ADR-34) - or `null` if it is malformed or no such person exists. What a
+     *   Partner, who has no KVNR, identifies by; an insured person is asked for the KVNR first.
+     */
+    fun findPersonIdByPartnernr(partnernr: String): String?
 
     /**
      * Whether the stammdaten on file for [personId] match every attribute in [claimed] - lets an
@@ -19,7 +26,7 @@ interface PersonDirectory {
      * compare in their passport (MRZ) form - case, umlaut spelling and diacritics do not count,
      * because each document writes them its own way (`MUELLER` on a chip, `MÜLLER` on an eID card).
      */
-    fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean
+    fun matchesStammdaten(personId: String, claimed: ClaimedIdentity): Boolean
 
     /**
      * Whether name and birthdate on file for [personId] match - the narrow sibling of
@@ -27,7 +34,7 @@ interface PersonDirectory {
      * (`ident-fsc`), not a full set of Ausweisdaten. Names compare the same way as there. Same
      * rule: the answer crosses the port, the master data never does.
      */
-    fun matchesPersonalien(personId: Long, name: String, vorname: String, geburtsdatum: LocalDate): Boolean
+    fun matchesPersonalien(personId: String, name: String, vorname: String, geburtsdatum: LocalDate): Boolean
 
     /**
      * "Vorname Name" for [personId], or `null` if unknown - a deliberate, narrow exception to the
@@ -37,7 +44,14 @@ interface PersonDirectory {
      * Unlike [matchesStammdaten]/[matchesPersonalien], which exist precisely to avoid handing this out,
      * this one hands out only the name - never address/birthdate/KVNR.
      */
-    fun displayName(personId: Long): String?
+    fun displayName(personId: String): String?
+
+    /**
+     * The Versicherungsnummer of [personId], or `null` (not insured with us, or unknown). Like
+     * [findPersonIdByKvnr] an identifier, not master data - it becomes the account's `VERSNR` anchor
+     * when the person is bound (ADR-34), which is why it may cross the port.
+     */
+    fun versnrOf(personId: String): String?
 }
 
 /**

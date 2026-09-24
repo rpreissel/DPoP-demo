@@ -48,8 +48,8 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.VORNAME, "Andrea", ClaimSource.of(ToolId("ident-eid"))),
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", ClaimSource.of(ToolId("ident-eid")))
         )
-        every { personDirectory.findPersonIdByKvnr("A123456789") } returns 7L
-        every { personDirectory.matchesStammdaten(7L, any()) } returns false
+        every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
+        every { personDirectory.matchesStammdaten("P000000007", any()) } returns false
 
         `when`("resolve is called") {
             then("it refuses to match anything and reports the conflict") {
@@ -66,16 +66,16 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
-            Claim(AttributeType.PERSON_ID, "7", anchor),
+            Claim(AttributeType.PERSON_ID, "P000000007", anchor),
             Claim(AttributeType.KVNR, "A123456789", anchor),
             Claim(AttributeType.NAME, "Muster", anchor),
             Claim(AttributeType.VORNAME, "Max", anchor),
             Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
         )
-        every { personDirectory.findPersonIdByKvnr("A123456789") } returns 7L
-        every { personDirectory.matchesStammdaten(7L, any()) } returns true
-        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "7") } returns
-            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "7", accountId = 7L, establishedAt = Instant.now())
+        every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
+        every { personDirectory.matchesStammdaten("P000000007", any()) } returns true
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000007") } returns
+            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000007", accountId = 7L, establishedAt = Instant.now())
 
         `when`("resolve is called") {
             then("the consistency gate passes and the person_id anchor wins - it ranks above kvnr") {
@@ -90,12 +90,12 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val personDirectory = mockk<PersonDirectory>()
         val resolver = service(anchorRepository, claimRepository, personDirectory)
         val claims = setOf(
-            Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN),
-            Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN),
-            Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN)
+            Claim(AttributeType.PERSON_ID, "P000000042", ClaimSource.PERSON_DIRECTORY),
+            Claim(AttributeType.KVNR, "A123456789", ClaimSource.PERSON_DIRECTORY),
+            Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY)
         )
-        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns
-            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 42L, establishedAt = Instant.now())
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000042") } returns
+            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000042", accountId = 42L, establishedAt = Instant.now())
 
         `when`("resolve is called") {
             then("no stammdaten interaction happens - the source already vouches for these") {
@@ -116,10 +116,10 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.KVNR, "A123456789", anchor),
             Claim(AttributeType.NAME, "Muster", anchor)
         )
-        every { personDirectory.findPersonIdByKvnr("A123456789") } returns 7L
-        every { personDirectory.matchesStammdaten(7L, any()) } returns true
-        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "7") } returns
-            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "7", accountId = 42L, establishedAt = Instant.now())
+        every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
+        every { personDirectory.matchesStammdaten("P000000007", any()) } returns true
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000007") } returns
+            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000007", accountId = 42L, establishedAt = Instant.now())
 
         `when`("resolve is called") {
             then("the current external mapping resolves through the person_id anchor") {
@@ -134,12 +134,12 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val claimRepository = mockk<AccountClaimRepository>()
         val personDirectory = mockk<PersonDirectory>()
         val resolver = service(anchorRepository, claimRepository, personDirectory)
-        val anchor = ClaimSource.EXT_STAMMDATEN
+        val anchor = ClaimSource.PERSON_DIRECTORY
         val claims = setOf(
-            Claim(AttributeType.PERSON_ID, "7", anchor),
+            Claim(AttributeType.PERSON_ID, "P000000007", anchor),
             Claim(AttributeType.KVNR, "A123456789", anchor)
         )
-        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "7") } returns null
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000007") } returns null
         every { anchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, "A123456789") } returns
             AccountAnchor(attributeType = AttributeType.KVNR, value = "A123456789", accountId = 42L, establishedAt = Instant.now())
 
@@ -154,14 +154,14 @@ class IdentityMatchingServiceTest : BehaviorSpec({
     given("person_id and email anchors pointing to different accounts") {
         val anchorRepository = mockk<AccountAnchorRepository>()
         val resolver = service(anchorRepository, mockk(), mockk())
-        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "7") } returns
-            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "7", accountId = 7L, establishedAt = Instant.now())
+        every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000007") } returns
+            AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000007", accountId = 7L, establishedAt = Instant.now())
         every { anchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "other@example.com") } returns
             AccountAnchor(attributeType = AttributeType.EMAIL, value = "other@example.com", accountId = 8L, establishedAt = Instant.now())
         then("claim order cannot hide a conflicting owner") {
             val claims = listOf(
-                Claim(AttributeType.PERSON_ID, "7", ClaimSource.EXT_STAMMDATEN),
-                Claim(AttributeType.EMAIL, "other@example.com", ClaimSource.EXT_STAMMDATEN)
+                Claim(AttributeType.PERSON_ID, "P000000007", ClaimSource.PERSON_DIRECTORY),
+                Claim(AttributeType.EMAIL, "other@example.com", ClaimSource.PERSON_DIRECTORY)
             )
             for (ordered in listOf(claims, claims.reversed())) {
                 shouldThrow<IdentityConflictException> { resolver.resolve(ordered.toSet()) }
@@ -271,13 +271,13 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             val personDirectory = mockk<PersonDirectory>()
             val resolver = service(mockk(), claimRepository, personDirectory)
             every { claimRepository.findEstablished(1L) } returns attested
-            every { personDirectory.matchesStammdaten(42L, any()) } returns true
+            every { personDirectory.matchesStammdaten("P000000042", any()) } returns true
 
             then("it passes, carrying exactly the attested attributes into the comparison") {
-                resolver.attestedIdentityMatches(1L, 42L) shouldBe true
+                resolver.attestedIdentityMatches(1L, "P000000042") shouldBe true
                 verify {
                     personDirectory.matchesStammdaten(
-                        42L,
+                        "P000000042",
                         ClaimedIdentity(name = "Muster", vorname = "Max", geburtsdatum = LocalDate.of(1985, 6, 15))
                     )
                 }
@@ -289,10 +289,10 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             val personDirectory = mockk<PersonDirectory>()
             val resolver = service(mockk(), claimRepository, personDirectory)
             every { claimRepository.findEstablished(1L) } returns attested
-            every { personDirectory.matchesStammdaten(99L, any()) } returns false
+            every { personDirectory.matchesStammdaten("P000000099", any()) } returns false
 
             then("it refuses") {
-                resolver.attestedIdentityMatches(1L, 99L) shouldBe false
+                resolver.attestedIdentityMatches(1L, "P000000099") shouldBe false
             }
         }
 
@@ -303,7 +303,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             every { claimRepository.findEstablished(1L) } returns emptyList()
 
             then("it refuses without even asking - an empty ClaimedIdentity would match vacuously") {
-                resolver.attestedIdentityMatches(1L, 42L) shouldBe false
+                resolver.attestedIdentityMatches(1L, "P000000042") shouldBe false
                 verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
             }
         }

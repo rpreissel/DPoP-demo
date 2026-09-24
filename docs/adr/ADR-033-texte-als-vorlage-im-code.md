@@ -44,7 +44,7 @@ und im Diff reviewt (`# Quelle:` über jedem Eintrag).
 
 - `app` für diese Anwendung: `GET /orchestrator/api/v1/texts/{lang}` (ohne DPoP).
 - Die simulierten Fremdsysteme bringen eigene Texte mit, wie ein echter Dienst:
-  `/mock-nect/texts/{lang}`, `/mock-kobil/texts/{lang}`, `/mock-stammdaten/texts/{lang}`. Das Bundle
+  `/mock-nect/texts/{lang}`, `/mock-kobil/texts/{lang}`, `/mock-personenverzeichnis/texts/{lang}`. Das Bundle
   folgt dem Top-Level-Package der Klasse, in der die Vorlage steht.
 - Antwort: Map `id → Wortlaut`, starkes ETag über den Inhalt, `Cache-Control: no-cache`,
   `Content-Language`; `If-None-Match` mit passendem ETag → 304. „Gibt es Neues?“ und der Download

@@ -71,7 +71,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
 
     init {
         beforeEach {
-            // Children first (FK order); ext_stammdaten.person/freischaltcode seed data is left
+            // Children first (FK order); ext_personenverzeichnis.person/freischaltcode seed data is left
             // untouched. The union of every table any suite ever touches - deleting from one a
             // given test never populated is a harmless no-op. account's own children cascade.
             listOf(

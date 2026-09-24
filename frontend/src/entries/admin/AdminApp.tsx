@@ -225,7 +225,7 @@ function AccountsTab() {
             text={
               'Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), setzt die Verfahren je Kanal auf die Voreinstellung ' +
               'zurück (Reihenfolge und Sperren aus {konfig}) und stellt die ' +
-              'Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenregister (/ext/) ist ein Fremdsystem und ' +
+              'Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenverzeichnis (/personenverzeichnis/) ist ein Fremdsystem und ' +
               'bleibt unverändert. Im Keycloak-Profil werden die Demo-Konten danach gleich wieder angelegt.'
             }
             konfig={<code>demo.tool-defaults</code>}

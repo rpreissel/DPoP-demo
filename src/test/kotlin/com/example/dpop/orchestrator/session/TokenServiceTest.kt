@@ -175,14 +175,14 @@ class TokenServiceTest : BehaviorSpec({
             every { repository.findById(authContextId) } returns Optional.of(ctx)
             val accountService = mockk<AccountService>()
             every { accountService.findAccount(7L) } returns com.example.dpop.account.AccountProfile(
-                accountId = 7L, personId = 55L, authenticationMethods = emptyList(),
+                accountId = 7L, personId = "P000000055", authenticationMethods = emptyList(),
                 email = "max@example.test", emailConfirmedAt = Instant.now()
             )
 
             val claims = service(repository, evidenceService(ctx.authEvidenceId, evidence(accountId = 7L)), accountService = accountService).idClaims(authContextId)
 
             claims["sub"] shouldBe "7"
-            claims["personId"] shouldBe 55L
+            claims["personId"] shouldBe "P000000055"
             claims["email"] shouldBe "max@example.test"
             claims["email_verified"] shouldBe true
         }

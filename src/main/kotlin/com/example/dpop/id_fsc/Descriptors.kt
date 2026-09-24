@@ -28,13 +28,14 @@ object IdentFscDescriptor : ToolDescriptor {
     override val maxAcr = AcrLevel.LOA2
     // The attributes a successful run asserts, each declared with the anchor it is asserted
     // with - all of them are checked against the master-data backend via the FSC channel,
-    // hence ClaimSource.EXT_STAMMDATEN: the FSC is the master-data backend's own delivery
+    // hence ClaimSource.PERSON_DIRECTORY: the FSC is the master-data backend's own delivery
     // channel, this tool is only the kanal, never the value's source. The handler's reported
     // claims must match this declaration (assertClaimsCovered enforces it on adoption).
     override val claims = setOf(
-        ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.EXT_STAMMDATEN),
-        ClaimDeclaration(AttributeType.KVNR, ClaimSource.EXT_STAMMDATEN),
-        ClaimDeclaration(AttributeType.NAME, ClaimSource.EXT_STAMMDATEN),
-        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.EXT_STAMMDATEN)
+        ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.VERSNR, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.NAME, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.PERSON_DIRECTORY)
     )
 }

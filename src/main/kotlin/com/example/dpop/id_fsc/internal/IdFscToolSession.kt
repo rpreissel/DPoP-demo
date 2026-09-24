@@ -18,8 +18,10 @@ class IdFscToolSession(
 
     var kvnr: String? = null,
 
+    var partnernr: String? = null,
+
     @Column(name = "person_id")
-    var personId: Long? = null,
+    var personId: String? = null,
 
     var name: String? = null,
     var vorname: String? = null,

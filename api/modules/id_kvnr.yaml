@@ -5,6 +5,9 @@ components:
         kvnr:
           example: A123456789
           type: string
+        partnernr:
+          example: P000000004
+          type: string
       type: object
   securitySchemes:
     dpop:
@@ -141,7 +144,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Supply the Versichertennummer
+      summary: Supply the Versichertennummer - or, without one, the Partnernummer
       tags:
       - 'Tool: Versichertennummer'
 tags:

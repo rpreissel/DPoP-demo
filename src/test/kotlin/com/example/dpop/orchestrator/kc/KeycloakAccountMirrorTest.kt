@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.kc
 
 import com.example.dpop.account.AccountProfile
-import com.example.dpop.ext_stammdaten.PersonData
+import com.example.dpop.ext_personenverzeichnis.PersonData
 import com.example.dpop.tool_spi.AttributeType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -15,20 +15,20 @@ import java.time.LocalDate
  */
 class KeycloakAccountMirrorTest : BehaviorSpec({
 
-    fun profile(personId: Long?) = AccountProfile(
+    fun profile(personId: String?) = AccountProfile(
         accountId = 1L, personId = personId, authenticationMethods = emptyList(),
         email = "who@example.test", emailConfirmedAt = null
     )
 
     given("an account with a register person bound (PERSON_ID anchor)") {
         val person = PersonData(
-            id = 7L, kvnr = "A123456789", name = "Mustermann", vorname = "Max", geburtsdatum = LocalDate.of(1990, 1, 1),
-            strasse = "Musterweg", hausnummer = "1", plz = "12345", ort = "Musterstadt"
+            id = "P000000007", kvnr = "A123456789", name = "Mustermann", vorname = "Max", geburtsdatum = LocalDate.of(1990, 1, 1),
+            strasse = "Musterweg", hausnummer = "1", plz = "12345", ort = "Musterstadt", versnr = "10000001"
         )
 
         then("names, attributes and address come from the register, claims never override it") {
             val mirror = kcUserMirror(
-                profile(personId = 7L), person,
+                profile(personId = "P000000007"), person,
                 mapOf(
                     AttributeType.NAME to "Anderer", AttributeType.VORNAME to "Falscher", AttributeType.GEBURTSDATUM to "2000-01-01",
                     AttributeType.STRASSE to "Andere Gasse 9", AttributeType.PLZ to "99999", AttributeType.ORT to "Nirgendwo"
@@ -38,7 +38,7 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
             mirror.firstName shouldBe "Max"
             mirror.lastName shouldBe "Mustermann"
             mirror.attributes shouldBe mapOf(
-                "personId" to "7", "kvnr" to "A123456789", "geburtsdatum" to "1990-01-01",
+                "personId" to "P000000007", "kvnr" to "A123456789", "versnr" to "10000001", "geburtsdatum" to "1990-01-01",
                 "strasse" to "Musterweg 1", "plz" to "12345", "ort" to "Musterstadt"
             )
         }
@@ -77,21 +77,18 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
     }
 
     given("a register person with partial stammdaten (no kvnr, no address on record)") {
-        val person = PersonData(id = 9L, kvnr = null, name = "Knapp", vorname = "Karl", geburtsdatum = null)
+        val person = PersonData(id = "P000000009", kvnr = null, name = "Knapp", vorname = "Karl", geburtsdatum = null)
 
-        then("personId still syncs, and a gap in the register data is filled from the account's attested claims - same identity, gap-filling, not overriding") {
+        then("a gap in the Personenverzeichnis stays a gap - an old attested claim never resurfaces for a bound account (ADR-34)") {
             val mirror = kcUserMirror(
-                profile(personId = 9L), person,
+                profile(personId = "P000000009"), person,
                 mapOf(
                     AttributeType.GEBURTSDATUM to "1970-01-01",
                     AttributeType.STRASSE to "Lückenweg 2", AttributeType.PLZ to "54321", AttributeType.ORT to "Lückendorf"
                 )
             )
 
-            mirror.attributes shouldBe mapOf(
-                "personId" to "9", "geburtsdatum" to "1970-01-01",
-                "strasse" to "Lückenweg 2", "plz" to "54321", "ort" to "Lückendorf"
-            )
+            mirror.attributes shouldBe mapOf("personId" to "P000000009")
         }
     }
 })

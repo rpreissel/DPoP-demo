@@ -93,7 +93,7 @@ internal class KcDemoAccountSeeder(
             val profile = accountService.createUnidentifiedAccount()
             accountService.recordClaim(
                 profile.accountId,
-                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.DEMO_BOOTSTRAP),
+                Claim(AttributeType.PERSON_ID, personId, ClaimSource.DEMO_BOOTSTRAP),
                 // The seed stands in for a completed identification, so it pays the same price
                 // a real one would (AnchorRule.acrFloor) - stated here rather than waved
                 // through, so the demo data is not held to a weaker rule than production.

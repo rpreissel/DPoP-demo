@@ -4,9 +4,9 @@ import com.example.dpop.account.AccountChanged
 import com.example.dpop.account.AccountDeleted
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.ext_stammdaten.ExtStammdatenService
-import com.example.dpop.ext_stammdaten.PersonData
-import com.example.dpop.ext_stammdaten.strassenzeile
+import com.example.dpop.ext_personenverzeichnis.Personenverzeichnis
+import com.example.dpop.ext_personenverzeichnis.PersonData
+import com.example.dpop.ext_personenverzeichnis.strassenzeile
 import com.example.dpop.tool_spi.AttributeType
 import java.time.Instant
 import org.springframework.context.annotation.Profile
@@ -54,7 +54,7 @@ import org.springframework.scheduling.annotation.Async
 @Profile("keycloak")
 class KeycloakAccountSyncListener(
     private val accountService: AccountService,
-    private val extStammdatenService: ExtStammdatenService,
+    private val personenverzeichnis: Personenverzeichnis,
     private val keycloakAdminClient: KeycloakAdminClient,
     private val accountKeypairService: AccountKeypairService,
     private val accountKeycloakKeypairRepository: AccountKeycloakKeypairRepository
@@ -62,13 +62,16 @@ class KeycloakAccountSyncListener(
     @ApplicationModuleListener
     @Async(KEYCLOAK_SYNC_EXECUTOR)
     fun onAccountChanged(event: AccountChanged) {
+        // A change the account could name (the Personenverzeichnis' report, ADR-34) that touches
+        // nothing Keycloak mirrors needs no round trip.
+        if (event.changed != null && event.changed.none { it in KEYCLOAK_ATTRIBUTE_TYPES }) return
         val profile = accountService.findAccount(event.accountId) ?: return
         // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
         // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; the next
         // AccountChanged once one is confirmed (or the account is identified) syncs it for real.
         if (profile.email == null) return
         // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
-        val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
+        val person = profile.personId?.let { personenverzeichnis.findPersonById(it) }
         val mirror = kcUserMirror(profile, person, accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES))
         // Deliberately NOT wrapped in a try/catch any more. A thrown exception is how this method
         // tells the Event Publication Registry "not done" - the publication stays incomplete and is
@@ -99,11 +102,11 @@ class KeycloakAccountSyncListener(
 
 /**
  * Keycloak's own realm requires a non-blank first/last name on every user - this stands in for
- * an account that has no [com.example.dpop.ext_stammdaten.Person] AND no attested name claims
- * yet (REGISTER "Enrollment zuerst"). Self-healing: recording the `PERSON_ID` anchor or a
- * name-attesting claim (`AccountService.recordClaim`/`recordClaims`) fires its own
- * `AccountChanged`, which re-syncs and overwrites this with the real name the moment one
- * exists - never a value anyone needs to clean up by hand.
+ * an account that has no [com.example.dpop.ext_personenverzeichnis.Person] AND no attested name claims
+ * yet (REGISTER "Enrollment zuerst"). Self-healing: every anchor write (the `PERSON_ID` anchor
+ * above all) fires `AccountChanged`, which re-syncs and overwrites this with the real name. A
+ * name-attesting claim alone does not fire one - it is picked up with the next sync (in practice
+ * the anchor write of the same identification) - never a value anyone needs to clean up by hand.
  */
 internal const val UNIDENTIFIED_FIRST_NAME = "Unbekannt"
 internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
@@ -118,6 +121,12 @@ internal val MIRRORED_CLAIM_TYPES = setOf(
     AttributeType.STRASSE, AttributeType.PLZ, AttributeType.ORT
 )
 
+/**
+ * Every kind of attribute that ends up on the Keycloak user: the mirrored claims plus the
+ * identifiers read from the Personenverzeichnis ([stammdatenAttributes]).
+ */
+internal val KEYCLOAK_ATTRIBUTE_TYPES: Set<AttributeType> = MIRRORED_CLAIM_TYPES + setOf(AttributeType.KVNR, AttributeType.VERSNR)
+
 /** What one account mirrors into its Keycloak user - shared by the listener's and service's sync paths. */
 internal data class KcUserMirror(
     val firstName: String,
@@ -126,37 +135,41 @@ internal data class KcUserMirror(
 )
 
 /**
- * Names and attributes for the Keycloak user mirror, per attribute in this precedence: the
- * register person's value when one is bound and has it (PERSON_ID anchor, authoritative
- * stammdaten resolved live via `ext_stammdaten`), then the account's own established claim - a
- * fully attested Interessent (ADR-18: Zuordnung abgelehnt oder noch nie angeboten) carries
- * NAME/VORNAME/GEBURTSDATUM and the address fields as claims even without a register binding.
- * The placeholders remain only for an account that has neither yet. `personId`/`kvnr` attributes
- * stay register-bound by design - an Interessent is visible as the absence of both, never as a
- * hand-maintained status flag.
+ * Names and attributes for the Keycloak user mirror. For an account bound to a person (PERSON_ID
+ * anchor) the Personenverzeichnis is the only source, read live - including what it leaves empty:
+ * an old attested claim must never resurface after the Personenverzeichnis cleared a field
+ * (ADR-34). Only an Interessent (ADR-18: no person bound) is mirrored from its own established
+ * claims. The placeholders remain only for an account that has neither yet. `personId`, `kvnr`
+ * and `versnr` exist only for a bound account - an Interessent is visible as their absence, never
+ * as a hand-maintained status flag.
  */
 internal fun kcUserMirror(profile: AccountProfile, person: PersonData?, attested: Map<AttributeType, String>): KcUserMirror =
     KcUserMirror(
-        firstName = person?.vorname ?: attested[AttributeType.VORNAME] ?: UNIDENTIFIED_FIRST_NAME,
-        lastName = person?.name ?: attested[AttributeType.NAME] ?: UNIDENTIFIED_LAST_NAME,
+        firstName = (if (person != null) person.vorname else attested[AttributeType.VORNAME]) ?: UNIDENTIFIED_FIRST_NAME,
+        lastName = (if (person != null) person.name else attested[AttributeType.NAME]) ?: UNIDENTIFIED_LAST_NAME,
         attributes = stammdatenAttributes(profile.personId, person, attested)
     )
 
 /**
- * The non-anchor person attributes as plain custom user attributes. `personId`/`kvnr` are
- * resolved live from ext_stammdaten (never cached: they are asserted together with the PERSON_ID
- * anchor, so that anchor alone re-derives them on demand) and exist only for a register-bound
- * account; `geburtsdatum` and the address fields fall back to the account's own attested claim
- * for an Interessent (gap-filling, never overriding a register value). Shared by
- * [KeycloakAccountSyncListener] and [KeycloakAccountSyncService], the two places that already
- * run this exact live lookup.
+ * The person attributes as plain custom user attributes - from the Personenverzeichnis for a
+ * bound account (live, never cached, never topped up from claims), from the account's own
+ * attested claims for an Interessent. Shared by [KeycloakAccountSyncListener] and
+ * [KeycloakAccountSyncService], the two places that already run this exact live lookup.
  */
-internal fun stammdatenAttributes(personId: Long?, person: PersonData?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
+internal fun stammdatenAttributes(personId: String?, person: PersonData?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
     personId?.let { put("personId", it.toString()) }
-    person?.kvnr?.let { put("kvnr", it) }
-    (person?.geburtsdatum?.toString() ?: attested[AttributeType.GEBURTSDATUM])?.let { put("geburtsdatum", it) }
-    // One street line, register-bound or attested alike: the register's two fields joined.
-    (person?.strassenzeile ?: attested[AttributeType.STRASSE])?.let { put("strasse", it) }
-    (person?.plz ?: attested[AttributeType.PLZ])?.let { put("plz", it) }
-    (person?.ort ?: attested[AttributeType.ORT])?.let { put("ort", it) }
+    if (person != null) {
+        person.kvnr?.let { put("kvnr", it) }
+        person.versnr?.let { put("versnr", it) }
+        person.geburtsdatum?.let { put("geburtsdatum", it.toString()) }
+        // One street line: the Personenverzeichnis' two fields joined.
+        person.strassenzeile?.let { put("strasse", it) }
+        person.plz?.let { put("plz", it) }
+        person.ort?.let { put("ort", it) }
+    } else {
+        attested[AttributeType.GEBURTSDATUM]?.let { put("geburtsdatum", it) }
+        attested[AttributeType.STRASSE]?.let { put("strasse", it) }
+        attested[AttributeType.PLZ]?.let { put("plz", it) }
+        attested[AttributeType.ORT]?.let { put("ort", it) }
+    }
 }

@@ -26,9 +26,13 @@ Kunstwörter und interne Begriffe aus dem Code sind kein Deutsch. Immer umschrei
 Diese Wörter sind eingeführte Begriffe der Demo (Doku, Diagramme, Oberfläche) und werden **nicht** ersetzt:
 
 - **Journey**, **Journey-Log** (nicht „Vorgang“, „Vorgangsprotokoll“)
-- **Interessent** und **Versicherter** (Status eines Kontos ohne bzw. mit zugeordneten Versichertendaten)
+- **Versicherter**, **Partner** und **Interessent** – die drei Rollen eines Kontos: bei uns versichert
+  (Versicherungsnummer), uns als Person bekannt (nur Partnernummer), keiner Person zugeordnet
+- **Partnernummer** (`P` und neun Ziffern, jede Person im Personenverzeichnis hat eine)
 - **Pairing-Code** (nicht „Kopplungscode“)
 - **Realm** (Keycloak-Begriff, nicht „Bereich“) und **Keycloak** als Produktname
+- **Personenverzeichnis** (das simulierte Fremdsystem mit den Personen, nicht „Versichertenregister“) und
+  **Versicherungsnummer** (8 Ziffern, nur bei uns Versicherte – zusätzlich zur KVNR)
 
 ## Stil
 

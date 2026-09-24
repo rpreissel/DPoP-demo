@@ -125,7 +125,7 @@ class KcTokenProviderTest : BehaviorSpec({
             }
             val accountService = mockk<AccountService> {
                 every { findAccount(accountId) } returns com.example.dpop.account.AccountProfile(
-                    accountId = accountId, personId = 1L,
+                    accountId = accountId, personId = "P000000001",
                     authenticationMethods = listOf(
                         com.example.dpop.account.AuthMethodView(
                             id = "m1", method = "password", active = true,

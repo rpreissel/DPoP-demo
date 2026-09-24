@@ -7,11 +7,13 @@ CREATE SCHEMA IF NOT EXISTS id_fsc;
 -- id_fsc
 -- =============================================================================================
 
--- The Freischaltcodes themselves belong to the register (ext_stammdaten.freischaltcode, ADR-31).
+-- The Freischaltcodes themselves belong to the register (ext_personenverzeichnis.freischaltcode, ADR-31).
 CREATE TABLE id_fsc.ident_tool_session (
     tool_session_id UUID PRIMARY KEY,
     kvnr            VARCHAR(20),
-    person_id       BIGINT,
+    -- Only without a KVNR (a Partner, ADR-34); the latest of the two identifiers wins.
+    partnernr       VARCHAR(10),
+    person_id       VARCHAR(10),
     name            VARCHAR(255),
     vorname         VARCHAR(255),
     geburtsdatum    DATE,

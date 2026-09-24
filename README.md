@@ -52,7 +52,7 @@ Zwei weitere Varianten, je nachdem, ob überhaupt ein echtes Keycloak gebraucht 
   Compose-interne `https://keycloak:8443`). Reines `bootRun` bliebe im Default-Profil und würde
   gar nicht gegen das Compose-Keycloak sprechen.
 - **Ohne Keycloak**: `./gradlew bootRun` allein (Default-Profil) — kein Podman/Compose nötig,
-  dafür nur App-Kanal, Personenregister und Admin; der Web-Kanal ist dann deaktiviert.
+  dafür nur App-Kanal, Personenverzeichnis und Admin; der Web-Kanal ist dann deaktiviert.
 
 ## Basis-Images von außen konfigurieren
 

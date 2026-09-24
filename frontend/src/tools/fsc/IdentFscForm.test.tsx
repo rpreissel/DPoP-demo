@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { IdentFscForm } from './IdentFscForm'
 
-const max = { kvnr: 'A123456789', name: 'Muster', vorname: 'Max', geburtsdatum: '1985-06-15', fscCode: 'VALIDCODE' }
+const max = { personId: 'P000000001', kvnr: 'A123456789', name: 'Muster', vorname: 'Max', geburtsdatum: '1985-06-15', fscCode: 'VALIDCODE' }
 
 describe('IdentFscForm', () => {
   afterEach(cleanup)
@@ -58,11 +58,34 @@ describe('IdentFscForm', () => {
   })
 
   it('keeps the demo-person picker on the person whose data the form holds when going back', () => {
-    const erika = { kvnr: 'B987654321', name: 'Beispiel', vorname: 'Erika', geburtsdatum: '1990-11-02', fscCode: 'ERIKA123' }
+    const erika = { personId: 'P000000002', kvnr: 'B987654321', name: 'Beispiel', vorname: 'Erika', geburtsdatum: '1990-11-02', fscCode: 'ERIKA123' }
     render(<IdentFscForm onSubmit={vi.fn()} missingFields={['kvnr', 'name', 'vorname', 'geburtsdatum']} demoPersons={[max, erika]} />)
-    fireEvent.change(screen.getByLabelText(/Testperson übernehmen/), { target: { value: 'B987654321' } })
+    fireEvent.change(screen.getByLabelText(/Testperson übernehmen/), { target: { value: 'P000000002' } })
 
-    expect((screen.getByLabelText(/Testperson übernehmen/) as HTMLSelectElement).value).toBe('B987654321')
+    expect((screen.getByLabelText(/Testperson übernehmen/) as HTMLSelectElement).value).toBe('P000000002')
     expect((screen.getByLabelText('Vorname') as HTMLInputElement).value).toBe('Erika')
+  })
+
+  it('asks a Partner for the Partnernummer instead of the KVNR, and sends only that (ADR-34)', () => {
+    const paula = { personId: 'P000000004', kvnr: null, name: 'Schulz', vorname: 'Paula', geburtsdatum: '1982-08-08', fscCode: 'PAULA2026' }
+    const onSubmit = vi.fn()
+    render(<IdentFscForm onSubmit={onSubmit} missingFields={['kvnr', 'name', 'vorname', 'geburtsdatum']} demoPersons={[max, paula]} />)
+    fireEvent.change(screen.getByLabelText(/Testperson übernehmen/), { target: { value: 'P000000004' } })
+
+    expect(screen.queryByLabelText('Versichertennummer')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter zur Freischaltcode-Eingabe' }))
+
+    expect(onSubmit).toHaveBeenCalledWith({ partnernr: 'P000000004', name: 'Schulz', vorname: 'Paula', geburtsdatum: '1982-08-08' })
+  })
+
+  it('switches to the Partnernummer only on request - the KVNR comes first', () => {
+    const onSubmit = vi.fn()
+    render(<IdentFscForm onSubmit={onSubmit} missingFields={['kvnr', 'name', 'vorname', 'geburtsdatum']} demoPersons={[max]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ich habe keine Versichertennummer' }))
+    fireEvent.change(screen.getByLabelText('Partnernummer'), { target: { value: 'P000000001' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter zur Freischaltcode-Eingabe' }))
+
+    expect(onSubmit).toHaveBeenCalledWith({ partnernr: 'P000000001', name: 'Muster', vorname: 'Max', geburtsdatum: '1985-06-15' })
   })
 })

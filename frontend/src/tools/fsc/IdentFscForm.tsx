@@ -7,6 +7,7 @@ import { Tx } from '../../Tx'
 
 /** What the first screen collects - everything the backend stages before it asks for `fsc`. */
 const PERSONAL_FIELDS = ['kvnr', 'name', 'vorname', 'geburtsdatum']
+// `kvnr` in missingFields stands for "KVNR or Partnernummer" - the form asks for the KVNR first (ADR-34).
 
 type Personalien = Omit<FscFields, 'fsc'>
 
@@ -38,7 +39,10 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
     name: first?.name ?? '',
     geburtsdatum: first?.geburtsdatum ?? '',
     kvnr: first?.kvnr ?? '',
+    partnernr: first?.kvnr ? '' : (first?.personId ?? ''),
   })
+  // The KVNR is asked for first; the Partnernummer only when there is none (a Partner, ADR-34).
+  const [withoutKvnr, setWithoutKvnr] = useState(first != null && !first.kvnr)
   const [fsc, setFsc] = useState(first?.fscCode ?? '')
   const [submittedFrom, setSubmittedFrom] = useState<Page>('personalien')
   const [editing, setEditing] = useState(false)
@@ -53,8 +57,10 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
       vorname: person.vorname ?? '',
       name: person.name ?? '',
       geburtsdatum: person.geburtsdatum ?? '',
-      kvnr: person.kvnr,
+      kvnr: person.kvnr ?? '',
+      partnernr: person.kvnr ? '' : person.personId,
     })
+    setWithoutKvnr(!person.kvnr)
     setFsc(person.fscCode ?? '')
   }
 
@@ -66,8 +72,13 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
     event.preventDefault()
     setSubmittedFrom('personalien')
     setEditing(false)
-    onSubmit(personalien)
+    const { kvnr, partnernr, ...rest } = personalien
+    onSubmit(withoutKvnr ? { ...rest, partnernr } : { ...rest, kvnr })
   }
+
+  const identifier = withoutKvnr ? personalien.partnernr : personalien.kvnr
+  const selectedPersonId =
+    demoPersons?.find((p) => (withoutKvnr ? p.personId === personalien.partnernr : p.kvnr === personalien.kvnr))?.personId ?? ''
 
   function submitCode(event: React.FormEvent) {
     event.preventDefault()
@@ -81,7 +92,7 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
         <h2>{t('Identifikation per Freischaltcode')}</h2>
         <p>{t('Damit Sie Ihren Freischaltcode gleich eingeben können, brauchen wir noch diese Daten:')}</p>
         <form onSubmit={submitPersonalien} className="form-grid" style={{ marginTop: '1rem' }}>
-          <DemoPersonPicker demoPersons={demoPersons} selectedKvnr={personalien.kvnr} onSelect={selectPerson} />
+          <DemoPersonPicker demoPersons={demoPersons} selectedPersonId={selectedPersonId} onSelect={selectPerson} />
           <div className="form-group">
             <label htmlFor="vorname">{t('Vorname')}</label>
             <input id="vorname" value={personalien.vorname} onChange={update('vorname')} autoComplete="given-name" required />
@@ -94,10 +105,23 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
             <label htmlFor="geburtsdatum">{t('Geburtsdatum')}</label>
             <input id="geburtsdatum" type="date" value={personalien.geburtsdatum} onChange={update('geburtsdatum')} autoComplete="bday" required />
           </div>
-          <div className="form-group">
-            <label htmlFor="kvnr">{t('Versichertennummer')}</label>
-            <input id="kvnr" value={personalien.kvnr} onChange={update('kvnr')} required />
-          </div>
+          {withoutKvnr ? (
+            <div className="form-group">
+              <label htmlFor="partnernr">{t('Partnernummer')}</label>
+              <input id="partnernr" value={personalien.partnernr} placeholder="P000000000" onChange={update('partnernr')} required />
+              <button type="button" className="secondary small" onClick={() => setWithoutKvnr(false)}>
+                {t('Ich habe doch eine Versichertennummer')}
+              </button>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="kvnr">{t('Versichertennummer')}</label>
+              <input id="kvnr" value={personalien.kvnr} onChange={update('kvnr')} required />
+              <button type="button" className="secondary small" onClick={() => setWithoutKvnr(true)}>
+                {t('Ich habe keine Versichertennummer')}
+              </button>
+            </div>
+          )}
           {error && <div className="hint">{error}</div>}
           <div className="form-actions">
             <button type="submit">{t('Weiter zur Freischaltcode-Eingabe')}</button>
@@ -112,16 +136,16 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
       <h2>{t('Freischaltcode eingeben')}</h2>
       <p>
         <Tx
-          text="Geben Sie den Freischaltcode ein, den wir Ihnen per Brief geschickt haben, für {person} ({kvnr})."
+          text="Geben Sie den Freischaltcode ein, den wir Ihnen per Brief geschickt haben, für {person} ({nummer})."
           person={
             <strong>
               {personalien.vorname} {personalien.name}
             </strong>
           }
-          kvnr={personalien.kvnr}
+          nummer={identifier}
         />
       </p>
-      {first && !fsc && <div className="hint">{t('Kein gültiger Code im Briefkasten (Personenregister {pfad})', { pfad: '/ext/' })}</div>}
+      {first && !fsc && <div className="hint">{t('Kein gültiger Code im Briefkasten (Personenverzeichnis {pfad})', { pfad: '/personenverzeichnis/' })}</div>}
       <form onSubmit={submitCode} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
           <label htmlFor="fsc">{t('Freischaltcode')}</label>

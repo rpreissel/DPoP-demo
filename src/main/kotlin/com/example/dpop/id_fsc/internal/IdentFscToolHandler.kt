@@ -1,7 +1,7 @@
 package com.example.dpop.id_fsc.internal
 
 import com.example.dpop.texts.Text
-import com.example.dpop.ext_stammdaten.Freischaltcodes
+import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
@@ -15,7 +15,8 @@ import java.time.LocalDate
 import java.util.UUID
 
 /**
- * toolId=ident-fsc (docs/06-ablaeufe.md #2). Resolves KVNR/name/vorname/geburtsdatum/FSC into a person -
+ * toolId=ident-fsc (docs/06-ablaeufe.md #2). Resolves KVNR (or, for a Partner without one, the
+ * Partnernummer - ADR-34)/name/vorname/geburtsdatum/FSC into a person -
  * that resolution *is* the module's contribution, not just a yes/no check.
  *
  * [patch]'s [personId] parameter arrives pre-resolved: IdentFscToolController looks it up over the
@@ -28,7 +29,7 @@ import java.util.UUID
  * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
  */
-private val PERSONALIEN_REJECTED = Text("Die Angaben passen zu keiner versicherten Person")
+private val PERSONALIEN_REJECTED = Text("Die Angaben passen zu keiner Person, die wir kennen")
 
 @Component
 class IdentFscToolHandler(
@@ -55,16 +56,17 @@ class IdentFscToolHandler(
     fun patch(
         toolSessionId: UUID,
         kvnr: String?,
+        partnernr: String?,
         name: String?,
         vorname: String?,
         geburtsdatum: LocalDate?,
         fsc: String?,
-        personId: Long?,
+        personId: String?,
         throttled: Boolean
     ): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-fsc tool session: $toolSessionId" }
 
-        val input = IdentFscInput(kvnr, name, vorname, geburtsdatum, fsc, personId)
+        val input = IdentFscInput(kvnr, partnernr, name, vorname, geburtsdatum, fsc, personId)
         val merged = IdentFscFlow.merge(data.toState(), input)
 
         // Every personal-data rejection answers alike, whether the KVNR is unknown or a
@@ -101,7 +103,7 @@ class IdentFscToolHandler(
     private fun verifyCode(
         toolSessionId: UUID,
         state: IdentFscState,
-        personId: Long,
+        personId: String,
         fscHash: String,
         throttled: Boolean
     ): Pair<IdentFscState, ToolOutcome> {
@@ -113,20 +115,23 @@ class IdentFscToolHandler(
             amr = listOf(descriptor.method),
             achievedAcr = descriptor.maxAcr,
             factorTypes = descriptor.factorTypes,
-            claims = listOf(
+            claims = listOfNotNull(
                 // FSC is a master-data channel: every attribute this run asserts
-                // was checked against ext_stammdaten, hence EXT_STAMMDATEN as the
+                // was checked against ext_personenverzeichnis, hence PERSON_DIRECTORY as the
                 // trust anchor, not this tool's own id.
-                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                Claim(AttributeType.KVNR, checkNotNull(state.kvnr), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                Claim(AttributeType.NAME, checkNotNull(state.name), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                Claim(AttributeType.VORNAME, checkNotNull(state.vorname), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr)
+                Claim(AttributeType.PERSON_ID, personId, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                // A Partner identifies by Partnernummer and has no KVNR (ADR-34).
+                state.kvnr?.let { Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) },
+                Claim(AttributeType.NAME, checkNotNull(state.name), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.VORNAME, checkNotNull(state.vorname), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                // Insured with us: the Versicherungsnummer becomes an anchor too (ADR-34).
+                personDirectory.versnrOf(personId)?.let { Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
             ),
             auditDetails = mapOf(
                 "provider" to "fsc-service",
                 "providerTxId" to "FSC-$toolSessionId",
                 "methodVersion" to "1.0",
-                "evidenceHash" to IdentFscFlow.evidenceHash(state.kvnr.orEmpty(), fscHash)
+                "evidenceHash" to IdentFscFlow.evidenceHash(state.kvnr ?: state.partnernr.orEmpty(), fscHash)
             )
         )
     }
@@ -142,10 +147,11 @@ class IdentFscToolHandler(
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
-    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, name, vorname, geburtsdatum, fscHash, personId)
+    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, partnernr, name, vorname, geburtsdatum, fscHash, personId)
 
     private fun IdFscToolSession.applyState(state: IdentFscState) {
         kvnr = state.kvnr
+        partnernr = state.partnernr
         name = state.name
         vorname = state.vorname
         geburtsdatum = state.geburtsdatum

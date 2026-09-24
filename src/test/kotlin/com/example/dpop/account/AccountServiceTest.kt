@@ -63,7 +63,7 @@ class AccountServiceTest : BehaviorSpec({
 
             service.recordClaim(
                 accountId = 7L,
-                claim = Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2),
+                claim = Claim(AttributeType.PERSON_ID, "P000000042", ClaimSource.PERSON_DIRECTORY, AcrLevel.LOA2),
                 provenAcr = AcrLevel.LOA2
             )
 
@@ -71,13 +71,13 @@ class AccountServiceTest : BehaviorSpec({
                 savedClaims shouldHaveSize 1
                 savedClaims.single().accountId shouldBe 7L
                 savedClaims.single().attributeType shouldBe AttributeType.PERSON_ID
-                savedClaims.single().value shouldBe "42"
-                savedClaims.single().claimSource shouldBe "ext_stammdaten"
+                savedClaims.single().value shouldBe "P000000042"
+                savedClaims.single().claimSource shouldBe "person_directory"
                 savedClaims.single().establishedAcr shouldBe "loa2"
                 savedClaims.single().establishedAt.shouldNotBeNull()
                 savedAnchors shouldHaveSize 1
                 savedAnchors.single().attributeType shouldBe AttributeType.PERSON_ID
-                savedAnchors.single().value shouldBe "42"
+                savedAnchors.single().value shouldBe "P000000042"
                 savedAnchors.single().accountId shouldBe 7L
                 verify(exactly = 1) { eventPublisher.publishEvent(AccountChanged(7L)) }
             }
@@ -101,7 +101,7 @@ class AccountServiceTest : BehaviorSpec({
         every { accountAnchorRepository.save(any()) } answers { firstArg() }
 
         fun changeTwice() {
-            service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN, AcrLevel.LOA2), AcrLevel.LOA2)
+            service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "P000000042", ClaimSource.PERSON_DIRECTORY, AcrLevel.LOA2), AcrLevel.LOA2)
             service.recordClaim(7L, Claim(AttributeType.EMAIL, "max@example.com", ClaimSource.SELF_REPORTED, AcrLevel.LOA1), AcrLevel.LOA2)
         }
 
@@ -137,25 +137,25 @@ class AccountServiceTest : BehaviorSpec({
         every { accountRepository.findByIdOrNull(7L) } returns account
         every { accountRepository.findForUpdate(7L) } returns account
         every { accountClaimRepository.save(any()) } answers { firstArg() }
-        val existingAnchor = AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 7L, establishedAt = Instant.now())
+        val existingAnchor = AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000042", accountId = 7L, establishedAt = Instant.now())
 
         `when`("re-asserting the same person_id") {
-            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns existingAnchor
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000042") } returns existingAnchor
 
             then("it is idempotent - no new anchor row, no rejection") {
-                service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "42", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
+                service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "P000000042", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2)
                 verify(exactly = 0) { accountAnchorRepository.save(any()) }
                 verify(exactly = 0) { accountAnchorRepository.delete(any()) }
             }
         }
 
         `when`("asserting a DIFFERENT person_id for the same account") {
-            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "99") } returns null
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000099") } returns null
             every { accountAnchorRepository.findByAccountIdAndAttributeType(7L, AttributeType.PERSON_ID) } returns existingAnchor
 
             then("it is rejected - person_id is immutable after first binding (docs/ideen/account-attribute-und-trust-vereinheitlichen.md)") {
                 shouldThrow<IdentityConflictException> {
-                    service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "99", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
+                    service.recordClaim(7L, Claim(AttributeType.PERSON_ID, "P000000099", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2)
                 }
                 verify(exactly = 0) { accountAnchorRepository.delete(any()) }
                 verify(exactly = 0) { accountAnchorRepository.save(any()) }
@@ -272,10 +272,10 @@ class AccountServiceTest : BehaviorSpec({
             val service = AccountService(accounts, mockk(), anchors, mockk(), mockk(), mockk(), mockk())
             every { anchors.findByAttributeTypeAndValue(AttributeType.EMAIL, "max@example.com") } returns
                 AccountAnchor(attributeType = AttributeType.EMAIL, value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
-            every { anchors.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns
-                AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 7L, establishedAt = Instant.now())
+            every { anchors.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000042") } returns
+                AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000042", accountId = 7L, establishedAt = Instant.now())
             service.resolveAccountByEmail("  Max@Example.COM ") shouldBe 7L
-            service.resolveAccountByPersonId(42L) shouldBe 7L
+            service.resolveAccountByPersonId("P000000042") shouldBe 7L
             verify { accounts wasNot Called }
         }
     }
@@ -289,17 +289,17 @@ class AccountServiceTest : BehaviorSpec({
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
         val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher)
 
-        then("KVNR changes follow ext_stammdaten without creating or reading a local KVNR anchor") {
+        then("KVNR changes follow ext_personenverzeichnis without creating or reading a local KVNR anchor") {
             val persons = mockk<PersonDirectory>()
             val account = Account(createdAt = Instant.now()).apply { id = 7L }
             every { accountRepository.findByIdOrNull(7L) } returns account
-            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "42") } returns
-                AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "42", accountId = 7L, establishedAt = Instant.now())
-            every { persons.findPersonIdByKvnr("A123456789") } returns 42L
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000042") } returns
+                AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000042", accountId = 7L, establishedAt = Instant.now())
+            every { persons.findPersonIdByKvnr("A123456789") } returns "P000000042"
             service.findAccountByKvnr(" a123456789 ", persons)?.accountId shouldBe 7L
 
             every { persons.findPersonIdByKvnr("A123456789") } returns null
-            every { persons.findPersonIdByKvnr("B987654321") } returns 42L
+            every { persons.findPersonIdByKvnr("B987654321") } returns "P000000042"
             service.findAccountByKvnr("A123456789", persons) shouldBe null
             service.findAccountByKvnr("B987654321", persons)?.accountId shouldBe 7L
             verify(exactly = 0) { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.KVNR, any()) }
@@ -309,7 +309,7 @@ class AccountServiceTest : BehaviorSpec({
 
         then("a KVNR claim records provenance only, not a local binding") {
             every { accountClaimRepository.save(any()) } answers { firstArg() }
-            service.recordClaim(7L, Claim(AttributeType.KVNR, "A123456789", ClaimSource.EXT_STAMMDATEN), provenAcr = AcrLevel.LOA2)
+            service.recordClaim(7L, Claim(AttributeType.KVNR, "A123456789", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2)
             verify(exactly = 1) { accountClaimRepository.save(match { it.attributeType == AttributeType.KVNR }) }
             verify(exactly = 0) { accountAnchorRepository.save(any()) }
             verify(exactly = 0) { accountRepository.save(any()) }
@@ -318,16 +318,16 @@ class AccountServiceTest : BehaviorSpec({
         then("typed extensions resolve both person ID and email through anchors") {
             val account = Account(createdAt = Instant.now()).apply { id = 7L }
             every { accountRepository.findByIdOrNull(7L) } returns account
-            for ((type, value) in listOf(AttributeType.EMAIL to "max@example.com", AttributeType.PERSON_ID to "42")) {
+            for ((type, value) in listOf(AttributeType.EMAIL to "max@example.com", AttributeType.PERSON_ID to "P000000042")) {
                 every { accountAnchorRepository.findByAttributeTypeAndValue(type, value) } returns
                     AccountAnchor(attributeType = type, value = value, accountId = 7L, establishedAt = Instant.now())
             }
             service.findAccountByEmail("  Max@Example.COM ")?.accountId shouldBe 7L
-            service.findAccountByPersonId(42L)?.accountId shouldBe 7L
+            service.findAccountByPersonId("P000000042")?.accountId shouldBe 7L
             every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.EMAIL, "missing@example.com") } returns null
-            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "99") } returns null
+            every { accountAnchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000099") } returns null
             service.findAccountByEmail("missing@example.com") shouldBe null
-            service.findAccountByPersonId(99L) shouldBe null
+            service.findAccountByPersonId("P000000099") shouldBe null
         }
 
         `when`("resolving an account by anchor") {

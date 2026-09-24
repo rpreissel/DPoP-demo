@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.kc
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.ext_stammdaten.ExtStammdatenService
+import com.example.dpop.ext_personenverzeichnis.Personenverzeichnis
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
@@ -20,7 +20,7 @@ data class KeycloakSyncResult(val upserted: Int, val deletedOrphans: Int)
 @Profile("keycloak")
 class KeycloakAccountSyncService(
     private val accountService: AccountService,
-    private val extStammdatenService: ExtStammdatenService,
+    private val personenverzeichnis: Personenverzeichnis,
     private val keycloakAdminClient: KeycloakAdminClient,
     private val accountKeypairService: AccountKeypairService
 ) {
@@ -37,7 +37,7 @@ class KeycloakAccountSyncService(
             // sync (or the event-driven path once one is confirmed) creates it for real.
             if (profile.email == null) return@forEach
             // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
-            val person = profile.personId?.let { extStammdatenService.findPersonById(it) }
+            val person = profile.personId?.let { personenverzeichnis.findPersonById(it) }
             val mirror = kcUserMirror(
                 profile, person,
                 accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES)

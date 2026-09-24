@@ -70,11 +70,14 @@ export function confirmPromptOf(prompt: Prompt | undefined): ConfirmPrompt | und
 
 /**
  * One person of the (simulated) register - travels inside the demo bag, so it has no schema of its
- * own. Read live from the register, so anything but the KVNR may be missing (null) for a person
- * created on /ext/.
+ * own. Read live from the register, so anything but the Partnernummer may be missing (null) for a
+ * person created on /personenverzeichnis/.
  */
 export interface DemoPerson {
-  kvnr: string
+  /** The Partnernummer - every person has one (ADR-34). */
+  personId: string
+  /** Only for a person insured with us, and even then possibly missing for a while. */
+  kvnr?: string | null
   name?: string | null
   vorname?: string | null
   /** Our account data, not the register's - only set for the seeded personas. */
@@ -157,7 +160,10 @@ export interface IdTokenClaims {
   amr?: string[]
   auth_time?: number
   accountId?: number
-  personId?: number
+  /** The Partnernummer (`P` and nine digits) of the person behind this account. */
+  personId?: string
+  /** Versicherungsnummer - only for a person insured with us; with personId it gives the role (ADR-34). */
+  versnr?: string
   /** "Vorname Name" of the person behind this account (PersonDirectory.displayName) - who is logged in. */
   name?: string
   email?: string

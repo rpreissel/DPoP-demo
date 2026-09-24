@@ -32,7 +32,7 @@ Entscheidung, nicht eine neue.
 ## Aufteilung und Reihenfolge
 
 Die Versionen laufen über alle Module hinweg durch, weil Flyway eine einzige Historie führt. Die
-Reihenfolge folgt den Fremdschlüsseln: `ext_stammdaten` (V1), `account` (V2), `orchestrator` (V3),
+Reihenfolge folgt den Fremdschlüsseln: `ext_personenverzeichnis` (V1), `account` (V2), `orchestrator` (V3),
 danach die Ident- und Auth-Module, zuletzt die Demo-Daten (V16), die Personen und Freischaltcodes
 zugleich brauchen.
 

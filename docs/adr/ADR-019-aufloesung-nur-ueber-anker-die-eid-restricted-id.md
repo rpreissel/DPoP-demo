@@ -20,18 +20,18 @@ zweiten ADR-12-Nachtrag auch im Claim-Log: Der Anker-Ersatz schreibt einen Wider
 alten Wert, damit das Log mit dem Anker übereinstimmt.
 
 Der Abgleich dreier Attribute (Name/Vorname/Geburtsdatum) bleibt genau dort, wo er
-fachlich hingehört: als **Konsistenzprüfung gegen `ext_stammdaten`**, nie als Auflösungsschicht
+fachlich hingehört: als **Konsistenzprüfung gegen `ext_personenverzeichnis`**, nie als Auflösungsschicht
 über Account-Claims. `verifyToolAttestedConsistency` prüft die KVNR-aufgelöste Person gegen die
 bestätigten Attribute; `attestedIdentityMatches` vergleicht vor dem Korrelations-Anker die
 Stammdaten hinter der Nummer mit der bestätigten Identität.
 
 **Erwogene Alternative**: Die Attributkombination behalten, aber nur noch im Zusammenhang mit
-dem KVNR-Vergleich wirken lassen und ihre Werte gegen `ext_stammdaten` statt gegen den Account
+dem KVNR-Vergleich wirken lassen und ihre Werte gegen `ext_personenverzeichnis` statt gegen den Account
 prüfen.
 
 **Warum diese**: Account-Claims sagen, woher ein Wert kam, sie sind keine Register-Wahrheit — ein
 Dreifach-Treffer darauf kann denselben Datensatz in fremden Konten finden und war damit schwächer
-als das, was er ersetzen sollte. Der KVNR-Abgleich gegen `ext_stammdaten` ist bereits als Guard
+als das, was er ersetzen sollte. Der KVNR-Abgleich gegen `ext_personenverzeichnis` ist bereits als Guard
 vorhanden; eine zweite Matching-Schicht über Account-Historie ist redundant und erzeugt nur den
 nie sauber spezifizierten `Ambiguous`-Kanal in der Journey. Die `restricted_id` ist das fachlich
 richtige Wiedererkennungsmerkmal für eid-Interessenten: an die Karte gebunden, mit einem neuen

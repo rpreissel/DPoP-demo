@@ -7,7 +7,7 @@ import java.time.LocalDate
 
 private val BIRTHDATE = LocalDate.of(1985, 6, 15)
 
-private val PERSONALIEN = IdentFscInput(kvnr = "A123456789", name = "Muster", vorname = "Max", geburtsdatum = BIRTHDATE, personId = 5L)
+private val PERSONALIEN = IdentFscInput(kvnr = "A123456789", name = "Muster", vorname = "Max", geburtsdatum = BIRTHDATE, personId = "P000000005")
 
 class IdentFscFlowTest : BehaviorSpec({
 
@@ -38,7 +38,7 @@ class IdentFscFlowTest : BehaviorSpec({
 
             then("decide() asks for the personal data to be checked right away") {
                 IdentFscFlow.decide(merged, PERSONALIEN) shouldBe
-                    IdentFscDecision.VerifyPersonalien(5L, "Muster", "Max", BIRTHDATE)
+                    IdentFscDecision.VerifyPersonalien("P000000005", "Muster", "Max", BIRTHDATE)
             }
 
             then("fsc is what is still missing") {
@@ -55,7 +55,7 @@ class IdentFscFlowTest : BehaviorSpec({
             val merged = IdentFscFlow.merge(state, input)
 
             then("decide() checks only the code") {
-                IdentFscFlow.decide(merged, input) shouldBe IdentFscDecision.VerifyCode(5L, checkNotNull(merged.fscHash))
+                IdentFscFlow.decide(merged, input) shouldBe IdentFscDecision.VerifyCode("P000000005", checkNotNull(merged.fscHash))
             }
         }
 
@@ -64,7 +64,7 @@ class IdentFscFlowTest : BehaviorSpec({
 
             then("decide() checks the personal data again") {
                 IdentFscFlow.decide(IdentFscFlow.merge(state, input), input) shouldBe
-                    IdentFscDecision.VerifyPersonalien(5L, "Muster", "Max", BIRTHDATE.plusDays(1))
+                    IdentFscDecision.VerifyPersonalien("P000000005", "Muster", "Max", BIRTHDATE.plusDays(1))
             }
         }
 
@@ -82,8 +82,43 @@ class IdentFscFlowTest : BehaviorSpec({
         }
     }
 
+    given("the two identifiers, KVNR and Partnernummer (ADR-34)") {
+        val withKvnr = IdentFscFlow.merge(IdentFscState(), PERSONALIEN)
+
+        then("a Partnernummer replaces the KVNR, and its person with it") {
+            val merged = IdentFscFlow.merge(withKvnr, IdentFscInput(partnernr = "P000000004", personId = "P000000004"))
+            merged.kvnr shouldBe null
+            merged.partnernr shouldBe "P000000004"
+            merged.personId shouldBe "P000000004"
+        }
+
+        then("a KVNR replaces the Partnernummer") {
+            val partner = IdentFscFlow.merge(IdentFscState(), IdentFscInput(partnernr = "P000000004", personId = "P000000004"))
+            val merged = IdentFscFlow.merge(partner, IdentFscInput(kvnr = "A123456789", personId = "P000000005"))
+            merged.kvnr shouldBe "A123456789"
+            merged.partnernr shouldBe null
+            merged.personId shouldBe "P000000005"
+        }
+
+        then("brought together, the KVNR wins") {
+            val merged = IdentFscFlow.merge(IdentFscState(), IdentFscInput(kvnr = "A123456789", partnernr = "P000000004", personId = "P000000005"))
+            merged.kvnr shouldBe "A123456789"
+            merged.partnernr shouldBe null
+        }
+
+        then("with a Partnernummer, kvnr is not reported missing") {
+            val partner = IdentFscFlow.merge(
+                IdentFscState(),
+                IdentFscInput(partnernr = "P000000004", name = "Schulz", vorname = "Paula", geburtsdatum = BIRTHDATE, personId = "P000000004")
+            )
+            IdentFscFlow.missingFields(partner) shouldBe listOf("fsc")
+            IdentFscFlow.missingFields(IdentFscFlow.merge(IdentFscState(), IdentFscInput(partnernr = "P000000004"))) shouldBe
+                listOf("name", "vorname", "geburtsdatum")
+        }
+    }
+
     given("merge()") {
-        val state = IdentFscState(kvnr = "A123456789", name = "Muster", personId = 5L)
+        val state = IdentFscState(kvnr = "A123456789", name = "Muster", personId = "P000000005")
 
         `when`("a later PATCH corrects vorname and never touches kvnr/name") {
             then("kvnr/name and the person survive, vorname is added") {

@@ -82,6 +82,10 @@ Umgang mit den Referenzen:
 
 ## 3a) Keycloak-Spiegelung: offene Zustellungen stehen in einer Tabelle
 
+Neben Konto-Änderungen löst auch eine Änderung im Personenverzeichnis die Spiegelung aus: `PersonChanged`
+→ Konto (`applyDirectoryChange`) → `AccountChanged(changed)` → Keycloak, beide Schritte als Einträge dieser
+Tabelle (ADR-34). Berührt die Änderung nichts Gespiegeltes, entfällt der Keycloak-Aufruf.
+
 Jedes Konto wird als Keycloak-Nutzer gespiegelt (`KeycloakAccountSyncListener`, nur im
 `keycloak`-Profil). Die Spiegelung läuft nach dem Commit und ist absichtlich best-effort: Ein
 fehlgeschlagener Keycloak-Aufruf darf eine bereits abgeschlossene Kontoänderung nicht nachträglich
