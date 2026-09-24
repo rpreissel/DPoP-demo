@@ -61,6 +61,14 @@ class KeycloakMigrationToken(
         return fresh.value
     }
 
+    /**
+     * Verwirft das gecachte Token - nach dem Anlegen eines Realms: dessen Admin-Rechte stehen erst
+     * in einem danach ausgestellten Token (MigrationRunner.onRealmCreated).
+     */
+    fun invalidate() {
+        cached = null
+    }
+
     private data class CachedToken(val value: String, val expiresAt: Instant)
 
     companion object {

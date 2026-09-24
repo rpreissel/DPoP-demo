@@ -59,7 +59,7 @@ class KeycloakMigrationRunnerStartup(
             migrations.map { it.name }, setup.realm.realmName, paramsSource.variant,
         )
         val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = true)
-        val runner = MigrationRunner(kc, setup.realm, migrations)
+        val runner = MigrationRunner(kc, setup.realm, migrations, onRealmCreated = migrationToken::invalidate)
         try {
             runner.up()
         } catch (e: MigrationStepFailedException) {

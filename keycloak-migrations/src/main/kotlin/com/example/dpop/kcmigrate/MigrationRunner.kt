@@ -85,6 +85,13 @@ class MigrationRunner(
     private val kc: Keycloak,
     private val setup: RealmSetup,
     private val migrations: List<MigrationFile>,
+    /**
+     * Nach dem Anlegen des Realms aufgerufen: das bis dahin verwendete Token muss weg. Keycloak
+     * prueft Admin-Rechte an den Rollen IM Token, und die Rechte auf das neue Realm kommen erst mit
+     * seinem Anlegen hinzu - ein vorher ausgestelltes Token kennt sie nicht, der naechste Aufruf
+     * gegen das Realm scheiterte mit 403.
+     */
+    private val onRealmCreated: () -> Unit = {},
 ) {
     private val realmName: String get() = setup.realmName
     private val realm: RealmResource get() = kc.realm(realmName)
@@ -135,6 +142,7 @@ class MigrationRunner(
             realm = realmName
             setEnabled(true)
         })
+        onRealmCreated()
     }
 
     /**
