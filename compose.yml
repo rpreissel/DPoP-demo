@@ -86,14 +86,8 @@ services:
       # TCP-Connects gezielt das JWKS des Master-Realms ab. Das ist ein echter
       # Anwendungsebenen-Check: ein reiner Port-Connect beweist nur, dass irgendein Listener
       # gebunden hat, nicht dass Keycloaks REST-Schicht (Realm-Subsystem, Datenbankverbindung etc.)
-      # tatsaechlich Anfragen beantwortet - genau die Luecke, die vorher ueber
-      # restart: on-failure unten kaschiert wurde, weil der TCP-Port in seltenen Faellen offen sein
-      # kann, bevor die REST-Schicht wirklich bereit ist.
-      #
-      # interval kurz gehalten, damit depends_on/service_healthy unten den Orchestrator nicht
-      # unnoetig lange blockiert; restart: on-failure bleibt trotzdem als Sicherheitsnetz, falls
-      # `podman wait --condition=healthy` sich doch einmal mit Podmans eigener
-      # Healthcheck-Initialisierung ueberschneidet.
+      # tatsaechlich Anfragen beantwortet. Nur noch fuer den Status in `podman ps`: auf Keycloak
+      # wartet der Orchestrator selbst (AwaitReachable), wie im OpenShift-Pod.
       test: ["CMD-SHELL", "java /opt/keycloak/healthcheck/JwksHealthCheck.java >/dev/null 2>&1"]
       interval: 2s
       timeout: 3s
@@ -102,10 +96,9 @@ services:
 
   # Containerisierter Orchestrator - wendet beim eigenen Start automatisch alle
   # Migrationen aus dem keycloak-migrations-Jar an (KeycloakMigrationRunnerStartup, nur im
-  # `keycloak`-Spring-Profil aktiv). restart: on-failure bleibt als Sicherheitsnetz stehen (siehe
-  # Healthcheck-Kommentar oben) - seit der JWKS-basierte Healthcheck echte REST-Bereitschaft statt
-  # nur eines offenen TCP-Ports prueft, greift es im Normalfall nicht mehr (verifiziert:
-  # RestartCount=0 ueber mehrere frische `podman-compose up`-Laeufe).
+  # `keycloak`-Spring-Profil aktiv). Kein depends_on: vor der Migration wartet er selbst, bis
+  # Keycloak antwortet (AwaitReachable, keycloak-migrate.wait-timeout) - dasselbe Verhalten wie im
+  # OpenShift-Pod, wo es keine Startreihenfolge gibt.
   orchestrator:
     build:
       # build/podman/orchestrator statt Repo-Wurzel - siehe Begruendung beim keycloak-Service oben
@@ -117,12 +110,6 @@ services:
         # Dockerfile ist reines Laufzeit-Image (siehe `./gradlew stagePodmanArtifacts`), deshalb
         # gibt es hier keine Frontend-/Build-/Gradle-Distribution-Args mehr.
         RUNTIME_BASE_IMAGE: ${ORCHESTRATOR_RUNTIME_BASE_IMAGE:-registry.access.redhat.com/ubi9/openjdk-21-runtime:latest}
-    depends_on:
-      # service_healthy statt nur service_started: erst wenn Keycloaks JWKS-Healthcheck oben
-      # erfolgreich war, macht ein erster Migrations-Versuch ueberhaupt Sinn.
-      keycloak:
-        condition: service_healthy
-    restart: on-failure
     environment:
       SPRING_PROFILES_ACTIVE: keycloak
       # /data liegt auf dem eigenen Volume (siehe unten).
