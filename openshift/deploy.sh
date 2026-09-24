@@ -14,7 +14,7 @@
 # ist wichtig, denn sie gehoeren zum Realm-Aufbau; aendern sie sich, baut die Migration das Realm neu.
 #
 # Basis-Images wie bei Compose per KEYCLOAK_BASE_IMAGE / ORCHESTRATOR_RUNTIME_BASE_IMAGE
-# ueberschreibbar, in der Shell oder in .env/.env.local (openshift/env.sh). Die Basis-Images zieht
+# ueberschreibbar, in der Shell oder in .env (openshift/env.sh). Die Basis-Images zieht
 # hier der Build im Cluster: fuer registry.redhat.io braucht er dort Zugangsdaten (meist schon im
 # globalen Pull-Secret, sonst ein Pull-Secret am builder-Service-Account).
 # SKIP_GRADLE=1 ueberspringt Schritt 1 (Artefakte schon gebaut).
