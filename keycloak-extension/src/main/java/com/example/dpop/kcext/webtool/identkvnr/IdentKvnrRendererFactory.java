@@ -27,7 +27,7 @@ public class IdentKvnrRendererFactory extends AbstractWebToolRendererFactory {
 
     @Override
     public KcText hint() {
-        return KcText.t("Konto der Registerperson zuordnen");
+        return KcText.t("Konto der eigenen Person im Personenverzeichnis zuordnen");
     }
 
     @Override

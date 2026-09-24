@@ -63,7 +63,7 @@ und Registrierungs-App lesen.
 - **Faktor-Typen** (eigene Texte „Wissen“, „Besitz“, „Inhärenz“): „Wissen“, „Besitz“, „Biometrie“.
 - **Technische Fehler** (Platzhalter `{detail}`, `{id}`, Referenzen): allgemein verständlich formulieren, das Detail
   in Klammern am Ende stehen lassen.
-- **Fremdsysteme** (Bundles `nect`, `kobil`, `register`): Ton des jeweiligen Dienstes, knapp, ebenfalls „Sie“.
+- **Fremdsysteme** (Bundles `nect`, `kobil`, `personenverzeichnis`): Ton des jeweiligen Dienstes, knapp, ebenfalls „Sie“.
 - Englische Vorlagen (einige Systemfehler) ebenfalls ins Deutsche bringen.
 
 ## Beschriftungen im Frontend und auf der Login-Seite

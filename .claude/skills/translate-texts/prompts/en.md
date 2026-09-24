@@ -18,7 +18,7 @@ health insurer reads in its login and registration app. Translate the meaning, n
 - **Factor types** ("Wissen", "Besitz", "Inhärenz"): "knowledge", "possession", "biometrics" (lower case, they are
   inserted mid-sentence).
 - **Technical errors** with `{detail}`/`{id}`: a general, understandable sentence, detail in parentheses at the end.
-- **Foreign services** (bundles `nect`, `kobil`, `register`): their own short service tone.
+- **Foreign services** (bundles `nect`, `kobil`, `personenverzeichnis`): their own short service tone.
 - British or American spelling: American.
 
 ## Labels in the frontend and on the login page

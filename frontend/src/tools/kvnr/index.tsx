@@ -12,7 +12,7 @@ export const identKvnr: ToolModule = {
   meta: {
     icon: '🗂️',
     label: t('Versichertennummer'),
-    hint: t('Konto der Registerperson zuordnen'),
+    hint: t('Konto der eigenen Person im Personenverzeichnis zuordnen'),
     // Wer abbricht, registriert weiter - das Konto bleibt Interessent (ADR-10/ADR-18). Gesetzt
     // heisst zugleich: Dieses Tool zeichnet den Ausweg selbst, die Rahmen-UI laesst ihn weg.
     skipLabel: SKIP_LABEL,

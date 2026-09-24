@@ -64,13 +64,13 @@ export function WelcomeApp() {
               website={<strong>{t('Website')}</strong>}
             />{' '}
             {t(
-              'Man weist sich einmal aus - per Freischaltcode aus einem Brief oder per eID - und meldet sich danach mit SMS, ' +
+              'Man weist sich einmal aus - per Freischaltcode aus einem Brief, per eID oder über Nect - und meldet sich danach mit SMS, ' +
                 'E-Mail, Passwort oder einem Geräteschlüssel an, bei Bedarf mit zweitem Faktor (Step-up).',
             )}{' '}
             <Tx text="Am Ende steht ein {token}: der Ausweis, mit dem eine Anwendung Sie erkennt." token={<strong>{t('AccessToken')}</strong>} />
           </p>
           <p>
-            {t('Jeder Browser-Tab dieser Demo spielt eine Rolle: das Smartphone, die Website, das externe Register, den Betreiber.')}{' '}
+            {t('Jeder Browser-Tab dieser Demo spielt eine Rolle: das Smartphone, die Website, das Personenverzeichnis, den Betreiber.')}{' '}
             {t('Welche das ist, steht auf jeder Kachel.')}
           </p>
           <ul className="method-choice-list channel-choice-list">
@@ -134,8 +134,9 @@ export function WelcomeApp() {
                 <span className="method-choice-text">
                   <span className="method-choice-label">{t('Personenverzeichnis - spielt ein fremdes System')}</span>
                   <span className="method-choice-hint">
-                    {t('Das externe Register mit den Stammdaten der Versicherten.')}{' '}
-                    {t('Es stellt die Freischaltcodes aus und verschickt sie als Brief - der Briefkasten zeigt, was bei der Person ankäme.')}
+                    {t('Das externe Verzeichnis aller Personen, die wir kennen - Versicherte und Partner.')}{' '}
+                    {t('Es stellt die Freischaltcodes aus und verschickt sie als Brief - der Briefkasten zeigt, was bei der Person ankäme.')}{' '}
+                    {t('Was Sie dort ändern, übernehmen die Konten und Keycloak.')}
                   </span>
                 </span>
               </a>
@@ -177,8 +178,8 @@ export function WelcomeApp() {
               <ul>
                 <li>{t('Das Smartphone - ein Browser-Tab')}</li>
                 <li>{t('SMS- und E-Mail-Versand - der Code steht direkt im Formular')}</li>
-                <li>{t('Der Brief mit dem Freischaltcode - der Briefkasten im Register')}</li>
-                <li>{t('Das Auslesen der eID-Karte und der Dienstleister KOBIL')}</li>
+                <li>{t('Der Brief mit dem Freischaltcode - der Briefkasten im Personenverzeichnis')}</li>
+                <li>{t('Das Auslesen der eID-Karte und die Dienstleister Nect und KOBIL')}</li>
                 <li>{t('Das Personenverzeichnis selbst')}</li>
               </ul>
             </div>
@@ -197,7 +198,7 @@ export function WelcomeApp() {
               />{' '}
               <Tx
                 text={
-                  'Dabei weisen Sie sich einmalig per {identifikation} aus ("das bin ich": Freischaltcode oder eID) - die Person ' +
+                  'Dabei weisen Sie sich einmalig per {identifikation} aus ("das bin ich": Freischaltcode, eID oder Nect) - die Person ' +
                   'dahinter bleibt vom Konto getrennt gedacht: Identifizieren Sie sich später mit derselben Test-Identität erneut, ' +
                   'landet die Demo auf demselben Konto statt einem neuen.'
                 }
@@ -210,6 +211,20 @@ export function WelcomeApp() {
                 }
                 verfahren={<strong>{t('Anmeldeverfahren')}</strong>}
               />
+            </p>
+            <p>
+              <Tx
+                text={
+                  'Wen die Demo hinter einem Konto kennt, sagt seine {rolle}: {versicherter} ist, wer bei uns versichert ist - mit ' +
+                  'Versicherungsnummer und meist auch KVNR. {partner} ist, wen das Personenverzeichnis nur mit seiner Partnernummer ' +
+                  'kennt. {interessent} ist ein Konto, dem noch keine Person zugeordnet ist.'
+                }
+                rolle={<strong>{t('Rolle')}</strong>}
+                versicherter={<strong>{t('Versicherter')}</strong>}
+                partner={<strong>{t('Partner')}</strong>}
+                interessent={<strong>{t('Interessent')}</strong>}
+              />{' '}
+              {t('Nach eID oder Nect ordnet ein eigener Schritt das Konto einer Person zu: zuerst über die KVNR, ohne KVNR über die Partnernummer.')}
             </p>
             <p>
               <Tx

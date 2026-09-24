@@ -17,7 +17,7 @@ const ROLE_LABELS: Record<MethodRole, string> = {
   IDENTIFIED_AUTH: t('Anmelden - Konto bekannt'),
   LOOKUP_AUTH: t('Anmelden - über E-Mail-Adresse'),
   IDENTIFICATION: t('Identifizieren'),
-  CORRELATION: t('Registerperson zuordnen'),
+  CORRELATION: t('Person im Personenverzeichnis zuordnen'),
   ENROLLMENT: t('Einrichten'),
   ATTESTATION: t('E-Mail bestätigen'),
   PEER_APPROVAL: t('Web-Login bestätigen'),

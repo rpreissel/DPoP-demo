@@ -67,10 +67,12 @@ export function PersonenverzeichnisApp() {
         <div className="ext-banner">
           <Tx text="Simuliertes {fremdsystem}: das externe Personenverzeichnis." fremdsystem={<strong>{t('Fremdsystem')}</strong>} />{' '}
           <Tx
-            text="Unsere Anwendung liest es nur über {schnittstelle} und fragt es beim Freischaltcode ({tool})."
+            text="Unsere Anwendung liest es nur über {schnittstelle} und fragt es beim Freischaltcode ({fsc}) und bei der Zuordnung ({zuordnung})."
             schnittstelle={<code>PersonDirectory</code>}
-            tool={<code>ident-fsc</code>}
-          />
+            fsc={<code>ident-fsc</code>}
+            zuordnung={<code>ident-kvnr</code>}
+          />{' '}
+          {t('Was Sie hier ändern, meldet es an die Konten - und über sie an Keycloak.')}
         </div>
         {error && <div className="card error-card"><h2>{t('Fehler')}</h2><p>{error}</p></div>}
         {tab === 'personen' && <PersonenTab personen={personen} onChanged={reload} onError={setError} />}
@@ -234,7 +236,7 @@ function FreischaltcodesTab({ personen, onError }: { personen: RegisterPerson[];
         </table>
       </div>
       <p className="hint">
-        {t('Das Register speichert nur den Hash.')} {t('Den Klartext trägt allein der Brief, siehe Briefkasten.')}
+        {t('Das Personenverzeichnis speichert nur den Hash.')} {t('Den Klartext trägt allein der Brief, siehe Briefkasten.')}
       </p>
 
       <h3>{t('Neuen Code ausstellen')}</h3>

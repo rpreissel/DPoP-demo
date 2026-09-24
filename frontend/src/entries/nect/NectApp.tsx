@@ -238,7 +238,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
               if (p) setPerson(fieldsOf(p))
             }}
           >
-            <option value="">{t('Person aus dem Register übernehmen …')}</option>
+            <option value="">{t('Person aus dem Personenverzeichnis übernehmen …')}</option>
             {personen.map((p) => (
               <option key={p.id} value={p.id}>{[p.vorname, p.name].filter(Boolean).join(' ')}</option>
             ))}
