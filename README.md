@@ -52,7 +52,7 @@ Zwei weitere Varianten, je nachdem, ob überhaupt ein echtes Keycloak gebraucht 
   Compose-interne `https://keycloak:8443`). Reines `bootRun` bliebe im Default-Profil und würde
   gar nicht gegen das Compose-Keycloak sprechen.
 - **Ohne Keycloak**: `./gradlew bootRun` allein (Default-Profil) — kein Podman/Compose nötig,
-  dafür nur App-Kanal, Personenverzeichnis und Admin; der Web-Kanal ist dann deaktiviert.
+  dafür nur App-Kanal, Personenverzeichnis, Nect-Mock und Admin; der Web-Kanal ist dann deaktiviert.
 
 ## Basis-Images von außen konfigurieren
 
@@ -93,10 +93,11 @@ Orchestrators (Account-Sync, Peer-Auth-JWKS, OIDC-Issuer). `KEYCLOAK_SETUP_VARIA
 
 | Variante | Wofür |
 |---|---|
-| `host` | Orchestrator per `./gradlew bootRun` auf dem Host, nur Keycloak im Container |
+| `host` | Orchestrator per `./gradlew bootRunKc` auf dem Host, nur Keycloak im Container |
 | `compose` | beide im Compose-Netz (`compose.yml` setzt sie selbst) |
+| `openshift` | Prototyp `openshift/dpop-demo.yaml`: ein Pod, beide Container teilen sich das Netz |
 
-Beide stehen in `application-keycloak.yml` unter `keycloak-setup.variants`, und `keycloak-setup.base`
+Alle drei stehen in `application-keycloak.yml` unter `keycloak-setup.variants`, und `keycloak-setup.base`
 darüber nennt jedes Feld einmal — eine weitere Umgebung ist damit ein Eintrag dort, keine
 Codeänderung; jede Variante nennt nur, worin sie von der Basis abweicht. Die Werte für den Keycloak-seitigen Teil landen als
 Config-Properties der `orchestrator`-Komponente im Realm (User federation in der Admin-Console),

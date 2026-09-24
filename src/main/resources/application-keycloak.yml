@@ -1,7 +1,7 @@
 # Profile fuer den echten Web-/Keycloak-Kanal (docs/05-api.md Abschnitt 3), gegen das per
 # podman-compose gestartete Keycloak. Ohne dieses Profil gibt es keinen Web-Kanal.
 # Start: `podman-compose up --build` (compose.yml) fuer Keycloak, parallel dazu
-# `./gradlew bootRun --args='--spring.profiles.active=keycloak'` fuer den Orchestrator selbst.
+# `./gradlew bootRunKc` (bootRun mit aktivem Profil keycloak) fuer den Orchestrator selbst.
 #
 # WO HIER WAS STEHT: Realm-Name und Keycloak-Adresse stehen NICHT mehr in
 # diesem Profil, sondern ausschliesslich im Parametersatz unten (keycloak-setup).
@@ -31,8 +31,9 @@ kc:
 # KeycloakMigrationRunnerStartup wendet die Migrationen beim Start des Orchestrators an - Ersatz
 # fuer den frueheren separaten Tofu-Schritt. Es gibt hier nichts mehr zu konfigurieren: die
 # Skripte sind Ressourcen des keycloak-migrations-Jars (classpath*:keycloak-migrations/*.kc.kts),
-# und base-url wie Admin-Zugang sind aus der gewaehlten Umgebung abgeleitet (siehe Kopf). Der
-# Zugang ist bewusst der Master-Realm-Admin und nicht keycloak-sync's
+# und base-url wie Admin-Zugang sind aus der gewaehlten Umgebung abgeleitet (siehe Kopf). Die
+# Migration meldet sich als Client orchestrator-migration im Master-Realm an (private_key_jwt,
+# von der Extension beim Keycloak-Start angelegt, compose.yml) - nicht mit keycloak-sync's
 # orchestrator-admin-Service-Account: den legt die Migration selbst erst an.
 
 # Welche Umgebung aufgebaut und bedient wird. Alles, was zwischen zwei Umgebungen verschieden ist
@@ -78,7 +79,7 @@ keycloak-setup:
     publicKeycloakBaseUrl: https://localhost:8543
   variants:
     host:
-      # Orchestrator laeuft auf dem Host (./gradlew bootRun), nur Keycloak im Container: der Weg
+      # Orchestrator laeuft auf dem Host (./gradlew bootRunKc), nur Keycloak im Container: der Weg
       # dorthin geht ueber den gemappten Port, der Rueckweg ueber host.containers.internal -
       # Podman Machine (gvproxy, macOS) loest den Namen selbst auf. Auf reinem Linux-Podman ohne
       # Machine-VM braucht es dafuer eine eigene Variante mit der tatsaechlichen Host-IP.

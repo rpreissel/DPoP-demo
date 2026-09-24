@@ -11,24 +11,24 @@ unterstützt bzw. nachbildet.
 
 | Glossar-Begriff | Projekt-Fundstelle | Warum es passt |
 |---|---|---|
-| **Faktortyp Wissen/Besitz/Biometrie** | `enum class FactorType { KNOWLEDGE, POSSESSION, INHERENCE }` (`ToolDescriptor.kt:197`) | 1:1-Übersetzung, mit fast identischen Definitionen ("something the user knows/has/is"). |
-| **Authentisierungsmittel** (1-n verknüpfte Faktoren) | `Methode` = „was am Konto eingerichtet ist und einen Login ermöglicht" (`04-orchestrierung.md:126`), `AccountAuthMethod` | Deckt sich nahezu wörtlich mit der Glossar-Definition. |
-| **2-Faktor-Authentisierungsmittel, Beispiel „Gerät mit lokal per PIN/Biometrie freigeschaltetem Schlüssel"** | `auth-device`/`enroll-device`, `device-proof+jwt` mit `userVerification`-Claim (`pin`/`biometric`, `deviceKey.ts:83`, `06-ablaeufe.md:99`) | Exakt Glossar-Beispiel 2. Zusätzlich dynamisch korrekt: Faktorarten werden **pro Nachweis** aus dem tatsächlich genutzten `userVerification` abgeleitet (`AuthDeviceToolHandlerTest.kt:78`: `BIOMETRIC` → `POSSESSION+INHERENCE`), nicht pauschal für die Methode behauptet. |
+| **Faktortyp Wissen/Besitz/Biometrie** | `enum class FactorType { KNOWLEDGE, POSSESSION, INHERENCE }` (`ToolDescriptor.kt:309`) | 1:1-Übersetzung, mit fast identischen Definitionen ("something the user knows/has/is"). |
+| **Authentisierungsmittel** (1-n verknüpfte Faktoren) | `Methode` = „was am Konto eingerichtet ist und einen Login ermöglicht" (`04-orchestrierung.md` Abschnitt 1, „Begriffe“), `AccountAuthMethod` | Deckt sich nahezu wörtlich mit der Glossar-Definition. |
+| **2-Faktor-Authentisierungsmittel, Beispiel „Gerät mit lokal per PIN/Biometrie freigeschaltetem Schlüssel"** | `auth-device`/`enroll-device`, `device-proof+jwt` mit `userVerification`-Claim (`pin`/`biometric`, `deviceKey.ts:83`, `06-ablaeufe.md` Abschnitt 5) | Exakt Glossar-Beispiel 2. Zusätzlich dynamisch korrekt: Faktorarten werden **pro Nachweis** aus dem tatsächlich genutzten `userVerification` abgeleitet (`AuthDeviceToolHandlerTest.kt:79`: `BIOMETRIC` → `POSSESSION+INHERENCE`), nicht pauschal für die Methode behauptet. |
 | **Authentisieren** (Client übermittelt Nachweis) | Durchgängiges `Nachweis`/`ToolOutcome`-Vokabular, `AuthEvidence` | Projekt nennt es konsequent „Nachweis" — dieselbe Idee wie Glossar-„Nachweis über das Innehaben". |
 | **Faktortyp Besitz / Gerätebindung / Prinzip des nicht kopierbaren Schlüssels** | `docs/09-dpop.md` Abschnitt 1–3, `bindingKeyRef` als JWK-Thumbprint, `extractable=false` | Trifft die Kernidee: eindeutig wiedererkennbares Gerät über einen nicht kopierbaren privaten Schlüssel; Bindung stirbt mit dem Schlüssel. |
-| **Bescheinigtes vs. unbescheinigtes Attribut** | `TrustLevel { STAMMDATEN(3), PROVEN(2), SELF_REPORTED(1) }`, `ClaimSource.SELF_REPORTED` = „A value the user entered with nothing backing it" (`tool_spi/Claims.kt:62-90`) | Sogar präziser als das Glossar: dreistufige, geordnete Rangfolge statt binärer Unterscheidung. Die Glossar-Regel „unbescheinigte Attribute dürfen niemals für Zuordnung verwendet werden" ist technisch erzwungen über `ClaimRequirement(attributeType, minTrustLevel)` — z. B. verlangt `enroll-password` `EMAIL` mindestens auf `PROVEN` (`auth_password/Descriptors.kt:35`), ein `SELF_REPORTED`-Wert reicht nicht (getestet in `DefaultAuthPolicyTest.kt:454`). **Einschränkung:** Kein aktuell ausgeliefertes Tool deklariert selbst `SELF_REPORTED` — der Wert ist vorhanden und policy-wirksam, aber im Tool-Set noch nicht produktiv genutzt. |
-| **Identifizierungsmittel-Beispiel „E-Mail-Konto mit implizit vertrauter Fremdauthentifizierung"** | `auth_email` (Methode `email`, EMAIL-Anker statt eigenes Credential, `02-domaenenmodell.md:236`) | Deckt sich mit dem Glossar-Beispiel „E-Mail-Konto, Server nimmt fremde Authentifizierung implizit an" — im Projekt sogar so benannt (`EMAIL_ANCHOR_ENROLLMENT`). |
-| **ID-Server/ID-System** | `ext_personenverzeichnis`/`PersonDirectory` (`02-domaenenmodell.md:226-230`, `06-ablaeufe.md:122`) | Genau die Rolle: externes System, das Identitäten (KVNR→Name/Geburtsdatum) kennt und über Zertifizierung/Claims für den Server nutzbar macht. |
-| **Identifizierung** (Anreicherung eines bereits wiedererkannten Clients um bescheinigte Attribute) | `AccountClaim`, `ClaimSource.PERSON_DIRECTORY` vs. `ClaimSource.of(toolId)` (`06-ablaeufe.md:122`) | Die Unterscheidung, wer für einen Wert einsteht (das Register oder das Verfahren selbst), ist exakt die Glossar-Unterscheidung Identifizierungsmittel vs. nachträglich erhaltenes bescheinigtes Attribut. |
-| **MFA-Kombinationsregel, „nicht verknüpfte Einzelfaktoren zählen nicht als ein Authentisierungsmittel"** | „Faktorvielfalt: verschiedene Faktorarten, nie Tool-Anzahl" (`04-orchestrierung.md:1037-1043`) | Deckt sich mit dem Glossar-Hinweis im Abschnitt „2-Faktor-Authentisierungsmittel". |
+| **Bescheinigtes vs. unbescheinigtes Attribut** | `TrustLevel { STAMMDATEN(3), PROVEN(2), SELF_REPORTED(1) }`, `ClaimSource.SELF_REPORTED` = „A value the user entered with nothing backing it" (`tool_spi/Claims.kt:84-126`) | Sogar präziser als das Glossar: dreistufige, geordnete Rangfolge statt binärer Unterscheidung. Die Glossar-Regel „unbescheinigte Attribute dürfen niemals für Zuordnung verwendet werden" ist technisch erzwungen über `ClaimRequirement(attributeType, minTrustLevel)` — z. B. verlangt `enroll-password` `EMAIL` mindestens auf `PROVEN` (`auth_password/Descriptors.kt:43`), ein `SELF_REPORTED`-Wert reicht nicht (getestet in `DefaultAuthPolicyTest.kt:454`). **Einschränkung:** Kein aktuell ausgeliefertes Tool deklariert selbst `SELF_REPORTED` — der Wert ist vorhanden und policy-wirksam, aber im Tool-Set noch nicht produktiv genutzt. |
+| **Identifizierungsmittel-Beispiel „E-Mail-Konto mit implizit vertrauter Fremdauthentifizierung"** | `auth_email` (Methode `email`, EMAIL-Anker statt eigenes Credential, `02-domaenenmodell.md` Abschnitt 7, Absatz unter dem Konto-Diagramm) | Deckt sich mit dem Glossar-Beispiel „E-Mail-Konto, Server nimmt fremde Authentifizierung implizit an" — im Projekt sogar so benannt (`EMAIL_ANCHOR_ENROLLMENT`). |
+| **ID-Server/ID-System** | `ext_personenverzeichnis`/`PersonDirectory` (`02-domaenenmodell.md` Abschnitt 7, Tabelle `ext_personenverzeichnis.person`; `06-ablaeufe.md` Abschnitt 6) | Genau die Rolle: externes System, das Personen kennt (Partnernummer; KVNR bzw. Partnernummer → Name/Geburtsdatum/Adresse) und über Zertifizierung/Claims für den Server nutzbar macht. |
+| **Identifizierung** (Anreicherung eines bereits wiedererkannten Clients um bescheinigte Attribute) | `AccountClaim`, `ClaimSource.PERSON_DIRECTORY` vs. `ClaimSource.of(toolId)` (`06-ablaeufe.md` Abschnitt 6) | Die Unterscheidung, wer für einen Wert einsteht (das Personenverzeichnis oder das Verfahren selbst), ist exakt die Glossar-Unterscheidung Identifizierungsmittel vs. nachträglich erhaltenes bescheinigtes Attribut. |
+| **MFA-Kombinationsregel, „nicht verknüpfte Einzelfaktoren zählen nicht als ein Authentisierungsmittel"** | „Faktorvielfalt: verschiedene Faktorarten, nie Tool-Anzahl" (`04-orchestrierung.md` Abschnitt 8, „AuthPolicy: Mehr-Faktor-Entscheidung“) | Deckt sich mit dem Glossar-Hinweis im Abschnitt „2-Faktor-Authentisierungsmittel". |
 
 ## 2) Passt einigermaßen
 
 | Glossar-Begriff | Abweichung |
 |---|---|
 | **Authentisierung vs. Authentifizierung** (Client-Vorgang vs. Server-Prüfung, bewusst zwei Wörter) | Das Projekt nutzt ausschließlich „Authentifizierung"/„authentifiziert" (`docs/*.md`, kein einziges „Authentisierung"). Die fachliche Unterscheidung existiert implizit (Tool = Client-Nachweis, `AuthPolicy` = Server-Prüfung), ist aber terminologisch nicht nachgezogen. |
-| **Faktortyp Besitz — Anforderung „sicherer Speicher" (Secure Element/TPM)** | Glossar setzt SE/TPM voraus. Die DPoP-Implementierung nutzt einen Browser-Schlüssel via Web Crypto API/IndexedDB (`09-dpop.md:13`, D-1..D-3) — kein Secure Element, keine Zertifizierung. Das ist für eine Demo bewusst so (`09-dpop.md:44` „Infrastrukturentscheidung, bewusst zurückgestellt"), erreicht aber nicht das vom Glossar beschriebene Sicherheitsniveau. |
-| **Identifizierungsmittel-Beispiel „Personalausweis/Ausweis-Foto als Biometrie"** | Projekt hat dafür `ident-fsc`/`ident-eid`, aber die Biometrie-Komponente aus dem Glossar-Beispiel fehlt: `id_fsc` deklariert nur `POSSESSION`, `id_eid` `{POSSESSION, KNOWLEDGE}` (kein `INHERENCE`). Konzept passt, das konkrete Biometrie-Beispiel nicht. |
+| **Faktortyp Besitz — Anforderung „sicherer Speicher" (Secure Element/TPM)** | Glossar setzt SE/TPM voraus. Die DPoP-Implementierung nutzt einen Browser-Schlüssel via Web Crypto API/IndexedDB (`09-dpop.md` Abschnitte 1–2, D-1..D-3) — kein Secure Element, keine Zertifizierung. Das ist für eine Demo bewusst so, wird in `09-dpop.md` aber bisher nicht ausdrücklich begründet, und erreicht nicht das vom Glossar beschriebene Sicherheitsniveau. |
+| **Identifizierungsmittel-Beispiel „Personalausweis/Ausweis-Foto als Biometrie"** | Projekt hat dafür `ident-fsc`/`ident-eid`/`ident-nect`. `id_fsc` deklariert nur `POSSESSION`, `id_eid` `{POSSESSION, KNOWLEDGE}`; `ident-nect` liefert beim Reisepass-Verfahren (`nect-epass`) `{POSSESSION, INHERENCE}` (`IdentNectToolHandler.kt:148`) — das Biometrie-Beispiel des Glossars ist damit abgedeckt, allerdings über einen simulierten Dienstleister. |
 
 ## 3) Passt gar nicht / andere Abstraktionsebene
 
@@ -47,19 +47,19 @@ verschieden lang lebende Bausteine, von denen keiner einzeln der Glossar-„Iden
 
 1. **Keine „Identität"-Tabelle, nur eine Projektion.** Am nächsten kommt `AccountProfile` — eine
    reine Leseprojektion, kein gespeicherter Zustand: `personId`/`email` werden aus
-   `AccountAnchor` *gelesen*, nicht aus eigenen Spalten (`02-domaenenmodell.md:139`).
+   `AccountAnchor` *gelesen*, nicht aus eigenen Spalten (`02-domaenenmodell.md` Abschnitt 6).
 2. **`Account` ist bewusst kein Träger von Identität.** Er trägt nur `id`, `createdAt`, `version`
    — die Identität des Kontos und den Punkt, über den Änderungen gesperrt werden, ausdrücklich
-   ohne einen eigenen Fakt (`02-domaenenmodell.md:138,232`).
+   ohne einen eigenen Fakt (`02-domaenenmodell.md` Abschnitt 6 und Abschnitt 7).
    Ein Account kann existieren, ohne dass überhaupt eine Glossar-„Identität" daran hängt — der
-   „Interessent"-Fall (`isUnidentified`, ADR-10, `02-domaenenmodell.md:139`).
+   „Interessent"-Fall (`isUnidentified`, ADR-10, `02-domaenenmodell.md` Abschnitt 6).
 3. **`AccountClaim` ist Historie, nicht Identität.** Ein Log jeder je bestätigten Änderung
    (`claim_source`, `normalized_value`, `AcrLevel`), das nur angefügt und nie überschrieben wird
-   (`02-domaenenmodell.md:143`) — die Herkunft, aus der der aktuelle Zustand
+   (`02-domaenenmodell.md` Abschnitt 6) — die Herkunft, aus der der aktuelle Zustand
    (`AccountAnchor`) abgeleitet und über `AccountRetraction` zeitbasiert korrigiert wird
-   (`02-domaenenmodell.md:142`).
+   (`02-domaenenmodell.md` Abschnitt 6).
 4. **`AccountIdentification` ist Audit, nicht Identität.** Protokolliert, dass und wie
-   identifiziert wurde, wird aber „für Entscheidungen … nie gelesen" (`02-domaenenmodell.md:141`)
+   identifiziert wurde, wird aber „für Entscheidungen … nie gelesen" (`02-domaenenmodell.md` Abschnitt 6)
    — bewusst abgekoppelt von dem, was die Identität tatsächlich bestimmt.
 
 **Einordnung:** Der aktuelle Anker-Zustand (`AccountAnchor`/`AccountProfile`) entspricht bei einer
@@ -106,7 +106,7 @@ Widerspruch.
    Das Glossar deutet selbst mehrere Bescheinigungswege unterschiedlicher Stärke an (Zertifizierung
    vs. „weniger sichere, nicht-kryptographische Prüfverfahren"), ohne sie zu benennen. `TrustLevel`
    (`STAMMDATEN`/`PROVEN`/`SELF_REPORTED`) macht diese Abstufung explizit und maschinell auswertbar
-   (`AnchorRule.acrFloor`, `02-domaenenmodell.md:145`) — die konsequente Weiterentwicklung dessen,
+   (`AnchorRule.acrFloor`, `02-domaenenmodell.md` Abschnitt 6) — die konsequente Weiterentwicklung dessen,
    was das Glossar bereits andeutet.
 4. **Aktive Identitätsauflösung (`IdentityMatchingService`).** Das Glossar beschreibt Identifizierung
    als Ergebnis, nicht als Prozess — es sagt nichts darüber, was bei einer Kollision zwischen neuer

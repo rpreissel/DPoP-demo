@@ -13,7 +13,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 - Ein React/TypeScript-Frontend, das einen DPoP-Proof erzeugt und mit dem Backend kommuniziert.
 - Einen `orchestrator`, der Session- und Journey-Zustände verwaltet und die fachliche Richtigkeit
   (Policy, Retry, DPoP-Bindung) durchsetzt, ohne die Methodenmodule zu kennen.
-- Mehrere fachliche Module (`id_fsc`, `id_eid`, `id_nect`, `id_kvnr`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`, `auth_kobil`),
+- Mehrere fachliche Module (`id_fsc`, `id_eid`, `id_nect`, `id_kvnr`, `auth_sms`, `auth_password`, `auth_email`, `auth_device`, `auth_qr`, `auth_kobil`),
   die ihre eigenen Tool-Endpunkte mitbringen und den Orchestrator ausschließlich über
   `tool_api` erreichen ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4).
 - Zwei Datenmodule (`account`, `ext_personenverzeichnis`), die Konto- bzw. Personendaten halten und
@@ -57,22 +57,22 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | Nr. | Modul | Verantwortung |
 |-----|-------|---------------|
 | M1 | `orchestrator` | Verwaltet Session-/Journey-Zustand, Policy und Retry; stellt die Channel-REST-API bereit und implementiert die `tool_api`-Ports `ToolEndpoint`/`DeviceProofs` |
-| M2 | `id_fsc` | Identifizierung (Tool `ident-fsc`); eigener `@RestController`; prüft den Freischaltcode direkt beim Register (`ext_personenverzeichnis.Freischaltcodes`, ADR-31) — dritte erlaubte Kante wie `auth_kobil → kobil_mock` |
+| M2 | `id_fsc` | Identifizierung (Tool `ident-fsc`); eigener `@RestController`; prüft den Freischaltcode direkt beim Personenverzeichnis (`ext_personenverzeichnis.Freischaltcodes`, ADR-31) — eine benannte Kante zum Fremdsystem wie `auth_kobil → kobil_mock` und `id_nect → nect_mock` |
 | M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); eigene `@RestController` |
 | M4 | `account` | Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
-| M5 | `ext_personenverzeichnis` | Simuliertes **Personenverzeichnis** (Fremdsystem): verwaltet `Person`-Entitäten (Schlüssel `personId`, änderbare KVNR, optionale Versicherungsnummer) mit Adressdaten, stellt Freischaltcodes aus (ADR-31) und meldet Änderungen als `PersonChanged` (ADR-34). Zwei Schnittstellen wie `kobil_mock`: den `tool_api`-Port `PersonDirectory` und die Klasse `Freischaltcodes` für `id_fsc` |
+| M5 | `ext_personenverzeichnis` | Simuliertes **Personenverzeichnis** (Fremdsystem): verwaltet `Person`-Entitäten (Schlüssel ist die Partnernummer, `P` und neun Ziffern, zufällig vergeben; Versicherungsnummer nur für Versicherte, KVNR nur zusammen mit ihr, beide änderbar) mit Adressdaten, stellt Freischaltcodes aus (ADR-31) und meldet Änderungen als `PersonChanged` (ADR-34). Drei Schnittstellen: den `tool_api`-Port `PersonDirectory`, die Klasse `Freischaltcodes` für `id_fsc` und die HTTP-Fassade `/mock-personenverzeichnis/*` für die Seite `/personenverzeichnis/`; der Orchestrator liest zusätzlich die Klasse `Personenverzeichnis` direkt (Demo-Personen, Keycloak-Abgleich) |
 | M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`); setzt über `ToolDescriptor.requires` eine bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) ([Tool-Architektur](03-tool-architektur.md)) |
 | M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account` |
 | M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …). Enthält bewusst keinen Controller: `tool_api` ist ein Vertrag, keine Web-Schicht, und jedes Methodenmodul hängt davon ab ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
-| M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), ohne Abhängigkeiten — jedes Modul, auch `tool_api`, darf darauf zugreifen |
+| M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), einzige Kante `texts` — jedes Modul, auch `tool_api`, darf darauf zugreifen |
 | M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bestätigt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController` |
 | M10a | `id_kvnr` | Zuordnung einer bestätigten Identität zu ihrer Person im Personenverzeichnis (per KVNR, sonst Partnernummer) (Tool `ident-kvnr`, ADR-18); eigener `@RestController` |
 | M11 | `auth_qr` | QR-Login des Web-Kanals, bestätigt über den App-Kanal (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [Orchestrierung](04-orchestrierung.md) `CONFIRM_PEER_LOGIN`); eigene `QrLoginRequest`-Persistenz, kein `account`-Zugriff; eigene `@RestController` |
 | M12 | `auth_device` | Geräte-Bindung als eigenes Auth-Mittel (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine `account`-Abhängigkeit |
-| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE) und `sms` (POSSESSION) an — dem Paar für ein Step-up auf LoA2, create-only: Testpersonen mit bestehendem PERSON_ID-/EMAIL-Anker-Konto werden übersprungen (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveAccountByPersonId`/`resolveAccountByEmail` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); kein `@RestController` |
-| M14 | `auth_kobil` | Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); backend-verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Sub-Ressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber als einziges Methodenmodul eine vierte erlaubte Kante: `kobil_mock` |
-| M16 | `orchestrator.kernel` | Kein eigenes Modulith-Modul, sondern das unterste Paket **innerhalb** von `orchestrator`: das gemeinsame Vokabular (`AuthIntent`, `AmrSource`, `AcrLevels`, `OrchestratorException`, `FeatureFlagProvider`). Hängt von nichts ab — das ist sein ganzer Vertrag. Es existiert, weil fast jeder Paketzyklus im Orchestrator ein *Name* am falschen Ort war: `AmrSource` sagt, woher ein Nachweis stammt (Policy-Frage), lag aber neben der JPA-Entität, die ihn speichert |
-| M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: `allowedDependencies = []` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Fassade `/mock-kobil/*` für die App (Pendant zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
+| M13 | `demo_seed` | Demo-only Bootstrap: legt für die vom `keycloak`-Profil geseedeten Testpersonen ein Orchestrator-Konto mit bestätigter Adresse und den Methoden `password` (KNOWLEDGE), `sms` (POSSESSION) und `qr` (Opt-in für den QR-Login) an — `password` und `sms` sind das Paar für ein Step-up auf LoA2; create-only: Testpersonen mit bestehendem PERSON_ID-/EMAIL-Anker-Konto werden übersprungen (`AccountService.recordClaim`/`recordClaims`/`addAuthenticationMethod`/`createUnidentifiedAccount`/`resolveAccountByPersonId`/`resolveAccountByEmail` über `account`, `PasswordCredentialPort`/`SmsCredentialPort`/`QrCredentialPort`/`PersonDirectory` über `tool_api`; PERSON_ID/EMAIL/PHONE_NUMBER-Claims tragen `ClaimSource.DEMO_BOOTSTRAP`; eine Transaktion); stellt `DemoAccountSeed` bereit, das der Orchestrator nach dem Demo-Reset erneut aufruft; kein `@RestController` |
+| M14 | `auth_kobil` | Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); backend-verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Sub-Ressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber eine benannte Kante zum Fremdsystem `kobil_mock` (wie `id_fsc` und `id_nect`) |
+| M1a | `orchestrator.kernel` | Kein eigenes Modulith-Modul, sondern das unterste Paket **innerhalb** von `orchestrator`: das gemeinsame Vokabular (`AuthIntent`, `AmrSource`, `AcrLevels`, `OrchestratorException`, `FeatureFlagProvider`). Hängt von nichts ab — das ist sein ganzer Vertrag. Es existiert, weil fast jeder Paketzyklus im Orchestrator ein *Name* am falschen Ort war: `AmrSource` sagt, woher ein Nachweis stammt (Policy-Frage), lag aber neben der JPA-Entität, die ihn speichert |
+| M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: einzige Kante `texts` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Fassade `/mock-kobil/*` für die App (Pendant zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
 | M16 | `id_nect` | Identifizierung über Nect (Tool `ident-nect`): Sprung auf die Nect-Seite, Rücksprung mit Vorgangsnummer, das Backend löst das Ergebnis selbst ein; bestätigt nur Dokumentdaten wie `id_eid` (ADR-18); amr je Verfahren `nect-eid`/`nect-epass`/`nect-eudi`. Erlaubte Kante zum Fremdsystem: `nect_mock` |
 | M17 | `nect_mock` | Simulierter **Identifizierungsdienst** Nect, kein Tool-Modul: einzige Kante `texts`, eigenes Schema, zwei Schnittstellen — `NectIdent` für unser Backend und die HTTP-Fassade `/mock-nect/*` für die Sprungseite `/nect/` (eID, Reisepass, EUDI-Wallet). Untersteht nicht unserer Aufbewahrung |
 | M18 | `texts` | Bibliothek für mehrsprachige Nutzertexte (ADR-33): `Text` (deutsche Vorlage im Code, ausgeliefert als Referenz) und `TextBundle` (Sprachdateien per ETag). `allowedDependencies = []`; jedes Modul mit Nutzertexten deklariert die Kante, auch die simulierten Fremdsysteme |
@@ -88,9 +88,10 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 ┌────────────────────────────────────────────────────────────────────────┐
 │  @RestController - verteilt über mehrere Module, URLs unverändert       │
 │                                                                          │
-│   orchestrator          id_fsc / id_eid / auth_sms / auth_password /    │
-│   (Channel-Endpunkte,    auth_email / auth_device                       │
-│    Journey/Policy)       (jeweils die eigenen Tool-Endpunkte)           │
+│   orchestrator          id_fsc / id_eid / id_nect / id_kvnr /           │
+│   (Channel-Endpunkte,    auth_sms / auth_password / auth_email /        │
+│    Journey/Policy)       auth_device / auth_qr / auth_kobil             │
+│                          (jeweils die eigenen Tool-Endpunkte)           │
 │                                                                          │
 │         orchestrator.api.v1.tool.ToolSwitchController (generisch)      │
 └───────────────────────────────┬──────────────────────────────────────┬─┘
@@ -112,8 +113,8 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
        └─────────────┘   └─────────────┘      └───────────────────┘
 ```
 
-- Kein Methodenmodul referenziert den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_personenverzeichnis"]`). Die einzige gemeinsame Kante ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
-- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `id_kvnr.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`, `auth_kobil.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package. Ausnahmen: `kobil_mock.api.v1` und `nect_mock.api.v1` liegen bewusst NICHT unter `/orchestrator/api`, sondern unter `/mock-kobil` bzw. `/mock-nect` — sie sind die Fremddienste, nicht diese Anwendung.
+- Kein Methodenmodul referenziert den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_personenverzeichnis", "kcmigrate", "demo_seed", "texts"]`; `kcmigrate` ist das Keycloak-Migrationsprojekt, `demo_seed` wird nur über `DemoAccountSeed` angesprochen). Die einzige gemeinsame Kante ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Orchestrator-Klasse.
+- Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Package des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `id_kvnr.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`, `auth_qr.api.v1`, `auth_kobil.api.v1`, `id_nect.api.v1`) — Spring routet nach `@RequestMapping`, nicht nach Package. Ausnahmen: `kobil_mock.api.v1`, `nect_mock.api.v1` und `ext_personenverzeichnis.api.v1` liegen bewusst NICHT unter `/orchestrator/api`, sondern unter `/mock-kobil`, `/mock-nect` bzw. `/mock-personenverzeichnis` — sie sind die Fremdsysteme, nicht diese Anwendung.
 - Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Kanten zu simulierten Fremdsystemen sind deklariert, nicht geduldet: `auth_kobil → kobil_mock`, `id_fsc → ext_personenverzeichnis` (nur `Freischaltcodes`, ADR-31), `id_nect → nect_mock` (nur `NectIdent`). Account-Lookups laufen über `tool_api.AccountDirectory`, Schreibungen über Claims in `ToolOutcome` und deren Übernahme durch die Journey. E-Mail-spezifische Lookup-Komfortfunktionen sind Extensions auf dem Port.
 - `auth_sms` kapselt interne Datenbank-IDs hinter einer opaken `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
 - Die Package-Grenzen werden durch `@ApplicationModule(allowedDependencies = ...)` je Modul abgesichert und von `DpopApplicationTests.modulithStructureIsValid` geprüft — eine unerlaubte Kante bricht den Build. Da Kotlin keine Package-Annotationen kennt, trägt je eine `ModuleMetadata.kt` die Deklaration (`@ApplicationModule` ist `@Target({PACKAGE, TYPE})`); ein `package-info.java` ist nicht nötig.
@@ -124,7 +125,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | M-1 | Jedes Modul besitzt ein eigenes Package. | Package-Struktur unter `com.example.dpop.<modul>` |
-| M-2 | Jedes Modul enthält mindestens eine Service-Klasse. | `@Service` in jedem Modul vorhanden |
+| M-2 | Jedes Modul mit Laufzeitlogik stellt sie als Spring-Bean bereit. | `@Service`/`@Component`/`@RestController` im Modul; `texts`, `tool_spi` und `tool_api` sind reine Verträge ohne Bean |
 | M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` gekoppelt, nie direkt. | Konstruktor-Injection nur gegen `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_personenverzeichnis` (ADR-31), `id_nect → nect_mock` |
 | M-4 | Die Modulstruktur ist verifizierbar. | `ApplicationModules.verify()` in Tests |
 
@@ -140,7 +141,7 @@ DPoP-gesicherten Registrierungs- und Anmeldeablaufs. Das System umfasst:
 - `kobil_mock` hat aus demselben Grund ein eigenes Schema, aber nicht aus derselben Rolle: Es ist
   kein Modul dieser Anwendung, sondern ein simuliertes Fremdsystem. Genau darum geht es bei der Trennung: Läge es im Schema von `auth_kobil`, könnte das Tool an der
   Schnittstelle vorbei nachsehen, und der Ablauf würde nichts mehr zeigen.
-- Im Modul `ext_personenverzeichnis` existiert eine `Person`-Entität mit `id`, `kvnr` (eindeutig), `name`, `vorname`, `strasse`, `hausnummer`, `plz`, `ort`, `geburtsdatum`. Dazu `freischaltcode` (nur Hash, Ablauf, Widerruf) und `brief` (der simulierte Brief mit dem Klartext, ADR-31).
+- Im Modul `ext_personenverzeichnis` existiert eine `Person`-Entität mit `id` (die Partnernummer), `versnr` (eindeutig, nur Versicherte), `kvnr` (eindeutig, nur zusammen mit `versnr`), `name`, `vorname`, `strasse`, `hausnummer`, `plz`, `ort`, `geburtsdatum`. Dazu `freischaltcode` (nur Hash, Ablauf, Widerruf) und `brief` (der simulierte Brief mit dem Klartext, ADR-31).
 - Bei Applikationsstart werden Testpersonen und gültige FSC-Codes per Flyway-Migration eingespielt.
 
 Die Session- und Tool-Entitäten beschreibt [02-domaenenmodell.md](02-domaenenmodell.md) (Tabellenmodell
@@ -171,7 +172,7 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 | P-1 | H2 mit dateibasierter DB und In-Memory-Tests. | `application.yml` und `application-test.yml` entsprechend konfiguriert |
 | P-2 | Schema-Aufbau erfolgt mit Flyway, ein Migrationsordner je Modul. | `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst |
 | P-3 | Zugriff auf Personen erfolgt über Spring Data JPA. | `PersonRepository extends JpaRepository` |
-| P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bezeugt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STRASSE`), wie eID und PID sie liefern; das Register setzt `strassenzeile` an seiner Grenze zusammen |
+| P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bezeugt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STRASSE`), wie eID und PID sie liefern; das Personenverzeichnis setzt `strassenzeile` an seiner Grenze zusammen |
 | P-5 | Testdaten werden beim Start eingespielt. | Flyway-Migration oder Initialisierungsroutine vorhanden |
 | P-6 | FSC-Testdaten stehen beim Start zur Verfügung. | Flyway-Migration legt gültige FSC-Codes für die Testpersonen an |
 
@@ -205,7 +206,7 @@ veröffentlicht, das würde jedem, der ihn erreicht, vollen Lese- und Schreibzug
 - **Persistenz**: H2 + Spring Data JPA + Flyway
 - **Frontend**: React + TypeScript mit Vite
 - **Frontend-Integration**: Vite-Build schreibt in `src/main/resources/static`; Gradle führt `npm install` und `npm run build` aus
-- **Test**: JUnit 5 mit Spring Boot Test und Spring Modulith Test-Starter
+- **Test**: Kotest auf der JUnit-Plattform mit Spring Boot Test, MockK und Spring Modulith Test-Starter
 
 | Komponente | Version |
 |------------|---------|

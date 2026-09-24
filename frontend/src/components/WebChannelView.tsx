@@ -9,6 +9,8 @@ import { DiagramHint } from './DiagramHint'
 import { UnavailableTools } from './UnavailableTools'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { Disclosure } from './Disclosure'
+import { isBelowAcr } from '../acr'
+import { accountRole } from '../accountRole'
 
 /** A section heading with a hover/focus-revealed diagram of that section's journey shape - same pattern as AuthenticationCompletedView's own (App-Kanal), kept as its own small copy per module rather than shared. */
 function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof JOURNEY_DIAGRAMS }) {
@@ -231,7 +233,7 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
                     </span>
                   </DiagramHint>
                 </span>
-                <span className="method-choice-hint">{t('Verlangt zusätzlich einen zweiten Faktor - höheres Sicherheitsniveau.')}</span>
+                <span className="method-choice-hint">{t('Verlangt ein höheres Sicherheitsniveau: zwei Verfahren oder die Bestätigung mit der App per QR-Code.')}</span>
               </span>
             </button>
           </li>
@@ -270,9 +272,17 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
                   Browser-Clients, keycloak-migrations V4/V11) - Keycloaks eingebauter "full name"-
                   Protocol-Mapper aus firstName/lastName, die KeycloakAccountSyncListener beim
                   Account-Sync setzt. */}
+              {/* Die Rolle wie in der App (ADR-34) - aus person_id/versnr, die der Account-Sync
+                  als Keycloak-Attribute setzt und die Mapper in beide Tokens schreiben. */}
               <p>
                 {typeof idClaims?.name === 'string' ? (
-                  <Tx text="Angemeldet als {name}." name={<strong>{idClaims.name}</strong>} />
+                  <Tx
+                    text="Angemeldet als {name} ({status})."
+                    name={<strong>{idClaims.name}</strong>}
+                    status={accountRole(idClaims.person_id, idClaims.versnr)}
+                  />
+                ) : idClaims ? (
+                  t('Sie sind angemeldet ({status}).', { status: accountRole(idClaims.person_id, idClaims.versnr) })
                 ) : (
                   t('Sie sind angemeldet.')
                 )}
@@ -288,7 +298,7 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
               </li>
             </ul>
 
-            {currentAcr !== 'loa2' && (
+            {isBelowAcr(currentAcr, 'loa2') && (
               <>
                 <SectionHeading text={t('Sicherheitsniveau erhöhen')} diagram="stepUp" />
                 <p>{t('Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.')}</p>

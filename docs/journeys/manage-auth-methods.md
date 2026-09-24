@@ -7,12 +7,16 @@
 stateDiagram-v2
   [*] --> AddRequested: Methode hinzufügen
   [*] --> RemoveRequested: Methode entfernen
+  [*] --> RetractAttributeRequested: Attribut zurückziehen (DELETE .../attributes/email)
 
   AddRequested --> AddRequested: Step-up nötig, danach erneut geprüft
   RemoveRequested --> RemoveRequested: Step-up nötig, danach erneut geprüft
+  RetractAttributeRequested --> RetractAttributeRequested: Step-up nötig, danach erneut geprüft
 
-  AddRequested --> Enrolling: loa2 nachgewiesen
-  RemoveRequested --> Finished: loa2 nachgewiesen, Methode deaktiviert
+  AddRequested --> Enrolling: selfServiceAcrFloor erreicht
+  AddRequested --> Finished: selfServiceAcrFloor erreicht, aber nichts mehr einzurichten
+  RemoveRequested --> Finished: selfServiceAcrFloor erreicht, Methode samt abhängiger Verfahren widerrufen
+  RetractAttributeRequested --> Finished: selfServiceAcrFloor erreicht, Attribut zurückgezogen, abhängige Verfahren fallen mit
   Enrolling --> Enrolling: anderes Tool gewählt
   Enrolling --> Finished: eine Methode eingerichtet
   Finished --> [*]
@@ -24,8 +28,10 @@ stateDiagram-v2
   end note
 ```
 
-`AddRequested`/`RemoveRequested` (Letzterer trägt die `methodInstanceId`) sind zugleich der Wunsch
-vor der loa2-Prüfung und der Wartezustand während eines Step-ups; `Enrolling` trägt Angebot und
+`AddRequested`/`RemoveRequested`/`RetractAttributeRequested` (die beiden letzten tragen die
+`methodInstanceId` bzw. den `attributeType`) sind zugleich der Wunsch vor der Prüfung auf
+`selfServiceAcrFloor` und der Wartezustand während eines Step-ups; ein abgelehnter Step-up beendet
+die Journey (`Cancel`), statt denselben Step-up erneut anzubieten. `Enrolling` trägt Angebot und
 Ablehnungen.
 
 `MANAGE_AUTH_METHODS` ist der einzige Intent ohne Policy-Ziel: **ein** erfolgreiches Enrollment

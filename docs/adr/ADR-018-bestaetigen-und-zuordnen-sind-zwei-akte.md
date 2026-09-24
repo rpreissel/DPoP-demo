@@ -10,7 +10,7 @@ auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuo
 Person im Personenverzeichnis ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer
 (für einen Partner ohne sie die Partnernummer, ADR-34) ab, löst sie
 über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit
-`ClaimSource.PERSON_DIRECTORY`, denn dort bürgt tatsächlich das Register. Der zweite Akt wird direkt
+`ClaimSource.PERSON_DIRECTORY`, denn dort bürgt tatsächlich das Personenverzeichnis. Der zweite Akt wird direkt
 angeboten (`RegisterState.Assigning`, `next` zeigt auf `ident-kvnr`) — ohne Ja/Nein-Frage davor,
 die nur dieselbe Frage doppelt stellen würde. Wer den Schritt abbricht („Jetzt nicht") oder eine
 unbekannte Nummer angibt, endet als vollwertig bestätigter **Interessent** (ADR-10) statt mit einem
@@ -64,5 +64,10 @@ Code: Die Rolle `CORRELATION` hat keine Evidenzachse (`ToolDescriptor.evidenceAx
 bestätigten Interessenten kommt allein aus `ident-eid`. Ebenso „`AuthEvidence.evidenceAxis()` wirft“
 für `ATTEST`: Die Funktion ist eine Erweiterung auf `ToolDescriptor` und liefert für `ATTESTATION`
 ebenfalls `null`.
+
+**Nachtrag 3 (2026-09-24)**: Die Hausnummer ist kein eigener Claim mehr; `strasse` trägt die ganze
+Straßenzeile, wie eID und PID sie liefern. `ident-kvnr` behauptet heute `PERSON_ID` und, soweit
+vorhanden, `KVNR` und `VERSNR` (alle `PERSON_DIRECTORY`). Wer über die Partnernummer zugeordnet wird,
+bekommt keinen KVNR-Claim (ADR-34).
 
 ---

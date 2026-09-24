@@ -10,15 +10,17 @@ stateDiagram-v2
   [*] --> STARTED
   STARTED --> SUSPENDED: wartet auf eine Sub-Journey
   SUSPENDED --> STARTED: Sub-Journey abgeschlossen
-  STARTED --> SUCCEEDED: Zielzustand erreicht
-  STARTED --> FAILED: Versuchsbudget erschöpft
+  STARTED --> CONSUMED: Ziel erreicht oder Logout, Ergebnis auf den Kanal angewandt
+  STARTED --> FAILED: Versuchsbudget erschöpft oder Abort (410)
   STARTED --> CANCELLED: Nutzer bricht ab
-  STARTED --> EXPIRED: ttl erreicht
-  SUCCEEDED --> CONSUMED: Ergebnis auf Kanal und AuthContext angewandt
   CANCELLED --> [*]
   CONSUMED --> [*]
-  EXPIRED --> [*]
   FAILED --> [*]
 ```
+
+`SUCCEEDED` und `EXPIRED` stehen noch im Enum, werden aber nie gesetzt: Eine erfolgreiche Journey geht
+direkt auf `CONSUMED` (`AuthJourney.consume()`), und der Ablauf wird nur gelesen
+(`AuthJourney.isExpired` über `expiresAt`) — eine abgelaufene Journey gilt als nicht mehr aktiv,
+ohne dass ihr Zustand umgeschrieben wird.
 
 ---

@@ -13,7 +13,7 @@ nur noch im Handler-Code. Ein `toolId`-basierter Runtime-Dispatch wäre
 außerdem eine Fehlerquelle, die der Compiler nicht sieht: ein neues Tool ohne passenden
 `when`-Zweig würde erst zur Laufzeit auffallen.
 
-**Kosten**: Mehr Code — 21 Controller statt einem, mit strukturell ähnlichem Aufbau
+**Kosten**: Mehr Code — ein Controller je Tool statt einem, mit strukturell ähnlichem Aufbau
 (Aktivierung/Fortschreiben/Lesen).
 
 ---

@@ -165,10 +165,7 @@ class ChannelService(
      */
     fun getToken(channelSessionId: UUID, bindingKeyRef: String, minValiditySeconds: Long): TokenResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        requireAuthenticated(channel)
-        if (channel.channel != ChannelType.APP) {
-            throw OrchestratorException.invalidState(Text("Token retrieval is only supported for APP channels"))
-        }
+        requireAuthenticatedApp(channel)
         val pair = tokenProvider.tokenFor(channel, minValiditySeconds)
         return TokenResponse(accessToken = pair.accessToken, accessExpiresAt = pair.accessExpiresAt, refreshExpiresAt = pair.refreshExpiresAt)
     }
@@ -176,11 +173,19 @@ class ChannelService(
     /** The fachliche (business) ID-token claims - a separate resource from the AccessToken's own claims. */
     fun getIdClaims(channelSessionId: UUID, bindingKeyRef: String): Map<String, Any?> {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        requireAuthenticated(channel)
+        requireAuthenticatedApp(channel)
         return tokenService.idClaims(channel.authContextId!!)
     }
 
-    private fun requireAuthenticated(channel: ChannelSession) {
+    /**
+     * Token and ID claims exist only for an authenticated `APP` channel. The channel type is checked
+     * first: a `KEYCLOAK` channel never has an [ChannelSession.authContextId], so it must be refused
+     * as the wrong kind of channel (409), not trip over the missing context (500).
+     */
+    private fun requireAuthenticatedApp(channel: ChannelSession) {
+        if (channel.channel != ChannelType.APP) {
+            throw OrchestratorException.invalidState(Text("Token retrieval is only supported for APP channels"))
+        }
         if (channel.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED for token/claims access"))
         }
@@ -334,8 +339,8 @@ class ChannelService(
      *
      * Only attributes an account actually owns locally may be withdrawn: a master-data field is
      * not ours to retract, and a method-owned one goes with its method. The wire name is resolved
-     * here rather than passed through as a string, so an unknown one is a 400 instead of a silent
-     * no-op deep inside the journey.
+     * here rather than passed through as a string, so an unknown one is refused right away (409,
+     * like every other invalid request on a channel) instead of a silent no-op deep inside the journey.
      */
     fun retractAttribute(channelSessionId: UUID, bindingKeyRef: String, attribute: String): ChannelResponse {
         val attributeType = AttributeType.fromWireName(attribute)

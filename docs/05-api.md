@@ -39,7 +39,7 @@ von Endpunkten liegen bewusst woanders: Betriebsendpunkte unter `/orchestrator/a
 Registrierungsreihenfolge, Keycloak-Sync, Journey-Log aller Konten, Konten löschen, Demo
 zurücksetzen; als einzige hinter einem Login, HTTP Basic mit `demo.admin.*`), der öffentliche,
 nur lesende Server-Status unter `/orchestrator/demo/server-info` und die Stellvertreter externer
-Systeme unter `/mock-*` (`/mock-kobil`, `/mock-personenverzeichnis`, ADR-31). Auf keine davon darf
+Systeme unter `/mock-*` (`/mock-kobil`, `/mock-personenverzeichnis`, `/mock-nect`, ADR-31). Auf keine davon darf
 sich ein App-Client verlassen. Stünden sie im eingefrorenen Stand, meldete der
 Kompatibilitätsvergleich ihr späteres Entfernen als Bruch des App-Vertrags. Dokumentiert sind sie
 trotzdem: in der Datei ihres Moduls unter `api/modules/`.
@@ -99,6 +99,9 @@ Das Bundle holt der Client beim Start: `GET /orchestrator/api/v1/texts/{lang}` (
 `de`; `Content-Language` nennt die gelieferte) liefert `{ id: Wortlaut }` mit ETag. Beim nächsten Start schickt er
 `If-None-Match`; 304 heißt „unverändert“. Hintergrund und Pflege der Texte: ADR-33.
 
+Jeder Stellvertreter eines Fremdsystems liefert seine eigenen Texte genauso: `GET /mock-*/texts/{lang}`
+(`/mock-kobil`, `/mock-personenverzeichnis`, `/mock-nect`), ebenfalls mit ETag/304.
+
 ## 2) App-Fassade (Orchestrator-first)
 
 Alle Requests enthalten den Header `DPoP: <proof>`.
@@ -106,7 +109,7 @@ Alle Requests enthalten den Header `DPoP: <proof>`.
 - `processSessionId` bleibt als interne Prozessinstanz für Persistenz, Korrelation und Audit erhalten; öffentliche App-APIs verwenden nur `channelSessionId`, weder `purpose` noch `processSessionId` gibt der Client vor.
 - Die fachliche Prozesswahl trifft das Backend anhand von Kanalzustand, Accountstatus und Policy; sie wird durch `AuthIntent` und dessen Strategie beschrieben, nicht durch einen separaten `REGISTRATION`-/`LOGIN`-Typ.
 - Das `next`-Objekt ist reine Adresse, nie mit Inhalt vermischt: Tool-Schritt `{ "type": "tool", "toolId": "...", "step": "...", "toolSessionId": "..." }`, orchestrator-eigene Seite (Auswahl, Bestätigung, Abschluss) `{ "type": "orchestrator", "context": "...", "step": "..." }`. `toolSessionId` adressiert die Tool-Ressource vollständig (`/tools/{toolSessionId}/{toolId}`) und ist gesetzt, sobald eine `ToolSession` für diesen Schritt existiert — auch beim Resume (`GET /channels/{channelSessionId}`) mitten in einem laufenden Tool.
-- **Eine Antworthülle für alle Endpunkte aller Schichten** (`ChannelResponse`): `{ "channel": {channelSessionId, state, currentAcr, currentAmr, activeMethods}, "next": {...}, "stepData": {...}, "demo": {...} }`. `channelSessionId`/`state` stehen in jeder Antwort. `currentAcr`/`currentAmr`/`activeMethods` dagegen NIE in Tool-Antworten (`POST .../tools/{toolId}`, `PATCH`/`GET`/`DELETE` auf `/tools/...`), sondern nur bei den Kanal-Endpunkten (`GET`/`POST /channels`, `step-ups`, `enrollments`, `DELETE .../methods/{methodInstanceId}`).
+- **Eine Antworthülle für alle Endpunkte aller Schichten** (`ChannelResponse`): `{ "channel": {channelSessionId, channelType, state, currentAcr, currentAmr, activeMethods}, "next": {...}, "stepData": {...}, "demo": {...} }`. `channelSessionId`/`channelType`/`state` stehen in jeder Antwort. `currentAcr`/`currentAmr`/`activeMethods` dagegen NIE in Tool-Antworten (`POST .../tools/{toolId}`, `PATCH`/`GET`/`DELETE` auf `/tools/...`), sondern nur bei den Kanal-Endpunkten (`GET`/`POST /channels`, `step-ups`, `enrollments`, `DELETE .../methods/{methodInstanceId}`).
 - **`channel.state`-Werte** — alles, was der Client aus `state` selbst ableiten kann, ohne einen Endpunkt aufzurufen:
 
   | Wert | Bedeutung für den Client |
@@ -141,6 +144,7 @@ Pfadkonvention:
 - Tool-Anlage über Channel: `POST .../{channelSessionId}/tools/{toolId}` — `201` mit `Location: .../tools/{toolSessionId}/{toolId}` (kein Body; `toolId` trägt Kind und Methode zusammen)
 - Tool-Fortschreibung/-Lesen: `PATCH/GET /orchestrator/api/v1/tools/{toolSessionId}/{toolId}` als Regelfall
 - Tool-Attempt verwerfen: `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}`
+- Tool-Katalog: `GET /orchestrator/api/v1/tools/catalog` (ohne DPoP, ohne Kanal) — `{toolId, method, role}` je Tool; daraus bildet der Client seine `availableTools`.
 
 Tool-Namespace:
 
@@ -173,7 +177,8 @@ Die Gerätebindung bleibt nutzbar (`DeviceAccountLink`, [DPoP-Bindung](09-dpop.m
 ### AccessToken (`GET .../{channelSessionId}/token`)
 
 **`APP`-Kanal-only** (DPoP-demo-xso, ADR-9): Ein `KEYCLOAK`-Kanal hat nie einen `AuthContext` und
-braucht auch keinen; `ChannelService.getToken` weist ihn mit `409 INVALID_STATE_TRANSITION` ab.
+braucht auch keinen; `ChannelService.getToken` prüft den Kanaltyp zuerst und weist ihn mit
+`409 INVALID_STATE_TRANSITION` ab.
 Für `APP` entscheidet `TokenProvider` profilabhängig:
 
 - **Default-Profil** (`MockTokenProvider`): liefert `TokenService`s Mock-JWT (`alg=none`,
@@ -193,7 +198,8 @@ Für `APP` entscheidet `TokenProvider` profilabhängig:
 
 ### ID-Token-Claims (`GET .../{channelSessionId}/idclaims`)
 
-**`APP`-Kanal-only**, wie das AccessToken oben — dieselbe `requireAuthenticated`-Vorbedingung.
+**`APP`-Kanal-only**, wie das AccessToken oben — dieselbe `requireAuthenticated`-Vorbedingung, ein
+`KEYCLOAK`-Kanal bekommt ebenso `409 INVALID_STATE_TRANSITION`.
 Fachliche (nicht in die AccessToken-Signatur codierte) Claims: `sub`/`accountId`/`personId`/`versnr`,
 `acr`/`amr`, `auth_time`, `email`/`email_verified`, `name`. `personId` ist die Partnernummer
 (`P` und neun Ziffern, ADR-34), `versnr` die Versicherungsnummer, live aus dem Personenverzeichnis.
@@ -212,8 +218,8 @@ AccessToken-Details.
 
 Freiwillige Kontoverwaltung auf einem bereits `AUTHENTICATED`-Kanal, losgelöst von `REGISTER` und `STEP_UP` ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).
 
-- `GET .../methods` liest den aktiven Methodenbestand als eigenständige Collection (`{"methods": [{"id","method","label"}]}`) — dieselben Daten wie `ChannelResponse.activeMethods`, nie `fsc`. Leere Liste statt Fehler, solange kein Account bekannt ist.
-- `POST .../enrollments` bietet dieselben Kandidaten/Enroll-Tools wie `REGISTER` an und startet ein Enrollment. Nichts mehr zu enrollen ist kein Fehler: `200` mit `{"message": "Keine weiteren Mittel verfuegbar"}`.
+- `GET .../methods` liest den aktiven Methodenbestand als eigenständige Collection (`{"methods": [{"id","method","label",…}]}`) — dieselben Daten wie `ChannelResponse.activeMethods`, nie `fsc`. Leere Liste statt Fehler, solange auf diesem Kanal noch kein Faktor nachgewiesen ist (`hasProvenFactor`) — ein nur wiedererkanntes Gerät bekommt nichts.
+- `POST .../enrollments` bietet dieselben Kandidaten/Enroll-Tools wie `REGISTER` an und startet ein Enrollment. Nichts mehr einzurichten ist kein Fehler: `200`, `next` zeigt direkt auf `authenticated`, ohne `stepData`.
 - `DELETE .../methods/{methodInstanceId}` widerruft eine aktive Methoden-*Instanz*: Die Credential-Zeile des besitzenden Moduls wird gelöscht (`EnrollmentCleanup`), die Instanzzeile bleibt deaktiviert stehen. Adressiert per `id` aus `GET .../methods` — nie per Methodenname, da eine Methode mehrere aktive Instanzen haben kann (`docs/03-tool-architektur.md`, `allowsMultipleInstances`). `409`, falls der Account danach das kanaleigene `requiredAcr` nicht mehr erreichen könnte — sonst könnte sich jemand selbst aussperren. Nicht auf Instanzen des aufrufenden Geräts beschränkt.
 - `DELETE .../attributes/{attribute}` nimmt ein **kontoeigenes Attribut** zurück statt eines Credentials — heute nur die bestätigte Adresse (`email`). Geschwister-Endpunkt zu `DELETE .../methods/{id}`, mit demselben Gate. Der Unterschied ist die Folgenkette: Jedes Credential, das dieses Attribut per `requires` verlangte, wird mitentzogen — transitiv. Eine zurückgenommene Adresse nimmt damit ein darauf eingerichtetes Passwort mit (`enroll-password` verlangt `ClaimRequirement(EMAIL, PROVEN)`) — und alles, was seinerseits daran hinge (ADR-24). `409`, wenn genau diese Folge den Account unter das kanaleigene `requiredAcr` drücken würde; die Meldung nennt, was dabei mitfallen würde. Nur Attribute, die dem Konto selbst gehören, sind zurücknehmbar: ein Stammdatenfeld gehört uns nicht, ein methodeneigenes geht mit seiner Methode.
 - `POST .../enrollments`, `DELETE .../methods/{methodInstanceId}` und `DELETE .../attributes/{attribute}` verlangen zusätzlich, dass die aktuelle Session bereits `loa2` erreicht hat; reicht es nicht, liefert die Antwort statt der Aktion einen Step-up-Schritt; danach ruft der Client den Endpunkt erneut auf.
@@ -224,7 +230,7 @@ Jeder `JourneyState`, der auf eine explizite Ja/Nein-Antwort statt auf einen Too
 
 Jeder Prompt-Text wird **komplett vom Backend geliefert**, nie clientseitig vorformuliert; eine geänderte Rückfrage braucht so keinen App-Release.
 
-`Prompt` ist als `sealed interface` mit `kind`-Diskriminator modelliert; `Confirm` ist die einzige Variante, eine `Choice`-Variante ist vorbereitet, aber nicht implementiert. Verwendungen: Gerätebindungs-Screen des Lookup-Logins, Account-Löschbestätigung, Logout-Bestätigung, `ReIdentifyState.OfferReIdent` vor der `RE_IDENTIFY`-SubJourney ([Orchestrierung](04-orchestrierung.md)).
+`Prompt` ist als `sealed interface` mit `kind`-Diskriminator modelliert; `Confirm` ist die einzige Variante; eine weitere (z. B. eine Auswahl unter mehreren Antworten) ist denkbar, aber nicht angelegt. Verwendungen: Gerätebindungs-Screen des Lookup-Logins, Account-Löschbestätigung, Logout-Bestätigung, `ReIdentifyState.OfferReIdent` vor der `RE_IDENTIFY`-SubJourney ([Orchestrierung](04-orchestrierung.md)).
 
 ### Account löschen (AuthIntent.DELETE_ACCOUNT)
 
@@ -235,7 +241,7 @@ Self-Service-Löschung des eigenen Accounts auf einem bereits `AUTHENTICATED`-Ka
 3. Reichte das Niveau schon vorher (ein Nachweis unbekannten Alters), folgt ein frischer Nachweis über ein **beliebiges** aktives `auth-*`-Verfahren des Accounts, unabhängig vom damit erreichbaren Niveau (auch ein soeben bewiesener Faktor zählt erneut — anders als bei `STEP_UP`). Genau ein Verfahren reicht; mehrere ergeben dieselbe `next={"context":"auth","step":"selectMethod"}`-Auswahlseite. **Ausnahme**: musste Schritt 2 erst einen Step-up auslösen, zählt dieser Nachweis bereits als der hier geforderte.
 4. Nach erfolgreichem Nachweis wird der Account mit allem, was er exklusiv besitzt, unwiderruflich gelöscht: alle über `authenticationMethods` referenzierten Credential-Datensätze der Methodenmodule (aktive **und** abgelöste), der `DeviceAccountLink`, jeder `AuthContext` sowie die `account`-Zeile selbst. `person` (ext_personenverzeichnis) bleibt unangetastet ([Tool-Architektur](03-tool-architektur.md), `EnrollmentCleanup`).
 5. Jede `ChannelSession`, die je an diesen Account gebunden war, wird serverseitig auf `LOGGED_OUT` gezwungen; ein anderes eingeloggtes Gerät braucht einen neuen `POST /channels`.
-5. Die Antwort auf den erfolgreichen Abschluss ist `channel.state="LOGGED_OUT"` ohne `next` — dieselbe Form wie ein normaler Logout.
+6. Die Antwort auf den erfolgreichen Abschluss ist `channel.state="LOGGED_OUT"` ohne `next` — dieselbe Form wie ein normaler Logout.
 
 ### Back/Switch
 
@@ -248,14 +254,14 @@ Konsistenzregel: Pro `channelSessionId` darf es höchstens einen aktiven öffent
 Registrierung mit `ident-fsc` -> `enroll-sms`:
 
 1. `POST /app/channels` (`{"requiredAcr": "loa2", "availableTools": ["ident-fsc", "enroll-sms", ...]}`, `intent` weggelassen → Default `fast_access`; `availableTools` ist Pflicht, siehe unten) liefert eine neue `channelSessionId` und direkt den ersten Schritt: `next={"type":"tool","toolId":"ident-fsc","step":"input"}` (genau eine `IDENT`-Methode, daher kein Auswahlschritt; noch keine `ToolSession`, also kein `toolSessionId`). Enthält `availableTools` auch `ident-eid`, liefert derselbe `POST` einen Auswahlschritt: `next={"type":"orchestrator","context":"registration","step":"selectIdentificationMethod"}`, `stepData={"kind":"select-method","options":["ident-fsc","ident-eid"]}`.
-2. `POST .../tools/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"kind":"missing-fields","missingFields":["kvnr","name","vorname"]}` und `next.toolSessionId` gesetzt.
+2. `POST .../tools/ident-fsc` (kein Body) legt die Tool-Ressource an: `201` mit `stepData={"kind":"missing-fields","missingFields":["kvnr","name","vorname","geburtsdatum"]}` und `next.toolSessionId` gesetzt; `fsc` fragt das Tool erst, wenn diese Angaben zum Personenverzeichnis passen.
 3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem FSC. Solange Felder fehlen: `200` mit aktualisiertem `stepData.missingFields`, `next` unverändert auf `ident-fsc`. Nach erfolgreicher Verifikation: `stepData={"kind":"select-method","options":["enroll-sms"]}`, `next={"type":"orchestrator","context":"enrollment","step":"selectMethod"}`.
 4. `POST .../tools/enroll-sms` liefert `stepData={"kind":"missing-fields","missingFields":["phoneNumber"]}`.
 5. `PATCH .../enroll-sms` mit `{"phoneNumber": "..."}` löst den TAN-Versand aus: `stepData={"kind":"missing-fields","missingFields":["tan"]}` plus (siehe unten) `demo={"tan":"123456"}`.
 6. `PATCH .../enroll-sms` mit `{"tan": "123456"}` schließt ab: `next={"type":"orchestrator","context":"authentication","step":"authenticated"}`, `channel.state` bereits `"AUTHENTICATED"` in derselben Antwort — kein separater `GET` nötig.
 7. `GET /channels/{channelSessionId}` liefert jederzeit den stabilen Kanalzustand — der garantierte Resume-Einstieg, mitten in einem laufenden Tool inklusive dessen `toolSessionId`.
 
-Jedes weitere Tool (`enroll-password`/`auth-password`, `enroll-email`/`auth-email`, die `-lookup`-Varianten) folgt demselben `POST`/`PATCH`/`GET`-Muster; die tool-spezifischen Abweichungen stehen unten.
+Jedes weitere Tool (`enroll-password`/`auth-password`, `confirm-email`, `enroll-email`/`auth-email`, die `-lookup`-Varianten) folgt demselben `POST`/`PATCH`/`GET`-Muster; die tool-spezifischen Abweichungen stehen unten.
 
 ### Das `demo`-Objekt
 
@@ -278,10 +284,10 @@ Jede Antwort kann ein zusätzliches, klar gekennzeichnetes `demo`-Objekt tragen 
 
 Liest den stabilen Kanalzustand. Zwei zusätzliche Felder im `channel`-Block neben `state`:
 
-- `currentAmr`: was **diese Sitzung** bereits nachgewiesen hat (Sitzungsevidenz aus dem `AuthContext`).
-- `activeMethods`: der volle, kontostabile Methodenbestand als `{id, method, label}`-Objekte — unabhängig davon, was diese Sitzung geprüft hat. Enthält nie `fsc` (Identifikation liegt im Audit-Log `account.identification`, nicht in `account.auth_method`). `id` adressiert die Instanz für `DELETE`; `label` ist nur bei mehrfach-möglichen Methoden gesetzt (aktuell nur `device`). `auth-device` erscheint als AUTH-Kandidat nur auf dem Gerät mit dem passenden Schlüssel (`docs/04-orchestrierung.md`); Deaktivieren bleibt ungefiltert.
+- `currentAmr`: was **diese Sitzung** bereits nachgewiesen hat (Sitzungsevidenz aus der `AuthEvidence`).
+- `activeMethods`: der volle, kontostabile Methodenbestand als `{id, method, label, factorTypes, maxAcr, enrolledUnderAcr, effectiveAcr}`-Objekte — unabhängig davon, was diese Sitzung geprüft hat. Enthält nie `fsc` (Identifikation liegt im Audit-Log `account.identification`, nicht in `account.auth_method`). `id` adressiert die Instanz für `DELETE`; `label` ist nur bei mehrfach-möglichen Methoden gesetzt (aktuell `device` und `kobil`). `auth-device` erscheint als AUTH-Kandidat nur auf dem Gerät mit dem passenden Schlüssel (`docs/04-orchestrierung.md`); Deaktivieren bleibt ungefiltert.
 
-Beide Felder werden nur bei bekanntem `accountId` befüllt. `next` ist immer gesetzt — auch bei abgeschlossener Journey (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es nicht. Nur bei `LOGGED_OUT` (terminal) fehlt `next` ganz.
+Beide Felder werden erst befüllt, sobald auf diesem Kanal ein Faktor nachgewiesen ist (`hasProvenFactor`); ein nur wiedererkanntes Gerät bekommt sie nicht. `next` ist immer gesetzt — auch bei abgeschlossener Journey (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein separates `stepUpRequired`-Flag gibt es nicht. Nur bei `LOGGED_OUT` (terminal) fehlt `next` ganz.
 
 ### Journey-Log
 
@@ -314,11 +320,12 @@ daran erkennt das KOBIL-Frontend, dass es sein Gerätegeheimnis löschen muss
 
 Hebt die geforderte Untergrenze des Kanals an (auf der kc-Seite derselbe Endpunkt, Abschnitt 3). Request: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine `AuthJourney(STEP_UP)` und liefert den fälligen Schritt als `ChannelResponse`; reicht es bereits, zeigt `next` sofort auf `authenticated`. Nur Anheben ist möglich — ein niedrigeres `requiredAcr` wird ignoriert. Reicht keine vorhandene Methode für das geforderte Niveau, aber eine Re-Identifizierung (`ident-fsc`/`ident-eid`) könnte es allein erreichen, fragt die Journey das erst per `stepData.prompt` (`context: "prompt", step: "confirm"`) — bei Zustimmung folgt die Auswahl, bei Ablehnung endet der Step-up ohne Fehler. Nur wenn selbst das nicht möglich ist, bricht die Journey mit `410` ab ([Orchestrierung](04-orchestrierung.md)).
 
-### `enroll-email` / `auth-email` / `enroll-password` / `auth-password`
+### `confirm-email` / `enroll-email` / `auth-email` / `enroll-password` / `auth-password`
 
 Folgen demselben Muster wie `ident-fsc`/`enroll-sms`/`auth-sms` oben, mit diesen Abweichungen:
 
-- `enroll-email` folgt dem Zwei-`PATCH`-Muster (`email`, dann `code`); `demo.email` steht schon in der `start`/`read`-Antwort, `demo.tan` erst nach dem ersten `PATCH`.
+- `confirm-email` folgt dem Zwei-`PATCH`-Muster (`email`, dann `code`) und legt den EMAIL-Anker an; `demo.email` steht schon in der `start`/`read`-Antwort, `demo.tan` erst nach dem ersten `PATCH`.
+- `enroll-email` ist ein Ein-Schritt-Tool: Schon die Aktivierung (`201`) schließt es ab. Es richtet die bestätigte Adresse als Anmeldeverfahren ein und setzt sie voraus (`requires = { ClaimRequirement(EMAIL, PROVEN) }`).
 - `auth-email` folgt dem Ein-`PATCH`-Muster (`code`) und authentifiziert gegen die bekannte, bestätigte E-Mail-Adresse des Accounts, nicht gegen eine im Request übergebene.
 - `enroll-password`/`auth-password` erwarten nur `{"password": "..."}` — **kein** `username` ([Tool-Architektur](03-tool-architektur.md) Abschnitt 1). `enroll-password` schließt in einem einzigen `PATCH` ab und setzt eine bereits bestätigte Account-E-Mail voraus (`requires = { ClaimRequirement(EMAIL, PROVEN) }`); ohne sie lehnt schon die Aktivierung mit `409` ab. `demo.password` (feste Demo-Konstante) steht in jeder `InProgress`-Antwort aller drei Passwort-Tools.
 
@@ -409,10 +416,12 @@ Danach läuft **alles** über dieselben fassadenneutralen Endpunkte wie die App-
   /tools/{toolSessionId}/{toolId}` — identisch zur App-Fassade
 
 Statt DPoP-Proof authentifiziert sich Keycloak über eine signierte Peer-Auth-Assertion im
-`Authorization`-Header (kein mTLS, ADR-7): ein JWT pro Request mit `iss=keycloak`,
-`aud=orchestrator`, `htm`/`htu` dieses Requests, `jti`+`iat` (derselbe Replay-Cache und dasselbe
-`max-clock-skew-seconds`-Fenster wie bei DPoP, [09-dpop.md](09-dpop.md)), plus der Kanal-Anker
-dieses Flow-Durchlaufs (`channelAnchor`), den `KcChannelAccessGuard` gegen diesen Kanal prüft.
+`Authorization`-Header (kein mTLS, ADR-7): ein JWT pro Request mit `iss`/`aud` aus dem
+Parametersatz (`peerAuthIssuer`/`peerAuthAudience`, Default `dpop-demo-keycloak`/`dpop-demo-orchestrator`),
+`htm`/`htu` dieses Requests, `jti`+`iat` (derselbe Replay-Cache wie bei DPoP, [09-dpop.md](09-dpop.md),
+unter einem eigenen Namensraum `kc:`; ein eigenes Zeitfenster `kc.peer-auth.max-clock-skew-seconds`/
+`max-age-seconds`, im Profil `keycloak` je 300 Sekunden), plus der Kanal-Anker dieses Flow-Durchlaufs
+(Claim `channel_anchor`), den `KcChannelAccessGuard` gegen diesen Kanal prüft.
 Verifikation gegen Keycloaks JWKS, ein Schlüsselpaar pro Client, nicht
 pro Nutzer.
 
@@ -428,10 +437,11 @@ eigenen Entry-Intent `KC_SELECT_METHOD` ([04-orchestrierung.md](04-orchestrierun
 Registrierung über `REGISTER` (`intent=register`, s. o.); `ident-fsc`/`ident-eid`/`enroll-*` laufen über dieselben
 `WebToolRenderer`.
 
-Eine Lücke, die hier ausdrücklich benannt wird: **`enroll-kobil`/`auth-kobil` haben keinen
-`WebToolRenderer`** und fehlen damit im Web-Kanal. Das Verfahren braucht ein
-Telefon-SDK; aus einer servergerenderten Loginmaske ist es nicht ansprechbar. Das Theme deklariert
-die beiden `toolId`s folglich nicht in `availableTools`, und damit werden sie dort nie angeboten —
+Eine Lücke, die hier ausdrücklich benannt wird: **`enroll-kobil`/`auth-kobil`,
+`enroll-device`/`auth-device` und `ident-nect` haben keinen `WebToolRenderer`** und fehlen damit im
+Web-Kanal. KOBIL und der Geräteschlüssel brauchen ein Telefon bzw. dessen Schlüsselspeicher, Nect die
+eigene Sprungseite; aus einer servergerenderten Loginmaske ist keins davon ansprechbar. Das Theme
+deklariert diese `toolId`s folglich nicht in `availableTools`, und damit werden sie dort nie angeboten —
 derselbe Mechanismus, der alte App-Versionen funktionsfähig hält, trägt auch diesen Fall.
 
 **Offen:** Die Logout-Semantik im Web-Kanal ist noch nicht entschieden — ob `DELETE

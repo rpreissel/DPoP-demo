@@ -17,9 +17,9 @@ Standardfehler (Ist und Soll):
 - `422 Unprocessable Entity`: fachlich unverarbeitbar, kein Nutzereingabefehler (z. B. unbekannte `enrollmentRef`, fehlendes Enrollment)
 - `423 Locked`: Account durch zu viele fehlgeschlagene AUTH-Versuche gesperrt (`ACCOUNT_LOCKED`, `OrchestratorException.accountLocked()`, Abschnitt 4)
 - `429 Too Many Requests`: Rate-Limit erreicht, kein Sperrzustand des Accounts (`OrchestratorException.tooManyRequests()`, Abschnitt 4 — `ChannelCreationThrottleService`, gezählt je `bindingKeyRef`)
-- `500 Internal Server Error`: eine interne Annahme ist verletzt (`INTERNAL_ERROR`). Die Antwort trägt einen festen Text, die Details stehen nur im Log.
+- `500 Internal Server Error`: eine interne Annahme ist verletzt (`INTERNAL_ERROR`). Die Antwort trägt eine feste Text-Referenz, die Details stehen nur im Log.
 
-**Form und Quelle.** Jede Fehlerantwort hat die Form `ErrorResponse` (`{"error": "<CODE>", "message": "..."}`) und steht so im Vertrag, als `default`-Antwort an jeder Operation. Welcher Code welchen Status hat, legt das Enum `ErrorCode` fest (`orchestrator/kernel`); die Liste im Vertrag wird daraus erzeugt. Ein Code und sein Status lassen sich deshalb nicht mehr getrennt wählen. Clients verzweigen auf `error`, nie auf den Text, und müssen mit einem Code rechnen, den sie noch nicht kennen.
+**Form und Quelle.** Jede Fehlerantwort hat die Form `ErrorResponse` (`{"error": "<CODE>", "text": {"key": …, "args": …}}`, der Text als Referenz wie in [05-api.md](05-api.md) Abschnitt „Texte“) und steht so im Vertrag, als `default`-Antwort an jeder Operation. Welcher Code welchen Status hat, legt das Enum `ErrorCode` fest (`orchestrator/kernel`); die Liste im Vertrag wird daraus erzeugt. Ein Code und sein Status lassen sich deshalb nicht mehr getrennt wählen. Clients verzweigen auf `error`, nie auf den Text, und müssen mit einem Code rechnen, den sie noch nicht kennen.
 
 **Welche Exception wozu führt.** Die Regel, auf die sich der Handler verlässt:
 
@@ -37,7 +37,7 @@ Ausdrücklich **kein** Fehlerfall: fehlende Pflichtfelder und fehlgeschlagene Ve
 - Jede relevante Transition erzeugt einen `SessionEvent` Audit-Eintrag.
 - Transaktionale Klammer: Die Verarbeitung eines `ToolOutcome.Completed` ([Orchestrierung](04-orchestrierung.md)) führt Journey-Übernahme, Account-Eintrag, Claim-Log und `AuthContext`-Nachweis in einer einzigen Transaktion zusammen — entweder alles oder nichts. Das Methodenmodul schreibt seine Tool-/Enrollment-Daten bereits beim `PATCH` in einer eigenen Transaktion; scheitert die Journey-Übernahme, bleibt die Moduldatenzeile bestehen, wird aber nicht als Account-Credential aktiviert.
 - Auch neue Accounts, Claim-Log, Identifizierungs-Log, Anker und Methodeninstanzen teilen diese Transaktion; kein vorgezogener Account-Commit mit `REQUIRES_NEW`. Bei konkurrierender Bindung rollt der Verlierer vollständig zurück und erhält `409 INVALID_STATE_TRANSITION`; kein automatischer Wiederholungsversuch. Unique-Verletzungen von `ux_anchor_value`/`ux_anchor_account_type` werden auch bei Flush/Commit gezielt übersetzt; unbekannte Integritätsfehler bleiben Serverfehler.
-- Der Demo-Seed verwendet eine eigene transaktionale Klammer um Anlage und Claim-Übernahme; er ist create-only: Eine Testperson, deren PERSON_ID- oder EMAIL-Anker bereits auf ein Konto auflöst (früherer Seed-Lauf oder ein halbfertiger Registrierungs-Interessent), wird komplett übersprungen — das bestehende Konto bleibt unverändert, es wird nichts vervollständigt. Bei Neustarts entstehen so keine zusätzlichen Bootstrap-Claims.
+- Der Demo-Seed (nur im `keycloak`-Profil) verwendet eine eigene transaktionale Klammer um Anlage und Claim-Übernahme; er ist create-only: Eine Testperson, deren PERSON_ID- oder EMAIL-Anker bereits auf ein Konto auflöst (früherer Seed-Lauf oder ein halbfertiger Registrierungs-Interessent), wird komplett übersprungen — das bestehende Konto bleibt unverändert, es wird nichts vervollständigt. Bei Neustarts entstehen so keine zusätzlichen Bootstrap-Claims.
 - Nicht transaktional ist der SMS-Versand als externer Effekt: Ein Rollback macht eine bereits versendete SMS nicht rückgängig. Das ist ein Zustellthema, kein Konsistenzproblem — die zugehörige `issuedTanHash`-Zeile wurde mit zurückgerollt und läuft ins Leere.
 
 ## 3) Aufbewahrung und Löschung
@@ -50,6 +50,7 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 |---|---|---|---|
 | `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h (`tool-session.retention`) | Personenbezug und TAN-Hash. Jedes Methodenmodul löscht seine eigenen Tabellen selbst (`*RetentionJob` implementiert `ToolSessionSweeper`); Frist und Intervall stehen dagegen nur einmal, in `tool_api/ToolSessionRetention.kt`. Bei `auth_kobil.enroll_tool_session` ist die Frist besonders wichtig: dort liegen während einer laufenden Einrichtung KOBIL-PIN und Unlock-Secret im Klartext ([ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)) |
 | `kobil_mock.*` (Fremdsystem) | — | **kein** Cleanup durch uns | `kobil_mock` simuliert KOBIL und untersteht nicht unserer Aufbewahrung. Dass es überhaupt persistiert, ist Voraussetzung und nicht Bequemlichkeit: ohne das würde nach jedem Neustart jede `auth_kobil.enrollment`-Zeile auf einen Nutzer zeigen, den es beim Anbieter nicht mehr gibt |
+| `nect_mock.*`, `ext_personenverzeichnis.*` (Fremdsysteme) | — | **kein** Cleanup durch uns | simulierte Fremdsysteme wie `kobil_mock`; auch die Briefe des Personenverzeichnisses mit den Freischaltcodes im Klartext bleiben dort, wie Papier beim Empfänger |
 | `QrLoginRequest` | `expiresAt` | 24 h | Pairing-Anfrage, nach Ablauf (5 Min.) wirkungslos; von `AuthQrRetentionJob` mit abgeräumt |
 | `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Replay-Schutz gilt nur im Akzeptanzfenster eines Proofs |
 | `orchestrator.tool_session` | `expiresAt` | 24 h | reiner Lifecycle-Rest |
@@ -62,7 +63,7 @@ Richtwerte (als Default gedacht, nicht als Compliance-Vorgabe):
 | `account.*` (Anker, Methoden, Claim-, Identifizierungs- und Widerrufs-Log) | — | kein Session-Cleanup | gehört dem Konto, kaskadiert mit dessen Löschung. **Offen** ([12-entscheidungen.md](12-entscheidungen.md) ADR-12): Frist für das gemeinsame Löschen von Claim- und Widerrufszeile noch nicht entschieden |
 | `DeviceAccountLink` | — | kein Session-Cleanup | Geräte-Identität (`bindingKeyRef -> accountId`), überlebt jede einzelne `ChannelSession` bewusst ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
 | `AttemptThrottle` | letzter Zähler-Update | 7 Tage | weit über dem längsten Fenster/Lockout (15 Min.); ein Aufräumlauf rührt nie eine Zeile an, deren Sperre noch läuft. Zähler aller Scopes (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4) |
-| `orchestrator.keycloak_keypair` | — | kein Session-Cleanup | Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 3); gelöscht bei `AccountDeleted`, nicht über `RetentionJob` |
+| `orchestrator.keycloak_keypair` | — | kein Session-Cleanup | Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 2); gelöscht bei `AccountDeleted`, nicht über `RetentionJob` |
 
 Umgang mit den Referenzen:
 
@@ -86,8 +87,9 @@ Neben Konto-Änderungen löst auch eine Änderung im Personenverzeichnis die Spi
 → Konto (`applyDirectoryChange`) → `AccountChanged(changed)` → Keycloak, beide Schritte als Einträge dieser
 Tabelle (ADR-34). Berührt die Änderung nichts Gespiegeltes, entfällt der Keycloak-Aufruf.
 
-Jedes Konto wird als Keycloak-Nutzer gespiegelt (`KeycloakAccountSyncListener`, nur im
-`keycloak`-Profil). Die Spiegelung läuft nach dem Commit und ist absichtlich best-effort: Ein
+Jedes Konto mit bestätigter E-Mail-Adresse wird als Keycloak-Nutzer gespiegelt
+(`KeycloakAccountSyncListener`, nur im `keycloak`-Profil); ohne Adresse fehlt Keycloak der
+Benutzername, das folgt mit der ersten Bestätigung. Die Spiegelung läuft nach dem Commit und ist absichtlich best-effort: Ein
 fehlgeschlagener Keycloak-Aufruf darf eine bereits abgeschlossene Kontoänderung nicht nachträglich
 scheitern lassen.
 
@@ -137,12 +139,13 @@ Nur der zweite Fall braucht eine Wiederholung.
 
 ## 3b) Das System läuft als eine Instanz
 
-Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte in drei unabhängigen Stellen:
+Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte an vier unabhängigen Stellen:
 
-- elf `@Scheduled`-Jobs ohne Sperre oder Leader-Election. Bei mehreren Instanzen liefe jeder Lauf
-  mehrfach parallel.
+- drei `@Scheduled`-Jobs (Tool-Session-Sweep, `RetentionJob`, DPoP-Replay-Cleanup) ohne Sperre oder
+  Leader-Election. Bei mehreren Instanzen liefe jeder Lauf mehrfach parallel.
 - `dpop.secrets.otp-pepper` ist standardmäßig leer, das Pepper wird also bei jedem Start neu
-  gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen.
+  gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen, und
+  die `CONTACT_SEND`-Zähler wären je Instanz verschieden.
 - Die `@Volatile`-Caches im `KeycloakAdminClient` gelten nur im eigenen Prozess.
 - `KeycloakAccountSyncListener` arbeitet alle Syncs nacheinander auf einem prozessinternen Thread ab (`keycloakSyncExecutor`). Zwei Instanzen würden denselben Keycloak-User und dasselbe Keypair parallel anlegen.
 
@@ -171,7 +174,7 @@ benannter `@Service` mit eigenen Limits:
 | `LoginThrottleService` | `ACCOUNT` | Fehlgeschlagene AUTH-Versuche gegen ein Konto | `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH; bei LOOKUP_AUTH in die gewöhnliche "E-Mail/Code ungültig"-Antwort eingebettet (sonst ließe sich daraus ablesen, ob ein Konto existiert) |
 | `IdentThrottleService` | `PERSON` | Fehlgeschlagene IDENT-Versuche gegen eine Person (`ident-fsc` rät ein Geheimnis; ein Treffer übernimmt das Konto). Greift nur, wo der Versuch überhaupt eine Person benennt — `ident-eid` bestätigt seit ADR-18 nur die Karte und löst niemanden auf, seine PIN-Versuche begrenzt das Retry-Budget der Tool-Session | immer in die gewöhnliche Fehlerantwort gefaltet, nie eigener Fehler |
 | `ChannelCreationThrottleService` | `BINDING_KEY` | Kanaleröffnungen pro DPoP-Binding-Key (rollierendes Fenster, jeder Versuch zählt) | `429 Too Many Requests` |
-| `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | TAN-/Code-**Versendungen**, unabhängig von richtig/falsch (rollierendes Fenster, 3/10 Min) | `ACCOUNT_SEND` (LOOKUP_AUTH) in die gewöhnliche Fehlerantwort gefaltet; `CONTACT_SEND` (Self-Service-ENROLL, Subject SHA-256-gehasht statt Klartext) darf offen als eigener Fehler zurückkommen |
+| `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | TAN-/Code-**Versendungen**, unabhängig von richtig/falsch (rollierendes Fenster, 3/10 Min) | `ACCOUNT_SEND` (LOOKUP_AUTH) in die gewöhnliche Fehlerantwort gefaltet; `CONTACT_SEND` (Self-Service-ENROLL, Subject als HMAC-SHA256 mit dem OTP-Pepper statt Klartext) darf offen als eigener Fehler zurückkommen |
 
 - Warum zusätzlich zu `ToolSession.retryCount` nötig (Retry-Regel in
   [Orchestrierung](04-orchestrierung.md) Abschnitt 1): `retryCount` zählt nur innerhalb *eines*
@@ -179,7 +182,7 @@ benannter `@Service` mit eigenen Limits:
   derselben `toolSessionId`) startet ein Client jederzeit einen neuen. `ACCOUNT`/`PERSON` schließen
   das für falsche Rateversuche; `ACCOUNT_SEND`/`CONTACT_SEND` schließen zusätzlich das reine
   *Neu-Versenden*, das nie ein falscher Rateversuch ist und deshalb `recordFailure` nie
-  auslöst — ohne sie wäre `auth-sms-lookup`/`auth-email-lookup`/`enroll-sms`/`enroll-email` ein
+  auslöst — ohne sie wäre `auth-sms-lookup`/`auth-email-lookup`/`enroll-sms`/`confirm-email` ein
   freies SMS-/Mail-Bombing.
 - ENROLL-Fehlschläge selbst bleiben außerhalb von `LoginThrottleService`/
   `IdentThrottleService` (`ToolControllerSupport.chargeThrottles`, `ToolCategory.ENROLL -> Unit`):
@@ -246,7 +249,8 @@ Diagramm der tragenden Tabellen: [02-domaenenmodell.md](02-domaenenmodell.md) Ab
   ([Domänenmodell](02-domaenenmodell.md) Abschnitt 6).
 - **Aufbewahrung**: Jede Aufräumabfrage läuft als ein einzelnes Statement über viele Zeilen und hat
   einen Index auf ihrer Stichtagsspalte.
-- **Migrationen**: eine Datei je Modul unter `db/migration/<modul>/`
+- **Migrationen**: grundsätzlich eine Datei je Modul unter `db/migration/<modul>/` (`orchestrator` hat
+  zusätzlich `V14__node_signing_key.sql` und `V15__event_publication.sql`)
   ([ADR-30](adr/ADR-030-eine-migration-je-modul.md)), der Bestand ist eine Neubaseline ohne
   Produktivdaten. Passt eine lokale H2-Datei nicht mehr zu den Migrationen, löscht
   `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf — ein `rm -rf data/`

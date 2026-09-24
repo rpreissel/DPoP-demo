@@ -763,16 +763,16 @@ export function AppChannelApp() {
                     'Aufruf hat er einen {schluessel} erzeugt, der den Browser nie verlässt, und ' +
                     'signiert damit jede Anfrage (DPoP). Ein abgefangenes Token nützt so auf keinem anderen Gerät.'
                   }
-                  schluessel={<strong>{t('Geräteschlüssel')}</strong>}
+                  schluessel={<strong>{t('DPoP-Schlüssel')}</strong>}
                 />
               </p>
               <p>
                 <Tx
                   text={
-                    'Beim ersten Mal {registrieren} Sie sich: einmal ausweisen (Freischaltcode aus dem ' +
-                    'Brief oder eID), dann ein Anmeldeverfahren einrichten. Danach {anmelden} - ' +
-                    'auf diesem Gerät auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind ' +
-                    'nur Handy, SMS/E-Mail (der Code steht im Formular), Brief und Ausweiskarte.'
+                    'Beim ersten Mal {registrieren} Sie sich: ausweisen (Freischaltcode aus dem Brief, eID oder Nect), ' +
+                    'E-Mail-Adresse bestätigen und ein Anmeldeverfahren einrichten. Danach {anmelden} - auf diesem Gerät ' +
+                    'auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind Handy, SMS und ' +
+                    'E-Mail (der Code steht im Formular), Brief, Ausweiskarte, Nect, KOBIL und das Personenverzeichnis.'
                   }
                   registrieren={<strong>{t('registrieren')}</strong>}
                   anmelden={<strong>{t('melden Sie sich an')}</strong>}

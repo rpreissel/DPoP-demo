@@ -15,7 +15,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 @JsonSubTypes(
     JsonSubTypes.Type(value = ManageAuthMethodsState.AddRequested::class, name = "AddRequested"),
     JsonSubTypes.Type(value = ManageAuthMethodsState.RemoveRequested::class, name = "RemoveRequested"),
-    JsonSubTypes.Type(value = ManageAuthMethodsState.Enrolling::class, name = "Enrolling")
+    JsonSubTypes.Type(value = ManageAuthMethodsState.Enrolling::class, name = "Enrolling"),
+    JsonSubTypes.Type(value = ManageAuthMethodsState.RetractAttributeRequested::class, name = "RetractAttributeRequested")
 )
 sealed interface ManageAuthMethodsState : JourneyState {
 

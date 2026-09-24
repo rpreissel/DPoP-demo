@@ -21,6 +21,8 @@ stateDiagram-v2
   AuthChoice --> Finished: Nachweis reicht für das geforderte Niveau
   PreferredAuth --> Enrolling: Konto erreicht das Niveau nicht
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
+  PreferredAuth --> RE_IDENTIFY: Sitzung unter loa2 - Einrichtung erst nach frischer Identifizierung
+  AuthChoice --> RE_IDENTIFY: Sitzung unter loa2 - Einrichtung erst nach frischer Identifizierung
 
   Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
   Enrolling --> Finished: Niveau erreicht

@@ -72,7 +72,7 @@ Manche Anforderungen tauchen in mehreren Zielen auf — „erneut identifizieren
 mehr greift" gehört sowohl zu `FAST_ACCESS` als auch zu anderen Abläufen, und im Diagramm oben
 ist sogar ein komplettes eigenes Ziel (`REGISTER`) nur die Voraussetzung für ein anderes. Das
 System modelliert beides als eigenständige **Sub-Journey** (`RE_IDENTIFY`, `REGISTER`, Abschnitt
-5), die von mehreren Zielen aus angestoßen wird, aber nur einmal definiert ist. Ändert sich die
+6), die von mehreren Zielen aus angestoßen wird, aber nur einmal definiert ist. Ändert sich die
 fachliche Regel für Re-Identifizierung oder Registrierung, ändert sie sich an *einer* Stelle für
 alle Abläufe, die sie nutzen.
 
@@ -85,7 +85,8 @@ flowchart LR
   L2 --> L3["loa3<br/>stärkere Identifikation"]
 ```
 
-Konto löschen verlangt aktuell `loa2` **und** einen frischen Faktor, nicht `loa3`. Das ist an
+Methoden verwalten und Konto löschen verlangen `loa2` — für ein nie identifiziertes Konto nur `loa1`
+(`selfServiceAcrFloor`) —, Konto löschen zusätzlich einen frischen Faktor, nicht `loa3`. Das ist an
 genau der Stelle im Modell festgelegt, an der das jeweilige Ziel beschrieben ist — eine fachliche
 Entscheidung wie „QR-Bestätigung braucht künftig einen frischen Nachweis, kein altes Niveau" ist
 damit eine punktuelle, nachvollziehbare Änderung an der Beschreibung dieses einen Ziels.
@@ -219,28 +220,29 @@ Ausnahme, die **beides zugleich** ist (eigener Abschnitt unten):
 
 | `AuthIntent` | Ziel | Einstieg |
 |---|---|---|
-| `FAST_ACCESS` | So schnell wie möglich in einen Login auf diesem Gerät, und so, dass es künftig wieder klappt | `POST /channels` (Default) |
-| `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /channels` mit `intent=register` (App) bzw. `PATCH /kc/channels/{id}` mit `intent=register` (Web, s. u.) |
-| `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /channels` mit `intent=lookup_login` |
+| `FAST_ACCESS` | So schnell wie möglich in einen Login auf diesem Gerät, und so, dass es künftig wieder klappt | `POST /app/channels` (Default) |
+| `REGISTER` | Bewusst frische Identifizierung, auch auf einem bereits verknüpften Gerät | `POST /app/channels` mit `intent=register` (App) bzw. `PATCH /kc/channels/{id}` mit `intent=register` (Web, s. u.) |
+| `LOOKUP_LOGIN` | Bestehenden Account ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /app/channels` mit `intent=lookup_login` |
 | `KC_SELECT_METHOD` | Alle kc-nutzbaren Tools als einen `selectMethod`-Schritt anbieten; um die Fallback-Logik kümmert sich Keycloak selbst | Default-Entry-Intent des `KEYCLOAK`-Kanals ([05-api.md](05-api.md) Abschnitt 3) |
 | `STEP_UP` | Niveau anheben | nur auf einem `AUTHENTICATED`-Kanal |
 | `MANAGE_AUTH_METHODS` | Methoden hinzufügen oder entfernen | nur auf einem `AUTHENTICATED`-Kanal |
-| `CONFIRM_PEER_LOGIN` | Einen wartenden `auth-qr`/`auth-qr-lookup`-Login des Web-Kanals bestätigen oder ablehnen | `POST /channels` mit `intent=confirm_peer_login` **oder** `POST /channels/{id}/peer-logins` auf einem `AUTHENTICATED`-Kanal — dasselbe Gate |
+| `CONFIRM_PEER_LOGIN` | Einen wartenden `auth-qr`/`auth-qr-lookup`-Login des Web-Kanals bestätigen oder ablehnen | `POST /app/channels` mit `intent=confirm_peer_login` **oder** `POST /channels/{id}/peer-logins` auf einem `AUTHENTICATED`-Kanal — dasselbe Gate |
 | `DELETE_ACCOUNT` | Konto unwiderruflich löschen | nur auf einem `AUTHENTICATED`-Kanal |
 | `LOGOUT` | Bestätigtes Abmelden | nur auf einem `AUTHENTICATED`-Kanal |
 | `RE_IDENTIFY` | Erneute Identifizierung als geteilte SubJourney | nie direkt, nur über `RequireSubJourney` |
 
 Startet `CONFIRM_PEER_LOGIN` ohne bestehende Sitzung, bietet es nie eine Identifikation oder Registrierung an: Ist kein
 Konto über `DeviceAccountLink` bekannt, bricht die Journey sofort ab (410). Ist ein Konto bekannt,
-gilt derselbe `STEP_UP`-Gate wie bei `MANAGE_AUTH_METHODS`; reichte das Niveau schon *vor* diesem
+gilt ein `STEP_UP`-Gate auf fest `loa2` — anders als bei `MANAGE_AUTH_METHODS` ohne Ausweg über eine
+erneute Identifizierung (`allowReIdentification = false`); reichte das Niveau schon *vor* diesem
 Durchlauf, verlangt `CONFIRM_PEER_LOGIN` zusätzlich einen frischen Re-Proof wie `DELETE_ACCOUNT`
 (eigener Abschnitt unten).
 
 `REGISTER` ist ein eigener Intent mit eigener Journey (`RegisterState`): Er unterdrückt den
 `DeviceAccountLink`-Lookup und bietet nie eine bestehende Kontobindung an. `FAST_ACCESS` läuft ihn
 als `Transition.RequireSubJourney`-Voraussetzung, sobald es identifizieren müsste — dasselbe Muster
-wie bei `RE_IDENTIFY`. Einen zweiten Account erzwingt `REGISTER` **nicht**: Dieselbe KVNR findet
-denselben Account wieder.
+wie bei `RE_IDENTIFY`. Einen zweiten Account erzwingt `REGISTER` **nicht**: Dieselbe Person (über KVNR
+oder Partnernummer) findet denselben Account wieder.
 
 Der gewählte Intent wird auf der `ChannelSession` gemerkt. Resume und Abbruch starten denselben
 Intent erneut: Ein abgebrochener Lookup-Login wird wieder ein Lookup-Login.
@@ -253,7 +255,8 @@ Gemeinsam für alle Diagramme: Ein Pfeil ist ein Übergang, ausgelöst durch ein
 (Tool abgeschlossen, Tool abgebrochen, Kind-Journey fertig). `abgelehnt` steht für „gescheitert
 oder vom Nutzer verworfen, und in diesem Zustand ist nichts mehr übrig". Terminale Zustände
 (`Finished`) sind eingezeichnet, existieren aber **nicht** als persistierter Zustand: Das Ende
-einer Journey ist `Transition.Authenticated`.
+einer Journey ist eine Transition — `Authenticated` im Erfolgsfall, sonst `Logout`, `Cancel` oder
+`Abort`.
 
 Eine Datei je Journey, unter [`journeys/`](journeys/). Dieser Abschnitt war 32 KB groß, also die
 Hälfte des Dokuments. Wer eine einzelne Journey nachschlagen wollte, musste alle laden.
@@ -302,7 +305,8 @@ Moore-Automat für ihren eigenen Zustandstyp: `transition(state, event, ctx)`, d
 `initialState(ctx)` (wo eine direkt eingetretene Journey beginnt) und `cancelledTo` (wohin der
 Kanal bei Abbruch zurückfällt). Eine Sub-Journey mit vorgegebenem Zielniveau beginnt nicht über die
 SPI, sondern über die Companion-Factory des jeweiligen Zustands (`StepUpState.forSubJourney(...)`,
-`ReIdentifyState.forSubJourney(...)`) — nur `STEP_UP`/`RE_IDENTIFY` sind als Sub-Journey gemeint.
+`ReIdentifyState.forSubJourney(...)`, `RegisterState.forSubJourney()`) — `STEP_UP`, `RE_IDENTIFY` und
+`REGISTER` laufen als Sub-Journey.
 
 `transition()` ist die einzige Methode, die überhaupt entscheidet
 (docs/ideen/journey-strategie-vereinheitlichung.md).
@@ -315,7 +319,9 @@ Ein `JourneyEvent` ist, was der Journey gerade passiert ist:
 | `Completed(tool, outcome)` | ein Tool wurde erfolgreich abgeschlossen — was das bedeutet, entscheidet die Strategie hier |
 | `Abandoned(tool)` | „Zurück"/„Wechseln": das aktivierte Tool wurde ohne Abschluss verworfen |
 | `ActionCompleted` | die `Action` eines `Perform`-Übergangs (unten) ist ausgeführt, mit frisch hergeleitetem `JourneyContext` |
+| `EvidenceReported` | ein Nachweis kam außerhalb eines Tools herein (native Keycloak-Verfahren); `AuthEvidence` ist bereits aktualisiert |
 | `SubJourneyFinished(intent, achievedAcr)` | eine als Vorbedingung gestartete Kind-Journey ist fertig |
+| `SubJourneyCancelled(intent)` | die Kind-Journey wurde abgelehnt oder aufgegeben, ohne Ergebnis |
 | `Answered(answer)` | eine ausdrückliche Antwort auf einen `AnswerableState` statt eines Tool-Laufs — `answer` ist ein String, nicht `Boolean` |
 
 Eine `Transition` ist, was als Nächstes passieren soll:
@@ -348,12 +354,14 @@ Die `Action`-Varianten:
 
 | Action | Bedeutung |
 |---|---|
-| `RecordIdentification(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal, die Strategie wählt das nicht über die Action-Variante |
+| `RecordIdentification(tool, outcome)` | eine Identifizierung (`ident-fsc`/`ident-eid`/`ident-nect`) oder Korrelation (`ident-kvnr`) hat eine Identität aufgelöst. **Ein** Handler für beide Fälle: ob schon ein Konto gebunden ist, liest er zur Ausführungszeit aus Journey/Kanal, die Strategie wählt das nicht über die Action-Variante |
 | `AdoptCredential(tool, outcome)` | eine neue Methode wurde eingerichtet |
 | `AcceptProof(tool, outcome)` | ein Nachweis wurde erbracht. Ob das Tool den Account selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` plus der Live-Bindung ab; ein genannter Account, der einem bereits gebundenen widerspricht, ist `409` |
 | `AdoptAttestation(tool, outcome)` | ein Konto-eigenes Attribut wurde bestätigt (z. B. bestätigte E-Mail) — darf allein nie auf ein *anderes* Konto wechseln, dafür braucht es eine echte Identifizierung in derselben Sitzung |
 | `ApplyRestoredEvidence(source, methods)` | siehe „RestoreData als Anfangs-Übergang" unten |
+| `RecordApproval(tool, outcome)` | ein `PEER_APPROVAL`-Tool hat die Anfrage eines anderen Kanals entschieden (`CONFIRM_PEER_LOGIN`); nur Buchführung, ändert keinen eigenen Nachweis |
 | `RevokeAuthMethod(methodInstanceId)` | **ein Anmeldeverfahren** widerrufen (das Credential selbst, nicht nur ein Flag) — wer sich damit aussperren würde, wird vom Automaten abgewiesen, nicht von der Strategie. Benannt nach dem, was es zerstört, neben `DeleteAccount`, das das ganze Konto zerstört |
+| `RetractAttribute(attributeType)` | ein kontoeigenes Attribut (heute die bestätigte E-Mail-Adresse) zurückziehen; was davon abhing (`requires`), fällt mit |
 | `LinkDevice` | das aktuelle Gerät mit dem Konto **dieser Sitzung** verknüpfen — der einzige Weg, der auch *um*binden darf, weil ihm eine Zustimmung vorausgeht |
 | `DeleteAccount` | **das ganze Konto** dieser Sitzung unwiderruflich löschen — der Executor prüft `requiredAcr(account)` unmittelbar vor der Ausführung gegen die aktuellen Nachweise nach |
 
@@ -368,8 +376,8 @@ Flags darauf) der Strategie gehörte. Konsequenz, heute strukturell:
   (`accountOf`), unabhängig davon, welche Strategie sie ausgelöst hat.
 - Geräte-Bindung hat **eine** Implementierung (`linkDeviceTo`), die immer auch die
   Geräte-Credentials des vorher verknüpften Kontos widerruft. Vorher gab es zwei Varianten, und
-  welche lief, hing an der Action — `RegisterEnrollFirstStrategy` hat mangels
-  `ConfirmDeviceRebind`-Zustand die nicht-widerrufende erwischt.
+  welche lief, hing an der Action — `RegisterEnrollFirstStrategy` hatte damals noch keinen eigenen
+  Rückfragezustand und hat die nicht-widerrufende erwischt.
 
 Die ersten vier `Action`-Varianten tragen `tool`/`outcome` selbst. Enthalten ist nur, was sich je
 Intent **unterscheidet**; alles Mechanische — `personId`, `enrollmentRef`, `amr`, `achievedAcr` —
@@ -416,11 +424,10 @@ Getrennt wird zusätzlich nach **Destruktivität**, nicht nach Strategie: Impliz
 nur, wenn das Gerät frei ist oder schon diesem Konto gehört — es bindet **nie** still um und
 widerruft nie fremde Credentials. Erfolg in einem Ablauf ist Einverständnis, von *diesem* Konto
 wiedererkannt zu werden, nicht Einverständnis, das Gerät einem anderen wegzunehmen. Umbinden kann
-nur der explizite Weg nach einem Prompt (`ConfirmDeviceRebind`). Das schließt den Fall, den
-`RegisterEnrollFirstStrategy` ohne eigenen `ConfirmDeviceRebind`-Zustand sonst unbemerkt mitnehmen
-würde.
+nur der explizite Weg nach einem Prompt (`ConfirmDeviceRebind`, im Experiment „Enrollment zuerst"
+`EnrollFirstConfirmDeviceRebind` am Ende des Laufs).
 
-Zentral und für Strategien nicht erreichbar bleiben: den Nachweis in den `AuthContext` übernehmen,
+Zentral und für Strategien nicht erreichbar bleiben: den Nachweis in die `AuthEvidence` übernehmen,
 `SessionEvent` und Journey-Log schreiben, und die Begrenzung `min(achievedAcr, enrolledUnderAcr)`.
 
 Entscheidungen dahinter:
@@ -463,6 +470,13 @@ zurück — er treibt keine Journey weiter, routet nicht und startet keine Sub-J
 die Rekursion in `JourneyService.applyTransition` die einzige Rekursion im ganzen Ablauf.
 `OrchestratorArchitectureTest` prüft das.
 
+Auch Keycloak gleicht keine Phase selbst ab. Was ein Übergang am Konto ändert, meldet das
+Konto-Modul per `AccountChanged`; der `KeycloakAccountSyncListener` spiegelt danach, nach dem Commit
+und über die Event-Publication-Registry (ADR-29). Denselben Weg nimmt eine Änderung im
+Personenverzeichnis, ganz ohne Journey: `PersonChanged` → Konto (`applyDirectoryChange`) →
+`AccountChanged(accountId, changed)` → Keycloak, dort nur, wenn gespiegelte Attribute betroffen
+sind (ADR-34).
+
 ### RestoreData als Anfangs-Übergang
 
 Ein als Vorbedingung mitgelieferter Nachweis ([05-api.md](05-api.md) Abschnitt 3, Web-Kanal
@@ -477,17 +491,18 @@ dem ersten Angebot vorliegen kann, darf `Started` nicht blind das erste Angebot 
 Strategie wie `KcSelectMethodStrategy` prüft bei `Started` genauso wie bei jedem anderen Nachweis,
 ob das Vorhandene schon reicht.
 
-### `JourneyApi` — was Tool-Controller sehen
+### Was Tool-Controller sehen
 
-Fünf Operationen — `activate` (prüft und übernimmt eine `ToolSession`), `applyOutcome`, `abandon`,
-`cancel`, `nextOf` — sind die **einzige** Berührungsfläche der Tool-Controller mit dem
-Journey-Modell: kein Setzen von Routing-Feldern, kein Typ-Switch auf einen Intent, keine
+Tool-Controller gehen ausschließlich über `ToolControllerSupport` an `JourneyService`: `activate`
+(prüft und übernimmt eine `ToolSession`), `applyOutcome`, `abandon` und `nextOf`, dazu lesend
+`isCurrent`/`findActive`. Das ist ihre **einzige** Berührungsfläche mit dem Journey-Modell: kein Setzen von Routing-Feldern, kein Typ-Switch auf einen Intent, keine
 Entscheidung darüber, welches Tool laufen darf. `Step` ist `next` plus die Renderdaten des
 Schritts.
 
 Zwei Aktionen, die der Client sauber auseinanderhalten muss: `abandon` lehnt den aktuellen
 **Zustand** ab und führt die Journey weiter (`DELETE /tools/{toolSessionId}/{toolId}`); `cancel`
-gibt die **Journey** auf und startet den Entry-Intent neu (`DELETE .../journey`).
+gibt die **Journey** auf und startet den Entry-Intent neu (`DELETE .../journey`, über
+`ChannelService`, nicht über einen Tool-Controller).
 
 ---
 
@@ -529,7 +544,7 @@ Journeys und Kanäle hinweg. Welche Kategorien bewusst nicht zählen und warum, 
 Die Strategien fragen die `AuthPolicy`, statt selbst zu entscheiden, was genug ist: ob vorhandene
 Nachweise reichen (`isSatisfied`), welches Niveau sich aus ihnen ergibt (`resolveAcr`), welche
 Tools als Nachweis, Re-Identifizierung oder Enrollment in Frage kommen, und ob ein Account ein
-Niveau grundsätzlich erreichen kann (`canAccountReach`), unabhängig vom aktuellen Nachweis.
+Niveau grundsätzlich erreichen kann (`reachability`), unabhängig vom aktuellen Nachweis.
 
 Zwei Bedingungen müssen zusammen erfüllt sein:
 
@@ -537,7 +552,8 @@ Zwei Bedingungen müssen zusammen erfüllt sein:
    `acr`-Werte ist fachlich/regulatorisch offen: RFC 8176 definiert zwar eine IANA-Registry für
    `amr`-Werte (`pwd`, `otp`, `hwk`/`swk`, `user`, `face`, `fpt`, `mfa`, …), nicht aber, welche
    Kombination welches Vertrauensniveau ergibt. Die `amr`-Strings dieses Projekts (`sms`,
-   `password`, `email`, `fsc`, `device`, `pin`, `biometric`) folgen einer eigenen Konvention.
+   `password`, `email`, `fsc`, `eid`, `kvnr`, `nect-<verfahren>`, `device`, `kobil`, `qr`, dazu
+   `pin`/`biometric` aus der User Verification) folgen einer eigenen Konvention.
 2. **Faktorvielfalt**: Für MFA-Niveaus mindestens zwei **verschiedene** Faktorarten — gezählt wird
    die Vereinigung der `factorTypes` über alle abgeschlossenen Tools, nie die Tool-Anzahl. Ein Tool,
    das selbst zwei Faktorarten meldet (z. B. Passkey mit User Verification), erfüllt MFA allein.
@@ -561,7 +577,7 @@ Assertion, die das Backend selbst beim Anbieter einlöst, nicht auf einer Client
 am Ende zur nach außen sichtbaren `acr`-Zahl:
 
 - **IAL** (`identityAssuranceLevel`, "wer ist das?") — das höchste `loa`, das eine
-  IDENTIFICATION-Rolle (`ident-fsc`, `ident-eid`) **in dieser Session** erbracht hat. Bewusst
+  IDENTIFICATION-Rolle (`ident-fsc`, `ident-eid`, `ident-nect`) **in dieser Session** erbracht hat. Bewusst
   NICHT aus `account.identification` einer früheren Session nachgeladen: `AuthEvidence` ist "one
   per channel, cleared at logout" (`orchestrator.session.AuthEvidence`).
 - **AAL** (`authenticatorAssuranceLevel`, "wie stark ist der Nachweis bei DIESEM Login?") — die
@@ -569,7 +585,7 @@ am Ende zur nach außen sichtbaren `acr`-Zahl:
 
 `resolveAcr = max(IAL, AAL)`. Jede `MethodEvidence`/`AmrRecord`-Zeile trägt dafür eine `axis`
 (`EvidenceAxis.IDENTITY`/`AUTHENTICATOR`, `DefaultAuthPolicy`/`ToolDescriptor.evidenceAxis()`,
-abgeleitet aus `role.category`). Grund der Trennung: Eine Identifizierung darf ihr eigenes `loa`
+abgeleitet aus der `role`; `CORRELATION` wie `ident-kvnr` hebt keine der beiden Achsen). Grund der Trennung: Eine Identifizierung darf ihr eigenes `loa`
 direkt beisteuern (ein alleiniges `ident-fsc` erreicht `loa2`), sich aber **nicht** mit einem
 einzelnen Auth-Faktor anderer Art zu einer MFA-Erhöhung verbinden — sonst würde ein gestohlenes
 Passwort als durch einen weiteren, beim Login geprüften Faktor abgesichert gelten.
@@ -577,7 +593,7 @@ Passwort als durch einen weiteren, beim Login geprüften Faktor abgesichert gelt
 **`loa2` ist damit das Projekt-eigene Label für NIST-800-63B-AAL2**, erreichbar über drei
 gleichwertige Wege: (1) ein einzelnes Tool mit zwei eigenen Faktorarten (`device`:
 Besitz+Wissen/Inhärenz), (2) zwei kombinierte Einzelfaktor-AUTH-Tools unterschiedlicher Art
-(sms+password, über die MFA-Erhöhung), oder (3) eine Identifizierung (`ident-fsc`/`ident-eid`) allein
+(sms+password, über die MFA-Erhöhung), oder (3) eine Identifizierung (`ident-fsc`/`ident-eid`/`ident-nect`) allein
 über ihr eigenes IAL. Weil Weg (3) gleichwertig ist, wird `CandidateTools.forReIdentification` in
 Auth-Kontexten standardmäßig als Fallback angeboten (`StepUpState.forSubJourney`, Default
 `allowReIdentification=true`), sobald die Auth-Mittel nicht reichen. `loa3`/AAL3 ist bewusst nicht
@@ -586,9 +602,9 @@ ausgearbeitet.
 ### Session-Nachweis ist nicht gleich Account-Fähigkeit
 
 In einem Auth-Zustand lautet die Frage „reicht das *jetzt*?" (`isSatisfied`), in einem
-Enrollment-Zustand „kommt der Nutzer damit *künftig wieder herein*?" (`canAccountReach`). Eine
+Enrollment-Zustand „kommt der Nutzer damit *künftig wieder herein*?" (`reachability`). Eine
 Identifizierung ist keine dauerhafte Methode: `ident-fsc` zählt für
-`AuthContext.currentFactorTypes` dieser Session, landet aber im Audit-Log
+`AuthEvidence.currentFactorTypes` dieser Session, landet aber im Audit-Log
 `account.identification`, nicht in `account.auth_method`.
 
 Daraus folgt eine Kette von Obergrenzen: Das LoA der Identifizierung begrenzt, was ein Account je

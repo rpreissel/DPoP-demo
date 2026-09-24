@@ -33,8 +33,9 @@ Entscheidung, nicht eine neue.
 
 Die Versionen laufen über alle Module hinweg durch, weil Flyway eine einzige Historie führt. Die
 Reihenfolge folgt den Fremdschlüsseln: `ext_personenverzeichnis` (V1), `account` (V2), `orchestrator` (V3),
-danach die Ident- und Auth-Module, zuletzt die Demo-Daten (V16), die Personen und Freischaltcodes
-zugleich brauchen.
+danach die Ident- und Auth-Module, dann die Demo-Daten (V16), die Personen und Freischaltcodes
+zugleich brauchen. Später hinzugekommene Module hängen sich mit der nächsten freien Nummer an
+(`nect_mock` V17, `id_nect` V18).
 
 Fremdschlüssel gibt es weiterhin nur innerhalb eines Schemas (ADR-16). Ein Verweis in ein anderes
 Modul ist eine indizierte Spalte, keine Fremdschlüsselbeziehung. Genau deshalb ist die Aufteilung

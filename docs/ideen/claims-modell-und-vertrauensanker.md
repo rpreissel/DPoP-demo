@@ -12,7 +12,7 @@
 > bestätigen, ohne jemanden aufzulösen, womit der Interessent aus ADR-10 über eID tatsächlich
 > erreichbar ist. Maßgeblich für den Ist-Stand ist der Code, nicht die
 > SQL-Entwürfe in der Git-Historie dieser Datei. ADR-19 hat die Auflösung danach auf Anker
-> allein gestellt (`restricted_id` als dritter lokaler Anker neben `person_id` und `email`,
+> allein gestellt (`restricted_id` als dritter lokaler Anker neben `person_id` und `email` – seit ADR-34 kommt `versnr` hinzu,
 > Attributkombination als Auflösungsschicht entfernt) — auch das ist im Code maßgeblich.
 
 Offen geblieben ist nur die Skalierungsfrage unten — sie betrifft eine Produktivgröße

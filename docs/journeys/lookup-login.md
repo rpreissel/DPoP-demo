@@ -9,12 +9,17 @@ Methoden nach. Angeboten wird der abgeleitete Satz aller `MethodRole.LOOKUP_AUTH
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Credential
+  [*] --> Start
+  Start --> Credential: Login-Verfahren ohne Gerätebindung verfügbar
+  Start --> [*]: keines verfügbar - Abort
   Credential --> Credential: ein Tool abgelehnt, weitere übrig
+  Credential --> [*]: alle abgelehnt - Cancel
   Credential --> AdditionalFactor: Nachweis erbracht, acrFloor noch nicht erreicht
   Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, kein Rebind-Konflikt
   Credential --> ConfirmDeviceRebind: Nachweis erbracht, anderes Konto war auf dem Gerät gebunden
   AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
+  AdditionalFactor --> [*]: alle abgelehnt - Cancel
+  Credential --> RE_IDENTIFY: Nachweis erbracht, keine kombinierbare Methode übrig, Re-Identifizierung möglich
   AdditionalFactor --> OfferBinding: acrFloor erreicht, kein Rebind-Konflikt
   AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, anderes Konto war auf dem Gerät gebunden
   AdditionalFactor --> RE_IDENTIFY: keine kombinierbare Methode übrig, Re-Identifizierung möglich

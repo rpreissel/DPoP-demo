@@ -145,7 +145,7 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
           nummer={identifier}
         />
       </p>
-      {first && !fsc && <div className="hint">{t('Kein gültiger Code im Briefkasten (Personenverzeichnis {pfad})', { pfad: '/personenverzeichnis/' })}</div>}
+      {first && !fsc && <div className="hint">{t('Für diese Person liegt kein gültiger Code im Briefkasten. Stellen Sie im Personenverzeichnis ({pfad}, Reiter „Freischaltcodes“) einen neuen aus.', { pfad: '/personenverzeichnis/' })}</div>}
       <form onSubmit={submitCode} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
           <label htmlFor="fsc">{t('Freischaltcode')}</label>

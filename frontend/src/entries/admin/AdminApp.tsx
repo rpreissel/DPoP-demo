@@ -185,7 +185,7 @@ function AccountsTab() {
                 {accounts.map((a) => (
                   <tr key={a.accountId}>
                     <td>{a.accountId}</td>
-                    <td>{a.displayName ?? (a.personId == null ? t('nicht identifiziert') : t('Person {id}', { id: a.personId }))}</td>
+                    <td>{a.displayName ?? (a.personId == null ? t('Interessent (keine Person zugeordnet)') : t('Person {id}', { id: a.personId }))}</td>
                     <td>{a.email ?? '–'}</td>
                     <td>{a.methods.length > 0 ? a.methods.join(', ') : '–'}</td>
                     <td>

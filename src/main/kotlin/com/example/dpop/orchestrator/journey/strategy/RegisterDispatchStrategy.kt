@@ -29,8 +29,8 @@ import org.springframework.stereotype.Component
  * Deliberately takes no `FeatureFlagService` itself: `IntentStrategy` implementations must
  * never depend on a `@Service`/`@Repository` (its own class doc, enforced by
  * `OrchestratorArchitectureTest` - "a strategy DECIDES, it never ACTS"). `JourneyService` reads the
- * flag once, into [JourneyContext.enrollFirstRegistration], the same read-only channel every other
- * decision here already goes through.
+ * flags once, into [JourneyContext.featureFlags] (`FeatureFlags.REGISTER_ENROLL_FIRST`), the same
+ * read-only channel every other decision here already goes through.
  */
 @Component
 class RegisterDispatchStrategy : IntentStrategy<JourneyState> {

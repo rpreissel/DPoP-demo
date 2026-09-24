@@ -10,7 +10,7 @@ niedrigerem `enrolledUnderAcr` nach Zustimmung aufgewertet werden dürfen.
 ## 1) Ausgangslage
 
 `authenticationMethods[].enrolledUnderAcr` ist im DPoP-demo-Projekt bewusst **für immer
-eingefroren** — die "dreifache Begrenzung" (ADR-5, [12-entscheidungen.md](../12-entscheidungen.md),
+eingefroren** — die Begrenzung über `enrolledUnderAcr` (ADR-5, heute faktisch zwei Stellen, siehe dort Nachtrag 2; [12-entscheidungen.md](../12-entscheidungen.md),
 [06-ablaeufe.md](../06-ablaeufe.md) #1): eine Methode darf bei der Authentifizierung nie mehr
 Vertrauen erzeugen, als bei ihrer Einrichtung vorhanden war. Ohne diese Regel könnte, wer eine
 schwache Session übernimmt, dort eine eigene Methode einrichten und damit dauerhaft ein höheres

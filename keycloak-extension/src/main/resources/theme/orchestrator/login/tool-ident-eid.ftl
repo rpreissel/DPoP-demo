@@ -14,30 +14,30 @@
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
                         <label for="name" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
-                        <input type="text" id="name" name="name" class="${properties.kcInputClass!}" value="Muster"/>
+                        <input type="text" id="name" name="name" class="${properties.kcInputClass!}"/>
                     </div>
                     <div class="${properties.kcFormGroupClass!}">
                         <label for="vorname" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
-                        <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" value="Max"/>
+                        <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}"/>
                     </div>
                 </div>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="geburtsdatum" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
-                    <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" value="1985-06-15"/>
+                    <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}"/>
                 </div>
                 <#-- Die Karte liefert Straße und Hausnummer in einem Feld (Street). -->
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="strasse" class="${properties.kcLabelClass!}">${t.of("Straße und Hausnummer")}</label>
-                    <input type="text" id="strasse" name="strasse" class="${properties.kcInputClass!}" value="Musterstraße 1"/>
+                    <input type="text" id="strasse" name="strasse" class="${properties.kcInputClass!}"/>
                 </div>
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
                         <label for="plz" class="${properties.kcLabelClass!}">${t.of("PLZ")}</label>
-                        <input type="text" id="plz" name="plz" class="${properties.kcInputClass!}" value="12345"/>
+                        <input type="text" id="plz" name="plz" class="${properties.kcInputClass!}"/>
                     </div>
                     <div class="${properties.kcFormGroupClass!}">
                         <label for="ort" class="${properties.kcLabelClass!}">${t.of("Ort")}</label>
-                        <input type="text" id="ort" name="ort" class="${properties.kcInputClass!}" value="Musterstadt"/>
+                        <input type="text" id="ort" name="ort" class="${properties.kcInputClass!}"/>
                     </div>
                 </div>
             <#elseif step == "pin">

@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
  * submitted address) or to one raw contact address (for self-service enrollment, where no account
  * may exist yet - see [ThrottleScope.CONTACT_SEND]).
  *
- * `auth-sms-lookup`/`auth-email-lookup`/`enroll-sms`/`enroll-email` all (re-)send a fresh
+ * `auth-sms-lookup`/`auth-email-lookup`/`enroll-sms`/`confirm-email` all (re-)send a fresh
  * TAN/code on every PATCH that carries a phone number/email, regardless of what happened before -
  * that is the whole point of their "resubmitting restarts the flow" behaviour. Nothing else bounds
  * how often that happens: a wrong-guess counter like [LoginThrottleService] never fires here

@@ -57,3 +57,8 @@ also Passwort **und** E-Mail-Login mit. Die Aussage „die einzige Angabe auf ei
 „Kosten“ ist damit überholt: `EMAIL` wird an zwei Stellen verlangt, und `ident-kvnr` verlangt
 zusätzlich `NAME`/`VORNAME`/`GEBURTSDATUM` (ADR-18) — dort allerdings nur als Angebotsbedingung
 eines Identifizierungsschritts, nicht als Voraussetzung eines Credentials.
+
+**Nachtrag (ADR-34, 2026-09-24)**: Ein vierter Auslöser mit eigenem Anker: Ändert oder entfernt das
+Personenverzeichnis KVNR oder Versicherungsnummer, zieht `AccountService.applyDirectoryChange` den
+alten Wert mit `RetractionAnchor.PERSON_DIRECTORY` zurück. Das ist kein Tool; die Regel „ein Tool
+widerruft nie“ bleibt unberührt.

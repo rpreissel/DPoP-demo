@@ -11,7 +11,7 @@ Text auf das Kapitel, das sie im Detail beschreibt.
 Mara öffnet die App zum ersten Mal. Die App erzeugt lokal ein Schlüsselpaar (Web Crypto API,
 privater Key nicht exportierbar) und schickt ihren ersten Request mit einem `DPoP`-Proof statt
 eines Passworts oder Zertifikats. Das Backend legt daraufhin eine `ChannelSession(APP)` an — den
-langlebigen Kanal für Maras Gerät, verankert am Fingerabdruck ihres Schlüssels
+Kanal für diese Nutzung, verankert am Fingerabdruck ihres Schlüssels
 (`binding_key_ref`). Noch ist der Kanal `ANONYMOUS`: Es gibt noch kein Konto, das zu diesem
 Gerät gehört.
 
@@ -25,18 +25,19 @@ ein, und das ist ein anderer Vorgang.
 
 Die App startet die Journey mit dem Ziel `REGISTER` — Maras erklärter Wunsch, sich neu zu
 identifizieren, nicht bloß der technische Ablauf dahinter. Der Orchestrator bietet als
-Erstes das passende Identifikationsverfahren an: `ident-fsc` (der Freischaltcode, den ihr das Personenverzeichnis per Brief
-geschickt hat). Die App
-weiß nicht von sich aus, dass jetzt `ident-fsc` dran ist — sie folgt nur `next`, einer reinen
+Erstes die Identifizierungsverfahren zur Auswahl an (`ident-fsc`, `ident-eid`, `ident-nect`);
+Mara nimmt `ident-fsc`, den Freischaltcode, den ihr das Personenverzeichnis per Brief geschickt
+hat. Die App weiß nicht von sich aus, was jetzt dran ist — sie folgt nur `next`, einer reinen
 Adresse in der Antwort des Backends, und bildet daraus über eine feste, lokale Routing-Tabelle
 die passende UI-Komponente ab.
 
-Mara gibt ihre Versichertennummer, Namen und Geburtsdatum ein, danach den Code aus dem Brief.
-`ident-fsc` (ein eigenes Tool-Modul) prüft die Angaben gegen das Personenverzeichnis und den Code
-gegen dessen Briefkasten und meldet dem Orchestrator ein `ToolOutcome.Completed.Identified` mit
-einem `PERSON_ID`-Claim (ihrer Partnernummer) und den geprüften Angaben — für die das
-Personenverzeichnis einsteht, nicht das Tool. Der Orchestrator legt daraufhin ein neues Konto
-an und bindet Maras `person_id` als Anker. Die Sitzung steht damit auf `loa2`: Das Verfahren
+Mara gibt ihre Versichertennummer (KVNR), Namen, Vornamen und Geburtsdatum ein, danach den Code
+aus dem Brief. `ident-fsc` (ein eigenes Tool-Modul) prüft die Angaben gegen das
+Personenverzeichnis und den Code gegen die dort ausgestellten Freischaltcodes. Dem Orchestrator
+meldet es ein `ToolOutcome.Completed.Identified` mit einem `PERSON_ID`-Claim (ihrer
+Partnernummer) und den geprüften Angaben — für die das Personenverzeichnis einsteht, nicht das
+Tool. Der Orchestrator legt daraufhin ein neues Konto an und bindet Maras `person_id` und, weil
+sie bei uns versichert ist, ihre Versicherungsnummer als Anker. Die Sitzung steht damit auf `loa2`: Das Verfahren
 selbst trägt dieses Niveau.
 
 Fertig ist die Registrierung damit nicht, denn eine Identifizierung ist kein Anmeldeverfahren —
@@ -160,10 +161,11 @@ vorher ihre eigene `loa2`-Hürde nehmen musste. Der QR-Login reicht durch, was d
 Ein Jahr später will Mara ihr Konto endgültig löschen. `DELETE_ACCOUNT` verlangt zunächst eine
 unbedingte Ja/Nein-Bestätigung, dann `loa2` **und** einen frisch bewiesenen Faktor — nicht
 irgendeinen alten Nachweis aus dem laufenden Kanal, dieselbe Vorsicht wie beim QR-Login. Erst wenn
-beides steht, löscht der Orchestrator Maras Konto samt aller Anker, Verfahren und
-Geräte-Verknüpfungen und synchronisiert das nach Keycloak. Jeder dieser Schritte — welches
-Verfahren wann angeboten, angenommen oder abgelehnt wurde — bleibt im Journey-Log
-nachvollziehbar, ohne dass jemand verteilte Systemlogs rekonstruieren müsste.
+beides steht, löscht der Orchestrator Maras Konto samt aller Anker, Verfahren, Geräte-Verknüpfungen und ihres
+Journey-Logs, meldet alle ihre Sitzungen ab und synchronisiert das nach Keycloak. Bis dahin war
+jeder Schritt — welches Verfahren wann angeboten, angenommen oder abgelehnt wurde — im
+Journey-Log nachvollziehbar, ohne dass jemand verteilte Systemlogs rekonstruieren musste; nach der
+Löschung bleibt davon bewusst nichts.
 
 *Konzepte: [`DELETE_ACCOUNT`](04-orchestrierung.md) Abschnitt 3, [Journey-Log](04-orchestrierung.md).*
 
@@ -186,7 +188,7 @@ nachvollziehbar, ohne dass jemand verteilte Systemlogs rekonstruieren müsste.
 
 | Im Beispiel | Begriff | Im Code |
 |---|---|---|
-| Maras Verbindung zur App, über Monate hinweg | `ChannelSession` | [02-domaenenmodell.md](02-domaenenmodell.md) |
+| Maras Verbindung zur App während einer Nutzung (das Gerät selbst merkt sich `DeviceAccountLink`) | `ChannelSession` | [02-domaenenmodell.md](02-domaenenmodell.md) |
 | „Ich will mich registrieren" / „Ich will nur schnell rein" | `AuthIntent` (`REGISTER`, `FAST_ACCESS`, ...) | [04-orchestrierung.md](04-orchestrierung.md) |
 | Die eine Freischaltcode-Eingabe, die eine TAN-Eingabe | `Tool` (`ident-fsc`, `enroll-sms`, ...) | [03-tool-architektur.md](03-tool-architektur.md) |
 | „Was soll die App jetzt anzeigen?" | `next`/`stepData` | [05-api.md](05-api.md) |

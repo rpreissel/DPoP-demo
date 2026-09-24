@@ -12,7 +12,8 @@ stateDiagram-v2
   ConfirmPending --> [*]: abgelehnt -> Cancel
   ConfirmPending --> ConfirmationRequired: gefordertes Niveau bereits erreicht
   ConfirmPending --> STEP_UP: gefordertes Niveau noch nicht erreicht
-  STEP_UP --> ConfirmPending: SubJourneyFinished -> sofort Perform(DeleteAccount)
+  STEP_UP --> ConfirmPending: SubJourneyFinished mit ausreichendem Niveau -> sofort Perform(DeleteAccount)
+  STEP_UP --> [*]: SubJourneyFinished unter dem geforderten Niveau -> Cancel
   STEP_UP --> [*]: SubJourneyCancelled -> Cancel
   ConfirmationRequired --> ConfirmationRequired: ein Tool abgelehnt, weitere übrig
   ConfirmationRequired --> [*]: alle abgelehnt -> Cancel
@@ -27,7 +28,7 @@ dasselbe `selfServiceAcrFloor`-Gate wie bei `MANAGE_AUTH_METHODS` (Abschnitt 3, 
 ein Step-up laufen, zählt dessen Nachweis bereits. Der Übergang am Ende ist
 `Transition.Perform(Action.DeleteAccount, resumeState = ConfirmPending)`, aufgelöst zu
 `Transition.Logout` sobald die Journey mit `ActionCompleted` fortgesetzt wird: Account löschen,
-Kanal beenden. `JourneyService` prüft `requiredAcr(account)` unmittelbar vor der Ausführung erneut
+Kanal beenden. `JourneyActionExecutor` prüft `requiredAcr(account)` unmittelbar vor der Ausführung erneut
 nach (wie beim Selbst-Aussperr-Check vor `Action.RevokeAuthMethod`).
 Der Nachweis in `ConfirmationRequired` läuft direkt in `Action.DeleteAccount`, nie über
 `Action.AcceptProof` — er autorisiert genau diese eine Löschung, nie eine dauerhafte

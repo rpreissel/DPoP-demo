@@ -12,7 +12,8 @@ Attributkombination Name+Vorname+Geburtsdatum gegen die Claim-Historie mit
 `Resolution.Ambiguous` als Mehrdeutigkeits-Ergebnis — ist komplett entfernt
 (`Resolution.Ambiguous`, `MatchedVia.Attributes`, `BindingStrength.ATTRIBUTE_COMBINATION`,
 `findAccountIdsMatchingAllThree`, Index `ix_claim_type_value`). An ihre Stelle tritt die
-`restricted_id` der eID-Karte als achter Claim von `ident-eid`: ein kartengebundenes Pseudonym
+`restricted_id` der eID-Karte als achter Claim von `ident-eid` (heute der siebte: die Hausnummer ging
+in `strasse` auf): ein kartengebundenes Pseudonym
 (in der Demo ein Platzhalter für den echten Restricted Identifier). Sie wird als lokaler Anker geführt (`AttributeAuthority.Local`), mit `AnchorAcrFloor(LOA2, LOA2)` und `allowsReplacement = true`: Eine neue Karte bringt
 einen neuen Wert, der den alten an derselben Stelle ersetzt — wie bei `EMAIL`. Hält ein anderes
 Konto den Wert, bleibt es bei der Abweisung (`IdentityConflictException`). Der ersetzte Wert verfällt seit dem
@@ -29,7 +30,7 @@ Stammdaten hinter der Nummer mit der bestätigten Identität.
 dem KVNR-Vergleich wirken lassen und ihre Werte gegen `ext_personenverzeichnis` statt gegen den Account
 prüfen.
 
-**Warum diese**: Account-Claims sagen, woher ein Wert kam, sie sind keine Register-Wahrheit — ein
+**Warum diese**: Account-Claims sagen, woher ein Wert kam, sie sind keine Wahrheit des Personenverzeichnisses — ein
 Dreifach-Treffer darauf kann denselben Datensatz in fremden Konten finden und war damit schwächer
 als das, was er ersetzen sollte. Der KVNR-Abgleich gegen `ext_personenverzeichnis` ist bereits als Guard
 vorhanden; eine zweite Matching-Schicht über Account-Historie ist redundant und erzeugt nur den

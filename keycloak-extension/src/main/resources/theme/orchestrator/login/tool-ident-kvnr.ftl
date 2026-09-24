@@ -9,12 +9,12 @@
         </#if>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <p class="orchestrator-hint">
-                ${t.of("Ihre Identität ist bereits nachgewiesen. Die Versichertennummer muss zu dieser Person gehören.")}
+                ${t.of("Ihre Identität ist bereits nachgewiesen. Die Versichertennummer - oder ohne sie die Partnernummer - muss zu dieser Person gehören.")}
             </p>
             <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"kvnr":"kvnr","partnernr":"personId"}' />
             <div class="${properties.kcFormGroupClass!}">
                 <label for="kvnr" class="${properties.kcLabelClass!}">${t.of("Versichertennummer")}</label>
-                <input type="text" id="kvnr" name="kvnr" class="${properties.kcInputClass!}" value="A123456789"/>
+                <input type="text" id="kvnr" name="kvnr" class="${properties.kcInputClass!}"/>
             </div>
             <#-- The KVNR comes first; the Partnernummer only counts without one (ADR-34). -->
             <details class="${properties.kcFormGroupClass!}">

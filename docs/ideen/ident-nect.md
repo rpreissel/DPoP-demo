@@ -178,7 +178,7 @@ Identifizierungsdienst“, eigenes Tab-Icon). Aufbau:
 
 1. **Einstieg:** „Identifizierung für *DPoP-Demo*“, verlangtes Niveau, Auswahl
    **Online-Ausweis (eID)** · **Reisepass (ePass)** · **EUDI-Wallet**; dazu „Abbrechen“.
-2. **Maske je Verfahren** (vorbelegbar aus den Demo-Personen des Registers, wie heute im
+2. **Maske je Verfahren** (vorbelegbar aus den Demo-Personen des Personenverzeichnisses, wie heute im
    eID-Formular):
 
 | Verfahren | Simulierte Schritte | Felder | Besonderheit |
@@ -228,11 +228,11 @@ das so ab:
 Folgen für das übrige Modell (umgesetzt 2026-09-24):
 
 - Straße und Hausnummer kommen bei eID und PID als **ein** Feld. `AttributeType.STRASSE` ist
-  deshalb die ganze Straßenzeile, `HAUSNUMMER` gibt es nicht mehr. Nur das Register trennt beide
+  deshalb die ganze Straßenzeile, `HAUSNUMMER` gibt es nicht mehr. Nur das Personenverzeichnis trennt beide
   (P-4) und setzt sie an seiner Grenze zusammen (`PersonData.strassenzeile`), auch für den
   Keycloak-Spiegel.
 - Der Pass liefert Namen in MRZ-Schreibweise (`MUELLER`), die eID in Großbuchstaben (`MÜLLER`).
-  Das Register vergleicht Namen daher in MRZ-Form (`MrzName`): Großschreibung, Ä→AE, ß→SS,
+  Das Personenverzeichnis vergleicht Namen daher in MRZ-Form (`MrzName`): Großschreibung, Ä→AE, ß→SS,
   Diakritika weg, Name und Vorname als ein Namensfeld, gekürzt auf die 39 Zeichen des Passes.
   Die Sprungseite liefert beim Pass die Namen in dieser Form.
 
@@ -298,7 +298,8 @@ sieht nur die `redirect_uri` und den Rücksprung. Offene Punkte dort: Issuer-Whi
 
 ## 12) Umsetzung (2026-09-23)
 
-- Module `id_nect` (Tool) und `nect_mock` (Fremdsystem, `allowedDependencies = []`), Kante
+- Module `id_nect` (Tool) und `nect_mock` (Fremdsystem, `allowedDependencies = ["texts"]` – nur die
+  Textbibliothek, ADR-33), Kante
   `id_nect → nect_mock` deklariert wie `auth_kobil → kobil_mock`. Die App spricht nur mit dem
   Orchestrator; die Sprungseite nur mit `/mock-nect`; das Ergebnis holt das Backend direkt bei
   `NectIdent.redeem` ab (einmalig, nur für den Case der eigenen Tool-Session).
@@ -311,4 +312,8 @@ sieht nur die `redirect_uri` und den Rücksprung. Offene Punkte dort: Issuer-Whi
   keycloak-extension keinen Renderer dafür hat (der Client deklariert, was er kann) – keine
   zusätzliche Sperre im Backend.
 - Offene Fragen 1–3 damit entschieden: Rolle wie Abschnitt 4, Niveaus wie Tabelle, selber Tab.
+- Abweichung vom Entwurf: Statt einer Schnittstelle `NectService` ruft `id_nect` direkt die Klasse
+  `nect_mock.NectIdent` (`createCase`/`redeem`/`caseView`), wie `auth_kobil → KobilSsms` (ADR-31).
+  Für die echte Anbindung (Abschnitt 9) wäre daraus erst eine Schnittstelle zu ziehen. Ebenso hängt
+  `nect_mock` nicht an nichts (`[]`, wie oben entworfen), sondern an `texts`.
 

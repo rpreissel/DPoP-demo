@@ -33,13 +33,14 @@ Der Kern des Modells sind drei ineinander geschachtelte Sessions mit fallender L
 
 | Ebene | Steht für | Lebensdauer |
 |---|---|---|
-| `ChannelSession` | Der Kanal (App oder Web), DPoP-gebunden | langlebig, überdauert einzelne Verfahren |
+| `ChannelSession` | Der Kanal (App oder Web), DPoP-gebunden | überdauert einzelne Verfahren, aber bewusst kurzlebig (ADR-3); das Gerät selbst merkt sich `DeviceAccountLink` |
 | `AuthJourney` | Ein Durchlauf eines `AuthIntent`: ein geführter Weg mit einem Ziel | so lange die Journey läuft |
 | `ToolSession` | Ein einzelner Tool-Durchlauf, z. B. die TAN-Eingabe | kurz, oft Minuten |
 
 Eine Journey durchläuft dabei beliebig viele Tools: Der Weg über die Identifizierung ist etwa
-`ident-fsc` -> `enroll-sms`; verlangt der Kanal ein Mehr-Faktor-Niveau, kommen weitere Schritte
-hinzu, bis die Policy erfüllt ist. Welche Verfahren in welcher Reihenfolge angeboten werden,
+`ident-fsc` -> `confirm-email` -> `enroll-sms` -> `enroll-password`: Nach dem Ausweisen bestätigt
+man die E-Mail-Adresse und richtet Anmeldeverfahren ein, bis das verlangte Niveau erreicht ist
+(SMS allein trägt nur `loa1`, daher die Passwort-Pflicht). Welche Verfahren in welcher Reihenfolge angeboten werden,
 entscheidet der Intent ([04-orchestrierung.md](04-orchestrierung.md)).
 
 Details: [02-domaenenmodell.md](02-domaenenmodell.md)
@@ -54,7 +55,8 @@ erreichbares Sicherheitsniveau. Es gibt keine zentral gepflegte Liste, die man b
 eines Verfahrens vergessen könnte.
 
 Über die Modulgrenze geht ausschließlich ein `ToolOutcome`: läuft noch, abgeschlossen oder
-fehlgeschlagen. Fachdaten wie TAN oder KVNR verlassen das Modul nie.
+fehlgeschlagen. Arbeitsdaten wie TAN oder Freischaltcode verlassen das Modul nie; was ein Tool
+geprüft hat, meldet es nur als bestätigte Angabe (`Claim`) im `ToolOutcome`.
 
 Details: [03-tool-architektur.md](03-tool-architektur.md)
 
@@ -94,11 +96,11 @@ Details: [04-orchestrierung.md](04-orchestrierung.md)
 
 1. App sendet Request mit DPoP -> Backend erstellt/liest `ChannelSession(APP)`.
 2. Backend startet eine `AuthJourney` mit dem Intent des Kanals (Default `FAST_ACCESS`).
-3. Orchestrator bietet die Verfahren an, die der aktuelle Zustand der Journey zulässt (FSC/SMS/eID).
+3. Orchestrator bietet die Verfahren an, die der aktuelle Zustand der Journey zulässt (z. B. Freischaltcode, eID, Nect, SMS, Passwort, Gerät).
 4. Bei Erfolg erzeugt Backend den `AuthContext` (Keycloak-Tokenfluss serverseitig).
 5. `ChannelSession.state` wechselt auf `AUTHENTICATED`.
-6. Braucht die App ein höheres Niveau, hebt sie es per `POST /channels/{channelSessionId}/step-ups` mit `requiredAcr` an ([05-api.md](05-api.md), App-Fassade Beispiel 9). Alternativ ist die Untergrenze schon beim Anlegen des Kanals gesetzt.
-7. Backend vergleicht die Forderung mit `currentAcr`/`currentAmr` aus dem `AuthContext`. Reicht es nicht: `STEP_UP_REQUIRED` -> neue `AuthJourney(STEP_UP)`, und die Antwort enthält direkt den fälligen `next`-Schritt.
+6. Braucht die App ein höheres Niveau, hebt sie es per `POST /channels/{channelSessionId}/step-ups` mit `requiredAcr` an ([05-api.md](05-api.md), Abschnitt „`POST /channels/{channelSessionId}/step-ups`“). Alternativ ist die Untergrenze schon beim Anlegen des Kanals gesetzt.
+7. Backend vergleicht die Forderung mit dem Nachweis der Sitzung (`AuthEvidence`: `currentAmr`, daraus das aktuelle Niveau). Reicht es nicht: `STEP_UP_REQUIRED` -> neue `AuthJourney(STEP_UP)`, und die Antwort enthält direkt den fälligen `next`-Schritt.
 
 ### Web (Keycloak-first)
 

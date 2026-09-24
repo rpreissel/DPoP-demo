@@ -39,9 +39,10 @@ Credential-Store. Geschrieben wird er von einer eigenen
 `/admin/realms/{realm}/orchestrator-keys/{accountId}`).
 
 Der Account-Sync spiegelt daneben Namen und User-Attribute
-(`personId`/`kvnr`/`geburtsdatum`/`strasse`/`hausnummer`/`plz`/`ort`)
-— je Attribut der Registerwert, sonst der stärkste bestätigte Claim des Kontos (ADR-18: ein voll
-bestätigter Interessent trägt NAME/VORNAME/GEBURTSDATUM und die Adressattribute auch ohne
+(`personId`/`kvnr`/`versnr`/`geburtsdatum`/`strasse`/`plz`/`ort`; `strasse` ist die ganze
+Straßenzeile) — für ein gebundenes Konto nur die Werte des Personenverzeichnisses (seit ADR-34 ohne
+Rückfall auf alte Claims), für einen Interessenten der stärkste bestätigte Claim des Kontos (ADR-18:
+ein voll bestätigter Interessent trägt NAME/VORNAME/GEBURTSDATUM und die Adressattribute auch ohne
 Registerbindung); die
 Platzhalternamen bleiben nur für Konten ohne beides („Enrollment zuerst"). `personId`/`kvnr`/`versnr`
 existieren nur mit Registerbindung — ein Interessent zeigt sich im Fehlen von `personId`, ein Partner

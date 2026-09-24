@@ -48,7 +48,9 @@ Rollback `409 INVALID_STATE_TRANSITION`.
 **KVNR-Zuständigkeit:** Die eindeutige, zeitlich änderbare KVNR wird ausschließlich durch
 `ext_personenverzeichnis` verwaltet (Suchpfad KVNR → externe PersonId → lokaler PersonId-Anker → Account)
 und ist kein lokaler Account-Ankertyp mehr. E-Mail bleibt
-dagegen ein im Account-System bestätigter, wechselbarer Anker.
+dagegen ein im Account-System bestätigter, wechselbarer Anker. Seit ADR-34 ist die PersonId die
+Partnernummer und damit selbst ein zweiter Suchweg; die Versicherungsnummer ist ein lokaler,
+ersetzbarer Anker (`VERSNR`), die KVNR bleibt ein Claim.
 
 **Nachtrag 4 (2026-09-23)** — heutiger Stand der Aussagen im Entscheidungsabsatz:
 - Die Spalte `person_id` und ihr partieller `UNIQUE`-Index gibt es seit ADR-14 nicht mehr. Die

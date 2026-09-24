@@ -11,19 +11,19 @@
                 <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"vorname":"vorname","name":"name","geburtsdatum":"geburtsdatum","kvnr":"kvnr","partnernr":"personId"}' />
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="vorname" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
-                    <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" value="Max" autocomplete="given-name" required/>
+                    <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" autocomplete="given-name" required/>
                 </div>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="name" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
-                    <input type="text" id="name" name="name" class="${properties.kcInputClass!}" value="Muster" autocomplete="family-name" required/>
+                    <input type="text" id="name" name="name" class="${properties.kcInputClass!}" autocomplete="family-name" required/>
                 </div>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="geburtsdatum" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
-                    <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" value="1985-06-15" autocomplete="bday" required/>
+                    <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" autocomplete="bday" required/>
                 </div>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="kvnr" class="${properties.kcLabelClass!}">${t.of("Versichertennummer")}</label>
-                    <input type="text" id="kvnr" name="kvnr" class="${properties.kcInputClass!}" value="A123456789"/>
+                    <input type="text" id="kvnr" name="kvnr" class="${properties.kcInputClass!}"/>
                 </div>
                 <#-- The KVNR comes first; the Partnernummer only counts without one (ADR-34). -->
                 <details class="${properties.kcFormGroupClass!}">
@@ -43,7 +43,7 @@
                 <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"fsc":"fscCode"}' />
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="fsc" class="${properties.kcLabelClass!}">${t.of("Freischaltcode")}</label>
-                    <input type="text" id="fsc" name="fsc" class="${properties.kcInputClass!}" value="VALIDCODE" autocomplete="one-time-code" required/>
+                    <input type="text" id="fsc" name="fsc" class="${properties.kcInputClass!}" autocomplete="one-time-code" required/>
                 </div>
                 <div class="orchestrator-actions">
                     <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Identifizieren")}</button>

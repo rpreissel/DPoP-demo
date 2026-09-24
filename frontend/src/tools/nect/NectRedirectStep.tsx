@@ -31,7 +31,7 @@ export function NectRedirectStep({ ctx }: { ctx: ToolRenderContext }) {
       <p>
         {t(
           'Sie wechseln zu Nect und weisen sich dort mit Personalausweis, Reisepass oder EUDI-Wallet aus. Danach kommen Sie ' +
-            'automatisch hierher zurück. Eine Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.',
+            'automatisch hierher zurück. Eine Zuordnung per Versichertennummer oder Partnernummer ist ein eigener Schritt danach.',
         )}
       </p>
       {error && <div className="error-card">{error}</div>}

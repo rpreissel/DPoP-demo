@@ -41,7 +41,7 @@ D-6 wird über `orchestrator.dpop_proof_replay` gelöst: Der Primärschlüssel-I
 SHA-256(`thumbprint:jti`) mit fester Breite (`VARCHAR(64)`): ein clientgewählter `jti` kann damit
 weder die Schlüssellänge sprengen noch den Index aufblähen, in den dieses System am häufigsten
 schreibt. Für den Produktivbetrieb bleibt eine Skalierungsgrenze bestehen: Die Tabelle bekommt
-pro authentifiziertem Request eine neue Zeile. Sie nach Zeit zu partitionieren oder durch einen
+pro authentifiziertem Request eine neue Zeile; abgelaufene Einträge entfernt ein geplanter Job minütlich. Sie nach Zeit zu partitionieren oder durch einen
 dauerhaften Key-Value-Store zu ersetzen, ist eine Infrastrukturentscheidung und bewusst
 zurückgestellt.
 

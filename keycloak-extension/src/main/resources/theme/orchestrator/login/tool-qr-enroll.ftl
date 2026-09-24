@@ -4,7 +4,7 @@
         ${t.of("Web-Login per QR-Code erlauben")}
     <#elseif section = "form">
         <p class="orchestrator-subtitle">
-            ${t.of("Erlaubt, dass dieses Konto künftig einen Web-Login per QR-Code bestätigen kann. Kein zusätzliches Passwort oder Gerät nötig.")}
+            ${t.of("Erlaubt, dass Sie künftig eine Anmeldung auf der Website mit Ihrer angemeldeten App per QR-Code bestätigen. Ein zusätzliches Passwort brauchen Sie dafür nicht.")}
         </p>
 
         <form id="kc-orchestrator-tool-form" action="${url.loginAction}" method="post">

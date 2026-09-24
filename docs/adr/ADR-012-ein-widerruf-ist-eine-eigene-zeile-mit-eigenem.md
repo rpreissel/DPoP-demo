@@ -55,4 +55,9 @@ und Widerrufszeile gemeinsam gelöscht werden; der Audit-Nachweis hängt nicht d
   `IdentityMatchingService` (bestätigte Identität). Alle gehen über denselben Anti-Join; die
   Subtraktion steht also weiterhin an genau einer Stelle, nur mit mehr Aufrufern.
 
+**Nachtrag 4 (ADR-34, 2026-09-24)**: Ein vierter Auslöser mit eigenem Anker: Ändert oder entfernt das
+Personenverzeichnis KVNR oder Versicherungsnummer, zieht `AccountService.applyDirectoryChange` den
+alten Wert mit `RetractionAnchor.PERSON_DIRECTORY` zurück. Das ist kein Tool; die Regel „ein Tool
+widerruft nie“ bleibt unberührt.
+
 ---

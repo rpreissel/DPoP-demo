@@ -69,7 +69,7 @@ Dasselbe Prinzip, dieselben Prompts, dieselbe ID-Funktion – nur Markierung, Ei
 
 | Quelle | Markierung | Eingesammelt von | Wortlaut liegt in |
 |---|---|---|---|
-| React-Frontend | `t("…")`, `<Tx text="… {x} …" x={<strong>…</strong>} />` | `frontend/scripts/text-catalog.mjs` (oxc-AST, Literal-Pflicht) | den bestehenden Bundles: `entries/nect` → `nect`, `entries/ext` → `register`, `kobilSdk.ts` → `kobil`, sonst `app` |
+| React-Frontend | `t("…")`, `<Tx text="… {x} …" x={<strong>…</strong>} />` | `frontend/scripts/text-catalog.mjs` (oxc-AST, Literal-Pflicht) | den bestehenden Bundles: `entries/nect` → `nect`, `entries/personenverzeichnis` → `personenverzeichnis`, `kobilSdk.ts` → `kobil`, sonst `app` |
 | Keycloak-Java | `KcText.t("…")`, `KcTexts.of(session, "…")` | `KcTextCatalog` (ASM) | `theme/orchestrator/login/messages/messages_<lang>.properties` |
 | Keycloak-Templates | `${t.of("…")}`, `${t.of("… {x}", {"x": wert})}` | `KcTextCatalog` (strikter Scanner – FreeMarker hat keinen öffentlichen Ausdrucksbaum) | ebenda |
 

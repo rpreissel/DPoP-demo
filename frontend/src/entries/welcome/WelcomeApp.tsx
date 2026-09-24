@@ -64,13 +64,15 @@ export function WelcomeApp() {
               website={<strong>{t('Website')}</strong>}
             />{' '}
             {t(
-              'Man weist sich einmal aus - per Freischaltcode aus einem Brief, per eID oder über Nect - und meldet sich danach mit SMS, ' +
-                'E-Mail, Passwort oder einem Geräteschlüssel an, bei Bedarf mit zweitem Faktor (Step-up).',
+              'Bei der Registrierung weist man sich aus - per Freischaltcode aus einem Brief, per eID oder über Nect -, bestätigt ' +
+                'die E-Mail-Adresse und richtet ein Anmeldeverfahren ein, etwa SMS, Passwort, Geräteschlüssel oder KOBIL. Damit ' +
+                'meldet man sich künftig an, auf der Website auch, indem man die Anmeldung mit der App per QR-Code bestätigt. Für ' +
+                'empfindlichere Aktionen verlangt die Demo einen zusätzlichen Nachweis (Step-up).',
             )}{' '}
             <Tx text="Am Ende steht ein {token}: der Ausweis, mit dem eine Anwendung Sie erkennt." token={<strong>{t('AccessToken')}</strong>} />
           </p>
           <p>
-            {t('Jeder Browser-Tab dieser Demo spielt eine Rolle: das Smartphone, die Website, das Personenverzeichnis, den Betreiber.')}{' '}
+            {t('Jeder Browser-Tab dieser Demo spielt eine Rolle: das Smartphone, die Website, das Personenverzeichnis, den Betreiber - und beim Ausweisen über Nect den Dienst Nect.')}{' '}
             {t('Welche das ist, steht auf jeder Kachel.')}
           </p>
           <ul className="method-choice-list channel-choice-list">
@@ -119,7 +121,8 @@ export function WelcomeApp() {
                       {t('Der Tab ist eine gewöhnliche Website mit „Anmelden“-Knopf.')}{' '}
                       {t(
                         'Der Login läuft über ein echtes Keycloak, das im Hintergrund denselben Orchestrator fragt - gleiche Konten, gleiche ' +
-                          'Verfahren, auch „mit der App bestätigen“ per QR-Code.',
+                          'Regeln. Nect, Geräteschlüssel und KOBIL gibt es nur in der App; dafür lässt sich die Anmeldung hier mit der App ' +
+                          'per QR-Code bestätigen.',
                       )}
                     </span>
                   </span>
@@ -149,7 +152,7 @@ export function WelcomeApp() {
                 <span className="method-choice-text">
                   <span className="method-choice-label">{t('Admin - spielt den Betreiber')}</span>
                   <span className="method-choice-hint">
-                    {t('Blick hinter die Kulissen: jeder Schritt jeder Journey aller Konten, Verfahren sperren, Demo zurücksetzen (mit Anmeldung).')}
+                    {t('Blick hinter die Kulissen: jeder Schritt jeder Journey aller Konten, Konten löschen, Verfahren je Kanal sperren und sortieren, Reihenfolge der Registrierung umstellen, Demo zurücksetzen (mit Anmeldung).')}
                   </span>
                 </span>
               </a>
@@ -170,7 +173,7 @@ export function WelcomeApp() {
                 <li>
                   <Tx text="Keycloak und der Website-Login (OIDC mit PKCE) - nur mit Profil {profil}" profil={<code>keycloak</code>} />
                 </li>
-                <li>{t('Die Sicherheitsniveaus (loa1/loa2) und der Step-up')}</li>
+                <li>{t('Die Sicherheitsniveaus (loa1 bis loa3) und der Step-up')}</li>
               </ul>
             </div>
             <div>
@@ -198,7 +201,7 @@ export function WelcomeApp() {
               />{' '}
               <Tx
                 text={
-                  'Dabei weisen Sie sich einmalig per {identifikation} aus ("das bin ich": Freischaltcode, eID oder Nect) - die Person ' +
+                  'Dabei weisen Sie sich per {identifikation} aus ("das bin ich": Freischaltcode, eID oder Nect) - die Person ' +
                   'dahinter bleibt vom Konto getrennt gedacht: Identifizieren Sie sich später mit derselben Test-Identität erneut, ' +
                   'landet die Demo auf demselben Konto statt einem neuen.'
                 }
@@ -206,8 +209,9 @@ export function WelcomeApp() {
               />{' '}
               <Tx
                 text={
-                  'Für die spätere, wiederholte Anmeldung ("ich bin\'s wieder") dienen dagegen {verfahren}: SMS, E-Mail, Passwort ' +
-                  'oder ein geräteeigener Schlüssel, einzeln oder kombiniert.'
+                  'Für die spätere, wiederholte Anmeldung ("ich bin\'s wieder") dienen dagegen {verfahren}: etwa SMS, Passwort, ' +
+                  'ein geräteeigener Schlüssel oder KOBIL (die letzten beiden nur in der App) oder auf der Website die Bestätigung ' +
+                  'per QR-Code mit der App - einzeln oder kombiniert.'
                 }
                 verfahren={<strong>{t('Anmeldeverfahren')}</strong>}
               />
@@ -251,7 +255,7 @@ export function WelcomeApp() {
               <Tx
                 text={
                   'Ein eigens eingerichteter {schluessel} dagegen ist ein echtes Anmeldeverfahren, erst freigeschaltet durch ' +
-                  'System-PIN oder Biometrie - gleichwertig zu SMS, E-Mail oder Passwort.'
+                  'System-PIN oder Biometrie - und allein schon so stark wie zwei andere Verfahren zusammen.'
                 }
                 schluessel={<strong>{t('Geräteschlüssel')}</strong>}
               />
@@ -268,11 +272,11 @@ export function WelcomeApp() {
                 text="Ist der App-Kanal angemeldet, lässt sich ein {token} abrufen - der eigentliche Ausweis, mit dem eine echte Anwendung Sie erkennen würde."
                 token={<strong>{t('AccessToken')}</strong>}
               />{' '}
-              {t('Der Web-Kanal bekommt seins dagegen direkt von Keycloak selbst.')}
+              {t('Der Web-Kanal bekommt sein Token dagegen direkt von Keycloak.')}
             </p>
             <p>
               <Tx
-                text="Details zu allem oben im {link}, den Aufbau dahinter erklären die Einstiegsabschnitte und die Beispiel-Story oben."
+                text="Details stehen im {link}; den Aufbau dahinter erklären die Einstiegskapitel und die Beispiel-Story unten."
                 link={
                   <a href="https://github.com/rpreissel/DPoP-demo/blob/main/docs/02-domaenenmodell.md" target="_blank" rel="noreferrer">
                     {t('Domänenmodell')}
@@ -342,8 +346,11 @@ function ServerStatus() {
     <div className="card">
       <h2>{t('Server-Status')}</h2>
       <p>
-        {t('Unter diesen Bedingungen läuft die Demo gerade.')}{' '}
-        <Tx text="Ändern lässt sich das auf der {link}." link={<a href="/admin/">{t('Admin-Seite')}</a>} />
+        {t('So ist die Demo gerade eingestellt.')}{' '}
+        <Tx
+          text="Reihenfolge der Registrierung und gesperrte Verfahren ändern Sie auf der {link}; Keycloak und Demo-Werte legt der Serverstart fest."
+          link={<a href="/admin/">{t('Admin-Seite')}</a>}
+        />
       </p>
       <ul className="status-list">
         <li>

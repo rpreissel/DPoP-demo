@@ -8,6 +8,8 @@ import { DiagramHint } from './DiagramHint'
 import { Disclosure } from './Disclosure'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { TokenPanel } from './TokenPanel'
+import { isBelowAcr } from '../acr'
+import { accountRole } from '../accountRole'
 
 /** Display name for a method with no user-chosen label (singleton methods - email/sms/password). */
 const DEFAULT_METHOD_LABELS: Record<string, string> = {
@@ -16,6 +18,7 @@ const DEFAULT_METHOD_LABELS: Record<string, string> = {
   password: t('Passwort'),
   device: t('Gerät'),
   qr: t('QR-Login'),
+  kobil: t('KOBIL'),
 }
 
 function labelFor(method: ActiveMethodView): string {
@@ -101,9 +104,9 @@ export function AuthenticationCompletedView({
   manageError,
   infoMessage,
 }: AuthenticationCompletedViewProps) {
-  // loa2 (MFA) is the only level any tool combination in this demo can actually reach - offering
-  // it as a step-up target only makes sense if the channel isn't there already.
-  const canStepUpToLoa2 = currentAcr !== 'loa2'
+  // loa2 is the step-up target the demo offers; loa3 comes only from an identification (eID,
+  // Nect), never from a step-up - so offering it only makes sense below loa2.
+  const canStepUpToLoa2 = isBelowAcr(currentAcr, 'loa2')
 
   // Who is logged in and with what claims - real ID-token claims (docs/05-api.md, "ID-Token-
   // Claims"), not the demo-only object FE-11 talks about further down. Fetched once, on demand,
@@ -130,13 +133,7 @@ export function AuthenticationCompletedView({
   // Personenverzeichnis but not insured here (Partner); neither = Interessent (ADR-10/18 - full
   // identity possibly attested, but no person assigned). Shown compactly in parentheses behind the
   // name, not as its own status row.
-  const accountStatus = claims
-    ? claims.versnr != null
-      ? t('Versicherter')
-      : claims.personId != null
-        ? t('Partner')
-        : t('Interessent')
-    : undefined
+  const accountStatus = claims ? accountRole(claims.personId, claims.versnr) : undefined
 
   return (
     <>

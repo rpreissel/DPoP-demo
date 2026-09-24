@@ -33,7 +33,7 @@ flowchart LR
   NE --> O
   O --> KC
   O --> AC
-  AC --> KC
+  AC -.->|AccountChanged| O
 
   UI1 --> M1
   UI2 --> M2
@@ -63,16 +63,16 @@ Zwei Ergänzungen aus der Praxis:
   begrenzt.
 - Den OIDC-Tokenfluss gegen Keycloak führt ausschließlich der Orchestrator — dafür gibt es in
   der App keinen eigenen, direkten Weg. Ein eigenes `account`-Modul im Backend legt Accounts an
-  und hält sie mit Keycloak synchron; auch das bleibt vollständig hinter dem Orchestrator
-  verborgen.
+  und meldet Änderungen als Events; der Orchestrator spiegelt sie nach Keycloak. Auch das bleibt
+  vollständig hinter dem Orchestrator verborgen.
 
 Daraus folgt für dich als Frontend-Entwickler:
 
 - **Abläufe ändern sich, ohne dass die App angepasst werden muss** — welche Schritte eine
   Journey verlangt und in welcher Reihenfolge, steht nur im Backend.
 - **Neue Tools lassen sich einfach integrieren** — ein neues Modul bringt seine Beschreibung
-  mit; die App braucht dafür eine neue UI-Komponente plus einen Eintrag in der
-  Routing-Tabelle, aber keine neue Ablaufsteuerung.
+  mit; die App braucht dafür nur eine neue UI-Komponente in einem eigenen Ordner `tools/<name>/`
+  — die Registry findet sie selbst, kein Tabelleneintrag und keine neue Ablaufsteuerung nötig.
 - **Die App hält praktisch keinen eigenen Zustand** — nur die `channelSessionId` (dauerhaft)
   und, solange ein Tool läuft, die `toolSessionId` (kommt aus `next`). Jeder Ablauf (Login,
   Registrierung, Niveau anheben, Verfahren verwalten, Account löschen) bewegt denselben Kanal
@@ -81,9 +81,9 @@ Daraus folgt für dich als Frontend-Entwickler:
 
 ---
 
-## 0) Fünf eigenständige Apps
+## 0) Sechs eigenständige Apps
 
-Das Frontend ist **kein** einzelnes SPA, sondern fünf eigene React-Apps mit eigenem
+Das Frontend ist **kein** einzelnes SPA, sondern sechs eigene React-Apps mit eigenem
 HTML-Entry-Point/URL, die sich Code (Komponenten, Tools, `api.ts`, ...) nur als gemeinsame
 Bibliothek teilen. Jede hat ein eigenes Farbschema (`index.css`), damit man ohne Lesen sieht, wo man ist:
 
@@ -105,7 +105,10 @@ Bibliothek teilen. Jede hat ein eigenes Farbschema (`index.css`), damit man ohne
   Registrierungsreihenfolge, Keycloak-Sync, Entwickler-Links), *Journey-Log* über alle Konten und
   Geräte (mit Live-Aktualisierung) und *Konten* (löschen, Demo zurücksetzen).
 - **Personenverzeichnis** (`/personenverzeichnis/`) — das simulierte **Fremdsystem** (ADR-31): Personen, Freischaltcodes
-  und der Briefkasten mit den Klartext-Codes. Spricht nur `/mock-personenverzeichnis/*`, nie `/orchestrator`.
+  und der Briefkasten mit den Klartext-Codes. Spricht fachlich nur `/mock-personenverzeichnis/*`; von
+  `/orchestrator` lädt sie lediglich die Texte der gemeinsamen Komponenten.
+- **Nect-Sprungseite** (`/nect/`) — der simulierte Identifizierungsdienst Nect (Online-Ausweis,
+  Reisepass, EUDI-Wallet), auf den `ident-nect` springt. Spricht fachlich nur `/mock-nect/*`.
 
 Die Kanäle zeigen nur, was ein Nutzer dieses Kanals sähe. Das Journey-Log und alles, was die
 ganze Instanz umschaltet, liegt auf der Admin-Seite - dort über alle Konten, Geräte und Kanäle.
@@ -129,10 +132,10 @@ neuen Tab. Das ist ein Komfort-Manko beim Desktop-Testen, keine Funktionseinschr
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | FE-1 | Frontend auf Basis von React (aktuelle Version) und TypeScript. | siehe Versionstabelle in [08-projektrahmen.md](08-projektrahmen.md) |
-| FE-2 | Das Frontend kann autark betrieben werden. | `npm run dev` startet den Vite-Dev-Server, alle fünf Entry-Points erreichbar (`/`, `/app/`, `/web/`, `/admin/`, `/personenverzeichnis/`) |
-| FE-3 | Das Frontend kann über Spring Boot gehostet werden. | Ein Vite-Build mit fünf HTML-Entry-Points nach `src/main/resources/static`; `./gradlew bootRun` liefert es aus. `/app/`, `/web/`, `/admin/` und `/personenverzeichnis/` werden über explizite `WebMvcConfigurer`-Forwards ([WebConfig.kt](../src/main/kotlin/com/example/dpop/orchestrator/api/v1/WebConfig.kt)) auf ihre `index.html` aufgelöst — der Default-Resource-Handler löst nur den Root-Fall |
-| FE-4 | Im Entwicklungsmodus werden API-Requests weitergeleitet. | Vite-Dev-Server proxyt `/orchestrator` und `/mock-personenverzeichnis` nach `http://localhost:8080`, für alle Apps gleichermaßen |
-| FE-5 | Das Frontend kommuniziert ausschließlich über den `orchestrator`. | Keine direkten Aufrufe an fachliche Module. **Eine benannte Ausnahme:** `src/kobilSdk.ts` ruft den Fremddienst KOBIL (`/mock-kobil/*`) direkt auf — auf einem echten Telefon wäre das nativer SDK-Code, und den Aufruf durch unser Backend zu leiten würde aus dem Fremddienst unbemerkt einen internen Aufruf machen. Genau diese Trennung ist der Punkt des Verfahrens ([Abläufe](06-ablaeufe.md) Abschnitt 7). Dasselbe gilt für die Seite `/personenverzeichnis/`, die das simulierte Personenverzeichnis (`/mock-personenverzeichnis/*`) direkt bedient (ADR-31) |
+| FE-2 | Das Frontend kann autark betrieben werden. | `npm run dev` startet den Vite-Dev-Server, alle sechs Entry-Points erreichbar (`/`, `/app/`, `/web/`, `/admin/`, `/personenverzeichnis/`, `/nect/`) |
+| FE-3 | Das Frontend kann über Spring Boot gehostet werden. | Ein Vite-Build mit sechs HTML-Entry-Points nach `src/main/resources/static`; `./gradlew bootRun` liefert es aus. `/app/`, `/web/`, `/admin/`, `/personenverzeichnis/` und `/nect/` werden über explizite `WebMvcConfigurer`-Forwards ([WebConfig.kt](../src/main/kotlin/com/example/dpop/orchestrator/api/v1/WebConfig.kt)) auf ihre `index.html` aufgelöst — der Default-Resource-Handler löst nur den Root-Fall |
+| FE-4 | Im Entwicklungsmodus werden API-Requests weitergeleitet. | Vite-Dev-Server proxyt `/orchestrator`, `/mock-personenverzeichnis`, `/mock-nect` und `/mock-kobil` nach `http://localhost:8080`, für alle Apps gleichermaßen |
+| FE-5 | Das Frontend kommuniziert ausschließlich über den `orchestrator`. | Keine direkten Aufrufe an fachliche Module. **Eine benannte Ausnahme:** `src/kobilSdk.ts` ruft den Fremddienst KOBIL (`/mock-kobil/*`) direkt auf — auf einem echten Telefon wäre das nativer SDK-Code, und den Aufruf durch unser Backend zu leiten würde aus dem Fremddienst unbemerkt einen internen Aufruf machen. Genau diese Trennung ist der Punkt des Verfahrens ([Abläufe](06-ablaeufe.md) Abschnitt 7). Dasselbe gilt für die Seiten `/personenverzeichnis/` und `/nect/`, die die simulierten Fremdsysteme (`/mock-personenverzeichnis/*`, `/mock-nect/*`) direkt bedienen (ADR-31) |
 
 ---
 
@@ -141,15 +144,15 @@ neuen Tab. Das ist ein Komfort-Manko beim Desktop-Testen, keine Funktionseinschr
 | ID | Anforderung | Kriterium |
 |----|-------------|-----------|
 | FE-6 | Übersichtliches Layout mit Karten, konsistentem Farbschema und Darkmode. | visuelle Gestaltung als Karten |
-| FE-7 | Formulare sind mit Testdaten vorbelegt. | Frei erfundene Erstangaben (Telefonnummer) clientseitig fest vorbelegt; alles, wofür der Server einen Wert kennt (TAN/Code/Passwort/E-Mail, die Testpersonen samt Freischaltcode aus dem Register-Briefkasten), kommt über das `demo`-Objekt ([API](05-api.md)) |
+| FE-7 | Formulare sind mit Testdaten vorbelegt. | Frei erfundene Erstangaben (Telefonnummer) clientseitig fest vorbelegt; alles, wofür der Server einen Wert kennt (TAN/Code/Passwort/E-Mail, die Testpersonen samt Freischaltcode aus dem Briefkasten des Personenverzeichnisses), kommt über das `demo`-Objekt ([API](05-api.md)) |
 | FE-8 | Der aktuelle Stand und der nächste Schritt werden dargestellt. | Anzeige aus `next` und `stepData` |
 | FE-9 | Telefonnummern werden clientseitig vorvalidiert. | Formatprüfung vor dem Absenden; das Backend lehnt ungültige Nummern mit `400` ab |
-| FE-10 | Geräte-Identität und Kanal lassen sich unabhängig voneinander zurücksetzen. | „Neu erzeugen" tauscht nur den DPoP-Key, startet aber keinen Kanal. „Leeren" vergisst nur die lokal gemerkte `channelSessionId`, ohne Backend-Aufruf. Logout beendet den Kanal serverseitig ([API](05-api.md), Logout) und legt **keinen** neuen Kanal automatisch an — nur sichtbar, wenn der Kanal `AUTHENTICATED` ist |
+| FE-10 | Geräte-Identität und Kanal lassen sich unabhängig voneinander zurücksetzen. | „Neu erzeugen" tauscht den DPoP-Key und vergisst dabei die gemerkte `channelSessionId`, startet aber keinen Kanal. „Zur Startseite" vergisst nur die lokal gemerkte `channelSessionId`, ohne Backend-Aufruf. Logout beendet den Kanal serverseitig ([API](05-api.md), Logout) und legt **keinen** neuen Kanal automatisch an — nur sichtbar, wenn der Kanal `AUTHENTICATED` ist |
 | FE-11 | Nach erfolgreicher Anmeldung werden `accountId` und `personId` angezeigt. | Werte stammen aus dem `demo`-Objekt der Antwort |
-| FE-12 | Das Frontend merkt sich `channelSessionId` dauerhaft, getrennt vom DPoP-Key — es passiert aber nichts automatisch. | Der Init-Effekt lädt/erzeugt **ausschließlich** den DPoP-Key; ohne aktiven Kanal wählt der Nutzer explizit zwischen Fortsetzen (`GET`), Verbinden, Login ohne DPoP oder Registrieren (je ein `POST` mit passendem `intent`) |
+| FE-12 | Das Frontend merkt sich `channelSessionId` dauerhaft, getrennt vom DPoP-Key — es passiert aber nichts automatisch. | Der Init-Effekt lädt/erzeugt **ausschließlich** den DPoP-Key; ohne aktiven Kanal wählt der Nutzer explizit zwischen Sitzung fortsetzen (`GET`), Automatisch anmelden, Neues Konto registrieren, Neu anmelden (`lookup_login`) oder Web-Login per QR bestätigen (je ein `POST` mit passendem `intent`) |
 | FE-13 | Beim Anlegen eines Kanals lässt sich `requiredAcr` wählen. | Sonst wäre `enroll-password` in der Demo praktisch unerreichbar: Die Registrierung schließt automatisch ab, sobald ein einzelnes `loa1`-Mittel die Standard-Untergrenze erfüllt |
 | FE-14 | Die Geräte-Identität (JWK-Thumbprint) ist sichtbar und lässt sich unabhängig vom Kanal neu erzeugen. | Eigene Karte, immer sichtbar, auch ohne aktiven Kanal. Darunter eine Zeile je weiterer Bindung dieses Geräts, generisch aus `deviceLink.boundCredentials` gerendert: jede Methode entscheidet selbst, was sie offenlegt, die Karte druckt es nur — ein neues schlüsselgebundenes Verfahren braucht hier keine Änderung |
-| FE-15 | Ein authentifizierter Kanal lässt sich gezielt auf ein höheres Sicherheitsniveau anheben (Step-up). | Der UI-Button „Auf loa2 anheben" ruft `POST /channels/{channelSessionId}/step-ups` ([API](05-api.md)) auf und erscheint nur, solange loa2 fehlt. Die API kann auch ein höheres Ziel anfordern; `ident-eid` ist dafür das vorhandene `loa3`-fähige Tool. |
+| FE-15 | Ein authentifizierter Kanal lässt sich gezielt auf ein höheres Sicherheitsniveau anheben (Step-up). | Der UI-Button „Sicherheitsniveau jetzt erhöhen" ruft `POST /channels/{channelSessionId}/step-ups` ([API](05-api.md)) auf und erscheint nur, solange loa2 fehlt. Die API kann auch ein höheres Ziel anfordern; `ident-eid` ist dafür das vorhandene `loa3`-fähige Tool. |
 | FE-16 | Solange ein Tool aktiv Eingaben erwartet — oder der Nutzer zwischen mehreren Tools wählt —, wird auf eine einzige naheliegende Aktion reduziert. | Nur „Abbrechen" bleibt sichtbar; Logout und Umstiegs-Links sind an der Session-Status-Karte gruppiert, Logout zusätzlich nur wenn `AUTHENTICATED` |
 | FE-17 | Die „Anmeldeverfahren verwalten"-Liste zeigt den vollständigen Methodenbestand des Kontos, nicht nur das, was diese Sitzung selbst nachgewiesen hat. | Kommt aus `activeMethods` ([API](05-api.md)), nicht aus `currentAmr` — sonst wäre eine aktive, in dieser Sitzung ungeprüfte Methode weder sichtbar noch verwaltbar. Jede Zeile nennt neben dem Namen auch die **Methode** selbst (`kobil`, `device`, …): ein selbst vergebener Gerätename („Mein Handy") sagt sonst nicht, um welches Verfahren es sich handelt — und seit `kobil` gibt es zwei gerätegebundene |
 | FE-20 | Verliert dieses Gerät seine KOBIL-Bindung, verschwinden auch die lokalen Daten dazu. | Der Effekt hinter `device-link` reicht `boundCredentials` an `tools/kobil/localData.ts` — die Regel gehört dem Modul, der Rahmen der App weiß nur, dass sich Bindungen geändert haben. Nötig, weil das lokale Gerätegeheimnis anders als der `device`-Schlüssel ein **Geheimnis** ist: Serverseitig wird es wertlos, im Browser würde es trotzdem liegen bleiben ([09-dpop.md](09-dpop.md) Abschnitt 3) |
@@ -193,27 +196,28 @@ ihn vorbefüllt.
 
 ## 3) Navigation ausschließlich über `next`
 
-Das Frontend nutzt eine **feste lokale Routing-Tabelle** und trifft UI-Entscheidungen
+Das Frontend nutzt eine **feste lokale Zuordnung** (Routing-Tabelle für Orchestrator-Screens, Tool-Registry für Tool-Schritte) und trifft UI-Entscheidungen
 ausschließlich anhand von `next` — nie anhand von URLs, Action-Namen oder eigener Ableitung aus
 dem Sessionzustand.
 
 - **Backend liefert**: `next.type` (`tool` oder `orchestrator` — wem der nächste Screen gehört und welchen Endpunkt der Client ruft), dazu `next.toolId` bzw. `next.context` sowie `next.step`. Auswahloptionen stehen in `stepData.options`, fehlende Felder in `stepData.missingFields`.
-- **Frontend entscheidet**: Eine lokale Routing-Tabelle (`routing.ts`), Schlüssel `(type, toolId|context, step)`, bildet das auf eine UI-Komponente ab — nie auf ein URL-Muster.
+- **Frontend entscheidet**: Orchestrator-Screens über die lokale Tabelle in `routing.ts` (Schlüssel `(context, step)`); Tool-Schritte über `tools/registry.ts` — jedes Tool bringt in `tools/<name>/index.tsx` sein `render(ctx)` je `step` mit, die Registry findet es per `import.meta.glob`. Nie über ein URL-Muster.
 - Der Client konstruiert **niemals** eine `toolId` selbst; sie kommt entweder aus `next.toolId` oder als gewählter Eintrag aus `stepData.options`.
 
-Beispiel (Ausschnitt):
+Orchestrator-Screens (`routing.ts`, vollständig):
 
 ```
-ident-fsc  / input     -> FscForm
-enroll-sms / enroll    -> SmsEnrollForm
-enroll-sms / tanInput  -> TanInputForm
-auth-sms   / auth      -> TanInputForm
-...
-enrollment / selectMethod   -> EnrollmentMethodSelection
-authentication / authenticated -> AuthenticationCompleted
+registration   / selectIdentificationMethod -> select-method
+enrollment     / selectMethod               -> select-method
+auth           / selectMethod               -> select-method
+authentication / authenticated              -> authentication-completed
+prompt         / confirm                    -> prompt
 ```
 
-Bei einer Auswahlseite (`selectMethod`) füllt das Frontend die Auswahl aus `stepData.options`; die Einträge sind vollständige `toolId`-Werte. `SelectMethodView` übersetzt sie über eine rein darstellungsbezogene Tabelle (Icon, Kurzlabel, Erklärung) in Auswahlkarten; die gewählte `toolId` geht unverändert weiter.
+Tool-Schritte (Beispiel `ident-fsc`): `tools/fsc/index.tsx` rendert für `step = input` das
+`IdentFscForm`.
+
+Bei einer Auswahlseite (`selectMethod`) füllt das Frontend die Auswahl aus `stepData.options`; die Einträge sind vollständige `toolId`-Werte. `SelectMethodView` übersetzt sie über das `meta` des jeweiligen Tool-Moduls (`metaFor`: Icon, Kurzlabel, Erklärung) in Auswahlkarten; die gewählte `toolId` geht unverändert weiter.
 
 Ein `next.step` benennt eine fachliche Phase, keinen Bildschirm. Wie viele Bildschirme ein Tool
 daraus macht, entscheidet das Frontend anhand von `stepData.missingFields` und Teil-`PATCH`es —
@@ -221,7 +225,7 @@ ein zusätzlicher UI-Schritt, der dieselben Daten braucht, erfordert keine Backe
 Beispiel `ident-fsc`: ein Step `input`, im Frontend zwei Bildschirme (Personendaten, dann
 Freischaltcode).
 
-Konsequenzen: Alle Backend-URLs bleiben Implementierungsdetail; ein neues Tool braucht nur einen weiteren Eintrag in der Routing-Tabelle; auch tool-eigene Endpunkte ([API](05-api.md), Tool-Namespace) findet der Client über `(toolId, step)`.
+Konsequenzen: Alle Backend-URLs bleiben Implementierungsdetail; ein neues Tool braucht nur einen eigenen Ordner `tools/<name>/` — die Registry findet es selbst, kein Tabelleneintrag nötig; auch tool-eigene Endpunkte ([API](05-api.md), Tool-Namespace) findet der Client über `(toolId, step)`.
 
 Zwei Ausnahmen sind **kein** Bruch dieser Regel, weil sie nur eine Aktion auslösen und nie
 entscheiden, welche Komponente gerendert wird: App-zu-App-Wechsel (Abschnitt 0) ist echte

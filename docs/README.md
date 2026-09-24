@@ -3,11 +3,10 @@
 Diese Dokumentation beschreibt ein umsetzbares Zielmodell für die Kopplung von fachlicher Orchestrator-Session und Keycloak-IAM-Session für:
 
 - **App-Kanal**: Login startet fachlich im Orchestrator, danach wird Keycloak-Auth-Kontext erzeugt.
-- **Web-Kanal**: Keycloak-Session existiert bereits, Orchestrator steuert nur Verfahren (z. B. Step-up).
+- **Web-Kanal**: Keycloak führt den Login; der Orchestrator steuert über `KC_SELECT_METHOD` die Verfahren, beim ersten Login ebenso wie beim Step-up.
 
 Nicht Teil dieser Dokumentation:
 
-- konkrete Keycloak-SPI-Implementierung
 - Infrastruktur-Details (Redis/DB-Cluster/Secrets-Management)
 
 ---
@@ -27,7 +26,7 @@ Für AI-Agents zuerst `00-agent-quickstart.md` lesen und danach nur die fachlich
 | [04-orchestrierung.md](04-orchestrierung.md) | `next`-Ermittlung, `AuthPolicy`, MFA, ACR-Begrenzung | „Wer entscheidet was?" |
 | [journeys/](journeys/) | Eine Datei je Journey (`FAST_ACCESS`, `REGISTER`, …) — der Katalog aus 04 Abschnitt 3 | „Wie läuft genau dieser eine Ablauf?" |
 | [05-api.md](05-api.md) | API-Grundsätze, App- und Keycloak-Fassade, Beispiele | Client-Entwicklung |
-| [06-ablaeufe.md](06-ablaeufe.md) | `ident-fsc`, `auth-sms`, `enroll-sms` Schritt für Schritt | Implementierung eines Flows |
+| [06-ablaeufe.md](06-ablaeufe.md) | `ident-fsc`, SMS/Passwort/E-Mail, Gerät, eID/KVNR, KOBIL Schritt für Schritt | Implementierung eines Flows |
 | [07-betrieb.md](07-betrieb.md) | Fehlervertrag, Konsistenz, Aufbewahrung und Löschung | Betrieb, Datenschutz |
 | [08-projektrahmen.md](08-projektrahmen.md) | Aufgabenstellung, Module, Tech-Stack, Versionen, Build | Projektkontext, Einrichtung |
 | [09-dpop.md](09-dpop.md) | Schlüsselerzeugung, Proof-Validierung, Kanalbindung | DPoP-Implementierung |
@@ -69,7 +68,7 @@ der die Kapitel aufeinander aufbauen. Je nach Rolle braucht man selten alle:
 
 Drei Session-Ebenen mit fallender Lebensdauer:
 
-- **ChannelSession**: langlebiger serverseitiger Kanal-Kontext (App/Web); der fachliche Zustand eines laufenden Verfahrens liegt nie hier.
+- **ChannelSession**: serverseitiger Kanal-Kontext (App/Web); überdauert einzelne Verfahren, ist aber bewusst kurzlebig (ADR-3) – die dauerhafte Geräte-Zuordnung liegt in `DeviceAccountLink`. Der fachliche Zustand eines laufenden Verfahrens liegt nie hier.
 - **AuthIntent**: Ziel des Nutzers *samt* Strategie, nach der er dorthin geführt wird. Einstieg: `FAST_ACCESS`, `REGISTER`, `LOOKUP_LOGIN`, `KC_SELECT_METHOD`, `CONFIRM_PEER_LOGIN`; innerhalb eines bestehenden Kanals: `STEP_UP`, `MANAGE_AUTH_METHODS`, `DELETE_ACCOUNT`, `LOGOUT`, `RE_IDENTIFY`.
 - **AuthJourney**: ein laufender Durchlauf eines Intents; läuft über ein oder mehrere Tools.
 - **JourneyState**: die Position auf diesem Weg samt ihrer Attribute (was angeboten wurde, was abgelehnt ist, welches Tool läuft); je Intent eine eigene, abgeschlossene Zustandsmenge.
@@ -89,7 +88,8 @@ Die Doku schreibt deutsch, der Code englisch. Wo das auseinandergeht:
 | bestätigen (ein Attribut) | `attest`, `ToolOutcome.Completed.Attested`, Rolle `ATTESTATION` |
 | Widerruf, ein Attribut zurücknehmen | `AccountRetraction`, `account.retraction`, `AccountService.retractAttribute` |
 | Anker | `AccountAnchor`, `account.anchor` |
-| Obergrenze eines Niveaus | `maxAcr`, `enrolledUnderAcr`, `acrFloor` |
+| Obergrenze eines Niveaus | `maxAcr`, `enrolledUnderAcr` |
+| Mindestniveau, um einen Anker zu schreiben | `AnchorRule.acrFloor` |
 
 ---
 ## Bezug zum bestehenden Code
@@ -104,7 +104,7 @@ in [07-betrieb.md](07-betrieb.md).
 ## Umsetzungsstatus
 
 1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (+`JourneyState` je Intent), `AuthContext`, `SessionEvent`, `ToolSession`, `DeviceAccountLink`.
-2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome`/`ToolHandler` (Modul `tool_spi`), je ein Controller pro Tool — `ident-fsc`, `ident-eid`, `ident-kvnr`, `enroll-sms`/`auth-sms`/`auth-sms-lookup`, `enroll-password`/`auth-password`/`auth-password-lookup`, `enroll-email`/`auth-email`/`auth-email-lookup`, `enroll-device`/`auth-device`, `enroll-qr`/`auth-qr`/`auth-qr-lookup`, `confirm-qr-login` ([03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1).
+2. **Tool-Architektur** ✅: `ToolDescriptor`/`ToolOutcome` (Modul `tool_spi`), die Handler liegen modulintern; je ein Controller pro Tool — `ident-fsc`, `ident-eid`, `ident-nect`, `ident-kvnr`, `confirm-email`, `enroll-sms`/`auth-sms`/`auth-sms-lookup`, `enroll-password`/`auth-password`/`auth-password-lookup`, `enroll-email`/`auth-email`/`auth-email-lookup`, `enroll-device`/`auth-device`, `enroll-kobil`/`auth-kobil`, `enroll-qr`/`auth-qr`/`auth-qr-lookup`, `confirm-qr-login` ([03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1).
 3. **App-API-Fassade** ✅: `/orchestrator/api/v1/app/...` inkl. Journey-Abbruch (`DELETE /channels/{channelSessionId}/journey`) und Back/Switch (`DELETE /tools/{toolSessionId}/{toolId}`).
 4. **Keycloak-Fassade** ✅: `/orchestrator/api/v1/kc/...` (`KcChannelController`; der Konto-Abgleich `KeycloakSyncController` liegt als Betriebsendpunkt unter `/orchestrator/admin/keycloak/sync`), inkl. Step-up und Server-zu-Server-Anbindung an Keycloaks native Credentials ([05-api.md](05-api.md) Abschnitt 3, [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9).
 5. **`AuthPolicy`** ✅: zentrales Gating anhand `currentAcr`/`currentAmr` inklusive Mehr-Faktor-Schleife. Die konkrete Abbildung von `amr`-Kombinationen auf `acr`-Werte bleibt eine bewusst vorläufige Platzhalter-Implementierung — fachlich/regulatorisch verbindlich festzulegen ist das nicht Teil dieses Umbaus.

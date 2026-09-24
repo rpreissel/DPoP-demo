@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component
  * The assumption was real but unwritten. It lived in three unrelated places, each documented only
  * for itself:
  *
- *  - eleven `@Scheduled` jobs with no lock or leader election, so every instance would run every
- *    sweep, every reconcile, concurrently;
+ *  - three `@Scheduled` jobs (tool-session sweep, `RetentionJob`, DPoP replay cleanup) with no lock or
+ *    leader election, so every instance would run every sweep concurrently;
  *  - `dpop.secrets.otp-pepper` blank by default, meaning a fresh random pepper per boot - two
  *    instances then cannot verify each other's SMS/e-mail codes at all;
  *  - `KeycloakAdminClient`'s `@Volatile` token and component-id caches, per process by nature;
@@ -69,7 +69,7 @@ class DeploymentTopologyCheck(
             }
             // No conditional: nothing in this codebase coordinates the schedulers yet, so declaring
             // MULTIPLE is always wrong on this point until something does. Better to say so than to
-            // let eleven jobs run N times over.
+            // let the scheduled jobs run N times over.
             add(
                 "Der Keycloak-Account-Sync serialisiert seine Syncs nur prozessintern (ein Thread) - " +
                     "zwei Instanzen legen denselben Keycloak-User und dasselbe Keypair parallel an."

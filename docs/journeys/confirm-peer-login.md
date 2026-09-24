@@ -17,7 +17,7 @@ authentifizierten Session**
 Bewusst **kein** separates "Möchten Sie bestätigen?"-Gate vor den folgenden Sicherheits-Checks:
 Der `STEP_UP`-Schritt, den ein fehlendes loa2 ohnehin auslöst, erklärt selbst, warum gefragt wird,
 und bietet "Abbrechen" als Ausweg — siehe `StepUpState.forSubJourney`s `reason`-Text
-(`ConfirmPeerLoginStrategy.STEP_UP_REASON`).
+(`StepUpState.Reason.PEER_LOGIN`).
 
 ```mermaid
 stateDiagram-v2
@@ -44,8 +44,9 @@ Drei Startzustände, eine Zustandsmenge:
    Fallback-Kette (`DeviceAccountLink` bekannt → dessen `IDENTIFIED_AUTH`-Kandidaten bis `loa1`,
    über den `STEP_UP`-Zweig oben) — **keine** Identifikation/Registrierung. Ohne
    `DeviceAccountLink` endet die Journey sofort ohne Angebot.
-2. **Kanal authentifiziert, aber unter `loa2`**: derselbe `STEP_UP`-Gate wie bei
-   `MANAGE_AUTH_METHODS`. Der dabei erbrachte Nachweis zählt bereits als der in Schritt 3 verlangte
+2. **Kanal authentifiziert, aber unter `loa2`**: ein `STEP_UP`-Gate auf fest `loa2` — anders als bei
+   `MANAGE_AUTH_METHODS` ohne Ausweg über eine erneute Identifizierung
+   (`allowReIdentification = false`), und ohne Absenkung für nie identifizierte Konten. Der dabei erbrachte Nachweis zählt bereits als der in Schritt 3 verlangte
    frische Faktor (`STEP_UP --> Confirming` oben, geprüft über `SubJourneyFinished.achievedAcr`).
 3. **Kanal bereits bei `loa2` oder höher** (unabhängig von diesem Durchlauf): **nicht** direkt
    weiter — wie bei `DELETE_ACCOUNT` verlangt dieser Fall in jedem Fall einen frischen Re-Proof

@@ -18,26 +18,32 @@ Kontos für genau diesen `bindingKeyRef` (`AccountDeletionService.revokeMethod`)
 regulär ab — kein Fehler, dieselbe Semantik wie `DELETE .../journey` — und lässt die bestehende
 Bindung unangetastet.
 
-Hat die Identifizierung zwar bestätigt, WER jemand ist, aber niemanden im Register aufgelöst
-(`ident-eid`: eine Karte trägt keine KVNR, ADR-18), geht es direkt nach `Assigning` — `next` zeigt
-also gleich auf `ident-kvnr`. Eine Ja/Nein-Frage davor gibt es bewusst nicht: „Darf ich die Nummer
+Hat die Identifizierung zwar bestätigt, WER jemand ist, aber niemanden im Personenverzeichnis
+aufgelöst (`ident-eid`/`ident-nect`: ein Ausweisdokument trägt keine KVNR, ADR-18), geht es direkt
+nach `Assigning` — `next` zeigt also gleich auf `ident-kvnr` (KVNR, ohne KVNR die Partnernummer,
+ADR-34). Eine Ja/Nein-Frage davor gibt es bewusst nicht: „Darf ich die Nummer
 haben?" und das Formular, das nach ihr fragt, sind dieselbe Frage zweimal, und das Formular sagt
 selbst, wofür die Nummer gut ist. Das Nein ist der normale Abbruch des Schritts
 (`DELETE .../tools/{toolSessionId}/ident-kvnr`, im Frontend als „Jetzt nicht" beschriftet): Der
 Lauf läuft weiter, das Konto bleibt **Interessent** (ADR-10) mit voll bestätigter Identität, nur ohne
-Registerbindung. Ein Fallback-, kein Pflichtzustand; ein `ident-fsc`-Lauf (Register bürgt, PersonId
-sofort dabei) erreicht ihn nie.
+Zuordnung zum Personenverzeichnis. Ein Fallback-, kein Pflichtzustand; ein `ident-fsc`-Lauf (das
+Personenverzeichnis bürgt, PersonId sofort dabei) erreicht ihn nie.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Identifying
+  [*] --> Start
+  Start --> Identifying: Identifizierungs-Tools verfügbar
+  Start --> [*]: keines verfügbar - Abort
   Identifying --> Identifying: ein Tool abgelehnt, weitere übrig
+  Identifying --> [*]: alle abgelehnt - Cancel
   Identifying --> ConfirmDeviceRebind: Identität festgestellt, Gerät bereits an anderes Konto gebunden
-  ConfirmDeviceRebind --> Identifying: Zustimmung - Gerät umgebunden, alte Bindung widerrufen
+  ConfirmDeviceRebind --> AuthChoice: Zustimmung - Gerät umgebunden, weiter wie nach der Identifizierung
   ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
-  Identifying --> Assigning: Identität bezeugt, aber keine Person aus dem Personenverzeichnis zugeordnet (ident-eid)
-  Assigning --> ConfirmingEmail: Zuordnung erledigt oder übersprungen ("Jetzt nicht" - Interessent)
+  Identifying --> Assigning: Identität bezeugt, aber keine Person aus dem Personenverzeichnis zugeordnet (ident-eid, ident-nect)
+  Assigning --> AuthChoice: zugeordnet, gefundenes Konto bereits ausreichend eingerichtet
+  Assigning --> ConfirmingEmail: Zuordnung erledigt oder übersprungen, E-Mail-Pflicht offen
+  Assigning --> Enrolling: Zuordnung erledigt oder übersprungen, E-Mail bereits bestätigt
   Identifying --> ConfirmingEmail: Identität festgestellt, Konto muss etwas einrichten, E-Mail-Pflicht offen
   Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten, E-Mail bereits bestätigt
   AuthChoice --> AuthChoice: ein Tool abgelehnt, weitere übrig
@@ -46,10 +52,12 @@ stateDiagram-v2
   AuthChoice --> Enrolling: Konto erreicht das Niveau nicht
   ConfirmingEmail --> Enrolling: E-Mail bestätigt, Konto erreicht das Niveau noch nicht
   Enrolling --> Enrolling: Methode eingerichtet, Niveau reicht noch nicht
-  Enrolling --> ConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen (nur falls anfangs kein Bestätigungs-Tool verfügbar war)
-  Enrolling --> PasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  Enrolling --> ConfirmingEmail: E-Mail-Pflicht noch offen (nur falls anfangs kein Bestätigungs-Tool verfügbar war)
+  Enrolling --> RE_IDENTIFY: Sitzung unter loa2 - neues Verfahren erst nach frischer Identifizierung
+  RE_IDENTIFY --> Start: Sub-Journey beendet - Stand neu prüfen
+  Enrolling --> PasswordObligation: Niveau erreicht, loa2 sonst nicht erreichbar, kein Passwort aktiv
   Enrolling --> Finished: Niveau erreicht, keine Pflicht offen
-  ConfirmingEmail --> PasswordObligation: E-Mail bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  ConfirmingEmail --> PasswordObligation: E-Mail bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
   ConfirmingEmail --> Finished: E-Mail bestätigt, keine weitere Pflicht offen
   PasswordObligation --> Finished: Passwort eingerichtet
   Finished --> [*]
@@ -64,10 +72,9 @@ stateDiagram-v2
     als gewöhnlicher Login.
   end note
   note right of PasswordObligation
-    Nur REGISTER auf dem KEYCLOAK-Kanal
-    (Abschnitt 8). App-REGISTER und
-    FAST_ACCESS erreichen diesen
-    Zustand nie.
+    Nur REGISTER, auf beiden Kanälen
+    (Abschnitt 8). FAST_ACCESS erreicht
+    diesen Zustand nie.
   end note
 ```
 
@@ -86,7 +93,8 @@ Zweitaccount-Fall, Abschnitt 2), bekommt der Lauf sein eigenes Konto, sonst wird
 `recordClaims` schreibt PersonId wie E-Mail über den gemeinsamen Claim-/Ankerpfad. Anlage, Claims und
 Journey-Zustand teilen dieselbe Transaktion; ein Konflikt rollt auch den neuen Account zurück.
 Bekannte Konten werden ausschließlich über Anker aufgelöst ([12-entscheidungen.md](../12-entscheidungen.md)
-ADR-19) — für eid-Bestätigungen ist das die kartengebundene `restricted_id`, ohne Anker-Treffer
+ADR-19) — für eID-Bestätigungen ist das die kartengebundene `restricted_id` (eID direkt oder über
+Nect), ohne Anker-Treffer
 bleibt es beim neuen Interessenten.
 Bei einem `Identified` auf ein bereits gebundenes Konto erzwingt die Account-Schicht Erstbindung, Unveränderlichkeit der PersonId und
 Ankerbesitz. Findet der Schritt ein **anderes** Konto als das, mit dem die Journey arbeitet, geht
@@ -99,10 +107,10 @@ ist es das gefundene, bleibt sie stehen und übernimmt dessen Daten. Sind beide 
 **Web-Kanal:** `REGISTER` ist neben `KC_SELECT_METHOD` ein zweiter, Web-nutzbarer Entry-Intent —
 `PATCH /kc/channels/{channelSessionId}` mit `intent=register` ([05-api.md](../05-api.md)
 Abschnitt 3). Kein natives Registrierungsformular: `ident-fsc`/`ident-eid` und `enroll-*` laufen
-über dieselben Web-Tool-Renderer wie jeder andere Schritt. Für diesen Kanal gilt zusätzlich eine
-dritte, kanalgebundene Pflicht — `PasswordObligation`, Abschnitt 8.
+über dieselben Web-Tool-Renderer wie jeder andere Schritt (`ident-nect` gibt es nur im App-Kanal).
 
-Findet `Identifying` dabei einen **bereits existierenden** Account (KVNR-Treffer) mit schon
+Findet `Identifying` einen **bereits existierenden** Account (Personen-Treffer über KVNR oder
+Partnernummer) mit schon
 ausreichender aktiver Methode, läuft der Nachweis über `AuthChoice`/`afterProof`, nicht über
 `Enrolling`/`afterEnrollment` — `PasswordObligation` und E-Mail-Pflicht greifen dort **nicht**.
 
@@ -134,14 +142,16 @@ Wahl) erzwingt diese Variante zuerst die E-Mail-Bestätigung (`EnrollFirstAttest
 Schritt erneut an. Ist eines der beiden Tools admin-seitig gesperrt, wird genau dieser Schritt
 übersprungen (nicht die Journey blockiert). Erst danach greift dieselbe Pflichtkaskade wie
 `RegisterState`/`AuthEnrollCore` (weiteres Verfahren falls das Niveau nicht reicht →
-E-Mail-Bestätigung → Web-Passwort, Abschnitt 8). `EnrollFirstEnrolling` ist der Auffangzustand für
+E-Mail-Bestätigung → Passwort-Pflicht, Abschnitt 8). `EnrollFirstEnrolling` ist der Auffangzustand für
 das, was E-Mail+SMS nicht abdecken (z. B. ein höheres Sicherheitsniveau), und Startzustand, falls
 beim Start weder E-Mail noch SMS verfügbar waren. Erst wenn jede Pflicht erledigt ist, wird
 Identifikation **einmalig angeboten, nie erzwungen** — über die `RE_IDENTIFY`-Sub-Journey
 (`Transition.RequireSubJourney`). Bei Ablehnung oder wenn nichts anzubieten ist, endet die Journey
 trotzdem erfolgreich (`Transition.Authenticated`); das Konto bleibt unidentifiziert, ist aber
-angemeldet. Gehört die identifizierte Person bereits zu einem anderen Konto, bricht `RE_IDENTIFY`
-selbst mit Fehlermeldung ab — es wird nichts zusammengeführt.
+angemeldet. Gehört die identifizierte Person bereits zu einem anderen, echten Konto, lehnt der
+Executor die Identifizierung mit `409` ab — zwei echte Konten werden nie zusammengeführt. Ein
+vorläufiges Konto dieser Person (etwa von einem früher abgebrochenen eID-Lauf) wird dagegen
+aufgenommen (ADR-20).
 
 ```mermaid
 stateDiagram-v2
@@ -151,19 +161,19 @@ stateDiagram-v2
   EnrollFirstEnrollingSms --> EnrollFirstEnrollingSms: abgelehnt - derselbe Schritt wird erneut angeboten
   EnrollFirstEnrollingSms --> EnrollFirstEnrolling: SMS eingerichtet (oder Tool nicht verfügbar), aber Niveau reicht noch nicht
   EnrollFirstEnrollingSms --> EnrollFirstConfirmingEmail: SMS eingerichtet, Niveau erreicht, E-Mail-Pflicht noch offen
-  EnrollFirstEnrollingSms --> EnrollFirstPasswordObligation: SMS eingerichtet, Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  EnrollFirstEnrollingSms --> EnrollFirstPasswordObligation: SMS eingerichtet, Niveau erreicht, E-Mail bereits bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
   EnrollFirstEnrollingSms --> IdentifizierungAnbieten: SMS eingerichtet, Niveau erreicht, keine Pflicht offen
   EnrollFirstEnrolling --> EnrollFirstEnrolling: Methode eingerichtet, Niveau reicht noch nicht
   EnrollFirstEnrolling --> EnrollFirstConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
-  EnrollFirstEnrolling --> EnrollFirstPasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  EnrollFirstEnrolling --> EnrollFirstPasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
   EnrollFirstEnrolling --> IdentifizierungAnbieten: Niveau erreicht, keine Pflicht offen
-  EnrollFirstConfirmingEmail --> EnrollFirstPasswordObligation: E-Mail bestätigt, KEYCLOAK-Kanal, kein Passwort aktiv
+  EnrollFirstConfirmingEmail --> EnrollFirstPasswordObligation: E-Mail bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
   EnrollFirstConfirmingEmail --> IdentifizierungAnbieten: E-Mail bestätigt, keine weitere Pflicht offen
   EnrollFirstPasswordObligation --> IdentifizierungAnbieten: Passwort eingerichtet
 
   IdentifizierungAnbieten --> EnrollFirstConfirmDeviceRebind: fertig, aber dieses Gerät gehört einem ANDEREN Konto
   IdentifizierungAnbieten --> Finished: Zustimmung + erfolgreich identifiziert, oder Ablehnung/nichts anzubieten
-  IdentifizierungAnbieten --> [*]: identifizierte Person gehört bereits zu anderem Konto - Abbruch
+  IdentifizierungAnbieten --> [*]: Person gehört bereits zu einem anderen, echten Konto - 409
   EnrollFirstConfirmDeviceRebind --> Finished: zugestimmt - Gerät umgebunden, altes Geräte-Credential widerrufen
   EnrollFirstConfirmDeviceRebind --> Finished: abgelehnt - angemeldet, aber ohne Gerätebindung
   Finished --> [*]

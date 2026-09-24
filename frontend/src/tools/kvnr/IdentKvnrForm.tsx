@@ -38,11 +38,11 @@ export function IdentKvnrForm({ onSubmit, onSkip, skipLabel, error, demoPersons 
 
   return (
     <div className="card">
-      <h2>{t('Versichertennummer angeben')}</h2>
+      <h2>{t('Konto zuordnen')}</h2>
       <p>
         {t(
-          'Ihre Identität ist bereits nachgewiesen. Mit der Versichertennummer wird Ihr Konto Ihrem ' +
-            'Datensatz bei der Krankenkasse zugeordnet - sie muss zu der nachgewiesenen Person gehören.',
+          'Ihre Identität ist bereits nachgewiesen. Mit Ihrer Versichertennummer - oder ohne sie mit Ihrer Partnernummer - ' +
+            'verbinden wir Ihr Konto mit Ihrem Eintrag im Personenverzeichnis. Die Nummer muss zu der nachgewiesenen Person gehören.',
         )}
       </p>
       <p className="hint">

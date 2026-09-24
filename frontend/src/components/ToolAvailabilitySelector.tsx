@@ -30,7 +30,7 @@ export function ToolAvailabilitySelector({ availableTools, onChange }: ToolAvail
       </h3>
       <p>
         {t(
-          'Abgewählte Tools werden dieser Journey nie angeboten - simuliert eine ältere Client-Version oder eine ' +
+          'Abgewählte Tools bietet die Demo ab der nächsten neu gestarteten Journey nicht mehr an - simuliert eine ältere Client-Version oder eine ' +
             'lokale Nutzer-Einstellung. Unabhängig davon kann das Backend Tools zusätzlich global sperren (siehe ' +
             '"Verfahren je Kanal" auf der Admin-Seite) - beide Sperren wirken zusammen, keine hebt die andere auf.',
         )}

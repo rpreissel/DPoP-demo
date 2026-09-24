@@ -52,7 +52,7 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
       <p>
         {t(
           'Halten Sie Ihren Personalausweis an das Lesegerät. Die Karte bezeugt, wer Sie sind - eine ' +
-            'Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.',
+            'Zuordnung per Versichertennummer oder Partnernummer ist ein eigener Schritt danach.',
         )}
       </p>
       <div className="hint">{t('Demo-Modus: Das Auslesen der Karte wird simuliert.')}</div>

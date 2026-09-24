@@ -10,8 +10,8 @@ Ziel: In <2 Minuten genug Kontext, um sicher zu implementieren, ohne den komplet
 
 ## 2) Kernbegriffe (minimal)
 
-- **ChannelSession**: langlebiger Kanal-Kontext (App/Web)
-- **AuthIntent**: Nutzerziel (z. B. Register, Step-up)
+- **ChannelSession**: Kanal-Kontext (App/Web), überdauert einzelne Verfahren, aber bewusst kurzlebig (ADR-3); die dauerhafte Geräte-Zuordnung liegt in `DeviceAccountLink`
+- **AuthIntent**: Nutzerziel (z. B. Registrieren, Step-up)
 - **AuthJourney**: laufender Ablauf pro Intent
 - **ToolSession**: konkrete Instanz eines Verfahrensschritts
 - **AuthContext**: IAM/Token-Kontext inkl. ACR/AMR

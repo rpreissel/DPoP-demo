@@ -15,8 +15,8 @@ export function EnrollQrForm({ onConfirm, error }: EnrollQrFormProps) {
       <h2>{t('Web-Login per QR-Code erlauben')}</h2>
       <p>
         {t(
-          'Erlaubt, dass dieses Konto künftig einen Web-Login per QR-Code bestätigen kann. ' +
-            'Kein zusätzliches Passwort oder Gerät nötig.',
+          'Erlaubt, dass Sie künftig eine Anmeldung auf der Website mit Ihrer angemeldeten App per QR-Code bestätigen. ' +
+            'Ein zusätzliches Passwort brauchen Sie dafür nicht.',
         )}
       </p>
       {error && <div className="hint">{error}</div>}
