@@ -6,10 +6,6 @@
 # - Host-Ports 8090/8553 statt 8080/8543 (laeuft neben Compose) -> eigene Setup-Variante "kube".
 # - Keine ${VAR:-default}-Interpolation: Admin-Zugang steht im Secret unten.
 # - Kein depends_on/service_healthy: ein Init-Container im Orchestrator-Pod wartet auf Keycloaks JWKS.
-#
-# BEKANNTE LUECKE: frontend/src/webOidc.ts hat https://localhost:8543 fest verdrahtet - der
-# Browser-Login des Web-Kanals auf :8090 landet deshalb beim Compose-Keycloak, nicht bei diesem.
-# Orchestrator, Realm-Aufbau und Account-Sync laufen dagegen vollstaendig ueber 8090/8553.
 apiVersion: v1
 kind: Secret
 metadata:
