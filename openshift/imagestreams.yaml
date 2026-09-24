@@ -1,0 +1,17 @@
+# Nur OpenShift: die beiden ImageStreams, in die deploy.sh die lokal gebauten Images pusht.
+#
+# lookupPolicy local: der Kurzname dpop-demo-...:latest in dpop-demo.yaml loest im Namespace auf
+# diesen ImageStream auf. Der Trigger am Deployment rollt nach jedem Push neu aus.
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dpop-demo-keycloak
+spec:
+  lookupPolicy: {local: true}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dpop-demo-orchestrator
+spec:
+  lookupPolicy: {local: true}
