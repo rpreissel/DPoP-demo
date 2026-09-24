@@ -28,7 +28,11 @@ stehen die beiden URLs.
   `oc extract secret/dpop-demo-keycloak-admin --keys=password --to=-`
 - **Erneut ausrollen:** einfach das Skript noch einmal laufen lassen, mit `SKIP_GRADLE=1`, wenn die
   Artefakte schon gebaut sind.
-- **Andere Basis-Images:** `KEYCLOAK_BASE_IMAGE` und `ORCHESTRATOR_RUNTIME_BASE_IMAGE`, wie bei Compose.
+- **Andere Basis-Images:** `KEYCLOAK_BASE_IMAGE` und `ORCHESTRATOR_RUNTIME_BASE_IMAGE`, wie bei
+  Compose. Beide Skripte lesen dafür auch `.env` und `.env.local` (Vorlage `.env.work.example`); eine
+  in der Shell gesetzte Variable hat Vorrang. Auf OpenShift zieht der Build im Cluster die
+  Basis-Images: Für `registry.redhat.io` braucht er dort Zugangsdaten, meist schon im globalen
+  Pull-Secret, sonst ein Pull-Secret am `builder`-Service-Account.
 - **Route-Hosts nicht ändern:** Sie gehören zum Realm-Aufbau. Ändern sie sich, baut die Migration das
   Realm beim nächsten Start neu auf.
 

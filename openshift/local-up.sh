@@ -8,6 +8,7 @@
 # Stoppen: podman kube down openshift/dpop-demo.yaml (Volumes bleiben, --force loescht sie).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. openshift/env.sh
 
 podman build -t localhost/dpop-demo-keycloak:latest \
   --build-arg KEYCLOAK_BASE_IMAGE="${KEYCLOAK_BASE_IMAGE:-quay.io/keycloak/keycloak:26.6.4}" \
