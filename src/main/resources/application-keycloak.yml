@@ -89,13 +89,15 @@ keycloak-setup:
       # publicKeycloakBaseUrl bleibt die Host-Adresse - von dort holt der Browser sein Token.
       orchestratorBaseUrl: http://orchestrator:8080
       keycloakBaseUrl: https://keycloak:8443
-    kube:
-      # Prototyp `podman kube play kube/dpop-demo.yaml`: zwei Pods im Podman-Kube-Netz. Intern
-      # dieselben Namen wie bei compose - Podman loest den Container-Namen aus der YAML als
-      # DNS-Alias auf. Eigene Variante nur wegen der Host-Ports 8090/8553, damit der Prototyp
-      # neben dem Compose-Setup (8080/8543) laufen kann.
-      browserRedirectUris: http://localhost:8090/*,http://localhost:5173/*
-      orchestratorBaseUrl: http://orchestrator:8080
-      publicOrchestratorBaseUrl: http://localhost:8090
-      keycloakBaseUrl: https://keycloak:8443
-      publicKeycloakBaseUrl: https://localhost:8553
+    openshift:
+      # Prototyp openshift/dpop-demo.yaml: EIN Pod, beide Container teilen sich das Netz - intern
+      # also localhost und reines HTTP (der Verkehr verlaesst den Pod nie). Keycloak lauscht auf 8081,
+      # weil der Orchestrator 8080 belegt. TLS macht nur die edge-Route nach aussen.
+      # Die oeffentlichen Adressen sind die Route-Hosts; openshift/deploy.sh traegt sie in die
+      # ConfigMap ein. Die Defaults passen zum lokalen Test (openshift/local-up.sh).
+      # ACHTUNG: sie gehoeren zu RealmSetup - aendern sie sich, baut die Migration das Realm neu auf.
+      orchestratorBaseUrl: http://localhost:8080
+      keycloakBaseUrl: http://localhost:8081
+      publicOrchestratorBaseUrl: ${PUBLIC_ORCHESTRATOR_URL:http://localhost:8090}
+      publicKeycloakBaseUrl: ${PUBLIC_KEYCLOAK_URL:http://localhost:8091}
+      browserRedirectUris: ${PUBLIC_ORCHESTRATOR_URL:http://localhost:8090}/*

@@ -1,0 +1,19 @@
+# Nur fuer den lokalen Test mit Podman (local-up.sh). Auf OpenShift legt deploy.sh beides an -
+# dort mit den echten Route-Hosts und einem zufaelligen Admin-Passwort.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dpop-demo-env
+data:
+  # Die Host-Ports, die local-up.sh veroeffentlicht - so wie der Browser den Pod erreicht.
+  PUBLIC_ORCHESTRATOR_URL: http://localhost:8090
+  PUBLIC_KEYCLOAK_URL: http://localhost:8091
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dpop-demo-keycloak-admin
+type: Opaque
+stringData:
+  username: admin
+  password: admin

@@ -1,0 +1,47 @@
+# Nur OpenShift: Images werden im Cluster gebaut. deploy.sh laedt die fertig gebauten Artefakte
+# (build/podman/*, aus `./gradlew stagePodmanArtifacts`) per `oc start-build --from-dir` hoch; die
+# Dockerfiles dort kopieren nur noch - dieselben wie fuer Compose und den lokalen Test.
+#
+# lookupPolicy local: der Kurzname dpop-demo-...:latest in dpop-demo.yaml loest im Namespace auf
+# diesen ImageStream auf. Der Trigger am Deployment rollt nach jedem Build neu aus.
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dpop-demo-keycloak
+spec:
+  lookupPolicy: {local: true}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dpop-demo-orchestrator
+spec:
+  lookupPolicy: {local: true}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: dpop-demo-keycloak
+spec:
+  source: {type: Binary}
+  strategy:
+    type: Docker
+    dockerStrategy: {dockerfilePath: Dockerfile}
+  output:
+    to: {kind: ImageStreamTag, name: dpop-demo-keycloak:latest}
+  resources:
+    limits: {memory: 2Gi}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: dpop-demo-orchestrator
+spec:
+  source: {type: Binary}
+  strategy:
+    type: Docker
+    dockerStrategy: {dockerfilePath: Dockerfile}
+  output:
+    to: {kind: ImageStreamTag, name: dpop-demo-orchestrator:latest}
+  resources:
+    limits: {memory: 1Gi}

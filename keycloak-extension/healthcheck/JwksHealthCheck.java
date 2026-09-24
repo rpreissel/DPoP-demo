@@ -19,10 +19,6 @@ import javax.net.ssl.X509TrustManager;
 // Anfragen bedient. Trust-all, weil das selbstsignierte Dev-Zertifikat (siehe Dockerfile) nicht
 // von einer echten CA stammt - Hostname-Verifikation bleibt an, das Zertifikat deckt 127.0.0.1
 // per SAN ab.
-//
-// Optionales erstes Argument: eine andere Basis-URL statt https://127.0.0.1:8443 - der
-// Init-Container des Orchestrator-Pods (kube/dpop-demo.yaml) prueft damit Keycloak von aussen
-// unter https://keycloak:8443; dessen Zertifikat traegt dafuer zusaetzlich dns:keycloak im SAN.
 public class JwksHealthCheck {
     public static void main(String[] args) throws Exception {
         TrustManager[] trustAll = {
@@ -39,9 +35,8 @@ public class JwksHealthCheck {
             .sslContext(sslContext)
             .connectTimeout(Duration.ofSeconds(2))
             .build();
-        String baseUrl = args.length > 0 ? args[0] : "https://127.0.0.1:8443";
         HttpRequest request = HttpRequest.newBuilder(
-                URI.create(baseUrl + "/realms/master/protocol/openid-connect/certs"))
+                URI.create("https://127.0.0.1:8443/realms/master/protocol/openid-connect/certs"))
             .timeout(Duration.ofSeconds(2))
             .GET()
             .build();
