@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.AuthMethodView
@@ -90,9 +91,9 @@ class ChannelService(
         channelCreationThrottleService.recordAndAssertWithinBudget(bindingKeyRef)
 
         val entryIntent = AuthIntent.fromRequest(intent)
-            ?: throw OrchestratorException.invalidState("Unbekannter intent: $intent")
+            ?: throw OrchestratorException.invalidState(Text("Unbekannter Vorgang"), "intent=${intent}")
         if (!entryIntent.isEntryIntent) {
-            throw OrchestratorException.invalidState("$entryIntent kann keinen Kanal eroeffnen")
+            throw OrchestratorException.invalidState(Text("Dieser Vorgang kann keinen Kanal eroeffnen"), "entryIntent=${entryIntent}")
         }
 
         // CONFIRM_PEER_LOGIN's cold-entry path depends on this exactly like FAST_ACCESS: no
@@ -166,7 +167,7 @@ class ChannelService(
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         requireAuthenticated(channel)
         if (channel.channel != ChannelType.APP) {
-            throw OrchestratorException.invalidState("Token retrieval is only supported for APP channels")
+            throw OrchestratorException.invalidState(Text("Token retrieval is only supported for APP channels"))
         }
         val pair = tokenProvider.tokenFor(channel, minValiditySeconds)
         return TokenResponse(accessToken = pair.accessToken, accessExpiresAt = pair.accessExpiresAt, refreshExpiresAt = pair.refreshExpiresAt)
@@ -181,7 +182,7 @@ class ChannelService(
 
     private fun requireAuthenticated(channel: ChannelSession) {
         if (channel.state != ChannelState.AUTHENTICATED) {
-            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED for token/claims access")
+            throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED for token/claims access"))
         }
         checkNotNull(channel.authContextId) { "AUTHENTICATED channel without authContextId" }
     }
@@ -259,7 +260,7 @@ class ChannelService(
     fun cancelActiveJourney(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val active = journeyService.findActive(channelSessionId)
-            ?: throw OrchestratorException.invalidState("No active journey to cancel for this channel")
+            ?: throw OrchestratorException.invalidState(Text("No active journey to cancel for this channel"))
 
         journeyService.cancel(active, channel)
 
@@ -279,7 +280,7 @@ class ChannelService(
     fun startLogout(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         if (channel.state != ChannelState.AUTHENTICATED) {
-            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to start a logout journey")
+            throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to start a logout journey"))
         }
         val activeJourney = journeyService.findActive(channelSessionId)
         if (activeJourney != null) {
@@ -338,10 +339,10 @@ class ChannelService(
      */
     fun retractAttribute(channelSessionId: UUID, bindingKeyRef: String, attribute: String): ChannelResponse {
         val attributeType = AttributeType.fromWireName(attribute)
-            ?: throw OrchestratorException.invalidState("Unbekanntes Attribut: $attribute")
+            ?: throw OrchestratorException.invalidState(Text("Unbekanntes Attribut: {attribute}", "attribute" to attribute))
         if (!attributeType.isLocalAnchor) {
             throw OrchestratorException.invalidState(
-                "'$attribute' gehoert nicht dem Konto (${attributeType.authority}) und kann hier nicht zurueckgenommen werden"
+                Text("'{attribute}' gehoert nicht dem Konto ({authority}) und kann hier nicht zurueckgenommen werden", "attribute" to attribute, "authority" to attributeType.authority)
             )
         }
         return startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.RetractAttributeRequested(attributeType))
@@ -350,7 +351,7 @@ class ChannelService(
     private fun startManage(channelSessionId: UUID, bindingKeyRef: String, wish: ManageAuthMethodsState): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         if (channel.state != ChannelState.AUTHENTICATED) {
-            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to manage methods")
+            throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to manage methods"))
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
@@ -368,7 +369,7 @@ class ChannelService(
     fun startPeerLogin(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         if (channel.state != ChannelState.AUTHENTICATED) {
-            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to confirm a peer login")
+            throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to confirm a peer login"))
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
@@ -387,7 +388,7 @@ class ChannelService(
     fun startDeleteAccount(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         if (channel.state != ChannelState.AUTHENTICATED) {
-            throw OrchestratorException.invalidState("Channel must be AUTHENTICATED to delete the account")
+            throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to delete the account"))
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
@@ -399,7 +400,7 @@ class ChannelService(
     fun answer(channelSessionId: UUID, bindingKeyRef: String, answer: String): ChannelResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val active = journeyService.findActive(channelSessionId)
-            ?: throw OrchestratorException.invalidState("No active journey for this channel")
+            ?: throw OrchestratorException.invalidState(Text("No active journey for this channel"))
         val step = journeyService.answer(active, channel, answer)
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }

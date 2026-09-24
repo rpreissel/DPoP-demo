@@ -1,3 +1,4 @@
+import { resolveText } from '../texts'
 import type { ConfirmPrompt } from '../types'
 
 interface Props {
@@ -13,8 +14,8 @@ interface Props {
 export function PromptView({ prompt, onAnswer, busy }: Props) {
   return (
     <div className="card">
-      <h2>{prompt.title}</h2>
-      {prompt.description && <p className="muted">{prompt.description}</p>}
+      <h2>{resolveText(prompt.title)}</h2>
+      {prompt.description && <p className="muted">{resolveText(prompt.description)}</p>}
       <div className="actions">
         <button
           type="button"
@@ -22,10 +23,10 @@ export function PromptView({ prompt, onAnswer, busy }: Props) {
           onClick={() => onAnswer(true)}
           disabled={busy}
         >
-          {prompt.confirmLabel}
+          {resolveText(prompt.confirmLabel)}
         </button>
         <button type="button" className="secondary" onClick={() => onAnswer(false)} disabled={busy}>
-          {prompt.cancelLabel}
+          {resolveText(prompt.cancelLabel)}
         </button>
       </div>
     </div>

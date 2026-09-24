@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.authsmslookup
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 
@@ -90,7 +91,7 @@ class AuthSmsLookupToolHandler(
             is AuthSmsLookupDecision.WrongTan ->
                 // accountId names the throttle subject for the orchestrator; it is null exactly
                 // when nothing resolved, so there is nothing to count either.
-                ToolOutcome.Failed("E-Mail oder TAN ungueltig", attemptedAccountId = decision.accountId)
+                ToolOutcome.Failed(Text("E-Mail oder TAN ungueltig"), attemptedAccountId = decision.accountId)
         }
     }
 

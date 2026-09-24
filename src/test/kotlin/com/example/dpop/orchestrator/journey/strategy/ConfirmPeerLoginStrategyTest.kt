@@ -61,7 +61,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 strategy.transition(ConfirmPeerLoginState.Requested(false), JourneyEvent.Started, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = StepUpState.Reason.PEER_LOGIN),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -100,7 +100,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = StepUpState.Reason.PEER_LOGIN),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }
@@ -114,7 +114,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
                 strategy.transition(ConfirmPeerLoginState.Requested(false), event, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.STEP_UP,
-                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = ConfirmPeerLoginStrategy.STEP_UP_REASON),
+                        seedWith = StepUpState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1, allowReIdentification = false, reason = StepUpState.Reason.PEER_LOGIN),
                         resumeWith = ConfirmPeerLoginState.Requested(false)
                     )
             }

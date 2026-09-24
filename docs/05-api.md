@@ -87,6 +87,18 @@ Was sonst noch dazugehört:
 
 ---
 
+### Texte (`GET /orchestrator/api/v1/texts/{lang}`)
+
+Keine Antwort enthält Wortlaut. Wo Menschen etwas lesen (`ErrorResponse.text`, `FailedAttemptStep.error`,
+`MessageStep.message`, `SelectMethodStep.title/description`, `Prompt.*`, `JourneyDebugStep.note`), steht eine
+Text-Referenz `{ "key": "3f9a1c0b2e7d", "args": {"n": "3"}, "texts": {"grund": [{ "key": … }]} }`. Der Client
+schlägt `key` im Bundle nach und setzt `{name}` aus `args` (unverändert) bzw. `texts` (selbst aufgelöst, mehrere mit
+", " verbunden) ein; eine unbekannte ID zeigt er als sich selbst.
+
+Das Bundle holt der Client beim Start: `GET /orchestrator/api/v1/texts/{lang}` (ohne DPoP, `de` oder `en`, sonst
+`de`; `Content-Language` nennt die gelieferte) liefert `{ id: Wortlaut }` mit ETag. Beim nächsten Start schickt er
+`If-None-Match`; 304 heißt „unverändert“. Hintergrund und Pflege der Texte: ADR-33.
+
 ## 2) App-Fassade (Orchestrator-first)
 
 Alle Requests enthalten den Header `DPoP: <proof>`.

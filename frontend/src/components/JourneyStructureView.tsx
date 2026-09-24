@@ -1,3 +1,4 @@
+import { resolveText } from '../texts'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { JourneyDebugStep, Next } from '../types'
@@ -88,7 +89,7 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
   if (levels.length > 0) {
     levels[levels.length - 1] = {
       ...levels[levels.length - 1],
-      note: journeys?.at(-1)?.note,
+      note: journeys?.at(-1)?.note ? resolveText(journeys.at(-1)?.note) : undefined,
       action: onCancelJourney ? (
         <button
           className="secondary small nesting-label-action"

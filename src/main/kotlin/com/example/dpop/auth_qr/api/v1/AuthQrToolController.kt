@@ -1,5 +1,6 @@
 package com.example.dpop.auth_qr.api.v1
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.AuthQrDescriptor
 import com.example.dpop.auth_qr.internal.authqr.AuthQrToolHandler
 import com.example.dpop.tool_api.AccountDirectory
@@ -48,7 +49,7 @@ class AuthQrToolController(
         val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, AUTH_QR_TOOL_ID)
         val accountId = context.channelAccountId
             ?.takeIf { accountDirectory.activeEnrollment(it, descriptor.method) != null }
-            ?: throw UnresolvableReferenceException("Keine aktive QR-Login-Methode fuer diesen Account")
+            ?: throw UnresolvableReferenceException(Text("Keine aktive QR-Login-Methode fuer diesen Account"))
         val outcome = handler.start(context.toolSessionId, accountId)
 
         val response = toolEndpoint.applyOutcome(context, outcome)

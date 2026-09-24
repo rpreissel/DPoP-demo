@@ -1,5 +1,7 @@
 package com.example.dpop.tool_spi
 
+import com.example.dpop.texts.Text
+
 /**
  * The result of one tool step. This is the only thing a tool hands back across the module
  * boundary - any internal state a tool uses to structure itself stays inside its own module.
@@ -48,7 +50,8 @@ sealed interface ToolOutcome {
      * uncounted, which is exactly the gap this field closes.
      */
     data class Failed(
-        val reason: String,
+        /** What the user is told, resolved by the client against its texts bundle. */
+        val reason: Text,
         /** Set by a [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool that resolved an account before failing. */
         val attemptedAccountId: Long? = null,
         /** Set by an [IDENTIFICATION][MethodRole.IDENTIFICATION] tool that resolved a person before failing. */

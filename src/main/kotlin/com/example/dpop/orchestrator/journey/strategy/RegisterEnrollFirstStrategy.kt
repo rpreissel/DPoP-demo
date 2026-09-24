@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
 import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
@@ -155,7 +156,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
         return if (candidates.isNotEmpty()) {
             Transition.To(RegisterEnrollFirstState.EnrollFirstEnrolling(Offer(candidates)))
         } else {
-            Transition.Abort("Kein Anmeldeverfahren verfuegbar")
+            Transition.Abort(Text("Kein Anmeldeverfahren verfuegbar"))
         }
     }
 
@@ -213,13 +214,7 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 seedWith = ReIdentifyState.forSubJourney(
                     targetAcr = ctx.acrFloor,
                     startingAcr = ctx.currentAcr,
-                    wording = ReIdentifyState.Wording(
-                        offerTitle = "Identifizieren?",
-                        offerDescription = "Sie sind bereits angemeldet. Optional können Sie sich jetzt zusätzlich identifizieren.",
-                        offerConfirmLabel = "Identifizieren",
-                        selectionTitle = "Identifikation (optional)",
-                        selectionDescription = "Wählen Sie ein Verfahren, um sich zu identifizieren."
-                    )
+                    wording = ReIdentifyState.Wording.OPTIONAL_IDENTIFICATION
                 ),
                 resumeWith = RegisterEnrollFirstState.EnrollFirstStart
             )

@@ -1,4 +1,5 @@
 package com.example.dpop.auth_password.internal.authpassworduse
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
 
@@ -32,12 +33,12 @@ class AuthPasswordUseToolHandler(
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
         if (enrollmentRef.type != PASSWORD_ENROLLMENT_TYPE) {
-            throw UnresolvableReferenceException("Unerwarteter Enrollment-Typ: ${enrollmentRef.type}")
+            throw UnresolvableReferenceException(Text("Unerwarteter Enrollment-Typ"), "type=${enrollmentRef.type}")
         }
         val enrollmentId = enrollmentRef.id.toLongOrNull()
-            ?: throw UnresolvableReferenceException("Ungueltige Enrollment-Referenz: ${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("Ungueltige Enrollment-Referenz"), "id=${enrollmentRef.id}")
         if (!enrollmentRepository.existsById(enrollmentId)) {
-            throw UnresolvableReferenceException("Password-Enrollment nicht gefunden: ${enrollmentRef.id}")
+            throw UnresolvableReferenceException(Text("Password-Enrollment nicht gefunden"), "id=${enrollmentRef.id}")
         }
 
         toolDataRepository.save(
@@ -60,7 +61,7 @@ class AuthPasswordUseToolHandler(
             is AuthPasswordUseDecision.Check -> {
                 val enrollmentId = data.enrollmentRefId!!.toLong()
                 val enrollment = enrollmentRepository.findByIdOrNull(enrollmentId)
-                    ?: return ToolOutcome.Failed("Passwort ungueltig")
+                    ?: return ToolOutcome.Failed(Text("Passwort ungueltig"))
 
                 if (PasswordHasher.matches(decision.password, enrollment.passwordHash)) {
                     ToolOutcome.Completed.Authenticated(
@@ -69,7 +70,7 @@ class AuthPasswordUseToolHandler(
                         factorTypes = descriptor.factorTypes
                     )
                 } else {
-                    ToolOutcome.Failed("Passwort ungueltig")
+                    ToolOutcome.Failed(Text("Passwort ungueltig"))
                 }
             }
         }

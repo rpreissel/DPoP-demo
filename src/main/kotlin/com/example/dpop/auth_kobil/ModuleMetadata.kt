@@ -14,5 +14,5 @@ import org.springframework.modulith.ApplicationModule
  * but `@ApplicationModule` is `@Target({PACKAGE, TYPE})` and meta-annotated `@PackageInfo`, so
  * this otherwise-unused type serves as the package descriptor.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "kobil_mock"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "kobil_mock", "texts"])
 internal class ModuleMetadata

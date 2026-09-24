@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc.internal
 
+import com.example.dpop.texts.Text
 import com.example.dpop.ext_stammdaten.Freischaltcodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
@@ -74,7 +75,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
                 val outcome = handler.patch(toolSessionId, kvnr = null, name = null, vorname = null, geburtsdatum = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
 
-                outcome shouldBe ToolOutcome.Failed("Die Angaben passen zu keiner versicherten Person", attemptedPersonId = 7L)
+                outcome shouldBe ToolOutcome.Failed(Text("Die Angaben passen zu keiner versicherten Person"), attemptedPersonId = 7L)
                 verify(exactly = 0) { freischaltcodes.pruefe(any(), any()) }
                 data.kvnr shouldBe null
                 data.geburtsdatum shouldBe null

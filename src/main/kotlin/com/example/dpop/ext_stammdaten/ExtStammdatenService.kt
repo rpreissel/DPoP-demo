@@ -1,5 +1,6 @@
 package com.example.dpop.ext_stammdaten
 
+import com.example.dpop.texts.Text
 import com.example.dpop.ext_stammdaten.internal.MrzName
 import com.example.dpop.ext_stammdaten.internal.PersonRepository
 import com.example.dpop.ext_stammdaten.internal.Person
@@ -13,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 /** Raised when the register refuses a change; its refusals are not this application's error contract. */
-class PersonRejectedException(message: String) : RuntimeException(message)
+class PersonRejectedException(val text: Text) : RuntimeException(text.template)
 
 @Service
 class ExtStammdatenService(private val personRepository: PersonRepository) : PersonDirectory {
@@ -67,7 +68,7 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
     @Transactional
     fun anlegen(input: PersonData): PersonData {
         val kvnr = validKvnr(input.kvnr)
-        if (personRepository.findByKvnr(kvnr) != null) throw PersonRejectedException("KVNR $kvnr ist bereits registriert")
+        if (personRepository.findByKvnr(kvnr) != null) throw PersonRejectedException(Text("KVNR {kvnr} ist bereits registriert", "kvnr" to kvnr))
         return personRepository.save(Person(kvnr = kvnr).apply { applyFrom(input) }).toPersonData()
     }
 
@@ -80,7 +81,7 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
     }
 
     private fun validKvnr(raw: String?): String =
-        Kvnr.ofOrNull(raw.orEmpty())?.value ?: throw PersonRejectedException("KVNR muss ein Buchstabe und neun Ziffern sein")
+        Kvnr.ofOrNull(raw.orEmpty())?.value ?: throw PersonRejectedException(Text("KVNR muss ein Buchstabe und neun Ziffern sein"))
 
     private fun Person.applyFrom(input: PersonData) {
         name = input.name

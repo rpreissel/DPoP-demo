@@ -1,8 +1,10 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.dpop.DpopValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_api.IdentityConflictException
+import com.example.dpop.tool_spi.InvalidInputException
 import com.example.dpop.tool_spi.UnresolvableReferenceException
 import org.hibernate.exception.ConstraintViolationException
 import org.slf4j.LoggerFactory
@@ -28,20 +30,24 @@ class OrchestratorExceptionHandler {
      */
     @ExceptionHandler(DpopValidationException::class)
     fun handleDpopValidation(e: DpopValidationException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.UNAUTHORIZED, e.message ?: "")
+        respond(ErrorCode.UNAUTHORIZED, Text("Die Anfrage konnte nicht authentifiziert werden ({detail}).", "detail" to e.message))
 
     /** Missing/invalid Keycloak peer-auth assertion (docs/12-entscheidungen.md ADR-7) - same contract as DPoP: 401. */
     @ExceptionHandler(PeerAuthValidationException::class)
     fun handlePeerAuthValidation(e: PeerAuthValidationException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.UNAUTHORIZED, e.message ?: "")
+        respond(ErrorCode.UNAUTHORIZED, Text("Die Anfrage konnte nicht authentifiziert werden ({detail}).", "detail" to e.message))
 
     @ExceptionHandler(OrchestratorException::class)
-    fun handleOrchestratorException(ex: OrchestratorException): ResponseEntity<ErrorResponse> =
-        respond(ex.code, ex.message ?: "")
+    fun handleOrchestratorException(ex: OrchestratorException): ResponseEntity<ErrorResponse> {
+        // The response carries words only; which session, account or tool it was is for the log.
+        log.info("{}: {}", ex.code, ex.message)
+        return respond(ex.code, ex.text)
+    }
 
     /**
      * A value the CLIENT sent was rejected (a malformed phone number, an unknown acr level) -
-     * docs/07-betrieb.md #1: 400. The message is meant for the caller and goes out as written.
+     * docs/07-betrieb.md #1: 400. An [InvalidInputException] carries the words for the user; any
+     * other rejection (a plain `require`) names only the technical fault, as `{detail}`.
      *
      * The rule this relies on: `require`/`IllegalArgumentException` only for rejected input,
      * `check`/`error()` for a broken internal assumption. Internal lookups ("Account not found")
@@ -49,17 +55,20 @@ class OrchestratorExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.BAD_REQUEST, e.message ?: "")
+        respond(
+            ErrorCode.BAD_REQUEST,
+            (e as? InvalidInputException)?.text ?: Text("Die Eingabe ist ungültig ({detail}).", "detail" to e.message)
+        )
 
     /** The body is not valid JSON or does not fit the request type. Spring's own shape otherwise. */
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableBody(e: HttpMessageNotReadableException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.BAD_REQUEST, "Request body is not readable")
+        respond(ErrorCode.BAD_REQUEST, Text("Die Anfrage ist nicht lesbar."))
 
     /** A path or query value of the wrong type, e.g. a channelSessionId that is not a UUID. */
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
     fun handleTypeMismatch(e: MethodArgumentTypeMismatchException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.BAD_REQUEST, "Invalid value for '${e.name}'")
+        respond(ErrorCode.BAD_REQUEST, Text("Ungültiger Wert für '{name}'.", "name" to e.name))
 
     /**
      * A broken internal assumption - `check`, `checkNotNull`, `error()`. That is a bug or a state
@@ -75,13 +84,13 @@ class OrchestratorExceptionHandler {
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalState(e: IllegalStateException): ResponseEntity<ErrorResponse> {
         log.error("Internal error", e)
-        return respond(ErrorCode.INTERNAL_ERROR, "Internal error")
+        return respond(ErrorCode.INTERNAL_ERROR, Text("Ein interner Fehler ist aufgetreten."))
     }
 
     @ExceptionHandler(IdentityConflictException::class)
     fun handleIdentityConflict(e: IdentityConflictException): ResponseEntity<ErrorResponse> {
         log.warn("Identity claim conflict: {}", e.message)
-        return respond(ErrorCode.INVALID_STATE_TRANSITION, e.message ?: "Identity claim conflict")
+        return respond(ErrorCode.INVALID_STATE_TRANSITION, e.text)
     }
 
     // MVC also matches nested causes: this covers repository flushes AND transaction-commit errors.
@@ -93,13 +102,15 @@ class OrchestratorExceptionHandler {
             ?.substringAfterLast('.')?.trim('"')?.lowercase(Locale.ROOT)
         if (e.sqlState != "23505" || constraint !in ACCOUNT_BINDING_CONSTRAINTS) throw e
         log.warn("Concurrent account binding rejected by {}", constraint)
-        return respond(ErrorCode.INVALID_STATE_TRANSITION, "Identity claim conflicts with an existing account binding")
+        return respond(ErrorCode.INVALID_STATE_TRANSITION, Text("Diese Identität gehört bereits zu einem anderen Konto."))
     }
 
     /** Fachlich unverarbeitbar, kein Nutzereingabefehler (unknown enrollmentRef) - docs/07-betrieb.md #1: 422. */
     @ExceptionHandler(UnresolvableReferenceException::class)
-    fun handleUnresolvableReference(e: UnresolvableReferenceException): ResponseEntity<ErrorResponse> =
-        respond(ErrorCode.UNRESOLVABLE_REFERENCE, e.message ?: "")
+    fun handleUnresolvableReference(e: UnresolvableReferenceException): ResponseEntity<ErrorResponse> {
+        log.info("{}: {}", ErrorCode.UNRESOLVABLE_REFERENCE, e.message)
+        return respond(ErrorCode.UNRESOLVABLE_REFERENCE, e.text)
+    }
 
     /**
      * Two requests raced on the same AuthJourney/@Version row (e.g. a double tool-activation) -
@@ -112,11 +123,11 @@ class OrchestratorExceptionHandler {
         // a genuine race and a self-inflicted one (an unexpected mid-request flush, say) look
         // identical from outside, and only the contended entity tells them apart.
         log.warn("Optimistic lock conflict on {} id={}", e.persistentClassName, e.identifier, e)
-        return respond(ErrorCode.CONCURRENT_MODIFICATION, "Concurrent request on the same session - please retry.")
+        return respond(ErrorCode.CONCURRENT_MODIFICATION, Text("Gleichzeitige Anfrage in derselben Sitzung - bitte erneut versuchen."))
     }
 
-    private fun respond(code: ErrorCode, message: String): ResponseEntity<ErrorResponse> =
-        ResponseEntity.status(code.httpStatus).body(ErrorResponse(code, message))
+    private fun respond(code: ErrorCode, text: Text): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(code.httpStatus).body(ErrorResponse(code, text))
 
     private companion object {
         private val ACCOUNT_BINDING_CONSTRAINTS = setOf(

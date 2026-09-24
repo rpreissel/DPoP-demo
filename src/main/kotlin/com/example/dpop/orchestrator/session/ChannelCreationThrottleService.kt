@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -29,7 +30,7 @@ class ChannelCreationThrottleService(private val counter: AttemptCounter) {
         )
         if (!withinBudget) {
             throw OrchestratorException.tooManyRequests(
-                "Zu viele Kanaleroeffnungen fuer dieses Geraet - bitte spaeter erneut versuchen"
+                Text("Zu viele Kanaleroeffnungen fuer dieses Geraet - bitte spaeter erneut versuchen")
             )
         }
     }

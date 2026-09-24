@@ -1,4 +1,5 @@
 package com.example.dpop.auth_password.internal.authpasswordlookup
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
 
@@ -73,7 +74,7 @@ class AuthPasswordLookupToolHandler(
                     // Naming the account here is what lets the orchestrator count this attempt;
                     // the client-facing part of the outcome stays identical for known and unknown
                     // addresses.
-                    ToolOutcome.Failed("E-Mail oder Passwort ungueltig", attemptedAccountId = accountId)
+                    ToolOutcome.Failed(Text("E-Mail oder Passwort ungueltig"), attemptedAccountId = accountId)
                 }
             }
         }

@@ -145,7 +145,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             handleResponse(context, response, form);
         } catch (OrchestratorClient.OrchestratorApiException e) {
             LOG.infof("Orchestrator tool call failed: %s", e.getMessage());
-            context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, currentChallenge(context, e.message));
+            context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, currentChallenge(context, e.message(context.getSession())));
         } catch (Exception e) {
             LOG.error("OrchestratorAuthenticator.action failed", e);
             context.failure(AuthenticationFlowError.INTERNAL_ERROR);
@@ -233,7 +233,7 @@ public class OrchestratorAuthenticator implements Authenticator {
 
         if (outcome instanceof OrchestratorNextDispatch.Confirm confirm) {
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "confirm");
-            context.challenge(WebFormRenderer.confirmForm(context.form(), authSession, confirm.prompt(), null));
+            context.challenge(WebFormRenderer.confirmForm(context.getSession(), context.form(), authSession, confirm.prompt(), null));
             return;
         }
 

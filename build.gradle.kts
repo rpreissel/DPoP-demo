@@ -114,6 +114,9 @@ dependencies {
     testImplementation(libs.kotest.extensions.spring)
     testImplementation(libs.mockk)
     testImplementation(libs.springmockk)
+    // TextCatalog: Nutzertexte aus den kompilierten Klassen einsammeln (docs/adr/ADR-033).
+    testImplementation(libs.asm.tree)
+    testImplementation(libs.asm.analysis)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -214,6 +217,18 @@ tasks.register<Test>("updateOpenApiSnapshot") {
     filter { includeTestsMatching("com.example.dpop.orchestrator.api.v1.OpenApiSnapshotTest") }
     systemProperty("openapi.snapshot.update", "true")
     outputs.upToDateWhen { false }
+}
+
+// Quellkatalog der Nutzertexte fuer /translate-texts (docs/adr/ADR-033): TextCatalog liest die
+// Text-Vorlagen aus den kompilierten Klassen und schreibt sie je Bundle nach build/texts/. Wird nie
+// ausgeliefert - die Clients bekommen die uebersetzten Dateien unter src/main/resources/texts/.
+tasks.register<JavaExec>("exportTexts") {
+    group = "texts"
+    description = "Schreibt die Text-Vorlagen aus dem Code nach build/texts/<bundle>/texts_source.properties."
+    dependsOn("testClasses")
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.example.dpop.texts.TextCatalogExportKt")
+    args(layout.buildDirectory.dir("texts").get().asFile.absolutePath)
 }
 
 // Der Wachposten fuer bereits veroeffentlichte Versionen (docs/05-api.md).

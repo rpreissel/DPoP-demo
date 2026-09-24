@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
@@ -130,7 +131,7 @@ class JourneyActionExecutor(
             // Today only RegisterStrategy offers the step, and only while personId is null; this
             // makes that a property of the act instead of of the strategy that happens to offer it.
             if (account.personId != null) {
-                throw IdentityConflictException("Dieses Konto ist bereits einer Person zugeordnet")
+                throw IdentityConflictException(Text("Dieses Konto ist bereits einer Person zugeordnet"))
             }
             // Unconditional, and the reason the step is allowed to exist: its whole security
             // argument is that the register's person matches what THIS account already had
@@ -141,7 +142,7 @@ class JourneyActionExecutor(
                 "${action.tool.toolId} completed as a correlation without resolving a person"
             }
             if (!identityResolver.attestedIdentityMatches(correlatingAccount, claimedPersonId)) {
-                throw IdentityConflictException("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet")
+                throw IdentityConflictException(Text("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet"))
             }
         }
         val resolution = identityResolver.resolve(action.outcome.claims.toSet())
@@ -179,7 +180,7 @@ class JourneyActionExecutor(
                     // account to fall back to - mixing a stranger's attested identity into it is
                     // the one thing that must never happen quietly.
                     else -> throw IdentityConflictException(
-                        "Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung"
+                        Text("Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung")
                     )
                 }
             }
@@ -220,19 +221,19 @@ class JourneyActionExecutor(
     private fun accountOf(journey: AuthJourney, channel: ChannelSession, inHand: Long, resolved: Long?): Long {
         if (resolved == null || resolved == inHand) return inHand
         val inHandAccount = accountService.findAccount(inHand)
-            ?: throw OrchestratorException.processGone("Account not found: $inHand")
+            ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${inHand}")
         if (inHandAccount.isProvisional) {
             rebindAccount(journey, channel, from = inHand, to = resolved)
             accountService.absorbProvisionalAccount(inHand, resolved)
             return resolved
         }
         val resolvedAccount = accountService.findAccount(resolved)
-            ?: throw OrchestratorException.processGone("Account not found: $resolved")
+            ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${resolved}")
         if (resolvedAccount.isProvisional) {
             accountService.absorbProvisionalAccount(resolved, inHand)
             return inHand
         }
-        throw IdentityConflictException("Identification claims resolve to a different account")
+        throw IdentityConflictException(Text("Identification claims resolve to a different account"))
     }
 
     /**
@@ -330,11 +331,11 @@ class JourneyActionExecutor(
         if (resolved == null || resolved == inHand) return inHand
         val hasIdentification = evidence.factors.any { it.axis == EvidenceAxis.IDENTITY }
         if (!hasIdentification) {
-            throw IdentityConflictException("Diese Adresse gehoert bereits zu einem anderen Konto")
+            throw IdentityConflictException(Text("Diese Adresse gehoert bereits zu einem anderen Konto"))
         }
         accountService.findAccount(resolved)?.personId?.let { personId ->
             if (!identityResolver.attestedIdentityMatches(inHand, personId)) {
-                throw IdentityConflictException("Diese Adresse gehoert zu einer anderen Person")
+                throw IdentityConflictException(Text("Diese Adresse gehoert zu einer anderen Person"))
             }
         }
         return accountOf(journey, channel, inHand, resolved)
@@ -450,7 +451,7 @@ class JourneyActionExecutor(
         val inHand = journey.accountId ?: channel.accountId
         val named = action.outcome.accountId?.takeIf { action.tool.role == MethodRole.LOOKUP_AUTH }
         if (named != null && inHand != null && named != inHand) {
-            throw IdentityConflictException("Der Nachweis gehoert zu einem anderen Konto als dieser Sitzung")
+            throw IdentityConflictException(Text("Der Nachweis gehoert zu einem anderen Konto als dieser Sitzung"))
         }
         return checkNotNull(named ?: inHand) { "Authenticated without a known account" }
     }
@@ -573,9 +574,9 @@ class JourneyActionExecutor(
     private fun removeMethod(journey: AuthJourney, channel: ChannelSession, methodInstanceId: String) {
         val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Remove without a known account" }
         val account = accountService.findAccount(accountId)
-            ?: throw OrchestratorException.processGone("Account not found: $accountId")
+            ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${accountId}")
         val target = account.authenticationMethods.firstOrNull { it.active && it.id == methodInstanceId }
-            ?: throw OrchestratorException.notFound("No active method '$methodInstanceId' for this account")
+            ?: throw OrchestratorException.notFound(Text("No such active method for this account"), "methodInstanceId=${methodInstanceId}")
 
         val dependents = dependentsOf(account, target)
         val falling = (listOf(target) + dependents).map { it.id }.toSet()
@@ -587,9 +588,9 @@ class JourneyActionExecutor(
         )
         if (authPolicy.reachability(afterRemoval, contextFactory.acrFloorOf(channel)) !is Reachability.Reachable) {
             val alsoFalling = dependents.map { it.method }.distinct()
-            val because = if (alsoFalling.isEmpty()) "" else " (zusammen mit ${alsoFalling.joinToString(", ")})"
             throw OrchestratorException.invalidState(
-                "Deaktivieren von '${target.method}'$because wuerde das Mindestniveau dieses Kanals unterschreiten"
+                if (alsoFalling.isEmpty()) Text("Deaktivieren von '{method}' wuerde das Mindestniveau dieses Kanals unterschreiten", "method" to target.method)
+                else Text("Deaktivieren von '{method}' (zusammen mit {alsoFalling}) wuerde das Mindestniveau dieses Kanals unterschreiten", "method" to target.method, "alsoFalling" to alsoFalling.joinToString(", "))
             )
         }
         // revokeMethod, not the bare deactivate: a user who removes a method expects the
@@ -617,14 +618,14 @@ class JourneyActionExecutor(
     private fun performRetractAttribute(journey: AuthJourney, channel: ChannelSession, attributeType: AttributeType) {
         val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Retract without a known account" }
         val account = accountService.findAccount(accountId)
-            ?: throw OrchestratorException.processGone("Account not found: $accountId")
+            ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${accountId}")
 
         // Refuse rather than treat it as a no-op: without this, withdrawing something the account
         // never established would still run the cascade below and revoke whatever names that
         // attribute in its `requires` - a destructive act triggered by a request that withdraws
         // nothing at all.
         if (attributeType !in account.establishedClaims) {
-            throw OrchestratorException.notFound("'${attributeType.wireName}' ist fuer dieses Konto nicht bestaetigt")
+            throw OrchestratorException.notFound(Text("'{attributeType}' ist fuer dieses Konto nicht bestaetigt", "attributeType" to attributeType.wireName))
         }
 
         val falling = dependentsOfLostClaims(account, lost = setOf(attributeType), falling = emptyList())
@@ -636,9 +637,9 @@ class JourneyActionExecutor(
         )
         if (authPolicy.reachability(afterRetraction, contextFactory.acrFloorOf(channel)) !is Reachability.Reachable) {
             val alsoFalling = falling.map { it.method }.distinct()
-            val because = if (alsoFalling.isEmpty()) "" else " (zusammen mit ${alsoFalling.joinToString(", ")})"
             throw OrchestratorException.invalidState(
-                "Zuruecknehmen von '${attributeType.wireName}'$because wuerde das Mindestniveau dieses Kanals unterschreiten"
+                if (alsoFalling.isEmpty()) Text("Zuruecknehmen von '{attributeType}' wuerde das Mindestniveau dieses Kanals unterschreiten", "attributeType" to attributeType.wireName)
+                else Text("Zuruecknehmen von '{attributeType}' (zusammen mit {alsoFalling}) wuerde das Mindestniveau dieses Kanals unterschreiten", "attributeType" to attributeType.wireName, "alsoFalling" to alsoFalling.joinToString(", "))
             )
         }
 

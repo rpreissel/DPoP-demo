@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.texts.templateOf
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
@@ -70,7 +71,7 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$authToolSessionId/auth-sms", """{"tan":"$tan"}""")
                 }
                 exception.statusCode shouldBe HttpStatus.GONE
-                exception.responseBodyAsString shouldContain "nicht erreichbar"
+                templateOf(exception.getResponseBodyAs(Map::class.java)!!["text"]) shouldContain "nicht erreichbar"
 
                 }
             }

@@ -157,7 +157,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
         } catch (OrchestratorClient.OrchestratorApiException e) {
             LOG.infof("Orchestrator tool call failed: %s", e.getMessage());
             context.challenge(WebFormRenderer.errorForm(context.form(), context.getAuthenticationSession(),
-                    e.message != null ? e.message : "Anmeldung derzeit nicht möglich."));
+                    e.message(context.getSession()) != null ? e.message(context.getSession()) : "Anmeldung derzeit nicht möglich."));
         } catch (Exception e) {
             LOG.error("OrchestratorManageMethodsRequiredAction.processAction failed", e);
             context.failure();
@@ -242,7 +242,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
 
         if (outcome instanceof OrchestratorNextDispatch.Confirm confirm) {
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "confirm");
-            context.challenge(WebFormRenderer.confirmForm(context.form(), authSession, confirm.prompt(), null));
+            context.challenge(WebFormRenderer.confirmForm(context.getSession(), context.form(), authSession, confirm.prompt(), null));
             return;
         }
 

@@ -1,4 +1,5 @@
 package com.example.dpop.auth_device.internal.authdevice
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_device.internal.DeviceEnrollment
 import com.example.dpop.auth_device.internal.DeviceEnrollmentRepository
 
@@ -89,7 +90,7 @@ class AuthDeviceToolHandlerTest : BehaviorSpec({
         `when`("the presented device key's thumbprint doesn't match the enrolled one") {
             then("it fails") {
                 val devicePublicKey = DevicePublicKey(kty = "EC", crv = "P-256", x = "other-x", y = "other-y", thumbprint = "thumb-other")
-                handler.patch(toolSessionId, devicePublicKey, UserVerification.PIN) shouldBe ToolOutcome.Failed("Geraet nicht erkannt")
+                handler.patch(toolSessionId, devicePublicKey, UserVerification.PIN) shouldBe ToolOutcome.Failed(Text("Geraet nicht erkannt"))
             }
         }
     }

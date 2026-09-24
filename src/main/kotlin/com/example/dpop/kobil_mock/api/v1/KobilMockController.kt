@@ -1,5 +1,11 @@
 package com.example.dpop.kobil_mock.api.v1
 
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.http.HttpHeaders
+import com.example.dpop.texts.TextBundle
+import com.example.dpop.texts.Text
 import com.example.dpop.kobil_mock.KobilRejectedException
 import com.example.dpop.kobil_mock.KobilRisk
 import com.example.dpop.kobil_mock.KobilSsms
@@ -75,6 +81,21 @@ class KobilMockController(private val ssms: KobilSsms) {
 
     /** KOBIL answers for itself; its refusals are not this application's error contract. */
     @ExceptionHandler(KobilRejectedException::class)
-    fun rejected(exception: KobilRejectedException): ResponseEntity<Map<String, String?>> =
-        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to exception.message))
+    fun rejected(exception: KobilRejectedException): ResponseEntity<Map<String, Text>> =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to exception.text))
+
+    /**
+     * This service's own texts in [lang], for its own page - a foreign system brings its wordings
+     * along (docs/adr/ADR-033). ETag/If-None-Match: 304 while the client's copy is current.
+     */
+    @GetMapping("texts/{lang}")
+    @Operation(summary = "Texte des Dienstes in einer Sprache (mit ETag)")
+    fun texts(
+        @PathVariable lang: String,
+        @RequestHeader(HttpHeaders.IF_NONE_MATCH, required = false) ifNoneMatch: String?
+    ): ResponseEntity<Map<String, String>> = TEXTS.respond(lang, ifNoneMatch)
+
+    private companion object {
+        val TEXTS = TextBundle("kobil")
+    }
 }

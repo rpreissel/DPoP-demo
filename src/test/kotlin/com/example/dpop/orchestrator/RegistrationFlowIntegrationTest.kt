@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.texts.templateOf
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.support.AccountFixtures
@@ -244,7 +245,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
                     """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-16"}"""
                 )
-                rejected.stepData()["error"] shouldBe "Die Angaben passen zu keiner versicherten Person"
+                templateOf(rejected.stepData()["error"]) shouldBe "Die Angaben passen zu keiner versicherten Person"
                 rejected.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input")
 
                 @Suppress("UNCHECKED_CAST")

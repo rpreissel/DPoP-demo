@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 
 /**
@@ -16,8 +17,8 @@ data class AuthChoice(
 ) : FastAccessState, RegisterState, OfferingState {
     override fun withOffer(offer: Offer) = copy(offer = offer)
     override val selectionContext: String get() = "auth"
-    override val selectionTitle: String get() = "Anmeldung – Verfahren wählen"
-    override val selectionDescription: String get() = "Für Ihr Konto sind mehrere Anmeldeverfahren hinterlegt. Wählen Sie aus, wie Sie sich anmelden möchten."
+    override val selectionTitle: Text get() = Text("Anmeldung – Verfahren wählen")
+    override val selectionDescription: Text get() = Text("Für Ihr Konto sind mehrere Anmeldeverfahren hinterlegt. Wählen Sie aus, wie Sie sich anmelden möchten.")
 }
 
 /**
@@ -38,6 +39,6 @@ data class Enrolling(
 ) : FastAccessState, RegisterState, OfferingState {
     override fun withOffer(offer: Offer) = copy(offer = offer)
     override val selectionContext: String get() = "enrollment"
-    override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
-    override val selectionDescription: String get() = "Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein."
+    override val selectionTitle: Text get() = Text("Anmeldeverfahren einrichten")
+    override val selectionDescription: Text get() = Text("Damit Sie sich beim nächsten Mal schneller anmelden können, richten Sie jetzt ein Verfahren ein.")
 }

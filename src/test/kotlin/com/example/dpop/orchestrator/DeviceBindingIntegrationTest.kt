@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.texts.templateOf
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
@@ -166,7 +167,7 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             val result = patch(authPatchUrl, """{"deviceProof":"$proof"}""")
 
             // Failed, not Completed: retried in place, no error leaking which device WAS expected.
-            result.stepData()["error"] shouldBe "Geraet nicht erkannt"
+            templateOf(result.stepData()["error"]) shouldBe "Geraet nicht erkannt"
             result.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-device", "step" to "auth")
         }
         then("Enroll device with an expired proof is rejected as unauthorized") {

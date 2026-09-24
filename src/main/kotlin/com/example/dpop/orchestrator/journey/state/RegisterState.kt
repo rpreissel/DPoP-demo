@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -63,8 +64,8 @@ sealed interface RegisterState : JourneyState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "registration"
         override val selectionStep: String get() = "selectIdentificationMethod"
-        override val selectionTitle: String get() = "Identifikation erforderlich"
-        override val selectionDescription: String get() = "Bitte identifizieren Sie sich, um Ihr Konto zu finden oder ein neues anzulegen."
+        override val selectionTitle: Text get() = Text("Identifikation erforderlich")
+        override val selectionDescription: Text get() = Text("Bitte identifizieren Sie sich, um Ihr Konto zu finden oder ein neues anzulegen.")
     }
 
     /**
@@ -83,12 +84,10 @@ sealed interface RegisterState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
-            description = "Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto " +
-                "zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem " +
-                "Gerät erneut identifizieren.",
-            confirmLabel = "Gerät neu zuordnen",
-            cancelLabel = "Abbrechen",
+            title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
+            description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren."),
+            confirmLabel = Text("Gerät neu zuordnen"),
+            cancelLabel = Text("Abbrechen"),
             destructive = true
         )
     }
@@ -111,8 +110,8 @@ sealed interface RegisterState : JourneyState {
     ) : RegisterState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "registration"
-        override val selectionTitle: String get() = "Versichertennummer angeben"
-        override val selectionDescription: String get() = "Ihr Konto wird damit Ihrem Datensatz bei der Krankenkasse zugeordnet."
+        override val selectionTitle: Text get() = Text("Versichertennummer angeben")
+        override val selectionDescription: Text get() = Text("Ihr Konto wird damit Ihrem Datensatz bei der Krankenkasse zugeordnet.")
     }
 
     /**
@@ -128,8 +127,8 @@ sealed interface RegisterState : JourneyState {
     ) : RegisterState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
-        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
+        override val selectionTitle: Text get() = Text("E-Mail-Bestätigung ausstehend")
+        override val selectionDescription: Text get() = Text("Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden.")
     }
 
     /**
@@ -154,7 +153,7 @@ sealed interface RegisterState : JourneyState {
     ) : RegisterState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Passwort einrichten"
-        override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."
+        override val selectionTitle: Text get() = Text("Passwort einrichten")
+        override val selectionDescription: Text get() = Text("Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich.")
     }
 }

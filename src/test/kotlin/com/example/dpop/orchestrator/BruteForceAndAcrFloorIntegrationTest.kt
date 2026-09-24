@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.texts.templateOf
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
@@ -76,7 +77,7 @@ class BruteForceAndAcrFloorIntegrationTest : IntegrationTestSupport() {
                     // Locked, but answered as an ordinary failed attempt - never as its own status.
                     // A distinguishable lock response would tell an attacker which addresses exist.
                     withRightPassword.channel()["state"] shouldNotBe "AUTHENTICATED"
-                    (withRightPassword.stepData()["error"] as String) shouldContain "ungueltig"
+                    templateOf(withRightPassword.stepData()["error"]) shouldContain "ungueltig"
                 }
             }
         }
@@ -107,7 +108,7 @@ class BruteForceAndAcrFloorIntegrationTest : IntegrationTestSupport() {
                     // is guessed during an identification - but the FSC is exactly that, and a hit
                     // adopts the person's account outright.
                     withRightCode.next()["step"] shouldBe "input"
-                    (withRightCode.stepData()["error"] as String) shouldContain "Freischaltcode"
+                    templateOf(withRightCode.stepData()["error"]) shouldContain "Freischaltcode"
                 }
             }
         }

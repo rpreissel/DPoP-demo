@@ -108,7 +108,7 @@ class StepUpStrategyTest : BehaviorSpec({
         then("aborts instead of offering RE_IDENTIFY") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
             transition.shouldBeInstanceOf<Transition.Abort>()
-            (transition as Transition.Abort).reason shouldContain "nicht erreichbar"
+            (transition as Transition.Abort).reason.template shouldContain "nicht erreichbar"
         }
     }
 
@@ -124,7 +124,7 @@ class StepUpStrategyTest : BehaviorSpec({
         then("aborts with a reason, never a silent auto-pick") {
             val transition = strategy.transition(state, JourneyEvent.Started, theCtx)
             transition.shouldBeInstanceOf<Transition.Abort>()
-            (transition as Transition.Abort).reason shouldContain "nicht erreichbar"
+            (transition as Transition.Abort).reason.template shouldContain "nicht erreichbar"
         }
     }
 

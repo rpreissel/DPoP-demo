@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -36,7 +37,7 @@ class DeviceChannelAccessGuard(
 
     override fun requireChannel(channelSessionId: UUID, bindingKeyRef: String): ChannelSession {
         val channel = sessionManagementService.findChannelSessionById(channelSessionId)
-            ?: throw OrchestratorException.notFound("Channel session not found: $channelSessionId")
+            ?: throw OrchestratorException.notFound(Text("Channel session not found"), "channelSessionId=${channelSessionId}")
         val matches = if (bindingKeyRef.startsWith(KC_ANCHOR_PREFIX)) {
             val presented = bindingKeyRef.removePrefix(KC_ANCHOR_PREFIX)
             constantTimeEquals(channel.channelAnchor, presented)
@@ -46,7 +47,7 @@ class DeviceChannelAccessGuard(
             constantTimeEquals(channel.bindingKeyRef, bindingKeyRef)
         }
         if (!matches) {
-            throw OrchestratorException.bindingMismatch("Caller proof does not match this channel")
+            throw OrchestratorException.bindingMismatch(Text("Caller proof does not match this channel"))
         }
         return channel
     }
@@ -74,10 +75,10 @@ class KcChannelAccessGuard(
 
     fun requireChannel(channelSessionId: UUID, assertion: PeerAuthAssertion): ChannelSession {
         val channel = sessionManagementService.findChannelSessionById(channelSessionId)
-            ?: throw OrchestratorException.notFound("Channel session not found: $channelSessionId")
+            ?: throw OrchestratorException.notFound(Text("Channel session not found"), "channelSessionId=${channelSessionId}")
         val matches = constantTimeEquals(channel.channelAnchor, assertion.channelAnchor)
         if (!matches) {
-            throw OrchestratorException.bindingMismatch("Keycloak assertion does not match this channel's kc-anchor")
+            throw OrchestratorException.bindingMismatch(Text("Keycloak assertion does not match this channel's kc-anchor"))
         }
         return channel
     }

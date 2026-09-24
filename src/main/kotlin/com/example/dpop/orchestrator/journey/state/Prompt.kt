@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -21,15 +22,15 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = Prompt.Confirm::class, name = "Confirm")
 )
 sealed interface Prompt {
-    val title: String
-    val description: String?
+    val title: Text
+    val description: Text?
 
     /** Answered via the existing generic `answer` endpoint with `"accept"` or `"decline"`. */
     data class Confirm(
-        override val title: String,
-        override val description: String?,
-        val confirmLabel: String,
-        val cancelLabel: String,
+        override val title: Text,
+        override val description: Text?,
+        val confirmLabel: Text,
+        val cancelLabel: Text,
         /** Signals the client to render the confirming action as a destructive/dangerous one. */
         val destructive: Boolean = false
     ) : Prompt

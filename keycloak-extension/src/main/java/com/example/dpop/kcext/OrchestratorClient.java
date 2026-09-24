@@ -273,27 +273,33 @@ final class OrchestratorClient {
     static final class OrchestratorApiException extends IOException {
         final int status;
         final String errorCode;
-        final String message;
+        /** What the user is told - a text reference, resolved per login language ({@link #message}). */
+        final JsonNode text;
 
         OrchestratorApiException(int status, String body) {
             super("Orchestrator call failed: " + status + " " + body);
             this.status = status;
             String parsedCode = null;
-            String parsedMessage = body;
+            JsonNode parsedText = null;
             // Field names from the generated contract model, so a rename breaks the compile. Read as
             // a tree rather than as that model: its enum rejects a code this build does not know,
             // and the contract says a client must expect new codes.
             try {
                 JsonNode node = MAPPER.readTree(body);
                 String errorField = com.example.dpop.kcext.api.model.ErrorResponse.JSON_PROPERTY_ERROR;
-                String messageField = com.example.dpop.kcext.api.model.ErrorResponse.JSON_PROPERTY_MESSAGE;
+                String textField = com.example.dpop.kcext.api.model.ErrorResponse.JSON_PROPERTY_TEXT;
                 if (node.hasNonNull(errorField)) parsedCode = node.get(errorField).asText();
-                if (node.hasNonNull(messageField)) parsedMessage = node.get(messageField).asText();
+                if (node.hasNonNull(textField)) parsedText = node.get(textField);
             } catch (Exception ignored) {
-                // Not JSON - fall back to the raw body as the message.
+                // Not JSON - no text to show; callers fall back to their own.
             }
             this.errorCode = parsedCode;
-            this.message = parsedMessage;
+            this.text = parsedText;
+        }
+
+        /** The error in the login's language, or null when the orchestrator sent no text. */
+        String message(org.keycloak.models.KeycloakSession session) {
+            return OrchestratorTexts.resolve(session, text);
         }
     }
 
@@ -387,9 +393,9 @@ final class OrchestratorClient {
             return options;
         }
 
-        String stepDataError() {
-            JsonNode error = stepData.get("error");
-            return error != null && error.isTextual() ? error.asText() : null;
+        /** The failed attempt's text reference, if the last attempt failed. */
+        JsonNode stepDataError() {
+            return stepData.get("error");
         }
     }
 

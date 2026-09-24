@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -62,9 +63,9 @@ sealed interface ConfirmPeerLoginState : JourneyState {
     ) : ConfirmPeerLoginState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Web-Login bestätigen – Identität erneut bestätigen"
-        override val selectionDescription: String?
-            get() = "Bevor Sie den Web-Login bestätigen, weisen Sie sich noch einmal aus."
+        override val selectionTitle: Text get() = Text("Web-Login bestätigen – Identität erneut bestätigen")
+        override val selectionDescription: Text?
+            get() = Text("Bevor Sie den Web-Login bestätigen, weisen Sie sich noch einmal aus.")
     }
 
     /**
@@ -81,9 +82,9 @@ sealed interface ConfirmPeerLoginState : JourneyState {
     ) : ConfirmPeerLoginState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Web-Login bestätigen"
-        override val selectionDescription: String
-            get() = "Ein Browser möchte sich mit Ihrem Konto anmelden. Bestätigen Sie das nur, wenn Sie diesen Login selbst ausgelöst haben."
+        override val selectionTitle: Text get() = Text("Web-Login bestätigen")
+        override val selectionDescription: Text
+            get() = Text("Ein Browser möchte sich mit Ihrem Konto anmelden. Bestätigen Sie das nur, wenn Sie diesen Login selbst ausgelöst haben.")
     }
 
     /**
@@ -99,11 +100,10 @@ sealed interface ConfirmPeerLoginState : JourneyState {
         override val active: ToolRef? get() = null
         override val prompt: Prompt
             get() = Prompt.Confirm(
-                title = "Jetzt abmelden?",
-                description = "Dieses Gerät war vor der Bestätigung nicht angemeldet - nur für diese eine " +
-                    "Bestätigung wurde es kurz angemeldet. Jetzt wieder abmelden, oder angemeldet bleiben?",
-                confirmLabel = "Abmelden",
-                cancelLabel = "Angemeldet bleiben",
+                title = Text("Jetzt abmelden?"),
+                description = Text("Dieses Gerät war vor der Bestätigung nicht angemeldet - nur für diese eine Bestätigung wurde es kurz angemeldet. Jetzt wieder abmelden, oder angemeldet bleiben?"),
+                confirmLabel = Text("Abmelden"),
+                cancelLabel = Text("Angemeldet bleiben"),
                 destructive = false
             )
     }

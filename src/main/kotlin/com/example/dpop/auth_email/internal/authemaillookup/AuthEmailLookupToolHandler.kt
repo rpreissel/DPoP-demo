@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.authemaillookup
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.AuthEmailLookupDescriptor
@@ -94,7 +95,7 @@ class AuthEmailLookupToolHandler(
             is AuthEmailLookupDecision.WrongCode ->
                 // accountId names the throttle subject for the orchestrator; it is null exactly
                 // when nothing resolved, so there is nothing to count either.
-                ToolOutcome.Failed("E-Mail oder Code ungueltig", attemptedAccountId = decision.accountId)
+                ToolOutcome.Failed(Text("E-Mail oder Code ungueltig"), attemptedAccountId = decision.accountId)
         }
     }
 

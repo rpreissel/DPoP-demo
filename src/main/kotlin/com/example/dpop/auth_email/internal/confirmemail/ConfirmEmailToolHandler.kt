@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.confirmemail
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
@@ -65,7 +66,7 @@ class ConfirmEmailToolHandler(
         return when (val decision = ConfirmEmailFlow.decide(data.toState(), ConfirmEmailInput(email, code), emailCodeGenerator)) {
             is ConfirmEmailDecision.InvalidEmail -> throw IllegalArgumentException("Ungueltige E-Mail-Adresse")
 
-            is ConfirmEmailDecision.WrongCode -> ToolOutcome.Failed("Code ungueltig oder abgelaufen")
+            is ConfirmEmailDecision.WrongCode -> ToolOutcome.Failed(Text("Code ungueltig oder abgelaufen"))
 
             is ConfirmEmailDecision.Unchanged -> outcomeFor(decision.state)
 
@@ -81,7 +82,7 @@ class ConfirmEmailToolHandler(
                 // belongs to THEIR OWN account - into a dead end, and cost one of the journey's
                 // three attempts for an answer the user could not have given differently.
                 if (sendThrottled) {
-                    ToolOutcome.Failed("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten")
+                    ToolOutcome.Failed(Text("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten"))
                 } else {
                     val issued = emailCodeGenerator.issue()
                     data.email = decision.email

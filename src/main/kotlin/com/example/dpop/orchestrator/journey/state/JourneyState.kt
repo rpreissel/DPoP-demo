@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import java.util.UUID
 
@@ -112,8 +113,8 @@ sealed interface OfferingState : JourneyState {
      * actually being asked here (log in vs. confirm an account deletion), which is exactly why
      * this can't be a shared default the way [AnswerableState.prompt] fully is.
      */
-    val selectionTitle: String
-    val selectionDescription: String? get() = null
+    val selectionTitle: Text
+    val selectionDescription: Text? get() = null
 
     override fun withActive(active: ToolRef?): JourneyState = withOffer(offer.withActive(active))
 

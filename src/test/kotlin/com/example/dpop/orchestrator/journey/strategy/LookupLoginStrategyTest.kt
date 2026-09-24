@@ -175,7 +175,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
             then("aborts with a reason - never a silent enrollment fallback (this intent has none)") {
                 val transition = strategy.transition(LookupLoginState.Credential(Offer(listOf(ToolId("auth-sms-lookup")))), JourneyEvent.ActionCompleted, theCtx)
                 transition.shouldBeInstanceOf<Transition.Abort>()
-                (transition as Transition.Abort).reason shouldContain "nicht erreichbar"
+                (transition as Transition.Abort).reason.template shouldContain "nicht erreichbar"
             }
         }
     }

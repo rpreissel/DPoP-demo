@@ -1,5 +1,6 @@
 package com.example.dpop.id_fsc.internal
 
+import com.example.dpop.texts.Text
 import com.example.dpop.ext_stammdaten.Freischaltcodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
@@ -27,7 +28,7 @@ import java.util.UUID
  * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
  */
-private const val PERSONALIEN_REJECTED = "Die Angaben passen zu keiner versicherten Person"
+private val PERSONALIEN_REJECTED = Text("Die Angaben passen zu keiner versicherten Person")
 
 @Component
 class IdentFscToolHandler(
@@ -106,7 +107,7 @@ class IdentFscToolHandler(
     ): Pair<IdentFscState, ToolOutcome> {
         if (throttled || !freischaltcodes.pruefe(personId, fscHash)) {
             return IdentFscFlow.rejectCode(state) to
-                ToolOutcome.Failed("Freischaltcode ungueltig oder abgelaufen", attemptedPersonId = personId)
+                ToolOutcome.Failed(Text("Freischaltcode ungueltig oder abgelaufen"), attemptedPersonId = personId)
         }
         return state to ToolOutcome.Completed.Identified(
             amr = listOf(descriptor.method),

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -29,7 +30,7 @@ class LoginThrottleService(private val counter: AttemptCounter) {
     fun assertNotLocked(accountId: Long) {
         if (isLocked(accountId)) {
             throw OrchestratorException.accountLocked(
-                "Zu viele fehlgeschlagene Anmeldeversuche fuer diesen Account - bitte spaeter erneut versuchen"
+                Text("Zu viele fehlgeschlagene Anmeldeversuche fuer diesen Account - bitte spaeter erneut versuchen")
             )
         }
     }

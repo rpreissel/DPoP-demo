@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.authemailuse
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import com.example.dpop.auth_email.AuthEmailUseDescriptor
@@ -44,7 +45,7 @@ class AuthEmailUseToolHandler(
         // Returns the normalized confirmed address from the anchor projection, or null when
         // none was ever established for this account.
         val email = accountDirectory.anchorValue(accountId, AttributeType.EMAIL)
-            ?: throw UnresolvableReferenceException("Keine bestaetigte E-Mail-Adresse fuer diesen Account")
+            ?: throw UnresolvableReferenceException(Text("Keine bestaetigte E-Mail-Adresse fuer diesen Account"))
 
         val issued = emailCodeGenerator.issue()
         toolDataRepository.save(
@@ -64,7 +65,7 @@ class AuthEmailUseToolHandler(
 
         return when (AuthEmailUseFlow.decide(state, AuthEmailUseInput(code), emailCodeGenerator)) {
             AuthEmailUseDecision.Unchanged -> outcomeFor(state)
-            AuthEmailUseDecision.WrongCode -> ToolOutcome.Failed("Code ungueltig oder abgelaufen")
+            AuthEmailUseDecision.WrongCode -> ToolOutcome.Failed(Text("Code ungueltig oder abgelaufen"))
             AuthEmailUseDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,

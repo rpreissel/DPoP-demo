@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.authsmsuse
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 
@@ -32,12 +33,12 @@ class AuthSmsUseToolHandler(
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
         if (enrollmentRef.type != SMS_ENROLLMENT_TYPE) {
-            throw UnresolvableReferenceException("Unerwarteter Enrollment-Typ: ${enrollmentRef.type}")
+            throw UnresolvableReferenceException(Text("Unerwarteter Enrollment-Typ"), "type=${enrollmentRef.type}")
         }
         val enrollmentId = enrollmentRef.id.toLongOrNull()
-            ?: throw UnresolvableReferenceException("Ungueltige Enrollment-Referenz: ${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("Ungueltige Enrollment-Referenz"), "id=${enrollmentRef.id}")
         val enrollment = enrollmentRepository.findByIdOrNull(enrollmentId)
-            ?: throw UnresolvableReferenceException("SMS-Enrollment nicht gefunden: ${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("SMS-Enrollment nicht gefunden"), "id=${enrollmentRef.id}")
 
         val issued = tanGenerator.issue()
         toolDataRepository.save(
@@ -65,7 +66,7 @@ class AuthSmsUseToolHandler(
 
         return when (AuthSmsUseFlow.decide(state, AuthSmsUseInput(tan), tanGenerator)) {
             AuthSmsUseDecision.Unchanged -> outcomeFor(state)
-            AuthSmsUseDecision.WrongTan -> ToolOutcome.Failed("TAN ungueltig oder abgelaufen")
+            AuthSmsUseDecision.WrongTan -> ToolOutcome.Failed(Text("TAN ungueltig oder abgelaufen"))
             AuthSmsUseDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,

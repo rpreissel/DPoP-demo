@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.Action
@@ -73,7 +74,7 @@ class KcChannelService(
         // proof as if it contributed nothing, an unrelated-looking bug three steps downstream.
         val liveFactors = amr.orEmpty().map { entry ->
             val descriptor = nativeAuthenticatorRegistry.descriptorFor(entry.nativeToolId)
-                ?: throw OrchestratorException.notFound("Unknown nativeToolId: ${entry.nativeToolId}")
+                ?: throw OrchestratorException.notFound(Text("Unknown tool"), "nativeToolId=${entry.nativeToolId}")
             MethodEvidence(
                 MethodName(descriptor.method),
                 AcrLevel.of(descriptor.maxAcr),
@@ -101,7 +102,7 @@ class KcChannelService(
         // channel (accountId alone is just a Long) and only surfaces once some later step tries
         // to actually resolve the account, as an unrelated-looking internal error.
         if (effectiveAccountId != null && accountService.findAccount(effectiveAccountId) == null) {
-            throw OrchestratorException.notFound("Account not found: $effectiveAccountId")
+            throw OrchestratorException.notFound(Text("Account not found"), "accountId=${effectiveAccountId}")
         }
 
         val isFreshChannel = sessionManagementService.findChannelSessionById(channelSessionId) == null
@@ -203,7 +204,7 @@ class KcChannelService(
         if (intent == null) return AuthIntent.KC_SELECT_METHOD
         val resolved = AuthIntent.fromRequest(intent)
         if (resolved != AuthIntent.KC_SELECT_METHOD && resolved != AuthIntent.REGISTER) {
-            throw OrchestratorException.invalidState("Unbekannter oder fuer den kc-Kanal nicht zugelassener intent: $intent")
+            throw OrchestratorException.invalidState(Text("Dieser Vorgang ist im Web-Kanal nicht zugelassen"), "intent=${intent}")
         }
         return resolved
     }

@@ -1,4 +1,5 @@
 package com.example.dpop.auth_device.internal.authdevice
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_device.internal.DeviceEnrollmentRepository
 
 import com.example.dpop.auth_device.AuthDeviceDescriptor
@@ -37,12 +38,12 @@ class AuthDeviceToolHandler(
     @Transactional
     fun start(toolSessionId: UUID, enrollmentRef: EnrollmentRef): ToolOutcome {
         if (enrollmentRef.type != DEVICE_ENROLLMENT_TYPE) {
-            throw UnresolvableReferenceException("Unerwarteter Enrollment-Typ: ${enrollmentRef.type}")
+            throw UnresolvableReferenceException(Text("Unerwarteter Enrollment-Typ"), "type=${enrollmentRef.type}")
         }
         val enrollmentId = enrollmentRef.id.toLongOrNull()
-            ?: throw UnresolvableReferenceException("Ungueltige Enrollment-Referenz: ${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("Ungueltige Enrollment-Referenz"), "id=${enrollmentRef.id}")
         enrollmentRepository.findByIdOrNull(enrollmentId)
-            ?: throw UnresolvableReferenceException("Geraete-Enrollment nicht gefunden: ${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("Geraete-Enrollment nicht gefunden"), "id=${enrollmentRef.id}")
 
         toolDataRepository.save(
             AuthDeviceToolSession(
@@ -66,7 +67,7 @@ class AuthDeviceToolHandler(
         val enrollment = checkNotNull(enrollmentRepository.findByIdOrNull(enrollmentId)) { "Geraete-Enrollment nicht gefunden: $enrollmentId" }
 
         return when (val decision = AuthDeviceFlow.decide(devicePublicKey.thumbprint, enrollment.thumbprint, userVerification)) {
-            AuthDeviceDecision.WrongDevice -> ToolOutcome.Failed("Geraet nicht erkannt")
+            AuthDeviceDecision.WrongDevice -> ToolOutcome.Failed(Text("Geraet nicht erkannt"))
             is AuthDeviceDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method, decision.userVerification.wireValue),
                 achievedAcr = descriptor.maxAcr,

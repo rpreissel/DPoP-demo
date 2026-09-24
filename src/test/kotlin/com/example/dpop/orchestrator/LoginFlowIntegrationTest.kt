@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.texts.templateOf
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContain
@@ -326,9 +327,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 prompted.next() shouldBe mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
                 @Suppress("UNCHECKED_CAST")
                 val prompt = prompted.stepData()["prompt"] as Map<String, Any?>
-                prompt["title"] shouldBe "Dieses Gerät ist bereits einem anderen Konto zugeordnet"
-                prompt["confirmLabel"] shouldBe "Gerät neu zuordnen"
-                prompt["cancelLabel"] shouldBe "Ohne Bindung fortfahren"
+                templateOf(prompt["title"]) shouldBe "Dieses Gerät ist bereits einem anderen Konto zugeordnet"
+                templateOf(prompt["confirmLabel"]) shouldBe "Gerät neu zuordnen"
+                templateOf(prompt["cancelLabel"]) shouldBe "Ohne Bindung fortfahren"
                 prompt["destructive"] shouldBe true
 
                 val declined = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"decline"}""")

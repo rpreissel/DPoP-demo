@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.OfferingState
@@ -23,18 +24,18 @@ import com.example.dpop.tool_spi.ToolId
  * describe something already in the past.
  */
 internal object DemoStepReason {
-    fun explain(state: JourneyState, availableTools: Set<ToolId>): String? {
+    fun explain(state: JourneyState, availableTools: Set<ToolId>): Text? {
         val activatable = state.activatable(availableTools)
         return when {
             activatable.isEmpty() -> null
             activatable.size == 1 -> when {
-                state is FastAccessState.PreferredAuth -> "Gerät wiedererkannt - automatisch vorgeschlagen."
-                state is OfferingState && state.offered.size <= 1 -> "Nur dieses eine Verfahren ist verfügbar."
-                state is OfferingState -> "Die übrigen Verfahren sind aktuell nicht freigeschaltet."
+                state is FastAccessState.PreferredAuth -> Text("Gerät wiedererkannt - automatisch vorgeschlagen.")
+                state is OfferingState && state.offered.size <= 1 -> Text("Nur dieses eine Verfahren ist verfügbar.")
+                state is OfferingState -> Text("Die übrigen Verfahren sind aktuell nicht freigeschaltet.")
                 else -> null
             }
-            state is OfferingState && state.active == null -> "Mehrere aktive Verfahren vorhanden (${activatable.size}) - zur Auswahl angeboten."
-            state is OfferingState -> "Verfahren aus ${activatable.size} verfügbaren ausgewählt."
+            state is OfferingState && state.active == null -> Text("Mehrere aktive Verfahren vorhanden ({anzahl}) - zur Auswahl angeboten.", "anzahl" to activatable.size)
+            state is OfferingState -> Text("Verfahren aus {anzahl} verfügbaren ausgewählt.", "anzahl" to activatable.size)
             else -> null
         }
     }

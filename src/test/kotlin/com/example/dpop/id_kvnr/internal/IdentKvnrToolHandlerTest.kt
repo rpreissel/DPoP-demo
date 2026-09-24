@@ -51,7 +51,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
             val outcome = handler.patch(toolSessionId, "X999999999", personId = null)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
-            outcome.reason shouldBe "Versichertennummer konnte nicht zugeordnet werden"
+            outcome.reason.template shouldBe "Versichertennummer konnte nicht zugeordnet werden"
         }
     }
 

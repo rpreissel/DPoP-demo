@@ -1,5 +1,6 @@
 package com.example.dpop.kobil_mock
 
+import com.example.dpop.texts.Text
 import com.example.dpop.kobil_mock.internal.SsmsAssertion
 import com.example.dpop.kobil_mock.internal.SsmsAssertionRepository
 import com.example.dpop.kobil_mock.internal.SsmsUser
@@ -36,7 +37,7 @@ enum class KobilRisk {
 data class KobilOtpVerification(val deviceId: String, val risks: Set<KobilRisk>)
 
 /** Raised when the app-facing side is called with something KOBIL does not accept. */
-class KobilRejectedException(message: String) : RuntimeException(message)
+class KobilRejectedException(val text: Text) : RuntimeException(text.template)
 
 /**
  * The simulated KOBIL backend.
@@ -123,10 +124,10 @@ class KobilSsms(
     fun activate(user: KobilUserRef, activationCode: String, pin: String): String {
         val stored = load(user)
         if (stored.activationCode == null || stored.activationCode != activationCode) {
-            throw KobilRejectedException("Aktivierungscode ungueltig")
+            throw KobilRejectedException(Text("Aktivierungscode ungueltig"))
         }
         if (stored.pin != pin) {
-            throw KobilRejectedException("PIN ungueltig")
+            throw KobilRejectedException(Text("PIN ungueltig"))
         }
         // One activation code, one activation - as with any real activation secret.
         stored.activationCode = null
@@ -141,9 +142,9 @@ class KobilSsms(
     @Transactional
     fun login(user: KobilUserRef, pin: String): String {
         val stored = load(user)
-        val deviceId = stored.deviceId ?: throw KobilRejectedException("Geraet nicht aktiviert")
+        val deviceId = stored.deviceId ?: throw KobilRejectedException(Text("Geraet nicht aktiviert"))
         if (stored.pin != pin) {
-            throw KobilRejectedException("PIN ungueltig")
+            throw KobilRejectedException(Text("PIN ungueltig"))
         }
         val otp = (1..8).map { random.nextInt(10) }.joinToString("")
         assertions.save(
@@ -160,8 +161,8 @@ class KobilSsms(
     // ------------------------------------------------------------------ internals
 
     private fun load(user: KobilUserRef): SsmsUser {
-        val stored = users.findByIdOrNull(user.userId) ?: throw KobilRejectedException("Unbekannter Nutzer")
-        if (stored.tenantId != user.tenantId) throw KobilRejectedException("Unbekannter Nutzer")
+        val stored = users.findByIdOrNull(user.userId) ?: throw KobilRejectedException(Text("Unbekannter Nutzer"))
+        if (stored.tenantId != user.tenantId) throw KobilRejectedException(Text("Unbekannter Nutzer"))
         return stored
     }
 

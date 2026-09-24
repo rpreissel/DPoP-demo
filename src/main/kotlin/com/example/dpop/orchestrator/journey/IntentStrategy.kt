@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.state.JourneyState
@@ -263,7 +264,7 @@ sealed interface Transition {
     data object Logout : Transition
 
     /** No way forward at all. Ends the journey with 410 - never a mere "no candidates left". */
-    data class Abort(val reason: String) : Transition
+    data class Abort(val reason: Text) : Transition
 }
 
 /**

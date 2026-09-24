@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.journey.state.Prompt
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.StepDataTypes
@@ -25,9 +26,8 @@ import org.springframework.context.annotation.Configuration
 data class SelectMethodStep(
     @field:Schema(example = "[\"auth-password\", \"auth-device\"]")
     val options: List<String>,
-    @field:Schema(example = "Wie moechten Sie sich anmelden?")
-    val title: String?,
-    val description: String? = null
+    val title: Text?,
+    val description: Text? = null
 ) : StepData
 
 /**
@@ -37,8 +37,7 @@ data class SelectMethodStep(
 @JsonTypeName("message")
 @Schema(description = "A single candidate was auto-activated; this explains why the step appears.")
 data class MessageStep(
-    @field:Schema(example = "E-Mail-Bestaetigung ausstehend")
-    val message: String
+    val message: Text
 ) : StepData
 
 /** An `AnswerableState` waits for `POST .../answer`; the text is authored by the backend. */
@@ -53,8 +52,7 @@ data class ConfirmStep(val prompt: Prompt) : StepData
 @JsonTypeName("failed-attempt")
 @Schema(description = "The attempt failed; retries remain.")
 data class FailedAttemptStep(
-    @field:Schema(example = "TAN ungueltig")
-    val error: String
+    val error: Text
 ) : StepData
 
 /** See [StepDataTypes] - this is the orchestrator's own declaration, next to the shapes. */

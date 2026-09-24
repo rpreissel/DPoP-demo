@@ -1495,6 +1495,40 @@ paths:
       summary: Fetch this channel's signed RestoreData
       tags:
       - KC channels
+  /orchestrator/api/v1/texts/{lang}:
+    get:
+      description: 'Map of text id to wording with `{name}` placeholders. `lang` is de or en (a region like en-GB counts as
+        en, anything else falls back to de; Content-Language says which). Send the ETag back as If-None-Match: 304 while unchanged.'
+      operationId: texts
+      parameters:
+      - in: path
+        name: lang
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: If-None-Match
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Wordings of all text references in one language
+      tags:
+      - Texts
   /orchestrator/api/v1/tools/auth-password/mgmt/{accountId}:
     post:
       operationId: verify
@@ -1685,6 +1719,8 @@ tags:
   name: 'Tool: KOBIL'
 - description: Journey log across all accounts and channels
   name: 'Admin: journey log'
+- description: Wordings for the text references in every response, per language, with ETag
+  name: Texts
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
   name: 'Tool: Gerät'
 - description: The full set of registered tools, independent of any journey

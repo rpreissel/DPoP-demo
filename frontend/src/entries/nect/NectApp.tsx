@@ -165,7 +165,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (procedure === 'epass' && !selfieMatches) {
-      void leave(() => nectApi.scheitern(caseId, 'Selfie passt nicht zum Passbild'))
+      void leave(() => nectApi.scheitern(caseId, 'selfie_mismatch'))
       return
     }
     // What the document yields: the eID card only the requested rights, the wallet only what its
@@ -276,7 +276,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
 
       <div className="form-actions">
         <button type="submit" disabled={busy}>Identifizieren</button>
-        <button type="button" className="secondary" disabled={busy} onClick={() => void leave(() => nectApi.scheitern(caseId, 'Identifizierung fehlgeschlagen (simuliert)'))}>
+        <button type="button" className="secondary" disabled={busy} onClick={() => void leave(() => nectApi.scheitern(caseId, 'simulated'))}>
           Fehlschlag simulieren
         </button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void leave(() => nectApi.abbrechen(caseId))}>

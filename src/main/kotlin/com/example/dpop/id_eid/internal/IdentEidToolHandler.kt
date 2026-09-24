@@ -1,5 +1,6 @@
 package com.example.dpop.id_eid.internal
 
+import com.example.dpop.texts.Text
 import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -56,7 +57,7 @@ class IdentEidToolHandler(
 
             is IdentEidDecision.Verify -> {
                 if (!IdentEidFlow.pinMatchesMock(decision.pinHash)) {
-                    return ToolOutcome.Failed("eID-PIN ungueltig")
+                    return ToolOutcome.Failed(Text("eID-PIN ungueltig"))
                 }
                 val documentNumber = mockDocumentNumber(toolSessionId)
                 ToolOutcome.Completed.Identified(

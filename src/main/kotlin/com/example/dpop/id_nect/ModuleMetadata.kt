@@ -11,5 +11,5 @@ import org.springframework.modulith.ApplicationModule
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "nect_mock"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "nect_mock", "texts"])
 internal class ModuleMetadata

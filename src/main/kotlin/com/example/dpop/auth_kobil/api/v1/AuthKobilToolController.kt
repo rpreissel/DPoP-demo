@@ -1,5 +1,6 @@
 package com.example.dpop.auth_kobil.api.v1
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_kobil.AuthKobilDescriptor
 import com.example.dpop.auth_kobil.internal.authkobil.AuthKobilToolHandler
 import com.example.dpop.tool_api.AccountDirectory
@@ -84,7 +85,7 @@ class AuthKobilToolController(
             accountDirectory.activeInstanceEnrollment(accountId, descriptor.method) { details ->
                 descriptor.keyBinding?.livesOn(details, bindingKeyRef) == true
             }
-        } ?: throw UnresolvableReferenceException("Keine aktive KOBIL-Bindung fuer dieses Geraet")
+        } ?: throw UnresolvableReferenceException(Text("Keine aktive KOBIL-Bindung fuer dieses Geraet"))
 
         val outcome = handler.start(context.toolSessionId, enrollmentRef, passwordAvailable(context.journeyAccountId))
         val response = toolEndpoint.applyOutcome(context, outcome)

@@ -21,8 +21,8 @@ import org.springframework.modulith.ApplicationModule
  * through `tool_api.ToolEndpoint`/`AccountDirectory` alone (docs/04-orchestrierung.md #5) -
  * the orchestrator never needs to know `auth_email` exists.
  *
- * Acyclic by construction: `account` declares `allowedDependencies = ["tool_spi", "tool_api"]`,
+ * Acyclic by construction: `account` declares `allowedDependencies = ["tool_spi", "tool_api", "texts"]`,
  * so it can never depend back on a method module.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "texts"])
 internal class ModuleMetadata

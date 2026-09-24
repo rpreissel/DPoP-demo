@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
@@ -243,7 +244,7 @@ class JourneyService(
     fun activate(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, toolSessionId: UUID) {
         val state = codec.read(journey)
         if (tool.toolId !in state.activatable(routing.availableToolsOf(channel))) {
-            throw OrchestratorException.invalidState("${tool.toolId} is not offered in the current step")
+            throw OrchestratorException.invalidState(Text("This tool is not offered in the current step"), "toolId=${tool.toolId}")
         }
         // A concurrent/duplicate activation mints its own ToolSession too; only the one that lands
         // here last becomes current, and the other is correctly rejected by isCurrent afterwards.
@@ -295,7 +296,7 @@ class JourneyService(
     fun answer(journey: AuthJourney, channel: ChannelSession, answer: String): Step {
         val state = codec.read(journey)
         if (state !is AnswerableState) {
-            throw OrchestratorException.invalidState("Nothing is currently waiting for an answer")
+            throw OrchestratorException.invalidState(Text("Nothing is currently waiting for an answer"))
         }
         return advance(journey, channel, JourneyEvent.Answered(answer))
     }
@@ -493,7 +494,7 @@ class JourneyService(
         if (journey.attemptBudget <= 0) {
             journey.fail()
             journeyRepository.save(journey)
-            throw OrchestratorException.processAborted("Retry-Limit erreicht: ${outcome.reason}")
+            throw OrchestratorException.processAborted(Text("Retry-Limit erreicht: {reason}", "reason" to outcome.reason))
         }
         journeyRepository.save(journey)
         return Step(nextOf(journey, channel), FailedAttemptStep(outcome.reason))

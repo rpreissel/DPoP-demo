@@ -43,13 +43,7 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
     // Mirrors the literal RegisterEnrollFirstStrategy.offerIdentificationOrFinish builds - its
     // closing offer needs its own wording (never identified before, nothing "nicht erreichbar"),
     // not RE_IDENTIFY's shared default text.
-    val enrollFirstIdentificationWording = ReIdentifyState.Wording(
-        offerTitle = "Identifizieren?",
-        offerDescription = "Sie sind bereits angemeldet. Optional können Sie sich jetzt zusätzlich identifizieren.",
-        offerConfirmLabel = "Identifizieren",
-        selectionTitle = "Identifikation (optional)",
-        selectionDescription = "Wählen Sie ein Verfahren, um sich zu identifizieren."
-    )
+    val enrollFirstIdentificationWording = ReIdentifyState.Wording.OPTIONAL_IDENTIFICATION
 
     given("the intent") {
         then("is REGISTER, same as the ident-first variant - only the dispatcher tells them apart") {

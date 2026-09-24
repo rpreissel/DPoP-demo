@@ -1,4 +1,5 @@
 package com.example.dpop.auth_password.internal.authpasswordlookup
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollment
@@ -50,7 +51,7 @@ class AuthPasswordLookupToolHandlerTest : BehaviorSpec({
             then("it fails with the same constant-shape message, naming no account") {
                 val outcome = handler.patch(toolSessionId, email = "unknown@example.com", password = "hunter2", accountId = null, enrollmentRef = null)
 
-                outcome shouldBe ToolOutcome.Failed("E-Mail oder Passwort ungueltig", attemptedAccountId = null)
+                outcome shouldBe ToolOutcome.Failed(Text("E-Mail oder Passwort ungueltig"), attemptedAccountId = null)
             }
         }
     }

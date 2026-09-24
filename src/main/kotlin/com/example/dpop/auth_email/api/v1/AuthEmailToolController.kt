@@ -1,5 +1,6 @@
 package com.example.dpop.auth_email.api.v1
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.authemailuse.AuthEmailUseToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -68,7 +69,7 @@ class AuthEmailToolController(
         // (docs/03-tool-architektur.md #2); the confirmed address itself is the handler's own
         // lookup, same 422 either way.
         val accountId = context.channelAccountId
-            ?: throw UnresolvableReferenceException("Kein Konto fuer diesen Kanal")
+            ?: throw UnresolvableReferenceException(Text("Kein Konto fuer diesen Kanal"))
         val outcome = handler.start(context.toolSessionId, accountId)
 
         val response = toolEndpoint.applyOutcome(context, outcome)

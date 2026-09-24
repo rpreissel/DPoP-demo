@@ -1,5 +1,7 @@
 package io.kotest.provided
 
+import com.example.dpop.texts.Text
+import com.example.dpop.texts.TextCatalog
 import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.extensions.spring.SpringExtension
 
@@ -15,4 +17,15 @@ import io.kotest.extensions.spring.SpringExtension
  */
 class ProjectConfig : AbstractProjectConfig() {
     override val extensions = listOf(SpringExtension())
+
+    init {
+        // Runtime guard behind TextCatalog's static analysis (docs/adr/ADR-033): every text a test
+        // makes the backend send out must be one the catalog collected - otherwise no language
+        // has a wording for it.
+        Text.onWire = { text ->
+            check(text.id in TextCatalog.application.ids) {
+                "Text not in the catalog (template not a literal?): \"${text.template}\""
+            }
+        }
+    }
 }

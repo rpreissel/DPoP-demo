@@ -3,12 +3,12 @@ import { confirmPromptOf, stepDataOf, type StepData } from './types'
 
 describe('stepDataOf', () => {
   it('returns the step data when it has the asked-for shape', () => {
-    const stepData: StepData = { kind: 'select-method', options: ['auth-sms'], title: 'Wählen' }
+    const stepData: StepData = { kind: 'select-method', options: ['auth-sms'], title: { key: 'a1', args: {}, texts: {} } }
     expect(stepDataOf(stepData, 'select-method')?.options).toEqual(['auth-sms'])
   })
 
   it('returns undefined for any other shape', () => {
-    const stepData: StepData = { kind: 'message', message: 'Hallo' }
+    const stepData: StepData = { kind: 'message', message: { key: 'b2', args: {}, texts: {} } }
     expect(stepDataOf(stepData, 'select-method')).toBeUndefined()
   })
 
@@ -23,11 +23,12 @@ describe('stepDataOf', () => {
 
 describe('confirmPromptOf', () => {
   it('narrows a Confirm prompt', () => {
-    const prompt = { kind: 'Confirm', title: 'Sicher?', confirmLabel: 'Ja', cancelLabel: 'Nein' }
-    expect(confirmPromptOf(prompt)?.confirmLabel).toBe('Ja')
+    const ref = (key: string) => ({ key, args: {}, texts: {} })
+    const prompt = { kind: 'Confirm', title: ref('sure'), confirmLabel: ref('yes'), cancelLabel: ref('no') }
+    expect(confirmPromptOf(prompt)?.confirmLabel.key).toBe('yes')
   })
 
   it('does not guess at a prompt kind it does not know', () => {
-    expect(confirmPromptOf({ kind: 'Choice', title: 'Welches?' })).toBeUndefined()
+    expect(confirmPromptOf({ kind: 'Choice', title: { key: 'which', args: {}, texts: {} } })).toBeUndefined()
   })
 })

@@ -1,6 +1,11 @@
 package com.example.dpop.nect_mock.api.v1
 
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.http.HttpHeaders
+import com.example.dpop.texts.TextBundle
+import com.example.dpop.texts.Text
 import com.example.dpop.nect_mock.NectAttributes
+import com.example.dpop.nect_mock.NectFailure
 import com.example.dpop.nect_mock.NectCaseView
 import com.example.dpop.nect_mock.NectIdent
 import com.example.dpop.nect_mock.NectProcedure
@@ -28,7 +33,7 @@ data class NectResultRequest(
     val expiryDate: LocalDate? = null
 )
 
-data class NectFailRequest(@field:Schema(example = "Selfie passt nicht zum Passbild") val reason: String)
+data class NectFailRequest(@field:Schema(description = "passport_expired, selfie_mismatch or simulated", example = "selfie_mismatch") val reason: String)
 
 /** Where the jump page sends the browser next - back to the relying party. */
 data class NectRedirect(val redirectUri: String)
@@ -59,7 +64,7 @@ class NectMockController(private val nect: NectIdent) {
     @PostMapping("cases/{caseId}/failure")
     @Operation(summary = "Identifizierung scheitern lassen (Demo)")
     fun fail(@PathVariable caseId: UUID, @RequestBody request: NectFailRequest): NectRedirect =
-        NectRedirect(nect.fail(caseId, request.reason))
+        NectRedirect(nect.fail(caseId, NectFailure.of(request.reason)))
 
     @PostMapping("cases/{caseId}/cancellation")
     @Operation(summary = "Identifizierung abbrechen")
@@ -67,6 +72,21 @@ class NectMockController(private val nect: NectIdent) {
 
     /** Nect answers for itself; its refusals are not this application's error contract. */
     @ExceptionHandler(NectRejectedException::class)
-    fun rejected(exception: NectRejectedException): ResponseEntity<Map<String, String?>> =
-        ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(mapOf("error" to exception.message))
+    fun rejected(exception: NectRejectedException): ResponseEntity<Map<String, Text>> =
+        ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(mapOf("error" to exception.text))
+
+    /**
+     * This service's own texts in [lang], for its own page - a foreign system brings its wordings
+     * along (docs/adr/ADR-033). ETag/If-None-Match: 304 while the client's copy is current.
+     */
+    @GetMapping("texts/{lang}")
+    @Operation(summary = "Texte des Dienstes in einer Sprache (mit ETag)")
+    fun texts(
+        @PathVariable lang: String,
+        @RequestHeader(HttpHeaders.IF_NONE_MATCH, required = false) ifNoneMatch: String?
+    ): ResponseEntity<Map<String, String>> = TEXTS.respond(lang, ifNoneMatch)
+
+    private companion object {
+        val TEXTS = TextBundle("nect")
+    }
 }

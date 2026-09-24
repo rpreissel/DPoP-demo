@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
@@ -35,13 +36,10 @@ sealed interface ReIdentifyState : JourneyState {
      * "nicht erreichbar" - every enrollment obligation is already discharged, identification there
      * is a plain optional extra, not a recovery path.
      */
-    data class Wording(
-        val offerTitle: String,
-        val offerDescription: String,
-        val offerConfirmLabel: String,
-        val selectionTitle: String,
-        val selectionDescription: String
-    )
+    enum class Wording {
+        /** A never-identified account offered identification as an optional extra - no "again", nothing unreachable. */
+        OPTIONAL_IDENTIFICATION
+    }
 
     companion object {
         /**
@@ -73,15 +71,23 @@ sealed interface ReIdentifyState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt
-            get() = Prompt.Confirm(
-                title = wording?.offerTitle ?: "Erneut identifizieren?",
-                description = wording?.offerDescription ?: (
-                    "Mit den vorhandenen Anmeldeverfahren ist das geforderte Sicherheitsniveau " +
-                        "nicht erreichbar. Sie können sich stattdessen erneut identifizieren, um es direkt zu erreichen."
-                ),
-                confirmLabel = wording?.offerConfirmLabel ?: "Erneut identifizieren",
-                cancelLabel = "Abbrechen"
-            )
+            get() = when (wording) {
+                Wording.OPTIONAL_IDENTIFICATION -> Prompt.Confirm(
+                    title = Text("Identifizieren?"),
+                    description = Text("Sie sind bereits angemeldet. Optional können Sie sich jetzt zusätzlich identifizieren."),
+                    confirmLabel = Text("Identifizieren"),
+                    cancelLabel = Text("Abbrechen")
+                )
+                null -> Prompt.Confirm(
+                    title = Text("Erneut identifizieren?"),
+                    description = Text(
+                        "Mit den vorhandenen Anmeldeverfahren ist das geforderte Sicherheitsniveau " +
+                            "nicht erreichbar. Sie können sich stattdessen erneut identifizieren, um es direkt zu erreichen."
+                    ),
+                    confirmLabel = Text("Erneut identifizieren"),
+                    cancelLabel = Text("Abbrechen")
+                )
+            }
     }
 
     data class Identifying(
@@ -92,8 +98,13 @@ sealed interface ReIdentifyState : JourneyState {
     ) : ReIdentifyState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = wording?.selectionTitle ?: "Erneute Identifikation erforderlich"
-        override val selectionDescription: String get() = wording?.selectionDescription
-            ?: "Ihre bestehenden Anmeldeverfahren reichen für das geforderte Sicherheitsniveau nicht aus. Bitte identifizieren Sie sich erneut."
+        override val selectionTitle: Text get() = when (wording) {
+            Wording.OPTIONAL_IDENTIFICATION -> Text("Identifikation (optional)")
+            null -> Text("Erneute Identifikation erforderlich")
+        }
+        override val selectionDescription: Text get() = when (wording) {
+            Wording.OPTIONAL_IDENTIFICATION -> Text("Wählen Sie ein Verfahren, um sich zu identifizieren.")
+            null -> Text("Ihre bestehenden Anmeldeverfahren reichen für das geforderte Sicherheitsniveau nicht aus. Bitte identifizieren Sie sich erneut.")
+        }
     }
 }

@@ -6,6 +6,8 @@ spring-modulith = "2.1.1"
 dependency-management = "1.1.7"
 springdoc-openapi = "3.1.1"
 kotest = "6.2.5"
+# Nur Tests: TextCatalog liest die Nutzertexte aus den kompilierten Klassen.
+asm = "9.9.1"
 mockk = "1.14.11"
 springmockk = "5.0.1"
 kover = "0.9.9"
@@ -52,6 +54,8 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi" }
 openapi-diff-cli = { module = "org.openapitools.openapidiff:openapi-diff-cli", version.ref = "openapi-diff" }
+asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
+asm-analysis = { module = "org.ow2.asm:asm-analysis", version.ref = "asm" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-extensions-spring = { module = "io.kotest:kotest-extensions-spring", version.ref = "kotest" }

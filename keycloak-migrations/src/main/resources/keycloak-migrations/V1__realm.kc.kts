@@ -26,6 +26,11 @@ step("realm einstellungen setzen") {
             // auth-username-password-form (LoA1) akzeptiert damit die E-Mail-Adresse als
             // Alternative zum username.
             setLoginWithEmailAllowed(true)
+            // Die Login-Sprache waehlt, in welcher Sprache die keycloak-extension die Texte des
+            // Orchestrators aufloest (docs/adr/ADR-033) - dieselben zwei, die er ausliefert.
+            setInternationalizationEnabled(true)
+            setSupportedLocales(setOf("de", "en"))
+            setDefaultLocale("de")
         }
     }
     down {
@@ -33,6 +38,9 @@ step("realm einstellungen setzen") {
             displayName = null
             loginTheme = null
             setLoginWithEmailAllowed(false)
+            setInternationalizationEnabled(false)
+            setSupportedLocales(emptySet())
+            setDefaultLocale(null)
         }
     }
 }

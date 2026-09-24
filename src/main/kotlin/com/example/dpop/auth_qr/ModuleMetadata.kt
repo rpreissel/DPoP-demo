@@ -9,5 +9,5 @@ import org.springframework.modulith.ApplicationModule
  * (docs/08-projektrahmen.md M11). Talks to the orchestrator through `tool_spi`/`tool_api`
  * only, exactly like every other method module (docs/03-tool-architektur.md #2).
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "texts"])
 internal class ModuleMetadata

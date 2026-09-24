@@ -1,5 +1,6 @@
 package com.example.dpop.account
 
+import com.example.dpop.texts.Text
 import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountAnchor
 import com.example.dpop.account.internal.AccountAnchorRepository
@@ -300,7 +301,7 @@ class AccountService(
                 "Anchor conflict: {} anchor already held by account {}, rejected for account {}",
                 type.wireName, held.accountId, accountId
             )
-            throw IdentityConflictException("Dieser ${type.wireName}-Wert gehoert bereits zu einem anderen Konto")
+            throw IdentityConflictException(Text("Dieser {type}-Wert gehoert bereits zu einem anderen Konto", "type" to type.wireName))
         }
         val existing = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)
         if (existing != null) {
@@ -309,9 +310,9 @@ class AccountService(
                     "Anchor conflict: {} for account {} is immutable, already bound to {}, rejected new value",
                     type.wireName, accountId, existing.value
                 )
-                throw IdentityConflictException("Dieser ${type.wireName}-Wert kann fuer dieses Konto nicht mehr geaendert werden")
+                throw IdentityConflictException(Text("Dieser {type}-Wert kann fuer dieses Konto nicht mehr geaendert werden", "type" to type.wireName))
             }
-            requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.replace, write = "ersetzt")
+            requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.replace, replacing = true)
             // ADR-19: the replaced value verfaellt - a retraction makes the log agree with the
             // anchor instead of keeping the old value established forever. Claim-log
             // normalization applies (the anchor's own differs for case-preserving types).
@@ -331,7 +332,7 @@ class AccountService(
             accountAnchorRepository.save(existing)
             return
         }
-        requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.establish, write = "gesetzt")
+        requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.establish, replacing = false)
         accountAnchorRepository.save(
             AccountAnchor(
                 accountId = accountId,
@@ -348,14 +349,19 @@ class AccountService(
      * the claim without its anchor: a caller that believed it bound an identity must not proceed on
      * a false premise (ADR-11's line - reject, never quietly skip).
      */
-    private fun requireAnchorAcr(type: AttributeType, provenAcr: AcrLevel, floor: AcrLevel, write: String) {
+    private fun requireAnchorAcr(type: AttributeType, provenAcr: AcrLevel, floor: AcrLevel, replacing: Boolean) {
         if (AcrLevel.rank(provenAcr) >= AcrLevel.rank(floor)) return
         log.warn(
             "Anchor floor: {} may only be {} at {} or above, session proved {}",
-            type.wireName, write, floor.value, provenAcr.value
+            type.wireName, if (replacing) "replaced" else "set", floor.value, provenAcr.value
         )
         throw IdentityConflictException(
-            "Dieser ${type.wireName}-Wert kann erst ab ${floor.value} $write werden, nachgewiesen ist ${provenAcr.value}"
+            // Two sentences, not one with the verb as a value: a verb is wording, every language inflects it itself.
+            if (replacing) {
+                Text("Dieser {type}-Wert kann erst ab {floor} ersetzt werden, nachgewiesen ist {provenAcr}", "type" to type.wireName, "floor" to floor.value, "provenAcr" to provenAcr.value)
+            } else {
+                Text("Dieser {type}-Wert kann erst ab {floor} gesetzt werden, nachgewiesen ist {provenAcr}", "type" to type.wireName, "floor" to floor.value, "provenAcr" to provenAcr.value)
+            }
         )
     }
 
@@ -407,7 +413,10 @@ class AccountService(
         check(from != into) { "absorbProvisionalAccount($from): an account cannot absorb itself" }
         val source = findAccount(from) ?: error("Account not found: $from")
         if (!source.isProvisional) {
-            throw IdentityConflictException("Konto $from ist kein vorlaeufiges Konto und kann nicht aufgehen")
+            throw IdentityConflictException(
+                Text("Dieses Konto ist bereits vollstaendig angelegt und kann nicht in ein anderes Konto uebernommen werden"),
+                "account $from is not provisional, cannot be absorbed into $into"
+            )
         }
         checkNotNull(findAccount(into)) { "Account not found: $into" }
 

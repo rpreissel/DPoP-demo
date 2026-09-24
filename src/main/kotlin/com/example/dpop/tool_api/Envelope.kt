@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.StepData
 import com.fasterxml.jackson.annotation.JsonAnyGetter
@@ -128,9 +129,8 @@ data class JourneyDebugStep(
             "why its tool became the automatic choice, or why a selection among several is being " +
             "shown at all. Null whenever the step already explains itself (e.g. a Prompt), never " +
             "part of the production contract.",
-        example = "Gerät wiedererkannt - automatisch vorgeschlagen."
     )
-    val note: String? = null
+    val note: Text? = null
 )
 
 /**

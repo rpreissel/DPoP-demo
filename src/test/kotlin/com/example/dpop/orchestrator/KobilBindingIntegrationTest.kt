@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.texts.templateOf
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.collections.shouldContain
@@ -230,7 +231,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
                 // skip the release - answered as "unlock required", and the step stays there.
                 val refused = redeem(toolSessionId, "12345678")
                 refused.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-kobil", "step" to "unlock")
-                refused.stepData()["error"] shouldBe "Entsperren erforderlich"
+                templateOf(refused.stepData()["error"]) shouldBe "Entsperren erforderlich"
             }
 
             then("a one-time password is spent once - replaying it does not authenticate again") {
@@ -246,7 +247,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
 
                 val replayed = redeem(secondTool, otp)
                 replayed.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-kobil", "step" to "otp")
-                replayed.stepData()["error"] shouldBe "Bestaetigung nicht erkannt"
+                templateOf(replayed.stepData()["error"]) shouldBe "Bestaetigung nicht erkannt"
             }
 
             then("an assertion from a different device is refused without saying which one was expected") {
@@ -263,7 +264,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
                 )
 
                 val refused = redeem(toolSessionId, sdkLogin(device, pin))
-                refused.stepData()["error"] shouldBe "Geraet nicht erkannt"
+                templateOf(refused.stepData()["error"]) shouldBe "Geraet nicht erkannt"
             }
 
             then("a device reporting a blocking risk is refused with its own reason, not folded into 'not recognized'") {
@@ -277,7 +278,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
                 val pin = releasePin(toolSessionId, biometric(device)).stepData()["kobilPin"] as String
 
                 val refused = redeem(toolSessionId, sdkLogin(device, pin))
-                refused.stepData()["error"] shouldBe "Geraet als unsicher gemeldet"
+                templateOf(refused.stepData()["error"]) shouldBe "Geraet als unsicher gemeldet"
             }
 
             then("a non-blocking signal does not stand in the way") {

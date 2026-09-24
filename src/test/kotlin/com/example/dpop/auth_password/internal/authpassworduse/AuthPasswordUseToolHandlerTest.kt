@@ -1,4 +1,5 @@
 package com.example.dpop.auth_password.internal.authpassworduse
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollment
@@ -69,7 +70,7 @@ class AuthPasswordUseToolHandlerTest : BehaviorSpec({
 
         `when`("submitting the wrong password") {
             then("it fails") {
-                handler.patch(toolSessionId, "wrong") shouldBe ToolOutcome.Failed("Passwort ungueltig")
+                handler.patch(toolSessionId, "wrong") shouldBe ToolOutcome.Failed(Text("Passwort ungueltig"))
             }
         }
     }

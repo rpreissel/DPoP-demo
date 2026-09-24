@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -74,13 +75,10 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
-            description = "Wenn Sie fortfahren, wird dieses Gerät künftig nur noch Ihrem neuen Konto " +
-                "zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem " +
-                "Gerät erneut identifizieren. Ohne Zuordnung bleibt Ihr neues Konto nutzbar - Sie " +
-                "melden sich dann künftig über E-Mail und Passwort an.",
-            confirmLabel = "Gerät neu zuordnen",
-            cancelLabel = "Ohne Zuordnung fortfahren",
+            title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
+            description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch Ihrem neuen Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren. Ohne Zuordnung bleibt Ihr neues Konto nutzbar - Sie melden sich dann künftig über E-Mail und Passwort an."),
+            confirmLabel = Text("Gerät neu zuordnen"),
+            cancelLabel = Text("Ohne Zuordnung fortfahren"),
             destructive = true
         )
     }
@@ -98,8 +96,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "E-Mail-Adresse bestätigen"
-        override val selectionDescription: String get() = "Zuerst wird Ihre E-Mail-Adresse bestätigt - Ihr Konto wird darüber gefunden. SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss."
+        override val selectionTitle: Text get() = Text("E-Mail-Adresse bestätigen")
+        override val selectionDescription: Text get() = Text("Zuerst wird Ihre E-Mail-Adresse bestätigt - Ihr Konto wird darüber gefunden. SMS folgt danach, die Identifikation ist optional und kommt erst zum Schluss.")
     }
 
     /** Forced, mandatory second step, reached only once [EnrollFirstAttestingEmail] is discharged (or skipped, see there) - same non-skippable reasoning. */
@@ -108,8 +106,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "SMS als Anmeldeverfahren einrichten"
-        override val selectionDescription: String get() = "Danach wird SMS als zweites Anmeldeverfahren eingerichtet - die Identifikation ist optional und kommt erst zum Schluss."
+        override val selectionTitle: Text get() = Text("SMS als Anmeldeverfahren einrichten")
+        override val selectionDescription: Text get() = Text("Danach wird SMS als zweites Anmeldeverfahren eingerichtet - die Identifikation ist optional und kommt erst zum Schluss.")
     }
 
     /**
@@ -123,8 +121,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Anmeldeverfahren einrichten"
-        override val selectionDescription: String get() = "Richten Sie ein Anmeldeverfahren ein - die Identifikation ist optional und folgt erst danach."
+        override val selectionTitle: Text get() = Text("Anmeldeverfahren einrichten")
+        override val selectionDescription: Text get() = Text("Richten Sie ein Anmeldeverfahren ein - die Identifikation ist optional und folgt erst danach.")
     }
 
     data class EnrollFirstConfirmingEmail(
@@ -132,8 +130,8 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "E-Mail-Bestätigung ausstehend"
-        override val selectionDescription: String get() = "Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden."
+        override val selectionTitle: Text get() = Text("E-Mail-Bestätigung ausstehend")
+        override val selectionDescription: Text get() = Text("Ihre E-Mail-Adresse muss noch bestätigt werden - Ihr Konto wird darüber gefunden.")
     }
 
     /** Same reasoning as [RegisterState.PasswordObligation] - just reached before, not after, any identification. */
@@ -142,7 +140,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
     ) : RegisterEnrollFirstState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Passwort einrichten"
-        override val selectionDescription: String get() = "Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich."
+        override val selectionTitle: Text get() = Text("Passwort einrichten")
+        override val selectionDescription: Text get() = Text("Für die Registrierung ist ein Passwort als Anmeldeverfahren erforderlich.")
     }
 }

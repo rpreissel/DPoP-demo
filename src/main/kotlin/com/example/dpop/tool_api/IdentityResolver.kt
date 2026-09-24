@@ -1,5 +1,6 @@
 package com.example.dpop.tool_api
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
 
@@ -111,4 +112,5 @@ sealed interface MatchedVia {
  * journey state - later in the chain than today's tool-PATCH rejection, so the journey
  * log keeps the decision point.
  */
-class IdentityConflictException(message: String) : RuntimeException(message)
+class IdentityConflictException(val text: Text, detail: String? = null) :
+    RuntimeException(detail?.let { "${text.template} ($it)" } ?: text.template)

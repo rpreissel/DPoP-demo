@@ -1,5 +1,6 @@
 package com.example.dpop.nect_mock
 
+import com.example.dpop.texts.Text
 import com.example.dpop.nect_mock.internal.NectCase
 import com.example.dpop.nect_mock.internal.NectCaseRepository
 import com.example.dpop.nect_mock.internal.NectCaseStatus
@@ -28,7 +29,7 @@ enum class NectAttribute(val wireName: String) {
 
     companion object {
         fun of(wireName: String): NectAttribute =
-            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException("Unbekanntes Attribut: $wireName")
+            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException(Text("Unbekanntes Attribut: {wireName}", "wireName" to wireName))
     }
 }
 
@@ -43,7 +44,7 @@ enum class NectProcedure(val wireName: String, val deliverable: Set<NectAttribut
 
     companion object {
         fun of(wireName: String): NectProcedure =
-            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException("Unbekanntes Verfahren: $wireName")
+            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException(Text("Unbekanntes Verfahren: {wireName}", "wireName" to wireName))
     }
 }
 
@@ -91,13 +92,29 @@ data class NectAttributes(
     }
 }
 
+/**
+ * Why an identification failed - a code, not wording: the relying party tells its own users in
+ * its own words (docs/adr/ADR-033).
+ */
+enum class NectFailure(val wireName: String) {
+    PASSPORT_EXPIRED("passport_expired"),
+    SELFIE_MISMATCH("selfie_mismatch"),
+    /** The demo's "Fehlschlag simulieren". */
+    SIMULATED("simulated");
+
+    companion object {
+        fun of(wireName: String): NectFailure =
+            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException(Text("Unbekannter Fehlgrund: {grund}", "grund" to wireName))
+    }
+}
+
 /** A case as the relying party opened it: where to send the user. */
 data class NectCaseRef(val caseId: UUID, val jumpUrl: String)
 
 /** What redeeming a case yields - exactly once. */
 sealed interface NectResult {
     data class Identified(val procedure: NectProcedure, val attributes: NectAttributes) : NectResult
-    data class Failed(val reason: String) : NectResult
+    data class Failed(val reason: NectFailure) : NectResult
     data object Cancelled : NectResult
     /** The user has not finished on the jump page yet. */
     data object Open : NectResult
@@ -107,7 +124,7 @@ sealed interface NectResult {
 data class NectCaseView(val caseId: UUID, val status: String, val requested: List<String>)
 
 /** Raised when the jump page asks for something Nect does not accept (unknown case, closed case, wrong PIN). */
-class NectRejectedException(message: String) : RuntimeException(message)
+class NectRejectedException(val text: Text) : RuntimeException(text.template)
 
 /**
  * The simulated Nect service (docs/ideen/ident-nect.md). Two audiences, like `KobilSsms`:
@@ -156,7 +173,7 @@ class NectIdent(private val cases: NectCaseRepository) {
                 NectProcedure.of(checkNotNull(case.procedure)),
                 json.readValue(checkNotNull(case.result), NectAttributes::class.java)
             )
-            NectCaseStatus.FAILED -> NectResult.Failed(case.reason ?: "Identifizierung fehlgeschlagen")
+            NectCaseStatus.FAILED -> NectResult.Failed(NectFailure.of(checkNotNull(case.reason)))
             NectCaseStatus.CANCELLED -> NectResult.Cancelled
         }
         case.redeemedAt = Instant.now()
@@ -179,41 +196,41 @@ class NectIdent(private val cases: NectCaseRepository) {
     @Transactional
     fun complete(caseId: UUID, procedure: NectProcedure, attributes: NectAttributes, pin: String?, expiryDate: LocalDate? = null): String {
         val case = openCase(caseId)
-        if (procedure == NectProcedure.EID && pin != MOCK_EID_PIN) throw NectRejectedException("PIN falsch (Testwert: $MOCK_EID_PIN)")
+        if (procedure == NectProcedure.EID && pin != MOCK_EID_PIN) throw NectRejectedException(Text("PIN falsch (Testwert: {testPin})", "testPin" to MOCK_EID_PIN))
         val undeliverable = attributes.present() - procedure.deliverable
         if (undeliverable.isNotEmpty()) {
-            throw NectRejectedException("Verfahren ${procedure.wireName} liefert nicht: ${undeliverable.joinToString { it.wireName }}")
+            throw NectRejectedException(Text("Verfahren {procedure} liefert nicht: {undeliverable}", "procedure" to procedure.wireName, "undeliverable" to undeliverable.joinToString { it.wireName }))
         }
         if (attributes.name.isNullOrBlank() || attributes.vorname.isNullOrBlank()) {
-            throw NectRejectedException("Name und Vorname werden mindestens benötigt")
+            throw NectRejectedException(Text("Name und Vorname werden mindestens benötigt"))
         }
         if (procedure == NectProcedure.EPASS && expiryDate != null && expiryDate.isBefore(LocalDate.now())) {
-            return finish(case, NectCaseStatus.FAILED, reason = "Reisepass abgelaufen")
+            return finish(case, NectCaseStatus.FAILED, reason = NectFailure.PASSPORT_EXPIRED)
         }
         case.procedure = procedure.wireName
         case.result = json.writeValueAsString(attributes.only(requestedOf(case)))
         return finish(case, NectCaseStatus.COMPLETED)
     }
 
-    /** Demo switch: the identification failed for [reason] (e.g. selfie mismatch). */
+    /** The identification failed for [reason] (the selfie did not match, or the demo's switch). */
     @Transactional
-    fun fail(caseId: UUID, reason: String): String = finish(openCase(caseId), NectCaseStatus.FAILED, reason)
+    fun fail(caseId: UUID, reason: NectFailure): String = finish(openCase(caseId), NectCaseStatus.FAILED, reason)
 
     @Transactional
     fun cancel(caseId: UUID): String = finish(openCase(caseId), NectCaseStatus.CANCELLED)
 
     private fun openCase(caseId: UUID): NectCase {
-        val case = cases.findByIdOrNull(caseId) ?: throw NectRejectedException("Unbekannter Vorgang")
-        if (case.status != NectCaseStatus.OPEN) throw NectRejectedException("Vorgang ist bereits abgeschlossen")
+        val case = cases.findByIdOrNull(caseId) ?: throw NectRejectedException(Text("Unbekannter Vorgang"))
+        if (case.status != NectCaseStatus.OPEN) throw NectRejectedException(Text("Vorgang ist bereits abgeschlossen"))
         return case
     }
 
     private fun requestedOf(case: NectCase): Set<NectAttribute> =
         checkNotNull(case.requested).split(",").map(NectAttribute::of).toSet()
 
-    private fun finish(case: NectCase, status: NectCaseStatus, reason: String? = null): String {
+    private fun finish(case: NectCase, status: NectCaseStatus, reason: NectFailure? = null): String {
         case.status = status
-        case.reason = reason
+        case.reason = reason?.wireName
         case.finishedAt = Instant.now()
         val uri = checkNotNull(case.callbackUri)
         return uri + (if ('?' in uri) "&" else "?") + "nectCaseId=${case.id}"

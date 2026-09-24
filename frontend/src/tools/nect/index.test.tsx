@@ -54,9 +54,10 @@ describe('ident-nect/redirect', () => {
   })
 
   it('offers a fresh case after a failed attempt', () => {
-    const failed = { kind: 'failed-attempt', error: 'Identifizierung bei Nect abgebrochen' }
+    // A text reference; no bundle is loaded here, so it shows as its id - enough to see it rendered.
+    const failed = { kind: 'failed-attempt', error: { key: 'nect-abgebrochen' } }
     render(<>{identNect.render(ctx({ stepData: failed as ToolRenderContext['stepData'] }))}</>)
-    expect(screen.getByText('Identifizierung bei Nect abgebrochen')).toBeInTheDocument()
+    expect(screen.getByText('nect-abgebrochen')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
     expect(retryNect).toHaveBeenCalledTimes(1)
   })

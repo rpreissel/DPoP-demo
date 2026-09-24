@@ -399,16 +399,16 @@ export interface ChannelResponse {
 export interface Confirm extends Prompt {
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof Confirm
      */
-    cancelLabel: string;
+    cancelLabel: TextRef;
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof Confirm
      */
-    confirmLabel: string;
+    confirmLabel: TextRef;
     /**
      * 
      * @type {boolean}
@@ -657,11 +657,11 @@ export interface ErrorResponse {
      */
     error: ErrorResponseErrorEnum;
     /**
-     * For people, not for program logic - branch on `error`. For INTERNAL_ERROR it is a fixed text; the details of an unexpected failure stay in the server log.
-     * @type {string}
+     * 
+     * @type {TextRef}
      * @memberof ErrorResponse
      */
-    message: string;
+    text: TextRef;
 }
 
 
@@ -692,10 +692,10 @@ export type ErrorResponseErrorEnum = typeof ErrorResponseErrorEnum[keyof typeof 
 export interface FailedAttemptStep {
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof FailedAttemptStep
      */
-    error: string;
+    error: TextRef;
     /**
      * 
      * @type {string}
@@ -863,10 +863,10 @@ export interface JourneyDebugStep {
     lifecycle: string;
     /**
      * Demo-only: why this journey's current step looks the way it does - either why its tool became the automatic choice, or why a selection among several is being shown at all. Null whenever the step already explains itself (e.g. a Prompt), never part of the production contract.
-     * @type {string}
+     * @type {TextRef}
      * @memberof JourneyDebugStep
      */
-    note?: string;
+    note?: TextRef;
     /**
      * 
      * @type {string}
@@ -1133,10 +1133,10 @@ export interface MessageStep {
     kind: MessageStepKindEnum;
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof MessageStep
      */
-    message: string;
+    message: TextRef;
 }
 
 
@@ -1324,10 +1324,10 @@ export interface PasswordUnlock extends KobilUnlockCredential {
 export interface Prompt {
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof Prompt
      */
-    description?: string;
+    description?: TextRef;
     /**
      * 
      * @type {string}
@@ -1336,10 +1336,10 @@ export interface Prompt {
     kind: string;
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof Prompt
      */
-    title?: string;
+    title?: TextRef;
 }
 /**
  * A QR pairing in progress: the pairing code, and the verification code once known.
@@ -1397,10 +1397,10 @@ export interface RestoreDataResponse {
 export interface SelectMethodStep {
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof SelectMethodStep
      */
-    description?: string;
+    description?: TextRef;
     /**
      * 
      * @type {string}
@@ -1415,10 +1415,10 @@ export interface SelectMethodStep {
     options: Array<string>;
     /**
      * 
-     * @type {string}
+     * @type {TextRef}
      * @memberof SelectMethodStep
      */
-    title?: string;
+    title?: TextRef;
 }
 
 
@@ -1436,6 +1436,31 @@ export type SelectMethodStepKindEnum = typeof SelectMethodStepKindEnum[keyof typ
  * @export
  */
 export type StepData = { kind: 'confirm' } & ConfirmStep | { kind: 'failed-attempt' } & FailedAttemptStep | { kind: 'kobil-activation' } & KobilActivationStep | { kind: 'kobil-otp' } & KobilOtpStep | { kind: 'kobil-unlock' } & KobilUnlockStep | { kind: 'message' } & MessageStep | { kind: 'missing-fields' } & MissingFields | { kind: 'nect-redirect' } & NectRedirectStep | { kind: 'qr-pairing' } & QrPairingStep | { kind: 'select-method' } & SelectMethodStep;
+/**
+ * A text reference: look `key` up in the texts bundle (GET .../texts/{lang}), fill `{name}` placeholders from `args` (as is) or `texts` (resolved the same way, several joined with ", ").
+ * @export
+ * @interface TextRef
+ */
+export interface TextRef {
+    /**
+     * 
+     * @type {{ [key: string]: string; }}
+     * @memberof TextRef
+     */
+    args?: { [key: string]: string; };
+    /**
+     * 
+     * @type {string}
+     * @memberof TextRef
+     */
+    key: string;
+    /**
+     * 
+     * @type {{ [key: string]: Array<TextRef>; }}
+     * @memberof TextRef
+     */
+    texts?: { [key: string]: Array<TextRef>; };
+}
 /**
  * Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's a credential and stays server-side; refreshExpiresAt is the only thing about it exposed.
  * @export

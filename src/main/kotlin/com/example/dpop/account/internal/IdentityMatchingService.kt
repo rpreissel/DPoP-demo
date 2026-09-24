@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
@@ -91,7 +92,7 @@ class IdentityMatchingService(
         if (personId == null) return
         val personClaim = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }
         if (personClaim != null && personClaim.value.trim().toLong() != personId) {
-            throw IdentityConflictException("KVNR und PersonId verweisen auf unterschiedliche Personen")
+            throw IdentityConflictException(Text("KVNR und PersonId verweisen auf unterschiedliche Personen"))
         }
         val claimed = ClaimedIdentity(
             name = claims.claimValue(AttributeType.NAME),
@@ -99,7 +100,7 @@ class IdentityMatchingService(
             geburtsdatum = claims.claimValue(AttributeType.GEBURTSDATUM)?.let(LocalDate::parse)
         )
         if (!personDirectory.matchesStammdaten(personId, claimed)) {
-            throw IdentityConflictException("Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein")
+            throw IdentityConflictException(Text("Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein"))
         }
     }
 
@@ -131,7 +132,7 @@ class IdentityMatchingService(
             matches.add(Resolution.ExistingAccount(accountId, MatchedVia.Anchor(claim.attributeType)))
         }
         if (matches.map { it.accountId }.distinct().size > 1) {
-            throw IdentityConflictException("Identitaetsanker verweisen auf unterschiedliche Konten")
+            throw IdentityConflictException(Text("Identitaetsanker verweisen auf unterschiedliche Konten"))
         }
         return matches.maxByOrNull { it.matchedVia.bindingStrength }
     }

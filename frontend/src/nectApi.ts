@@ -1,4 +1,5 @@
 import { ApiError } from './api'
+import { NECT_TEXTS, resolveText } from './texts'
 
 /**
  * The simulated Nect service's own API (`/mock-nect`) - what Nect's jump page talks to. Not this
@@ -43,8 +44,8 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const text = await response.text()
   const parsed = text === '' ? undefined : JSON.parse(text)
   if (!response.ok) {
-    // Nect answers for itself ({"error": ...}), not with our ErrorResponse.
-    throw new ApiError(response.status, undefined, parsed?.error ?? `${method} ${path} fehlgeschlagen: ${response.status}`)
+    // Nect answers for itself ({"error": <text reference>}), in its own texts - not with our ErrorResponse.
+    throw new ApiError(response.status, undefined, parsed?.error ? resolveText(parsed.error, NECT_TEXTS) : `${method} ${path}: ${response.status}`)
   }
   return parsed as T
 }

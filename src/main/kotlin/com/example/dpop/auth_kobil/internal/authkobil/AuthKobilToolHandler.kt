@@ -1,5 +1,6 @@
 package com.example.dpop.auth_kobil.internal.authkobil
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_kobil.AuthKobilDescriptor
 import com.example.dpop.auth_kobil.api.v1.KobilUnlockCredential
 import com.example.dpop.auth_kobil.internal.KobilEnrollment
@@ -94,7 +95,7 @@ class AuthKobilToolHandler(
         // caller has not proven a right to ask. A repeated release is NOT a failure: an app whose
         // window closed simply unlocks again, and the new release replaces the old one.
         if (!unlocked) {
-            return ToolOutcome.Failed("Entsperren fehlgeschlagen", attemptedAccountId = accountId)
+            return ToolOutcome.Failed(Text("Entsperren fehlgeschlagen"), attemptedAccountId = accountId)
         }
 
         session.release(unlock.userVerification, Instant.now().plusSeconds(pinReleaseTtlSeconds))
@@ -147,19 +148,19 @@ class AuthKobilToolHandler(
 
         return when (val decision = AuthKobilFlow.decide(verification, enrollment.kobilDeviceId, release, blockingRisks)) {
             is AuthKobilDecision.NotReleased ->
-                ToolOutcome.Failed("Entsperren erforderlich", attemptedAccountId = accountId)
+                ToolOutcome.Failed(Text("Entsperren erforderlich"), attemptedAccountId = accountId)
 
             is AuthKobilDecision.OtpInvalid ->
-                ToolOutcome.Failed("Bestaetigung nicht erkannt", attemptedAccountId = accountId)
+                ToolOutcome.Failed(Text("Bestaetigung nicht erkannt"), attemptedAccountId = accountId)
 
             // Same wording auth-device uses: it must not reveal which device was expected.
             is AuthKobilDecision.WrongDevice ->
-                ToolOutcome.Failed("Geraet nicht erkannt", attemptedAccountId = accountId)
+                ToolOutcome.Failed(Text("Geraet nicht erkannt"), attemptedAccountId = accountId)
 
             // Deliberately its own reason. This is not a user's slip but a statement about the
             // device; folding it into "not recognized" would swallow a real finding.
             is AuthKobilDecision.RiskRejected ->
-                ToolOutcome.Failed("Geraet als unsicher gemeldet", attemptedAccountId = accountId)
+                ToolOutcome.Failed(Text("Geraet als unsicher gemeldet"), attemptedAccountId = accountId)
 
             // No auditDetails: unlike every Completed variant that creates something,
             // Authenticated carries none (tool_spi.ToolOutcome). Non-blocking signals a run saw

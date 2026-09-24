@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -34,8 +35,8 @@ sealed interface LookupLoginState : JourneyState {
     ) : LookupLoginState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Anmeldung – Konto bestätigen"
-        override val selectionDescription: String get() = "Geben Sie Ihre Zugangsdaten ein, um sich mit Ihrem bestehenden Konto anzumelden."
+        override val selectionTitle: Text get() = Text("Anmeldung – Konto bestätigen")
+        override val selectionDescription: Text get() = Text("Geben Sie Ihre Zugangsdaten ein, um sich mit Ihrem bestehenden Konto anzumelden.")
     }
 
     /**
@@ -53,8 +54,8 @@ sealed interface LookupLoginState : JourneyState {
     ) : LookupLoginState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Zusätzlicher Faktor erforderlich"
-        override val selectionDescription: String get() = "Ihre bisherige Anmeldung reicht für das geforderte Sicherheitsniveau nicht aus. Bitte bestätigen Sie einen weiteren Faktor."
+        override val selectionTitle: Text get() = Text("Zusätzlicher Faktor erforderlich")
+        override val selectionDescription: Text get() = Text("Ihre bisherige Anmeldung reicht für das geforderte Sicherheitsniveau nicht aus. Bitte bestätigen Sie einen weiteren Faktor.")
     }
 
     /**
@@ -71,13 +72,10 @@ sealed interface LookupLoginState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Dieses Gerät merken?",
-            description = "Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal " +
-                "wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch " +
-                "ohne Bindung fortfahren – dann melden Sie sich künftig wieder über E-Mail und " +
-                "Passwort an.",
-            confirmLabel = "Gerät merken",
-            cancelLabel = "Ohne Bindung fortfahren"
+            title = Text("Dieses Gerät merken?"),
+            description = Text("Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch ohne Bindung fortfahren – dann melden Sie sich künftig wieder über E-Mail und Passwort an."),
+            confirmLabel = Text("Gerät merken"),
+            cancelLabel = Text("Ohne Bindung fortfahren")
         )
     }
 
@@ -95,12 +93,10 @@ sealed interface LookupLoginState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Dieses Gerät ist bereits einem anderen Konto zugeordnet",
-            description = "Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto " +
-                "zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem " +
-                "Gerät erneut identifizieren.",
-            confirmLabel = "Gerät neu zuordnen",
-            cancelLabel = "Ohne Bindung fortfahren",
+            title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
+            description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren."),
+            confirmLabel = Text("Gerät neu zuordnen"),
+            cancelLabel = Text("Ohne Bindung fortfahren"),
             destructive = true
         )
     }

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
@@ -56,7 +57,7 @@ sealed interface ManageAuthMethodsState : JourneyState {
     ) : ManageAuthMethodsState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "enrollment"
-        override val selectionTitle: String get() = "Neues Anmeldeverfahren hinzufügen"
-        override val selectionDescription: String get() = "Sie möchten ein weiteres Verfahren einrichten. Wählen Sie aus, welches Sie hinzufügen möchten."
+        override val selectionTitle: Text get() = Text("Neues Anmeldeverfahren hinzufügen")
+        override val selectionDescription: Text get() = Text("Sie möchten ein weiteres Verfahren einrichten. Wählen Sie aus, welches Sie hinzufügen möchten.")
     }
 }

@@ -20,5 +20,5 @@ import org.springframework.modulith.ApplicationModule
  * `@PackageInfo`, so this otherwise-unused type serves as the package descriptor - no
  * `package-info.java` and no Java source set needed.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "ext_stammdaten"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "ext_stammdaten", "texts"])
 internal class ModuleMetadata

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -32,7 +33,7 @@ sealed interface KcSelectMethodState : JourneyState {
     ) : KcSelectMethodState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Anmeldeverfahren wählen"
+        override val selectionTitle: Text get() = Text("Anmeldeverfahren wählen")
         override val logDetail: Map<String, Any?> get() = mapOf("accountAlreadyKnown" to accountAlreadyKnown)
     }
 }

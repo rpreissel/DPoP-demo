@@ -1,5 +1,6 @@
 package com.example.dpop.auth_device.api.v1
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_device.AuthDeviceDescriptor
 import com.example.dpop.auth_device.internal.authdevice.AuthDeviceToolHandler
 import com.example.dpop.tool_api.buildRequestUrl
@@ -74,7 +75,7 @@ class AuthDeviceToolController(
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
         val enrollmentRef = context.channelAccountId
             ?.let { accountDirectory.activeInstanceEnrollment(it, descriptor.method) { instanceDetails -> descriptor.keyBinding?.livesOn(instanceDetails, bindingKeyRef) == true } }
-            ?: throw UnresolvableReferenceException("Keine aktive Geraete-Methode fuer dieses Geraet")
+            ?: throw UnresolvableReferenceException(Text("Keine aktive Geraete-Methode fuer dieses Geraet"))
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
         val response = toolEndpoint.applyOutcome(context, outcome)

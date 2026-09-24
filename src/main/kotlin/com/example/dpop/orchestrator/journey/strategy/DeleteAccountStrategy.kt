@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.kernel.AuthIntent
@@ -125,7 +126,7 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
         // implies at least one), but Abort - never a silent auto-delete - is the correct fallback
         // if it ever happened.
         return if (candidates.isEmpty()) {
-            Transition.Abort("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar")
+            Transition.Abort(Text("Kein aktiver Faktor zur erneuten Bestaetigung verfuegbar"))
         } else {
             Transition.To(DeleteAccountState.ConfirmationRequired(Offer(candidates)))
         }

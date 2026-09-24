@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.api.v1
 
+import com.example.dpop.texts.Text
+import com.example.dpop.tool_spi.InvalidInputException
 import com.example.dpop.orchestrator.kernel.ErrorCode
 import com.example.dpop.tool_api.IdentityConflictException
 import io.kotest.matchers.string.shouldNotContain
@@ -32,7 +34,7 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
         val handler = OrchestratorExceptionHandler()
 
         then("domain binding conflicts use the existing 409 contract") {
-            val response = handler.handleIdentityConflict(IdentityConflictException("Person binding cannot change"))
+            val response = handler.handleIdentityConflict(IdentityConflictException(Text("Person binding cannot change")))
             response.statusCode shouldBe HttpStatus.CONFLICT
             response.body?.error shouldBe ErrorCode.INVALID_STATE_TRANSITION
         }
@@ -44,7 +46,7 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
                 )
                 response.statusCode shouldBe HttpStatus.CONFLICT
                 response.body?.error shouldBe ErrorCode.INVALID_STATE_TRANSITION
-                response.body?.message shouldBe "Identity claim conflicts with an existing account binding"
+                response.body?.text shouldBe Text("Diese Identität gehört bereits zu einem anderen Konto.")
             }
         }
 
@@ -79,14 +81,19 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
             val response = handler.handleIllegalState(IllegalStateException("auth-kobil enrollment 42 no longer exists"))
             response.statusCode shouldBe HttpStatus.INTERNAL_SERVER_ERROR
             response.body?.error shouldBe ErrorCode.INTERNAL_ERROR
-            response.body?.message.orEmpty() shouldNotContain "42"
+            response.body?.text.toString() shouldNotContain "42"
         }
 
         then("rejected client input is a 400 that tells the caller what was wrong") {
             val response = handler.handleIllegalArgument(IllegalArgumentException("Unknown acr level: loa9"))
             response.statusCode shouldBe HttpStatus.BAD_REQUEST
             response.body?.error shouldBe ErrorCode.BAD_REQUEST
-            response.body?.message shouldBe "Unknown acr level: loa9"
+            response.body?.text?.args shouldBe mapOf("detail" to "Unknown acr level: loa9")
+        }
+
+        then("input rejected in the user's words keeps those words") {
+            val words = Text("Ungueltige Telefonnummer")
+            handler.handleIllegalArgument(InvalidInputException(words)).body?.text shouldBe words
         }
 
         `when`("two requests race on the same AuthJourney and Hibernate throws ObjectOptimisticLockingFailureException") {

@@ -1,3 +1,4 @@
+import { KOBIL_TEXTS, resolveText, type TextRef } from './texts'
 /**
  * Stands in for KOBIL's MC SDK, which on a real phone is native code inside the app.
  *
@@ -28,8 +29,8 @@ async function kobilCall<T>(path: string, body: unknown): Promise<T> {
   if (!response.ok) {
     let message = `KOBIL ${path} failed: ${response.status}`
     try {
-      const parsed = JSON.parse(text) as { error?: string }
-      if (parsed.error) message = parsed.error
+      const parsed = JSON.parse(text) as { error?: TextRef }
+      if (parsed.error) message = resolveText(parsed.error, KOBIL_TEXTS)
     } catch {
       // The provider answered with something that is not JSON - keep the status line.
     }

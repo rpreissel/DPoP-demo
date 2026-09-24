@@ -266,9 +266,9 @@ components:
       - $ref: '#/components/schemas/Prompt'
       - properties:
           cancelLabel:
-            type: string
+            $ref: '#/components/schemas/TextRef'
           confirmLabel:
-            type: string
+            $ref: '#/components/schemas/TextRef'
           destructive:
             type: boolean
         type: object
@@ -423,20 +423,16 @@ components:
           - TOO_MANY_REQUESTS
           - INTERNAL_ERROR
           type: string
-        message:
-          description: For people, not for program logic - branch on `error`. For INTERNAL_ERROR it is a fixed text; the details
-            of an unexpected failure stay in the server log.
-          example: Concurrent request on the same session - please retry.
-          type: string
+        text:
+          $ref: '#/components/schemas/TextRef'
       required:
       - error
-      - message
+      - text
     FailedAttemptStep:
       description: The attempt failed; retries remain.
       properties:
         error:
-          example: TAN ungueltig
-          type: string
+          $ref: '#/components/schemas/TextRef'
         kind:
           enum:
           - failed-attempt
@@ -520,11 +516,10 @@ components:
           example: SUSPENDED
           type: string
         note:
+          $ref: '#/components/schemas/TextRef'
           description: 'Demo-only: why this journey''s current step looks the way it does - either why its tool became the
             automatic choice, or why a selection among several is being shown at all. Null whenever the step already explains
             itself (e.g. a Prompt), never part of the production contract.'
-          example: Gerät wiedererkannt - automatisch vorgeschlagen.
-          type: string
         stateType:
           example: ConfirmPending
           type: string
@@ -697,8 +692,7 @@ components:
           - message
           type: string
         message:
-          example: E-Mail-Bestaetigung ausstehend
-          type: string
+          $ref: '#/components/schemas/TextRef'
       required:
       - kind
       - message
@@ -801,11 +795,11 @@ components:
         propertyName: kind
       properties:
         description:
-          type: string
+          $ref: '#/components/schemas/TextRef'
         kind:
           type: string
         title:
-          type: string
+          $ref: '#/components/schemas/TextRef'
       required:
       - kind
     QrPairingStep:
@@ -833,7 +827,7 @@ components:
       description: Several procedures are possible; the client shows a selection.
       properties:
         description:
-          type: string
+          $ref: '#/components/schemas/TextRef'
         kind:
           enum:
           - select-method
@@ -847,8 +841,7 @@ components:
             type: string
           type: array
         title:
-          example: Wie moechten Sie sich anmelden?
-          type: string
+          $ref: '#/components/schemas/TextRef'
       required:
       - kind
       - options
@@ -879,6 +872,25 @@ components:
       - $ref: '#/components/schemas/NectRedirectStep'
       - $ref: '#/components/schemas/QrPairingStep'
       - $ref: '#/components/schemas/SelectMethodStep'
+    TextRef:
+      description: 'A text reference: look `key` up in the texts bundle (GET .../texts/{lang}), fill `{name}` placeholders
+        from `args` (as is) or `texts` (resolved the same way, several joined with ", ").'
+      properties:
+        args:
+          additionalProperties:
+            type: string
+          type: object
+        key:
+          example: 3f9a1c0b2e7d
+          type: string
+        texts:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/TextRef'
+            type: array
+          type: object
+      required:
+      - key
     TokenResponse:
       description: Mock Keycloak AccessToken (a spec-shaped unsecured JWT, alg=none - parse and display its payload, no verification
         needed) plus both token lifetimes. The RefreshToken value itself is deliberately never part of this response - it's
@@ -2649,6 +2661,40 @@ paths:
       summary: Fetch this channel's signed RestoreData
       tags:
       - KC channels
+  /orchestrator/api/v1/texts/{lang}:
+    get:
+      description: 'Map of text id to wording with `{name}` placeholders. `lang` is de or en (a region like en-GB counts as
+        en, anything else falls back to de; Content-Language says which). Send the ETag back as If-None-Match: 304 while unchanged.'
+      operationId: texts
+      parameters:
+      - in: path
+        name: lang
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: If-None-Match
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Wordings of all text references in one language
+      tags:
+      - Texts
   /orchestrator/api/v1/tools/auth-password/mgmt/{accountId}:
     post:
       operationId: verify
@@ -4709,6 +4755,8 @@ tags:
   name: 'Tool: KOBIL'
 - description: KVNR/name/vorname/geburtsdatum/FSC identification
   name: 'Tool: Freischaltcode'
+- description: Wordings for the text references in every response, per language, with ETag
+  name: Texts
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
   name: 'Tool: Gerät'
 - description: The full set of registered tools, independent of any journey

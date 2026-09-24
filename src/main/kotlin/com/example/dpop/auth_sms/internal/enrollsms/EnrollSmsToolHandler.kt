@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.enrollsms
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
@@ -57,12 +58,12 @@ class EnrollSmsToolHandler(
         return when (val decision = EnrollSmsFlow.decide(data.toState(), EnrollSmsInput(phoneNumber, tan), tanGenerator)) {
             is EnrollSmsDecision.InvalidPhoneNumber -> throw IllegalArgumentException("Ungueltige Telefonnummer")
 
-            is EnrollSmsDecision.WrongTan -> ToolOutcome.Failed("TAN ungueltig oder abgelaufen")
+            is EnrollSmsDecision.WrongTan -> ToolOutcome.Failed(Text("TAN ungueltig oder abgelaufen"))
 
             is EnrollSmsDecision.Unchanged -> outcomeFor(decision.state)
 
             is EnrollSmsDecision.SendTan -> if (sendThrottled) {
-                ToolOutcome.Failed("Zu viele TAN-Anfragen fuer diese Nummer - bitte kurz warten")
+                ToolOutcome.Failed(Text("Zu viele TAN-Anfragen fuer diese Nummer - bitte kurz warten"))
             } else {
                 val issued = tanGenerator.issue()
                 data.phoneNumber = decision.phoneNumber

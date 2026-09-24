@@ -1,3 +1,4 @@
+import { resolveText } from '../../texts'
 import { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
 import '../../App.css'
@@ -414,7 +415,8 @@ export function AppChannelApp() {
     // error). So "Anderes Verfahren" stays offered here, same as after an explicit selection.
     setAlternativesCount(1)
     activatingToolIdRef.current = toolId
-    const pendingMessage = stepDataOf(stepData, 'message')?.message
+    const pendingText = stepDataOf(stepData, 'message')?.message
+    const pendingMessage = pendingText ? resolveText(pendingText) : undefined
     activateTool(dpop, channelSessionId, toolId, activationBodyFor(toolId))
       .then((response) => {
         // Preserve the journey-level context message (e.g. "E-Mail-Bestätigung ausstehend")
@@ -720,7 +722,8 @@ export function AppChannelApp() {
   // onResult/onError instead of routing through a central App.tsx patch callback.
   const selection = stepDataOf(stepData, 'select-method')
   const confirmPrompt = confirmPromptOf(stepDataOf(stepData, 'confirm')?.prompt)
-  const message = stepDataOf(stepData, 'message')?.message ?? carriedMessage
+  const stepMessage = stepDataOf(stepData, 'message')?.message
+  const message = stepMessage ? resolveText(stepMessage) : carriedMessage
 
   const toolCtx: ToolRenderContext | undefined =
     dpop && next?.type === 'tool' && next.toolId
@@ -981,8 +984,8 @@ export function AppChannelApp() {
           {uiComponent === 'select-method' && selection && (
             <SelectMethodView
               options={selection.options}
-              title={selection.title ?? 'Verfahren wählen'}
-              description={selection.description}
+              title={selection.title ? resolveText(selection.title) : 'Verfahren wählen'}
+              description={selection.description ? resolveText(selection.description) : undefined}
               onSelect={handleSelectMethod}
             />
           )}

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -27,11 +28,10 @@ sealed interface DeleteAccountState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Konto wirklich löschen?",
-            description = "Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre " +
-                "Anmeldemethoden und Kontodaten werden endgültig gelöscht.",
-            confirmLabel = "Konto löschen",
-            cancelLabel = "Abbrechen",
+            title = Text("Konto wirklich löschen?"),
+            description = Text("Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Anmeldemethoden und Kontodaten werden endgültig gelöscht."),
+            confirmLabel = Text("Konto löschen"),
+            cancelLabel = Text("Abbrechen"),
             destructive = true
         )
     }
@@ -48,7 +48,7 @@ sealed interface DeleteAccountState : JourneyState {
         // LookupLoginState.Credential, StepUpState.AuthChoice) - selectionContext names the KIND of
         // offer, not the intent, so the client's existing select-method routing needs no new entry.
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Kontolöschung – Identität bestätigen"
-        override val selectionDescription: String? get() = "Bevor Ihr Konto gelöscht wird, müssen Sie Ihre Identität noch einmal nachweisen."
+        override val selectionTitle: Text get() = Text("Kontolöschung – Identität bestätigen")
+        override val selectionDescription: Text? get() = Text("Bevor Ihr Konto gelöscht wird, müssen Sie Ihre Identität noch einmal nachweisen.")
     }
 }

@@ -59,7 +59,7 @@ class NectIdentTest : BehaviorSpec({
             val nect = fixture()
             val case = nect.createCase("/app/", everything)
             nect.complete(case.caseId, NectProcedure.EPASS, max, pin = null, expiryDate = LocalDate.now().minusDays(1))
-            nect.redeem(case.caseId) shouldBe NectResult.Failed("Reisepass abgelaufen")
+            nect.redeem(case.caseId) shouldBe NectResult.Failed(NectFailure.PASSPORT_EXPIRED)
         }
 
         then("a cancelled case cannot be completed afterwards") {

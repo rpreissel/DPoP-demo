@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.AuthJourney
@@ -86,7 +87,7 @@ class ToolControllerSupport(
     override fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         val journey = journeyService.findActive(channelSessionId)
-            ?: throw OrchestratorException.invalidState("No active journey for this channel")
+            ?: throw OrchestratorException.invalidState(Text("No active journey for this channel"))
         val descriptor = toolRegistry.descriptorOf(ToolId(toolId))
 
         validatePreconditions(toolId, channel)
@@ -124,7 +125,7 @@ class ToolControllerSupport(
         // direct activation call must be re-checked here, defensively, against both availability
         // axes (docs/03-tool-architektur.md, availability).
         if (toolId !in channel.availableClientTools || !toolAvailabilityService.isEnabled(toolId, checkNotNull(channel.channel))) {
-            throw OrchestratorException.invalidState("$toolId is not available on this channel")
+            throw OrchestratorException.invalidState(Text("This tool is not available on this channel"), "toolId=${toolId}")
         }
 
         val descriptor = toolRegistry.descriptorOf(ToolId(toolId))
@@ -132,8 +133,7 @@ class ToolControllerSupport(
         descriptor.requires.forEach { requirement ->
             if (!requiresSatisfied(requirement, account)) {
                 throw OrchestratorException.invalidState(
-                    "$toolId requires ${requirement.attributeType.wireName} " +
-                        "at trust level ${requirement.minTrustLevel} first"
+                    Text("This tool requires a prior proof first"), "toolId=${toolId}, requirement=${requirement.attributeType.wireName}, minTrustLevel=${requirement.minTrustLevel}"
                 )
             }
         }
@@ -152,9 +152,9 @@ class ToolControllerSupport(
 
     override fun loadContext(toolSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
         val toolSession = sessionManagementService.findToolSessionById(toolSessionId)
-            ?: throw OrchestratorException.notFound("Tool session not found: $toolSessionId")
+            ?: throw OrchestratorException.notFound(Text("Tool session not found"), "toolSessionId=${toolSessionId}")
         val journey = journeyService.findById(toolSession.journeyId!!)
-            ?: throw OrchestratorException.processGone("Journey for this tool session is gone")
+            ?: throw OrchestratorException.processGone(Text("Journey for this tool session is gone"))
         val channel = channelAccessGuard.requireChannel(journey.channelSessionId!!, bindingKeyRef)
         return Context(
             toolId = toolId,
@@ -169,7 +169,7 @@ class ToolControllerSupport(
 
     private fun requireCurrentTool(context: ToolContext) {
         if (!isCurrentTool(context)) {
-            throw OrchestratorException.invalidState("${context.toolId} is not the currently active tool for this journey")
+            throw OrchestratorException.invalidState(Text("This tool is not the currently active step of this journey"), "toolId=${context.toolId}")
         }
     }
 
@@ -315,12 +315,12 @@ class ToolControllerSupport(
 
     private fun resolveJourney(context: Context): AuthJourney =
         journeyService.findById(context.journeyId)
-            ?: throw OrchestratorException.processGone("Journey for this tool session is gone")
+            ?: throw OrchestratorException.processGone(Text("Journey for this tool session is gone"))
 
     private fun resolveChannel(context: Context, journey: AuthJourney): ChannelSession {
         val journeyChannelId = checkNotNull(journey.channelSessionId) { "Journey without a channel session id" }
         if (journeyChannelId != context.channelSessionId) {
-            throw OrchestratorException.invalidState("Tool context no longer matches its journey channel")
+            throw OrchestratorException.invalidState(Text("Tool context no longer matches its journey channel"))
         }
         return channelAccessGuard.requireChannel(journeyChannelId, context.bindingKeyRef)
     }

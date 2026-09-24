@@ -1,9 +1,11 @@
 package com.example.dpop.id_nect.internal
 
+import com.example.dpop.texts.Text
 import com.example.dpop.id_nect.IdentNectDescriptor
 import com.example.dpop.id_nect.api.v1.NectRedirectStep
 import com.example.dpop.nect_mock.NectAttribute
 import com.example.dpop.nect_mock.NectAttributes
+import com.example.dpop.nect_mock.NectFailure
 import com.example.dpop.nect_mock.NectIdent
 import com.example.dpop.nect_mock.NectProcedure
 import com.example.dpop.nect_mock.NectResult
@@ -71,13 +73,19 @@ class IdentNectToolHandler(
             return redirect(case.caseId, case.jumpUrl)
         }
         if (caseId == null || caseId != data.caseId) {
-            return ToolOutcome.Failed("Nect-Vorgang gehört nicht zu diesem Ablauf")
+            return ToolOutcome.Failed(Text("Nect-Vorgang gehört nicht zu diesem Ablauf"))
         }
         return when (val result = nect.redeem(caseId)) {
-            null -> ToolOutcome.Failed("Nect-Vorgang unbekannt oder bereits eingelöst")
-            NectResult.Open -> ToolOutcome.Failed("Nect-Vorgang noch nicht abgeschlossen")
-            NectResult.Cancelled -> ToolOutcome.Failed("Identifizierung bei Nect abgebrochen")
-            is NectResult.Failed -> ToolOutcome.Failed("Nect: ${result.reason}")
+            null -> ToolOutcome.Failed(Text("Nect-Vorgang unbekannt oder bereits eingelöst"))
+            NectResult.Open -> ToolOutcome.Failed(Text("Nect-Vorgang noch nicht abgeschlossen"))
+            NectResult.Cancelled -> ToolOutcome.Failed(Text("Identifizierung bei Nect abgebrochen"))
+            is NectResult.Failed -> ToolOutcome.Failed(
+                when (result.reason) {
+                    NectFailure.PASSPORT_EXPIRED -> Text("Nect: Der Reisepass ist abgelaufen")
+                    NectFailure.SELFIE_MISMATCH -> Text("Nect: Das Selfie passt nicht zum Passbild")
+                    NectFailure.SIMULATED -> Text("Nect: Identifizierung fehlgeschlagen")
+                }
+            )
             is NectResult.Identified -> identified(toolSessionId, caseId, result)
         }
     }

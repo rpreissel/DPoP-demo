@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.journey.ANSWER_ACCEPT
 import com.example.dpop.orchestrator.journey.ANSWER_DECLINE
 import com.example.dpop.orchestrator.journey.Action
@@ -131,7 +132,7 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
     private fun offerIdentification(ctx: JourneyContext): Transition {
         val idents = CandidateTools.forIdentification(ctx)
         return if (idents.isEmpty()) {
-            Transition.Abort("Kein Identifizierungsverfahren verfuegbar")
+            Transition.Abort(Text("Kein Identifizierungsverfahren verfuegbar"))
         } else {
             Transition.To(RegisterState.Identifying(Offer(idents)))
         }

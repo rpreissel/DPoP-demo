@@ -90,7 +90,12 @@ internal class KotlinRequiredModelConverter : ModelConverter {
      */
     private fun kotlinClassOf(type: AnnotatedType): KClass<*>? {
         val javaType = Json.mapper().constructType(type.type) ?: return null
-        val raw = javaType.rawClass
+        // A type documented as another (`@Schema(implementation = ...)`, e.g. Text -> TextRef) is
+        // on the wire what that other one is - its properties decide what is required, not ours.
+        val raw = javaType.rawClass.let { declared ->
+            declared.getAnnotation(io.swagger.v3.oas.annotations.media.Schema::class.java)?.implementation?.java
+                ?.takeIf { it != Void::class.java } ?: declared
+        }
         if (raw.getAnnotation(Metadata::class.java) == null) return null
         if (raw.isEnum) return null
         return runCatching { raw.kotlin.takeIf { it.constructors.isNotEmpty() } }.getOrNull()

@@ -41,7 +41,8 @@ components:
     NectFailRequest:
       properties:
         reason:
-          example: Selfie passt nicht zum Passbild
+          description: passport_expired, selfie_mismatch or simulated
+          example: selfie_mismatch
           type: string
       required:
       - reason
@@ -206,6 +207,38 @@ paths:
                 $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
       summary: Identifizierung abschließen
+      tags:
+      - Mock Nect
+  /mock-nect/texts/{lang}:
+    get:
+      operationId: texts
+      parameters:
+      - in: path
+        name: lang
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: If-None-Match
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Texte des Dienstes in einer Sprache (mit ETag)
       tags:
       - Mock Nect
 tags:

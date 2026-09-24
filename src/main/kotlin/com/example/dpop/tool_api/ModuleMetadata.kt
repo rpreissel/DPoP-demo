@@ -12,5 +12,5 @@ import org.springframework.modulith.ApplicationModule
  * with only `@file:ApplicationModule` does not work: a Kotlin file with no declarations compiles
  * to no class at all, so the annotation would be silently discarded.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "texts"])
 internal class ModuleMetadata

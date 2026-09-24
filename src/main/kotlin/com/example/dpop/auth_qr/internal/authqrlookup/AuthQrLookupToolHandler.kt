@@ -1,5 +1,6 @@
 package com.example.dpop.auth_qr.internal.authqrlookup
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.AuthQrLookupDescriptor
 import com.example.dpop.auth_qr.QR_LOGIN_TTL
 import com.example.dpop.auth_qr.internal.PairingCodeGenerator
@@ -48,11 +49,11 @@ class AuthQrLookupToolHandler(
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-qr-lookup tool session: $toolSessionId" }
         val pairingCode = checkNotNull(data.pairingCode)
         val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
-            ?: return ToolOutcome.Failed("QR-Code abgelaufen")
+            ?: return ToolOutcome.Failed(Text("QR-Code abgelaufen"))
 
         return when {
             request.status == QrLoginStatus.PENDING && Instant.now().isAfter(request.expiresAt) ->
-                ToolOutcome.Failed("QR-Code abgelaufen")
+                ToolOutcome.Failed(Text("QR-Code abgelaufen"))
             request.status == QrLoginStatus.PENDING -> outcomeFor(pairingCode)
             request.status == QrLoginStatus.APPROVED ->
                 ToolOutcome.Completed.Authenticated(
@@ -61,8 +62,8 @@ class AuthQrLookupToolHandler(
                     factorTypes = descriptor.factorTypes,
                     accountId = checkNotNull(request.resolvingAccountId) { "APPROVED QrLoginRequest without resolvingAccountId" }
                 )
-            request.status == QrLoginStatus.DENIED -> ToolOutcome.Failed("Vom Nutzer abgelehnt")
-            else -> ToolOutcome.Failed("QR-Code abgelaufen")
+            request.status == QrLoginStatus.DENIED -> ToolOutcome.Failed(Text("Vom Nutzer abgelehnt"))
+            else -> ToolOutcome.Failed(Text("QR-Code abgelaufen"))
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -19,11 +20,10 @@ sealed interface LogoutState : JourneyState {
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
-            title = "Wirklich abmelden?",
-            description = "Ihre aktuelle Sitzung wird beendet. Um erneut zuzugreifen, " +
-                "müssen Sie sich wieder anmelden.",
-            confirmLabel = "Abmelden",
-            cancelLabel = "Abbrechen",
+            title = Text("Wirklich abmelden?"),
+            description = Text("Ihre aktuelle Sitzung wird beendet. Um erneut zuzugreifen, müssen Sie sich wieder anmelden."),
+            confirmLabel = Text("Abmelden"),
+            cancelLabel = Text("Abbrechen"),
             destructive = false
         )
     }

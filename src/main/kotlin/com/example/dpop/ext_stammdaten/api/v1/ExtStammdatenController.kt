@@ -1,5 +1,9 @@
 package com.example.dpop.ext_stammdaten.api.v1
 
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.http.HttpHeaders
+import com.example.dpop.texts.TextBundle
+import com.example.dpop.texts.Text
 import com.example.dpop.ext_stammdaten.BriefView
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.ext_stammdaten.Freischaltcodes
@@ -77,6 +81,21 @@ class ExtStammdatenController(
 
     /** The register answers for itself; its refusals are not this application's error contract. */
     @ExceptionHandler(PersonRejectedException::class)
-    fun rejected(exception: PersonRejectedException): ResponseEntity<Map<String, String?>> =
-        ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to exception.message))
+    fun rejected(exception: PersonRejectedException): ResponseEntity<Map<String, Text>> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to exception.text))
+
+    /**
+     * This service's own texts in [lang], for its own page - a foreign system brings its wordings
+     * along (docs/adr/ADR-033). ETag/If-None-Match: 304 while the client's copy is current.
+     */
+    @GetMapping("texts/{lang}")
+    @Operation(summary = "Texte des Dienstes in einer Sprache (mit ETag)")
+    fun texts(
+        @PathVariable lang: String,
+        @RequestHeader(HttpHeaders.IF_NONE_MATCH, required = false) ifNoneMatch: String?
+    ): ResponseEntity<Map<String, String>> = TEXTS.respond(lang, ifNoneMatch)
+
+    private companion object {
+        val TEXTS = TextBundle("register")
+    }
 }

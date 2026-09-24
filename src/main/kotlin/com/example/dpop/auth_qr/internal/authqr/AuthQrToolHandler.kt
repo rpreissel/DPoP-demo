@@ -1,5 +1,6 @@
 package com.example.dpop.auth_qr.internal.authqr
 
+import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.AuthQrDescriptor
 import com.example.dpop.auth_qr.QR_LOGIN_TTL
 import com.example.dpop.auth_qr.internal.PairingCodeGenerator
@@ -48,11 +49,11 @@ class AuthQrToolHandler(
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-qr tool session: $toolSessionId" }
         val pairingCode = checkNotNull(data.pairingCode)
         val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
-            ?: return ToolOutcome.Failed("QR-Code abgelaufen")
+            ?: return ToolOutcome.Failed(Text("QR-Code abgelaufen"))
 
         return when {
             request.status == QrLoginStatus.PENDING && Instant.now().isAfter(request.expiresAt) ->
-                ToolOutcome.Failed("QR-Code abgelaufen")
+                ToolOutcome.Failed(Text("QR-Code abgelaufen"))
             request.status == QrLoginStatus.PENDING -> outcomeFor(pairingCode)
             request.status == QrLoginStatus.APPROVED && request.resolvingAccountId == request.expectedAccountId ->
                 ToolOutcome.Completed.Authenticated(
@@ -63,9 +64,9 @@ class AuthQrToolHandler(
             request.status == QrLoginStatus.APPROVED ->
                 // A different account confirmed than the one this WEB session already knows -
                 // never silently take over (same reasoning as Action.RecordIdentification's account check).
-                ToolOutcome.Failed("Bestätigung passt nicht zu diesem Konto")
-            request.status == QrLoginStatus.DENIED -> ToolOutcome.Failed("Vom Nutzer abgelehnt")
-            else -> ToolOutcome.Failed("QR-Code abgelaufen")
+                ToolOutcome.Failed(Text("Bestätigung passt nicht zu diesem Konto"))
+            request.status == QrLoginStatus.DENIED -> ToolOutcome.Failed(Text("Vom Nutzer abgelehnt"))
+            else -> ToolOutcome.Failed(Text("QR-Code abgelaufen"))
         }
     }
 

@@ -2,6 +2,7 @@ import { ADMIN_PATH, adminAuthHeader, clearAdminCredentials } from './adminAuth'
 import { createDpopProof, type DpopKeyPair } from './dpop'
 import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, ErrorResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
 import { ErrorResponseErrorEnum } from './generated/models'
+import { resolveText } from './texts'
 
 /**
  * Reads an error body. The shape is the contract's `ErrorResponse`; anything else (a proxy's HTML
@@ -11,7 +12,8 @@ import { ErrorResponseErrorEnum } from './generated/models'
 export function parseErrorBody(text: string, fallback: string): { errorCode: string | undefined; message: string } {
   try {
     const parsed = JSON.parse(text) as Partial<ErrorResponse>
-    return { errorCode: parsed.error, message: parsed.message ?? fallback }
+    // The server sends a text reference; it becomes words in the reader's language here.
+    return { errorCode: parsed.error, message: parsed.text ? resolveText(parsed.text) : fallback }
   } catch {
     return { errorCode: undefined, message: fallback }
   }

@@ -66,13 +66,13 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             error("${event.tool.toolId} is not offered by STEP_UP")
     }
 
-    private fun finishOrContinue(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
+    private fun finishOrContinue(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, reason: StepUpState.Reason?, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, targetAcr, account)) return Transition.Authenticated
         return offerAuth(targetAcr, startingAcr, allowReIdentification, reason, ctx)
     }
 
-    private fun offerAuth(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, reason: String?, ctx: JourneyContext): Transition {
+    private fun offerAuth(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean, reason: StepUpState.Reason?, ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         val candidates = CandidateTools.forAuth(account, targetAcr, ctx)
         if (candidates.isNotEmpty()) {

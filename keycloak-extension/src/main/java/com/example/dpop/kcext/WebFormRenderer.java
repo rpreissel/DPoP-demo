@@ -46,13 +46,13 @@ final class WebFormRenderer {
         // -Description, docs/04-orchestrierung.md #4) - "Identifikation erforderlich",
         // "Anmeldeverfahren einrichten", "Passwort einrichten" are all real, DIFFERENT screens that
         // must not collapse into one generic "Anmeldemethode wählen" heading.
-        String title = response != null && response.stepData().get("title") != null
-                ? response.stepData().get("title").asText() : "Anmeldemethode wählen";
-        JsonNode descriptionNode = response != null ? response.stepData().get("description") : null;
+        String backendTitle = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("title")) : null;
+        String title = backendTitle != null ? backendTitle : "Anmeldemethode wählen";
+        String description = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("description")) : null;
         var built = form
                 .setAuthenticationSession(authSession)
                 .setAttribute("title", title)
-                .setAttribute("description", descriptionNode != null ? descriptionNode.asText() : null)
+                .setAttribute("description", description)
                 .setAttribute("options", options)
                 .setAttribute("optionLabels", optionLabels)
                 .setAttribute("offerRegistration", offerRegistration);
@@ -68,7 +68,7 @@ final class WebFormRenderer {
     static Response toolForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession,
             OrchestratorClient.Next next, OrchestratorClient.ChannelResponse response, String error,
             Set<String> submittedFields) {
-        String stepError = response.stepDataError();
+        String stepError = OrchestratorTexts.resolve(session, response.stepDataError());
         String effectiveError = error != null ? error : stepError;
 
         WebToolRenderer renderer = session.getProvider(WebToolRenderer.class, next.toolId());
@@ -109,10 +109,10 @@ final class WebFormRenderer {
      * is null only on a retry path with no fresh {@code ChannelResponse}, same fallback idiom as
      * {@link #toolForm}.
      */
-    static Response confirmForm(LoginFormsProvider form, AuthenticationSessionModel authSession, JsonNode prompt, String error) {
-        String title = prompt != null && prompt.has("title") ? prompt.get("title").asText() : "Bestätigung erforderlich";
-        String confirmLabel = prompt != null && prompt.has("confirmLabel") ? prompt.get("confirmLabel").asText() : "Ja";
-        String cancelLabel = prompt != null && prompt.has("cancelLabel") ? prompt.get("cancelLabel").asText() : "Nein";
+    static Response confirmForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession, JsonNode prompt, String error) {
+        String title = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("title")) : null, "Bestätigung erforderlich");
+        String confirmLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("confirmLabel")) : null, "Ja");
+        String cancelLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("cancelLabel")) : null, "Nein");
         var built = form
                 .setAuthenticationSession(authSession)
                 .setAttribute("title", title)
@@ -120,6 +120,10 @@ final class WebFormRenderer {
                 .setAttribute("cancelLabel", cancelLabel);
         if (error != null) built.setError(error);
         return built.createForm("orchestrator-confirm.ftl");
+    }
+
+    private static String orDefault(String value, String fallback) {
+        return value != null ? value : fallback;
     }
 
     static Response errorForm(LoginFormsProvider form, AuthenticationSessionModel authSession, String message) {

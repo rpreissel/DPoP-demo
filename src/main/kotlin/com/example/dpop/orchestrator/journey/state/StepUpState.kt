@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolId
 import com.fasterxml.jackson.annotation.JsonSubTypes
@@ -27,9 +28,17 @@ sealed interface StepUpState : JourneyState {
          * coming from nowhere on a caller like `CONFIRM_PEER_LOGIN`'s COLD entry, where the user
          * never took any "Aktion" themselves - they just scanned a QR code (real user feedback this
          * closes). `null` keeps the generic wording for callers with nothing more specific to say.
+         * A [Reason] rather than the words themselves: the state is persisted, and a text is not
+         * state - its wording lives here, per caller, and changes without touching stored journeys.
          */
-        fun forSubJourney(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean = true, reason: String? = null): StepUpState =
+        fun forSubJourney(targetAcr: AcrLevel, startingAcr: AcrLevel, allowReIdentification: Boolean = true, reason: Reason? = null): StepUpState =
             Start(targetAcr, startingAcr, allowReIdentification, reason)
+    }
+
+    /** Why a caller needs this step-up, when it has more to say than the generic wording (see [forSubJourney]). */
+    enum class Reason {
+        /** CONFIRM_PEER_LOGIN's gate: a browser asks to log in, this session must first prove itself. */
+        PEER_LOGIN
     }
 
     data class Start(
@@ -52,7 +61,7 @@ sealed interface StepUpState : JourneyState {
          */
         val allowReIdentification: Boolean = true,
         /** See [StepUpState.forSubJourney]'s own doc - carried through into [AuthChoice] once offered. */
-        val reason: String? = null
+        val reason: Reason? = null
     ) : StepUpState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
@@ -66,7 +75,7 @@ sealed interface StepUpState : JourneyState {
         override val offer: Offer,
         val allowReIdentification: Boolean = true,
         /** See [StepUpState.forSubJourney]'s own doc. */
-        val reason: String? = null,
+        val reason: Reason? = null,
         /**
          * True once this session already proved one AUTHENTICATOR-axis factor THIS run (real user
          * feedback: two back-to-back "Erhöhte Sicherheit erforderlich" screens with byte-identical
@@ -80,12 +89,25 @@ sealed interface StepUpState : JourneyState {
     ) : StepUpState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: String get() = "Erhöhte Sicherheit erforderlich"
-        override val selectionDescription: String get() {
-            val base = reason ?: "Die angeforderte Aktion erfordert ein höheres Sicherheitsniveau. Bitte bestätigen Sie Ihre Identität mit einem weiteren Verfahren."
+        override val selectionTitle: Text get() = Text("Erhöhte Sicherheit erforderlich")
+        override val selectionDescription: Text get() {
+            val base = when (reason) {
+                // The FIRST screen a missing-loa2 peer approval ever sees, so it carries the whole
+                // context: what's happening, why this session must prove more, and that
+                // "Abbrechen" is the way out (ConfirmPeerLoginStrategy).
+                Reason.PEER_LOGIN -> Text(
+                    "Ein Browser möchte sich mit Ihrem Konto anmelden. Um das zu bestätigen, muss " +
+                        "diese Sitzung zunächst selbst ein höheres Sicherheitsniveau nachweisen. Brechen Sie ab, wenn Sie " +
+                        "diesen Login nicht selbst ausgelöst haben."
+                )
+                null -> Text("Die angeforderte Aktion erfordert ein höheres Sicherheitsniveau. Bitte bestätigen Sie Ihre Identität mit einem weiteren Verfahren.")
+            }
             return if (additionalFactorRound) {
-                "$base Das eben genutzte Verfahren zählt bereits - wählen Sie jetzt ein ANDERSARTIGES " +
-                    "Verfahren (z. B. Passwort statt SMS), um die Kombination abzuschließen."
+                Text(
+                    "{anlass} Das eben genutzte Verfahren zählt bereits. Wählen Sie jetzt eines anderer Art, " +
+                        "zum Beispiel Passwort statt SMS.",
+                    "anlass" to base
+                )
             } else {
                 base
             }

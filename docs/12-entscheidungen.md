@@ -46,6 +46,7 @@ Diff mitten im Fließtext.
 | [ADR-30](adr/ADR-030-eine-migration-je-modul.md) | Ein Flyway-Migrationsordner je Modul |
 | [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenregister, `id_fsc` fragt es direkt |
 | [ADR-32](adr/ADR-032-tool-sperre-und-reihenfolge-je-kanal.md) | Tool-Sperre und Reihenfolge je Kanaltyp |
+| [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

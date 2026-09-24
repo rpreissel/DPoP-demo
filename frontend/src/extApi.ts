@@ -1,4 +1,5 @@
 import { ApiError } from './api'
+import { REGISTER_TEXTS, resolveText } from './texts'
 
 /**
  * The simulated person register's own API (`/mock-stammdaten`, ADR-31) - not this application's
@@ -43,8 +44,8 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const text = await response.text()
   const parsed = text === '' ? undefined : JSON.parse(text)
   if (!response.ok) {
-    // The register answers for itself ({"error": ...}), not with our ErrorResponse.
-    throw new ApiError(response.status, undefined, parsed?.error ?? `${method} ${path} fehlgeschlagen: ${response.status}`)
+    // The register answers for itself ({"error": <text reference>}), in its own texts - not with our ErrorResponse.
+    throw new ApiError(response.status, undefined, parsed?.error ? resolveText(parsed.error, REGISTER_TEXTS) : `${method} ${path}: ${response.status}`)
   }
   return parsed as T
 }

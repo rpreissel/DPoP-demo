@@ -1,5 +1,6 @@
 package com.example.dpop.id_kvnr.internal
 
+import com.example.dpop.texts.Text
 import com.example.dpop.id_kvnr.IdentKvnrDescriptor
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -49,7 +50,7 @@ class IdentKvnrToolHandler(
         data.kvnr = kvnr
         repository.save(data)
 
-        personId ?: return ToolOutcome.Failed("Versichertennummer konnte nicht zugeordnet werden")
+        personId ?: return ToolOutcome.Failed(Text("Versichertennummer konnte nicht zugeordnet werden"))
 
         return ToolOutcome.Completed.Identified(
             amr = listOf(descriptor.method),

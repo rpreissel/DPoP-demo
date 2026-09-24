@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
+import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
@@ -128,8 +129,7 @@ internal object AuthEnrollCore {
                 )
             } else {
                 Transition.Abort(
-                    "Fuer die Einrichtung eines neuen Anmeldeverfahrens ist eine frische Identifizierung " +
-                        "(mindestens loa2) erforderlich, aktuell ist aber keine Identifizierungsmethode verfuegbar."
+                    Text("Fuer die Einrichtung eines neuen Anmeldeverfahrens ist eine frische Identifizierung (mindestens loa2) erforderlich, aktuell ist aber keine Identifizierungsmethode verfuegbar.")
                 )
             }
         }
