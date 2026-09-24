@@ -33,6 +33,18 @@ public class OrchestratorAcrAmrMapper extends AbstractOIDCProtocolMapper impleme
         return PROVIDER_ID;
     }
 
+    /**
+     * "Deliberately overwrites" only holds if this mapper runs AFTER Keycloak's own acr/amr
+     * mappers (default scopes "acr" and "basic"). ProtocolMapperUtils sorts solely by priority,
+     * and none of them overrides it - all tie at 0, so the order fell out of the mapper ids of
+     * each realm install: on some installs Keycloak's AcrProtocolMapper ran last and replaced
+     * "loa1" with its bare numeric level "1". Ascending sort, so a higher value runs later.
+     */
+    @Override
+    public int getPriority() {
+        return 100;
+    }
+
     @Override
     public String getDisplayType() {
         return "Orchestrator ACR/AMR";
