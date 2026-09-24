@@ -69,9 +69,10 @@ sich ohne Änderung an den Dockerfiles überschreiben — z. B. am Arbeitsplatz 
 interne Registry oder auf `registry.redhat.io` mit aktiver Subscription.
 
 Steuerung über Umgebungsvariablen, die Podman Compose automatisch aus einer `.env`-Datei im
-Projektverzeichnis liest (`.env`/`.env.local` sind gitignored — für den Arbeitsplatz liegt eine
-Vorlage unter [`.env.work.example`](.env.work.example) bei, einfach kopieren:
-`cp .env.work.example .env.local`).
+Projektverzeichnis liest (gitignored — für den Arbeitsplatz liegt eine Vorlage unter
+[`.env.work.example`](.env.work.example) bei, einfach kopieren: `cp .env.work.example .env`).
+Podman Compose liest von sich aus nur `.env`, nicht `.env.local`; eine andere Datei nur mit
+`--env-file`. Die Vorlage selbst wirkt nie.
 
 | Variable | Default | Wirkt auf |
 |---|---|---|
@@ -122,7 +123,7 @@ Zuhause reicht also ein einfaches `podman-compose up --build` (nach `stagePodman
 jede `.env` — die Defaults ziehen bereits ausschließlich (bis auf Keycloak selbst) von
 `registry.access.redhat.com`.
 
-Beispiel `.env.local` für eine Firmenumgebung, die stattdessen `registry.redhat.io` mit aktiver
+Beispiel `.env` für eine Firmenumgebung, die stattdessen `registry.redhat.io` mit aktiver
 Subscription nutzt (z. B. für RHBK statt Community-Keycloak):
 
 ```
@@ -140,6 +141,6 @@ schlägt mit 403 fehl. Die Versionszählung läuft außerdem unabhängig vom Com
 (aktuell z. B. 26.2/26.4 statt 26.6.4). Deshalb bleibt der Default beim öffentlichen
 `quay.io/keycloak/keycloak` — auch zuhause.
 
-Ohne `.env`/`.env.local` bzw. ohne gesetzte Variablen greifen die (Red-Hat-)Defaults überall
+Ohne `.env` bzw. ohne gesetzte Variablen greifen die (Red-Hat-)Defaults überall
 gleich — ein einfaches `podman-compose up` funktioniert also unverändert zuhause wie in der Firma,
-solange dort zusätzlich die passende `.env.local` liegt.
+solange dort zusätzlich die passende `.env` liegt.
