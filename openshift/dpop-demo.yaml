@@ -83,7 +83,7 @@ spec:
     spec:
       containers:
         - name: keycloak
-          # Kurzname: OpenShift loest ihn ueber den ImageStream auf (lookupPolicy local, imagestreams.yaml),
+          # Kurzname: OpenShift loest ihn ueber den ImageStream auf (lookupPolicy local, build.yaml),
           # Podman findet das lokal gebaute localhost/dpop-demo-keycloak:latest.
           image: dpop-demo-keycloak:latest
           imagePullPolicy: IfNotPresent

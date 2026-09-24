@@ -1,0 +1,47 @@
+# Nur OpenShift: deploy.sh laedt die fertig gebauten Artefakte aus build/podman/* als Binary-
+# Build-Kontexte hoch. OpenShift baut daraus die Images und schreibt sie in die ImageStreams.
+#
+# lookupPolicy local: Die Kurznamen dpop-demo-...:latest in dpop-demo.yaml werden im Namespace auf
+# diese ImageStreams aufgeloest. Die Limits passen in die Namespace-Quota, nachdem deploy.sh das
+# vorhandene dpop-demo-Deployment fuer die Dauer der Builds auf 0 skaliert hat.
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dpop-demo-keycloak
+spec:
+  lookupPolicy: {local: true}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: dpop-demo-orchestrator
+spec:
+  lookupPolicy: {local: true}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: dpop-demo-keycloak
+spec:
+  source: {type: Binary}
+  strategy:
+    type: Docker
+    dockerStrategy: {dockerfilePath: Dockerfile}
+  output:
+    to: {kind: ImageStreamTag, name: dpop-demo-keycloak:latest}
+  resources:
+    limits: {memory: 2Gi}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: dpop-demo-orchestrator
+spec:
+  source: {type: Binary}
+  strategy:
+    type: Docker
+    dockerStrategy: {dockerfilePath: Dockerfile}
+  output:
+    to: {kind: ImageStreamTag, name: dpop-demo-orchestrator:latest}
+  resources:
+    limits: {memory: 1Gi}
