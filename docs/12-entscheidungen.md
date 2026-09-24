@@ -47,7 +47,7 @@ Diff mitten im Fließtext.
 | [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es direkt |
 | [ADR-32](adr/ADR-032-tool-sperre-und-reihenfolge-je-kanal.md) | Tool-Sperre und Reihenfolge je Kanaltyp |
 | [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |
-| [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Das Personenverzeichnis meldet Änderungen per Event – bis zu Keycloak |
+| [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

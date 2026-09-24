@@ -1,4 +1,4 @@
-# ADR-34: Das Personenverzeichnis meldet Änderungen per Event – bis zu Keycloak
+# ADR-34: Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak
 
 **Entscheidung** (**umgesetzt**): Das simulierte Fremdsystem heißt **Personenverzeichnis** (vorher
 „Personenregister“, Modul `ext_personenverzeichnis`). Ändert es eine Person, veröffentlicht es

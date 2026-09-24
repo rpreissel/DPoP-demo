@@ -194,16 +194,18 @@ Für `APP` entscheidet `TokenProvider` profilabhängig:
 ### ID-Token-Claims (`GET .../{channelSessionId}/idclaims`)
 
 **`APP`-Kanal-only**, wie das AccessToken oben — dieselbe `requireAuthenticated`-Vorbedingung.
-Fachliche (nicht in die AccessToken-Signatur codierte) Claims: `sub`/`accountId`/`personId`,
-`acr`/`amr`, `auth_time`, `email`/`email_verified`, `name`. `name` ist die einzige Stelle, an der
-das Frontend erfährt, WER angemeldet ist: der Registerperson-Anker entscheidet — `personId`
-vorhanden heißt "Vorname Name" der Person (`PersonDirectory.displayName`), fehlt er (Interessent,
-ADR-10/18), fällt `name` auf die eigenen bestätigten Claims des Kontos zurück (stärkster überlebender
-NAME/VORNAME-Claim, nur `null`, wenn auch davon keiner existiert). Dasselbe `personId`-Vorhandensein
-ist es, woraus das Frontend den Kontostatus ableitet (Versicherter vs. Interessent) — ein eigener
-Status-Claim wäre nur eine Redundanz desselben Ankers; es gilt derselbe `channelAccessGuard` wie
+Fachliche (nicht in die AccessToken-Signatur codierte) Claims: `sub`/`accountId`/`personId`/`versnr`,
+`acr`/`amr`, `auth_time`, `email`/`email_verified`, `name`. `personId` ist die Partnernummer
+(`P` und neun Ziffern, ADR-34), `versnr` die Versicherungsnummer, live aus dem Personenverzeichnis.
+`name` ist die einzige Stelle, an der das Frontend erfährt, WER angemeldet ist: der
+`PERSON_ID`-Anker entscheidet — `personId` vorhanden heißt "Vorname Name" der Person
+(`PersonDirectory.displayName`), fehlt er (Interessent, ADR-10/18), fällt `name` auf die eigenen
+bestätigten Claims des Kontos zurück (stärkster überlebender NAME/VORNAME-Claim, nur `null`, wenn auch
+davon keiner existiert). Aus `personId` und `versnr` leitet das Frontend die Rolle ab (ADR-34):
+`versnr` vorhanden = Versicherter, nur `personId` = Partner, keines = Interessent — ein eigener
+Rollen-Claim wäre nur eine Redundanz derselben Werte; es gilt derselbe `channelAccessGuard` wie
 überall sonst. Die Authenticated-Seite zeigt beides kompakt im Begrüßungstext — „Angemeldet als
-*Name* (Versicherter/Interessent)" — und die vollständigen Claims aufklappbar wie die
+*Name* (Versicherter/Partner/Interessent)" — und die vollständigen Claims aufklappbar wie die
 AccessToken-Details.
 
 ### Methoden verwalten (AuthIntent.MANAGE_AUTH_METHODS)

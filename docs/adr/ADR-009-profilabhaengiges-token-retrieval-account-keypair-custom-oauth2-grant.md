@@ -43,9 +43,9 @@ Der Account-Sync spiegelt daneben Namen und User-Attribute
 — je Attribut der Registerwert, sonst der stärkste bestätigte Claim des Kontos (ADR-18: ein voll
 bestätigter Interessent trägt NAME/VORNAME/GEBURTSDATUM und die Adressattribute auch ohne
 Registerbindung); die
-Platzhalternamen bleiben nur für Konten ohne beides („Enrollment zuerst"). `personId`/`kvnr`
-existieren nur mit Registerbindung — ein Interessent zeigt sich im Fehlen beider, nie in einem
-gepflegten Status-Flag.
+Platzhalternamen bleiben nur für Konten ohne beides („Enrollment zuerst"). `personId`/`kvnr`/`versnr`
+existieren nur mit Registerbindung — ein Interessent zeigt sich im Fehlen von `personId`, ein Partner
+im Fehlen von `versnr` (ADR-34), nie in einem gepflegten Status-Flag.
 Der custom Grant-Type in `keycloak-extension/` (`urn:dpop-demo:account-token`,
 `AccountTokenGrantType`, Keycloaks pluggable `OAuth2GrantType`-SPI in
 `keycloak-server-spi-private`) verlangt zusätzlich eine damit signierte, kurzlebige Assertion

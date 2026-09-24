@@ -7,7 +7,8 @@
 Adresse — jedes Kartenfeld ein eigener `AttributeType`, auch die Adressattribute `strasse`/
 `hausnummer`/`plz`/`ort`, die dafür aus den unstrukturierten `auditDetails` in echte Claims aufrückten —
 auf eigene Autorität `ClaimSource.of(toolId)`) und löst niemanden auf. Die Zuordnung zur
-Registerperson ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer ab, löst sie
+Person im Personenverzeichnis ist ein eigenes Tool `ident-kvnr`: Es fragt die Versichertennummer
+(für einen Partner ohne sie die Partnernummer, ADR-34) ab, löst sie
 über `PersonDirectory` auf und behauptet erst dann `PERSON_ID`/`KVNR` — beide mit
 `ClaimSource.PERSON_DIRECTORY`, denn dort bürgt tatsächlich das Register. Der zweite Akt wird direkt
 angeboten (`RegisterState.Assigning`, `next` zeigt auf `ident-kvnr`) — ohne Ja/Nein-Frage davor,

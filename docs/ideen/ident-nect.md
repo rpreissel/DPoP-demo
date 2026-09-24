@@ -80,13 +80,13 @@ App-Kanal (Browser-Tab "Smartphone")          Nect-Mock (Browser-Tab bzw. Redire
 
 ## 4) Rolle: Kartendaten bestätigen, nicht Person auflösen
 
-Nect bestätigt, was auf dem Dokument steht. Eine KVNR oder Registerperson trägt kein Ausweis,
+Nect bestätigt, was auf dem Dokument steht. Eine KVNR oder Partnernummer trägt kein Ausweis,
 kein Pass und keine Wallet-PID. ext-ident gleicht zwar selbst mit TKeasy ab, weil ihm die Order
 den `sub` schon nennt – in unserem Ablauf ist beim Identifizieren aber noch keine Person bekannt.
 
 **Empfehlung: angleichen an `ident-eid`** (ADR-18/19): `ident-nect` meldet die bestätigten
 Attribute als Claims mit `ClaimSource.of("ident-nect")`, keine `PERSON_ID`. Die Zuordnung zur
-Registerperson läuft danach wie heute über `ident-kvnr`. Kein zweiter Weg für dieselbe Frage.
+Person im Personenverzeichnis läuft danach wie heute über `ident-kvnr`. Kein zweiter Weg für dieselbe Frage.
 
 Die Alternative – `ident-nect` ruft selbst `PersonDirectory.matchesStammdaten` und meldet eine
 `PERSON_ID` wie `ident-fsc` – wäre eine zweite Zuordnungslogik neben `ident-kvnr` und lohnt nur,

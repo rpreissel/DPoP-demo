@@ -36,7 +36,7 @@ stateDiagram-v2
   ConfirmDeviceRebind --> Identifying: Zustimmung - Gerät umgebunden, alte Bindung widerrufen
   ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Account bereits ausreichend eingerichtet
-  Identifying --> Assigning: Identität bezeugt, aber keine Registerperson zugeordnet (ident-eid)
+  Identifying --> Assigning: Identität bezeugt, aber keine Person aus dem Personenverzeichnis zugeordnet (ident-eid)
   Assigning --> ConfirmingEmail: Zuordnung erledigt oder übersprungen ("Jetzt nicht" - Interessent)
   Identifying --> ConfirmingEmail: Identität festgestellt, Konto muss etwas einrichten, E-Mail-Pflicht offen
   Identifying --> Enrolling: Identität festgestellt, Konto muss etwas einrichten, E-Mail bereits bestätigt

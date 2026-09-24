@@ -27,7 +27,7 @@ Richtigen.
 
 Eine Bedingung kommt hier dazu, die eine Identifizierung nicht braucht: **Die bestätigte Identität
 muss zum aufgelösten Konto passen.** Der Besitz eines Postfachs sagt „dieses Postfach gehört mir",
-niemals „ich bin diese Person". Hat das Zielkonto eine Registerperson, wird die in dieser Sitzung
+niemals „ich bin diese Person". Ist das Zielkonto einer Person im Personenverzeichnis zugeordnet, wird die in dieser Sitzung
 bestätigte Identität gegen deren Stammdaten geprüft (`IdentityResolver.attestedIdentityMatches`,
 derselbe Wächter, den ADR-18 vor den Korrelationsschritt stellt) — sonst könnte, wer ein fremdes
 Postfach kontrolliert, seine eigenen eID-Claims an ein fremdes Konto hängen. Hat das Zielkonto
