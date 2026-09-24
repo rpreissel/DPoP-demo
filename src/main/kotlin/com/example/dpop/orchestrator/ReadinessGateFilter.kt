@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.orchestrator.kc.CLIENT_JWKS_PATH
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -11,9 +12,17 @@ import org.springframework.web.filter.OncePerRequestFilter
  * (siehe dort - v.a. das keycloak-Profil-Fenster waehrend laufender Migrationen). Ohne dieses Gate
  * bekamen frueh eintreffende Requests einen wenig aussagekraeftigen 500er, z.B. "invalid_client",
  * weil der orchestrator-admin-Client zu dem Zeitpunkt noch nicht existierte.
+ *
+ * Eine Ausnahme, benannt statt verstreut: das Client-JWKS ([CLIENT_JWKS_PATH]) ist Voraussetzung
+ * der Migrationen, nicht deren Ergebnis - Keycloak prueft gegen dieses JWKS die Anmeldung der
+ * Migration selbst. Es liefert nur oeffentliches Schluesselmaterial, das schon beim Start feststeht.
  */
 @Component
 class ReadinessGateFilter(private val readinessState: ReadinessState) : OncePerRequestFilter() {
+
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean =
+        request.requestURI.startsWith("$CLIENT_JWKS_PATH/")
+
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         if (!readinessState.isReady) {
             response.status = HttpServletResponse.SC_SERVICE_UNAVAILABLE

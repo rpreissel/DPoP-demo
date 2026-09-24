@@ -20,7 +20,7 @@ import com.example.dpop.tool_api.API_V1
  * Assertion pruefen soll, kann sich ihr gegenueber schlecht vorher ausweisen.
  */
 @RestController
-@RequestMapping("$API_V1/kc/client-jwks")
+@RequestMapping(CLIENT_JWKS_PATH)
 @Profile("keycloak")
 @Tag(name = "Keycloak-Kanal", description = "Oeffentlicher Schluessel der Client-Authentisierung des Orchestrators")
 class OrchestratorClientJwksController(private val signer: OrchestratorClientAssertionSigner) {
@@ -29,3 +29,11 @@ class OrchestratorClientJwksController(private val signer: OrchestratorClientAss
     @Operation(summary = "Public Key, gegen den Keycloak die private_key_jwt-Assertion des Orchestrators prueft")
     fun jwks(): Map<String, Any> = JWKSet(signer.key.toPublicJWK()).toJSONObject()
 }
+
+/**
+ * Auch [com.example.dpop.orchestrator.ReadinessGateFilter] kennt diesen Pfad: er muss schon
+ * WAEHREND der Keycloak-Migrationen antworten, denn die Migration selbst meldet sich per
+ * Assertion gegen genau dieses JWKS an (KeycloakMigrationToken). Hinter dem Gate kaeme Keycloak
+ * nur an ein 503 und lehnte die Anmeldung ab - die Migration wartete auf sich selbst.
+ */
+const val CLIENT_JWKS_PATH = "$API_V1/kc/client-jwks"
