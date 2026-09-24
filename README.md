@@ -78,13 +78,15 @@ Vorlage unter [`.env.work.example`](.env.work.example) bei, einfach kopieren:
 | `KEYCLOAK_BASE_IMAGE` | `quay.io/keycloak/keycloak:26.6.4` | `keycloak-extension/Dockerfile` — Keycloak-Laufzeit-Image (öffentlich, siehe Hinweis unten) |
 | `ORCHESTRATOR_RUNTIME_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21-runtime:latest` | `Dockerfile` — Laufzeit-Image |
 | `KEYCLOAK_SETUP_VARIANT` | `host` (`compose.yml` setzt `compose`) | Welche Keycloak-Umgebung aufgebaut und bedient wird — siehe unten |
-| `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` | `admin` / `admin` | Master-Realm-Admin, mit dem der Migrationslauf arbeitet |
+| `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` | `admin` / `admin` | Bootstrap-Admin von Keycloak — nur noch für die Admin-Console. Der Orchestrator braucht ihn nicht |
+| `ORCHESTRATOR_CLIENT_JWKS_URL` | `http://host.containers.internal:8080/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json` | Wo Keycloak den Schlüssel des Orchestrators für den Client `orchestrator-migration` holt (siehe unten) |
 
 ### Keycloak-Umgebung: eine Variante statt einzelner Variablen
 
 Realm-Name, Client-Ids, Redirect-URIs und die URLs beider Seiten sind **keine einzelnen
 Umgebungsvariablen mehr** (Client-Secrets gibt es gar keine mehr — der Orchestrator authentisiert
-sich bei Keycloak mit einer signierten Assertion, `private_key_jwt`). Sie stehen zusammen in einem benannten Satz (`KeycloakSetup`),
+sich bei Keycloak mit einer signierten Assertion, `private_key_jwt`; das gilt auch für die
+Migration, die als `orchestrator-migration` im Master-Realm angemeldet ist statt als Admin mit Passwort). Sie stehen zusammen in einem benannten Satz (`KeycloakSetup`),
 aus dem sich beides speist: der Realm-Aufbau durch die Migration *und* die Laufzeitwerte des
 Orchestrators (Account-Sync, Peer-Auth-JWKS, OIDC-Issuer). `KEYCLOAK_SETUP_VARIANT` wählt aus:
 

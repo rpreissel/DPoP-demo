@@ -1,5 +1,6 @@
 package com.example.dpop.kcmigrate
 
+import jakarta.ws.rs.ForbiddenException
 import jakarta.ws.rs.NotFoundException
 import org.keycloak.admin.client.Keycloak
 import org.keycloak.admin.client.resource.RealmResource
@@ -115,7 +116,22 @@ class MigrationRunner(
      * kompilierten Code (hier) funktioniert exakt derselbe Aufruf zuverlässig.
      */
     private fun ensureRealmExists() {
-        if (runCatching { realm.toRepresentation() }.isSuccess) return
+        try {
+            realm.toRepresentation()
+            return
+        } catch (e: NotFoundException) {
+            // Gibt es noch nicht - unten anlegen.
+        } catch (e: ForbiddenException) {
+            // Ohne diese Unterscheidung ginge es unten mit "Realm anlegen" weiter und scheiterte
+            // an einem 409 "Conflict" - mit einer Ursache, die niemand darin erkennt.
+            throw IllegalStateException(
+                "Realm '$realmName' existiert, aber die Migration hat darauf keine Rechte. Sie meldet sich als " +
+                    "orchestrator-migration an (nur create-realm) und verwaltet nur Realms, die sie selbst angelegt " +
+                    "hat - dieses stammt wohl noch aus der Zeit des Master-Admin-Logins. Realm einmal loeschen " +
+                    "(Admin-Console oder Keycloak-Volume neu anlegen), die Migration baut es dann neu auf.",
+                e,
+            )
+        }
         kc.realms().create(RealmRepresentation().apply {
             realm = realmName
             setEnabled(true)

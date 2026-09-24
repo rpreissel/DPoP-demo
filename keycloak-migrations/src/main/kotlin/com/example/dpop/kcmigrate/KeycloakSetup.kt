@@ -128,18 +128,14 @@ data class RealmSetup(
  * steht davon nichts, eine Änderung gilt einfach beim nächsten Start und löst **keinen** Reset aus.
  */
 data class KeycloakAccess(
-    /** Server-zu-Server: wie der Orchestrator Keycloak erreicht (Admin-API, JWKS, Migration selbst). */
-    val keycloakBaseUrl: String,
     /**
-     * Master-Realm-Admin, mit dem der Migrationslauf das Realm aufbaut - nicht der
-     * `orchestrator-admin`-Service-Account, den die Migration selbst erst anlegt und der beim
-     * allerersten Lauf noch gar nicht existiert.
+     * Server-zu-Server: wie der Orchestrator Keycloak erreicht (Admin-API, JWKS, Migration selbst).
      *
-     * Gehört zu dieser Hälfte und nicht zu [RealmSetup]: es ist ein Zugang zu Keycloak, kein Wert,
-     * der ins Realm geschrieben wird - eine Passwortänderung baut also kein Realm neu auf.
+     * Zugangsdaten stehen hier keine: die Migration meldet sich als `orchestrator-migration` an,
+     * einen Client im Master-Realm, den die Keycloak-Extension selbst anlegt - per signierter
+     * Assertion (`private_key_jwt`), ohne Passwort.
      */
-    val adminUsername: String,
-    val adminPassword: String,
+    val keycloakBaseUrl: String,
     /**
      * Dasselbe Keycloak, wie ein Browser es erreicht. Der Token-Issuer trägt diese Adresse, weil
      * der Browser sein Token von dort bekommt - geprüft wird trotzdem gegen [keycloakBaseUrl].

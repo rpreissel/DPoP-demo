@@ -28,9 +28,10 @@ import org.springframework.stereotype.Component
  * [KeycloakGatedReadinessState]/[ReadinessGateFilter] blocken dieses Fenster mit einem klaren 503
  * statt eines verwirrenden 500ers.
  *
- * Braucht echte Master-Realm-Admin-Credentials (keycloak-migrate.admin-*), nicht keycloak-sync's
- * orchestrator-admin-Service-Account (KeycloakAdminClient) - der wird von V5 erst angelegt,
- * existiert beim allerersten Lauf also noch nicht.
+ * Meldet sich als `orchestrator-migration` im Master-Realm an ([KeycloakMigrationToken], signierte
+ * Assertion, kein Passwort), nicht als keycloak-sync's orchestrator-admin-Service-Account
+ * (KeycloakAdminClient) - der wird von V5 erst angelegt, existiert beim allerersten Lauf also noch
+ * nicht.
  *
  * @Order(HIGHEST_PRECEDENCE): muss vor JEDEM anderen ApplicationRunner laufen, der Keycloak
  * anspricht (z.B. KcDemoAccountSeeder) - sonst schlägt dessen allererster Zugriff mit
@@ -45,9 +46,8 @@ class KeycloakMigrationRunnerStartup(
     @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
     private val readinessState: KeycloakGatedReadinessState,
     private val paramsSource: ConfiguredKeycloakSetupSource,
+    private val migrationToken: KeycloakMigrationToken,
     @Value("\${keycloak-migrate.base-url}") private val baseUrl: String,
-    @Value("\${keycloak-migrate.admin-username}") private val adminUsername: String,
-    @Value("\${keycloak-migrate.admin-password}") private val adminPassword: String,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(KeycloakMigrationRunnerStartup::class.java)
 
@@ -58,7 +58,7 @@ class KeycloakMigrationRunnerStartup(
             "Keycloak-Migrationen: wende {} auf Realm '{}' an (Variante '{}')",
             migrations.map { it.name }, setup.realm.realmName, paramsSource.variant,
         )
-        val kc = buildAdminClient(baseUrl, adminUsername, adminPassword, insecure = true)
+        val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = true)
         val runner = MigrationRunner(kc, setup.realm, migrations)
         try {
             runner.up()

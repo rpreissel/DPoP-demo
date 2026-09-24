@@ -53,6 +53,32 @@ signiert, den das JWKS des ersten nie nennt.
 - Die privaten Schlüssel liegen im Klartext in ihrer jeweiligen Datenbank — derselbe Demo-Rahmen,
   den ADR-22 für den verwahrten PIN benennt.
 
+**Nachtrag: auch die Migration ohne Passwort.** Übrig geblieben war ein geteiltes Geheimnis: Die
+Migration meldete sich als Master-Realm-Admin mit Benutzername und Passwort an
+(`KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` am Orchestrator). Jetzt legt die Extension beim Start von
+Keycloak selbst einen Client `orchestrator-migration` im Master-Realm an
+(`MigrationClientBootstrapFactory`, nach Keycloaks eigener Datenbank-Migration, idempotent):
+`private_key_jwt` gegen das JWKS des Orchestrators — derselbe Schlüssel wie bei den Realm-Clients —
+und als einzige Rolle `create-realm`. Keycloak macht den Anleger eines Realms zu dessen Admin; das
+reicht für Aufbau und Neuaufbau. Der Orchestrator holt sein Token per `client_credentials` mit
+Assertion (`KeycloakMigrationToken`). Der Bootstrap-Admin bleibt nur für Menschen an der
+Admin-Console.
+
+- **Die eine Ausnahme von dieser Entscheidung:** Die `jwks.url` dieses Clients steht nicht im Realm,
+  sondern in der SPI-Konfiguration des Keycloak-Containers
+  (`KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL`). Beim Start gibt es noch kein Realm,
+  aus dem sie kommen könnte. Die Orchestrator-Adresse steht damit an zwei Orten (dort und als
+  `orchestratorBaseUrl` der Setup-Variante). Hingenommen, weil ein falscher Wert nicht spät auffällt:
+  Der erste Token-Request der Migration scheitert beim Start. Fehlt die Option ganz, startet
+  Keycloak nicht.
+- **Nur interne Adressen:** Wer unter dieser URL antwortet, kann sich Tokens des Clients ausstellen.
+  Bei den Realm-Clients galt dieselbe Strecke schon, hier geht es um das Recht, Realms anzulegen.
+- **Umstieg:** Realms, die noch der Bootstrap-Admin angelegt hat, bleiben für den neuen Client
+  unerreichbar (keine Rechte). Die Migration bricht dann mit genau dieser Ursache ab; das Realm
+  einmal löschen (oder das Keycloak-Volume neu anlegen), sie baut es neu auf.
+- **Admin-Client:** `keycloak-admin-client` 26.0.12 kann sich selbst nicht per Assertion anmelden.
+  Ein Request-Filter setzt deshalb bei jedem Aufruf das frische Token ein (`buildAdminClient`).
+
 ---
 
 ---

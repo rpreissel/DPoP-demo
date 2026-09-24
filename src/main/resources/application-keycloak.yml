@@ -48,9 +48,10 @@ kc:
 #                    Realm NEU AUF (resetOnSetupChange) - dieselbe Konsequenz wie bei einer
 #                    geaenderten Migrationsdatei, denn die erledigten Schritte wuerden den neuen
 #                    Wert sonst nie wieder anfassen.
-#   KeycloakAccess - wie man dieses Keycloak erreicht: keycloakBaseUrl, publicKeycloakBaseUrl und
-#                    die Master-Realm-Zugangsdaten des Migrationslaufs (adminUsername/-Password).
+#   KeycloakAccess - wie man dieses Keycloak erreicht: keycloakBaseUrl, publicKeycloakBaseUrl.
 #                    Steht in keinem Realm, kostet also nichts: gilt beim naechsten Start.
+#                    Zugangsdaten gibt es keine: die Migration meldet sich als orchestrator-migration
+#                    per signierter Assertion an (KeycloakMigrationToken).
 #
 # base nennt jedes Feld, eine Variante nur ihre Abweichungen. Eine weitere Umgebung ist damit ein
 # Eintrag unter variants, keine Codeaenderung.
@@ -75,10 +76,6 @@ keycloak-setup:
     peerAuthAudience: dpop-demo-orchestrator
     keycloakBaseUrl: https://localhost:8543
     publicKeycloakBaseUrl: https://localhost:8543
-    # Master-Realm-Admin fuer den Realm-Aufbau - nicht der orchestrator-admin-Client, den die
-    # Migration selbst anlegt.
-    adminUsername: ${KEYCLOAK_ADMIN:admin}
-    adminPassword: ${KEYCLOAK_ADMIN_PASSWORD:admin}
   variants:
     host:
       # Orchestrator laeuft auf dem Host (./gradlew bootRun), nur Keycloak im Container: der Weg

@@ -37,8 +37,21 @@ services:
       # getting a fresh keypair (and a new Chrome cert-trust prompt) every time.
       KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/data/server.keystore.p12
       KC_HTTPS_KEY_STORE_PASSWORD: password
+      # Nur noch fuer Menschen (Admin-Console). Der Orchestrator braucht diesen Zugang nicht mehr:
+      # seine Migration meldet sich als orchestrator-migration an (unten).
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Die Extension legt beim Start im Master-Realm den Client orchestrator-migration an
+      # (MigrationClientBootstrapFactory, private_key_jwt, nur create-realm) und laesst ihn gegen
+      # dieses JWKS pruefen - der einzige Extension-Wert, der nicht im Realm steht (ADR-25), weil es
+      # beim Start noch keins gibt.
+      # host.containers.internal statt "orchestrator": so traegt derselbe Wert beide Betriebsarten -
+      # Orchestrator per bootRunKc auf dem Host (dann laeuft nur dieser Service) wie auch als
+      # Container unten, der Port 8080 ohnehin auf dem Host veroeffentlicht. Podman Machine loest den
+      # Namen selbst auf (siehe Kommentar weiter unten); per ORCHESTRATOR_CLIENT_JWKS_URL
+      # ueberschreibbar. Nur interne Adressen: wer unter dieser URL antwortet, kann Tokens dieses
+      # Clients ausstellen.
+      KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL: ${ORCHESTRATOR_CLIENT_JWKS_URL:-http://host.containers.internal:8080/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json}
       # Hier stehen bewusst KEINE ORCHESTRATOR_*-Variablen mehr: wohin die Extension den
       # Orchestrator anspricht, welchen iss/aud sie signiert und welchen Origin der QR-Deep-Link
       # traegt, sind Config-Properties der "orchestrator"-Komponente IM REALM
@@ -134,10 +147,8 @@ services:
       # (keycloak-setup.variants bzw. eine eigene Variante) - ein zweiter Default an dieser Stelle
       # waere derselbe Wert an zwei Orten. Client-Secrets gibt es keine mehr (private_key_jwt, ADR-25).
       KEYCLOAK_SETUP_VARIANT: compose
-      # Master-Realm-Admin fuer den Migrationslauf selbst - nicht der orchestrator-admin-Client,
-      # den die Migration erst anlegt.
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Kein Keycloak-Zugang mehr: die Migration meldet sich per signierter Assertion als
+      # orchestrator-migration an (KeycloakMigrationToken), es gibt kein geteiltes Geheimnis.
     ports:
       - "8080:8080"
     volumes:

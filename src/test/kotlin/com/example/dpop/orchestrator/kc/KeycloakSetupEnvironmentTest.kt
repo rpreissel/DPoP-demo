@@ -39,8 +39,6 @@ class KeycloakSetupEnvironmentTest {
                     "keycloak-setup.base.peerAuthAudience" to "dpop-demo-orchestrator",
                     "keycloak-setup.base.keycloakBaseUrl" to "https://localhost:8543",
                     "keycloak-setup.base.publicKeycloakBaseUrl" to "https://localhost:8543",
-                    "keycloak-setup.base.adminUsername" to "admin",
-                    "keycloak-setup.base.adminPassword" to "admin",
                     "keycloak-setup.variants.compose.keycloakBaseUrl" to "https://keycloak:8443",
                     "keycloak-setup.variants.compose.orchestratorBaseUrl" to "http://orchestrator:8080",
                 ),
@@ -58,7 +56,7 @@ class KeycloakSetupEnvironmentTest {
         // Die Variante gewinnt ueber die Basis - und zwar ueberall dort, wo der Wert einfliesst.
         assertThat(env.getProperty("keycloak-sync.base-url")).isEqualTo("https://keycloak:8443")
         assertThat(env.getProperty("keycloak-migrate.base-url")).isEqualTo("https://keycloak:8443")
-        assertThat(env.getProperty("keycloak-migrate.admin-username")).isEqualTo("admin")
+        assertThat(env.getProperty("keycloak-migrate.admin-username")).isNull()
         assertThat(env.getProperty("keycloak-sync.realm")).isEqualTo("Demo")
         assertThat(env.getProperty("keycloak-sync.admin-client-id")).isEqualTo("orchestrator-admin")
         assertThat(env.getProperty("keycloak-sync.app-client-id")).isEqualTo("orchestrator-app-token")

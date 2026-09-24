@@ -42,10 +42,9 @@ class KeycloakSetupEnvironment : EnvironmentPostProcessor, Ordered {
             MapPropertySource(
                 "migration-setup-derived",
                 mapOf(
-                    // Wohin die Migration selbst schreibt - und mit welchem Zugang.
+                    // Wohin die Migration selbst schreibt. Ein Zugang steht hier nicht: sie meldet
+                    // sich per signierter Assertion an (KeycloakMigrationToken).
                     "keycloak-migrate.base-url" to setup.access.keycloakBaseUrl,
-                    "keycloak-migrate.admin-username" to setup.access.adminUsername,
-                    "keycloak-migrate.admin-password" to setup.access.adminPassword,
                     // Account-Sync: dasselbe Realm, dieselben Clients wie die Migration sie anlegt.
                     "keycloak-sync.base-url" to setup.access.keycloakBaseUrl,
                     "keycloak-sync.realm" to setup.realm.realmName,
