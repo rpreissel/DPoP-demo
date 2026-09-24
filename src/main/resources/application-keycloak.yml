@@ -89,3 +89,13 @@ keycloak-setup:
       # publicKeycloakBaseUrl bleibt die Host-Adresse - von dort holt der Browser sein Token.
       orchestratorBaseUrl: http://orchestrator:8080
       keycloakBaseUrl: https://keycloak:8443
+    kube:
+      # Prototyp `podman kube play kube/dpop-demo.yaml`: zwei Pods im Podman-Kube-Netz. Intern
+      # dieselben Namen wie bei compose - Podman loest den Container-Namen aus der YAML als
+      # DNS-Alias auf. Eigene Variante nur wegen der Host-Ports 8090/8553, damit der Prototyp
+      # neben dem Compose-Setup (8080/8543) laufen kann.
+      browserRedirectUris: http://localhost:8090/*,http://localhost:5173/*
+      orchestratorBaseUrl: http://orchestrator:8080
+      publicOrchestratorBaseUrl: http://localhost:8090
+      keycloakBaseUrl: https://keycloak:8443
+      publicKeycloakBaseUrl: https://localhost:8553
