@@ -25,14 +25,17 @@ ein, und das ist ein anderer Vorgang.
 
 Die App startet die Journey mit dem Ziel `REGISTER` — Maras erklärter Wunsch, sich neu zu
 identifizieren, nicht bloß der technische Ablauf dahinter. Der Orchestrator bietet als
-Erstes das passende Identifikationsverfahren an: `ident-fsc` (ihre Gesundheitskarte). Die App
+Erstes das passende Identifikationsverfahren an: `ident-fsc` (der Freischaltcode, den ihr das Personenverzeichnis per Brief
+geschickt hat). Die App
 weiß nicht von sich aus, dass jetzt `ident-fsc` dran ist — sie folgt nur `next`, einer reinen
 Adresse in der Antwort des Backends, und bildet daraus über eine feste, lokale Routing-Tabelle
 die passende UI-Komponente ab.
 
-Mara liest ihre Karte. `ident-fsc` (ein eigenes Tool-Modul) prüft das Ergebnis gegen die
-Stammdaten und meldet dem Orchestrator nur ein `ToolOutcome.Completed.Identified` mit einem
-`PERSON_ID`-Claim — nie die Kartendaten selbst. Der Orchestrator legt daraufhin ein neues Konto
+Mara gibt ihre Versichertennummer, Namen und Geburtsdatum ein, danach den Code aus dem Brief.
+`ident-fsc` (ein eigenes Tool-Modul) prüft die Angaben gegen das Personenverzeichnis und den Code
+gegen dessen Briefkasten und meldet dem Orchestrator ein `ToolOutcome.Completed.Identified` mit
+einem `PERSON_ID`-Claim (ihrer Partnernummer) und den geprüften Angaben — für die das
+Personenverzeichnis einsteht, nicht das Tool. Der Orchestrator legt daraufhin ein neues Konto
 an und bindet Maras `person_id` als Anker. Die Sitzung steht damit auf `loa2`: Das Verfahren
 selbst trägt dieses Niveau.
 
@@ -170,7 +173,7 @@ nachvollziehbar, ohne dass jemand verteilte Systemlogs rekonstruieren müsste.
 
 | Verfahren | Faktorart | Trägt allein | Kam ins Spiel |
 |---|---|---|---|
-| `ident-fsc` (Karte) | Identifizierung, kein Login-Mittel | `loa2` | Kapitel 2, erneut in 5 |
+| `ident-fsc` (Freischaltcode per Brief) | Identifizierung, kein Login-Mittel | `loa2` | Kapitel 2, erneut in 5 |
 | bestätigte Adresse | keine — Konto-Infrastruktur | — | Kapitel 2 |
 | `sms` | Besitz | `loa1` | Kapitel 2 |
 | `password` | Wissen | `loa1` | Kapitel 2 |
@@ -185,7 +188,7 @@ nachvollziehbar, ohne dass jemand verteilte Systemlogs rekonstruieren müsste.
 |---|---|---|
 | Maras Verbindung zur App, über Monate hinweg | `ChannelSession` | [02-domaenenmodell.md](02-domaenenmodell.md) |
 | „Ich will mich registrieren" / „Ich will nur schnell rein" | `AuthIntent` (`REGISTER`, `FAST_ACCESS`, ...) | [04-orchestrierung.md](04-orchestrierung.md) |
-| Der eine Kartenlese-Vorgang, die eine TAN-Eingabe | `Tool` (`ident-fsc`, `enroll-sms`, ...) | [03-tool-architektur.md](03-tool-architektur.md) |
+| Die eine Freischaltcode-Eingabe, die eine TAN-Eingabe | `Tool` (`ident-fsc`, `enroll-sms`, ...) | [03-tool-architektur.md](03-tool-architektur.md) |
 | „Was soll die App jetzt anzeigen?" | `next`/`stepData` | [05-api.md](05-api.md) |
 | „Reicht das schon fürs Login/für diese Aktion?" | Niveau (`loa1`/`loa2`/`loa3`) | [04-orchestrierung.md](04-orchestrierung.md) |
 | „Besitz, Wissen, Biometrie — wie viele davon?" | `factorTypes`, MFA-Kombination | [04-orchestrierung.md](04-orchestrierung.md) |
