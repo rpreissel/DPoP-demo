@@ -1,5 +1,5 @@
 # PROTOTYP: dasselbe wie compose.yml, aber als Kubernetes-YAML fuer `podman kube play`.
-# Starten ueber kube/up.sh (baut vorher die Images - kube play kennt keine build.args),
+# Bauen mit kube/build.sh (kube play kennt keine build.args), starten mit kube/up.sh,
 # stoppen mit `podman kube down kube/dpop-demo.yaml` (Volumes bleiben, `--force` loescht sie).
 #
 # Abweichungen gegenueber compose.yml, jeweils unten am Ort begruendet:
