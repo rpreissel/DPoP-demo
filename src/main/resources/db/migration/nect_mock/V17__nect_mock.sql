@@ -1,4 +1,4 @@
--- Schema des Moduls `nect_mock` - das simulierte Fremdsystem Nect (docs/ideen/ident-nect.md).
+-- Schema des Moduls `nect_mock` - das simulierte Fremdsystem Nect (docs/03-tool-architektur.md, ident-nect).
 -- Die modulweiten Regeln (Schemabesitz, Typen, Namen) stehen in db/migration/KONVENTIONEN.md.
 
 CREATE SCHEMA IF NOT EXISTS nect_mock;

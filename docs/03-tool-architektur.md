@@ -251,6 +251,28 @@ Zentral bleibt nur, was ein Modul nicht wissen *kann*: welches Niveau sich aus e
 
 ---
 
+### Was `ident-nect` von Nect bekommt
+
+`ident-nect` leitet zum simulierten Identifizierungsdienst Nect weiter (Sprungseite `/nect/`) und holt
+das Ergebnis danach selbst ab (`NectIdent.redeem`). Nur im App-Kanal. Nect veröffentlicht keine
+Feldliste; was es weitergeben **kann**, begrenzt das Dokument selbst:
+
+| | Online-Ausweis ([§18 PAuswG](https://www.gesetze-im-internet.de/pauswg/__18.html)) | Reisepass ([ICAO 9303](https://www.icao.int/publications/doc-series/doc-9303), DG1) | EUDI-Wallet ([PID-Rulebook](https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md)) |
+|---|---|---|---|
+| Auswahl der Daten | je Zugriffsrecht | keine – der Chip wird ganz gelesen | je Attribut; der Nutzer darf ablehnen |
+| Name, Vorname, Geburtsdatum | ✓ | ✓ in MRZ-Schreibweise (`MUELLER`, ggf. gekürzt) | ✓ |
+| Anschrift | ✓, Straße und Hausnummer in einem Feld | ✗ | optional |
+| Anker | Pseudonym der Karte – je Diensteanbieter verschieden, bei Nect also Nects eigenes (`NECT_RESTRICTED_ID`, nicht das von `ident-eid`) | Dokumentnummer + Ausstellerstaat (noch nicht als Anker genutzt) | ✗ – die PID trägt kein Pseudonym |
+| Niveau / Faktorarten | `loa3`, Besitz + Wissen | `loa2`, Besitz + Biometrie (Lichtbildabgleich) | `loa3`, Besitz + Wissen |
+
+`ident-nect` fragt dasselbe an wie `ident-eid`: Name, Vorname, Geburtsdatum, Anschrift und den Anker
+des Dokuments. Nect gibt nur weiter, was angefragt **und** vom Dokument lieferbar ist. Eine Person im
+Personenverzeichnis findet `ident-nect` nicht; die Zuordnung folgt wie nach `ident-eid` über
+`ident-kvnr`. Offene Punkte (Web-Kanal, echte Anbindung, Pass-Anker):
+[ideen/ident-nect.md](ideen/ident-nect.md).
+
+---
+
 ## 2) `ToolDescriptor` und `ToolOutcome`
 
 Jedes Tool bringt eine eigene Descriptor-Bean mit (`object EnrollSmsDescriptor : ToolDescriptor`, je
@@ -316,8 +338,8 @@ bestätigte Adresse darf das Niveau des Kanals nicht anheben.
 
 Es unter `IDENT` einzuordnen, wäre falsch: `CandidateTools.forIdentification` und
 `DefaultAuthPolicy.reIdentCandidates` würden das Tool dann als Identifizierungsverfahren anbieten,
-und sein Nachweis zählte als Identitätsnachweis (IDENTITY). Das würde das IAL anheben, also die
-erste der drei Obergrenzen aus ADR-5.
+und sein Nachweis zählte als Identitätsnachweis (IDENTITY). Das würde das IAL anheben und damit
+über `enrolledUnderAcr` auch die Obergrenze der danach eingerichteten Verfahren (ADR-5).
 
 **Welche Kategorie für ein neues Attribut?** Darüber entscheiden `ClaimSource` (wer für den Wert
 einsteht) und `AttributeType.authority` (wem der aktuelle Wert gehört):

@@ -21,7 +21,7 @@ import java.util.UUID
  *
  * The confirmed value is NOT stored in a module-owned enrollment table - it is the account's
  * EMAIL anchor, referenced as [EMAIL_ANCHOR_ENROLLMENT], the first anchor-role application of the
- * claims model (docs/ideen/claims-modell-und-vertrauensanker.md). It is therefore asserted as a
+ * claims model (docs/archiv/claims-modell-und-vertrauensanker.md). It is therefore asserted as a
  * typed EMAIL claim on `Completed.Attested`, which `JourneyActionExecutor.performAdoptAttestation`
  * records via `AccountService.recordClaims` - consolidating the anchor and firing AccountChanged,
  * but creating no method instance and no device binding (docs/03-tool-architektur.md "ATTEST").

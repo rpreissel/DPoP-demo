@@ -68,7 +68,8 @@ data class AnchorRule(val acrFloor: AnchorAcrFloor, val allowsReplacement: Boole
  * is what would hand someone else's account to a new address. `EID_RESTRICTED_ID` establishes and
  * replaces at `loa2` (ADR-19): the card pseudonym is only ever proven by a full eID read, and
  * replacing it (a new card, same person) must cost exactly what establishing it did - it can
- * change value, but never account.
+ * change value, but never account. `NECT_RESTRICTED_ID` follows the same rule: the same card, read
+ * by Nect, carries Nect's own pseudonym (§18 PAuswG).
  */
 val AttributeType.authority: AttributeAuthority
     get() = when (this) {
@@ -80,7 +81,8 @@ val AttributeType.authority: AttributeAuthority
         AttributeType.VERSNR -> AttributeAuthority.Local(
             AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
         )
-        AttributeType.EID_RESTRICTED_ID -> AttributeAuthority.Local(
+        AttributeType.EID_RESTRICTED_ID,
+        AttributeType.NECT_RESTRICTED_ID -> AttributeAuthority.Local(
             AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
         )
         AttributeType.EMAIL -> AttributeAuthority.Local(
@@ -121,7 +123,8 @@ val AttributeType.isLocalAnchor: Boolean
  */
 fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.PERSON_ID -> Partnernr.of(value).value
-    AttributeType.EID_RESTRICTED_ID -> value.trim()
+    AttributeType.EID_RESTRICTED_ID,
+    AttributeType.NECT_RESTRICTED_ID -> value.trim()
     AttributeType.VERSNR -> Versnr.of(value).value
     AttributeType.EMAIL -> Email.of(value).value
     AttributeType.KVNR -> {

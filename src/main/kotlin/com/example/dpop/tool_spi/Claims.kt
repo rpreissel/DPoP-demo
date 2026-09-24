@@ -29,12 +29,19 @@ enum class AttributeType(val wireName: String) {
      * ext_personenverzeichnis never stores it.
      */
     EID_RESTRICTED_ID("restricted_id"),
+    /**
+     * The card pseudonym from an eID read through Nect. The pseudonym is specific to card AND
+     * service provider (§18 PAuswG): read by Nect, it is Nect's, never ours - so it can never equal
+     * [EID_RESTRICTED_ID] for the same card. Its own anchor, with the same rules: it recognizes a
+     * card among Nect runs, and neither kind of run overwrites the other's anchor.
+     */
+    NECT_RESTRICTED_ID("nect_restricted_id"),
     /** Family name. Master-data field for a bound account, attested history in the claim log. */
     NAME("name"),
     /** Given name(s). Master-data field, same rule as [NAME]. */
     VORNAME("vorname"),
     /** ISO date, e.g. `1970-01-01`. Master-data field: delegated, never projected (ADR notes in
-     *  docs/ideen/claims-modell-und-vertrauensanker.md). */
+     *  docs/archiv/claims-modell-und-vertrauensanker.md). */
     GEBURTSDATUM("geburtsdatum"),
     /**
      * Street AND house number in one line, first of the three address fields ([STRASSE], [PLZ],
@@ -208,7 +215,7 @@ data class ClaimDeclaration(
  * Fail-fast contract check between a descriptor's declared [ToolDescriptor.claims] and the
  * [Claim]s one completed run actually reported: every reported claim must be declared for the
  * same [AttributeType] with the SAME [ClaimSource], and at most one claim per [AttributeType]
- * (docs/ideen/claims-modell-und-vertrauensanker.md: a `Claim` set is a snapshot, not a log -
+ * (docs/archiv/claims-modell-und-vertrauensanker.md: a `Claim` set is a snapshot, not a log -
  * two values for the same attribute in one report is descriptor/handler drift, same as an
  * undeclared attribute). Descriptor/handler drift is a programming error, not a runtime
  * condition - it crashes the adopting transaction instead of silently logging an assertion the

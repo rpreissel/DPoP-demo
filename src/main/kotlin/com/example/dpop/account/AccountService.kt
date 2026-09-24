@@ -196,7 +196,7 @@ class AccountService(
     }
 
     /**
-     * The claims-log write path (docs/ideen/claims-modell-und-vertrauensanker.md) for every
+     * The claims-log write path (docs/archiv/claims-modell-und-vertrauensanker.md) for every
      * [claims] a single completed tool run asserted, applied together. Never overwrites a prior
      * claim; the log is provenance. At most one claim per [AttributeType] - the same contract
      * `assertClaimsCovered` checks upstream, re-checked here so this method is safe on its own.

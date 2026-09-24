@@ -3,9 +3,21 @@
 Diese Regeln gelten für jede Migration in diesem Verzeichnis und werden deshalb nicht in jeder
 Datei wiederholt. Ausgelegt für ≥ 10 Mio. Konten und eine lange Betriebszeit.
 
-Eine Datei je Modul, im Ordner des Moduls (`<modul>/V<n>__<modul>.sql`). Die Ordner findet
-`ModuleMigrationLocations` beim Start selbst, eine gepflegte Liste gibt es nicht. Siehe
-[ADR-30](../../../../../docs/adr/ADR-030-eine-migration-je-modul.md).
+## Migrationen
+
+- **Ein Ordner je Modul** (`<modul>/V<n>__<modul>.sql`), meist eine Datei; im obersten Verzeichnis liegt
+  keine SQL-Datei. Die Ordner findet `ModuleMigrationLocations` beim Start selbst, eine gepflegte Liste
+  gibt es nicht. Siehe
+  [ADR-16](../../../../../docs/adr/ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md).
+- **Versionsnummern laufen über alle Module durch**, weil Flyway eine einzige Historie führt. Die
+  Reihenfolge folgt den Fremdschlüsseln: `ext_personenverzeichnis` (V1), `account` (V2), `orchestrator`
+  (V3), danach die Ident- und Auth-Module, dann die Demo-Daten (`demo_seed`, V16), die Personen und
+  Freischaltcodes zugleich brauchen. Ein neues Modul bekommt die nächste freie Nummer (`nect_mock` V17,
+  `id_nect` V18). Weil es Fremdschlüssel nur innerhalb eines Schemas gibt, ist diese Reihenfolge
+  unempfindlich.
+- **Eine neue Ausgangsbasis ist nur ohne Produktivdaten vertretbar.** Sobald es solche Daten gibt,
+  werden Migrationen nur noch ergänzt, nie geändert oder zusammengefasst. Das Schema wurde bisher dreimal
+  neu aufgesetzt, jedes Mal nur, weil es keine solchen Daten gab (ADR-4, ADR-14, ADR-16).
 
 ## Zuständigkeit
 
@@ -31,7 +43,8 @@ Eine Datei je Modul, im Ordner des Moduls (`<modul>/V<n>__<modul>.sql`). Die Ord
 `account.account` ist nur Identitätsschlüssel und Wurzel für die optimistische Sperre. Der
 aktuelle Zustand steht in Zeilen, die am Konto hängen (`account.anchor`, `account.auth_method`)
 und dessen Version erhöhen, wenn sie sich ändern. Historie wird nur angehängt
-(`account.claim`, `account.identification`) und nie geändert.
+(`account.claim`, `account.identification`) und nie geändert. Siehe
+[ADR-14](../../../../../docs/adr/ADR-014-schema-zusammengefuehrt-das-konto-als-sperrpunkt-eine-wahrheit.md).
 
 ## Typen und Namen
 
@@ -40,6 +53,14 @@ und dessen Version erhöhen, wenn sie sich ändern. Historie wird nur angehängt
 - **Zeitpunkte**: `TIMESTAMP WITH TIME ZONE`. **Enum-Werte**: `VARCHAR(32)`. **ACR-Stufen**:
   `VARCHAR(16)`. **Tool-IDs, Methodennamen, Attributtypen, Claim-Quellen**: `VARCHAR(50)`.
   **Digests**: `VARCHAR(64)`.
+- **Aufzählungswerte speichern**: mit ihrem fachlichen Namen, nicht mit dem Namen der Kotlin-Konstante.
+  Das Konto speichert Attributtypen deshalb über einen eigenen `AttributeConverter`
+  (`AttributeTypeConverter`, über `AttributeType.wireName`, also `person_id` statt `PERSON_ID`) statt
+  über `@Enumerated(EnumType.STRING)`. So erkennt der Compiler eine Umbenennung, und die gespeicherten
+  Werte bleiben stabil. Der `orchestrator` nutzt für seine eigenen Enums `@Enumerated(STRING)`; es gibt
+  also zwei Arten, das ist bekannt. Die Quelle einer Angabe (`account.claim.claim_source`) ist bewusst ein
+  einfacher `String`: Als Value Class typisiert, übergab Hibernate dem Konverter beim Schreiben einen
+  `String` statt der Value Class und brach ab.
 - **Indizes und Constraints** sind schemagebundene Objekte und tragen deshalb ebenfalls kein
   Modulpräfix: `ux_<tabelle>_<spalten>` (unique), `ix_<tabelle>_<spalten>`. Jeder Aufräumlauf hat
   einen Index auf seiner Stichtagsspalte.

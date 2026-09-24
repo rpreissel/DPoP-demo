@@ -27,7 +27,7 @@ internal const val NECT_CALLBACK_URI = "/app/"
  * What we ask Nect for - the same as `ident-eid` reads from the card: name, given names and birth
  * date (what `ident-kvnr` matches on), the address, and each document's own anchor. Nect hands on
  * the part of it the chosen document can deliver: a passport has no address, a wallet PID no
- * pseudonym (docs/ideen/ident-nect.md, Abschnitt 7).
+ * pseudonym (docs/03-tool-architektur.md, "Was `ident-nect` von Nect bekommt").
  */
 internal val NECT_REQUESTED = setOf(
     NectAttribute.FAMILY_NAME,
@@ -46,7 +46,7 @@ internal val NECT_REQUESTED = setOf(
  *
  * Like `ident-eid` it attests what the document showed and resolves nobody (ADR-18). What each
  * run proved depends on the document the user picked at Nect: amr `nect-<procedure>`, the
- * procedure's own level and factors (docs/ideen/ident-nect.md).
+ * procedure's own level and factors (docs/03-tool-architektur.md, ident-nect).
  */
 @Component
 class IdentNectToolHandler(
@@ -111,9 +111,9 @@ class IdentNectToolHandler(
             a.strasse?.let { AttributeType.STRASSE to it },
             a.plz?.let { AttributeType.PLZ to it },
             a.ort?.let { AttributeType.ORT to it },
-            // Only the eID chip carries the card pseudonym (ADR-19); a passport or wallet
-            // claim of it would not be the same anchor.
-            a.restrictedId?.takeIf { result.procedure == NectProcedure.EID }?.let { AttributeType.EID_RESTRICTED_ID to it }
+            // Only the eID chip carries a card pseudonym, and read by Nect it is Nect's own
+            // (§18 PAuswG) - its own anchor, never the one ident-eid writes (ADR-19).
+            a.restrictedId?.takeIf { result.procedure == NectProcedure.EID }?.let { AttributeType.NECT_RESTRICTED_ID to it }
         )
         return ToolOutcome.Completed.Identified(
             amr = listOf("nect-${result.procedure.wireName}"),

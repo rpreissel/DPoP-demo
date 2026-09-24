@@ -1,44 +1,78 @@
-# ADR-21: Der KOBIL-PIN liegt im Backend — und das Zugangsmittel zählt trotzdem
+# ADR-21: KOBIL-Anbindung — PIN im Backend, Nachweis über eine Einmalkennung
 
-**Entscheidung** (**umgesetzt**): Beim Verfahren `kobil` wird der PIN nicht vom Nutzer vergeben und
-nicht von ihm eingetippt, sondern vom Backend des Tools erzeugt, dort verwahrt und für jede
-Anmeldung freigegeben, nachdem sich der Client auf dem Gerät entsperrt hat: mit einem
-Gerätegeheimnis, das durch Biometrie geschützt ist, oder mit dem Passwort des Kontos. Wie entsperrt
-wurde, ist das `userVerification` dieses Verfahrens (`pin` bzw. `biometric`) und kein zweiter Nachweis.
-Beide Wege erreichen `loa2`, genau wie bei `auth_device`.
+**Status:** umgesetzt.
 
-**Keiner der beiden Wege ist Pflicht, und welche existieren, rechnet der Server aus.** Die
-Biometrie entsteht nur bei Zustimmung (dann gibt es einen `unlock_secret_hash`, sonst NULL), das
-Passwort nur, solange das Konto eines hält. `auth-kobil` nennt im `stepData` die tatsächlich
-vorhandenen Wege (`unlockOptions`), statt beide anzubieten: Ein Weg, den es nicht gibt, könnte nur
-zu einem Fehlversuch führen, und der würde auf den Zähler für fehlgeschlagene Anmeldungen gehen. Das kostet etwas: Die Antwort
-verrät, ob das Konto ein Passwort hat. Vertretbar, weil dieser Schritt nur für einen Aufrufer läuft,
-dessen Schlüssel schon zu einem Credential dieses Kontos passt, und weil derselbe Aufrufer direkt
-danach `activeMethods` sieht. Eine leere Liste ist möglich und wird auch offen so gemeldet.
+Das Verfahren `kobil` zeigt, wie man einen Dienstleister für die Bindung an ein Gerät einbindet, ohne
+dem Nutzer ein weiteres Geheimnis abzuverlangen. Dafür gelten zwei Entscheidungen.
 
-**Erwogene Alternative**: Den KOBIL-Standardweg beibehalten, also den Nutzer einen PIN vergeben und
-eingeben lassen. Verworfen, weil das Verfahren hier gerade zeigen soll, wie man einen Dienstleister für die Bindung an
-ein Gerät einbindet, ohne dem Nutzer ein weiteres Geheimnis abzuverlangen.
+## 1. Der PIN liegt im Backend, und das Zugangsmittel zählt trotzdem
 
-**Zweite erwogene Alternative**: `docs/04-orchestrierung.md` Abschnitt 8 wörtlich nehmen („nur
-Faktoren melden, die dem Server nachweisbar sind") und nur `{possession}` melden; der
-Biometrie-Weg würde dann bei `loa1` landen. Verworfen, obwohl sie strenger und in einem Punkt richtiger ist:
-Wie entsperrt wurde, kann kein Server sehen. Die strengere Regel hätte aber zwei Folgen: Dieselbe
-Handlung wäre in zwei Verfahren unterschiedlich viel wert, ohne dass der Nutzer den Grund sieht. Und
-`auth_device`, das `inherence` von Anfang an aus derselben Angabe des Clients meldet, würde zur
-unerklärten Ausnahme.
+**Entscheidung.** Der KOBIL-PIN wird nicht vom Nutzer vergeben und nicht eingetippt. Das Backend des
+Tools erzeugt ihn, verwahrt ihn und gibt ihn für jede Anmeldung frei, nachdem sich der Client auf dem
+Gerät entsperrt hat: entweder mit einem durch Biometrie geschützten Gerätegeheimnis oder mit dem
+Passwort des Kontos. Wie entsperrt wurde, ist das `userVerification` des Verfahrens (`biometric` bzw.
+`pin`), kein zweiter Nachweis. Beide Wege erreichen `loa2`, genau wie `auth-device`.
 
-**Was das kostet**: Die Ausnahme von der Regel „nur nachweisbare Faktoren“ gilt damit für zwei
-Verfahren. Sie steht deshalb dort als **Ausnahme** notiert, nicht als zwei Einzelfälle. Was
-bei `kobil` dagegen stärker belegt ist als überall sonst: Der Besitzfaktor beruht auf einer
-Assertion, die das Backend selbst beim Anbieter einlöst, und nicht auf einer Signatur des Clients
-(ADR-23).
+**Welche Wege es gibt, rechnet der Server aus.** Die Biometrie entsteht nur bei Zustimmung (dann gibt
+es einen `unlock_secret_hash`), das Passwort nur, solange das Konto eines hat. `auth-kobil` nennt im
+`stepData` die tatsächlich vorhandenen Wege (`unlockOptions`). Ein Weg, den es nicht gibt, könnte nur
+zu einem Fehlversuch führen, der auf den Zähler für fehlgeschlagene Anmeldungen ginge. Dafür verrät
+die Antwort, ob das Konto ein Passwort hat. Das ist vertretbar: Der Schritt läuft nur für einen
+Aufrufer, dessen Schlüssel schon zu einem Credential dieses Kontos passt, und derselbe Aufrufer sieht
+direkt danach `activeMethods`.
 
-Zwei Dinge, die aus dieser Entscheidung folgen und im Code als Typ stehen, nicht als Kommentar:
-`KobilUnlockCredential` ist ein `sealed interface` (Gerätegeheimnis **oder** Passwort — beides oder
-nichts ist nicht konstruierbar) und trägt seine Faktorart selbst. Und das Passwort des Kontos wird als
-`pin` gemeldet, nie als `password`: Ein `amr`-Eintrag mit diesem Namen würde über
+Im Code steht das als Typ, nicht als Kommentar: `KobilUnlockCredential` ist ein `sealed interface`
+(Gerätegeheimnis **oder** Passwort) und trägt seine Faktorart selbst. Das Passwort des Kontos wird
+als `pin` gemeldet, nie als `password`: Ein `amr`-Eintrag `password` würde über
 `findActiveMethod(accountId, "password")` den Datensatz des echten Passwortverfahrens an diesen
-Durchlauf hängen und das Passwort damit doppelt zählen.
+Durchlauf hängen und das Passwort doppelt zählen.
 
----
+Dass der PIN dafür im Klartext verwahrt wird, begründet
+[ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md).
+
+**Erwogene Alternativen.**
+
+- Den KOBIL-Standardweg beibehalten, also der Nutzer vergibt und tippt einen PIN. Verworfen, weil
+  genau das Ziel war, kein weiteres Geheimnis zu verlangen.
+- Nur `{possession}` melden, weil der Server nicht sehen kann, wie entsperrt wurde
+  ([Orchestrierung](../04-orchestrierung.md), Abschnitt 8: „nur Faktoren melden, die dem Server
+  nachweisbar sind“). Das ist strenger und in einem Punkt richtiger, hätte den Biometrie-Weg aber auf
+  `loa1` gesetzt. Dieselbe Handlung wäre dann in zwei Verfahren unterschiedlich viel wert, und
+  `auth-device`, das `inherence` von Anfang an aus derselben Angabe des Clients meldet, würde zur
+  unerklärten Ausnahme.
+
+**Folge.** Die Ausnahme von „nur nachweisbare Faktoren“ gilt für zwei Verfahren (`auth-device` und
+`auth-kobil`) und steht in der Orchestrierung als eine benannte Ausnahme.
+
+## 2. Der Client trägt eine Einmalkennung, nicht die Assertion
+
+**Entscheidung.** Bei `auth-kobil` läuft der Nachweis nicht durch den Client. Die App erhält vom
+KOBIL-SDK nur ein Einmalpasswort. Die Assertion über das Gerät samt Gerätekennung und Risikosignalen
+löst das Backend selbst beim Anbieter ein. Der Besitzfaktor ist damit stärker belegt als bei jedem
+anderen Verfahren: Er beruht auf einer Assertion, die unser Backend einlöst, nicht auf einer Signatur
+des Clients.
+
+**Erwogene Alternative.** Die signierte Assertion durch den Client weiterreichen und im Server prüfen,
+nach dem Muster von `device-proof+jwt` bei `auth-device`. Das verlangt aber einen Vertrauensanker und
+ein Signaturformat, die die öffentliche Dokumentation von KOBIL nicht nennt. Ein selbst erfundenes
+Format würde sich als das echte ausgeben.
+
+**Folgen.**
+
+- Bei der Anmeldung hängt unser Server vom Server des Anbieters ab. Ist er nicht erreichbar, lässt
+  sich das Verfahren nicht nutzen.
+- Ein manipulierter Client kann nichts behaupten. Er kann eine Kennung nur zurückhalten oder
+  wiederholen, und beides endet in derselben Antwort („Bestätigung nicht erkannt“), weil eine Assertion
+  genau einmal einlösbar ist.
+- Die Gerätekennung wird **bei KOBIL erfragt**, nie vom Client übernommen, denn mit ihr wird jede
+  spätere Anmeldung verglichen.
+- Eine Ablehnung wegen eines Risikos hat einen **eigenen** Fehlergrund („Gerät als unsicher
+  gemeldet“), weil sie eine Aussage über das Gerät ist und kein Versehen des Nutzers. Bewusst in Kauf
+  genommen: Sie zählt beim Zähler für fehlgeschlagene Anmeldungen wie ein falsches Passwort. Ein
+  manipuliertes (gerootetes) Telefon kann seinen Besitzer also aussperren.
+
+## Geschichte
+
+Die zweite Entscheidung stand ursprünglich als eigene
+[ADR-23](ADR-023-der-client-traegt-eine-einmalkennung-nicht-die-assertion.md). Beide beschreiben
+dieselbe Anbindung und sind deshalb hier zusammengeführt.

@@ -8,7 +8,7 @@ import com.example.dpop.tool_spi.Claim
  * Central identity-resolution port: given the claims a tool just attested, does an existing
  * account already belong to them - and if so, which one?
  *
- * Layering (docs/ideen/claims-modell-und-vertrauensanker.md, "Identitaetsauflösung & Matching"):
+ * Layering (docs/archiv/claims-modell-und-vertrauensanker.md, "Identitaetsauflösung & Matching"):
  * tools attest, they never see accounts; the account module answers the account question,
  * because it owns the data the answer is computed from; the orchestrator only governs the
  * consequences of a [Resolution] (proceed, offer stronger procedures, or abort). One matching
@@ -28,7 +28,8 @@ interface IdentityResolver {
     /**
      * Which account, if any, the just-attested [claims] already belong to.
      *
-     * Only anchor-bearing claims take part (`PERSON_ID`, `EID_RESTRICTED_ID`, `EMAIL`); the rest
+     * Only anchor-bearing claims take part (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`,
+     * `NECT_RESTRICTED_ID`, `EMAIL` - every `AttributeAuthority.Local` type); the rest
      * are carried along as attributes and never matched on. The verdict says how strongly the set
      * binds, so the caller can tell "this IS that account" from "this looks like it" without
      * re-deriving the rule - see [Resolution].
@@ -96,7 +97,7 @@ sealed interface MatchedVia {
     /** How strongly this particular match binds - what an upgrade decision is made on. */
     val bindingStrength: BindingStrength
 
-    /** A unique anchor value (`person_id`, `email`, `restricted_id`) matched via `account.anchor`. */
+    /** A unique anchor value (`person_id`, `versnr`, `restricted_id`, `nect_restricted_id`, `email`) matched via `account.anchor`. */
     data class Anchor(val attributeType: AttributeType) : MatchedVia {
         override val bindingStrength = checkNotNull(attributeType.anchorRule) {
             "$attributeType is not an anchor attribute, has no binding strength"

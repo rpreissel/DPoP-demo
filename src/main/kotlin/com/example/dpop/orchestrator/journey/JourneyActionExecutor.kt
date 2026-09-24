@@ -98,7 +98,7 @@ class JourneyActionExecutor(
     }
 
     /**
-     * Central identity resolution (docs/ideen/claims-modell-und-vertrauensanker.md,
+     * Central identity resolution (docs/archiv/claims-modell-und-vertrauensanker.md,
      * "Identitaetsauflösung & Matching"): the account module owns the matching policy, this
      * service only governs the consequences. THE single handler for [Action.RecordIdentification],
      * covering both origins: "nothing bound yet, adopt or create" and "something already bound,

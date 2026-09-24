@@ -1,26 +1,19 @@
 # ADR-4: Neue Flyway-Ausgangsbasis statt Migration des Altcodes
 
-> **Nachtrag.** `V1__schema.sql` ist inzwischen in eine Datei je Modul aufgeteilt, siehe
-> [ADR-30](ADR-030-eine-migration-je-modul.md). Die Aussagen unten gelten unverändert; nur die
-> Datei, auf die sie sich beziehen, gibt es so nicht mehr.
+**Status:** Abgelöst durch [ADR-14](ADR-014-schema-zusammengefuehrt-das-konto-als-sperrpunkt-eine-wahrheit.md)
+und [ADR-16](ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md). Die Datei `V1__schema.sql`,
+um die es hier ging, gibt es nicht mehr.
 
+**Was damals entschieden wurde:** Ein sauberer Neubau des Schemas ersetzte die Migrationen des
+ursprünglichen Codes, statt sie Schritt für Schritt weiterzuführen. Der alte Stand war vom Ziel zu
+weit entfernt (andere Begriffe, kein `ToolDescriptor`, keine `AuthPolicy`, TANs im Klartext). Eine
+schrittweise Umstellung hätte mehr Zwischenzustände und damit mehr Fehlerquellen erzeugt als ein
+Neubau, und bei einer Demo mit lokaler H2-Datei gingen dabei keine Daten verloren.
 
-**Entscheidung**: `V1__schema.sql` ersetzt alle früheren Migrationen (`V1`–`V16` im ursprünglichen
-Code) durch einen sauberen Neubau, statt sie weiterzuführen.
+Seitdem gab es zwei weitere neue Ausgangsbasen: das zusammengeführte Kontomodell (ADR-14) und die
+Aufteilung in einen Migrationsordner je Modul (ADR-16).
 
-**Erwogene Alternative**: Den alten Code Schritt für Schritt umstellen: die Begriffe rund um
-`Attempt` auf `ToolSession`/`ToolOutcome`, die URL-Pfade auf den Bereich der Tools, und TANs im
-Klartext nachträglich hashen.
-
-**Warum diese**: Der alte Stand war im Aufbau so weit vom Ziel entfernt (andere Begriffe, kein
-`ToolDescriptor` und keine `AuthPolicy`, TANs im Klartext), dass eine schrittweise Umstellung mehr
-Zwischenzustände und damit mehr Fehlerquellen erzeugt hätte als ein Neubau. Bei einer Demo mit einer
-lokalen H2-Datei entfällt außerdem das übliche Gegenargument, der Verlust von Daten.
-
-**Kosten**: Die Entscheidung gilt nur in diesem Rahmen. Mit echten Bestandsdaten wäre eine neue
-Ausgangsbasis nicht vertretbar.
-
-**Nachtrag**: Eine zweite neue Ausgangsbasis hat die danach wieder angesammelten 37 Migrationen
-zusammengefasst und dabei das Modell bereinigt, siehe ADR-14.
-
----
+**Was davon bleibt:** eine Regel, die jetzt in
+[`db/migration/KONVENTIONEN.md`](../../src/main/resources/db/migration/KONVENTIONEN.md) steht: Eine neue
+Ausgangsbasis ist nur ohne Produktivdaten vertretbar. Sobald es solche Daten gibt, werden Migrationen
+nur noch ergänzt.

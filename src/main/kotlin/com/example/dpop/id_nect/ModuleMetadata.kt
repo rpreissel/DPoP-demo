@@ -3,7 +3,7 @@ package com.example.dpop.id_nect
 import org.springframework.modulith.ApplicationModule
 
 /**
- * Identification through Nect (docs/ideen/ident-nect.md). Like every method module it reaches the
+ * Identification through Nect (docs/03-tool-architektur.md, ident-nect). Like every method module it reaches the
  * orchestrator through `tool_spi`/`tool_api` alone; one further edge, declared rather than
  * tolerated: the identification service itself (`nect_mock.NectIdent`), the same shape as
  * `auth_kobil -> kobil_mock` and `id_fsc -> ext_personenverzeichnis` (ADR-31). Swapping the mock for the

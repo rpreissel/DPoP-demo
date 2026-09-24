@@ -11,7 +11,7 @@ dort wählt er Online-Ausweis, Reisepass oder EUDI-Wallet. Das Ergebnis holt der
 einmalig selbst bei Nect ab (`NectIdent.redeem`), nie über den Client. Die gelieferten Angaben
 bestätigt er wie bei `ident-eid` auf eigene Verantwortung (`ClaimSource.of("ident-nect")`, bis
 `loa3`, `amr` `nect-<verfahren>`). Die Zuordnung zu einer Person folgt wie bei `ident-eid` über
-`ident-kvnr` (Details: [ideen/ident-nect.md](ideen/ident-nect.md)).
+`ident-kvnr`. Details stehen in [03-tool-architektur.md](03-tool-architektur.md), Abschnitt 1; was noch offen ist, in [ideen/ident-nect.md](ideen/ident-nect.md).
 
 ---
 

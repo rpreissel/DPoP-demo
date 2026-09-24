@@ -31,9 +31,15 @@ class AttributeRulesTest : BehaviorSpec({
                 AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
             )
         }
-        then("the locally anchored attributes are exactly PERSON_ID, VERSNR, EID_RESTRICTED_ID and EMAIL") {
+        then("the locally anchored attributes are exactly PERSON_ID, VERSNR, the two card pseudonyms and EMAIL") {
             AttributeType.entries.filter { it.isLocalAnchor } shouldBe
-                listOf(AttributeType.PERSON_ID, AttributeType.VERSNR, AttributeType.EID_RESTRICTED_ID, AttributeType.EMAIL)
+                listOf(
+                    AttributeType.PERSON_ID, AttributeType.VERSNR, AttributeType.EID_RESTRICTED_ID,
+                    AttributeType.NECT_RESTRICTED_ID, AttributeType.EMAIL
+                )
+        }
+        then("the pseudonym Nect reads is anchored like our own, but as a separate anchor") {
+            AttributeType.NECT_RESTRICTED_ID.authority shouldBe AttributeType.EID_RESTRICTED_ID.authority
         }
         then("master data owns the identifying attributes it is the register for") {
             AttributeType.entries.filter { it.authority == AttributeAuthority.PersonDirectory } shouldBe

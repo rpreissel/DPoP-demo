@@ -22,7 +22,7 @@ import java.time.LocalDate
  * The account module's answer to "does an existing account belong to these claims?" - one
  * matching policy (discriminants, normalization, thresholds) for every identification
  * procedure, because the account module owns the data the answer is computed from
- * (docs/ideen/claims-modell-und-vertrauensanker.md, "Identitaetsauflösung & Matching";
+ * (docs/archiv/claims-modell-und-vertrauensanker.md, "Identitaetsauflösung & Matching";
  * docs/ideen/account-attribute-und-trust-vereinheitlichen.md, "Gemeinsame Aufloesung").
  *
  * Resolution runs on anchors only (ADR-19): unique lookups via `account.anchor`'s UNIQUE
@@ -64,7 +64,7 @@ class IdentityMatchingService(
      * in an earlier step and lives on the account, while only the person reference is new.
      *
      * Per attribute the strongest surviving claim wins, recency only breaking ties within a
-     * trust level ("Rangfolge schlägt Rezenz", docs/ideen/claims-modell-und-vertrauensanker.md).
+     * trust level ("Rangfolge schlägt Rezenz", docs/archiv/claims-modell-und-vertrauensanker.md).
      */
     override fun attestedIdentityMatches(accountId: Long, personId: String): Boolean {
         val attested = accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES)

@@ -14,7 +14,7 @@ import java.util.UUID
 
 /**
  * What a relying party can ask Nect for. Nect has no public field list; what it can hand on is
- * bounded by what each document itself delivers (docs/ideen/ident-nect.md, Abschnitt 7) - this
+ * bounded by what each document itself delivers (docs/03-tool-architektur.md, "Was `ident-nect` von Nect bekommt") - this
  * lists the part of that a relying party of this demo asks for, not everything a document holds.
  */
 enum class NectAttribute(val wireName: String) {
@@ -127,7 +127,7 @@ data class NectCaseView(val caseId: UUID, val status: String, val requested: Lis
 class NectRejectedException(val text: Text) : RuntimeException(text.template)
 
 /**
- * The simulated Nect service (docs/ideen/ident-nect.md). Two audiences, like `KobilSsms`:
+ * The simulated Nect service (docs/03-tool-architektur.md, ident-nect). Two audiences, like `KobilSsms`:
  * [createCase] and [redeem] are what the relying party's backend calls; [caseView], [complete],
  * [fail] and [cancel] are what the jump page does, reached over `/mock-nect/...`.
  */

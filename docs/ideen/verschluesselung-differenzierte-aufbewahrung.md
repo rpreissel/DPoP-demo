@@ -1,6 +1,6 @@
 # Idee: Umschlagverschlüsselung für unterschiedliche Aufbewahrung und Widerrufe
 
-> **Status: offen, nicht entschieden.** Ein Vorschlag zur Diskussion, keine Freigabe zur Umsetzung.
+> **Status: offen, nicht entschieden** (Issue `DPoP-demo-bo1w`). Ein Vorschlag zur Diskussion, keine Freigabe zur Umsetzung.
 > Er betrifft [02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 6 (`AccountClaim`,
 > `AccountAnchor`, `AccountRetraction`) und die Regeln zur Aufbewahrung in
 > [07-betrieb.md](../07-betrieb.md). Im Projekt werden gespeicherte Daten derzeit **nicht**
@@ -23,10 +23,11 @@ ausdrücklich **nicht** zur Frage.
 - Gespeicherte Daten werden derzeit **nicht** verschlüsselt. Alle Spalten mit personenbezogenen
   Daten (`account.claim.claim_value`, `account.anchor.normalized_value`,
   `ext_personenverzeichnis.person.*`, `id_eid.ident_tool_session.*`) sind `VARCHAR` bzw. `DATE` im
-  Klartext (`db/migration/<modul>/`). Kryptografisch gibt es nur PBKDF2 (Hash des Passworts), HMAC
+  Klartext (`db/migration/<modul>/`). Dazu kommt das simulierte Nect: `nect_mock.ident_case.result`
+  hält die ausgelesenen Ausweisdaten eines Vorgangs als JSON im Klartext. Kryptografisch gibt es nur PBKDF2 (Hash des Passworts), HMAC
   (TAN, E-Mail-Code, Zähler) und das Erzeugen von EC-Schlüsseln für die Assertions von Keycloak.
   `AccountKeycloakKeypair.privateKeyJwk` ist ausdrücklich als „Demo-only: plaintext, not encrypted at
-  rest“ dokumentiert (`AccountKeycloakKeypair.kt:16-17`).
+  rest“ dokumentiert (`orchestrator/kc/AccountKeycloakKeypair.kt:16`).
 - Eine Regel „eID-Daten höchstens ein Jahr“ steht nirgends in der Doku; sie ist ein angenommenes
   Beispiel. `id_eid.ident_tool_session` fällt heute unter die allgemeine Frist von 24 Stunden für
   `*_tool_session` ([07-betrieb.md](../07-betrieb.md) Abschnitt 3).

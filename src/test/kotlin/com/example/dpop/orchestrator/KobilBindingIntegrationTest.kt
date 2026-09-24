@@ -83,12 +83,6 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
     private fun redeem(toolSessionId: String, otp: String): Map<String, Any?> =
         patch("/orchestrator/api/v1/tools/$toolSessionId/auth-kobil", """{"otp":"$otp"}""")
 
-    /** Enrolls on one channel and returns the device plus a fresh, unauthenticated channel to log in on. */
-    /**
-     * enroll-kobil requires an active password (ToolDescriptor.requires, PASSWORD_EXISTS), so every
-     * setup here starts from a channel that has one. requiredAcr=loa2 keeps the registration open
-     * for the second enrollment.
-     */
     /** The methods whose key-bound credential lives on THIS device, as device-link lists them. */
     @Suppress("UNCHECKED_CAST")
     private fun boundMethods(): List<String> =
@@ -106,6 +100,7 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
         return channelSessionId
     }
 
+    /** Enrolls on one channel and returns the device plus a fresh, unauthenticated channel to log in on. */
     private fun enrolledDeviceOnFreshChannel(biometricConsent: Boolean = true): Pair<EnrolledDevice, String> {
         val enrollChannel = passwordEnrolledChannel()
         val device = enrollKobil(enrollChannel, biometricConsent)

@@ -33,7 +33,7 @@ interface AccountClaimRepository : JpaRepository<AccountClaim, Long> {
      * The two readers of this are `AccountService`, which keeps the highest trust level per
      * attribute for `AccountProfile.establishedClaims`, and `IdentityMatchingService`, which
      * needs the values themselves to check an attested identity against the register. Ranking
-     * stays in Kotlin because the source is deliberately stored untyped (ADR-13), so SQL has
+     * stays in Kotlin because the source is deliberately stored untyped (db/migration/KONVENTIONEN.md), so SQL has
      * nothing to rank it by. The change-log check in `AccountService.recordClaims` is a third
      * reader: an already-established (type, value, source) leaves no new log row.
      */

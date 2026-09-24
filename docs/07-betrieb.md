@@ -173,7 +173,14 @@ nichts, was nach Keycloak gespiegelt wird, unterbleibt der Aufruf.
 
 Jedes Konto mit bestätigter E-Mail-Adresse wird als Nutzer in Keycloak gespiegelt
 (`KeycloakAccountSyncListener`, nur im `keycloak`-Profil). Ohne Adresse fehlt Keycloak der
-Benutzername; die Spiegelung folgt dann mit der ersten Bestätigung. Sie läuft erst nach dem
+Benutzername; die Spiegelung folgt dann mit der ersten Bestätigung.
+
+Gespiegelt werden Vor- und Nachname sowie die Attribute `personId`, `kvnr`, `versnr`,
+`geburtsdatum`, `strasse` (die ganze Straßenzeile), `plz` und `ort`. Für ein Konto, das einer Person
+zugeordnet ist, gelten nur die Werte des Personenverzeichnisses; ein dort geleertes Feld bleibt auch
+in Keycloak leer. Für einen Interessenten gilt der stärkste bestätigte Wert aus dem Konto; ein Konto
+ohne beides behält Platzhalternamen. `personId`, `kvnr` und `versnr` gibt es nur bei zugeordneten
+Konten. Sie läuft erst nach dem
 Festschreiben und bewusst ohne Garantie: Ein fehlgeschlagener Aufruf bei Keycloak darf eine bereits
 abgeschlossene Kontoänderung nicht nachträglich scheitern lassen.
 
@@ -321,7 +328,7 @@ bestehenden TANs (`enroll-sms`/`auth-sms`). Abgelaufene Zeilen sind beim Lesen w
 
 Das Schema liegt in `src/main/resources/db/migration/<modul>/`, ein Ordner je Modul. Die Regeln
 stehen in `db/migration/KONVENTIONEN.md` und gelten für jede Tabelle
-([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16/ADR-30). Ein Diagramm der wichtigsten
+([12-entscheidungen.md](12-entscheidungen.md) ADR-14/ADR-16). Ein Diagramm der wichtigsten
 Tabellen zeigt [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
 
 - **Besitz ist im Aufbau verankert:** Jedes Modul hat ein eigenes Datenbankschema, und jede Tabelle
@@ -349,7 +356,7 @@ Tabellen zeigt [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
   einen Index auf ihrer Stichtagsspalte.
 - **Migrationen:** grundsätzlich eine Datei je Modul unter `db/migration/<modul>/`; `orchestrator`
   hat zusätzlich `V14__node_signing_key.sql` und `V15__event_publication.sql`
-  ([ADR-30](adr/ADR-030-eine-migration-je-modul.md)). Der heutige Stand ist eine neue Ausgangsbasis
+  ([ADR-16](adr/ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md)). Der heutige Stand ist eine neue Ausgangsbasis
   ohne Produktivdaten. Passt eine lokale H2-Datei nicht mehr zu den Migrationen, löscht
   `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf; `rm -rf data/` von
   Hand ist nicht nötig. Das gilt ausschließlich für H2. Bei jeder anderen Datenbank bricht Flyway

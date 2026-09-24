@@ -27,18 +27,38 @@ nicht auslöst.
 
 ### Kein geteiltes Geheimnis mehr
 
-Im selben Zug entfallen die Client-Secrets: `orchestrator-admin` und `orchestrator-app-token`
-authentifizieren sich per **`private_key_jwt`** (RFC 7523, die in ADR-9 erwogene Härtung). Der
-Orchestrator signiert jede Anfrage nach einem Token mit seinem eigenen Schlüssel, und Keycloak holt den
-öffentlichen Teil unter `jwks.url` ab. Das ist das Spiegelbild der Assertion, mit der sich Keycloak
-beim Orchestrator ausweist (ADR-7). Beide Richtungen folgen damit demselben Prinzip, und in der
-Konfiguration, der Compose-Datei und im Realm steht kein gemeinsames Geheimnis mehr.
+Zwischen Orchestrator und Keycloak gibt es kein gemeinsames Geheimnis, weder in der Konfiguration
+noch in der Compose-Datei noch im Realm. Jede Richtung weist sich mit einer Signatur aus:
 
-Beide Signaturschlüssel liegen jetzt **in einer Datenbank** statt im Arbeitsspeicher des Prozesses:
-der des Orchestrators in `orchestrator.node_signing_key`, der der Erweiterung als Wert der Komponente
-`orchestrator`, also in der eigenen Datenbank von Keycloak. Vorher entstand auf jeder Seite bei jedem
-Start der JVM ein neues Paar. Das reichte nur, solange genau eine Instanz lief: Eine zweite hätte mit
-einem Schlüssel signiert, den das JWKS der ersten nie nennt.
+- **Orchestrator → Keycloak (Clients im Realm).** `orchestrator-admin` und `orchestrator-app-token`
+  authentifizieren sich per **`private_key_jwt`** (RFC 7523, die in ADR-9 erwogene Härtung). Der
+  Orchestrator signiert jede Anfrage nach einem Token mit seinem eigenen Schlüssel, und Keycloak holt
+  den öffentlichen Teil unter `jwks.url` ab.
+- **Orchestrator → Keycloak (Migration).** Auch die Migration meldet sich ohne Passwort an. Die
+  Erweiterung legt beim Start von Keycloak selbst einen Client `orchestrator-migration` im Master-Realm
+  an (`MigrationClientBootstrapFactory`, nach der eigenen Datenbankmigration von Keycloak, beliebig oft
+  wiederholbar). Er meldet sich mit `private_key_jwt` über dasselbe JWKS des Orchestrators an und hat
+  die Rolle `admin` im Master-Realm. `create-realm` allein reicht nicht, weil Keycloak Admin-Rechte an
+  den Rollen im Token prüft und Rechte auf ein neues Realm erst nach dessen Anlegen vergäbe. Der
+  Orchestrator holt sein Token über `client_credentials` mit Assertion (`KeycloakMigrationToken`). Der
+  beim ersten Start angelegte Admin mit Passwort bleibt nur für Menschen an der Admin-Console.
+- **Keycloak → Orchestrator.** Die Erweiterung weist sich mit einer signierten Assertion aus (ADR-7).
+  Das ist das Spiegelbild der ersten Richtung, nach demselben Prinzip.
+
+Beide Signaturschlüssel liegen **in einer Datenbank** statt im Arbeitsspeicher des Prozesses: der des
+Orchestrators in `orchestrator.node_signing_key`, der der Erweiterung als Wert der Komponente
+`orchestrator`, also in der Datenbank von Keycloak. Vorher entstand auf jeder Seite bei jedem Start
+der JVM ein neues Paar. Das reichte nur, solange genau eine Instanz lief: Eine zweite hätte mit einem
+Schlüssel signiert, den das JWKS der ersten nie nennt. Dass die Schlüssel dort im Klartext liegen,
+ist der Demo-Kompromiss aus [ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md).
+
+**Die eine Ausnahme vom Realm als Quelle:** Die `jwks.url` des Migrations-Clients steht nicht im
+Realm, sondern in der SPI-Konfiguration des Keycloak-Containers
+(`KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL`). Beim Start gibt es noch kein Realm, aus
+dem sie kommen könnte. Die Adresse des Orchestrators steht damit an zwei Stellen (dort und als
+`orchestratorBaseUrl` der Variante). Hingenommen, weil ein falscher Wert sofort auffällt: Schon die
+erste Anfrage der Migration nach einem Token scheitert beim Start, und fehlt die Option ganz, startet
+Keycloak nicht.
 
 **Kosten**, bewusst getragen:
 
@@ -49,34 +69,16 @@ einem Schlüssel signiert, den das JWKS der ersten nie nennt.
   verkraftbar, weil die Datenbank des Orchestrators keine IDs von Keycloak speichert: Die Nutzer
   entstehen über `orchestratorAccountId` beim nächsten Abgleich neu.
 - Keycloak muss den Orchestrator erreichen können, um dessen JWKS zu holen. Diese Verbindung braucht
-  die Erweiterung ohnehin für jeden Aufruf des Keycloak-Zugangs (`orchestratorBaseUrl`). Es ist also
-  keine neue Abhängigkeit, aber eine zweite Stelle, an der sie sichtbar wird.
-- Die privaten Schlüssel liegen im Klartext in ihrer jeweiligen Datenbank. Das ist derselbe
-  Kompromiss für die Demo, den ADR-22 für den verwahrten PIN benennt.
+  die Erweiterung ohnehin für jeden Aufruf (`orchestratorBaseUrl`); neu ist nur, dass sie an einer
+  zweiten Stelle sichtbar wird.
+- **Nur interne Adressen:** Wer unter der `jwks.url` des Migrations-Clients antwortet, kann sich Tokens
+  als Admin des Master-Realms ausstellen. Die URL darf deshalb nie über einen öffentlich erreichbaren
+  Weg laufen.
+- `keycloak-admin-client` 26.0.12 kann sich selbst nicht per Assertion anmelden. Ein Filter setzt
+  deshalb bei jedem Aufruf das aktuelle Token ein (`buildAdminClient`).
 
-**Nachtrag: auch die Migration ohne Passwort.** Ein gemeinsames Geheimnis war übrig geblieben: Die
-Migration meldete sich als Master-Realm-Admin mit Benutzername und Passwort an
-(`KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` am Orchestrator). Jetzt legt die Extension beim Start von
-Keycloak selbst einen Client `orchestrator-migration` im Master-Realm an
-(`MigrationClientBootstrapFactory`, nach der eigenen Datenbankmigration von Keycloak und beliebig oft
-wiederholbar). Der Client meldet sich mit `private_key_jwt` über das JWKS des Orchestrators an, mit
-demselben Schlüssel wie die Clients im Realm, und hat die Rolle `admin` im Master-Realm, also dieselben
-Rechte wie der Admin mit Passwort, den er ersetzt. `create-realm` allein reicht nicht: Keycloak prüft
-Admin-Rechte anhand der Rollen im Token, und Rechte auf ein neu angelegtes Realm bekäme der Client erst
-nach dem Anlegen. Der Orchestrator holt sein Token über `client_credentials` mit Assertion
-(`KeycloakMigrationToken`). Der beim ersten Start angelegte Admin bleibt nur für Menschen an der
-Admin-Console.
+## Geschichte
 
-- **Die eine Ausnahme von dieser Entscheidung:** Die `jwks.url` dieses Clients steht nicht im Realm,
-  sondern in der SPI-Konfiguration des Keycloak-Containers
-  (`KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL`). Beim Start gibt es noch kein Realm,
-  aus dem sie kommen könnte. Die Adresse des Orchestrators steht damit an zwei Stellen (dort und als
-  `orchestratorBaseUrl` der Variante). Hingenommen, weil ein falscher Wert nicht erst spät auffällt:
-  Schon die erste Anfrage der Migration nach einem Token scheitert beim Start. Fehlt die Option ganz,
-  startet Keycloak nicht.
-- **Nur interne Adressen:** Wer unter dieser URL antwortet, kann sich Tokens als Admin des
-  Master-Realms ausstellen. Die URL darf deshalb nie über einen öffentlich erreichbaren Weg laufen.
-- **Admin-Client:** `keycloak-admin-client` 26.0.12 kann sich selbst nicht per Assertion anmelden.
-  Ein Filter für Anfragen setzt deshalb bei jedem Aufruf das aktuelle Token ein (`buildAdminClient`).
-
----
+Zuerst entfielen nur die Client-Secrets im Realm; die Migration meldete sich noch als Master-Realm-Admin
+mit Benutzername und Passwort an (`KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` am Orchestrator). Der
+Client `orchestrator-migration` ersetzte später auch dieses letzte gemeinsame Geheimnis.

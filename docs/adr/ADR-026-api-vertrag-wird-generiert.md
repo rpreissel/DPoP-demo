@@ -1,72 +1,56 @@
 # ADR-26: Der API-Vertrag wird generiert, nicht dreimal von Hand gepflegt
 
-> **Stand 2026-09-23:** Inzwischen deutlich erweitert (Modul-Dateien, veröffentlichte Version,
-> Java-Modelle der Extension); siehe Nachtrag.
+**Status:** umgesetzt.
 
-**Entscheidung.** `api/openapi.yaml` ist die einzige geschriebene Fassung des API-Vertrags. Ein Test
-vergleicht sie mit dem, was der laufende Code ausliefert. Die TypeScript-Typen des Frontends werden
-mit dem OpenAPI Generator daraus erzeugt.
+## Entscheidung
 
-## Vorher
+Die Quelle des API-Vertrags ist der Code. Alles andere wird daraus erzeugt:
 
-Denselben Vertrag lasen drei Stellen, jede für sich von Hand gepflegt:
+- **`api/openapi.yaml`** ist ein eingechecktes Erzeugnis. `OpenApiSnapshotTest` schreibt die Datei
+  aus dem laufenden Code (`./gradlew updateOpenApiSnapshot`); `./gradlew checkOpenApiSnapshot` prüft
+  in der CI, dass sie dazu passt. Jede gewollte Vertragsänderung wird so im Review als Diff sichtbar.
+- **`api/modules/<modul>.yaml`** entsteht im selben Lauf, damit man Änderungen je Modul prüfen kann.
+  Gemeinsame Schemas verweisen dort auf `../openapi.yaml#/components/schemas/…`, statt sie zu kopieren.
+- **`api/published/v1.yaml`** ist der eingefrorene Stand von v1. `checkPublishedApiCompatibility`
+  (openapi-diff) prüft in der CI jede Änderung dagegen; `publishApiVersion` hebt einen bewusst
+  gewollten neuen Stand an.
+- **Clients werden generiert:** das Frontend mit dem OpenAPI Generator
+  (`generateFrontendApiTypes`, eingecheckt unter `frontend/src/generated`, die CI prüft per
+  `git diff --exit-code`), die Keycloak-Erweiterung ihre Java-Modelle (`generateOrchestratorModels`,
+  nicht eingecheckt).
+- **Pflichtfelder** legt die Quelle fest: `KotlinRequiredModelConverter` macht eine Property, die in
+  Kotlin nicht `null` sein kann und keinen Standardwert hat, zu `required`.
 
-- die Kotlin-DTOs,
-- `frontend/src/types.ts` (209 Zeilen, die die DTOs nachbauten),
-- das JSON-Parsing in `keycloak-extension` (`OrchestratorClient`, `OrchestratorNextDispatch`).
+Einzelheiten: [05-api.md](../05-api.md), Abschnitt 1.
 
-springdoc lief mit, aber nichts verband die drei. Wenn sich eine Antwort änderte, merkte das jede
-Stelle zu einem anderen Zeitpunkt — die letzte oft erst zur Laufzeit.
+## Begründung
 
-## Alternative: prüfen statt generieren
+Vorher lasen drei Stellen denselben Vertrag, jede von Hand gepflegt: die Kotlin-DTOs,
+`frontend/src/types.ts` (209 Zeilen, die die DTOs nachbauten) und das JSON-Parsing in
+`keycloak-extension`. Nichts verband sie; eine geänderte Antwort bemerkte jede Stelle zu einem anderen
+Zeitpunkt, die letzte oft erst zur Laufzeit.
 
-Ein Test hätte `types.ts` gegen die Spec vergleichen können. Das meldet Abweichungen, aber man
-pflegt weiter zwei Fassungen und tippt jede Ergänzung zweimal. Generieren schließt die Abweichung
-dagegen aus.
+**Erwogene Alternative:** prüfen statt generieren, also ein Test, der `types.ts` gegen die Spec
+vergleicht. Das meldet Abweichungen, aber man pflegt weiter zwei Fassungen und tippt jede Ergänzung
+zweimal. Generieren schließt die Abweichung aus.
 
-## Kosten
+## Folgen
 
-- Eine Gradle-Abhängigkeit mehr (`org.openapi.generator`) und ein eingecheckter Generator-Stand.
-  Die CI prüft mit `git diff --exit-code`, dass er zur Spec passt.
-- Bei jeder gewollten Vertragsänderung muss man `./gradlew updateOpenApiSnapshot` laufen lassen.
-  Das ist erwünscht: die Änderung wird im Review sichtbar, statt in einem DTO-Diff unterzugehen.
-- `servers` wird aus der Spec entfernt. Der Eintrag enthält den zufälligen Testport und sagt nichts
-  über den Vertrag aus.
+- Eine Gradle-Abhängigkeit mehr (`org.openapi.generator`) und ein eingecheckter Stand des
+  Frontend-Generators. Nach `updateOpenApiSnapshot` muss man zusätzlich `generateFrontendApiTypes`
+  laufen lassen.
+- `servers` wird aus der Spec entfernt: Der Eintrag enthielte den zufälligen Testport und sagt nichts
+  über den Vertrag.
+- In der Keycloak-Erweiterung sind noch `restoreData`, die Methodenliste und die Passwortprüfung von
+  Hand geparst.
 
-## Drei Fehler in der Spec, die dabei auffielen
+## Geschichte
 
-Die Spec beschrieb an drei Stellen nicht das, was tatsächlich übertragen wird. Solange sie niemand
-las, fiel das nicht auf:
-
-- `Set<FactorType>` wurde zu einem TypeScript-`Set`. `JSON.parse` liefert aber ein Array. Die DTOs,
-  die übertragen werden, verwenden jetzt `List`; die Bedeutung als Menge bleibt im Backend.
-- Der `@JsonAnyGetter`-Teil von `DemoInfo` stand als verschachteltes `values` in der Spec, wird aber
-  flach eingebettet (`demo.tan`, nicht `demo.values.tan`). Jetzt `additionalProperties`.
-- Derselbe Tag hatte an drei bis vier Controllern verschiedene Beschreibungen. Deswegen hatte der
-  Generator die Spec als ungültig abgelehnt. Tags werden jetzt einmal an zentraler Stelle deklariert.
-
-## Pflichtfelder
-
-springdoc übernimmt nicht nach `required`, dass ein Feld in Kotlin nie `null` ist. Statt im Client
-festzulegen, welche Felder immer vorhanden sind, erledigt das jetzt `KotlinRequiredModelConverter` an
-der Quelle: Eine Property, die nicht `null` sein kann und keinen Standardwert hat, wird `required`. Der
-Client übernimmt das nur.
-
-Siehe [05-api.md](../05-api.md) Abschnitt 1.
-
-## Nachtrag (2026-09-23)
-
-- `api/openapi.yaml` ist nicht „geschrieben“, sondern ein Erzeugnis: `OpenApiSnapshotTest`
-  schreibt sie aus dem laufenden Code (`./gradlew updateOpenApiSnapshot`) und prüft sie in `check`.
-- Im selben Lauf entstehen daneben `api/modules/<modul>.yaml`, damit man Änderungen je Modul prüfen
-  kann. Gemeinsame Schemas verweisen dort über `../openapi.yaml#/components/schemas/…` auf den
-  Vertrag, statt ihn zu kopieren.
-- `api/published/v1.yaml` ist der eingefrorene Stand von v1. `checkPublishedApiCompatibility`
-  (openapi-diff) prüft jede Änderung dagegen, `publishApiVersion` hebt einen neuen Stand an.
-- Der dritte Leser aus „Vorher“ ist teilweise erledigt: `keycloak-extension` erzeugt ihre
-  Java-Modelle ebenfalls aus `api/openapi.yaml` (`generateOrchestratorModels`, nicht
-  eingecheckt) und liest `ChannelResponse`/`ErrorResponse` getypt. Von Hand geparst sind dort noch
-  `restoreData`, die Methodenliste und die Passwortprüfung.
-- Den eingecheckten Stand des Generators mit Prüfung per `git diff` gibt es nur für das Frontend. Nach
-  `updateOpenApiSnapshot` also zusätzlich `./gradlew generateFrontendApiTypes`.
-- Alles Nähere: [05-api.md](../05-api.md) Abschnitt 1.
+- Die erste Fassung nannte `api/openapi.yaml` „die einzige geschriebene Fassung“. Seit dem
+  Snapshot-Test ist sie ein Erzeugnis des Codes; Modul-Dateien, die eingefrorene v1 und die Modelle der
+  Erweiterung kamen danach dazu.
+- Beim ersten Generieren fielen drei Fehler in der damaligen Spec auf: `Set<FactorType>` wurde zu
+  einem TypeScript-`Set` (übertragen wird ein Array, die DTOs nutzen jetzt `List`); der
+  `@JsonAnyGetter`-Teil von `DemoInfo` stand als verschachteltes `values` statt flach
+  (`additionalProperties`); ein Tag hatte an mehreren Controllern verschiedene Beschreibungen (Tags
+  werden jetzt zentral deklariert).

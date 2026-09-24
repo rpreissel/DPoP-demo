@@ -207,6 +207,13 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
     ist zugleich die Rolle Interessent (ADR-34).
   - `isProvisional`: Außerdem wurde nie ein Zugangsmittel eingerichtet (deaktivierte zählen mit).
     Ein solches Konto darf gelöscht oder mit einem anderen zusammengeführt werden (ADR-20).
+- **Kennungen einer Person** im Personenverzeichnis (ADR-34):
+  - **Partnernummer**: `P` und neun Ziffern, zufällig vergeben, unveränderlich; im Konto der Anker
+    `PERSON_ID`.
+  - **Versicherungsnummer**: acht Ziffern, nur für Versicherte, änderbar und entfernbar; im Konto
+    der Anker `VERSNR`.
+  - **KVNR**: nur zusammen mit einer Versicherungsnummer, änderbar, darf zeitweise fehlen; im Konto
+    ein Claim, der jüngste gilt.
 - **Drei Rollen** ergeben sich aus den Ankern, ohne eigenes Statusfeld (ADR-34):
   - **Versicherter**: Das Konto gehört zu einer Person mit Versicherungsnummer (`VERSNR`-Anker).
   - **Partner**: Eine Person ist zugeordnet (`PERSON_ID`, die Partnernummer), aber ohne
@@ -261,7 +268,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   einen Wert, entscheidet zuerst der Rang, dann die Zeit.
 - Wem ein Attribut gehört, steht deklariert im Code: `AttributeType.authority`
   (`tool_api/AttributeRules.kt`) kennt drei Fälle:
-  - `Local` (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL`): Der Wert liegt im Konto in
+  - `Local` (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID`, `EMAIL`): Der Wert liegt im Konto in
     `account.anchor`; dieser Fall bringt die Regeln für Anker gleich mit.
   - `PersonDirectory` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE` (Straße mit
     Hausnummer), `PLZ`, `ORT`): Der Wert wird live über `PersonDirectory` gelesen; im Konto steht
@@ -275,14 +282,17 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   Attributtyp fest, welches Niveau die *erste Bindung* (`establish`) und welches das *Ersetzen*
   (`replace`) mindestens voraussetzt. `EMAIL` lässt sich schon bei `loa1` binden, aber erst ab
   `loa2` ersetzen. `PERSON_ID` verlangt schon für die erste Bindung `loa2`; daneben gilt vorrangig
-  `allowsReplacement = false`. `VERSNR` und `EID_RESTRICTED_ID` lassen sich ab `loa2` binden und
-  ersetzen (eine neue Versicherungsnummer, eine neue Karte). Geprüft wird an der einzigen Stelle,
+  `allowsReplacement = false`. `VERSNR` und die beiden Kartenpseudonyme lassen sich ab `loa2` binden und
+  ersetzen (eine neue Versicherungsnummer, eine neue Karte). Das Pseudonym des Online-Ausweises ist je
+  Diensteanbieter verschieden (§ 18 PAuswG): Liest `ident-eid` die Karte, entsteht unseres
+  (`EID_RESTRICTED_ID`); liest Nect sie, entsteht Nects (`NECT_RESTRICTED_ID`). Deshalb sind es zwei
+  Anker, und keiner überschreibt den anderen. Geprüft wird an der einzigen Stelle,
   die Anker schreibt (`AccountService.recordAnchor`); liegt die Sitzung darunter, wird der
   Schreibversuch abgewiesen (`409`).
 - `account.anchor.established_acr` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`:
   das **tatsächlich nachgewiesene** Niveau, begrenzt nach ADR-5.
 - `AccountAnchor` ordnet die lokal geführten Attribute (`AttributeAuthority.Local`: `PERSON_ID`,
-  `VERSNR`, `EID_RESTRICTED_ID`, `EMAIL`) einem Konto zu, hält sie eindeutig und ist zugleich ihr
+  `VERSNR`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID`, `EMAIL`) einem Konto zu, hält sie eindeutig und ist zugleich ihr
   einziger Speicherort. `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem
   einfachen Nachschlagen; `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen
   Wert je Konto und Attributtyp. KVNR und Partnernummer werden ausschließlich live über
@@ -297,11 +307,18 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   `Unresolved`. Über Kombinationen von Attributen aus der Claim-Historie wird nicht mehr
   aufgelöst. Name, Vorname und Geburtsdatum dienen nur noch dem Abgleich mit
   `ext_personenverzeichnis` (`verifyToolAttestedConsistency`, `attestedIdentityMatches`).
-- Herleitung und noch nicht umgesetzte Ausbaustufen (Zusammenführen von Konten):
-  [ideen/claims-modell-und-vertrauensanker.md](ideen/claims-modell-und-vertrauensanker.md).
-  Entscheidungen: [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-11/ADR-12/ADR-13/ADR-19.
-  Wie `personId` und `email` auf denselben Weg über Claims und Anker gebracht werden:
+- Bewusst getrennt bleiben einige ähnlich klingende Namen, weil an ihren Unterschieden Regeln
+  hängen: `personId` ist die Partnernummer, nicht `accountId`. `Claim`, `ClaimDeclaration` und
+  `ClaimRequirement` sind ein Ergebnis, eine zugesicherte Fähigkeit eines Tools und eine
+  Voraussetzung. `AcrLevel`, `EvidenceAxis`, `FactorType`, `acrFloor` und `targetAcr` tragen
+  verschiedene Sicherheitsregeln. `ClaimSource` (woher eine Aussage kommt) und `AmrSource` (woher
+  ein Nachweis der Sitzung kommt) haben unterschiedliche Werte.
+- Herleitung des Modells: [archiv/claims-modell-und-vertrauensanker.md](archiv/claims-modell-und-vertrauensanker.md)
+  (umgesetzt, archiviert). Entscheidungen: [12-entscheidungen.md](12-entscheidungen.md)
+  ADR-10/ADR-11/ADR-12/ADR-19 und `db/migration/KONVENTIONEN.md`. Offene Umbenennungen:
   [ideen/account-attribute-und-trust-vereinheitlichen.md](ideen/account-attribute-und-trust-vereinheitlichen.md).
+  Das Zusammenführen von Konten ist eine zurückgestellte Verbesserung
+  ([12-entscheidungen.md](12-entscheidungen.md)).
 
 ---
 

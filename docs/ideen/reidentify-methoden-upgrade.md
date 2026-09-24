@@ -1,6 +1,7 @@
 # Idee: Verfahren aufwerten nach erneuter oder erstmaliger Identifizierung (RE_IDENTIFY)
 
-Status: **Konzept, nicht umgesetzt**. Das Dokument beschreibt, was es bedeuten würde, neben
+Status: **Konzept, nicht umgesetzt, Entscheidung zu ADR-5 offen** (Stand 2026-09-24, Issue
+`DPoP-demo-wyp3`). Das Dokument beschreibt, was es bedeuten würde, neben
 „Anmeldeverfahren verwalten“ (App und Web) einen eigenen Knopf „Identifizieren“ anzubieten. Nach
 jeder erfolgreichen Sub-Journey `RE_IDENTIFY` würde an zentraler Stelle geprüft, ob bestehende
 Anmeldeverfahren mit niedrigerem `enrolledUnderAcr` nach Zustimmung aufgewertet werden dürfen.
@@ -20,7 +21,7 @@ Niveau erreichen, als er je nachgewiesen hat.
 Daraus entsteht aber ein echtes Problem für Nutzer. Ein Beispiel: Jemand registriert sich im
 Experiment „Erst Anmeldeverfahren einrichten“ (`RegisterEnrollFirstStrategy`) nur mit SMS
 (`sms.enrolledUnderAcr = loa1`, `personId == null`) und weist sich später ganz regulär mit
-`ident-fsc` oder `ident-eid` aus. Er bleibt trotzdem für immer auf `loa1` begrenzt, obwohl er seine
+`ident-fsc`, `ident-eid` oder `ident-nect` aus. Er bleibt trotzdem für immer auf `loa1` begrenzt, obwohl er seine
 Identität inzwischen nachweislich stärker bestätigt hat. Anders als im ursprünglichen
 Angriffsszenario handelt hier kein Angreifer, sondern der Inhaber des Kontos selbst, der gerade
 freiwillig einen stärkeren Nachweis erbracht hat.
@@ -34,8 +35,8 @@ freiwillig einen stärkeren Nachweis erbracht hat.
    Die erneute Identifizierung ist ja gerade der Weg, auf dem Vertrauen wächst; eine Schwelle davor
    wäre widersinnig.
 2. **Eine zentrale Prüfung für JEDEN Aufrufer:** Nicht nur beim neuen Knopf, sondern bei allen
-   heutigen Aufrufern von `RE_IDENTIFY` (`STEP_UP`, `LOOKUP_LOGIN`, `AuthEnrollCore` bei `REGISTER`,
-   `RegisterEnrollFirstStrategy`) wird nach einer erfolgreichen Identifizierung geprüft, ob es aktive
+   heutigen Aufrufern von `RE_IDENTIFY` (`STEP_UP`, `LOOKUP_LOGIN`, `AuthEnrollCore` bei `FAST_ACCESS`
+   und `REGISTER`, `RegisterEnrollFirstStrategy`) wird nach einer erfolgreichen Identifizierung geprüft, ob es aktive
    Verfahren mit niedrigerem `enrolledUnderAcr` gibt. Wenn ja, wird der Nutzer gefragt, ob diese
    Verfahren (einzeln aufgezählt) künftig bis zum neu erreichten Niveau zählen dürfen. Ist keines
    betroffen, läuft alles unverändert weiter: kein zusätzlicher Schritt und keine Änderung im
@@ -59,8 +60,8 @@ und bevor `Transition.Authenticated` zurückgegeben wird, käme ein neuer, dritt
 betroffenen Verfahren auf und fragt.
 
 Weil diese Stelle **innerhalb** von `ReIdentifyStrategy` liegt, gälte die Prüfung von selbst für alle
-fünf Aufrufer (`STEP_UP`, `LOOKUP_LOGIN`, `AuthEnrollCore`, `RegisterEnrollFirstStrategy` und der
-neue Knopf in der Verwaltung), ohne dass einer von ihnen geändert werden müsste. Neu hinzukommen
+fünf Aufrufer (`STEP_UP`, `LOOKUP_LOGIN`, `AuthEnrollCore` – genutzt von `FAST_ACCESS` und
+`REGISTER` –, `RegisterEnrollFirstStrategy` und der neue Knopf in der Verwaltung), ohne dass einer von ihnen geändert werden müsste. Neu hinzukommen
 müsste als sechster Aufrufer nur der Zustand `IdentifyRequested` in
 `ManageAuthMethodsStrategy`/`ManageAuthMethodsState`, ohne Schwelle davor.
 
@@ -74,9 +75,12 @@ Bei Zustimmung bräuchte es:
   über den Namen des Verfahrens, damit mehrere aktive Instanzen desselben Verfahrens (etwa mehrere
   Geräte) nicht verwechselt werden.
 
-`ToolOutcome.Completed.Identified.achievedAcr` setzen beide Handler zuverlässig
-(`IdentFscToolHandler.kt:77`, `IdentEidToolHandler.kt:72`: `achievedAcr = descriptor.maxAcr`, also
-`loa2` bzw. `loa3`); das ist also kein Hindernis. Als „gerade erreichtes Niveau“ sollte die neue
+`ToolOutcome.Completed.Identified.achievedAcr` setzen alle drei Handler zuverlässig:
+`ident-fsc` und `ident-eid` mit `descriptor.maxAcr`, also `loa2` bzw. `loa3`
+(`IdentFscToolHandler.kt:116`, `IdentEidToolHandler.kt:65`); `ident-nect` mit dem Niveau des
+gewählten Verfahrens, also `loa3` beim Online-Ausweis und der EUDI-Wallet, aber nur `loa2` beim
+Reisepass (`IdentNectToolHandler.kt:120`). Das ist also kein Hindernis – und zeigt, dass das erreichte
+Niveau nicht aus dem Descriptor abgelesen werden darf. Als „gerade erreichtes Niveau“ sollte die neue
 Prüfung trotzdem nicht `state.targetAcr` verwenden. Das ist nur die *Mindestanforderung*, mit der die
 Sub-Journey gestartet wurde. Beim neuen Knopf ohne Schwelle wäre sie zum Beispiel bewusst `loa1`,
 damit `ident-fsc` als Kandidat nicht wegfällt. Sie kann also niedriger sein als das tatsächlich

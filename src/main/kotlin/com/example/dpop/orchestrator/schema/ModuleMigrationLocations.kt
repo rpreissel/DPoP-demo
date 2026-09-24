@@ -10,7 +10,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver
  * Lets every module keep its own migrations in its own folder under `db/migration/`.
  *
  * Each module owns a database schema (`auth_sms.*`, `account.*`, ..., ADR-16) and the migrations
- * that build it, in `db/migration/<module>/` (ADR-30). Before that, one shared file created the
+ * that build it, in `db/migration/<module>/` (ADR-16). Before that, one shared file created the
  * tables of every module, so adding a method module meant editing a file shared with all others -
  * the one place module autonomy still broke.
  *

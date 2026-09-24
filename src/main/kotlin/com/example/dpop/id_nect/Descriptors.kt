@@ -38,8 +38,8 @@ object IdentNectDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.STRASSE, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.PLZ, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId)),
-        // eID via Nect reads the same card pseudonym as ident-eid - the same person's card is
-        // recognized whichever of the two read it (ADR-19).
-        ClaimDeclaration(AttributeType.EID_RESTRICTED_ID, ClaimSource.of(toolId))
+        // eID via Nect yields Nect's own card pseudonym, never the one ident-eid reads - the
+        // pseudonym is specific to the service provider (§18 PAuswG). Hence its own anchor (ADR-19).
+        ClaimDeclaration(AttributeType.NECT_RESTRICTED_ID, ClaimSource.of(toolId))
     )
 }

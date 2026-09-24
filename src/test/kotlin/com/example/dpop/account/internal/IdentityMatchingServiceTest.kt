@@ -19,7 +19,7 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Pins the resolution policy of the central identity matching (docs/ideen/claims-modell-und-
+ * Pins the resolution policy of the central identity matching (docs/archiv/claims-modell-und-
  * vertrauensanker.md, "Identitaetsauflösung & Matching"; docs/ideen/account-attribute-und-trust-
  * vereinheitlichen.md, "Gemeinsame Aufloesung"): the tool-attested consistency gate and
  * anchor-only resolution (ADR-19) - unique anchor lookups through `account.anchor`, PERSON_ID

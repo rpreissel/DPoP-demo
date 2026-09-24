@@ -1,18 +1,21 @@
 # Idee: Keycloakify statt FreeMarker für Anmeldung, Registrierung und Verwaltung der Verfahren
 
-Status: **Konzept, nicht umgesetzt**. Die Verwaltung der Anmeldeverfahren im Web-Kanal läuft
-inzwischen über eine Required Action von Keycloak ([API](../05-api.md), „Anmeldeverfahren verwalten
-im Web-Kanal“). Darauf würde eine spätere Umstellung auf Keycloakify für diese Verwaltung aufbauen.
+Status: **Konzept, nicht umgesetzt** (Issue `DPoP-demo-an4z`). Die Verwaltung der Anmeldeverfahren im
+Web-Kanal läuft bereits als Required Action von Keycloak mit FreeMarker (`orchestrator-manage-methods.ftl`,
+[API](../05-api.md), „Anmeldeverfahren verwalten im Web-Kanal“). Keycloakify würde nur deren Darstellung
+ersetzen, wie die aller anderen Seiten.
 
 ---
 
 ## 1) Ausgangslage
 
-Anmeldung, Registrierung und künftig die Verwaltung der Verfahren im Web-Kanal zeigt Keycloak heute
+Anmeldung, Registrierung und die Verwaltung der Verfahren im Web-Kanal zeigt Keycloak heute
 vollständig über von Hand geschriebene FreeMarker-Vorlagen an
-(`keycloak-extension/src/main/resources/theme/orchestrator/login/`: `theme.properties`,
-`orchestrator-tool.ftl` als allgemeines Grundgerüst und dazu eine Vorlage je Tool wie
-`tool-sms-auth.ftl`, `tool-email-*.ftl`, `tool-password-*.ftl`, `demo-person-picker.ftl`). Die Frage:
+(`keycloak-extension/src/main/resources/theme/orchestrator/login/`): `orchestrator-tool.ftl` als
+allgemeines Grundgerüst, die Seiten des Orchestrators (`orchestrator-select.ftl`,
+`orchestrator-confirm.ftl`, `orchestrator-error.ftl`, `orchestrator-manage-methods.ftl`), eine Vorlage
+je Tool (`tool-ident-*.ftl`, `tool-sms-*.ftl`, `tool-email-*.ftl`, `tool-password-*.ftl`,
+`tool-qr-*.ftl`) und die gemeinsame Auswahl der Testperson `demo-person-picker.ftl`. Die Frage:
 Lässt sich das durch React-Komponenten mit [Keycloakify](https://www.keycloakify.dev/) ersetzen, und
 eignet sich Keycloakify überhaupt für die Verwaltung der Verfahren?
 
@@ -22,7 +25,7 @@ Der Web-Kanal ist mehr als ein Theme. Code in Keycloak, der tief über dessen Sc
 Erweiterungen (SPI) eingebunden ist, entscheidet, *welche* Vorlage mit *welchen* Werten aus
 `stepData` angezeigt wird: `OrchestratorAuthenticator`, `OrchestratorUpdateAuthenticator`,
 `OrchestratorResumeAuthenticator`, `WebToolRendererSpi` (mit einer Renderer-Factory je Tool),
-`OrchestratorPasswordStorageProvider`, `OrchestratorAcrAmrMapper`, `PeerAuthAssertionSigner` und
+`OrchestratorStorageProvider`, `OrchestratorAcrAmrMapper`, `PeerAuthAssertionSigner` und
 weitere (`keycloak-extension/src/main/java/com/example/dpop/kcext/`). **Keycloakify würde nur die
 Darstellung ersetzen** (FreeMarker durch ein React-Bundle), nicht diese Logik; der Java-Code bliebe
 unverändert. Das wäre eine klar abgegrenzte Änderung mit geringem Risiko.

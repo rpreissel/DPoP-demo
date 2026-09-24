@@ -9,7 +9,7 @@ import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
 
 /**
- * ident-nect end to end (docs/ideen/ident-nect.md): the app gets a jump URL, the user identifies
+ * ident-nect end to end (docs/03-tool-architektur.md, ident-nect): the app gets a jump URL, the user identifies
  * on Nect's page (here: its `/mock-nect` API), comes back with the case id, and the backend
  * redeems the result itself. Like ident-eid it attests and resolves nobody - binding to a
  * register person is ident-kvnr's step afterwards (ADR-18).
@@ -91,6 +91,24 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
                     Int::class.java,
                     run.channelSessionId
                 ) shouldBe 1
+            }
+        }
+
+        given("an eID read through Nect") {
+            then("Nect's card pseudonym becomes its own anchor, never the one ident-eid writes (§18 PAuswG)") {
+                val run = start()
+                finishAtNect(run.caseId, "eid", "$max,$maxAddress,\"restrictedId\":\"NECT-EID-OWN\"", pin = "123456")
+                report(run.toolSessionId, run.caseId)
+
+                jdbcTemplate.queryForList(
+                    """
+                    SELECT an.attribute_type || '=' || an.normalized_value FROM account.anchor an
+                    JOIN orchestrator.channel_session cs ON cs.account_id = an.account_id
+                    WHERE cs.id = CAST(? AS UUID) AND an.attribute_type IN ('nect_restricted_id', 'restricted_id')
+                    """.trimIndent(),
+                    String::class.java,
+                    run.channelSessionId
+                ) shouldBe listOf("nect_restricted_id=NECT-EID-OWN")
             }
         }
 

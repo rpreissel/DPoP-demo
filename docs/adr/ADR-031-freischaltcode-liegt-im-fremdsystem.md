@@ -3,7 +3,7 @@
 **Entscheidung** (**umgesetzt**): Die Freischaltcodes liegen in `ext_personenverzeichnis.freischaltcode`,
 nicht mehr in `id_fsc.code`. `ext_personenverzeichnis` stellt sie über die öffentliche Klasse
 `Freischaltcodes` aus, widerruft sie und prüft sie. `id_fsc` ruft `Freischaltcodes.pruefe` direkt
-auf und deklariert dafür `ext_personenverzeichnis` als dritte erlaubte Abhängigkeit.
+auf und deklariert dafür `ext_personenverzeichnis` als erlaubte Abhängigkeit.
 
 ## Warum
 
@@ -27,19 +27,15 @@ Verfahren zur Identifizierung, nicht nur `id_fsc`.
 
 Das Personenverzeichnis hält den Code nur als SHA-256-Hash (`Freischaltcodes.digest`, die einzige Definition;
 `demo_seed/V16__testdata.sql` rechnet in SQL dasselbe). Den Klartext trägt der simulierte Brief
-(`ext_personenverzeichnis.brief`). Auch in der echten Welt gibt es diesen Klartext, nämlich auf Papier. Die
-Demo liest ihn aus dem Briefkasten, statt eine zweite, fest eingetragene Liste von Codes zu pflegen.
-Das ist ein Kompromiss für die Demo wie in
-[ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md): benannt statt verschwiegen.
+(`ext_personenverzeichnis.brief`). Die Demo liest ihn aus dem Briefkasten, statt eine zweite, fest
+eingetragene Liste von Codes zu pflegen. Warum der Klartext dort liegen darf, steht in
+[ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md).
 
 ## Kosten
 
 - Die Migrationen `ext_personenverzeichnis/V1`, `id_fsc/V4` und `demo_seed/V16` wurden direkt
-  geändert, statt neue hinzuzufügen. Nach [ADR-30](ADR-030-eine-migration-je-modul.md) wird eine bestehende H2-Datei
+  geändert, statt neue hinzuzufügen. Nach [ADR-16](ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md) wird eine bestehende H2-Datei
   dadurch ungültig; `FlywayResetConfig` baut sie lokal neu auf.
-- Die Aussage „Methodenmodule hängen nur an `tool_spi`/`tool_api`" (Projektrahmen M-3) hat jetzt
-  zwei benannte Ausnahmen, beide zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock` und
-  `id_fsc → ext_personenverzeichnis`. **Nachtrag:** Inzwischen sind es drei, alle zu einem
-  simulierten Fremdsystem: dazu `id_nect → nect_mock` ([Idee ident-nect](../ideen/ident-nect.md),
-  Abschnitt 12). Seit ADR-33 hängt außerdem jedes Modul mit Nutzertexten an `texts`; „dritte
-  erlaubte Abhängigkeit“ oben meint den Stand vor ADR-33.
+- Methodenmodule hängen damit nicht mehr nur an `tool_spi`/`tool_api`. Welche benannten Ausnahmen es
+  zu simulierten Fremdsystemen gibt, führt der [Projektrahmen](../08-projektrahmen.md) (M-3) an einer
+  Stelle.

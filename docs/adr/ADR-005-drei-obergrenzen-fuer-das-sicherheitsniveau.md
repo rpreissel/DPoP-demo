@@ -1,48 +1,40 @@
-# ADR-5: Drei Obergrenzen für das Sicherheitsniveau
+# ADR-5: Zwei Obergrenzen für das Sicherheitsniveau
 
-> **Stand 2026-09-23:** Die erste Obergrenze wird nicht mehr als eigene Größe gelesen; sie wirkt
-> nur noch über `enrolledUnderAcr`. Siehe Nachtrag 2.
+**Status**: umgesetzt.
 
-**Entscheidung**: Das erreichbare Sicherheitsniveau ist an drei voneinander unabhängigen Stellen
-begrenzt:
+**Entscheidung**: Das Sicherheitsniveau, das ein Verfahren in einer Sitzung liefert, ist an zwei
+Stellen nach oben begrenzt:
 
-- `account.identification.achieved_acr` begrenzt, was ein Konto überhaupt erreichen kann.
-- `account.auth_method.enrolled_under_acr` begrenzt, was ein einzelnes Verfahren beitragen darf.
-- `achievedAcr` einer Sitzung ist das Kleinere von zwei Werten: dem tatsächlich Nachgewiesenen und
-  dem, was das verwendete Verfahren laut seinem `enrolledUnderAcr` erreichen darf.
+- **Beim Einrichten** hält jedes Verfahren fest, welches Niveau die Sitzung damals nachgewiesen hatte
+  (`account.auth_method.enrolled_under_acr`, gesetzt im `JourneyActionExecutor`). Mehr als dieses
+  Niveau kann das Verfahren später nie beitragen.
+- **Beim Anmelden** zählt das Kleinere aus zwei Werten: dem, was das Verfahren in dieser Sitzung
+  tatsächlich nachgewiesen hat, und seinem `enrolledUnderAcr` (`performAcceptProof`).
 
-Einzelheiten: [Orchestrierung](../04-orchestrierung.md) Abschnitt 8, [Überblick](../01-ueberblick.md).
+Die Identifizierung wirkt dabei über die erste Grenze: Wer sich nur schwach ausgewiesen hat, richtet
+jedes Verfahren in einer Sitzung mit niedrigem Niveau ein, und genau dieses Niveau steht dann in
+`enrolledUnderAcr`. Eine eigene, kontoweite Grenze aus der Identifizierung gibt es nicht.
 
-**Erwogene Alternative**: `achievedAcr` nur aus dem ableiten, was in der aktuellen Sitzung bisher
-geschehen ist, ohne zu berücksichtigen, unter welchen Bedingungen ein Verfahren einmal eingerichtet
-wurde.
+Wie das sichtbare Niveau (`acr`) aus dem Nachweis einer Sitzung entsteht, beschreibt
+[Orchestrierung](../04-orchestrierung.md) Abschnitt 8: `DefaultAuthPolicy.resolveAcr` trennt dort die
+Stärke der Identifizierung (IAL) von der Stärke der Anmeldung (AAL). Das IAL zählt nur den
+Identitätsnachweis der **laufenden** Sitzung, weil die Identität in jeder Sitzung neu bewiesen wird.
 
-**Warum diese**: Ohne die Begrenzung durch `enrolledUnderAcr` gäbe es einen Weg nach oben: Wer eine
-schwache Sitzung übernimmt (z. B. auf `loa1`), könnte darin ein eigenes Verfahren einrichten und damit
-dauerhaft ein höheres Niveau vortäuschen. Die dritte Grenze verhindert außerdem, dass eine schwach
-identifizierte Person über starke Anmeldeverfahren ein Niveau erreicht, das ihre Identifizierung nie
-hergab.
+**Erwogene Alternative**: Das Niveau nur aus dem ableiten, was in der laufenden Sitzung geschehen ist,
+ohne zu berücksichtigen, unter welchen Bedingungen ein Verfahren eingerichtet wurde.
 
-**Kosten**: Es gibt drei Stellen, an denen ein Niveau sinken kann, statt einer. Welche davon gerade
-wirkt, lässt sich nur mit `AuthEvidence` (vgl. [ADR-15](ADR-015-nachweise-und-ausgestellte-tokens-in-getrennten-tabellen.md)), `account.auth_method.enrolled_under_acr` und
-`account.identification.achieved_acr` zusammen nachvollziehen.
+**Begründung**: Ohne die Grenze beim Einrichten gäbe es einen Weg nach oben. Wer eine schwache Sitzung
+übernimmt (etwa auf `loa1`), könnte darin ein eigenes Verfahren einrichten und damit dauerhaft ein
+höheres Niveau vortäuschen. Ebenso könnte eine schwach identifizierte Person über starke
+Anmeldeverfahren ein Niveau erreichen, das ihre Identifizierung nie hergab.
 
-**Nachtrag 1**: `DefaultAuthPolicy.resolveAcr` trennt die Stärke der Identifizierung (IAL,
-`identityAssuranceLevel`) von der Stärke der Anmeldung (AAL, `authenticatorAssuranceLevel`), siehe
-[Orchestrierung](../04-orchestrierung.md) Abschnitt 8. Der sichtbare `acr`-Wert bleibt gleich; die
-Trennung verhindert, dass mehrere Verfahren das Niveau fälschlich anheben. (Ursprünglich stand hier, IAL berechne
-die erste Obergrenze. Das trifft nicht zu, siehe Nachtrag 2.)
+**Folgen und Kosten**: Ein Niveau kann an zwei Stellen sinken statt an einer. Welche gerade wirkt, lässt
+sich nur mit dem Nachweis der Sitzung (`AuthEvidence`, [ADR-15](ADR-015-nachweise-und-ausgestellte-tokens-in-getrennten-tabellen.md))
+und `account.auth_method.enrolled_under_acr` zusammen nachvollziehen. Die Tabelle
+`account.identification` mit `achieved_acr` ist nur ein Audit-Nachweis und wird für keine Entscheidung
+gelesen.
 
-**Nachtrag 2 (2026-09-23)**: `account.identification.achieved_acr` wird für keine Entscheidung
-gelesen; die Tabelle ist nur ein Audit-Nachweis (siehe die Dokumentation der Klasse
-`AccountIdentification`). IAL zählt bewusst nur den Identitätsnachweis der **laufenden** Sitzung,
-weil die Identität in jeder Sitzung neu bewiesen wird (`DefaultAuthPolicy.identityAssuranceLevel`).
-Die erste Obergrenze wirkt deshalb nur noch indirekt: `enrolledUnderAcr` ist das Niveau, das die
-Sitzung beim Einrichten des Verfahrens nachgewiesen hatte (`JourneyActionExecutor`, `resolveAcr` auf
-dem Nachweis der Sitzung), und darin steckt die Identifizierung dieser Sitzung. Eine schwach
-identifizierte Person kann ein starkes Verfahren also weiterhin nicht über ihr Niveau der
-Identifizierung hinaus einrichten; es gibt dafür nur keine eigene Grenze für das ganze Konto mehr.
-Tatsächlich wirken zwei Stellen: `enrolledUnderAcr` je Verfahren und das Kleinere aus diesem Wert
-und dem in der Sitzung Bewiesenen (`performAcceptProof`).
-
----
+**Geschichte**: Ursprünglich waren es drei Grenzen; die erste sollte `account.identification.achieved_acr`
+sein und begrenzen, was ein Konto überhaupt erreichen kann. Diese Grenze wurde nie gelesen. Seit
+2026-09-23 ist festgehalten, dass die Identifizierung nur noch über `enrolledUnderAcr` wirkt. Der
+Dateiname trägt noch die alte Zahl.

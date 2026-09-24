@@ -4,7 +4,7 @@ import org.springframework.modulith.ApplicationModule
 
 /**
  * The first anchor-role application of the claims model
- * (docs/ideen/claims-modell-und-vertrauensanker.md): the confirmed email is the account's
+ * (docs/archiv/claims-modell-und-vertrauensanker.md): the confirmed email is the account's
  * **identifier**, not a swappable credential. It is asserted as a typed EMAIL claim on
  * `Completed.Enrolled` and recorded through the generic claims write path
  * (`AccountService.recordClaim`), which consolidates the `account.anchor` row and fires the
