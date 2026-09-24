@@ -369,10 +369,18 @@ export function checkAdminLogin(): Promise<unknown> {
   return fetchRegistrationOrder()
 }
 
+/** The real Keycloak as this browser reaches it - only under the server's `keycloak` profile. */
+export interface KeycloakInfo {
+  /** Public address (what the browser resolves), not the server-to-server one. */
+  baseUrl: string
+  realm: string
+  browserClientId: string
+  qrTestClientId: string
+}
+
 export interface ServerInfo {
-  keycloakProfile: boolean
-  keycloakBaseUrl?: string | null
-  keycloakRealm?: string | null
+  /** null/absent without the `keycloak` profile - then there is no Web channel. */
+  keycloak?: KeycloakInfo | null
   registrationEnrollFirst: boolean
   disabledTools: { toolId: string; channel: ChannelType; reason?: string | null }[]
   demoDisclosure: boolean

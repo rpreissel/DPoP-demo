@@ -52,6 +52,11 @@ class KeycloakSetupEnvironment : EnvironmentPostProcessor, Ordered {
                     "keycloak-sync.public-base-url" to setup.access.publicKeycloakBaseUrl,
                     "keycloak-sync.admin-client-id" to setup.realm.adminApiClientId,
                     "keycloak-sync.app-client-id" to setup.realm.appTokenClientId,
+                    // Web-Kanal im Browser (ServerInfo.keycloak): dieselben Clients, die die
+                    // Migration fuer ihn anlegt - statt einer zweiten, fest verdrahteten Kopie im
+                    // Frontend.
+                    "keycloak-web.browser-client-id" to setup.realm.browserClientId,
+                    "keycloak-web.qr-test-client-id" to setup.realm.qrTestClientId,
                     // Peer-Auth: iss/aud muessen exakt das sein, was die Extension signiert -
                     // und das steht als Config-Property an der orchestrator-Komponente im Realm,
                     // gesetzt aus genau diesen Feldern.

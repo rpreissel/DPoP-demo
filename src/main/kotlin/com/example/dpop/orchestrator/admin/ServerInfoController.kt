@@ -14,12 +14,27 @@ import org.springframework.web.bind.annotation.RestController
 /** [channel]: APP or KEYCLOAK - a lock applies to one channel type. */
 data class DisabledToolView(val toolId: String, val channel: String, val reason: String?)
 
+/**
+ * The real Keycloak as the BROWSER sees it - everything the Web channel's own OIDC client needs.
+ * Derived by KeycloakSetupEnvironment from the selected setup variant, so the frontend carries no
+ * copy of address, realm or client ids that could drift from what the migration built.
+ * [baseUrl] is the public address (publicKeycloakBaseUrl), never the server-to-server one: under
+ * compose that would be `https://keycloak:8443`, which no browser resolves.
+ */
+data class KeycloakInfo(
+    val baseUrl: String,
+    val realm: String,
+    val browserClientId: String,
+    val qrTestClientId: String
+)
+
 data class ServerInfo(
-    /** true under the `keycloak` Spring profile (real Keycloak), false without it - then there is no Web channel. */
-    val keycloakProfile: Boolean,
-    /** Only set under the `keycloak` profile, derived by KeycloakSetupEnvironment. */
-    val keycloakBaseUrl: String?,
-    val keycloakRealm: String?,
+    /**
+     * Set under the `keycloak` Spring profile (real Keycloak), null without it - then there is no
+     * Web channel. One nullable block instead of a flag plus optional fields: "profile on, but no
+     * address" cannot be expressed.
+     */
+    val keycloak: KeycloakInfo?,
     val registrationEnrollFirst: Boolean,
     val disabledTools: List<DisabledToolView>,
     /** `demo.disclosure` - whether responses carry the demo block (TANs, personas, ...). */
@@ -42,14 +57,18 @@ class ServerInfoController(
     @GetMapping
     @Operation(summary = "Current server status")
     fun get(): ServerInfo {
-        val keycloak = environment.acceptsProfiles(Profiles.of("keycloak"))
         return ServerInfo(
-            keycloakProfile = keycloak,
-            keycloakBaseUrl = if (keycloak) environment.getProperty("keycloak-sync.base-url") else null,
-            keycloakRealm = if (keycloak) environment.getProperty("keycloak-sync.realm") else null,
+            keycloak = if (environment.acceptsProfiles(Profiles.of("keycloak"))) keycloakInfo() else null,
             registrationEnrollFirst = featureFlagService.isEnabled(FeatureFlags.REGISTER_ENROLL_FIRST),
             disabledTools = toolAvailabilityService.disabledEntries().map { DisabledToolView(it.toolId!!, it.channel!!.name, it.reason) },
             demoDisclosure = environment.getProperty("demo.disclosure", Boolean::class.java, true)
         )
     }
+
+    private fun keycloakInfo() = KeycloakInfo(
+        baseUrl = environment.getRequiredProperty("keycloak-sync.public-base-url"),
+        realm = environment.getRequiredProperty("keycloak-sync.realm"),
+        browserClientId = environment.getRequiredProperty("keycloak-web.browser-client-id"),
+        qrTestClientId = environment.getRequiredProperty("keycloak-web.qr-test-client-id")
+    )
 }

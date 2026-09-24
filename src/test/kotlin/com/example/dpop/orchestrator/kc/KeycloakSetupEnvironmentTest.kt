@@ -62,6 +62,10 @@ class KeycloakSetupEnvironmentTest {
         assertThat(env.getProperty("keycloak-sync.realm")).isEqualTo("Demo")
         assertThat(env.getProperty("keycloak-sync.admin-client-id")).isEqualTo("orchestrator-admin")
         assertThat(env.getProperty("keycloak-sync.app-client-id")).isEqualTo("orchestrator-app-token")
+        // Der Browser bekommt die oeffentliche Adresse, nicht die der Variante fuer Server-zu-Server.
+        assertThat(env.getProperty("keycloak-sync.public-base-url")).isEqualTo("https://localhost:8543")
+        assertThat(env.getProperty("keycloak-web.browser-client-id")).isEqualTo("dpop-demo-web")
+        assertThat(env.getProperty("keycloak-web.qr-test-client-id")).isEqualTo("dpop-demo-web-qr-test")
         assertThat(env.getProperty("kc.peer-auth.jwks-uri"))
             .isEqualTo("https://keycloak:8443/realms/Demo/orchestrator-jwks/.well-known/jwks.json")
         assertThat(env.getProperty("kc.peer-auth.issuer")).isEqualTo("dpop-demo-keycloak")

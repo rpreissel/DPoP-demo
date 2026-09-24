@@ -96,8 +96,10 @@ Bibliothek teilen. Jede hat ein eigenes Farbschema (`index.css`), damit man ohne
   Kanal auf der Admin-Seite.
 - **Web-Kanal** (`/web/`) — der echte Keycloak-Browser-Ablauf, ohne Tabs. Es gibt ihn nur mit dem
   Spring-Profil `keycloak`: Ohne Profil zeigt `/web/` einen Hinweis statt eines Logins, und die
-  Kachel auf der Startseite ist deaktiviert (beides liest `server-info.keycloakProfile`). Einen
-  simulierten Keycloak gibt es nicht mehr.
+  Kachel auf der Startseite ist deaktiviert (beides liest `server-info.keycloak`, ohne Profil
+  `null`). Derselbe Block sagt dem Browser auch, wo Keycloak liegt: öffentliche Adresse, Realm und
+  beide Client-Ids, abgeleitet aus dem Setup-Parametersatz (`keycloak-setup`). `webOidc.ts` hat
+  dafür keine eigenen Konstanten mehr. Einen simulierten Keycloak gibt es nicht mehr.
 - **Admin** (`/admin/`) — die Betreiber-Sicht, hinter dem Admin-Login (HTTP Basic auf
   `/orchestrator/admin/**`, `AdminSecurityConfig`). Tabs *Einstellungen* (Verfahren je Kanal sperren und ordnen,
   Registrierungsreihenfolge, Keycloak-Sync, Entwickler-Links), *Journey-Log* über alle Konten und

@@ -52,7 +52,7 @@ class AdminIntegrationTest : IntegrationTestSupport() {
 
             then("the app channel and the public server info need no login") {
                 post("/orchestrator/api/v1/app/channels") // post() itself asserts the 2xx
-                restTemplate.getForObject("http://localhost:$port/orchestrator/demo/server-info", Map::class.java)!!["keycloakProfile"] shouldBe false
+                restTemplate.getForObject("http://localhost:$port/orchestrator/demo/server-info", Map::class.java)!!["keycloak"] shouldBe null
             }
         }
 

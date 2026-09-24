@@ -275,6 +275,22 @@ components:
           example: loa2
           type: string
       type: object
+    KeycloakInfo:
+      properties:
+        baseUrl:
+          type: string
+        browserClientId:
+          type: string
+        qrTestClientId:
+          type: string
+        realm:
+          type: string
+      required:
+      - baseUrl
+      - browserClientId
+      - qrTestClientId
+      - realm
+      type: object
     MethodsResponse:
       description: 'The account''s active authentication methods (docs/05-api.md #2). Never contains fsc.'
       properties:
@@ -323,18 +339,13 @@ components:
           items:
             $ref: '#/components/schemas/DisabledToolView'
           type: array
-        keycloakBaseUrl:
-          type: string
-        keycloakProfile:
-          type: boolean
-        keycloakRealm:
-          type: string
+        keycloak:
+          $ref: '#/components/schemas/KeycloakInfo'
         registrationEnrollFirst:
           type: boolean
       required:
       - demoDisclosure
       - disabledTools
-      - keycloakProfile
       - registrationEnrollFirst
       type: object
     TokenResponse:

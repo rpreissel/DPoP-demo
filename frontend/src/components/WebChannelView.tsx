@@ -1,15 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  completeLoginIfRedirected,
-  LoginNotCompletedError,
-  redirectToLogin,
-  redirectToLogout,
-  redirectToManageMethods,
-  redirectToQrTestLogin,
-  redirectToStepUp,
-  refreshTokens,
-  type TokenSet,
-} from '../webOidc'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeycloakInfo } from '../api'
+import { createWebOidc, LoginNotCompletedError, type TokenSet } from '../webOidc'
 import { parseJwtPayload } from '../jwt'
 import { shorten } from '../format'
 import { DiagramHint } from './DiagramHint'
@@ -65,7 +56,16 @@ function formatRemaining(expiresAt: number): string {
  * ADR-8: the orchestrator only ever hears from Keycloak's own server-side
  * extension, never from this browser tab).
  */
-export function WebChannelView() {
+export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
+  const {
+    completeLoginIfRedirected,
+    redirectToLogin,
+    redirectToLogout,
+    redirectToManageMethods,
+    redirectToQrTestLogin,
+    redirectToStepUp,
+    refreshTokens,
+  } = useMemo(() => createWebOidc(keycloak), [keycloak])
   const [tokens, setTokens] = useState<TokenSet | null>(() => loadStoredTokens())
   const [error, setError] = useState('')
   // "Anmeldung abgebrochen" is the user's own choice, not a failure - shown as a note, not an error.
@@ -92,7 +92,7 @@ export function WebChannelView() {
       .finally(() => {
         completingRef.current = false
       })
-  }, [])
+  }, [completeLoginIfRedirected])
 
   function login(acrValue: '1' | '2') {
     setError('')

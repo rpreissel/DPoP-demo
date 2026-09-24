@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import '../../App.css'
-import { fetchServerInfo } from '../../api'
+import { fetchServerInfo, type KeycloakInfo } from '../../api'
 import { WebChannelLayout } from '../../components/WebChannelLayout'
 import { WebChannelView } from '../../components/WebChannelView'
 
@@ -11,19 +11,20 @@ import { WebChannelView } from '../../components/WebChannelView'
  * in at, so the page says so instead of offering a login that cannot work.
  */
 export function WebChannelApp() {
-  // null while the server status loads - neither the login nor the notice flashes up first.
-  const [keycloak, setKeycloak] = useState<boolean | null>(null)
+  // undefined while the server status loads - neither the login nor the notice flashes up first;
+  // null means no Keycloak. The same answer also says where Keycloak is for this browser.
+  const [keycloak, setKeycloak] = useState<KeycloakInfo | null | undefined>(undefined)
 
   useEffect(() => {
     fetchServerInfo()
-      .then((info) => setKeycloak(info.keycloakProfile))
-      .catch(() => setKeycloak(false))
+      .then((info) => setKeycloak(info.keycloak ?? null))
+      .catch(() => setKeycloak(null))
   }, [])
 
   return (
     <WebChannelLayout>
-      {keycloak === true && <WebChannelView />}
-      {keycloak === false && <WebChannelUnavailable />}
+      {keycloak && <WebChannelView keycloak={keycloak} />}
+      {keycloak === null && <WebChannelUnavailable />}
     </WebChannelLayout>
   )
 }

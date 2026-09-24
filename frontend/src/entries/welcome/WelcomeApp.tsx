@@ -32,7 +32,7 @@ export function WelcomeApp() {
 
   useEffect(() => {
     fetchServerInfo()
-      .then((info) => setKeycloak(info.keycloakProfile))
+      .then((info) => setKeycloak(info.keycloak != null))
       .catch(() => setKeycloak(null))
   }, [])
 
@@ -281,14 +281,14 @@ function ServerStatus() {
         <li>
           <span className="label">Identitätsanbieter (Web-Kanal)</span>
           <span className="value">
-            {info.keycloakProfile ? `Echtes Keycloak${info.keycloakRealm ? `, Realm ${info.keycloakRealm}` : ''}` : 'keins - Web-Kanal nicht verfügbar'}
+            {info.keycloak ? `Echtes Keycloak, Realm ${info.keycloak.realm}` : 'keins - Web-Kanal nicht verfügbar'}
           </span>
         </li>
-        {info.keycloakBaseUrl && (
+        {info.keycloak && (
           <li>
             <span className="label">Keycloak</span>
-            <a className="value" href={info.keycloakBaseUrl} target="_blank" rel="noreferrer">
-              {info.keycloakBaseUrl}
+            <a className="value" href={info.keycloak.baseUrl} target="_blank" rel="noreferrer">
+              {info.keycloak.baseUrl}
             </a>
           </li>
         )}
