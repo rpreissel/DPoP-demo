@@ -2,13 +2,15 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../../index.css'
 import { APP_TEXTS, loadAllTexts } from '../../texts'
-import { AdminApp } from './AdminApp.tsx'
 
-// The backend sends text references only; their wordings must be here before the first render.
-void loadAllTexts(APP_TEXTS).then(() =>
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <AdminApp />
-    </StrictMode>,
-  ),
-)
+// Texts first, then the app: the backend sends text references only, and the app's own t("...")
+// calls - module-level ones included (tool labels) - must find their wordings when they run.
+void loadAllTexts(APP_TEXTS)
+  .then(() => import('./AdminApp.tsx'))
+  .then(({ AdminApp }) =>
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <AdminApp />
+      </StrictMode>,
+    ),
+  )

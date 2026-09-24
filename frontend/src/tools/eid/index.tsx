@@ -3,10 +3,11 @@ import { submitEidCard, submitEidPin } from './api'
 import { IdentEidCardForm } from './IdentEidCardForm'
 import { IdentEidPinForm } from './IdentEidPinForm'
 import { attemptError } from '../stepData'
+import { t } from '../../texts'
 
 export const identEid: ToolModule = {
   toolId: 'ident-eid',
-  meta: { icon: '🆔', label: 'eID', hint: 'Online-Ausweisfunktion (simuliert)' },
+  meta: { icon: '🆔', label: t('eID'), hint: t('Online-Ausweisfunktion (simuliert)') },
   render(ctx) {
     if (ctx.step === 'card') {
       return (

@@ -92,7 +92,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             handleResponse(context, response, null);
         } catch (OrchestratorClient.OrchestratorApiException e) {
             LOG.warnf("Orchestrator upsertChannel failed: %s", e.getMessage());
-            context.challenge(errorForm(context, "Anmeldung derzeit nicht möglich."));
+            context.challenge(errorForm(context, KcTexts.of(context.getSession(), "Anmeldung derzeit nicht möglich.")));
         } catch (Exception e) {
             LOG.error("OrchestratorAuthenticator.authenticate failed", e);
             context.failure(AuthenticationFlowError.INTERNAL_ERROR);
@@ -121,7 +121,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                 } else {
                     String selectedToolId = form.getFirst("toolId");
                     if (selectedToolId == null || selectedToolId.isBlank()) {
-                        context.challenge(errorForm(context, "Bitte eine Methode auswählen."));
+                        context.challenge(errorForm(context, KcTexts.of(context.getSession(), "Bitte eine Methode auswählen.")));
                         return;
                     }
                     response = client.activateTool(channelSessionId, selectedToolId);
@@ -129,7 +129,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             } else if ("confirm".equals(pendingKind)) {
                 String answer = form.getFirst("orchestrator_answer");
                 if (!"accept".equals(answer) && !"decline".equals(answer)) {
-                    context.challenge(errorForm(context, "Bitte eine Antwort auswählen."));
+                    context.challenge(errorForm(context, KcTexts.of(context.getSession(), "Bitte eine Antwort auswählen.")));
                     return;
                 }
                 response = client.answer(channelSessionId, answer);
@@ -184,7 +184,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                     return;
                 } catch (OrchestratorClient.OrchestratorApiException e) {
                     LOG.warnf(e, "Static tool pre-selection '%s' failed", staticToolId);
-                    context.challenge(errorForm(context, "Das konfigurierte Anmeldeverfahren ist derzeit nicht verfügbar."));
+                    context.challenge(errorForm(context, KcTexts.of(context.getSession(), "Das konfigurierte Anmeldeverfahren ist derzeit nicht verfügbar.")));
                     return;
                 } catch (Exception e) {
                     LOG.error("Static tool pre-selection '" + staticToolId + "' failed", e);
@@ -194,7 +194,7 @@ public class OrchestratorAuthenticator implements Authenticator {
             }
             if (options.isEmpty()) {
                 context.challenge(errorForm(context,
-                        "Kein Anmeldeverfahren verfügbar. Prüfen Sie die Tool-ID der LoA-Execution."));
+                        KcTexts.of(context.getSession(), "Kein Anmeldeverfahren verfügbar. Prüfen Sie die Tool-ID der LoA-Execution.")));
                 return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "select");
@@ -216,7 +216,7 @@ public class OrchestratorAuthenticator implements Authenticator {
                     handleResponse(context, activated, lastForm);
                 } catch (OrchestratorClient.OrchestratorApiException e) {
                     LOG.warnf("Auto-activation of '%s' failed: %s", tool.next().toolId(), e.getMessage());
-                    context.challenge(errorForm(context, "Anmeldung derzeit nicht möglich."));
+                    context.challenge(errorForm(context, KcTexts.of(context.getSession(), "Anmeldung derzeit nicht möglich.")));
                 } catch (Exception e) {
                     LOG.error("Auto-activation of '" + tool.next().toolId() + "' failed", e);
                     context.failure(AuthenticationFlowError.INTERNAL_ERROR);
@@ -295,7 +295,7 @@ public class OrchestratorAuthenticator implements Authenticator {
     }
 
     private Response errorForm(AuthenticationFlowContext context, String message) {
-        return WebFormRenderer.errorForm(context.form(), context.getAuthenticationSession(), message);
+        return WebFormRenderer.errorForm(context.getSession(), context.form(), context.getAuthenticationSession(), message);
     }
 
     private Response currentChallenge(AuthenticationFlowContext context, String error) {

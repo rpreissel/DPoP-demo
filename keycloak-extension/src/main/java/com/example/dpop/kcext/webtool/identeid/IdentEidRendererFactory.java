@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.identeid;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import jakarta.ws.rs.core.Response;
@@ -24,13 +25,13 @@ public class IdentEidRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "eID";
+    public KcText title() {
+        return KcText.t("eID");
     }
 
     @Override
-    public String hint() {
-        return "Identifizierung per Online-Ausweisfunktion";
+    public KcText hint() {
+        return KcText.t("Online-Ausweisfunktion (simuliert)");
     }
 
     @Override

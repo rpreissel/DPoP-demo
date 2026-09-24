@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
 import type { FscFields } from './api'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 /** What the first screen collects - everything the backend stages before it asks for `fsc`. */
 const PERSONAL_FIELDS = ['kvnr', 'name', 'vorname', 'geburtsdatum']
@@ -76,29 +78,29 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
   if (page === 'personalien') {
     return (
       <div className="card">
-        <h2>Identifikation per Freischaltcode</h2>
-        <p>Damit Sie Ihren Freischaltcode gleich eingeben können, brauchen wir noch diese Daten:</p>
+        <h2>{t('Identifikation per Freischaltcode')}</h2>
+        <p>{t('Damit Sie Ihren Freischaltcode gleich eingeben können, brauchen wir noch diese Daten:')}</p>
         <form onSubmit={submitPersonalien} className="form-grid" style={{ marginTop: '1rem' }}>
           <DemoPersonPicker demoPersons={demoPersons} selectedKvnr={personalien.kvnr} onSelect={selectPerson} />
           <div className="form-group">
-            <label htmlFor="vorname">Vorname</label>
+            <label htmlFor="vorname">{t('Vorname')}</label>
             <input id="vorname" value={personalien.vorname} onChange={update('vorname')} autoComplete="given-name" required />
           </div>
           <div className="form-group">
-            <label htmlFor="name">Nachname</label>
+            <label htmlFor="name">{t('Nachname')}</label>
             <input id="name" value={personalien.name} onChange={update('name')} autoComplete="family-name" required />
           </div>
           <div className="form-group">
-            <label htmlFor="geburtsdatum">Geburtsdatum</label>
+            <label htmlFor="geburtsdatum">{t('Geburtsdatum')}</label>
             <input id="geburtsdatum" type="date" value={personalien.geburtsdatum} onChange={update('geburtsdatum')} autoComplete="bday" required />
           </div>
           <div className="form-group">
-            <label htmlFor="kvnr">Versichertennummer</label>
+            <label htmlFor="kvnr">{t('Versichertennummer')}</label>
             <input id="kvnr" value={personalien.kvnr} onChange={update('kvnr')} required />
           </div>
           {error && <div className="hint">{error}</div>}
           <div className="form-actions">
-            <button type="submit">Weiter zur Freischaltcode-Eingabe</button>
+            <button type="submit">{t('Weiter zur Freischaltcode-Eingabe')}</button>
           </div>
         </form>
       </div>
@@ -107,26 +109,30 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
 
   return (
     <div className="card">
-      <h2>Freischaltcode eingeben</h2>
+      <h2>{t('Freischaltcode eingeben')}</h2>
       <p>
-        Geben Sie den Freischaltcode ein, den wir Ihnen per Brief geschickt haben, für{' '}
-        <strong>
-          {personalien.vorname} {personalien.name}
-        </strong>{' '}
-        ({personalien.kvnr}).
+        <Tx
+          text="Geben Sie den Freischaltcode ein, den wir Ihnen per Brief geschickt haben, für {person} ({kvnr})."
+          person={
+            <strong>
+              {personalien.vorname} {personalien.name}
+            </strong>
+          }
+          kvnr={personalien.kvnr}
+        />
       </p>
-      {first && !fsc && <div className="hint">Kein gültiger Code im Briefkasten (Personenregister /ext/)</div>}
+      {first && !fsc && <div className="hint">{t('Kein gültiger Code im Briefkasten (Personenregister {pfad})', { pfad: '/ext/' })}</div>}
       <form onSubmit={submitCode} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="fsc">Freischaltcode</label>
+          <label htmlFor="fsc">{t('Freischaltcode')}</label>
           <input id="fsc" value={fsc} onChange={(e) => setFsc(e.target.value)} autoComplete="one-time-code" required />
         </div>
         {error && <div className="hint">{error}</div>}
         <div className="form-actions">
           <button type="button" className="secondary" onClick={() => setEditing(true)}>
-            Angaben ändern
+            {t('Angaben ändern')}
           </button>
-          <button type="submit">Identifizieren</button>
+          <button type="submit">{t('Identifizieren')}</button>
         </div>
       </form>
     </div>

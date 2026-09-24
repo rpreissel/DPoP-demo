@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.qr;
 
+import com.example.dpop.kcext.KcText;
 /** Web-channel counterpart of `auth-qr` - account already known via the channel (step-up/re-auth). */
 public class AuthQrRendererFactory extends QrWaitRendererFactory {
 
@@ -11,12 +12,12 @@ public class AuthQrRendererFactory extends QrWaitRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "Mit App bestätigen";
+    public KcText title() {
+        return KcText.t("Mit App bestätigen");
     }
 
     @Override
-    public String hint() {
-        return "QR-Code mit der App scannen oder Code manuell in der App eingeben";
+    public KcText hint() {
+        return KcText.t("QR-Code mit der App scannen oder Code manuell in der App eingeben");
     }
 }

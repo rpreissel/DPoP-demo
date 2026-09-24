@@ -10,26 +10,26 @@
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "codeInput">
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="code" class="${properties.kcLabelClass!}">Bestätigungscode</label>
+                    <label for="code" class="${properties.kcLabelClass!}">${t.of("Bestätigungscode")}</label>
                     <input type="text" id="code" name="code" class="${properties.kcInputClass!}" autocomplete="off"/>
                     <#if demoTan??>
-                        <span class="orchestrator-hint">Demo-Code: ${demoTan}</span>
+                        <span class="orchestrator-hint">${t.of("Demo-Code: {wert}", {"wert": demoTan})}</span>
                     </#if>
                 </div>
             <#else>
                 <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"email":"email"}' />
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="email" class="${properties.kcLabelClass!}">E-Mail-Adresse</label>
+                    <label for="email" class="${properties.kcLabelClass!}">${t.of("E-Mail-Adresse")}</label>
                     <input type="email" id="email" name="email" class="${properties.kcInputClass!}" autocomplete="off"/>
                     <#if demoEmail??>
-                        <span class="orchestrator-hint">Demo-E-Mail: ${demoEmail}</span>
+                        <span class="orchestrator-hint">${t.of("Demo-E-Mail: {wert}", {"wert": demoEmail})}</span>
                     </#if>
                 </div>
             </#if>
             <div class="orchestrator-actions">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">Weiter</button>
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter")}</button>
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Zurück</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Zurück")}</button>
             </div>
         </form>
     </#if>

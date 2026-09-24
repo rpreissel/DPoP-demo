@@ -155,6 +155,27 @@ tasks.named<ProcessResources>("processResources") {
     dependsOn(npmBuild)
 }
 
+// Die eigenen Texte des Frontends (docs/adr/ADR-033): frontend/scripts/text-catalog.mjs liest jede
+// t("...")/<Tx text="...">-Vorlage aus dem geparsten Quelltext. TextTranslationsTest und exportTexts
+// fuehren sie mit den Backend-Vorlagen zu einem Katalog je Bundle zusammen.
+val frontendTextCatalog = frontendDir.resolve("build/texts-catalog.json")
+val exportFrontendTexts = tasks.register<Exec>("exportFrontendTexts") {
+    group = "texts"
+    description = "Schreibt die Text-Vorlagen des Frontends nach frontend/build/texts-catalog.json."
+    dependsOn(npmInstall)
+    workingDir = frontendDir
+    inputs.dir(frontendDir.resolve("src"))
+    inputs.file(frontendDir.resolve("scripts/text-catalog.mjs"))
+    outputs.file(frontendTextCatalog)
+    commandLine("npm", "run", "texts:export", "--", frontendTextCatalog.absolutePath)
+}
+
+tasks.named<Test>("test") {
+    dependsOn(exportFrontendTexts)
+    inputs.file(frontendTextCatalog)
+    systemProperty("texts.frontendCatalog", frontendTextCatalog.absolutePath)
+}
+
 tasks.named<Delete>("clean") {
     delete(file("src/main/resources/static"))
 }
@@ -225,9 +246,10 @@ tasks.register<Test>("updateOpenApiSnapshot") {
 tasks.register<JavaExec>("exportTexts") {
     group = "texts"
     description = "Schreibt die Text-Vorlagen aus dem Code nach build/texts/<bundle>/texts_source.properties."
-    dependsOn("testClasses")
+    dependsOn("testClasses", exportFrontendTexts, ":keycloak-extension:exportTexts")
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("com.example.dpop.texts.TextCatalogExportKt")
+    systemProperty("texts.frontendCatalog", frontendTextCatalog.absolutePath)
     args(layout.buildDirectory.dir("texts").get().asFile.absolutePath)
 }
 

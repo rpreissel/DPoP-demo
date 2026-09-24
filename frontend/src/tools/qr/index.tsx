@@ -5,10 +5,11 @@ import { EnrollQrForm } from './EnrollQrForm'
 import { PairingCodeInputForm } from './PairingCodeInputForm'
 import { attemptError } from '../stepData'
 import { stepDataOf } from '../../types'
+import { t } from '../../texts'
 
 export const enrollQr: ToolModule = {
   toolId: 'enroll-qr',
-  meta: { icon: '📷', label: 'QR-Login', hint: 'Web-Login per QR-Code erlauben' },
+  meta: { icon: '📷', label: t('QR-Login'), hint: t('Web-Login per QR-Code erlauben') },
   render(ctx) {
     if (ctx.step === 'enroll') {
       return <EnrollQrForm onConfirm={() => confirmEnrollQr(ctx)} error={attemptError(ctx)} />
@@ -19,7 +20,7 @@ export const enrollQr: ToolModule = {
 
 export const confirmQrLogin: ToolModule = {
   toolId: 'confirm-qr-login',
-  meta: { icon: '📷', label: 'QR-Login', hint: 'Web-Login per QR bestätigen' },
+  meta: { icon: '📷', label: t('QR-Login'), hint: t('Web-Login per QR bestätigen') },
   render(ctx) {
     if (ctx.step === 'input') {
       return <PairingCodeInputForm onSubmit={(pairingCode) => submitPairingCode(ctx, pairingCode)} error={attemptError(ctx)} />

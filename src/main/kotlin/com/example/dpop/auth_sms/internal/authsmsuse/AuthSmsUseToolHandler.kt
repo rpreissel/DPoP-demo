@@ -38,7 +38,7 @@ class AuthSmsUseToolHandler(
         val enrollmentId = enrollmentRef.id.toLongOrNull()
             ?: throw UnresolvableReferenceException(Text("Ungueltige Enrollment-Referenz"), "id=${enrollmentRef.id}")
         val enrollment = enrollmentRepository.findByIdOrNull(enrollmentId)
-            ?: throw UnresolvableReferenceException(Text("SMS-Enrollment nicht gefunden"), "id=${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("Anmeldeverfahren nicht gefunden"), "id=${enrollmentRef.id}")
 
         val issued = tanGenerator.issue()
         toolDataRepository.save(

@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.email;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,13 +25,13 @@ public class EmailEnrollRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "E-Mail";
+    public KcText title() {
+        return KcText.t("E-Mail");
     }
 
     @Override
-    public String hint() {
-        return "Bestätigungscode an eine E-Mail-Adresse";
+    public KcText hint() {
+        return KcText.t("Bestätigungscode an eine E-Mail-Adresse");
     }
 
     @Override

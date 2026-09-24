@@ -18,9 +18,9 @@
                 </div>
             </#list>
             <div class="orchestrator-actions">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">Weiter</button>
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter")}</button>
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Zurück</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Zurück")}</button>
             </div>
         </form>
     </#if>

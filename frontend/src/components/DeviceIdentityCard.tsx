@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import type { DeviceLinkResponse } from '../types'
 import { shorten } from '../format'
 
@@ -32,7 +33,7 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
     <div className="card device-identity-card">
       <ul className="status-list">
         <li>
-          <span className="label">Geräte-Kennung (DPoP)</span>
+          <span className="label">{t('Geräte-Kennung (DPoP)')}</span>
           <span className="value-with-action">
             <span className="value" title={jwkThumbprint}>
               {shorten(jwkThumbprint)}
@@ -40,28 +41,30 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
             <button
               className="secondary small"
               onClick={onRecreateKey}
-              title="Löscht diesen DPoP-Schlüssel und erzeugt einen neuen - das Gerät gilt danach als unbekannt, jede laufende Sitzung wird lokal verworfen."
+              title={t(
+                'Löscht diesen DPoP-Schlüssel und erzeugt einen neuen - das Gerät gilt danach als unbekannt, jede laufende Sitzung wird lokal verworfen.',
+              )}
             >
-              Neu erzeugen
+              {t('Neu erzeugen')}
             </button>
           </span>
         </li>
         {boundCredentials.map((credential) => (
           <li key={credential.method}>
-            <span className="label">Gerätebindung ({credential.method})</span>
+            <span className="label">{t('Gerätebindung ({methode})', { methode: credential.method })}</span>
             <span className="value" title={credential.reference}>
               {shorten(credential.reference)}
             </span>
           </li>
         ))}
         <li>
-          <span className="label">Gebunden an</span>
+          <span className="label">{t('Gebunden an')}</span>
           <span className="value">
             {deviceLink == null
               ? '…'
               : deviceLink.linked
-                ? (deviceLink.personName ?? `Konto ${deviceLink.accountId}`)
-                : 'noch keinem Konto zugeordnet'}
+                ? (deviceLink.personName ?? t('Konto {id}', { id: String(deviceLink.accountId) }))
+                : t('noch keinem Konto zugeordnet')}
           </span>
         </li>
       </ul>

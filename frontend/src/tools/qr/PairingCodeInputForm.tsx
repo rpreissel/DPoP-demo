@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { forgetPendingPairingCode, loadPendingPairingCode } from '../../session'
+import { t } from '../../texts'
 
 interface PairingCodeInputFormProps {
   onSubmit: (pairingCode: string) => void
@@ -29,23 +30,23 @@ export function PairingCodeInputForm({ onSubmit, error }: PairingCodeInputFormPr
 
   return (
     <div className="card">
-      <h2>Web-Login per QR bestätigen</h2>
-      <p>Geben Sie den Pairing-Code von der Web-Seite ein, oder scannen Sie deren QR-Code.</p>
+      <h2>{t('Web-Login per QR bestätigen')}</h2>
+      <p>{t('Geben Sie den Pairing-Code von der Web-Seite ein, oder scannen Sie deren QR-Code.')}</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="pairingCode">Pairing-Code</label>
+          <label htmlFor="pairingCode">{t('Pairing-Code')}</label>
           <input
             id="pairingCode"
             value={pairingCode}
             onChange={(e) => setPairingCode(e.target.value)}
-            placeholder="z. B. AB3D-7KQ2"
+            placeholder={t('z. B. {beispiel}', { beispiel: 'AB3D-7KQ2' })}
             required
             autoFocus
           />
         </div>
         <div className="form-actions">
-          <button type="submit">Weiter</button>
+          <button type="submit">{t('Weiter')}</button>
         </div>
       </form>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { describeError } from '../api'
 import type { JourneyLogEntryView, JourneyLogResponse } from '../types'
+import { t } from '../texts'
 
 /** The admin endpoint's answer: the entries plus every account they can be filtered by. */
 type LogWithAccounts = JourneyLogResponse & { accounts: { accountId: number; displayName?: string | null }[] }
@@ -213,7 +214,7 @@ export function JourneyLogView({ fetchLog }: Props) {
         setEntries(response.entries)
         setAccountNames(new Map(response.accounts.map((a) => [a.accountId, a.displayName ?? `Konto ${a.accountId}`])))
       })
-      .catch((err) => setError(describeError('Journey-Log laden fehlgeschlagen', err)))
+      .catch((err) => setError(describeError(t('Journey-Log laden fehlgeschlagen'), err)))
       .finally(() => setLoading(false))
   }
 

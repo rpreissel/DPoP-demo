@@ -17,13 +17,15 @@ import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
 import { JourneyLogView } from '../../components/JourneyLogView'
 import { KeycloakSyncView } from '../../components/KeycloakSyncView'
 import { useHashTab } from '../../useHashTab'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 type Tab = 'einstellungen' | 'journeylog' | 'konten'
 const TAB_KEYS = ['einstellungen', 'journeylog', 'konten'] as const
 const TABS: NavTab<Tab>[] = [
-  { key: 'einstellungen', label: 'Einstellungen' },
-  { key: 'journeylog', label: 'Journey-Log' },
-  { key: 'konten', label: 'Konten' },
+  { key: 'einstellungen', label: t('Einstellungen') },
+  { key: 'journeylog', label: t('Journey-Log') },
+  { key: 'konten', label: t('Konten') },
 ]
 
 /**
@@ -40,7 +42,7 @@ export function AdminApp() {
   if (!loggedIn) {
     return (
       <div className="web-shell channel-admin">
-        <ChannelNav badge="🛠️ Admin" />
+        <ChannelNav badge={'🛠️ ' + t('Admin')} />
         <div className="web-page">
           <LoginForm onLoggedIn={() => setLoggedIn(true)} />
         </div>
@@ -51,13 +53,13 @@ export function AdminApp() {
   return (
     <div className="web-shell channel-admin">
       <ChannelNav
-        badge="🛠️ Admin"
+        badge={'🛠️ ' + t('Admin')}
         tabs={TABS}
         sub={tab}
         onSelectTab={setTab}
         actions={
           <button className="secondary small" onClick={clearAdminCredentials}>
-            Abmelden
+            {t('Abmelden')}
           </button>
         }
       />
@@ -92,23 +94,29 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
       setError(null)
       onLoggedIn()
     } catch {
-      setError('Anmeldung fehlgeschlagen - Benutzer oder Passwort falsch.')
+      setError(t('Anmeldung fehlgeschlagen - Benutzer oder Passwort falsch.'))
     }
   }
 
   return (
     <form className="card" onSubmit={submit}>
-      <h2>Admin-Anmeldung</h2>
-      <p>Betreiber-Zugang für Einstellungen, das Journey-Log aller Konten und die Kontenverwaltung.</p>
+      <h2>{t('Admin-Anmeldung')}</h2>
+      <p>{t('Betreiber-Zugang für Einstellungen, das Journey-Log aller Konten und die Kontenverwaltung.')}</p>
       <p className="hint">
-        Demo-Zugang aus <code>application.yml</code> (<code>demo.admin.*</code>): <code>admin</code> / <code>admin</code>
+        <Tx
+          text="Demo-Zugang aus {datei} ({schluessel}): {benutzer} / {passwort}"
+          datei={<code>application.yml</code>}
+          schluessel={<code>demo.admin.*</code>}
+          benutzer={<code>admin</code>}
+          passwort={<code>admin</code>}
+        />
       </p>
       <div className="form-group">
-        <label htmlFor="admin-user">Benutzer</label>
+        <label htmlFor="admin-user">{t('Benutzer')}</label>
         <input id="admin-user" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
       </div>
       <div className="form-group">
-        <label htmlFor="admin-password">Passwort</label>
+        <label htmlFor="admin-password">{t('Passwort')}</label>
         <input
           id="admin-password"
           type="password"
@@ -119,7 +127,7 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
       </div>
       {error && <p className="error-card">{error}</p>}
       <div className="form-actions">
-        <button type="submit">Anmelden</button>
+        <button type="submit">{t('Anmelden')}</button>
       </div>
     </form>
   )
@@ -135,7 +143,7 @@ function AccountsTab() {
   const reload = useCallback(() => {
     fetchAdminAccounts()
       .then(setAccounts)
-      .catch((err) => setError(describeError('Konten laden fehlgeschlagen', err)))
+      .catch((err) => setError(describeError(t('Konten laden fehlgeschlagen'), err)))
   }, [])
   useEffect(reload, [reload])
 
@@ -146,30 +154,30 @@ function AccountsTab() {
       setConfirming(null)
       reload()
     } catch (err) {
-      setError(describeError('Aktion fehlgeschlagen', err))
+      setError(describeError(t('Aktion fehlgeschlagen'), err))
     }
   }
 
   return (
     <>
       <div className="card">
-        <h2>Konten</h2>
+        <h2>{t('Konten')}</h2>
         {error && <p className="error-card">{error}</p>}
         {notice && <p className="hint">{notice}</p>}
         {accounts === null ? (
           // A failed load already says so above - "Lädt…" next to it would claim it is still trying.
-          !error && <p>Lädt…</p>
+          !error && <p>{t('Lädt…')}</p>
         ) : accounts.length === 0 ? (
-          <p>Keine Konten.</p>
+          <p>{t('Keine Konten.')}</p>
         ) : (
           <div className="journey-log-table-scroll">
             <table className="journey-log-table">
               <thead>
                 <tr>
-                  <th>Konto</th>
-                  <th>Person</th>
-                  <th>E-Mail</th>
-                  <th>Verfahren</th>
+                  <th>{t('Konto')}</th>
+                  <th>{t('Person')}</th>
+                  <th>{t('E-Mail')}</th>
+                  <th>{t('Verfahren')}</th>
                   <th />
                 </tr>
               </thead>
@@ -177,7 +185,7 @@ function AccountsTab() {
                 {accounts.map((a) => (
                   <tr key={a.accountId}>
                     <td>{a.accountId}</td>
-                    <td>{a.displayName ?? (a.personId == null ? 'nicht identifiziert' : `Person ${a.personId}`)}</td>
+                    <td>{a.displayName ?? (a.personId == null ? t('nicht identifiziert') : t('Person {id}', { id: a.personId }))}</td>
                     <td>{a.email ?? '–'}</td>
                     <td>{a.methods.length > 0 ? a.methods.join(', ') : '–'}</td>
                     <td>
@@ -187,18 +195,18 @@ function AccountsTab() {
                             className="destructive small"
                             onClick={() => run(async () => {
                               await deleteAdminAccount(a.accountId)
-                              return `Konto ${a.accountId} gelöscht.`
+                              return t('Konto {id} gelöscht.', { id: a.accountId })
                             })}
                           >
-                            Wirklich löschen
+                            {t('Wirklich löschen')}
                           </button>
                           <button className="secondary small" onClick={() => setConfirming(null)}>
-                            Abbrechen
+                            {t('Abbrechen')}
                           </button>
                         </span>
                       ) : (
                         <button className="secondary small" onClick={() => setConfirming(a.accountId)}>
-                          Löschen
+                          {t('Löschen')}
                         </button>
                       )}
                     </td>
@@ -211,12 +219,17 @@ function AccountsTab() {
       </div>
 
       <div className="card">
-        <h2>Demo zurücksetzen</h2>
+        <h2>{t('Demo zurücksetzen')}</h2>
         <p>
-          Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), setzt die Verfahren je Kanal auf die Voreinstellung
-          zurück (Reihenfolge und Sperren aus <code>demo.tool-defaults</code>) und stellt die
-          Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenregister (/ext/) ist ein Fremdsystem und
-          bleibt unverändert. Im Keycloak-Profil werden die Demo-Konten danach gleich wieder angelegt.
+          <Tx
+            text={
+              'Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), setzt die Verfahren je Kanal auf die Voreinstellung ' +
+              'zurück (Reihenfolge und Sperren aus {konfig}) und stellt die ' +
+              'Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenregister (/ext/) ist ein Fremdsystem und ' +
+              'bleibt unverändert. Im Keycloak-Profil werden die Demo-Konten danach gleich wieder angelegt.'
+            }
+            konfig={<code>demo.tool-defaults</code>}
+          />
         </p>
         {confirming === 'reset' ? (
           <div className="form-actions">
@@ -224,18 +237,21 @@ function AccountsTab() {
               className="destructive"
               onClick={() => run(async () => {
                 const r = await resetDemo()
-                return `Demo zurückgesetzt: ${r.deletedAccounts} Konto/Konten gelöscht, ${r.seededAccounts} Demo-Konto/Konten neu angelegt.`
+                return t('Demo zurückgesetzt: {geloescht} Konto/Konten gelöscht, {angelegt} Demo-Konto/Konten neu angelegt.', {
+                  geloescht: r.deletedAccounts,
+                  angelegt: r.seededAccounts,
+                })
               })}
             >
-              Ja, alles zurücksetzen
+              {t('Ja, alles zurücksetzen')}
             </button>
             <button className="secondary" onClick={() => setConfirming(null)}>
-              Abbrechen
+              {t('Abbrechen')}
             </button>
           </div>
         ) : (
           <button className="secondary" onClick={() => setConfirming('reset')}>
-            Demo zurücksetzen…
+            {t('Demo zurücksetzen…')}
           </button>
         )}
       </div>

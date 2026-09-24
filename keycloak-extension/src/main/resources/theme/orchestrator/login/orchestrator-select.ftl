@@ -1,7 +1,7 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=true displayInfo=(offerRegistration!false); section>
     <#if section = "header">
-        ${title!"Anmeldemethode wählen"}
+        ${title!t.of("Anmeldemethode wählen")}
     <#elseif section = "form">
         <#if description??>
             <p class="orchestrator-subtitle">${description}</p>
@@ -15,14 +15,14 @@
             </#list>
             <div class="${properties.kcFormGroupClass!}">
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Abbrechen</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Abbrechen")}</button>
             </div>
         </form>
     <#elseif section = "info">
         <#-- Same link the native login form shows; the realm's registration flow runs the
              orchestrator's REGISTER journey (identification by FSC/eID, then a login method). -->
         <div id="kc-registration">
-            <span>Noch kein Konto? <a href="${url.registrationUrl}">Registrieren</a></span>
+            <span>${t.of("Noch kein Konto?")} <a href="${url.registrationUrl}">${t.of("Registrieren")}</a></span>
         </div>
     </#if>
 </@layout.registrationLayout>

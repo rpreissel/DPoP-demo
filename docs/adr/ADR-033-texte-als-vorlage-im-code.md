@@ -62,4 +62,28 @@ und im Diff reviewt (`# Quelle:` über jedem Eintrag).
 - Fremdsysteme melden Gründe als Code (`NectFailure`), der Verbraucher formuliert selbst.
 - Ein Verb oder Satzteil ist nie ein Argument (`{write}` = „gesetzt“): jede Sprache beugt selbst,
   also zwei Vorlagen.
-- Eigene Texte des React-Frontends und der Keycloak-Themes sind nicht Teil dieser Entscheidung.
+
+## Erweiterung: Texte der Clients (Frontend, Keycloak-Login)
+
+Dasselbe Prinzip, dieselben Prompts, dieselbe ID-Funktion – nur Markierung, Einsammler und Zielort je Quelle:
+
+| Quelle | Markierung | Eingesammelt von | Wortlaut liegt in |
+|---|---|---|---|
+| React-Frontend | `t("…")`, `<Tx text="… {x} …" x={<strong>…</strong>} />` | `frontend/scripts/text-catalog.mjs` (oxc-AST, Literal-Pflicht) | den bestehenden Bundles: `entries/nect` → `nect`, `entries/ext` → `register`, `kobilSdk.ts` → `kobil`, sonst `app` |
+| Keycloak-Java | `KcText.t("…")`, `KcTexts.of(session, "…")` | `KcTextCatalog` (ASM) | `theme/orchestrator/login/messages/messages_<lang>.properties` |
+| Keycloak-Templates | `${t.of("…")}`, `${t.of("… {x}", {"x": wert})}` | `KcTextCatalog` (strikter Scanner – FreeMarker hat keinen öffentlichen Ausdrucksbaum) | ebenda |
+
+- **Frontend über den Orchestrator:** Die Frontend-Texte liegen im selben Bundle wie die Backend-Texte des
+  jeweiligen Clients und kommen mit ihm per ETag – ein Request, änderbar ohne App-Release. Neue Vorlagen
+  kommen naturgemäß erst mit neuem Code.
+- **Ohne Wortlaut zeigt das Frontend die Vorlage** (anders als bei Backend-Referenzen ist sie dort bekannt);
+  Unit-Tests ohne geladenes Bundle prüfen deshalb weiter gegen die Vorlagen.
+- **Seiten laden die Texte vor dem App-Code** (`main.tsx` importiert die App dynamisch nach `loadAllTexts`),
+  damit `t()` auch auf Modulebene (Tool-Beschriftungen) den Wortlaut findet.
+- **Keycloak wählt die Sprache selbst** (Realm de/en, `theme.properties` `locales=de,en`); `KcTexts` löst gegen
+  die Theme-Messages auf und setzt Platzhalter selbst, ohne MessageFormat.
+- **Gleiche Vorlage, gleicher Hash, gleicher Wortlaut:** Ein Tool heißt in App und Login-Seite wortgleich
+  (`KcTextCatalogTest.toolNamesAreTheAppsOwn`), und `TextTranslationsTest` prüft, dass eine ID in allen
+  Bundles einer Sprache gleich formuliert ist.
+- Nicht markiert: Entwickler-UI (Debug-Sidebar, Journey-Log, `logEvent`), Code, Befehle, Pfade und
+  Demo-Daten – diese stehen als Platzhalter-Werte im Satz.

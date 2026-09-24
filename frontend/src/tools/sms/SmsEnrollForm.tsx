@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../../texts'
 
 interface SmsEnrollFormProps {
   onSubmit: (phoneNumber: string) => void
@@ -20,7 +21,7 @@ export function SmsEnrollForm({ onSubmit, error }: SmsEnrollFormProps) {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!isValidPhoneNumber(phoneNumber)) {
-      setValidationError('Bitte eine gültige Telefonnummer eingeben (z. B. +49 170 1234567).')
+      setValidationError(t('Bitte eine gültige Telefonnummer eingeben (z. B. {beispiel}).', { beispiel: '+49 170 1234567' }))
       return
     }
     setValidationError('')
@@ -29,11 +30,11 @@ export function SmsEnrollForm({ onSubmit, error }: SmsEnrollFormProps) {
 
   return (
     <div className="card">
-      <h2>SMS als zweiten Faktor einrichten</h2>
-      <p>Geben Sie Ihre Telefonnummer ein, um einen Verifizierungscode zu erhalten.</p>
+      <h2>{t('SMS als zweiten Faktor einrichten')}</h2>
+      <p>{t('Geben Sie Ihre Telefonnummer ein, um einen Verifizierungscode zu erhalten.')}</p>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="phoneNumber">Telefonnummer</label>
+          <label htmlFor="phoneNumber">{t('Telefonnummer')}</label>
           <input
             id="phoneNumber"
             type="tel"
@@ -45,7 +46,7 @@ export function SmsEnrollForm({ onSubmit, error }: SmsEnrollFormProps) {
         </div>
         {(validationError || error) && <div className="hint">{validationError || error}</div>}
         <div className="form-actions">
-          <button type="submit">Code senden</button>
+          <button type="submit">{t('Code senden')}</button>
         </div>
       </form>
     </div>

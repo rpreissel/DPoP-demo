@@ -1,3 +1,5 @@
+import { t } from '../../texts'
+
 interface EnrollQrFormProps {
   onConfirm: () => void
   error?: string
@@ -10,14 +12,16 @@ interface EnrollQrFormProps {
 export function EnrollQrForm({ onConfirm, error }: EnrollQrFormProps) {
   return (
     <div className="card">
-      <h2>Web-Login per QR erlauben</h2>
+      <h2>{t('Web-Login per QR-Code erlauben')}</h2>
       <p>
-        Erlaubt, dass dieses Konto künftig einen Web-Login per QR-Code bestätigen kann.
-        Kein zusätzliches Passwort oder Gerät nötig.
+        {t(
+          'Erlaubt, dass dieses Konto künftig einen Web-Login per QR-Code bestätigen kann. ' +
+            'Kein zusätzliches Passwort oder Gerät nötig.',
+        )}
       </p>
       {error && <div className="hint">{error}</div>}
       <div className="form-actions" style={{ marginTop: '1rem' }}>
-        <button onClick={onConfirm}>Aktivieren</button>
+        <button onClick={onConfirm}>{t('Aktivieren')}</button>
       </div>
     </div>
   )

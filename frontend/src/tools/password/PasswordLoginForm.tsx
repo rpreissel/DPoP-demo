@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface PasswordLoginFormProps {
   onSubmit: (fields: { password: string }) => void
@@ -22,21 +24,21 @@ export function PasswordLoginForm({ onSubmit, error, demoPassword }: PasswordLog
 
   return (
     <div className="card">
-      <h2>Mit Passwort anmelden</h2>
-      <p>Geben Sie Ihr Passwort ein.</p>
+      <h2>{t('Mit Passwort anmelden')}</h2>
+      <p>{t('Geben Sie Ihr Passwort ein.')}</p>
       {demoPassword && (
         <div className="hint">
-          Demo-Modus: Passwort ist bereits vorbelegt: <code>{demoPassword}</code>
+          <Tx text="Demo-Modus: Passwort ist bereits vorbelegt: {passwort}" passwort={<code>{demoPassword}</code>} />
         </div>
       )}
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="password">Passwort</label>
+          <label htmlFor="password">{t('Passwort')}</label>
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
         </div>
         <div className="form-actions">
-          <button type="submit">Anmelden</button>
+          <button type="submit">{t('Anmelden')}</button>
         </div>
       </form>
     </div>

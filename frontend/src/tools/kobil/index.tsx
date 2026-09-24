@@ -4,10 +4,11 @@ import { releaseKobilPin, submitKobilStep } from './api'
 import { KobilAuthStep } from './KobilAuthStep'
 import { KobilEnrollForm } from './KobilEnrollForm'
 import { attemptError } from '../stepData'
+import { t } from '../../texts'
 
 const ICON = '🛡️'
-const LABEL = 'KOBIL'
-const HINT = 'Gerätebindung über KOBIL, entsperrt per Biometrie oder Passwort'
+const LABEL = t('KOBIL')
+const HINT = t('Gerätebindung über KOBIL, entsperrt per Biometrie oder Passwort')
 
 export const enrollKobilTool: ToolModule = {
   toolId: 'enroll-kobil',

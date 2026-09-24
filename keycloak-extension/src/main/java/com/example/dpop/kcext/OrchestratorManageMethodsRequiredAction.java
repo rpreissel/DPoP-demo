@@ -77,8 +77,8 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
             renderList(context, channelSessionId, null);
         } catch (OrchestratorClient.OrchestratorApiException e) {
             LOG.warnf("getMethods failed: %s", e.getMessage());
-            context.challenge(WebFormRenderer.errorForm(context.form(), context.getAuthenticationSession(),
-                    "Methodenverwaltung derzeit nicht möglich."));
+            context.challenge(WebFormRenderer.errorForm(context.getSession(), context.form(), context.getAuthenticationSession(),
+                    KcTexts.of(context.getSession(), "Methodenverwaltung derzeit nicht möglich.")));
         } catch (Exception e) {
             LOG.error("OrchestratorManageMethodsRequiredAction.requiredActionChallenge failed", e);
             context.failure();
@@ -123,12 +123,12 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                     // through handleResponse: that method's ADD/REMOVE phrasing ("hinzugefügt"/
                     // "entfernt") would misreport an abandoned attempt as a completed one.
                     client.abandonJourney(channelSessionId);
-                    renderList(context, channelSessionId, "Abgebrochen.");
+                    renderList(context, channelSessionId, KcTexts.of(context.getSession(), "Abgebrochen."));
                     return;
                 }
                 String selectedToolId = form.getFirst("toolId");
                 if (selectedToolId == null || selectedToolId.isBlank()) {
-                    context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Bitte eine Methode auswählen."));
+                    context.challenge(WebFormRenderer.errorForm(context.getSession(), context.form(), authSession, KcTexts.of(context.getSession(), "Bitte eine Methode auswählen.")));
                     return;
                 }
                 response = client.activateTool(channelSessionId, selectedToolId);
@@ -137,7 +137,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
             } else if ("confirm".equals(pendingKind)) {
                 String answer = form.getFirst("orchestrator_answer");
                 if (!"accept".equals(answer) && !"decline".equals(answer)) {
-                    context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Bitte eine Antwort auswählen."));
+                    context.challenge(WebFormRenderer.errorForm(context.getSession(), context.form(), authSession, KcTexts.of(context.getSession(), "Bitte eine Antwort auswählen.")));
                     return;
                 }
                 response = client.answer(channelSessionId, answer);
@@ -156,8 +156,8 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
             }
         } catch (OrchestratorClient.OrchestratorApiException e) {
             LOG.infof("Orchestrator tool call failed: %s", e.getMessage());
-            context.challenge(WebFormRenderer.errorForm(context.form(), context.getAuthenticationSession(),
-                    e.message(context.getSession()) != null ? e.message(context.getSession()) : "Anmeldung derzeit nicht möglich."));
+            context.challenge(WebFormRenderer.errorForm(context.getSession(), context.form(), context.getAuthenticationSession(),
+                    e.message(context.getSession()) != null ? e.message(context.getSession()) : KcTexts.of(context.getSession(), "Anmeldung derzeit nicht möglich.")));
         } catch (Exception e) {
             LOG.error("OrchestratorManageMethodsRequiredAction.processAction failed", e);
             context.failure();
@@ -168,7 +168,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
         List<OrchestratorClient.MethodView> methods = client.getMethods(channelSessionId);
         AuthenticationSessionModel authSession = context.getAuthenticationSession();
         authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "list");
-        context.challenge(WebFormRenderer.methodsListForm(context.form(), authSession, methods, notice));
+        context.challenge(WebFormRenderer.methodsListForm(context.getSession(), context.form(), authSession, methods, notice));
     }
 
     /**
@@ -201,10 +201,10 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
         if (next == null || next.isAuthenticated()) {
             String action = authSession.getAuthNote(PENDING_ACTION);
             String notice = aborted
-                    ? "Abgebrochen."
+                    ? KcTexts.of(context.getSession(), "Abgebrochen.")
                     : "add".equals(action)
-                        ? (firstCall ? "Keine weiteren Anmeldeverfahren verfügbar." : "Anmeldeverfahren hinzugefügt.")
-                        : "remove".equals(action) ? "Anmeldeverfahren entfernt." : null;
+                        ? (firstCall ? KcTexts.of(context.getSession(), "Keine weiteren Anmeldeverfahren verfügbar.") : KcTexts.of(context.getSession(), "Anmeldeverfahren hinzugefügt."))
+                        : "remove".equals(action) ? KcTexts.of(context.getSession(), "Anmeldeverfahren entfernt.") : null;
             renderList(context, channelSessionId, notice);
             return;
         }
@@ -213,7 +213,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
         if (outcome instanceof OrchestratorNextDispatch.Select select) {
             List<String> options = select.options();
             if (options.isEmpty()) {
-                renderList(context, channelSessionId, "Keine weiteren Anmeldeverfahren verfügbar.");
+                renderList(context, channelSessionId, KcTexts.of(context.getSession(), "Keine weiteren Anmeldeverfahren verfügbar."));
                 return;
             }
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "select");
@@ -229,7 +229,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
                     handleResponse(context, activated, false, false);
                 } catch (OrchestratorClient.OrchestratorApiException e) {
                     LOG.warnf("Auto-activation of '%s' failed: %s", tool.next().toolId(), e.getMessage());
-                    context.challenge(WebFormRenderer.errorForm(context.form(), authSession, "Anmeldung derzeit nicht möglich."));
+                    context.challenge(WebFormRenderer.errorForm(context.getSession(), context.form(), authSession, KcTexts.of(context.getSession(), "Anmeldung derzeit nicht möglich.")));
                 }
                 return;
             }

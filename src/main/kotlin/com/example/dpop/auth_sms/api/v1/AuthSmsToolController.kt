@@ -72,7 +72,7 @@ class AuthSmsToolController(
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
         val enrollmentRef = context.channelAccountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
-            ?: throw UnresolvableReferenceException(Text("Keine aktive SMS-Methode fuer diesen Account"))
+            ?: throw UnresolvableReferenceException(Text("Kein aktives Anmeldeverfahren dieser Art fuer dieses Konto"), "no active sms method")
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
         val response = toolEndpoint.applyOutcome(context, outcome)

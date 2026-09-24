@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
+import { t } from '../../texts'
 
 interface EmailEnrollFormProps {
   onSubmit: (email: string) => void
@@ -30,17 +31,17 @@ export function EmailEnrollForm({ onSubmit, error, demoEmail, demoPersons }: Ema
 
   return (
     <div className="card">
-      <h2>E-Mail-Adresse einrichten</h2>
-      <p>Geben Sie Ihre E-Mail-Adresse ein, um einen Bestätigungscode zu erhalten.</p>
+      <h2>{t('E-Mail-Adresse einrichten')}</h2>
+      <p>{t('Geben Sie Ihre E-Mail-Adresse ein, um einen Bestätigungscode zu erhalten.')}</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
-          <label htmlFor="email">E-Mail-Adresse</label>
+          <label htmlFor="email">{t('E-Mail-Adresse')}</label>
           <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </div>
         <div className="form-actions">
-          <button type="submit">Code senden</button>
+          <button type="submit">{t('Code senden')}</button>
         </div>
       </form>
     </div>

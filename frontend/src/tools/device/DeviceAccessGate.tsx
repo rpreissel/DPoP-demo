@@ -1,3 +1,6 @@
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
+
 interface DeviceAccessGateProps {
   onConfirm: (userVerification: 'pin' | 'biometric') => void
   busy?: boolean
@@ -14,20 +17,19 @@ interface DeviceAccessGateProps {
 export function DeviceAccessGate({ onConfirm, busy }: DeviceAccessGateProps) {
   return (
     <div className="card">
-      <h2>Gerät entsperren</h2>
-      <p>Bestätigen Sie den Zugriff auf den geräteeigenen Schlüssel.</p>
+      <h2>{t('Gerät entsperren')}</h2>
+      <p>{t('Bestätigen Sie den Zugriff auf den geräteeigenen Schlüssel.')}</p>
       <div className="hint">
-        <strong>Demo-Modus:</strong> PIN/Biometrie werden hier nur simuliert, keine echte
-        Systemabfrage.
+        <Tx text="{modus} PIN/Biometrie werden hier nur simuliert, keine echte Systemabfrage." modus={<strong>{t('Demo-Modus:')}</strong>} />
       </div>
       <div className="form-actions" style={{ marginTop: '1rem' }}>
         <button type="button" disabled={busy} onClick={() => onConfirm('biometric')}>
-          Mit Biometrie bestätigen
+          {t('Mit Biometrie bestätigen')}
         </button>
       </div>
       <p style={{ marginTop: '0.75rem' }}>
         <button type="button" className="secondary" disabled={busy} onClick={() => onConfirm('pin')}>
-          Stattdessen PIN verwenden
+          {t('Stattdessen PIN verwenden')}
         </button>
       </p>
     </div>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface TanInputFormProps {
   onSubmit: (tan: string) => void
@@ -23,18 +25,13 @@ export function TanInputForm({ onSubmit, error, demoTan }: TanInputFormProps) {
 
   return (
     <div className="card">
-      <h2>TAN eingeben</h2>
-      <p>Wir haben Ihnen soeben eine TAN per SMS geschickt. Geben Sie sie hier ein.</p>
+      <h2>{t('TAN eingeben')}</h2>
+      <p>{t('Wir haben Ihnen soeben eine TAN per SMS geschickt. Geben Sie sie hier ein.')}</p>
       <div className="hint">
-        <strong>Demo-Modus:</strong>{' '}
         {demoTan ? (
-          <>
-            Die TAN ist bereits vorbelegt: <code>{demoTan}</code>
-          </>
+          <Tx text="{modus} Die TAN ist bereits vorbelegt: {tan}" modus={<strong>{t('Demo-Modus:')}</strong>} tan={<code>{demoTan}</code>} />
         ) : (
-          <>
-            Die TAN wird nur ins Server-Log geschrieben (<code>[MOCK SMS] ...</code>).
-          </>
+          <Tx text="{modus} Die TAN wird nur ins Server-Log geschrieben ({log})." modus={<strong>{t('Demo-Modus:')}</strong>} log={<code>[MOCK SMS] ...</code>} />
         )}
       </div>
       {error && (
@@ -44,19 +41,19 @@ export function TanInputForm({ onSubmit, error, demoTan }: TanInputFormProps) {
       )}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="tan">TAN</label>
+          <label htmlFor="tan">{t('TAN')}</label>
           <input
             id="tan"
             value={tan}
             onChange={(e) => setTan(e.target.value)}
-            placeholder="6-stellige TAN"
+            placeholder={t('6-stellige TAN')}
             maxLength={6}
             required
             autoFocus
           />
         </div>
         <div className="form-actions">
-          <button type="submit">TAN bestätigen</button>
+          <button type="submit">{t('TAN bestätigen')}</button>
         </div>
       </form>
     </div>

@@ -3,6 +3,8 @@ import '../../App.css'
 import { fetchServerInfo, type KeycloakInfo } from '../../api'
 import { WebChannelLayout } from '../../components/WebChannelLayout'
 import { WebChannelView } from '../../components/WebChannelView'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 /**
  * The WEB channel's own app (docs/10-frontend.md #0): a real browser client against a real
@@ -32,13 +34,19 @@ export function WebChannelApp() {
 function WebChannelUnavailable() {
   return (
     <div className="card">
-      <h2>Web-Kanal nicht verfügbar</h2>
+      <h2>{t('Web-Kanal nicht verfügbar')}</h2>
       <p>
-        Der Web-Kanal meldet sich an einem echten Keycloak an. Der Server läuft gerade ohne das Spring-Profil{' '}
-        <code>keycloak</code>, es gibt also kein Keycloak, an dem man sich anmelden könnte.
+        <Tx
+          text="Der Web-Kanal meldet sich an einem echten Keycloak an. Der Server läuft gerade ohne das Spring-Profil {profil}, es gibt also kein Keycloak, an dem man sich anmelden könnte."
+          profil={<code>keycloak</code>}
+        />
       </p>
       <p className="hint">
-        Starten mit <code>podman-compose up -d keycloak</code> und <code>./gradlew bootRunKc</code>.
+        <Tx
+          text="Starten mit {keycloak} und {server}."
+          keycloak={<code>podman-compose up -d keycloak</code>}
+          server={<code>./gradlew bootRunKc</code>}
+        />
       </p>
     </div>
   )

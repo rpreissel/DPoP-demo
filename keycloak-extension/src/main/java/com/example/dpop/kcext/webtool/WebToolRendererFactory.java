@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool;
 
+import com.example.dpop.kcext.KcText;
 import org.keycloak.provider.ProviderFactory;
 
 /**
@@ -12,8 +13,8 @@ import org.keycloak.provider.ProviderFactory;
 public interface WebToolRendererFactory extends ProviderFactory<WebToolRenderer> {
 
     /** Display title, shown as this tool's form header and as its label on the method-select page. */
-    String title();
+    KcText title();
 
     /** Short hint, shown under the title - the kc-facade's counterpart to React's {@code ToolMeta.hint}. */
-    String hint();
+    KcText hint();
 }

@@ -8,16 +8,16 @@
         </#if>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <div class="${properties.kcFormGroupClass!}">
-                <label for="password" class="${properties.kcLabelClass!}">Neues Passwort</label>
+                <label for="password" class="${properties.kcLabelClass!}">${t.of("Neues Passwort")}</label>
                 <input type="password" id="password" name="password" class="${properties.kcInputClass!}" autocomplete="off"/>
                 <#if demoPassword??>
-                    <span class="orchestrator-hint">Demo-Passwort: ${demoPassword}</span>
+                    <span class="orchestrator-hint">${t.of("Demo-Passwort: {wert}", {"wert": demoPassword})}</span>
                 </#if>
             </div>
             <div class="orchestrator-actions">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">Weiter</button>
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter")}</button>
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Zurück</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Zurück")}</button>
             </div>
         </form>
     </#if>

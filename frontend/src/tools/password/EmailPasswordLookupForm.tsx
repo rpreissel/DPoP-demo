@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface EmailPasswordLookupFormProps {
   onSubmit: (fields: { email: string; password: string }) => void
@@ -37,26 +39,26 @@ export function EmailPasswordLookupForm({ onSubmit, error, demoPassword, demoEma
 
   return (
     <div className="card">
-      <h2>Neu anmelden per Passwort</h2>
-      <p>Geben Sie E-Mail-Adresse und Passwort Ihres Kontos ein.</p>
+      <h2>{t('Neu anmelden per Passwort')}</h2>
+      <p>{t('Geben Sie E-Mail-Adresse und Passwort Ihres Kontos ein.')}</p>
       {demoPassword && (
         <div className="hint">
-          Demo-Modus: Passwort ist bereits vorbelegt: <code>{demoPassword}</code>
+          <Tx text="Demo-Modus: Passwort ist bereits vorbelegt: {passwort}" passwort={<code>{demoPassword}</code>} />
         </div>
       )}
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
-          <label htmlFor="email">E-Mail-Adresse</label>
+          <label htmlFor="email">{t('E-Mail-Adresse')}</label>
           <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </div>
         <div className="form-group">
-          <label htmlFor="password">Passwort</label>
+          <label htmlFor="password">{t('Passwort')}</label>
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         <div className="form-actions">
-          <button type="submit">Anmelden</button>
+          <button type="submit">{t('Anmelden')}</button>
         </div>
       </form>
     </div>

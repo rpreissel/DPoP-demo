@@ -1,3 +1,5 @@
+import { t } from '../texts'
+import { Tx } from '../Tx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeycloakInfo } from '../api'
 import { createWebOidc, LoginNotCompletedError, type TokenSet } from '../webOidc'
@@ -14,7 +16,7 @@ function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof
     <h3 className="section-heading">
       {text}
       <DiagramHint spec={JOURNEY_DIAGRAMS[diagram]} inline>
-        <span className="diagram-hint-trigger" tabIndex={0} aria-label={`Ablauf "${text}" als Diagramm anzeigen`}>
+        <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: text })}>
           ℹ️
         </span>
       </DiagramHint>
@@ -41,9 +43,9 @@ function storeTokens(tokens: TokenSet | null) {
 
 function formatRemaining(expiresAt: number): string {
   const seconds = Math.round((expiresAt - Date.now()) / 1000)
-  if (seconds <= 0) return 'abgelaufen'
-  if (seconds < 120) return `${seconds}s`
-  return `${Math.round(seconds / 60)}min`
+  if (seconds <= 0) return t('abgelaufen')
+  if (seconds < 120) return t('{sekunden}s', { sekunden: seconds })
+  return t('{minuten}min', { minuten: Math.round(seconds / 60) })
 }
 
 /**
@@ -172,16 +174,23 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
   return (
     <>
     <div className="card">
-      <h2>Dieser Tab ist eine Website</h2>
+      <h2>{t('Dieser Tab ist eine Website')}</h2>
       <p>
-        Stellen Sie sich das Kundenportal Ihrer Versicherung im Browser vor. „Anmelden“ leitet Sie - wie bei
-        jeder großen Website - zu einem <strong>echten Keycloak</strong> weiter (OpenID Connect mit PKCE), und
-        das AccessToken kommt direkt von dort zurück.
+        <Tx
+          text={
+            'Stellen Sie sich das Kundenportal Ihrer Versicherung im Browser vor. „Anmelden“ leitet Sie - wie bei ' +
+            'jeder großen Website - zu einem {keycloak} weiter (OpenID Connect mit PKCE), und ' +
+            'das AccessToken kommt direkt von dort zurück.'
+          }
+          keycloak={<strong>{t('echten Keycloak')}</strong>}
+        />
       </p>
       <p>
-        Was Keycloak auf seinen Anmeldeseiten abfragt, entscheidet im Hintergrund derselbe Orchestrator wie in der
-        App: gleiche Konten, gleiche Verfahren, gleiche Sicherheitsniveaus. Ist die App schon angemeldet, können Sie
-        den Login dort per QR-Code bestätigen. Simuliert ist nur die Website selbst - sie ist diese Seite.
+        {t(
+          'Was Keycloak auf seinen Anmeldeseiten abfragt, entscheidet im Hintergrund derselbe Orchestrator wie in der ' +
+            'App: gleiche Konten, gleiche Verfahren, gleiche Sicherheitsniveaus. Ist die App schon angemeldet, können Sie ' +
+            'den Login dort per QR-Code bestätigen. Simuliert ist nur die Website selbst - sie ist diese Seite.',
+        )}
       </p>
 
       <UnavailableTools channel="KEYCLOAK" />
@@ -191,58 +200,60 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
       {!tokens && (
         <ul className="method-choice-list">
           <li>
-            <button className="method-choice" onClick={() => login('1')} aria-label="Login (loa1)">
+            <button className="method-choice" onClick={() => login('1')} aria-label={t('Login (loa1)')}>
               <span className="method-choice-icon" aria-hidden="true">
                 🔑
               </span>
               <span className="method-choice-text">
                 <span className="method-choice-label">
-                  Login (loa1)
+                  {t('Login (loa1)')}
                   <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa1} inline openDown>
-                    <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa1) als Diagramm anzeigen">
+                    <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Login (loa1) als Diagramm anzeigen')}>
                       ℹ️
                     </span>
                   </DiagramHint>
                 </span>
-                <span className="method-choice-hint">Ein Faktor (Passwort oder Code) reicht für dieses Sicherheitsniveau.</span>
+                <span className="method-choice-hint">{t('Ein Faktor (Passwort oder Code) reicht für dieses Sicherheitsniveau.')}</span>
               </span>
             </button>
           </li>
           <li>
-            <button className="method-choice" onClick={() => login('2')} aria-label="Login (loa2)">
+            <button className="method-choice" onClick={() => login('2')} aria-label={t('Login (loa2)')}>
               <span className="method-choice-icon" aria-hidden="true">
                 🔐
               </span>
               <span className="method-choice-text">
                 <span className="method-choice-label">
-                  Login (loa2)
+                  {t('Login (loa2)')}
                   <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginLoa2} inline openDown>
-                    <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa2) als Diagramm anzeigen">
+                    <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Login (loa2) als Diagramm anzeigen')}>
                       ℹ️
                     </span>
                   </DiagramHint>
                 </span>
-                <span className="method-choice-hint">Verlangt zusätzlich einen zweiten Faktor - höheres Sicherheitsniveau.</span>
+                <span className="method-choice-hint">{t('Verlangt zusätzlich einen zweiten Faktor - höheres Sicherheitsniveau.')}</span>
               </span>
             </button>
           </li>
           <li>
-            <button className="method-choice" onClick={loginQrTest} aria-label="Login (loa1, QR-Test-Client)">
+            <button className="method-choice" onClick={loginQrTest} aria-label={t('Login (loa1, QR-Test-Client)')}>
               <span className="method-choice-icon" aria-hidden="true">
                 🧪
               </span>
               <span className="method-choice-text">
                 <span className="method-choice-label">
-                  Login (loa1, QR-Test-Client)
+                  {t('Login (loa1, QR-Test-Client)')}
                   <DiagramHint spec={JOURNEY_DIAGRAMS.webLoginQrTest} inline openDown>
-                    <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Login (loa1, QR-Test-Client) als Diagramm anzeigen">
+                    <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Login (loa1, QR-Test-Client) als Diagramm anzeigen')}>
                       ℹ️
                     </span>
                   </DiagramHint>
                 </span>
                 <span className="method-choice-hint">
-                  Demo/Test only: eigener Client, dessen loa1 den Verfahren-wählen-Screen des Orchestrators zeigt
-                  (inkl. QR-Login), statt des normalen Client-Flows mit nativem Passwort zuerst.
+                  {t(
+                    'Demo/Test only: eigener Client, dessen loa1 den Verfahren-wählen-Screen des Orchestrators zeigt ' +
+                      '(inkl. QR-Login), statt des normalen Client-Flows mit nativem Passwort zuerst.',
+                  )}
                 </span>
               </span>
             </button>
@@ -259,35 +270,41 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
                   Browser-Clients, keycloak-migrations V4/V11) - Keycloaks eingebauter "full name"-
                   Protocol-Mapper aus firstName/lastName, die KeycloakAccountSyncListener beim
                   Account-Sync setzt. */}
-              <p>{typeof idClaims?.name === 'string' ? <>Angemeldet als <strong>{idClaims.name}</strong>.</> : 'Sie sind angemeldet.'}</p>
+              <p>
+                {typeof idClaims?.name === 'string' ? (
+                  <Tx text="Angemeldet als {name}." name={<strong>{idClaims.name}</strong>} />
+                ) : (
+                  t('Sie sind angemeldet.')
+                )}
+              </p>
               <button className="secondary small" onClick={logout}>
-                Abmelden
+                {t('Abmelden')}
               </button>
             </div>
             <ul className="status-list">
               <li>
-                <span className="label">Sicherheitsniveau</span>
+                <span className="label">{t('Sicherheitsniveau')}</span>
                 <span className="value value-plain">{currentAcr ?? '–'}</span>
               </li>
             </ul>
 
             {currentAcr !== 'loa2' && (
               <>
-                <SectionHeading text="Sicherheitsniveau erhöhen" diagram="stepUp" />
-                <p>Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.</p>
+                <SectionHeading text={t('Sicherheitsniveau erhöhen')} diagram="stepUp" />
+                <p>{t('Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.')}</p>
                 <div className="form-actions">
                   <button className="secondary" onClick={stepUp}>
-                    Sicherheitsniveau jetzt erhöhen
+                    {t('Sicherheitsniveau jetzt erhöhen')}
                   </button>
                 </div>
               </>
             )}
 
-            <SectionHeading text="Anmeldeverfahren verwalten" diagram="manageMethods" />
-            <p>Öffnet Keycloaks eigene Verwaltung Ihrer Anmeldeverfahren (Required Action).</p>
+            <SectionHeading text={t('Anmeldeverfahren verwalten')} diagram="manageMethods" />
+            <p>{t('Öffnet Keycloaks eigene Verwaltung Ihrer Anmeldeverfahren (Required Action).')}</p>
             <div className="form-actions">
               <button className="secondary" onClick={manageMethods}>
-                Anmeldeverfahren verwalten
+                {t('Anmeldeverfahren verwalten')}
               </button>
             </div>
           </div>
@@ -296,17 +313,17 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
             <h3 className="section-heading">AccessToken</h3>
             <ul className="status-list">
               <li>
-                <span className="label">Gültig noch</span>
+                <span className="label">{t('Gültig noch')}</span>
                 <span className="value value-plain">{formatRemaining(tokens.expiresAt)}</span>
               </li>
             </ul>
             <div className="form-actions">
               <button className="secondary" onClick={refresh} disabled={!tokens.refreshToken}>
-                AccessToken aktualisieren
+                {t('AccessToken aktualisieren')}
               </button>
             </div>
 
-            <Disclosure summary="Technische Details (Token, Claims)">
+            <Disclosure summary={t('Technische Details (Token, Claims)')}>
               <ul className="status-list">
                 <li>
                   <span className="label">AccessToken</span>

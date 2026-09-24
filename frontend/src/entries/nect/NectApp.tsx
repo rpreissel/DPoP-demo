@@ -3,6 +3,8 @@ import '../../App.css'
 import { ChannelNav } from '../../components/ChannelNav'
 import { registerApi, type RegisterPerson } from '../../extApi'
 import { nectApi, type NectAttributes, type NectCaseView, type NectProcedure, type NectRequestable } from '../../nectApi'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 /**
  * What each document can deliver at all - mirrors NectProcedure.deliverable on the backend
@@ -12,41 +14,44 @@ import { nectApi, type NectAttributes, type NectCaseView, type NectProcedure, ty
 const PROCEDURES: { key: NectProcedure; label: string; hint: string; deliverable: NectRequestable[] }[] = [
   {
     key: 'eid',
-    label: '🪪 Personalausweis (eID)',
-    hint: 'Karte ans Handy halten, PIN eingeben - die Karte gibt nur die angefragten Daten heraus.',
+    label: `🪪 ${t('Personalausweis (eID)')}`,
+    hint: t('Karte ans Handy halten, PIN eingeben - die Karte gibt nur die angefragten Daten heraus.'),
     deliverable: ['family_name', 'given_names', 'birth_date', 'address', 'eid_pseudonym'],
   },
   {
     key: 'epass',
-    label: '🛂 Reisepass',
-    hint: 'Chip auslesen, Selfie mit dem Passbild abgleichen - der Chip wird ganz gelesen, weitergegeben wird nur Angefragtes. Namen stehen dort in MRZ-Schreibweise (MUELLER statt Müller), eine Adresse enthält der Pass nicht.',
+    label: `🛂 ${t('Reisepass')}`,
+    hint:
+      t('Chip auslesen, Selfie mit dem Passbild abgleichen - der Chip wird ganz gelesen, weitergegeben wird nur Angefragtes.') +
+      ' ' +
+      t('Namen stehen dort in MRZ-Schreibweise (MUELLER statt Müller), eine Adresse enthält der Pass nicht.'),
     deliverable: ['family_name', 'given_names', 'birth_date', 'document_id'],
   },
   {
     key: 'eudi',
-    label: '👛 EUDI-Wallet',
-    hint: 'Die Wallet zeigt an, was angefragt wird - Sie geben nur frei, was Sie ankreuzen. Ein Pseudonym enthält die PID nicht.',
+    label: `👛 ${t('EUDI-Wallet')}`,
+    hint: t('Die Wallet zeigt an, was angefragt wird - Sie geben nur frei, was Sie ankreuzen.') + ' ' + t('Die PID enthält kein Pseudonym.'),
     deliverable: ['family_name', 'given_names', 'birth_date', 'address'],
   },
 ]
 
 const REQUESTABLE_LABELS: Record<NectRequestable, string> = {
-  family_name: 'Name',
-  given_names: 'Vorname(n)',
-  birth_date: 'Geburtsdatum',
-  address: 'Anschrift',
-  eid_pseudonym: 'Pseudonym der Karte (nur eID)',
-  document_id: 'Dokumentnummer und Ausstellerstaat (nur Reisepass)',
+  family_name: t('Nachname'),
+  given_names: t('Vorname'),
+  birth_date: t('Geburtsdatum'),
+  address: t('Anschrift'),
+  eid_pseudonym: t('Pseudonym der Karte (nur eID)'),
+  document_id: t('Dokumentnummer und Ausstellerstaat (nur Reisepass)'),
 }
 
 type PersonFields = Pick<NectAttributes, 'name' | 'vorname' | 'geburtsdatum' | 'strasse' | 'plz' | 'ort'>
 const PERSON_FIELDS: { key: keyof PersonFields; label: string; attribute: NectRequestable; type?: string }[] = [
-  { key: 'name', label: 'Name', attribute: 'family_name' },
-  { key: 'vorname', label: 'Vorname', attribute: 'given_names' },
-  { key: 'geburtsdatum', label: 'Geburtsdatum', attribute: 'birth_date', type: 'date' },
-  { key: 'strasse', label: 'Straße und Hausnummer', attribute: 'address' },
-  { key: 'plz', label: 'PLZ', attribute: 'address' },
-  { key: 'ort', label: 'Ort', attribute: 'address' },
+  { key: 'name', label: t('Nachname'), attribute: 'family_name' },
+  { key: 'vorname', label: t('Vorname'), attribute: 'given_names' },
+  { key: 'geburtsdatum', label: t('Geburtsdatum'), attribute: 'birth_date', type: 'date' },
+  { key: 'strasse', label: t('Straße und Hausnummer'), attribute: 'address' },
+  { key: 'plz', label: t('PLZ'), attribute: 'address' },
+  { key: 'ort', label: t('Ort'), attribute: 'address' },
 ]
 
 function fieldsOf(p: RegisterPerson): PersonFields {
@@ -96,7 +101,7 @@ function pseudonym(prefix: string, p: PersonFields): string {
 export function NectApp() {
   const caseId = new URLSearchParams(window.location.search).get('case')
   const [view, setView] = useState<NectCaseView | null>(null)
-  const [error, setError] = useState<string | null>(caseId ? null : 'Kein Vorgang angegeben - diese Seite wird vom Anbieter aufgerufen.')
+  const [error, setError] = useState<string | null>(caseId ? null : t('Kein Vorgang angegeben - diese Seite wird vom Anbieter aufgerufen.'))
 
   useEffect(() => {
     if (!caseId) return
@@ -105,17 +110,21 @@ export function NectApp() {
 
   return (
     <div className="web-shell channel-nect">
-      <ChannelNav badge="🪪 Nect Ident" />
+      <ChannelNav badge={`🪪 ${t('Nect Ident')}`} />
       <div className="web-page">
         <div className="ext-banner">
-          Simulierter <strong>Identifizierungsdienst</strong> (Nect). Sie sind hier nicht mehr in der Demo-App: Diese Seite
-          spricht nur mit Nect. Danach geht es mit der Vorgangsnummer zurück, und unser Backend holt das Ergebnis selbst ab.
+          <Tx text="Simulierter {dienst} (Nect)." dienst={<strong>{t('Identifizierungsdienst')}</strong>} />{' '}
+          {t('Sie sind hier nicht mehr in der Demo-App: Diese Seite spricht nur mit Nect.')}{' '}
+          {t('Danach geht es mit der Vorgangsnummer zurück, und unser Backend holt das Ergebnis selbst ab.')}
         </div>
-        {error && <div className="card error-card"><h2>Fehler</h2><p>{error}</p></div>}
+        {error && <div className="card error-card"><h2>{t('Fehler')}</h2><p>{error}</p></div>}
         {caseId && view && view.status !== 'OPEN' && (
           <div className="card">
-            <h2>Vorgang bereits beendet</h2>
-            <p>Dieser Vorgang hat den Status <code>{view.status}</code>. Starten Sie die Identifizierung in der App neu.</p>
+            <h2>{t('Vorgang bereits beendet')}</h2>
+            <p>
+              <Tx text="Dieser Vorgang hat den Status {status}." status={<code>{view.status}</code>} />{' '}
+              {t('Starten Sie die Identifizierung in der App neu.')}
+            </p>
           </div>
         )}
         {caseId && view?.status === 'OPEN' && <IdentForm caseId={caseId} requested={view.requested} onError={setError} />}
@@ -189,7 +198,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
 
   return (
     <form className="card form-grid" onSubmit={submit}>
-      <h2>Wie möchten Sie sich ausweisen?</h2>
+      <h2>{t('Wie möchten Sie sich ausweisen?')}</h2>
       <div className="form-actions">
         {PROCEDURES.map((p) => (
           <button key={p.key} type="button" className={p.key === procedure ? undefined : 'secondary'} aria-pressed={p.key === procedure} onClick={() => setProcedure(p.key)}>
@@ -199,13 +208,22 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
       </div>
       <div className="hint">{current.hint}</div>
       <div className="hint">
-        <strong>Angefragt von DPoP-Demo:</strong> {requested.map((r) => REQUESTABLE_LABELS[r]).join(', ')}.<br />
-        <strong>Mit diesem Dokument übermittelt:</strong> {offered.map((r) => REQUESTABLE_LABELS[r]).join(', ') || 'nichts'}.
+        <Tx
+          text="{titel} {daten}."
+          titel={<strong>{t('Angefragt von DPoP-Demo:')}</strong>}
+          daten={requested.map((r) => REQUESTABLE_LABELS[r]).join(', ')}
+        />
+        <br />
+        <Tx
+          text="{titel} {daten}."
+          titel={<strong>{t('Mit diesem Dokument übermittelt:')}</strong>}
+          daten={offered.map((r) => REQUESTABLE_LABELS[r]).join(', ') || t('nichts')}
+        />
       </div>
 
       {personen.length > 0 && (
         <div className="form-group">
-          <label htmlFor="nect-person">Demo: Dokument von …</label>
+          <label htmlFor="nect-person">{t('Demo: Dokument von …')}</label>
           <select
             id="nect-person"
             value=""
@@ -214,7 +232,7 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
               if (p) setPerson(fieldsOf(p))
             }}
           >
-            <option value="">Person aus dem Register übernehmen …</option>
+            <option value="">{t('Person aus dem Register übernehmen …')}</option>
             {personen.map((p) => (
               <option key={p.id} value={p.id}>{[p.vorname, p.name].filter(Boolean).join(' ')}</option>
             ))}
@@ -222,14 +240,14 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
         </div>
       )}
 
-      <h3>{procedure === 'eudi' ? 'Angefragte Daten – ankreuzen, was Sie freigeben' : 'Vom Dokument gelesen'}</h3>
+      <h3>{procedure === 'eudi' ? t('Angefragte Daten – ankreuzen, was Sie freigeben') : t('Vom Dokument gelesen')}</h3>
       {fields.map((f) => (
         <div className="form-group" key={f.key}>
           <label htmlFor={`nect-${f.key}`}>
             {procedure === 'eudi' && (
               <input
                 type="checkbox"
-                aria-label={`${f.label} freigeben`}
+                aria-label={t('{feld} freigeben', { feld: f.label })}
                 checked={released[f.key]}
                 onChange={(e) => setReleased({ ...released, [f.key]: e.target.checked })}
               />
@@ -248,39 +266,43 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
 
       {procedure === 'eid' && (
         <div className="form-group">
-          <label htmlFor="nect-pin">eID-PIN (Test: 123456)</label>
+          <label htmlFor="nect-pin">{t('eID-PIN (Test: {pin})', { pin: '123456' })}</label>
           <input id="nect-pin" type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} />
         </div>
       )}
       {procedure === 'epass' && (
         <>
           <div className="form-group">
-            <label htmlFor="nect-docno">Dokumentnummer{offered.includes('document_id') ? '' : ' (nicht angefragt, wird nicht übermittelt)'}</label>
+            <label htmlFor="nect-docno">
+              {offered.includes('document_id') ? t('Dokumentnummer') : t('Dokumentnummer (nicht angefragt, wird nicht übermittelt)')}
+            </label>
             <input id="nect-docno" value={documentNumber} onChange={(e) => setDocumentNumber(e.target.value)} />
           </div>
           <div className="form-group">
-            <label htmlFor="nect-can">CAN (6 Ziffern auf der Datenseite)</label>
+            <label htmlFor="nect-can">{t('CAN (6 Ziffern auf der Datenseite)')}</label>
             <input id="nect-can" inputMode="numeric" value={can} onChange={(e) => setCan(e.target.value)} />
           </div>
           <div className="form-group">
-            <label htmlFor="nect-expiry">Gültig bis (prüft Nect selbst, wird nicht übermittelt)</label>
+            <label htmlFor="nect-expiry">{t('Gültig bis (prüft Nect selbst, wird nicht übermittelt)')}</label>
             <input id="nect-expiry" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
           </div>
           <div className="form-group">
             <label>
-              <input type="checkbox" checked={selfieMatches} onChange={(e) => setSelfieMatches(e.target.checked)} /> Selfie passt zum Passbild
+              <input type="checkbox" checked={selfieMatches} onChange={(e) => setSelfieMatches(e.target.checked)} /> {t('Selfie passt zum Passbild')}
             </label>
           </div>
         </>
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={busy}>Identifizieren</button>
+        <button type="submit" disabled={busy}>
+          {t('Identifizieren')}
+        </button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void leave(() => nectApi.scheitern(caseId, 'simulated'))}>
-          Fehlschlag simulieren
+          {t('Fehlschlag simulieren')}
         </button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void leave(() => nectApi.abbrechen(caseId))}>
-          Abbrechen
+          {t('Abbrechen')}
         </button>
       </div>
     </form>

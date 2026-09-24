@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.qr;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import jakarta.ws.rs.core.Response;
@@ -23,13 +24,13 @@ public class EnrollQrRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "QR-Login";
+    public KcText title() {
+        return KcText.t("QR-Login");
     }
 
     @Override
-    public String hint() {
-        return "Web-Login per App bestätigen erlauben";
+    public KcText hint() {
+        return KcText.t("Web-Login per QR-Code erlauben");
     }
 
     @Override

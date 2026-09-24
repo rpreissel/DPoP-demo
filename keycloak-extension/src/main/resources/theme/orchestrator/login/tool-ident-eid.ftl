@@ -9,47 +9,47 @@
         </#if>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "card">
-                <p class="orchestrator-hint">Demo-Modus: Das Auslesen der Karte wird simuliert.</p>
+                <p class="orchestrator-hint">${t.of("Demo-Modus: Das Auslesen der Karte wird simuliert.")}</p>
                 <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"name":"name","vorname":"vorname","geburtsdatum":"geburtsdatum","strasse":"strasse","plz":"plz","ort":"ort"}' />
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="name" class="${properties.kcLabelClass!}">Nachname</label>
+                        <label for="name" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
                         <input type="text" id="name" name="name" class="${properties.kcInputClass!}" value="Muster"/>
                     </div>
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="vorname" class="${properties.kcLabelClass!}">Vorname</label>
+                        <label for="vorname" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
                         <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" value="Max"/>
                     </div>
                 </div>
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="geburtsdatum" class="${properties.kcLabelClass!}">Geburtsdatum</label>
+                    <label for="geburtsdatum" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
                     <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" value="1985-06-15"/>
                 </div>
                 <#-- Die Karte liefert Straße und Hausnummer in einem Feld (Street). -->
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="strasse" class="${properties.kcLabelClass!}">Straße und Hausnummer</label>
+                    <label for="strasse" class="${properties.kcLabelClass!}">${t.of("Straße und Hausnummer")}</label>
                     <input type="text" id="strasse" name="strasse" class="${properties.kcInputClass!}" value="Musterstraße 1"/>
                 </div>
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="plz" class="${properties.kcLabelClass!}">PLZ</label>
+                        <label for="plz" class="${properties.kcLabelClass!}">${t.of("PLZ")}</label>
                         <input type="text" id="plz" name="plz" class="${properties.kcInputClass!}" value="12345"/>
                     </div>
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="ort" class="${properties.kcLabelClass!}">Ort</label>
+                        <label for="ort" class="${properties.kcLabelClass!}">${t.of("Ort")}</label>
                         <input type="text" id="ort" name="ort" class="${properties.kcInputClass!}" value="Musterstadt"/>
                     </div>
                 </div>
             <#elseif step == "pin">
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="pin" class="${properties.kcLabelClass!}">eID-PIN</label>
+                    <label for="pin" class="${properties.kcLabelClass!}">${t.of("eID-PIN")}</label>
                     <input type="text" id="pin" name="pin" class="${properties.kcInputClass!}" autocomplete="off" value="123456"/>
                 </div>
             </#if>
             <div class="orchestrator-actions">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">Weiter</button>
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter")}</button>
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Zurück</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Zurück")}</button>
             </div>
         </form>
     </#if>

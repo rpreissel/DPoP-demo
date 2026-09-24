@@ -9,22 +9,22 @@
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "tanInput">
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="tan" class="${properties.kcLabelClass!}">SMS-Code</label>
+                    <label for="tan" class="${properties.kcLabelClass!}">${t.of("SMS-Code")}</label>
                     <input type="text" id="tan" name="tan" class="${properties.kcInputClass!}" autocomplete="one-time-code"/>
                     <#if demoTan??>
-                        <span class="orchestrator-hint">Demo-Code: ${demoTan}</span>
+                        <span class="orchestrator-hint">${t.of("Demo-Code: {wert}", {"wert": demoTan})}</span>
                     </#if>
                 </div>
             <#else>
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="phoneNumber" class="${properties.kcLabelClass!}">Telefonnummer</label>
+                    <label for="phoneNumber" class="${properties.kcLabelClass!}">${t.of("Telefonnummer")}</label>
                     <input type="tel" id="phoneNumber" name="phoneNumber" class="${properties.kcInputClass!}" autocomplete="tel"/>
                 </div>
             </#if>
             <div class="orchestrator-actions">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">Weiter</button>
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter")}</button>
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Zurück</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Zurück")}</button>
             </div>
         </form>
     </#if>

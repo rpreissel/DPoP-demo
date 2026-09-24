@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { completeRegistration } from './journey'
+import { ui } from './texts'
 
 /**
  * Full registration -> enrollment -> authenticated flow against the real backend: proves real
@@ -19,7 +20,7 @@ test('register with ident-fsc, enroll SMS, and reach the authenticated security 
   // The security summary's account fields only ever arrive via the on-demand GET backfill (never
   // inline in the tool response that settled `next` into authenticated) - if this renders, the
   // real backfill fetch against the real backend succeeded.
-  await expect(page.locator('li:has-text("Sicherheitsniveau")')).toContainText(/loa[12]/)
-  await expect(page.locator('li:has-text("Genutzte Anmeldeverfahren")')).toContainText('sms')
-  await expect(page.getByRole('button', { name: 'Deaktivieren' }).first()).toBeVisible()
+  await expect(page.locator('li').filter({ hasText: ui('Sicherheitsniveau') })).toContainText(/loa[12]/)
+  await expect(page.locator('li').filter({ hasText: ui('Genutzte Anmeldeverfahren') })).toContainText('sms')
+  await expect(page.getByRole('button', { name: ui('Deaktivieren') }).first()).toBeVisible()
 })

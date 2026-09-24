@@ -4,13 +4,14 @@ import { EmailCodeInputForm } from './EmailCodeInputForm'
 import { EmailCodeLookupForm } from './EmailCodeLookupForm'
 import { EmailEnrollForm } from './EmailEnrollForm'
 import { attemptError } from '../stepData'
+import { t } from '../../texts'
 
 const ICON = '✉️'
-const LABEL = 'E-Mail'
+const LABEL = t('E-Mail')
 
 export const confirmEmailTool: ToolModule = {
   toolId: 'confirm-email',
-  meta: { icon: ICON, label: LABEL, hint: 'E-Mail-Adresse bestätigen' },
+  meta: { icon: ICON, label: LABEL, hint: t('E-Mail-Adresse bestätigen') },
   render(ctx) {
     if (ctx.step === 'input') {
       return (
@@ -41,7 +42,7 @@ export const confirmEmailTool: ToolModule = {
 
 export const authEmail: ToolModule = {
   toolId: 'auth-email',
-  meta: { icon: ICON, label: LABEL, hint: 'Code an die bestätigte E-Mail-Adresse' },
+  meta: { icon: ICON, label: LABEL, hint: t('Code an die bestätigte E-Mail-Adresse') },
   render(ctx) {
     if (ctx.step === 'auth') {
       return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={attemptError(ctx)} demoTan={ctx.demo?.tan} />
@@ -52,7 +53,7 @@ export const authEmail: ToolModule = {
 
 export const authEmailLookup: ToolModule = {
   toolId: 'auth-email-lookup',
-  meta: { icon: ICON, label: LABEL, hint: 'E-Mail-Adresse + Bestätigungscode' },
+  meta: { icon: ICON, label: LABEL, hint: t('E-Mail-Adresse + Bestätigungscode') },
   render(ctx) {
     if (ctx.step === 'auth') {
       return (
@@ -77,7 +78,7 @@ export const authEmailLookup: ToolModule = {
  */
 export const enrollEmailTool: ToolModule = {
   toolId: 'enroll-email',
-  meta: { icon: ICON, label: LABEL, hint: 'E-Mail als Anmeldeverfahren aktivieren' },
+  meta: { icon: ICON, label: LABEL, hint: t('Bestätigungscode an eine E-Mail-Adresse') },
   render() {
     return null
   },

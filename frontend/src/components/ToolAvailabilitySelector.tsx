@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import { knownToolIds } from '../tools/registry'
 
 interface ToolAvailabilitySelectorProps {
@@ -24,11 +25,15 @@ export function ToolAvailabilitySelector({ availableTools, onChange }: ToolAvail
 
   return (
     <div className="tool-availability-selector">
-      <h3>Verfügbare Tools auf diesem Client ({availableTools.length}/{knownToolIds.length})</h3>
+      <h3>
+        {t('Verfügbare Tools auf diesem Client ({anzahl}/{gesamt})', { anzahl: availableTools.length, gesamt: knownToolIds.length })}
+      </h3>
       <p>
-        Abgewählte Tools werden dieser Journey nie angeboten - simuliert eine ältere Client-Version oder eine
-        lokale Nutzer-Einstellung. Unabhängig davon kann das Backend Tools zusätzlich global sperren (siehe
-        "Admin: Tool-Verfügbarkeit" oben) - beide Sperren wirken zusammen, keine hebt die andere auf.
+        {t(
+          'Abgewählte Tools werden dieser Journey nie angeboten - simuliert eine ältere Client-Version oder eine ' +
+            'lokale Nutzer-Einstellung. Unabhängig davon kann das Backend Tools zusätzlich global sperren (siehe ' +
+            '"Verfahren je Kanal" auf der Admin-Seite) - beide Sperren wirken zusammen, keine hebt die andere auf.',
+        )}
       </p>
       <ul className="status-list">
         {knownToolIds.map((toolId) => {
@@ -37,9 +42,9 @@ export function ToolAvailabilitySelector({ availableTools, onChange }: ToolAvail
             <li key={toolId}>
               <span className="label">{toolId}</span>
               <span className="value-with-action">
-                <span className="value">{enabled ? 'verfügbar' : 'nicht verfügbar'}</span>
+                <span className="value">{enabled ? t('verfügbar') : t('nicht verfügbar')}</span>
                 <button className="secondary small" onClick={() => toggle(toolId)}>
-                  {enabled ? 'Entfernen' : 'Hinzufügen'}
+                  {enabled ? t('Entfernen') : t('Hinzufügen')}
                 </button>
               </span>
             </li>

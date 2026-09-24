@@ -1,4 +1,4 @@
-import { resolveText } from '../texts'
+import { resolveText, t } from '../texts'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { JourneyDebugStep, Next } from '../types'
@@ -73,7 +73,7 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
       detail: `${j.intent} · ${j.lifecycle} · ${j.stateType}`,
       hint: diagramKey ? (
         <DiagramHint spec={JOURNEY_DIAGRAMS[diagramKey]} current={current} inline>
-          <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf dieser Journey als Diagramm anzeigen">
+          <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf dieses Vorgangs als Diagramm anzeigen')}>
             ℹ️
           </span>
         </DiagramHint>
@@ -94,9 +94,9 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
         <button
           className="secondary small nesting-label-action"
           onClick={onCancelJourney}
-          title="Startet diese Journey von vorne, mit demselben Ziel (z. B. erneut identifizieren)."
+          title={t('Startet diese Journey von vorne, mit demselben Ziel (z. B. erneut identifizieren).')}
         >
-          Neu starten
+          {t('Neu starten')}
         </button>
       ) : undefined,
     }
@@ -117,8 +117,8 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
     // gehalten statt in App.tsx gehoben - keine andere Stelle braucht diesen Zustand.
     <div className="card structure-card">
       <div className="debug-sidebar-header">
-        <h2>Struktur Einblicke</h2>
-        <button className="icon-button" onClick={() => setOpen((v) => !v)} aria-label={open ? 'Struktur Einblicke einklappen' : 'Struktur Einblicke ausklappen'}>
+        <h2>{t('Struktur Einblicke')}</h2>
+        <button className="icon-button" onClick={() => setOpen((v) => !v)} aria-label={open ? t('Struktur Einblicke einklappen') : t('Struktur Einblicke ausklappen')}>
           {open ? '»' : '«'}
         </button>
       </div>
@@ -129,16 +129,18 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
               <span className="nesting-label">
                 Channel <em>{shorten(channelSessionId)} · {channelState ?? '-'}</em>
                 <DiagramHint spec={JOURNEY_DIAGRAMS.channel} inline>
-                  <span className="diagram-hint-trigger" tabIndex={0} aria-label="Lebenszyklus eines Channels als Diagramm anzeigen">
+                  <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Lebenszyklus eines Channels als Diagramm anzeigen')}>
                     ℹ️
                   </span>
                 </DiagramHint>
                 <button
                   className="secondary small nesting-label-action"
                   onClick={onClear}
-                  title="Vergisst diese Sitzungs-ID lokal (kein Backend-Aufruf) - der nächste Schritt eröffnet einen neuen Channel."
+                  title={t(
+                    'Vergisst diese Sitzungs-ID lokal (kein Backend-Aufruf) - der nächste Schritt eröffnet einen neuen Channel.',
+                  )}
                 >
-                  Vergessen
+                  {t('Vergessen')}
                 </button>
               </span>
               {nest(levels, 2)}

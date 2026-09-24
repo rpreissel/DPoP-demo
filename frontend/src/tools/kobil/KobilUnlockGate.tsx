@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { loadUnlockSecret } from '../../kobilUnlockSecret'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface KobilUnlockGateProps {
   kobilUserId?: string
@@ -43,11 +45,16 @@ export function KobilUnlockGate({ kobilUserId, options, onRelease, error }: Kobi
 
   return (
     <div className="card">
-      <h2>Anmelden mit KOBIL</h2>
-      <p>Entsperren Sie dieses Gerät, damit die Anmeldung bei KOBIL erfolgen kann.</p>
+      <h2>{t('Anmelden mit KOBIL')}</h2>
+      <p>{t('Entsperren Sie dieses Gerät, damit die Anmeldung bei KOBIL erfolgen kann.')}</p>
       <div className="hint">
-        <strong>Demo-Modus:</strong> Biometrie wird simuliert. Die KOBIL-PIN liegt im Backend und
-        wird nur für diesen einen Vorgang freigegeben.
+        <Tx
+          text={
+            '{modus} Biometrie wird simuliert. Die KOBIL-PIN liegt im Backend und ' +
+            'wird nur für diesen einen Vorgang freigegeben.'
+          }
+          modus={<strong>{t('Demo-Modus:')}</strong>}
+        />
       </div>
       {error && <div className="hint">{error}</div>}
 
@@ -61,26 +68,28 @@ export function KobilUnlockGate({ kobilUserId, options, onRelease, error }: Kobi
           {storedSecret && (
             <div className="form-actions" style={{ marginTop: '1rem' }}>
               <button type="button" disabled={busy} onClick={releaseViaBiometric}>
-                Mit Biometrie entsperren
+                {t('Mit Biometrie entsperren')}
               </button>
             </div>
           )}
           {!storedSecret && passwordOffered && (
             <p className="hint" style={{ marginTop: '1rem' }}>
-              Für dieses Gerät ist keine Biometrie hinterlegt – bitte das Passwort verwenden.
+              {t('Für dieses Gerät ist keine Biometrie hinterlegt – bitte das Passwort verwenden.')}
             </p>
           )}
           {passwordOffered && (
             <p style={{ marginTop: '0.75rem' }}>
               <button type="button" className="secondary" disabled={busy} onClick={() => setUsingPassword(true)}>
-                {storedSecret ? 'Stattdessen Passwort verwenden' : 'Mit Passwort entsperren'}
+                {storedSecret ? t('Stattdessen Passwort verwenden') : t('Mit Passwort entsperren')}
               </button>
             </p>
           )}
           {!storedSecret && !passwordOffered && (
             <p className="hint" style={{ marginTop: '1rem' }}>
-              Für dieses Gerät gibt es derzeit keinen Entsperrweg – weder ein hinterlegtes
-              Gerätegeheimnis noch ein Kontopasswort. Bitte ein anderes Verfahren wählen.
+              {t(
+                'Für dieses Gerät gibt es derzeit keinen Entsperrweg – weder ein hinterlegtes ' +
+                  'Gerätegeheimnis noch ein Kontopasswort. Bitte ein anderes Verfahren wählen.',
+              )}
             </p>
           )}
         </>
@@ -89,7 +98,7 @@ export function KobilUnlockGate({ kobilUserId, options, onRelease, error }: Kobi
       {usingPassword && (
         <form onSubmit={releaseViaPassword} className="form-grid" style={{ marginTop: '1rem' }}>
           <div className="form-group">
-            <label htmlFor="kobil-password">Passwort</label>
+            <label htmlFor="kobil-password">{t('Passwort')}</label>
             <input
               id="kobil-password"
               type="password"
@@ -100,10 +109,10 @@ export function KobilUnlockGate({ kobilUserId, options, onRelease, error }: Kobi
           </div>
           <div className="form-actions">
             <button type="submit" disabled={busy || password === ''}>
-              Entsperren
+              {t('Entsperren')}
             </button>
             <button type="button" className="secondary" disabled={busy} onClick={() => setUsingPassword(false)}>
-              Zurück
+              {t('Zurück')}
             </button>
           </div>
         </form>

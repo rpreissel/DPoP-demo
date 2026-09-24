@@ -53,6 +53,9 @@ dependencies {
     testImplementation("org.keycloak:keycloak-core:$keycloakVersion")
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    // KcTextCatalog: eigene Nutzertexte aus den kompilierten Klassen einsammeln (docs/adr/ADR-033).
+    testImplementation(libs.asm.tree)
+    testImplementation(libs.asm.analysis)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -122,4 +125,26 @@ tasks.jar {
 
 tasks.build {
     dependsOn(tasks.shadowJar)
+}
+
+// Quellkatalog der eigenen Texte (docs/adr/ADR-033) fuer /translate-texts - Java-Vorlagen (KcText.t,
+// KcTexts.of) und Template-Vorlagen (t.of("...") in den .ftl). Landet beim Wurzelprojekt unter
+// build/texts/keycloak/, neben den Katalogen von Backend und Frontend.
+tasks.register<JavaExec>("exportTexts") {
+    group = "texts"
+    description = "Schreibt die Text-Vorlagen der Extension nach build/texts/keycloak/texts_source.properties (Wurzelprojekt)."
+    dependsOn("testClasses")
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.example.dpop.kcext.KcTextCatalog")
+    args(
+        layout.buildDirectory.dir("classes/java/main").get().asFile.absolutePath,
+        layout.projectDirectory.dir("src/main/resources/theme").asFile.absolutePath,
+        rootProject.layout.buildDirectory.dir("texts").get().asFile.absolutePath
+    )
+}
+
+// toolNamesAreTheAppsOwn vergleicht mit dem Frontend-Katalog (docs/adr/ADR-033).
+tasks.named<Test>("test") {
+    dependsOn(":exportFrontendTexts")
+    systemProperty("texts.frontendCatalog", rootProject.file("frontend/build/texts-catalog.json").absolutePath)
 }

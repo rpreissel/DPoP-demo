@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { activate } from '../../kobilSdk'
 import { storeUnlockSecret } from '../../kobilUnlockSecret'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface KobilEnrollFormProps {
   tenantId?: string
@@ -44,7 +46,7 @@ export function KobilEnrollForm({
       // Only on consent, and only then does the server keep its counterpart: declining leaves
       // nothing behind on either side, so the choice has a consequence instead of being a label.
       if (biometricConsent && unlockSecret) storeUnlockSecret(kobilUserId, unlockSecret)
-      onSubmit({ activated: true, biometricConsent, label: label.trim() || 'Mein Handy' })
+      onSubmit({ activated: true, biometricConsent, label: label.trim() || t('Mein Handy') })
     } catch (err) {
       setSdkError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -55,9 +57,9 @@ export function KobilEnrollForm({
   if (!namingDone) {
     return (
       <div className="card">
-        <h2>Gerät bei KOBIL registrieren</h2>
+        <h2>{t('Gerät bei KOBIL registrieren')}</h2>
         <p>
-          Vergeben Sie einen Namen, um dieses Gerät später wiederzuerkennen (z.&nbsp;B. „Diensthandy“).
+          {t('Vergeben Sie einen Namen, um dieses Gerät später wiederzuerkennen (z.\u00A0B. „Diensthandy“).')}
         </p>
         {error && <div className="hint">{error}</div>}
         <form
@@ -69,17 +71,17 @@ export function KobilEnrollForm({
           style={{ marginTop: '1rem' }}
         >
           <div className="form-group">
-            <label htmlFor="kobil-label">Gerätename</label>
+            <label htmlFor="kobil-label">{t('Gerätename')}</label>
             <input
               id="kobil-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Mein Handy"
+              placeholder={t('Mein Handy')}
               autoFocus
             />
           </div>
           <div className="form-actions">
-            <button type="submit">Weiter</button>
+            <button type="submit">{t('Weiter')}</button>
           </div>
         </form>
       </div>
@@ -88,19 +90,26 @@ export function KobilEnrollForm({
 
   return (
     <div className="card">
-      <h2>Biometrie erlauben?</h2>
+      <h2>{t('Biometrie erlauben?')}</h2>
       <p>
-        Mit Ihrem Passwort können Sie dieses Gerät immer entsperren. Zusätzlich können Sie
-        Biometrie erlauben – dann hinterlegt die App dafür ein Geräteheimnis.
+        {t(
+          'Mit Ihrem Passwort können Sie dieses Gerät immer entsperren. Zusätzlich können Sie ' +
+            'Biometrie erlauben – dann hinterlegt die App dafür ein Geräteheimnis.',
+        )}
       </p>
       <div className="hint">
-        <strong>Demo-Modus:</strong> Biometrie wird nur simuliert. Die KOBIL-PIN kennt allein das
-        Backend – sie wird Ihnen nie angezeigt und nicht von Ihnen vergeben.
+        <Tx
+          text={
+            '{modus} Biometrie wird nur simuliert. Die KOBIL-PIN kennt allein das ' +
+            'Backend – sie wird Ihnen nie angezeigt und nicht von Ihnen vergeben.'
+          }
+          modus={<strong>{t('Demo-Modus:')}</strong>}
+        />
       </div>
       {(error || sdkError) && <div className="hint">{error ?? sdkError}</div>}
       <div className="form-actions" style={{ marginTop: '1rem' }}>
         <button type="button" disabled={busy || !ready} onClick={() => handleConfirm(true)}>
-          Biometrie erlauben
+          {t('Biometrie erlauben')}
         </button>
       </div>
       <p style={{ marginTop: '0.75rem' }}>
@@ -110,7 +119,7 @@ export function KobilEnrollForm({
           disabled={busy || !ready}
           onClick={() => handleConfirm(false)}
         >
-          Nur mit Passwort
+          {t('Nur mit Passwort')}
         </button>
       </p>
     </div>

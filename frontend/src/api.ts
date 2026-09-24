@@ -2,7 +2,7 @@ import { ADMIN_PATH, adminAuthHeader, clearAdminCredentials } from './adminAuth'
 import { createDpopProof, type DpopKeyPair } from './dpop'
 import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, ErrorResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
 import { ErrorResponseErrorEnum } from './generated/models'
-import { resolveText } from './texts'
+import { resolveText, t } from './texts'
 
 /**
  * Reads an error body. The shape is the contract's `ErrorResponse`; anything else (a proxy's HTML
@@ -405,7 +405,7 @@ export function fetchServerInfo(): Promise<ServerInfo> {
 export function describeError(prefix: string, err: unknown): string {
   if (err instanceof ApiError) {
     const hint = err.errorCode === ErrorResponseErrorEnum.PROCESS_GONE
-      ? ' Bitte in der Struktur bei Channel auf "Vergessen" klicken, um neu zu starten.'
+      ? ' ' + t('Bitte in der Struktur bei Channel auf "Vergessen" klicken, um neu zu starten.')
       : ''
     return `${prefix}: ${err.message}${hint}`
   }

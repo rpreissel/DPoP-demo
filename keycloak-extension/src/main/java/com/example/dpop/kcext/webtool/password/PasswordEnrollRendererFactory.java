@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.password;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,13 +18,13 @@ public class PasswordEnrollRendererFactory extends AbstractWebToolRendererFactor
     }
 
     @Override
-    public String title() {
-        return "Passwort";
+    public KcText title() {
+        return KcText.t("Passwort");
     }
 
     @Override
-    public String hint() {
-        return "Eigenes Passwort festlegen";
+    public KcText hint() {
+        return KcText.t("Eigenes Passwort festlegen");
     }
 
     @Override

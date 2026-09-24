@@ -1,3 +1,6 @@
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
+
 interface ConfirmQrLoginFormProps {
   verificationCode?: string
   onAccept: () => void
@@ -13,19 +16,19 @@ interface ConfirmQrLoginFormProps {
 export function ConfirmQrLoginForm({ verificationCode, onAccept, onReject, error }: ConfirmQrLoginFormProps) {
   return (
     <div className="card">
-      <h2>Web-Login bestätigen?</h2>
-      <p>Ein Browser möchte sich mit Ihrem Konto anmelden.</p>
+      <h2>{t('Web-Login bestätigen?')}</h2>
+      <p>{t('Ein Browser möchte sich mit Ihrem Konto anmelden.')}</p>
       {verificationCode && (
         <div className="hint">
-          Vergleichscode: <strong style={{ fontSize: '1.4em' }}>{verificationCode}</strong>
-          <p style={{ marginTop: '0.5rem' }}>Bestätigen Sie nur, wenn der Browser denselben Code anzeigt.</p>
+          <Tx text="Vergleichscode: {code}" code={<strong style={{ fontSize: '1.4em' }}>{verificationCode}</strong>} />
+          <p style={{ marginTop: '0.5rem' }}>{t('Bestätigen Sie nur, wenn der Browser denselben Code anzeigt.')}</p>
         </div>
       )}
       {error && <div className="hint">{error}</div>}
       <div className="form-actions" style={{ marginTop: '1rem' }}>
-        <button onClick={onAccept}>Bestätigen</button>
+        <button onClick={onAccept}>{t('Bestätigen')}</button>
         <button className="secondary" onClick={onReject}>
-          Ablehnen
+          {t('Ablehnen')}
         </button>
       </div>
     </div>

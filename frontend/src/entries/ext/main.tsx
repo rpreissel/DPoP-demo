@@ -1,14 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../../index.css'
-import { REGISTER_TEXTS, loadAllTexts } from '../../texts'
-import { ExtApp } from './ExtApp.tsx'
+import { APP_TEXTS, REGISTER_TEXTS, loadAllTexts } from '../../texts'
 
-// The backend sends text references only; their wordings must be here before the first render.
-void loadAllTexts(REGISTER_TEXTS).then(() =>
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <ExtApp />
-    </StrictMode>,
-  ),
-)
+// Texts first, then the app: the backend sends text references only, and the app's own t("...")
+// calls - module-level ones included (tool labels) - must find their wordings when they run.
+void loadAllTexts(REGISTER_TEXTS, APP_TEXTS)
+  .then(() => import('./ExtApp.tsx'))
+  .then(({ ExtApp }) =>
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <ExtApp />
+      </StrictMode>,
+    ),
+  )

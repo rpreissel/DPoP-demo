@@ -3,10 +3,11 @@ import { submitFsc } from './api'
 import { IdentFscForm } from './IdentFscForm'
 import { attemptError } from '../stepData'
 import { stepDataOf } from '../../types'
+import { t } from '../../texts'
 
 export const identFsc: ToolModule = {
   toolId: 'ident-fsc',
-  meta: { icon: '🪪', label: 'Freischaltcode', hint: 'Persönliche Daten und Freischaltcode' },
+  meta: { icon: '🪪', label: t('Freischaltcode'), hint: t('Persönliche Daten und Freischaltcode') },
   render(ctx) {
     if (ctx.step === 'input') {
       return (

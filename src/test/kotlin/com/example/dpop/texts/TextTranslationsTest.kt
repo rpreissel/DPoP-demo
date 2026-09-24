@@ -11,12 +11,32 @@ import java.util.Properties
  */
 class TextTranslationsTest : BehaviorSpec({
 
-    val catalog = TextCatalog.application
+    val catalog = TextCatalog.all
+
+    fun keycloakWordings(language: String): Map<String, String> {
+        val file = java.nio.file.Path.of("keycloak-extension/src/main/resources/theme/orchestrator/login/messages/messages_$language.properties")
+        if (!java.nio.file.Files.exists(file)) return emptyMap()
+        val properties = Properties().apply { java.nio.file.Files.newBufferedReader(file, Charsets.UTF_8).use { load(it) } }
+        return properties.stringPropertyNames().associateWith { properties.getProperty(it) }
+    }
 
     fun wordings(bundle: String, language: String): Map<String, String> {
         val resource = TextBundle::class.java.classLoader.getResource("texts/$bundle/texts_$language.properties") ?: return emptyMap()
         val properties = Properties().apply { resource.openStream().reader(Charsets.UTF_8).use { load(it) } }
         return properties.stringPropertyNames().associateWith { properties.getProperty(it) }
+    }
+
+    given("the same template in several bundles - a tool name in the app and on the login page") {
+        then("reads the same in each, per language") {
+            SUPPORTED_LANGUAGES.flatMap { language ->
+                val byBundle = catalog.byBundle.keys.associateWith { wordings(it, language) } +
+                    ("keycloak" to keycloakWordings(language))
+                byBundle.values.flatMap { it.keys }.distinct().mapNotNull { id ->
+                    val variants = byBundle.mapNotNull { (bundle, w) -> w[id]?.let { bundle to it } }
+                    if (variants.map { it.second }.distinct().size > 1) "$language $id: $variants - run /translate-texts $language" else null
+                }
+            }.shouldBeEmpty()
+        }
     }
 
     catalog.byBundle.forEach { (bundle, entries) ->

@@ -1,4 +1,5 @@
-import { resolveText } from '../../texts'
+import { resolveText, t } from '../../texts'
+import { Tx } from '../../Tx'
 import { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
 import '../../App.css'
@@ -223,7 +224,7 @@ export function AppChannelApp() {
       setJwkThumbprint(thumbprint)
       logEvent('DPoP-Key geladen/erzeugt', { response: { jwkThumbprint: thumbprint, publicJwk: keyPair.publicJwk } })
     }
-    init().catch((err) => setError(describeError('Init error', err)))
+    init().catch((err) => setError(describeError(t('Start der App fehlgeschlagen'), err)))
     return () => {
       active = false
     }
@@ -329,7 +330,7 @@ export function AppChannelApp() {
         // the normal error path instead.
         return startPeerLogin(dpop, response.channel.channelSessionId)
           .then((peerResponse) => applyResponse(peerResponse))
-          .catch((err) => setError(describeError('Web-Login-Bestätigung fehlgeschlagen', err)))
+          .catch((err) => setError(describeError(t('Web-Login-Bestätigung fehlgeschlagen'), err)))
       })
       .catch(() => {
         forgetChannelSessionId()
@@ -399,7 +400,7 @@ export function AppChannelApp() {
       activatingToolIdRef.current = toolId
       getTool(dpop, toolSessionId, toolId)
         .then((response) => applyResponse(response, toolId))
-        .catch((err) => setError(describeError('Tool state fetch failed', err)))
+        .catch((err) => setError(describeError(t('Stand des Verfahrens konnte nicht geladen werden'), err)))
         .finally(() => {
           if (activatingToolIdRef.current === toolId) activatingToolIdRef.current = null
         })
@@ -426,7 +427,7 @@ export function AppChannelApp() {
         applyResponse(response, toolId)
         setCarriedMessage(pendingMessage)
       })
-      .catch((err) => setError(describeError('Tool activation failed', err)))
+      .catch((err) => setError(describeError(t('Verfahren konnte nicht gestartet werden'), err)))
       .finally(() => {
         if (activatingToolIdRef.current === toolId) activatingToolIdRef.current = null
       })
@@ -461,7 +462,7 @@ export function AppChannelApp() {
         setCurrentAmr(response.channel.currentAmr)
         setActiveMethods(response.channel.activeMethods)
       })
-      .catch((err) => setError(describeError('Sicherheitsdetails laden fehlgeschlagen', err)))
+      .catch((err) => setError(describeError(t('Sicherheitsdetails laden fehlgeschlagen'), err)))
       .finally(() => {
         loadingSecurityDetailsRef.current = false
       })
@@ -497,7 +498,7 @@ export function AppChannelApp() {
       const response = await createChannel(dpop, requiredAcr || undefined, intent, availableTools)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Start fehlgeschlagen', err))
+      setError(describeError(t('Start fehlgeschlagen'), err))
     }
   }
 
@@ -537,7 +538,7 @@ export function AppChannelApp() {
       setJwkThumbprint(thumbprint)
       logEvent('DPoP-Key neu erzeugt', { response: { jwkThumbprint: thumbprint, publicJwk: keyPair.publicJwk } })
     } catch (err) {
-      setError(describeError('Key-Neuerzeugung fehlgeschlagen', err))
+      setError(describeError(t('Key-Neuerzeugung fehlgeschlagen'), err))
     }
   }
 
@@ -549,7 +550,7 @@ export function AppChannelApp() {
       const response = await startLogout(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Logout failed', err))
+      setError(describeError(t('Abmelden fehlgeschlagen'), err))
     }
   }
 
@@ -567,7 +568,7 @@ export function AppChannelApp() {
       const response = await raiseRequiredAcr(dpop, channelSessionId, requiredAcr)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Step-up fehlgeschlagen', err))
+      setError(describeError(t('Step-up fehlgeschlagen'), err))
     }
   }
 
@@ -589,7 +590,7 @@ export function AppChannelApp() {
         applyResponse(response)
       }
     } catch (err) {
-      setError(describeError('Antwort fehlgeschlagen', err))
+      setError(describeError(t('Antwort fehlgeschlagen'), err))
     }
   }
 
@@ -601,7 +602,7 @@ export function AppChannelApp() {
       const response = await startManageMethods(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Hinzufügen fehlgeschlagen', err))
+      setError(describeError(t('Hinzufügen fehlgeschlagen'), err))
     }
   }
 
@@ -613,7 +614,7 @@ export function AppChannelApp() {
       const response = await startPeerLogin(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Web-Login-Bestätigung fehlgeschlagen', err))
+      setError(describeError(t('Web-Login-Bestätigung fehlgeschlagen'), err))
     }
   }
 
@@ -624,7 +625,7 @@ export function AppChannelApp() {
       const response = await deactivateMethod(dpop, channelSessionId, methodInstanceId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Deaktivieren fehlgeschlagen', err))
+      setError(describeError(t('Deaktivieren fehlgeschlagen'), err))
     }
   }
 
@@ -636,7 +637,7 @@ export function AppChannelApp() {
       const response = await startAccountDeletion(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Konto löschen fehlgeschlagen', err))
+      setError(describeError(t('Konto löschen fehlgeschlagen'), err))
     }
   }
 
@@ -654,7 +655,7 @@ export function AppChannelApp() {
       const response = await abandonTool(dpop, activeTool.toolSessionId, activeTool.toolId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Wechsel fehlgeschlagen', err))
+      setError(describeError(t('Wechsel fehlgeschlagen'), err))
     }
   }
 
@@ -664,7 +665,7 @@ export function AppChannelApp() {
       const response = await cancelJourney(dpop, channelSessionId)
       applyResponse(response)
     } catch (err) {
-      setError(describeError('Cancel failed', err))
+      setError(describeError(t('Abbrechen fehlgeschlagen'), err))
     }
   }
 
@@ -693,7 +694,7 @@ export function AppChannelApp() {
       const response = await activateTool(dpop, channelSessionId, toolId, activationBodyFor(toolId))
       applyResponse(response, toolId)
     } catch (err) {
-      setError(describeError('Tool activation failed', err))
+      setError(describeError(t('Verfahren konnte nicht gestartet werden'), err))
     }
   }
 
@@ -747,24 +748,35 @@ export function AppChannelApp() {
         <AppChannelFrame>
           {error && (
             <div className="card error-card">
-              <h2>Fehler</h2>
+              <h2>{t('Fehler')}</h2>
               <p>{error}</p>
             </div>
           )}
 
           {!channelSessionId && (
             <div className="card welcome-card">
-              <h2>Dieser Tab ist Ihr Smartphone</h2>
+              <h2>{t('Dieser Tab ist Ihr Smartphone')}</h2>
               <p>
-                Stellen Sie sich vor, Sie öffnen die App Ihrer Versicherung. Der Tab spielt diese App: Beim ersten
-                Aufruf hat er einen <strong>Geräteschlüssel</strong> erzeugt, der den Browser nie verlässt, und
-                signiert damit jede Anfrage (DPoP). Ein abgefangenes Token nützt so auf keinem anderen Gerät.
+                <Tx
+                  text={
+                    'Stellen Sie sich vor, Sie öffnen die App Ihrer Versicherung. Der Tab spielt diese App: Beim ersten ' +
+                    'Aufruf hat er einen {schluessel} erzeugt, der den Browser nie verlässt, und ' +
+                    'signiert damit jede Anfrage (DPoP). Ein abgefangenes Token nützt so auf keinem anderen Gerät.'
+                  }
+                  schluessel={<strong>{t('Geräteschlüssel')}</strong>}
+                />
               </p>
               <p>
-                Beim ersten Mal <strong>registrieren</strong> Sie sich: einmal ausweisen (Freischaltcode aus dem
-                Brief oder eID), dann ein Anmeldeverfahren einrichten. Danach <strong>melden Sie sich an</strong> -
-                auf diesem Gerät auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind
-                nur Handy, SMS/E-Mail (der Code steht im Formular), Brief und Ausweiskarte.
+                <Tx
+                  text={
+                    'Beim ersten Mal {registrieren} Sie sich: einmal ausweisen (Freischaltcode aus dem ' +
+                    'Brief oder eID), dann ein Anmeldeverfahren einrichten. Danach {anmelden} - ' +
+                    'auf diesem Gerät auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind ' +
+                    'nur Handy, SMS/E-Mail (der Code steht im Formular), Brief und Ausweiskarte.'
+                  }
+                  registrieren={<strong>{t('registrieren')}</strong>}
+                  anmelden={<strong>{t('melden Sie sich an')}</strong>}
+                />
               </p>
             </div>
           )}
@@ -772,13 +784,13 @@ export function AppChannelApp() {
           <UnavailableTools channel="APP" availableTools={availableTools} />
           {!channelSessionId && (
             <div className="card">
-              <Disclosure summary="Erweitert: Startniveau und unterstützte Verfahren dieses Clients">
-                <p>Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.</p>
+              <Disclosure summary={t('Erweitert: Startniveau und unterstützte Verfahren dieses Clients')}>
+                <p>{t('Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.')}</p>
                 <label className="field-row">
-                  Startniveau:
+                  {t('Startniveau:')}
                   <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
-                    <option value="">loa1 (Standard)</option>
-                    <option value="loa2">loa2 (MFA - mehrere Enrollments)</option>
+                    <option value="">{t('loa1 (Standard)')}</option>
+                    <option value="loa2">{t('loa2 (MFA - mehrere Enrollments)')}</option>
                   </select>
                 </label>
                 <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
@@ -793,9 +805,9 @@ export function AppChannelApp() {
                   <span>
                     {journeyContextKey && (
                       <>
-                        Aktueller Vorgang: <strong>{journeyContextLabel(journeyContextKey)}</strong>
+                        <Tx text="Aktueller Vorgang: {vorgang}" vorgang={<strong>{journeyContextLabel(journeyContextKey)}</strong>} />
                         <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline openDown>
-                          <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf dieses Vorgangs als Diagramm anzeigen">
+                          <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf dieses Vorgangs als Diagramm anzeigen')}>
                             ℹ️
                           </span>
                         </DiagramHint>
@@ -803,8 +815,8 @@ export function AppChannelApp() {
                     )}
                   </span>
                   {channelState !== 'AUTHENTICATED' && (
-                    <button className="secondary small" onClick={handleClearChannel} title="Verlässt den Vorgang ganz und geht zurück zur Startauswahl.">
-                      Zur Startseite
+                    <button className="secondary small" onClick={handleClearChannel} title={t('Verlässt den Vorgang ganz und geht zurück zur Startauswahl.')}>
+                      {t('Zur Startseite')}
                     </button>
                   )}
                 </div>
@@ -813,10 +825,10 @@ export function AppChannelApp() {
 
               {channelState === 'LOGGED_OUT' && (
                 <div className="card">
-                  <h2>Abgemeldet</h2>
-                  <p>Sie wurden erfolgreich abgemeldet. Ihre Sitzung wurde beendet.</p>
+                  <h2>{t('Abgemeldet')}</h2>
+                  <p>{t('Sie wurden erfolgreich abgemeldet. Ihre Sitzung wurde beendet.')}</p>
                   <div className="form-actions" style={{ marginTop: '1rem' }}>
-                    <button onClick={handleClearChannel}>Zur Startseite</button>
+                    <button onClick={handleClearChannel}>{t('Zur Startseite')}</button>
                   </div>
                 </div>
               )}
@@ -826,8 +838,8 @@ export function AppChannelApp() {
                       seinem Absenden-Button (ToolRenderContext.onSkip) - hier unten waere er vom
                       Formular weg und liesse sich zweimal auf der Seite finden. */}
                   {activeTool && alternativesCount > 0 && !metaFor(activeTool.toolId).skipLabel && (
-                    <button className="secondary" onClick={handleAbandonTool} title="Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode). Bei einem Vorgang mit nur einem Kandidaten (z. B. confirm-qr-login) bietet das denselben Schritt einfach erneut an - dafür ist Abbrechen daneben da.">
-                      Anderes Verfahren
+                    <button className="secondary" onClick={handleAbandonTool} title={t('Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode). Bei einem Vorgang mit nur einem Kandidaten (z. B. confirm-qr-login) bietet das denselben Schritt einfach erneut an - dafür ist Abbrechen daneben da.')}>
+                      {t('Anderes Verfahren')}
                     </button>
                   )}
                   {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem
@@ -841,22 +853,22 @@ export function AppChannelApp() {
                       hat - bis hin zur nachgewiesenen Identität - wird weggeworfen. Also heißt der
                       Knopf, was er tut, und fragt einmal nach. */}
                   {canCancel && !discardsRegistration && (
-                    <button className="secondary" onClick={handleCancel} title="Bricht diesen Vorgang vollständig ab.">
-                      Abbrechen
+                    <button className="secondary" onClick={handleCancel} title={t('Bricht diesen Vorgang vollständig ab.')}>
+                      {t('Abbrechen')}
                     </button>
                   )}
                   {canCancel && discardsRegistration && !confirmingDiscard && (
-                    <button className="secondary" onClick={() => setConfirmingDiscard(true)} title="Beendet die Registrierung. Alles, was dieser Vorgang bisher aufgebaut hat - auch eine bereits nachgewiesene Identität - wird verworfen.">
-                      Registrierung verwerfen
+                    <button className="secondary" onClick={() => setConfirmingDiscard(true)} title={t('Beendet die Registrierung. Alles, was dieser Vorgang bisher aufgebaut hat - auch eine bereits nachgewiesene Identität - wird verworfen.')}>
+                      {t('Registrierung verwerfen')}
                     </button>
                   )}
                   {canCancel && discardsRegistration && confirmingDiscard && (
                     <>
-                      <span className="hint">Alles aus diesem Vorgang geht verloren, auch die nachgewiesene Identität.</span>
+                      <span className="hint">{t('Alles aus diesem Vorgang geht verloren, auch die nachgewiesene Identität.')}</span>
                       <button className="secondary" onClick={() => { setConfirmingDiscard(false); handleCancel() }}>
-                        Verwerfen
+                        {t('Verwerfen')}
                       </button>
-                      <button onClick={() => setConfirmingDiscard(false)}>Weitermachen</button>
+                      <button onClick={() => setConfirmingDiscard(false)}>{t('Weitermachen')}</button>
                     </>
                   )}
                 </div>
@@ -866,10 +878,10 @@ export function AppChannelApp() {
             <>
               <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink} />
               <div className="card">
-                <h2>Wie möchten Sie starten?</h2>
+                <h2>{t('Wie möchten Sie starten?')}</h2>
                 {pendingPairingCode && (
                   <p className="hint">
-                    QR-Code erkannt (Pairing-Code {pendingPairingCode}) - wählen Sie „Web-Login per QR bestätigen".
+                    {t('QR-Code erkannt (Pairing-Code {code}) - wählen Sie „Web-Login per QR bestätigen".', { code: pendingPairingCode })}
                   </p>
                 )}
                 <ul className="method-choice-list">
@@ -878,77 +890,81 @@ export function AppChannelApp() {
                       <button
                         className="method-choice"
                         onClick={() => handleStart('resume')}
-                        aria-label={`Sitzung fortsetzen (${shorten(rememberedChannelSessionId)})`}
+                        aria-label={t('Sitzung fortsetzen ({sitzung})', { sitzung: shorten(rememberedChannelSessionId) })}
                       >
                         <span className="method-choice-icon" aria-hidden="true">
                           🔁
                         </span>
                         <span className="method-choice-text">
-                          <span className="method-choice-label">Sitzung fortsetzen</span>
+                          <span className="method-choice-label">{t('Sitzung fortsetzen')}</span>
                           <span className="method-choice-hint">
-                            Dort weitermachen, wo Sie aufgehört haben ({shorten(rememberedChannelSessionId)})
+                            {t('Dort weitermachen, wo Sie aufgehört haben ({sitzung})', { sitzung: shorten(rememberedChannelSessionId) })}
                           </span>
                         </span>
                       </button>
                     </li>
                   )}
                   <li>
-                    <button className="method-choice" onClick={() => handleStart('auto')} aria-label="Automatisch anmelden">
+                    <button className="method-choice" onClick={() => handleStart('auto')} aria-label={t('Automatisch anmelden')}>
                       <span className="method-choice-icon" aria-hidden="true">
                         🚀
                       </span>
                       <span className="method-choice-text">
                         <span className="method-choice-label">
-                          Automatisch anmelden
+                          {t('Automatisch anmelden')}
                           <DiagramHint spec={JOURNEY_DIAGRAMS.auto} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Automatisch anmelden als Diagramm anzeigen">
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Automatisch anmelden als Diagramm anzeigen')}>
                               ℹ️
                             </span>
                           </DiagramHint>
                         </span>
                         <span className="method-choice-hint">
-                          Empfohlen: Kennt dieses Gerät schon ein Konto, meldet es sich direkt an - sonst startet eine
-                          Registrierung.
+                          {t(
+                            'Empfohlen: Kennt dieses Gerät schon ein Konto, meldet es sich direkt an - sonst startet eine ' +
+                              'Registrierung.',
+                          )}
                         </span>
                       </span>
                     </button>
                   </li>
                   <li>
-                    <button className="method-choice" onClick={() => handleStart('register')} aria-label="Neues Konto registrieren">
+                    <button className="method-choice" onClick={() => handleStart('register')} aria-label={t('Neues Konto registrieren')}>
                       <span className="method-choice-icon" aria-hidden="true">
                         ✨
                       </span>
                       <span className="method-choice-text">
                         <span className="method-choice-label">
-                          Neues Konto registrieren
+                          {t('Neues Konto registrieren')}
                           <DiagramHint spec={JOURNEY_DIAGRAMS.register} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Neues Konto registrieren als Diagramm anzeigen">
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Neues Konto registrieren als Diagramm anzeigen')}>
                               ℹ️
                             </span>
                           </DiagramHint>
                         </span>
                         <span className="method-choice-hint">
-                          Durchläuft immer die Registrierung, auch wenn dieses Gerät schon bekannt ist - bei
-                          derselben Test-Identität landen Sie wieder auf dem bestehenden Konto.
+                          {t(
+                            'Durchläuft immer die Registrierung, auch wenn dieses Gerät schon bekannt ist - bei ' +
+                              'derselben Test-Identität landen Sie wieder auf dem bestehenden Konto.',
+                          )}
                         </span>
                       </span>
                     </button>
                   </li>
                   <li>
-                    <button className="method-choice" onClick={() => handleStart('login')} aria-label="Neu anmelden">
+                    <button className="method-choice" onClick={() => handleStart('login')} aria-label={t('Neu anmelden')}>
                       <span className="method-choice-icon" aria-hidden="true">
                         🌐
                       </span>
                       <span className="method-choice-text">
                         <span className="method-choice-label">
-                          Neu anmelden
+                          {t('Neu anmelden')}
                           <DiagramHint spec={JOURNEY_DIAGRAMS.login} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Neu anmelden als Diagramm anzeigen">
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Neu anmelden als Diagramm anzeigen')}>
                               ℹ️
                             </span>
                           </DiagramHint>
                         </span>
-                        <span className="method-choice-hint">Ohne dieses Gerät wiederzuerkennen anmelden, per E-Mail und Passwort oder Code.</span>
+                        <span className="method-choice-hint">{t('Ohne dieses Gerät wiederzuerkennen anmelden, per E-Mail und Passwort oder Code.')}</span>
                       </span>
                     </button>
                   </li>
@@ -956,22 +972,22 @@ export function AppChannelApp() {
                     <button
                       className="method-choice"
                       onClick={handleConfirmPeerLoginChoice}
-                      aria-label="Web-Login per QR bestätigen"
+                      aria-label={t('Web-Login per QR bestätigen')}
                     >
                       <span className="method-choice-icon" aria-hidden="true">
                         📷
                       </span>
                       <span className="method-choice-text">
                         <span className="method-choice-label">
-                          Web-Login per QR bestätigen
+                          {t('Web-Login per QR bestätigen')}
                           <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label="Ablauf von Web-Login per QR bestätigen als Diagramm anzeigen">
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Web-Login per QR bestätigen als Diagramm anzeigen')}>
                               ℹ️
                             </span>
                           </DiagramHint>
                         </span>
                         <span className="method-choice-hint">
-                          Für einen Browser, der einen QR- oder Pairing-Code anzeigt. Setzt ein hier schon bekanntes Konto voraus.
+                          {t('Für einen Browser, der einen QR- oder Pairing-Code anzeigt. Setzt ein hier schon bekanntes Konto voraus.')}
                         </span>
                       </span>
                     </button>
@@ -984,7 +1000,7 @@ export function AppChannelApp() {
           {uiComponent === 'select-method' && selection && (
             <SelectMethodView
               options={selection.options}
-              title={selection.title ? resolveText(selection.title) : 'Verfahren wählen'}
+              title={selection.title ? resolveText(selection.title) : t('Verfahren wählen')}
               description={selection.description ? resolveText(selection.description) : undefined}
               onSelect={handleSelectMethod}
             />

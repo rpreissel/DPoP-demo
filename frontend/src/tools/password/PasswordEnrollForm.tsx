@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface PasswordEnrollFormProps {
   onSubmit: (fields: { password: string }) => void
@@ -23,7 +25,7 @@ export function PasswordEnrollForm({ onSubmit, error, demoPassword }: PasswordEn
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (password !== passwordConfirm) {
-      setValidationError('Die Passwörter stimmen nicht überein.')
+      setValidationError(t('Die Passwörter stimmen nicht überein.'))
       return
     }
     setValidationError('')
@@ -32,15 +34,15 @@ export function PasswordEnrollForm({ onSubmit, error, demoPassword }: PasswordEn
 
   return (
     <div className="card">
-      <h2>Passwort einrichten</h2>
-      <p>Legen Sie ein Passwort als weiteren Faktor an. Ihre bestätigte E-Mail-Adresse dient dabei als Anmeldename.</p>
+      <h2>{t('Passwort einrichten')}</h2>
+      <p>{t('Legen Sie ein Passwort als weiteren Faktor an. Ihre bestätigte E-Mail-Adresse dient dabei als Anmeldename.')}</p>
       <div className="hint">
-        Demo-Modus: Passwort ist bereits vorbelegt: <code>{password}</code>
+        <Tx text="Demo-Modus: Passwort ist bereits vorbelegt: {passwort}" passwort={<code>{password}</code>} />
       </div>
       {(validationError || error) && <div className="hint">{validationError || error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="password">Passwort</label>
+          <label htmlFor="password">{t('Passwort')}</label>
           <input
             id="password"
             type="password"
@@ -52,7 +54,7 @@ export function PasswordEnrollForm({ onSubmit, error, demoPassword }: PasswordEn
           />
         </div>
         <div className="form-group">
-          <label htmlFor="passwordConfirm">Passwort wiederholen</label>
+          <label htmlFor="passwordConfirm">{t('Passwort wiederholen')}</label>
           <input
             id="passwordConfirm"
             type="password"
@@ -63,7 +65,7 @@ export function PasswordEnrollForm({ onSubmit, error, demoPassword }: PasswordEn
           />
         </div>
         <div className="form-actions">
-          <button type="submit">Einrichten</button>
+          <button type="submit">{t('Einrichten')}</button>
         </div>
       </form>
     </div>

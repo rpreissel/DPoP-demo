@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import { useEffect, useState } from 'react'
 import { fetchServerInfo, type ChannelType, type ServerInfo } from '../api.ts'
 import { knownToolIds } from '../tools/registry'
@@ -25,7 +26,7 @@ export function UnavailableTools({ channel, availableTools }: UnavailableToolsPr
 
   useEffect(() => {
     fetchServerInfo()
-      .then((info) => setLocks(info.disabledTools.filter((t) => t.channel === channel)))
+      .then((info) => setLocks(info.disabledTools.filter((d) => d.channel === channel)))
       .catch(() => setLocks([]))
   }, [channel])
 
@@ -43,15 +44,15 @@ export function UnavailableTools({ channel, availableTools }: UnavailableToolsPr
   return (
     <details className="unavailable-tools">
       <summary>
-        {rows.length} Verfahren nicht verfügbar
+        {t('{anzahl} Verfahren nicht verfügbar', { anzahl: rows.length })}
       </summary>
       <ul>
         {rows.map((row) => (
           <li key={row.toolId}>
             <code>{row.toolId}</code>{' '}
             {[
-              row.clientDisabled && 'auf diesem Client deaktiviert',
-              row.lock && `gesperrt${row.lock.reason ? ` - ${row.lock.reason}` : ''}`,
+              row.clientDisabled && t('auf diesem Client deaktiviert'),
+              row.lock && (row.lock.reason ? t('gesperrt: {grund}', { grund: row.lock.reason }) : t('gesperrt')),
             ]
               .filter(Boolean)
               .join(' · ')}

@@ -40,16 +40,16 @@ final class WebFormRenderer {
         Map<String, String> optionLabels = new LinkedHashMap<>();
         for (String option : options) {
             WebToolRendererFactory factory = rendererFactoryFor(session, option);
-            if (factory != null) optionLabels.put(option, factory.title());
+            if (factory != null) optionLabels.put(option, KcTexts.resolve(session, factory.title()));
         }
         // The backend already names this specific selection screen (JourneyState.selectionTitle/
         // -Description, docs/04-orchestrierung.md #4) - "Identifikation erforderlich",
         // "Anmeldeverfahren einrichten", "Passwort einrichten" are all real, DIFFERENT screens that
         // must not collapse into one generic "Anmeldemethode wählen" heading.
         String backendTitle = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("title")) : null;
-        String title = backendTitle != null ? backendTitle : "Anmeldemethode wählen";
+        String title = backendTitle != null ? backendTitle : KcTexts.of(session, "Anmeldemethode wählen");
         String description = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("description")) : null;
-        var built = form
+        var built = withTexts(session, form)
                 .setAuthenticationSession(authSession)
                 .setAttribute("title", title)
                 .setAttribute("description", description)
@@ -74,11 +74,11 @@ final class WebFormRenderer {
         WebToolRenderer renderer = session.getProvider(WebToolRenderer.class, next.toolId());
         if (renderer != null) {
             WebToolRendererFactory factory = rendererFactoryFor(session, next.toolId());
-            var built = form
+            var built = withTexts(session, form)
                     .setAuthenticationSession(authSession)
                     .setAttribute("toolId", next.toolId())
-                    .setAttribute("title", factory != null ? factory.title() : next.toolId())
-                    .setAttribute("hint", factory != null ? factory.hint() : "");
+                    .setAttribute("title", factory != null ? KcTexts.resolve(session, factory.title()) : next.toolId())
+                    .setAttribute("hint", factory != null ? KcTexts.resolve(session, factory.hint()) : "");
             if (effectiveError != null) built.setError(effectiveError);
             WebToolRenderContext ctx = new WebToolRenderContext(
                     next.toolId(), next.step(), response.stepData(), response.demo(), effectiveError,
@@ -95,7 +95,7 @@ final class WebFormRenderer {
         if (missingFields != null && missingFields.isArray()) {
             missingFields.forEach(fieldName -> fields.put(fieldName.asText(), ""));
         }
-        var built = form
+        var built = withTexts(session, form)
                 .setAuthenticationSession(authSession)
                 .setAttribute("toolId", next.toolId())
                 .setAttribute("fields", fields);
@@ -110,10 +110,10 @@ final class WebFormRenderer {
      * {@link #toolForm}.
      */
     static Response confirmForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession, JsonNode prompt, String error) {
-        String title = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("title")) : null, "Bestätigung erforderlich");
-        String confirmLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("confirmLabel")) : null, "Ja");
-        String cancelLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("cancelLabel")) : null, "Nein");
-        var built = form
+        String title = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("title")) : null, KcTexts.of(session, "Bestätigung erforderlich"));
+        String confirmLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("confirmLabel")) : null, KcTexts.of(session, "Ja"));
+        String cancelLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("cancelLabel")) : null, KcTexts.of(session, "Nein"));
+        var built = withTexts(session, form)
                 .setAuthenticationSession(authSession)
                 .setAttribute("title", title)
                 .setAttribute("confirmLabel", confirmLabel)
@@ -126,8 +126,8 @@ final class WebFormRenderer {
         return value != null ? value : fallback;
     }
 
-    static Response errorForm(LoginFormsProvider form, AuthenticationSessionModel authSession, String message) {
-        return form.setAuthenticationSession(authSession).setError(message).createForm("orchestrator-error.ftl");
+    static Response errorForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession, String message) {
+        return withTexts(session, form).setAuthenticationSession(authSession).setError(message).createForm("orchestrator-error.ftl");
     }
 
     /**
@@ -138,7 +138,7 @@ final class WebFormRenderer {
      * names a record actually generates, so handing it a raw {@code MethodView} would silently
      * render blank fields instead of failing loudly.
      */
-    static Response methodsListForm(LoginFormsProvider form, AuthenticationSessionModel authSession,
+    static Response methodsListForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession,
             List<OrchestratorClient.MethodView> methods, String notice) {
         List<Map<String, String>> rows = new java.util.ArrayList<>();
         for (OrchestratorClient.MethodView m : methods) {
@@ -148,11 +148,19 @@ final class WebFormRenderer {
             row.put("label", m.label());
             rows.add(row);
         }
-        var built = form
+        var built = withTexts(session, form)
                 .setAuthenticationSession(authSession)
                 .setAttribute("methods", rows);
         if (notice != null) built.setInfo(notice);
         return built.createForm("orchestrator-manage-methods.ftl");
+    }
+
+    /**
+     * Every orchestrator page gets {@code t}: its own texts are written as German templates,
+     * {@code ${t.of("Weiter")}}, and resolved in the login's language (docs/adr/ADR-033).
+     */
+    private static LoginFormsProvider withTexts(KeycloakSession session, LoginFormsProvider form) {
+        return form.setAttribute("t", KcTexts.forTemplates(session));
     }
 
     private static WebToolRendererFactory rendererFactoryFor(KeycloakSession session, String toolId) {

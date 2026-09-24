@@ -1,5 +1,6 @@
 import type { JourneyDiagramCurrentStep, JourneyDiagramSpec } from './components/JourneyDiagram'
 import type { JourneyDebugStep } from './types'
+import { t } from './texts'
 
 /**
  * The representative shape of each entry journey, shared between the start-screen hover previews
@@ -25,7 +26,7 @@ export const JOURNEY_DIAGRAMS: Record<
   JourneyDiagramSpec
 > = {
   channel: {
-    title: 'Channel-Lebenszyklus',
+    title: t('Channel-Lebenszyklus'),
     // The exact enum values shown in the Channel box's own state field (ChannelState.kt). ANONYMOUS
     // vs. REGISTERING is a real fork, not the same phase - which one a fresh channel starts in
     // depends on whether it already has an account (JourneyService.startEntryJourney): none yet ->
@@ -34,87 +35,87 @@ export const JOURNEY_DIAGRAMS: Record<
     // it's a loop back onto AUTHENTICATED, not a second fork with its own ending, and this diagram
     // is deliberately a SHAPE with the ONE branch that matters, not a full state machine; the
     // stepUp diagram (shown on that SubJourney's own hint once it's running) covers it in detail.
-    steps: ['Konto schon bekannt?', 'AUTHENTICATED', 'LOGGED_OUT / EXPIRED'],
+    steps: [t('Konto schon bekannt?'), 'AUTHENTICATED', 'LOGGED_OUT / EXPIRED'],
     branch: {
       atIndex: 0,
-      mainLabel: 'Ja (ANONYMOUS)',
-      label: 'Nein (REGISTERING)',
+      mainLabel: t('Ja ({zustand})', { zustand: 'ANONYMOUS' }),
+      label: t('Nein ({zustand})', { zustand: 'REGISTERING' }),
       steps: ['AUTHENTICATED'],
     },
   },
   auto: {
-    title: 'Verbinden (automatisch)',
-    steps: ['Gerät erkannt?', 'Faktor bestätigen', 'Angemeldet'],
+    title: t('Verbinden (automatisch)'),
+    steps: [t('Gerät erkannt?'), t('Faktor bestätigen'), t('Angemeldet')],
     branch: {
       atIndex: 0,
-      mainLabel: 'Ja',
-      label: 'Nein',
-      steps: ['Identifikation', 'E-Mail bestätigen', '2. Faktor einrichten', 'Angemeldet'],
+      mainLabel: t('Ja'),
+      label: t('Nein'),
+      steps: [t('Identifikation'), t('E-Mail bestätigen'), t('2. Faktor einrichten'), t('Angemeldet')],
     },
   },
   register: {
-    title: 'Neues Konto registrieren',
+    title: t('Neues Konto registrieren'),
     // Reihenfolge seit ADR-17 (docs/12-entscheidungen.md): die Adresse ist Konto-Infrastruktur und
     // wird VOR jedem Anmeldeverfahren bestätigt, nicht als dessen Nebenprodukt danach
     // (RegisterState.ConfirmingEmail's eigener KDoc: "FIRST mandatory step ... before any
     // enrollment is offered").
-    steps: ['Identifikation', 'E-Mail bestätigen', '2. Faktor einrichten', 'Angemeldet'],
+    steps: [t('Identifikation'), t('E-Mail bestätigen'), t('2. Faktor einrichten'), t('Angemeldet')],
   },
   registerEnrollFirst: {
-    title: 'Neues Konto registrieren (Enrollment zuerst, Experiment)',
+    title: t('Neues Konto registrieren (Enrollment zuerst, Experiment)'),
     // RegisterEnrollFirstState (admin-umschaltbar, AdminRegistrationOrderView): komplett eigene
     // Zustände (EnrollFirst*), keine mit RegisterState geteilten Typen außer RE_IDENTIFY am Ende.
     // Reihenfolge ist fest: E-Mail (mandatory), SMS (mandatory), Passwort (mandatory) - erst danach
     // optional identifizieren, nie davor (Gegenstück zum ident-first `register` oben).
-    steps: ['E-Mail bestätigen', 'SMS einrichten', 'Passwort einrichten', 'Angemeldet'],
+    steps: [t('E-Mail bestätigen'), t('SMS einrichten'), t('Passwort einrichten'), t('Angemeldet')],
     branch: {
       atIndex: 2,
-      mainLabel: 'nein',
-      label: 'optional identifizieren',
-      steps: ['Identifikation', 'Angemeldet'],
+      mainLabel: t('Nein'),
+      label: t('optional identifizieren'),
+      steps: [t('Identifikation'), t('Angemeldet')],
     },
   },
   login: {
-    title: 'Neu anmelden',
-    steps: ['E-Mail + Code/Passwort', 'Gerät merken? (optional)', 'Angemeldet'],
+    title: t('Neu anmelden'),
+    steps: [t('E-Mail + Code/Passwort'), t('Gerät merken? (optional)'), t('Angemeldet')],
   },
   stepUp: {
-    title: 'Sicherheitsniveau erhöhen (Step-up)',
-    steps: ['Verfahren wählen', 'Faktor bestätigen', 'Niveau erreicht'],
+    title: t('Sicherheitsniveau erhöhen'),
+    steps: [t('Verfahren wählen'), t('Faktor bestätigen'), t('Niveau erreicht')],
     // The one-method dead end (StepUpStrategy): an account with a single active auth method has
     // nothing left to combine with, so re-identification is the way out instead of a dead end.
     branch: {
       atIndex: 0,
-      mainLabel: 'vorhanden',
-      label: 'nur 1 Verfahren',
-      steps: ['Erneut identifizieren', 'Niveau erreicht'],
+      mainLabel: t('vorhanden'),
+      label: t('nur 1 Verfahren'),
+      steps: [t('Erneut identifizieren'), t('Niveau erreicht')],
     },
   },
   manageMethods: {
-    title: 'Verfahren verwalten',
-    steps: ['Niveau ausreichend?', 'Verfahren wählen', 'Eingerichtet'],
+    title: t('Verfahren verwalten'),
+    steps: [t('Niveau ausreichend?'), t('Verfahren wählen'), t('Eingerichtet')],
     branch: {
       atIndex: 0,
-      mainLabel: 'Ja',
-      label: 'Nein',
-      steps: ['Step-up (Faktor bestätigen)', 'Verfahren wählen', 'Eingerichtet'],
+      mainLabel: t('Ja'),
+      label: t('Nein'),
+      steps: [t('Step-up (Faktor bestätigen)'), t('Verfahren wählen'), t('Eingerichtet')],
     },
   },
   reIdentify: {
-    title: 'Erneut identifizieren',
+    title: t('Erneut identifizieren'),
     // The exact ReIdentifyState names (docs/orchestrator/journey/state/ReIdentifyState.kt) -
     // shared by FAST_ACCESS/LOOKUP_LOGIN/STEP_UP alike, always this same confirmation first,
     // never a silent fallback; the identification only ever CONFIRMS the already-known account.
     steps: ['OfferReIdent', 'Identifying', 'Finished'],
     branch: {
       atIndex: 0,
-      mainLabel: 'Ja',
-      label: 'Nein',
+      mainLabel: t('Ja'),
+      label: t('Nein'),
       steps: ['Cancel'],
     },
   },
   confirmPeerLogin: {
-    title: 'Web-Login per QR bestätigen',
+    title: t('Web-Login per QR bestätigen'),
     // Same anti-self-escalation gate as manageMethods (ConfirmPeerLoginStrategy.gate()): loa2
     // first. The "Nein" branch covers BOTH real starting points alike, because the strategy itself
     // does: a cold entry (no channel yet, ConfirmPeerLoginState.Requested as initialState()) and an
@@ -122,44 +123,44 @@ export const JOURNEY_DIAGRAMS: Record<
     // run through the exact same STEP_UP sub-journey - there is no separate "log in first" step in
     // the code, so this diagram doesn't invent one either. Never identification/registration even
     // from cold, see AuthIntent.CONFIRM_PEER_LOGIN's own KDoc.
-    steps: ['Bereits bei loa2?', 'Web-Login bestätigen', 'Bestätigt'],
+    steps: [t('Bereits bei loa2?'), t('Web-Login bestätigen'), t('Bestätigt')],
     branch: {
       atIndex: 0,
-      mainLabel: 'Ja',
-      label: 'Nein',
-      steps: ['Anmelden bzw. Step-up (Faktor bestätigen)', 'Web-Login bestätigen', 'Bestätigt'],
+      mainLabel: t('Ja'),
+      label: t('Nein'),
+      steps: [t('Anmelden bzw. Step-up (Faktor bestätigen)'), t('Web-Login bestätigen'), t('Bestätigt')],
     },
   },
   deleteAccount: {
-    title: 'Konto löschen',
+    title: t('Konto löschen'),
     // The yes/no confirmation always comes first, unconditionally - the loa2 gate only applies
     // once accepted, never before (DeleteAccountStrategy). If it needs a step-up, that step-up
     // itself already IS the fresh proof "Faktor erneut bestätigen" would otherwise ask for again.
-    steps: ['Löschen bestätigen', 'Niveau ausreichend?', 'Faktor erneut bestätigen', 'Gelöscht'],
+    steps: [t('Löschen bestätigen'), t('Niveau ausreichend?'), t('Faktor erneut bestätigen'), t('Gelöscht')],
     branch: {
       atIndex: 1,
-      mainLabel: 'Ja',
-      label: 'Nein',
-      steps: ['Step-up (Faktor bestätigen)', 'Gelöscht'],
+      mainLabel: t('Ja'),
+      label: t('Nein'),
+      steps: [t('Step-up (Faktor bestätigen)'), t('Gelöscht')],
     },
   },
   // Kein Journey-Schritt des Orchestrators (siehe docs/04-orchestrierung.md) - der Browser
   // spricht hier nie mit ihm, nur mit Keycloak selbst (webOidc.ts). Trotzdem als Diagramm gezeigt,
   // damit der Web-Kanal-Einstieg dieselbe Hover-Vorschau wie der App-Kanal bekommt.
   webLoginLoa1: {
-    title: 'Login (loa1)',
-    steps: ['Redirect zu Keycloak', 'Login (Passwort oder Code)', 'Zurück mit AccessToken (loa1)'],
+    title: t('Login (loa1)'),
+    steps: [t('Redirect zu Keycloak'), t('Login (Passwort oder Code)'), t('Zurück mit AccessToken (loa1)')],
   },
   webLoginLoa2: {
-    title: 'Login (loa2)',
-    steps: ['Redirect zu Keycloak', 'Login + 2. Faktor', 'Zurück mit AccessToken (loa2)'],
+    title: t('Login (loa2)'),
+    steps: [t('Redirect zu Keycloak'), t('Login + 2. Faktor'), t('Zurück mit AccessToken (loa2)')],
   },
   // Nutzt einen eigenen Test-Client (keycloak-migrations V10/V11), dessen LoA-1 orchestrator-driven
   // ist statt natives Passwort - einziger Weg, auth-qr-lookup (Kalt-Einstieg-QR-Login) am Browser
   // schon auf LoA-1 zu erreichen, ohne vorher ein Passwort einzugeben.
   webLoginQrTest: {
-    title: 'Login (loa1, QR-Test-Client)',
-    steps: ['Redirect zu Keycloak (Test-Client)', 'Verfahren wählen (inkl. QR)', 'Zurück mit AccessToken (loa1)'],
+    title: t('Login (loa1, QR-Test-Client)'),
+    steps: [t('Redirect zu Keycloak (Test-Client)'), t('Verfahren wählen (inkl. QR)'), t('Zurück mit AccessToken (loa1)')],
   },
 }
 
@@ -274,6 +275,6 @@ export function currentJourneyDiagramKey(
  * class) and isn't fit to surface as-is; only reIdentify actually needs a different phrasing here.
  */
 export function journeyContextLabel(key: keyof typeof JOURNEY_DIAGRAMS): string {
-  if (key === 'reIdentify') return 'Identität erneut bestätigen'
+  if (key === 'reIdentify') return t('Identität erneut bestätigen')
   return JOURNEY_DIAGRAMS[key].title
 }

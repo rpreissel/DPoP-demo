@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
+import { t } from '../../texts'
 
 interface EmailLookupFormProps {
   onSubmit: (email: string) => void
@@ -30,17 +31,17 @@ export function EmailLookupForm({ onSubmit, error, demoEmail, demoPersons }: Ema
 
   return (
     <div className="card">
-      <h2>Neu anmelden per SMS</h2>
-      <p>Geben Sie die E-Mail-Adresse Ihres Kontos ein, um eine TAN an die hinterlegte Telefonnummer zu erhalten.</p>
+      <h2>{t('Neu anmelden per SMS')}</h2>
+      <p>{t('Geben Sie die E-Mail-Adresse Ihres Kontos ein, um eine TAN an die hinterlegte Telefonnummer zu erhalten.')}</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
-          <label htmlFor="email">E-Mail-Adresse</label>
+          <label htmlFor="email">{t('E-Mail-Adresse')}</label>
           <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </div>
         <div className="form-actions">
-          <button type="submit">TAN anfordern</button>
+          <button type="submit">{t('TAN anfordern')}</button>
         </div>
       </form>
     </div>

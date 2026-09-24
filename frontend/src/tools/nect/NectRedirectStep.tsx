@@ -4,6 +4,7 @@ import { attemptError } from '../stepData'
 import type { ToolRenderContext } from '../types'
 import { reportNectCase, retryNect } from './api'
 import { takeReturnedNectCase } from './returnedCase'
+import { t } from '../../texts'
 
 /**
  * toolId=ident-nect / step=redirect: sends the user to Nect's jump page, and - once they are back
@@ -26,20 +27,22 @@ export function NectRedirectStep({ ctx }: { ctx: ToolRenderContext }) {
 
   return (
     <div className="card">
-      <h2>Mit Nect identifizieren</h2>
+      <h2>{t('Mit Nect identifizieren')}</h2>
       <p>
-        Sie wechseln zu Nect und weisen sich dort mit Personalausweis, Reisepass oder EUDI-Wallet aus. Danach kommen Sie
-        automatisch hierher zurück. Eine Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.
+        {t(
+          'Sie wechseln zu Nect und weisen sich dort mit Personalausweis, Reisepass oder EUDI-Wallet aus. Danach kommen Sie ' +
+            'automatisch hierher zurück. Eine Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.',
+        )}
       </p>
       {error && <div className="error-card">{error}</div>}
       <div className="form-actions">
         {redirect ? (
           <button type="button" onClick={() => window.location.assign(redirect.jumpUrl)}>
-            Weiter zu Nect
+            {t('Weiter zu Nect')}
           </button>
         ) : (
           <button type="button" onClick={() => void retryNect(ctx)}>
-            Erneut versuchen
+            {t('Erneut versuchen')}
           </button>
         )}
       </div>

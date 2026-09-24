@@ -38,7 +38,7 @@ class AuthPasswordUseToolHandler(
         val enrollmentId = enrollmentRef.id.toLongOrNull()
             ?: throw UnresolvableReferenceException(Text("Ungueltige Enrollment-Referenz"), "id=${enrollmentRef.id}")
         if (!enrollmentRepository.existsById(enrollmentId)) {
-            throw UnresolvableReferenceException(Text("Password-Enrollment nicht gefunden"), "id=${enrollmentRef.id}")
+            throw UnresolvableReferenceException(Text("Anmeldeverfahren nicht gefunden"), "id=${enrollmentRef.id}")
         }
 
         toolDataRepository.save(

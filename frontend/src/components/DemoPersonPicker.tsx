@@ -1,3 +1,5 @@
+import { t } from '../texts'
+import { Tx } from '../Tx'
 import type { DemoPerson } from '../types'
 
 interface DemoPersonPickerProps {
@@ -21,7 +23,7 @@ export function DemoPersonPicker({ demoPersons, selectedKvnr, onSelect }: DemoPe
   return (
     <div className="form-group demo-picker">
       <label htmlFor="demoPerson">
-        <span className="demo-picker__tag">Demo</span> Testperson übernehmen
+        <Tx text="{demo} Testperson übernehmen" demo={<span className="demo-picker__tag">{t('Demo')}</span>} />
       </label>
       <select
         id="demoPerson"
@@ -33,7 +35,7 @@ export function DemoPersonPicker({ demoPersons, selectedKvnr, onSelect }: DemoPe
       >
         {!matched && (
           <option value="" disabled>
-            — eigene Eingabe —
+            — {t('eigene Eingabe')} —
           </option>
         )}
         {demoPersons.map((person) => (

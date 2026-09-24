@@ -52,6 +52,28 @@ class TextCatalog private constructor(val entries: List<CatalogEntry>, val probl
             of(Path.of(Text::class.java.protectionDomain.codeSource.location.toURI()))
         }
 
+        /**
+         * Everything the bundles must word: the backend's templates plus the frontend's own
+         * (`frontend/scripts/text-catalog.mjs`, exported by `./gradlew exportFrontendTexts` to the
+         * file `texts.frontendCatalog` names). A template both sides use is one entry.
+         */
+        val all: TextCatalog by lazy {
+            val frontend = frontendEntries()
+            val merged = (application.entries + frontend)
+                .groupBy { it.bundle to it.id }
+                .map { (_, same) -> same.first().copy(locations = same.flatMap { it.locations }) }
+            TextCatalog(merged, application.problems)
+        }
+
+        private fun frontendEntries(): List<CatalogEntry> {
+            val file = Path.of(
+                System.getProperty("texts.frontendCatalog") ?: error("texts.frontendCatalog not set - run through Gradle")
+            )
+            check(Files.exists(file)) { "$file missing - ./gradlew exportFrontendTexts" }
+            return tools.jackson.module.kotlin.jacksonObjectMapper()
+                .readValue(file.toFile(), Array<CatalogEntry>::class.java).toList()
+        }
+
         fun of(classesDir: Path): TextCatalog {
             val found = linkedMapOf<Pair<String, String>, MutableList<String>>()
             val problems = mutableListOf<String>()

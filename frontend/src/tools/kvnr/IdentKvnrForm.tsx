@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
+import { t } from '../../texts'
 
 interface IdentKvnrFormProps {
   onSubmit: (kvnr: string) => void
@@ -27,24 +28,29 @@ export function IdentKvnrForm({ onSubmit, onSkip, skipLabel, error, demoPersons 
 
   return (
     <div className="card">
-      <h2>Versichertennummer angeben</h2>
+      <h2>{t('Versichertennummer angeben')}</h2>
       <p>
-        Ihre Identität ist bereits nachgewiesen. Mit der Versichertennummer wird Ihr Konto Ihrem
-        Datensatz bei der Krankenkasse zugeordnet - sie muss zu der nachgewiesenen Person gehören.
+        {t(
+          'Ihre Identität ist bereits nachgewiesen. Mit der Versichertennummer wird Ihr Konto Ihrem ' +
+            'Datensatz bei der Krankenkasse zugeordnet - sie muss zu der nachgewiesenen Person gehören.',
+        )}
       </p>
       <p className="hint">
-        Der Schritt ist freiwillig: Mit „{skipLabel}" geht die Registrierung ohne diese Zuordnung
-        weiter, das Konto bleibt nutzbar.
+        {t(
+          'Der Schritt ist freiwillig: Mit „{skipLabel}" geht die Registrierung ohne diese Zuordnung ' +
+            'weiter, das Konto bleibt nutzbar.',
+          { skipLabel },
+        )}
       </p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={(person) => setKvnr(person.kvnr)} />
         <div className="form-group">
-          <label htmlFor="kvnr-input">Versichertennummer</label>
+          <label htmlFor="kvnr-input">{t('Versichertennummer')}</label>
           <input id="kvnr-input" value={kvnr} onChange={(e) => setKvnr(e.target.value)} required />
         </div>
         <div className="form-actions">
-          <button type="submit">Zuordnen</button>
+          <button type="submit">{t('Zuordnen')}</button>
           {onSkip && (
             <button type="button" className="secondary" onClick={onSkip}>
               {skipLabel}

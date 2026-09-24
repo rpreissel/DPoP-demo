@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.identkvnr;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import jakarta.ws.rs.core.Response;
@@ -20,13 +21,13 @@ public class IdentKvnrRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "Versichertennummer";
+    public KcText title() {
+        return KcText.t("Versichertennummer");
     }
 
     @Override
-    public String hint() {
-        return "Konto der Registerperson zuordnen";
+    public KcText hint() {
+        return KcText.t("Konto der Registerperson zuordnen");
     }
 
     @Override

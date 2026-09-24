@@ -1,5 +1,6 @@
 import { describeError, patchTool } from '../../api'
 import type { ToolRenderContext } from '../types'
+import { t } from '../../texts'
 
 /**
  * Default "finish this step via PATCH" implementation - not a shared contract every tool must go
@@ -11,5 +12,5 @@ import type { ToolRenderContext } from '../types'
  */
 export function submitViaPatch(ctx: ToolRenderContext, body: Record<string, unknown>) {
   if (!ctx.toolSessionId) return
-  return patchTool(ctx.proof.dpop, ctx.toolSessionId, ctx.toolId, body).then(ctx.onResult).catch((err) => ctx.onError(describeError('Request failed', err)))
+  return patchTool(ctx.proof.dpop, ctx.toolSessionId, ctx.toolId, body).then(ctx.onResult).catch((err) => ctx.onError(describeError(t('Anfrage fehlgeschlagen'), err)))
 }

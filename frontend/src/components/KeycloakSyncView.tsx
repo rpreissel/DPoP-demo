@@ -1,3 +1,5 @@
+import { t } from '../texts'
+import { Tx } from '../Tx'
 import { useState } from 'react'
 import { ApiError, syncKeycloak, type KeycloakSyncResult } from '../api.ts'
 
@@ -33,23 +35,33 @@ export function KeycloakSyncView() {
 
   return (
     <div className="card">
-      <h2>Keycloak-Sync</h2>
+      <h2>{t('Keycloak-Sync')}</h2>
       <p>
-        Gleicht jeden Account in Keycloak ab (anlegen/aktualisieren) und löscht Keycloak-User, deren{' '}
-        <code>orchestratorAccountId</code> zu keinem Account mehr passt. Läuft normalerweise automatisch bei jeder
-        Account-Änderung - dieser Button deckt nur den Nachhol-/Aufräumfall ab.
+        <Tx
+          text={
+            'Gleicht jeden Account in Keycloak ab (anlegen/aktualisieren) und löscht Keycloak-User, deren {feld} zu ' +
+            'keinem Account mehr passt. Läuft normalerweise automatisch bei jeder Account-Änderung - dieser Button ' +
+            'deckt nur den Nachhol-/Aufräumfall ab.'
+          }
+          feld={<code>orchestratorAccountId</code>}
+        />
       </p>
       {unavailable ? (
-        <p className="hint">Nur verfügbar, wenn das Backend mit dem Spring-Profil "keycloak" läuft.</p>
+        <p className="hint">
+          <Tx text="Nur verfügbar, wenn das Backend mit dem Spring-Profil {profil} läuft." profil={'"keycloak"'} />
+        </p>
       ) : (
         <>
           <button className="secondary" onClick={sync} disabled={syncing}>
-            {syncing ? 'Synchronisiere…' : 'Sync with Keycloak'}
+            {syncing ? t('Synchronisiere…') : t('Mit Keycloak abgleichen')}
           </button>
           {error && <p className="error-card">{error}</p>}
           {result && (
             <p className="hint">
-              {result.upserted} Account(s) synchronisiert, {result.deletedOrphans} verwaiste Keycloak-User gelöscht.
+              {t('{anzahl} Account(s) synchronisiert, {verwaist} verwaiste Keycloak-User gelöscht.', {
+                anzahl: result.upserted,
+                verwaist: result.deletedOrphans,
+              })}
             </p>
           )}
         </>

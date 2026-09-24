@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { login } from '../../kobilSdk'
+import { t } from '../../texts'
 
 interface KobilOtpStepProps {
   tenantId?: string
@@ -46,16 +47,18 @@ export function KobilOtpStep({
 
   return (
     <div className="card">
-      <h2>Gerät wird geprüft</h2>
+      <h2>{t('Gerät wird geprüft')}</h2>
       <p>
-        KOBIL prüft das Gerät und hinterlegt das Ergebnis. Der Client erhält davon nur eine
-        Einmalkennung – die Bestätigung selbst holt sich das Backend direkt bei KOBIL.
+        {t(
+          'KOBIL prüft das Gerät und hinterlegt das Ergebnis. Der Client erhält davon nur eine ' +
+            'Einmalkennung – die Bestätigung selbst holt sich das Backend direkt bei KOBIL.',
+        )}
       </p>
       {(error || sdkError) && <div className="hint">{error ?? sdkError}</div>}
       {sdkError && (
         <div className="form-actions" style={{ marginTop: '1rem' }}>
           <button type="button" onClick={onBackToUnlock}>
-            Erneut entsperren
+            {t('Erneut entsperren')}
           </button>
         </div>
       )}

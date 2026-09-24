@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
+import { t } from '../../texts'
 
 interface IdentEidCardFormProps {
   onSubmit: (fields: {
@@ -47,24 +48,26 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
 
   return (
     <div className="card">
-      <h2>eID-Karte auflegen</h2>
+      <h2>{t('eID-Karte auflegen')}</h2>
       <p>
-        Halten Sie Ihren Personalausweis an das Lesegerät. Die Karte bezeugt, wer Sie sind - eine
-        Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.
+        {t(
+          'Halten Sie Ihren Personalausweis an das Lesegerät. Die Karte bezeugt, wer Sie sind - eine ' +
+            'Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.',
+        )}
       </p>
-      <div className="hint">Demo-Modus: Das Auslesen der Karte wird simuliert.</div>
+      <div className="hint">{t('Demo-Modus: Das Auslesen der Karte wird simuliert.')}</div>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
-          <label htmlFor="eid-name">Name</label>
+          <label htmlFor="eid-name">{t('Nachname')}</label>
           <input id="eid-name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-vorname">Vorname</label>
+          <label htmlFor="eid-vorname">{t('Vorname')}</label>
           <input id="eid-vorname" value={vorname} onChange={(e) => setVorname(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-geburtsdatum">Geburtsdatum</label>
+          <label htmlFor="eid-geburtsdatum">{t('Geburtsdatum')}</label>
           <input
             id="eid-geburtsdatum"
             type="date"
@@ -74,15 +77,15 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
           />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-strasse">Straße und Hausnummer</label>
+          <label htmlFor="eid-strasse">{t('Straße und Hausnummer')}</label>
           <input id="eid-strasse" value={strasse} onChange={(e) => setStrasse(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-plz">PLZ</label>
+          <label htmlFor="eid-plz">{t('PLZ')}</label>
           <input id="eid-plz" value={plz} onChange={(e) => setPlz(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-ort">Ort</label>
+          <label htmlFor="eid-ort">{t('Ort')}</label>
           <input id="eid-ort" value={ort} onChange={(e) => setOrt(e.target.value)} required />
         </div>
         {/* Editierbar, obwohl eine echte Karte den Wert fest mitbringt: In der Demo ist das
@@ -90,7 +93,7 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
             (ADR-19: neuer Wert, gleiches Konto) oder dieselbe Karte ein zweites Mal aufzulegen
             (Wiedererkennung). Der Demo-Personen-Picker füllt es weiterhin mit. */}
         <div className="form-group">
-          <label htmlFor="eid-restricted-id">Restricted-ID (kartengebunden)</label>
+          <label htmlFor="eid-restricted-id">{t('Restricted-ID (kartengebunden)')}</label>
           <input
             id="eid-restricted-id"
             value={restrictedId}
@@ -98,13 +101,15 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
             required
           />
           <span className="hint">
-            Das kartengebundene Pseudonym. Eine neue Karte derselben Person bringt einen neuen Wert
-            mit - zum Ausprobieren hier änderbar.
+            {t(
+              'Das kartengebundene Pseudonym. Eine neue Karte derselben Person bringt einen neuen Wert ' +
+                'mit - zum Ausprobieren hier änderbar.',
+            )}
           </span>
         </div>
         {error && <div className="hint">{error}</div>}
         <div className="form-actions">
-          <button type="submit">Karte auflegen (simuliert)</button>
+          <button type="submit">{t('Karte auflegen (simuliert)')}</button>
         </div>
       </form>
     </div>

@@ -1,4 +1,5 @@
 import type { KeycloakInfo } from './api'
+import { t } from './texts'
 
 /**
  * The Web-Kanal demo UI's own OIDC client (docs/05-api.md Abschnitt 3) - a REAL browser
@@ -74,7 +75,7 @@ export class LoginNotCompletedError extends Error {
 
   constructor(error: string, description: string | null) {
     const cancelled = error === 'access_denied'
-    super(cancelled ? 'Anmeldung abgebrochen.' : `Anmeldung fehlgeschlagen: ${description ?? error}`)
+    super(cancelled ? t('Anmeldung abgebrochen.') : t('Anmeldung fehlgeschlagen: {grund}', { grund: description ?? error }))
     this.name = 'LoginNotCompletedError'
     this.cancelled = cancelled
   }
@@ -164,7 +165,7 @@ export function createWebOidc(config: WebOidcConfig) {
     if (!code) return null
 
     const storedRaw = sessionStorage.getItem(SESSION_STORAGE_KEY)
-    if (!storedRaw) throw new Error('Kein PKCE code_verifier gefunden - Login bitte erneut starten.')
+    if (!storedRaw) throw new Error(t('Kein PKCE {parameter} gefunden - Login bitte erneut starten.', { parameter: 'code_verifier' }))
     const stored = JSON.parse(storedRaw) as StoredVerifier
     sessionStorage.removeItem(SESSION_STORAGE_KEY)
 
@@ -202,7 +203,7 @@ export function createWebOidc(config: WebOidcConfig) {
     })
     const json = await response.json()
     if (!response.ok) {
-      throw new Error(json.error_description ?? json.error ?? `Token-Endpoint antwortete mit ${response.status}`)
+      throw new Error(json.error_description ?? json.error ?? t('Token-Endpoint antwortete mit {status}', { status: response.status }))
     }
     return {
       accessToken: json.access_token,

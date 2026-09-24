@@ -2,16 +2,17 @@ import { submitViaPatch } from '../shared/defaultApi'
 import type { ToolModule } from '../types'
 import { IdentKvnrForm } from './IdentKvnrForm'
 import { attemptError } from '../stepData'
+import { t } from '../../texts'
 
 /** Kein Verfahrenswechsel, sondern ein freiwilliger Schritt - die Beschriftung des Auswegs, hier und in der Rahmen-UI. */
-const SKIP_LABEL = 'Jetzt nicht'
+const SKIP_LABEL = t('Jetzt nicht')
 
 export const identKvnr: ToolModule = {
   toolId: 'ident-kvnr',
   meta: {
     icon: '🗂️',
-    label: 'Versichertennummer',
-    hint: 'Konto der Registerperson zuordnen',
+    label: t('Versichertennummer'),
+    hint: t('Konto der Registerperson zuordnen'),
     // Wer abbricht, registriert weiter - das Konto bleibt Interessent (ADR-10/ADR-18). Gesetzt
     // heisst zugleich: Dieses Tool zeichnet den Ausweg selbst, die Rahmen-UI laesst ihn weg.
     skipLabel: SKIP_LABEL,

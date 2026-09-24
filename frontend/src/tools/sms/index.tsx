@@ -4,13 +4,14 @@ import { EmailLookupForm } from './EmailLookupForm'
 import { SmsEnrollForm } from './SmsEnrollForm'
 import { TanInputForm } from './TanInputForm'
 import { attemptError } from '../stepData'
+import { t } from '../../texts'
 
 const ICON = '📱'
-const LABEL = 'SMS'
+const LABEL = t('SMS')
 
 export const enrollSms: ToolModule = {
   toolId: 'enroll-sms',
-  meta: { icon: ICON, label: LABEL, hint: 'Code an eine Telefonnummer' },
+  meta: { icon: ICON, label: LABEL, hint: t('Code an eine Telefonnummer') },
   render(ctx) {
     if (ctx.step === 'enroll') return <SmsEnrollForm onSubmit={(phoneNumber) => enrollSmsNumber(ctx, phoneNumber)} error={attemptError(ctx)} />
     if (ctx.step === 'tanInput') {
@@ -22,7 +23,7 @@ export const enrollSms: ToolModule = {
 
 export const authSms: ToolModule = {
   toolId: 'auth-sms',
-  meta: { icon: ICON, label: LABEL, hint: 'Code an die hinterlegte Telefonnummer' },
+  meta: { icon: ICON, label: LABEL, hint: t('Code an die hinterlegte Telefonnummer') },
   render(ctx) {
     if (ctx.step === 'auth') {
       return <TanInputForm onSubmit={(tan) => submitSmsTan(ctx, tan)} error={attemptError(ctx)} demoTan={ctx.demo?.tan} />
@@ -33,7 +34,7 @@ export const authSms: ToolModule = {
 
 export const authSmsLookup: ToolModule = {
   toolId: 'auth-sms-lookup',
-  meta: { icon: ICON, label: LABEL, hint: 'E-Mail-Adresse + SMS-Code' },
+  meta: { icon: ICON, label: LABEL, hint: t('E-Mail-Adresse + SMS-Code') },
   render(ctx) {
     if (ctx.step === 'auth') {
       return (

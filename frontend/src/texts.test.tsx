@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { APP_TEXTS, loadTexts, resetTexts, resolveText } from './texts'
+import { render, screen } from '@testing-library/react'
+import { APP_TEXTS, loadTexts, resetTexts, resolveText, t, textId } from './texts'
+import { Tx } from './Tx'
+// @ts-expect-error - plain JS module, no types
+import { idOf } from '../scripts/text-catalog.mjs'
 
 function respond(status: number, body?: unknown, etag?: string) {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -54,5 +58,43 @@ describe('texts', () => {
 
   it('shows an unknown id as itself, never as nothing', () => {
     expect(resolveText({ key: '3f9a1c0b2e7d' })).toBe('3f9a1c0b2e7d')
+  })
+})
+
+describe('the frontend’s own texts', () => {
+  beforeEach(() => {
+    resetTexts()
+    localStorage.clear()
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('computes the same id as the backend (Text.idOf) and node’s SHA-256', () => {
+    // Pinned from the backend's catalog: Text("Account not found").id
+    expect(textId('Account not found')).toBe('08a2ef94ef94')
+    for (const sample of ['', 'Weiter', 'Straße und Hausnummer – „Zitat“ 😀', 'x'.repeat(200)]) {
+      expect(textId(sample)).toBe(idOf(sample))
+    }
+  })
+
+  it('shows the template itself while no bundle has a wording, placeholders filled', () => {
+    expect(t('Noch {anzahl} Versuche', { anzahl: 2 })).toBe('Noch 2 Versuche')
+  })
+
+  it('shows the bundle’s wording once loaded', async () => {
+    vi.spyOn(navigator, 'language', 'get').mockReturnValue('en')
+    vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en'])
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      respond(200, { [textId('Noch {anzahl} Versuche')]: '{anzahl} attempts left' }, '"v"'),
+    )
+    await loadTexts(APP_TEXTS)
+    expect(t('Noch {anzahl} Versuche', { anzahl: 2 })).toBe('2 attempts left')
+  })
+
+  it('renders markup placeholders with Tx, in the wording’s order', () => {
+    render(<Tx text="Ihr Code lautet: {code}." code={<strong>A1</strong>} />)
+    expect(screen.getByText('A1').tagName).toBe('STRONG')
+    expect(screen.getByText(/Ihr Code lautet:/)).toBeInTheDocument()
   })
 })

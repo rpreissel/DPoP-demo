@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createDeviceProof, getOrCreateDeviceKeyPair } from '../../deviceKey.ts'
 import { DeviceAccessGate } from './DeviceAccessGate'
+import { t } from '../../texts'
 
 interface DeviceEnrollFormProps {
   toolSessionId: string
@@ -31,7 +32,7 @@ export function DeviceEnrollForm({ toolSessionId, toolId, onSubmit, error }: Dev
       const { keyPair } = await getOrCreateDeviceKeyPair()
       const htu = `${window.location.origin}/orchestrator/api/v1/tools/${toolSessionId}/${toolId}`
       const deviceProof = await createDeviceProof(keyPair, 'PATCH', htu, userVerification)
-      onSubmit({ deviceProof, label: label.trim() || 'Mein Gerät' })
+      onSubmit({ deviceProof, label: label.trim() || t('Mein Gerät') })
     } finally {
       setBusy(false)
     }
@@ -40,22 +41,22 @@ export function DeviceEnrollForm({ toolSessionId, toolId, onSubmit, error }: Dev
   if (confirmingName) {
     return (
       <div className="card">
-        <h2>Gerät benennen</h2>
-        <p>Vergeben Sie einen Namen, um dieses Gerät später wiederzuerkennen (z.&nbsp;B. „Laptop“, „Handy“).</p>
+        <h2>{t('Gerät benennen')}</h2>
+        <p>{t('Vergeben Sie einen Namen, um dieses Gerät später wiederzuerkennen (z.\u00A0B. „Laptop“, „Handy“).')}</p>
         {error && <div className="hint">{error}</div>}
         <form onSubmit={handleNameSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
           <div className="form-group">
-            <label htmlFor="device-label">Gerätename</label>
+            <label htmlFor="device-label">{t('Gerätename')}</label>
             <input
               id="device-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Mein Gerät"
+              placeholder={t('Mein Gerät')}
               autoFocus
             />
           </div>
           <div className="form-actions">
-            <button type="submit">Weiter</button>
+            <button type="submit">{t('Weiter')}</button>
           </div>
         </form>
       </div>

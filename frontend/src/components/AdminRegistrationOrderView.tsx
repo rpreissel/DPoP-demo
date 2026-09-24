@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import { useEffect, useState } from 'react'
 import { fetchRegistrationOrder, setRegistrationOrder } from '../api.ts'
 
@@ -32,22 +33,24 @@ export function AdminRegistrationOrderView() {
 
   return (
     <div className="card">
-      <h2>Registrierungsreihenfolge</h2>
+      <h2>{t('Registrierungsreihenfolge')}</h2>
       <p>
-        Experiment: Identifikation zuerst (Status quo) oder erst Enrollment, mit optionaler Identifikation am Ende.
-        Wirkt für die nächste neu gestartete REGISTER-Journey - eine bereits laufende behält ihre Reihenfolge.
+        {t(
+          'Experiment: Identifikation zuerst (Status quo) oder erst Enrollment, mit optionaler Identifikation am Ende. ' +
+            'Wirkt für die nächste neu gestartete REGISTER-Journey - eine bereits laufende behält ihre Reihenfolge.',
+        )}
       </p>
       {error && <p className="error-card">{error}</p>}
       {enrollFirst === null ? (
-        !error && <p>Lädt…</p>
+        !error && <p>{t('Lädt…')}</p>
       ) : (
         <ul className="status-list">
           <li>
-            <span className="label">Reihenfolge</span>
+            <span className="label">{t('Reihenfolge')}</span>
             <span className="value-with-action">
-              <span className="value">{enrollFirst ? 'Enrollment zuerst' : 'Identifikation zuerst'}</span>
+              <span className="value">{enrollFirst ? t('Enrollment zuerst') : t('Identifikation zuerst')}</span>
               <button className="secondary small" onClick={toggle}>
-                Umschalten
+                {t('Umschalten')}
               </button>
             </span>
           </li>

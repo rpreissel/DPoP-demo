@@ -10,7 +10,7 @@ import java.nio.file.Path
  */
 fun main(args: Array<String>) {
     val dir = Path.of(args.single())
-    val catalog = TextCatalog.application
+    val catalog = TextCatalog.all
     check(catalog.problems.isEmpty()) { catalog.problems.joinToString("\n") }
     catalog.byBundle.forEach { (bundle, entries) ->
         val file = dir.resolve(bundle).resolve("texts_source.properties")

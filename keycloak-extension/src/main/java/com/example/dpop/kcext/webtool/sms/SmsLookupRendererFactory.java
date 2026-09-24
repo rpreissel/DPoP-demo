@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.sms;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,13 +21,13 @@ public class SmsLookupRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "SMS";
+    public KcText title() {
+        return KcText.t("SMS");
     }
 
     @Override
-    public String hint() {
-        return "E-Mail-Adresse + SMS-Code";
+    public KcText hint() {
+        return KcText.t("E-Mail-Adresse + SMS-Code");
     }
 
     @Override

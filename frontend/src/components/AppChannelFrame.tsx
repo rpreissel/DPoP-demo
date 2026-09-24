@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import type { ReactNode } from 'react'
 import { ChannelNav } from './ChannelNav'
 
@@ -14,7 +15,7 @@ interface Props {
 export function AppChannelFrame({ children }: Props) {
   return (
     <div className="app-frame channel-app">
-      <ChannelNav badge="📱 App-Kanal" />
+      <ChannelNav badge={`📱 ${t('App-Kanal')}`} />
       <div className="app">{children}</div>
     </div>
   )

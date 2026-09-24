@@ -29,7 +29,7 @@ enum class NectAttribute(val wireName: String) {
 
     companion object {
         fun of(wireName: String): NectAttribute =
-            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException(Text("Unbekanntes Attribut: {wireName}", "wireName" to wireName))
+            entries.firstOrNull { it.wireName == wireName } ?: throw NectRejectedException(Text("Unbekanntes Attribut: {attribute}", "attribute" to wireName))
     }
 }
 
@@ -220,7 +220,7 @@ class NectIdent(private val cases: NectCaseRepository) {
     fun cancel(caseId: UUID): String = finish(openCase(caseId), NectCaseStatus.CANCELLED)
 
     private fun openCase(caseId: UUID): NectCase {
-        val case = cases.findByIdOrNull(caseId) ?: throw NectRejectedException(Text("Unbekannter Vorgang"))
+        val case = cases.findByIdOrNull(caseId) ?: throw NectRejectedException(Text("Dieser Vorgang ist bei Nect nicht bekannt"))
         if (case.status != NectCaseStatus.OPEN) throw NectRejectedException(Text("Vorgang ist bereits abgeschlossen"))
         return case
     }

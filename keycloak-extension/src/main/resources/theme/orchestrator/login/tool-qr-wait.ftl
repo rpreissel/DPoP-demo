@@ -8,23 +8,23 @@
         </#if>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
-            <img src="${qrDataUri}" alt="QR-Code" width="220" height="220"/>
+            <img src="${qrDataUri}" alt="${t.of("QR-Code")}" width="220" height="220"/>
         </div>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <#-- Manuelle Eingabe ist ein gleichwertiger Weg, kein Fallback (docs/ideen/qr-login-
                  ueber-app.md #6) - der Code muss deshalb hier auch gut lesbar/abschreibbar stehen,
                  nicht nur im QR-Bild bzw. versteckt in der Demo-Link-URL. -->
-            <p>Pairing-Code: <strong class="orchestrator-qr-code">${pairingCode}</strong></p>
+            <p>${t.of("Pairing-Code")}: <strong class="orchestrator-qr-code">${pairingCode}</strong></p>
         </div>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <#-- verificationCode is never typed anywhere - only compared by eye against the app
                  screen (QR-jacking countermeasure, docs/07-betrieb.md #5). -->
             <#if verificationCode??>
-                <p>Vergleichscode: <strong class="orchestrator-qr-code">${verificationCode}</strong></p>
+                <p>${t.of("Vergleichscode:")} <strong class="orchestrator-qr-code">${verificationCode}</strong></p>
                 <p class="orchestrator-hint">
-                    Bestätigen Sie in der App nur, wenn dort derselbe Code angezeigt wird.
+                    ${t.of("Bestätigen Sie in der App nur, wenn dort derselbe Code angezeigt wird.")}
                 </p>
             </#if>
         </div>
@@ -40,14 +40,14 @@
                  in whichever tab opens. -->
             <a href="${deepLink}" target="dpop-demo-app-kanal">${deepLink}</a>
             <p class="orchestrator-hint">
-                Demo-Link: öffnet die App direkt (ohne Kamera) mit vorbefülltem Pairing-Code.
+                ${t.of("Demo-Link: öffnet die App direkt (ohne Kamera) mit vorbefülltem Pairing-Code.")}
             </p>
         </div>
 
         <form id="kc-orchestrator-tool-form" action="${url.loginAction}" method="post">
             <div class="${properties.kcFormGroupClass!}">
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
-                        type="submit" name="orchestrator_abandon" value="true">Abbrechen</button>
+                        type="submit" name="orchestrator_abandon" value="true">${t.of("Abbrechen")}</button>
             </div>
         </form>
 

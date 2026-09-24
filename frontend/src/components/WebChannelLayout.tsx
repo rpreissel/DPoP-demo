@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import type { ReactNode } from 'react'
 import { ChannelNav } from './ChannelNav'
 
@@ -14,7 +15,7 @@ interface Props {
 export function WebChannelLayout({ children }: Props) {
   return (
     <div className="web-shell channel-web">
-      <ChannelNav badge="🌐 Web-Kanal" />
+      <ChannelNav badge={`🌐 ${t('Web-Kanal')}`} />
       <div className="web-page">{children}</div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { t } from '../texts'
 export interface JourneyDiagramSpec {
   title: string
   steps: string[]
@@ -78,10 +79,15 @@ export function JourneyDiagram({ title, steps, branch, current }: JourneyDiagram
   const totalWidth = Math.max(row1Width, branchWidth + MARGIN)
   const totalHeight = branch ? row2Y + BOX_HEIGHT + MARGIN : row1Y + BOX_HEIGHT + MARGIN
   const currentStepName = current && (current.branch ? branch?.steps[current.index] : steps[current.index])
-  const label =
-    (branch
-      ? `${title}: ${steps.join(' -> ')}, bei "${branch.label}": ${branch.steps.join(' -> ')}`
-      : `${title}: ${steps.join(' -> ')}`) + (currentStepName ? ` - aktueller Schritt: ${currentStepName}` : '')
+  const shape = branch
+    ? t('{titel}: {schritte}, bei "{zweig}": {zweigSchritte}', {
+        titel: title,
+        schritte: steps.join(' -> '),
+        zweig: branch.label,
+        zweigSchritte: branch.steps.join(' -> '),
+      })
+    : t('{titel}: {schritte}', { titel: title, schritte: steps.join(' -> ') })
+  const label = currentStepName ? t('{ablauf} - aktueller Schritt: {schritt}', { ablauf: shape, schritt: currentStepName }) : shape
 
   return (
     <figure className="journey-diagram">
@@ -115,7 +121,7 @@ export function JourneyDiagram({ title, steps, branch, current }: JourneyDiagram
               )}
               {isCurrent && (
                 <text x={box.x + box.width / 2} y={row1Y - 10} textAnchor="middle" fontSize={EDGE_FONT_SIZE} fill="var(--accent)">
-                  ● aktuell
+                  ● {t('aktuell')}
                 </text>
               )}
               <text x={box.x + box.width / 2} y={row1CenterY} textAnchor="middle" dominantBaseline="middle" fontSize={BOX_FONT_SIZE} fill={isLast ? '#fff' : 'currentColor'}>
@@ -154,7 +160,7 @@ export function JourneyDiagram({ title, steps, branch, current }: JourneyDiagram
                   />
                   {isCurrent && (
                     <text x={box.x + box.width / 2} y={row2Y - 10} textAnchor="middle" fontSize={EDGE_FONT_SIZE} fill="var(--accent)">
-                      ● aktuell
+                      ● {t('aktuell')}
                     </text>
                   )}
                   <text x={box.x + box.width / 2} y={row2CenterY} textAnchor="middle" dominantBaseline="middle" fontSize={BOX_FONT_SIZE} fill={isLast ? '#fff' : 'currentColor'}>

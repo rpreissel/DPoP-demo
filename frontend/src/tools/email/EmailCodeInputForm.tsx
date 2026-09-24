@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { t } from '../../texts'
+import { Tx } from '../../Tx'
 
 interface EmailCodeInputFormProps {
   onSubmit: (code: string) => void
@@ -34,18 +36,13 @@ export function EmailCodeInputForm({ onSubmit, onChangeAddress, error, demoTan }
 
   return (
     <div className="card">
-      <h2>Bestätigungscode eingeben</h2>
-      <p>Wir haben Ihnen soeben einen Bestätigungscode per E-Mail geschickt. Geben Sie ihn hier ein.</p>
+      <h2>{t('Bestätigungscode eingeben')}</h2>
+      <p>{t('Wir haben Ihnen soeben einen Bestätigungscode per E-Mail geschickt. Geben Sie ihn hier ein.')}</p>
       <div className="hint">
-        <strong>Demo-Modus:</strong>{' '}
         {demoTan ? (
-          <>
-            Der Code ist bereits vorbelegt: <code>{demoTan}</code>
-          </>
+          <Tx text="{modus} Der Code ist bereits vorbelegt: {code}" modus={<strong>{t('Demo-Modus:')}</strong>} code={<code>{demoTan}</code>} />
         ) : (
-          <>
-            Der Code wird nur ins Server-Log geschrieben (<code>[MOCK EMAIL] ...</code>).
-          </>
+          <Tx text="{modus} Der Code wird nur ins Server-Log geschrieben ({log})." modus={<strong>{t('Demo-Modus:')}</strong>} log={<code>[MOCK EMAIL] ...</code>} />
         )}
       </div>
       {error && (
@@ -55,22 +52,22 @@ export function EmailCodeInputForm({ onSubmit, onChangeAddress, error, demoTan }
       )}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
-          <label htmlFor="code">Code</label>
+          <label htmlFor="code">{t('Code')}</label>
           <input
             id="code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="6-stelliger Code"
+            placeholder={t('6-stelliger Code')}
             maxLength={6}
             required
             autoFocus
           />
         </div>
         <div className="form-actions">
-          <button type="submit">Code bestätigen</button>
+          <button type="submit">{t('Code bestätigen')}</button>
           {onChangeAddress && !changingAddress && (
             <button type="button" className="secondary" onClick={() => setChangingAddress(true)}>
-              Andere Adresse
+              {t('Andere Adresse')}
             </button>
           )}
         </div>
@@ -85,7 +82,7 @@ export function EmailCodeInputForm({ onSubmit, onChangeAddress, error, demoTan }
           }}
         >
           <div className="form-group">
-            <label htmlFor="changed-email">Andere E-Mail-Adresse</label>
+            <label htmlFor="changed-email">{t('Andere E-Mail-Adresse')}</label>
             <input
               id="changed-email"
               type="email"
@@ -95,12 +92,12 @@ export function EmailCodeInputForm({ onSubmit, onChangeAddress, error, demoTan }
               required
               autoFocus
             />
-            <span className="hint">Der bisherige Code verfällt, ein neuer geht an diese Adresse.</span>
+            <span className="hint">{t('Der bisherige Code verfällt, ein neuer geht an diese Adresse.')}</span>
           </div>
           <div className="form-actions">
-            <button type="submit">Code hierhin senden</button>
+            <button type="submit">{t('Code hierhin senden')}</button>
             <button type="button" className="secondary" onClick={() => setChangingAddress(false)}>
-              Zurück
+              {t('Zurück')}
             </button>
           </div>
         </form>

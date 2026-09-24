@@ -35,7 +35,7 @@ describe('submitViaPatch (the one thing every tool that opts into it shares)', (
     api.patchTool.mockRejectedValue(new Error('boom'))
     const c = ctx()
     await submitViaPatch(c, { tan: '123456' })
-    expect(c.onError).toHaveBeenCalledWith('Request failed: Error: boom')
+    expect(c.onError).toHaveBeenCalledWith('Anfrage fehlgeschlagen: Error: boom')
   })
 
   it('does nothing without a toolSessionId - no ToolSession to address yet', async () => {

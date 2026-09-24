@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.identfsc;
 
+import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -29,13 +30,13 @@ public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "Freischaltcode";
+    public KcText title() {
+        return KcText.t("Freischaltcode");
     }
 
     @Override
-    public String hint() {
-        return "Identifizierung per Freischaltcode";
+    public KcText hint() {
+        return KcText.t("Persönliche Daten und Freischaltcode");
     }
 
     @Override

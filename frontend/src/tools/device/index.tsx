@@ -3,10 +3,11 @@ import { authDevice, enrollDevice } from './api'
 import { DeviceAuthForm } from './DeviceAuthForm'
 import { DeviceEnrollForm } from './DeviceEnrollForm'
 import { attemptError } from '../stepData'
+import { t } from '../../texts'
 
 const ICON = '📲'
-const LABEL = 'Gerät'
-const HINT = 'Geräteeigener Schlüssel + PIN/Biometrie'
+const LABEL = t('Gerät')
+const HINT = t('Geräteeigener Schlüssel + PIN/Biometrie')
 
 export const enrollDeviceTool: ToolModule = {
   toolId: 'enroll-device',

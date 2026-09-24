@@ -43,7 +43,7 @@ class AuthDeviceToolHandler(
         val enrollmentId = enrollmentRef.id.toLongOrNull()
             ?: throw UnresolvableReferenceException(Text("Ungueltige Enrollment-Referenz"), "id=${enrollmentRef.id}")
         enrollmentRepository.findByIdOrNull(enrollmentId)
-            ?: throw UnresolvableReferenceException(Text("Geraete-Enrollment nicht gefunden"), "id=${enrollmentRef.id}")
+            ?: throw UnresolvableReferenceException(Text("Anmeldeverfahren nicht gefunden"), "id=${enrollmentRef.id}")
 
         toolDataRepository.save(
             AuthDeviceToolSession(

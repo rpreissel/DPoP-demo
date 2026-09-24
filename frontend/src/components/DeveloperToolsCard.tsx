@@ -1,3 +1,5 @@
+import { t } from '../texts'
+import { Tx } from '../Tx'
 /** Swagger UI isn't proxied by the vite dev server (only /orchestrator is, see vite.config.ts) - in dev it lives on the backend's own port, in a same-origin deployment it's just window.location.origin. */
 const BACKEND_ORIGIN = window.location.port === '5173' ? 'http://localhost:8080' : window.location.origin
 
@@ -12,21 +14,21 @@ const H2_USER = 'sa'
 export function DeveloperToolsCard() {
   return (
     <div className="card">
-      <h2>Entwickler-Werkzeuge</h2>
+      <h2>{t('Entwickler-Werkzeuge')}</h2>
       <ul className="status-list">
         <li>
-          <span className="label">API-Doku</span>
+          <span className="label">{t('API-Doku')}</span>
           <a className="value" href={`${BACKEND_ORIGIN}/swagger-ui/index.html`} target="_blank" rel="noreferrer">
             Swagger/OpenAPI UI
           </a>
         </li>
         <li>
-          <span className="label">H2-Konsole</span>
-          <span className="value" title={`JDBC URL: ${H2_JDBC_URL}\nUser: ${H2_USER}\nPassword: (leer)`}>
+          <span className="label">{t('H2-Konsole')}</span>
+          <span className="value" title={t('JDBC URL: {url}\nUser: {user}\nPassword: (leer)', { url: H2_JDBC_URL, user: H2_USER })}>
             <a href={`${BACKEND_ORIGIN}/h2-console`} target="_blank" rel="noreferrer">
-              öffnen
+              {t('öffnen')}
             </a>{' '}
-            ({H2_JDBC_URL}, User {H2_USER}, kein Passwort)
+            <Tx text="({url}, User {user}, kein Passwort)" url={H2_JDBC_URL} user={H2_USER} />
           </span>
         </li>
       </ul>

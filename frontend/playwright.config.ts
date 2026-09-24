@@ -21,6 +21,8 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: `http://localhost:${E2E_PORT}`,
+    // The suite names texts by template and reads the German wording (e2e/texts.ts) - so German it is.
+    locale: 'de-DE',
     trace: 'retain-on-failure',
   },
   webServer: {

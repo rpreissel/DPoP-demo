@@ -1,6 +1,7 @@
 import { describeError, postToolSubResource } from '../../api'
 import { submitViaPatch } from '../shared/defaultApi'
 import type { ToolRenderContext } from '../types'
+import { t } from '../../texts'
 
 /** enroll-kobil's confirmation and auth-kobil's OTP are both ordinary step submissions. */
 export function submitKobilStep(ctx: ToolRenderContext, body: Record<string, unknown>) {
@@ -18,5 +19,5 @@ export function releaseKobilPin(ctx: ToolRenderContext, unlock: Record<string, u
   if (!ctx.toolSessionId || ctx.proof.kind !== 'dpop') return
   return postToolSubResource(ctx.proof.dpop, ctx.toolSessionId, ctx.toolId, 'pin-releases', { unlock })
     .then(ctx.onResult)
-    .catch((err) => ctx.onError(describeError('Freigabe fehlgeschlagen', err)))
+    .catch((err) => ctx.onError(describeError(t('Freigabe fehlgeschlagen'), err)))
 }

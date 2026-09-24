@@ -1,3 +1,5 @@
+import { t } from '../texts'
+import { Tx } from '../Tx'
 import { useEffect, useState } from 'react'
 import type { DpopKeyPair } from '../dpop.ts'
 import type { ActiveMethodView, DemoInfo, IdTokenClaims } from '../types'
@@ -9,11 +11,11 @@ import { TokenPanel } from './TokenPanel'
 
 /** Display name for a method with no user-chosen label (singleton methods - email/sms/password). */
 const DEFAULT_METHOD_LABELS: Record<string, string> = {
-  sms: 'SMS',
-  email: 'E-Mail',
-  password: 'Passwort',
-  device: 'Gerät',
-  qr: 'QR-Login',
+  sms: t('SMS'),
+  email: t('E-Mail'),
+  password: t('Passwort'),
+  device: t('Gerät'),
+  qr: t('QR-Login'),
 }
 
 function labelFor(method: ActiveMethodView): string {
@@ -22,14 +24,14 @@ function labelFor(method: ActiveMethodView): string {
 
 /** Same German factor-type names as the backend's DefaultAuthPolicy.germanFactorType. */
 const FACTOR_TYPE_LABELS: Record<string, string> = {
-  POSSESSION: 'Besitz',
-  KNOWLEDGE: 'Wissen',
-  INHERENCE: 'Inhärenz',
+  POSSESSION: t('Besitz'),
+  KNOWLEDGE: t('Wissen'),
+  INHERENCE: t('Inhärenz'),
 }
 
 function factorTypesLabel(method: ActiveMethodView): string | undefined {
   if (!method.factorTypes || method.factorTypes.length === 0) return undefined
-  return method.factorTypes.map((t) => FACTOR_TYPE_LABELS[t] ?? t).join(' + ')
+  return method.factorTypes.map((type) => FACTOR_TYPE_LABELS[type] ?? type).join(' + ')
 }
 
 /**
@@ -42,8 +44,12 @@ function acrDetailLabel(method: ActiveMethodView): string | undefined {
   if (!method.maxAcr) return undefined
   const capped = method.effectiveAcr && method.effectiveAcr !== method.maxAcr
   return capped
-    ? `${method.effectiveAcr} (gedeckelt - max. ${method.maxAcr}, eingerichtet unter ${method.enrolledUnderAcr})`
-    : `${method.effectiveAcr ?? method.maxAcr} (max. ${method.maxAcr})`
+    ? t('{wirksam} (gedeckelt - max. {max}, eingerichtet unter {eingerichtet})', {
+        wirksam: String(method.effectiveAcr),
+        max: method.maxAcr,
+        eingerichtet: String(method.enrolledUnderAcr),
+      })
+    : t('{wirksam} (max. {max})', { wirksam: method.effectiveAcr ?? method.maxAcr, max: method.maxAcr })
 }
 
 /** A section heading with a hover/focus-revealed diagram of that section's journey shape - same trigger as JourneyStructureView's in-progress hint. */
@@ -52,7 +58,7 @@ function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof
     <h3 className="section-heading">
       {text}
       <DiagramHint spec={JOURNEY_DIAGRAMS[diagram]} inline>
-        <span className="diagram-hint-trigger" tabIndex={0} aria-label={`Ablauf "${text}" als Diagramm anzeigen`}>
+        <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: text })}>
           ℹ️
         </span>
       </DiagramHint>
@@ -123,49 +129,52 @@ export function AuthenticationCompletedView({
   // personId in the ID claims is the register binding itself: present = Versicherter, absent =
   // Interessent (ADR-10/18 - full identity possibly attested, but no register person assigned).
   // Shown compactly in parentheses behind the name, not as its own status row.
-  const accountStatus = claims ? (claims.personId != null ? 'Versicherter' : 'Interessent') : undefined
+  const accountStatus = claims ? (claims.personId != null ? t('Versicherter') : t('Interessent')) : undefined
 
   return (
     <>
     <div className="card success-card">
-      <h2>Authentifizierung erfolgreich!</h2>
+      <h2>{t('Authentifizierung erfolgreich!')}</h2>
       <div className="identity-row">
         <p>
           {personName ? (
-            <>
-              Angemeldet als <strong>{personName}</strong>
-              {accountStatus && ` (${accountStatus})`}.
-            </>
+            accountStatus ? (
+              <Tx text="Angemeldet als {name} ({status})." name={<strong>{personName}</strong>} status={accountStatus} />
+            ) : (
+              <Tx text="Angemeldet als {name}." name={<strong>{personName}</strong>} />
+            )
+          ) : accountStatus ? (
+            t('Sie sind angemeldet ({status}).', { status: accountStatus })
           ) : (
-            <>Sie sind angemeldet{accountStatus && ` (${accountStatus})`}.</>
+            t('Sie sind angemeldet.')
           )}
         </p>
         <button className="secondary small" onClick={onLogout}>
-          Abmelden
+          {t('Abmelden')}
         </button>
       </div>
       <ul className="status-list">
         {currentAcr && (
           <li>
-            <span className="label">Sicherheitsniveau</span>
+            <span className="label">{t('Sicherheitsniveau')}</span>
             <span className="value">{currentAcr}</span>
           </li>
         )}
         {currentAmr && currentAmr.length > 0 && (
           <li>
-            <span className="label">Genutzte Anmeldeverfahren</span>
+            <span className="label">{t('Genutzte Anmeldeverfahren')}</span>
             <span className="value">{currentAmr.join(', ')}</span>
           </li>
         )}
         {demo?.accountId != null && (
           <li>
-            <span className="label">Konto-ID (Demo)</span>
+            <span className="label">{t('Konto-ID (Demo)')}</span>
             <span className="value">{demo.accountId}</span>
           </li>
         )}
         {demo?.personId != null && (
           <li>
-            <span className="label">Personen-ID (Demo)</span>
+            <span className="label">{t('Personen-ID (Demo)')}</span>
             <span className="value">{demo.personId}</span>
           </li>
         )}
@@ -173,32 +182,32 @@ export function AuthenticationCompletedView({
 
       {canStepUpToLoa2 && (
         <>
-          <SectionHeading text="Sicherheitsniveau erhöhen" diagram="stepUp" />
-          <p>Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.</p>
+          <SectionHeading text={t('Sicherheitsniveau erhöhen')} diagram="stepUp" />
+          <p>{t('Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.')}</p>
           <div className="form-actions">
             <button className="secondary" onClick={() => onStepUp('loa2')}>
-              Sicherheitsniveau jetzt erhöhen
+              {t('Sicherheitsniveau jetzt erhöhen')}
             </button>
           </div>
         </>
       )}
 
-      <SectionHeading text="Web-Login per QR bestätigen" diagram="confirmPeerLogin" />
+      <SectionHeading text={t('Web-Login per QR bestätigen')} diagram="confirmPeerLogin" />
       {/* Worded as an instruction, not a status: the app cannot know whether a browser is waiting -
           the pairing code shown there is what connects the two, entered in the next step. */}
-      <p>Zeigt ein Browser einen QR- oder Pairing-Code an, bestätigen Sie den Login hier.</p>
+      <p>{t('Zeigt ein Browser einen QR- oder Pairing-Code an, bestätigen Sie den Login hier.')}</p>
       {activeMethods && !activeMethods.some((m) => m.method === 'qr') && (
         <p className="hint">
-          Dafür muss für dieses Konto das Verfahren „QR-Login“ aktiviert sein - unten unter „Anmeldeverfahren verwalten“.
+          {t('Dafür muss für dieses Konto das Verfahren „QR-Login“ aktiviert sein - unten unter „Anmeldeverfahren verwalten“.')}
         </p>
       )}
       <div className="form-actions">
         <button className="secondary" onClick={onPeerLogin}>
-          Web-Login bestätigen
+          {t('Web-Login bestätigen')}
         </button>
       </div>
 
-      <SectionHeading text="Anmeldeverfahren verwalten" diagram="manageMethods" />
+      <SectionHeading text={t('Anmeldeverfahren verwalten')} diagram="manageMethods" />
       {manageError && <div className="hint">{manageError}</div>}
       {infoMessage && <div className="hint">{infoMessage}</div>}
       {/* activeMethods is the account's full standing method list (backend field, distinct from
@@ -218,21 +227,21 @@ export function AuthenticationCompletedView({
                 </span>
               </span>
               <button className="secondary" onClick={() => onDeactivateMethod(method.id)}>
-                Deaktivieren
+                {t('Deaktivieren')}
               </button>
             </li>
           ))}
         </ul>
       )}
       <div className="form-actions">
-        <button onClick={onAddMethod}>Weiteres Verfahren hinzufügen</button>
+        <button onClick={onAddMethod}>{t('Weiteres Verfahren hinzufügen')}</button>
       </div>
 
-      <SectionHeading text="Konto löschen" diagram="deleteAccount" />
-      <p>Löscht Ihr Konto und alle Anmeldeverfahren endgültig.</p>
+      <SectionHeading text={t('Konto löschen')} diagram="deleteAccount" />
+      <p>{t('Löscht Ihr Konto und alle Anmeldeverfahren endgültig.')}</p>
       <div className="form-actions">
         <button className="destructive" onClick={onDeleteAccount}>
-          Konto löschen
+          {t('Konto löschen')}
         </button>
       </div>
 
@@ -240,7 +249,7 @@ export function AuthenticationCompletedView({
           in TokenPanel: the two headline facts (name + Kontostatus) live in the identity row,
           everything else only on demand. */}
       {claims && (
-        <Disclosure summary="ID-Token-Claims">
+        <Disclosure summary={t('ID-Token-Claims')}>
           <ul className="status-list">
             {Object.entries(claims)
               .filter(([, value]) => value !== null && value !== undefined)

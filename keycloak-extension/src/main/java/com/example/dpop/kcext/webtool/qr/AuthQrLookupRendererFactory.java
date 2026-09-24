@@ -1,5 +1,6 @@
 package com.example.dpop.kcext.webtool.qr;
 
+import com.example.dpop.kcext.KcText;
 /** Web-channel counterpart of `auth-qr-lookup` - account unknown until the app side reveals it. */
 public class AuthQrLookupRendererFactory extends QrWaitRendererFactory {
 
@@ -11,12 +12,12 @@ public class AuthQrLookupRendererFactory extends QrWaitRendererFactory {
     }
 
     @Override
-    public String title() {
-        return "Mit App anmelden";
+    public KcText title() {
+        return KcText.t("Mit App anmelden");
     }
 
     @Override
-    public String hint() {
-        return "QR-Code mit einer bereits angemeldeten App scannen oder Code manuell eingeben";
+    public KcText hint() {
+        return KcText.t("QR-Code mit einer bereits angemeldeten App scannen oder Code manuell eingeben");
     }
 }

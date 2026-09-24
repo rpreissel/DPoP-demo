@@ -1,3 +1,4 @@
+import { t } from '../texts'
 import type { ReactNode } from 'react'
 import { goToStart } from '../startWindow'
 
@@ -25,10 +26,10 @@ interface Props<K extends string> {
  */
 export function ChannelNav<K extends string>({ badge, tabs = [], sub, onSelectTab, actions }: Props<K>) {
   return (
-    <nav className="channel-topbar" aria-label={`${badge}-Bereiche`}>
+    <nav className="channel-topbar" aria-label={t('{kanal}-Bereiche', { kanal: badge })}>
       <div className="channel-topbar-brand">
-        <button className="secondary small back-button" onClick={goToStart} aria-label="Zurück zur Startseite">
-          ← Startseite
+        <button className="secondary small back-button" onClick={goToStart} aria-label={t('Zurück zur Startseite')}>
+          ← {t('Startseite')}
         </button>
         <span className="channel-badge">{badge}</span>
       </div>
