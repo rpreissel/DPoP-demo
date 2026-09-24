@@ -9,7 +9,7 @@ health insurer reads in its login and registration app. Translate the meaning, n
 - **Never** use internal coinages such as "register person" or "enrollment": say "your insurance record",
   "sign-in method".
 - **Fixed demo terms, keep them**: "journey" / "journey log" (not "process"), "prospect" and "insured member"
-  (account status without / with assigned insurance data), "pairing code".
+  (account status without / with assigned insurance data), "pairing code", "realm" (Keycloak term).
 - **Replace jargon** as the German prompt does: enrollment → sign-in method; account binding → linked device;
   journey → process; loa/acr → security level (placeholder values stay as they are).
 - **Fixed terms**: health insurance number (KVNR), activation code (Freischaltcode), online ID (eID), passport,

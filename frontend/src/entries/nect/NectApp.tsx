@@ -137,6 +137,8 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
   const [procedure, setProcedure] = useState<NectProcedure>('eid')
   const [personen, setPersonen] = useState<RegisterPerson[]>([])
   const [person, setPerson] = useState<PersonFields>({})
+  // Which register person the fields were taken from - shown in the picker, so it never claims "choose one" while one is in use.
+  const [personId, setPersonId] = useState('')
   const [pin, setPin] = useState('')
   const [documentNumber, setDocumentNumber] = useState('C01X00T47')
   const [can, setCan] = useState('')
@@ -154,7 +156,10 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
       .personen()
       .then((ps) => {
         setPersonen(ps)
-        if (ps[0]) setPerson(fieldsOf(ps[0]))
+        if (ps[0]) {
+          setPerson(fieldsOf(ps[0]))
+          setPersonId(String(ps[0].id))
+        }
       })
       .catch(() => setPersonen([]))
   }, [])
@@ -226,8 +231,9 @@ function IdentForm({ caseId, requested, onError }: { caseId: string; requested: 
           <label htmlFor="nect-person">{t('Demo: Dokument von …')}</label>
           <select
             id="nect-person"
-            value=""
+            value={personId}
             onChange={(e) => {
+              setPersonId(e.target.value)
               const p = personen.find((x) => String(x.id) === e.target.value)
               if (p) setPerson(fieldsOf(p))
             }}

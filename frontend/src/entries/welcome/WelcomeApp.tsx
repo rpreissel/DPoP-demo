@@ -334,7 +334,7 @@ function ServerStatus() {
         <li>
           <span className="label">{t('Identitätsanbieter (Web-Kanal)')}</span>
           <span className="value">
-            {info.keycloak ? t('Echtes Keycloak, Realm {realm}', { realm: info.keycloak.realm }) : t('keins - Web-Kanal nicht verfügbar')}
+            {info.keycloak ? t('Keycloak, Realm {realm}', { realm: info.keycloak.realm }) : t('Kein Keycloak - Web-Kanal nicht verfügbar')}
           </span>
         </li>
         {info.keycloak && (
@@ -349,13 +349,24 @@ function ServerStatus() {
           <span className="label">{t('Registrierungsreihenfolge')}</span>
           <span className="value">{info.registrationEnrollFirst ? t('Enrollment zuerst') : t('Identifikation zuerst')}</span>
         </li>
-        <li>
+        <li className={info.disabledTools.length === 0 ? undefined : 'status-stacked'}>
           <span className="label">{t('Gesperrte Verfahren')}</span>
-          <span className="value">
-            {info.disabledTools.length === 0
-              ? t('keine')
-              : info.disabledTools.map((d) => `${d.toolId} [${d.channel === 'APP' ? t('App') : t('Web')}]${d.reason ? ` (${d.reason})` : ''}`).join(', ')}
-          </span>
+          {info.disabledTools.length === 0 ? (
+            <span className="value">{t('keine')}</span>
+          ) : (
+            // One line per channel and reason - the reason once, not after every tool.
+            <ul className="status-sublist">
+              {disabledGroups(info.disabledTools).map((g) => (
+                <li key={`${g.channel}|${g.reason}`}>
+                  <span className="status-group">
+                    {g.channel === 'APP' ? t('App') : t('Web')}
+                    {g.reason ? ` · ${g.reason}` : ''}
+                  </span>
+                  <span className="value">{g.toolIds.join(', ')}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </li>
         <li>
           <span className="label">{t('Demo-Werte in Antworten')}</span>
@@ -364,4 +375,15 @@ function ServerStatus() {
       </ul>
     </div>
   )
+}
+
+function disabledGroups(tools: { toolId: string; channel: string; reason?: string | null }[]) {
+  const groups = new Map<string, { channel: string; reason: string; toolIds: string[] }>()
+  for (const d of tools) {
+    const key = `${d.channel}|${d.reason ?? ''}`
+    const group = groups.get(key) ?? { channel: d.channel, reason: d.reason ?? '', toolIds: [] }
+    group.toolIds.push(d.toolId)
+    groups.set(key, group)
+  }
+  return [...groups.values()]
 }

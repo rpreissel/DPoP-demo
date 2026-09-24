@@ -28,6 +28,7 @@ Diese Wörter sind eingeführte Begriffe der Demo (Doku, Diagramme, Oberfläche)
 - **Journey**, **Journey-Log** (nicht „Vorgang“, „Vorgangsprotokoll“)
 - **Interessent** und **Versicherter** (Status eines Kontos ohne bzw. mit zugeordneten Versichertendaten)
 - **Pairing-Code** (nicht „Kopplungscode“)
+- **Realm** (Keycloak-Begriff, nicht „Bereich“) und **Keycloak** als Produktname
 
 ## Stil
 
