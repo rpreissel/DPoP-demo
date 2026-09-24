@@ -42,7 +42,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # Die Extension legt beim Start im Master-Realm den Client orchestrator-migration an
-      # (MigrationClientBootstrapFactory, private_key_jwt, nur create-realm) und laesst ihn gegen
+      # (MigrationClientBootstrapFactory, private_key_jwt, Master-Rolle admin) und laesst ihn gegen
       # dieses JWKS pruefen - der einzige Extension-Wert, der nicht im Realm steht (ADR-25), weil es
       # beim Start noch keins gibt.
       # host.containers.internal statt "orchestrator": so traegt derselbe Wert beide Betriebsarten -

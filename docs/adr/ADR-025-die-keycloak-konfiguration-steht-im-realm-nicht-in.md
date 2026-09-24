@@ -59,8 +59,9 @@ Migration meldete sich als Master-Realm-Admin mit Benutzername und Passwort an
 Keycloak selbst einen Client `orchestrator-migration` im Master-Realm an
 (`MigrationClientBootstrapFactory`, nach Keycloaks eigener Datenbank-Migration, idempotent):
 `private_key_jwt` gegen das JWKS des Orchestrators — derselbe Schlüssel wie bei den Realm-Clients —
-und als einzige Rolle `create-realm`. Keycloak macht den Anleger eines Realms zu dessen Admin; das
-reicht für Aufbau und Neuaufbau. Der Orchestrator holt sein Token per `client_credentials` mit
+und die Master-Rolle `admin` — dieselben Rechte wie der Passwort-Admin, den er ersetzt.
+`create-realm` allein trägt nicht: Keycloak prüft Admin-Rechte an den Rollen im Token, und die
+Rechte auf ein neu angelegtes Realm bekäme der Anleger erst nach dem Anlegen. Der Orchestrator holt sein Token per `client_credentials` mit
 Assertion (`KeycloakMigrationToken`). Der Bootstrap-Admin bleibt nur für Menschen an der
 Admin-Console.
 
@@ -71,11 +72,8 @@ Admin-Console.
   `orchestratorBaseUrl` der Setup-Variante). Hingenommen, weil ein falscher Wert nicht spät auffällt:
   Der erste Token-Request der Migration scheitert beim Start. Fehlt die Option ganz, startet
   Keycloak nicht.
-- **Nur interne Adressen:** Wer unter dieser URL antwortet, kann sich Tokens des Clients ausstellen.
-  Bei den Realm-Clients galt dieselbe Strecke schon, hier geht es um das Recht, Realms anzulegen.
-- **Umstieg:** Realms, die noch der Bootstrap-Admin angelegt hat, bleiben für den neuen Client
-  unerreichbar (keine Rechte). Die Migration bricht dann mit genau dieser Ursache ab; das Realm
-  einmal löschen (oder das Keycloak-Volume neu anlegen), sie baut es neu auf.
+- **Nur interne Adressen:** Wer unter dieser URL antwortet, kann sich Master-Admin-Tokens
+  ausstellen. Sie darf deshalb nie über eine öffentliche Route laufen.
 - **Admin-Client:** `keycloak-admin-client` 26.0.12 kann sich selbst nicht per Assertion anmelden.
   Ein Request-Filter setzt deshalb bei jedem Aufruf das frische Token ein (`buildAdminClient`).
 

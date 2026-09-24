@@ -26,10 +26,11 @@ import org.keycloak.services.managers.RealmManager;
  * muesste. Idempotent: fehlt der Client, entsteht er; gibt es ihn, wird nur die {@code jwks.url}
  * auf den konfigurierten Stand gebracht.
  *
- * <p>Rechte: nur {@code create-realm}. Keycloak macht den Anleger eines Realms automatisch zu dessen
- * Admin - das deckt Aufbau und Neuaufbau (Loeschen und neu Anlegen) ab, ohne Master-Admin zu sein.
- * Ein Realm, das jemand anderes angelegt hat (etwa der Bootstrap-Admin vor dieser Umstellung),
- * bleibt fuer diesen Client unerreichbar; der Orchestrator meldet das beim Start mit klarer Ursache.
+ * <p>Rechte: die Master-Rolle {@code admin} - dieselben wie der Passwort-Admin, den dieser Client
+ * ersetzt. {@code create-realm} allein traegt nicht: Keycloak prueft Admin-Rechte an den Rollen im
+ * Token, und die Rechte auf ein neu angelegtes Realm bekommt der Anleger erst NACH dem Anlegen -
+ * das schon ausgestellte Token der Migration kennt sie nicht. {@code fullScopeAllowed}, damit die
+ * Rolle ueberhaupt im Token steht; ein direkt per {@code addClient} angelegter Client hat es aus.
  *
  * <p>Die {@code jwks.url} ist der eine Wert dieser Extension, der NICHT im Realm steht (ADR-25):
  * es gibt beim Start noch kein Realm, aus dem er kommen koennte. Er kommt deshalb aus der
@@ -102,10 +103,16 @@ public class MigrationClientBootstrapFactory implements OrchestratorBootstrapFac
             client.setAttribute("use.jwks.url", "true");
             client.setAttribute("token.endpoint.auth.signing.alg", "ES256");
             new ClientManager(new RealmManager(session)).enableServiceAccount(client);
-            UserModel serviceAccount = session.users().getServiceAccount(client);
-            RoleModel createRealm = master.getRole(AdminRoles.CREATE_REALM);
-            serviceAccount.grantRole(createRealm);
-            log.infof("Client '%s' im Master-Realm angelegt (create-realm, private_key_jwt)", CLIENT_ID);
+            log.infof("Client '%s' im Master-Realm angelegt (private_key_jwt)", CLIENT_ID);
+        }
+        // Auch fuer einen schon vorhandenen Client: so bringt jeder Start ihn auf den Stand dieser
+        // Klasse, statt nur beim allerersten Anlegen zu wirken.
+        client.setFullScopeAllowed(true);
+        UserModel serviceAccount = session.users().getServiceAccount(client);
+        RoleModel admin = master.getRole(AdminRoles.ADMIN);
+        if (!serviceAccount.hasDirectRole(admin)) {
+            serviceAccount.grantRole(admin);
+            log.infof("Client '%s': Rolle %s zugewiesen", CLIENT_ID, AdminRoles.ADMIN);
         }
         if (!jwksUrl.equals(client.getAttribute("jwks.url"))) {
             client.setAttribute("jwks.url", jwksUrl);

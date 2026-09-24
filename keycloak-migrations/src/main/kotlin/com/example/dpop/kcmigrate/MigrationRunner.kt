@@ -123,12 +123,11 @@ class MigrationRunner(
             // Gibt es noch nicht - unten anlegen.
         } catch (e: ForbiddenException) {
             // Ohne diese Unterscheidung ginge es unten mit "Realm anlegen" weiter und scheiterte
-            // an einem 409 "Conflict" - mit einer Ursache, die niemand darin erkennt.
+            // an einem 403 oder 409 - mit einer Ursache, die niemand darin erkennt.
             throw IllegalStateException(
-                "Realm '$realmName' existiert, aber die Migration hat darauf keine Rechte. Sie meldet sich als " +
-                    "orchestrator-migration an (nur create-realm) und verwaltet nur Realms, die sie selbst angelegt " +
-                    "hat - dieses stammt wohl noch aus der Zeit des Master-Admin-Logins. Realm einmal loeschen " +
-                    "(Admin-Console oder Keycloak-Volume neu anlegen), die Migration baut es dann neu auf.",
+                "Realm '$realmName': die Migration hat keine Rechte darauf. Sie meldet sich als " +
+                    "orchestrator-migration im Master-Realm an; dessen Service Account braucht die Rolle admin " +
+                    "(legt die Keycloak-Extension beim Start an, MigrationClientBootstrapFactory).",
                 e,
             )
         }
