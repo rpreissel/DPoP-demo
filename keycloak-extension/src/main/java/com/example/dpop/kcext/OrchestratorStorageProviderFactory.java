@@ -58,7 +58,17 @@ public class OrchestratorStorageProviderFactory implements UserStorageProviderFa
 
     @Override
     public OrchestratorStorageProvider create(KeycloakSession session, ComponentModel model) {
-        return new OrchestratorStorageProvider(OrchestratorSettings.from(session, model).newClient());
+        return new OrchestratorStorageProvider(OrchestratorSettings.from(model).newClient());
+    }
+
+    /**
+     * Keycloak ruft das beim Anlegen und Aendern der Komponente auf und speichert das Modell
+     * danach - der einzige Moment, in dem diese Extension ihre Komponente beschreibt (siehe
+     * {@link OrchestratorSettings#ensureSigningKey}).
+     */
+    @Override
+    public void validateConfiguration(KeycloakSession session, RealmModel realm, ComponentModel model) {
+        OrchestratorSettings.ensureSigningKey(model);
     }
 
     @Override

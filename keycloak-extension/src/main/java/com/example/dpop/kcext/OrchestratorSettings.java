@@ -56,7 +56,7 @@ public record OrchestratorSettings(
 
     /**
      * Was die Admin-Console an der Komponente anzeigt - und zugleich die Liste der Schluessel, die
-     * {@link #from(KeycloakSession, ComponentModel)} erwartet. Ein Ort, nicht zwei.
+     * {@link #from(ComponentModel)} erwartet. Ein Ort, nicht zwei.
      */
     public static final List<ProviderConfigProperty> CONFIG_PROPERTIES = List.of(
             property(ORCHESTRATOR_BASE_URL, "Orchestrator base URL",
@@ -79,44 +79,53 @@ public record OrchestratorSettings(
     }
 
     /** Fuer die Komponente selbst, die ihr eigenes {@link ComponentModel} schon in der Hand hat. */
-    public static OrchestratorSettings from(KeycloakSession session, ComponentModel model) {
+    public static OrchestratorSettings from(ComponentModel model) {
         return new OrchestratorSettings(
                 required(model, ORCHESTRATOR_BASE_URL),
                 required(model, PUBLIC_ORCHESTRATOR_BASE_URL),
                 required(model, PEER_AUTH_ISSUER),
                 required(model, PEER_AUTH_AUDIENCE),
-                signingKey(session, model)
+                signingKey(model)
         );
     }
 
     /**
-     * Der Signaturschluessel der Komponente - beim ersten Zugriff erzeugt und zurueckgeschrieben.
+     * Legt den Signaturschluessel an, falls die Komponente noch keinen hat - aufgerufen aus
+     * {@link OrchestratorStorageProviderFactory#validateConfiguration}, also genau dann, wenn
+     * Keycloak die Komponente anlegt oder aendert. Keycloak speichert das so ergaenzte Modell
+     * direkt mit; dasselbe Verfahren wie bei seinen eigenen {@code *-generated}-Key-Providern.
      *
      * Bewusst KEIN Eintrag in {@link #CONFIG_PROPERTIES}: das ist interner Zustand, kein Feld, das
      * jemand in der Admin-Console ausfuellen soll. Es liegt damit in Keycloaks Datenbank wie jeder
      * andere Realm-Schluessel auch.
      *
-     * Erzeugen zwei Knoten gleichzeitig zum allerersten Mal, gewinnt der letzte Schreiber, und der
-     * andere signiert kurzzeitig mit einem Schluessel, den das JWKS nicht mehr nennt - die
-     * betroffene Anfrage scheitert und gelingt beim naechsten Versuch. Fuer einen echten
-     * Mehrknotenbetrieb waere hier ein Anlegen unter Sperre faellig.
+     * Frueher entstand der Schluessel erst beim ersten Lesen und wurde dann per
+     * {@code realm.updateComponent} zurueckgeschrieben. Keycloak instanziiert den Storage-Provider
+     * aber bei jeder User-Anlage - die ersten parallelen Anlagen eines frischen Realms schrieben
+     * also alle gleichzeitig die Komponente neu, und alle ausser einer scheiterten an Keycloaks
+     * optimistischer Sperre auf COMPONENT_CONFIG. Nicht erst bei mehreren Knoten, sondern schon
+     * bei drei gleichzeitigen Account-Syncs eines einzigen Orchestrators.
      */
-    private static ECKey signingKey(KeycloakSession session, ComponentModel model) {
+    static void ensureSigningKey(ComponentModel model) {
         String stored = model.getConfig().getFirst(PEER_AUTH_SIGNING_KEY);
-        if (stored != null && !stored.isBlank()) {
-            try {
-                return ECKey.parse(stored);
-            } catch (ParseException e) {
-                throw new IllegalStateException("Peer-Auth-Signaturschluessel der Komponente ist unlesbar", e);
-            }
+        if (stored == null || stored.isBlank()) {
+            model.getConfig().putSingle(PEER_AUTH_SIGNING_KEY, generateSigningKey().toJSONString());
         }
-        ECKey generated = generateSigningKey();
-        model.getConfig().putSingle(PEER_AUTH_SIGNING_KEY, generated.toJSONString());
-        // getParentId() ist bei einer Realm-Komponente die Realm-Id - verlaesslicher als
-        // session.getContext().getRealm(), das je nach Aufrufpfad noch nicht gesetzt ist.
-        RealmModel realm = session.realms().getRealm(model.getParentId());
-        realm.updateComponent(model);
-        return generated;
+    }
+
+    /** Liest nur - angelegt wird der Schluessel ausschliesslich in {@link #ensureSigningKey}. */
+    private static ECKey signingKey(ComponentModel model) {
+        String stored = model.getConfig().getFirst(PEER_AUTH_SIGNING_KEY);
+        if (stored == null || stored.isBlank()) {
+            throw new IllegalStateException("Komponente '" + model.getName()
+                    + "' hat keinen Peer-Auth-Signaturschluessel - einmal in der Admin-Console speichern,"
+                    + " dann legt validateConfiguration ihn an");
+        }
+        try {
+            return ECKey.parse(stored);
+        } catch (ParseException e) {
+            throw new IllegalStateException("Peer-Auth-Signaturschluessel der Komponente ist unlesbar", e);
+        }
     }
 
     private static ECKey generateSigningKey() {
@@ -139,7 +148,7 @@ public record OrchestratorSettings(
      */
     public static OrchestratorSettings of(KeycloakSession session) {
         RealmModel realm = session.getContext().getRealm();
-        return from(session, OrchestratorStorageProviderFactory.componentIn(realm)
+        return from(OrchestratorStorageProviderFactory.componentIn(realm)
                 .orElseThrow(() -> new IllegalStateException(
                         "User-Storage-Komponente '" + OrchestratorStorageProviderFactory.PROVIDER_ID
                                 + "' fehlt im Realm '" + realm.getName()

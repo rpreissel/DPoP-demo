@@ -45,6 +45,12 @@ dependencies {
     // pulling in its extra dependencies.
     implementation("com.google.zxing:core:3.5.3")
 
+    // Nur fuer Tests, die ein ComponentModel in die Hand nehmen (OrchestratorSettingsTest) - zur
+    // Laufzeit stellt Keycloak diese Klassen, siehe compileOnly oben.
+    testImplementation("org.keycloak:keycloak-server-spi:$keycloakVersion")
+    testImplementation("org.keycloak:keycloak-model-storage:$keycloakVersion")
+    testImplementation("org.keycloak:keycloak-common:$keycloakVersion")
+    testImplementation("org.keycloak:keycloak-core:$keycloakVersion")
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
  *  - `dpop.secrets.otp-pepper` blank by default, meaning a fresh random pepper per boot - two
  *    instances then cannot verify each other's SMS/e-mail codes at all;
  *  - `KeycloakAdminClient`'s `@Volatile` token and component-id caches, per process by nature;
- *  - `KeycloakAccountSyncListener` serializing one account's syncs with an in-process lock.
+ *  - `KeycloakAccountSyncListener` serializing all syncs on one in-process thread.
  *
  * Every one of those is individually explained where it stands; none of them says "therefore this
  * runs once". So the limit would not have been discovered by reading the code - it would have been
@@ -71,7 +71,7 @@ class DeploymentTopologyCheck(
             // MULTIPLE is always wrong on this point until something does. Better to say so than to
             // let eleven jobs run N times over.
             add(
-                "Der Keycloak-Account-Sync serialisiert die Syncs eines Kontos nur prozessintern - " +
+                "Der Keycloak-Account-Sync serialisiert seine Syncs nur prozessintern (ein Thread) - " +
                     "zwei Instanzen legen denselben Keycloak-User und dasselbe Keypair parallel an."
             )
             add(

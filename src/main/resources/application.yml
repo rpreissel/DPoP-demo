@@ -1,6 +1,12 @@
 spring:
   application:
     name: dpop-demo
+  task:
+    execution:
+      # Boots eigener Async-Pool bleibt Default, obwohl es mit keycloakSyncExecutor einen weiteren
+      # Executor gibt - ohne "force" zieht sich Boot dann zurueck, und jedes @Async landete auf
+      # dessen einem Thread (KeycloakSyncExecutorConfig).
+      mode: force
   modulith:
     events:
       # Event Publication Registry = Spring Modulith' transaktionaler Outbox. Jede Methode mit

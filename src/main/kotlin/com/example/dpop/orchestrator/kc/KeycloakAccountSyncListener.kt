@@ -7,12 +7,11 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.ext_stammdaten.ExtStammdatenService
 import com.example.dpop.ext_stammdaten.PersonData
 import com.example.dpop.tool_spi.AttributeType
-import org.slf4j.LoggerFactory
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 import org.springframework.modulith.events.ApplicationModuleListener
+import org.springframework.scheduling.annotation.Async
 
 /**
  * Keeps a Keycloak user mirrored for every orchestrator account
@@ -38,14 +37,17 @@ import org.springframework.modulith.events.ApplicationModuleListener
  * AFTER_COMMIT also means the account's own DB transaction is never held open across the network
  * call to Keycloak - the rule `OrchestratorArchitectureTest` enforces for the whole orchestrator.
  *
- * One account's syncs run one at a time ([syncLocks]). `AccountService` already publishes at most
- * one `AccountChanged` per account and transaction, but two transactions committing close together
- * (two quick requests of the same registration) still deliver two events at once. In parallel both
- * would find no Keycloak user and no keypair yet and both create one: 409 from Keycloak, a
- * primary-key violation on the keypair, a 500 on the credential write. Serialized, the first
- * creates and the second updates. Every sync reads the account's CURRENT state, so their order
- * does not matter, only that they do not overlap. The lock is per process - one more reason
- * `DeploymentTopologyCheck` refuses `multiple`.
+ * All syncs run one at a time, on the single thread of [KEYCLOAK_SYNC_EXECUTOR] - the explicit
+ * `@Async` below takes precedence over the unqualified one inside `@ApplicationModuleListener`.
+ * `AccountService` already publishes at most one `AccountChanged` per account and transaction, but
+ * two transactions committing close together (two quick requests of the same registration) still
+ * deliver two events at once. In parallel both would find no Keycloak user and no keypair yet and
+ * both create one: 409 from Keycloak, a primary-key violation on the keypair, a 500 on the
+ * credential write. Syncs of different accounts collided too, inside Keycloak (see
+ * [KeycloakSyncExecutorConfig]). Serialized, the first creates and the second updates. Every sync
+ * reads the account's CURRENT state, so their order does not matter, only that they do not
+ * overlap. The single lane is per process - one more reason `DeploymentTopologyCheck` refuses
+ * `multiple`.
  */
 @Component
 @Profile("keycloak")
@@ -56,17 +58,9 @@ class KeycloakAccountSyncListener(
     private val accountKeypairService: AccountKeypairService,
     private val accountKeycloakKeypairRepository: AccountKeycloakKeypairRepository
 ) {
-    private val log = LoggerFactory.getLogger(KeycloakAccountSyncListener::class.java)
-
-    /** One monitor per account id; a handful of objects for the lifetime of the process. */
-    private val syncLocks = ConcurrentHashMap<Long, Any>()
-
     @ApplicationModuleListener
-    fun onAccountChanged(event: AccountChanged) = synchronized(syncLocks.computeIfAbsent(event.accountId) { Any() }) {
-        syncAccount(event)
-    }
-
-    private fun syncAccount(event: AccountChanged) {
+    @Async(KEYCLOAK_SYNC_EXECUTOR)
+    fun onAccountChanged(event: AccountChanged) {
         val profile = accountService.findAccount(event.accountId) ?: return
         // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
         // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; the next
@@ -89,6 +83,7 @@ class KeycloakAccountSyncListener(
     }
 
     @ApplicationModuleListener
+    @Async(KEYCLOAK_SYNC_EXECUTOR)
     fun onAccountDeleted(event: AccountDeleted) {
         // Local first, remote second. The local row can never be orphaned by removing it early
         // (nothing outside this process reads it), while a failed deleteUser() must be retried -

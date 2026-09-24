@@ -99,6 +99,10 @@ Dafür gibt es jetzt die **Event Publication Registry** von Spring Modulith
   committet, schreibt Modulith eine Zeile nach `orchestrator.event_publication`.
 - Die Zeile wird erst geschlossen, wenn die Methode ohne Fehler zurückkehrt. Deshalb fängt der
   Listener Fehler **nicht** mehr ab: Die Exception ist das Signal „nicht erledigt".
+- Zugestellt wird auf einem eigenen Thread (`keycloakSyncExecutor`), also ein Sync nach dem
+  anderen, über alle Konten hinweg. Die Registry garantiert nur die Zustellung, nicht die
+  Reihenfolge: mit Springs gemeinsamem Async-Pool liefen die Syncs mehrerer Konten parallel, und
+  Keycloak lehnte parallele Anlagen auf einem frischen Realm teils ab.
 - Offene Zeilen werden nach fünf Minuten erneut zugestellt
   (`spring.modulith.events.staleness.*`) und beim Neustart ebenfalls
   (`republish-outstanding-events-on-restart`).
@@ -136,7 +140,7 @@ Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte in drei unabh�
 - `dpop.secrets.otp-pepper` ist standardmäßig leer, das Pepper wird also bei jedem Start neu
   gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen.
 - Die `@Volatile`-Caches im `KeycloakAdminClient` gelten nur im eigenen Prozess.
-- `KeycloakAccountSyncListener` serialisiert die Syncs eines Kontos mit einer prozessinternen Sperre. Zwei Instanzen würden denselben Keycloak-User und dasselbe Keypair parallel anlegen.
+- `KeycloakAccountSyncListener` arbeitet alle Syncs nacheinander auf einem prozessinternen Thread ab (`keycloakSyncExecutor`). Zwei Instanzen würden denselben Keycloak-User und dasselbe Keypair parallel anlegen.
 
 Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst beim zweiten Pod — als sporadisch
 fehlschlagende TAN-Prüfung. Deshalb steht es jetzt in der Konfiguration:
