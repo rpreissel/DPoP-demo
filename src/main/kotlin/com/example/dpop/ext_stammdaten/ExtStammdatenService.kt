@@ -9,6 +9,7 @@ import com.example.dpop.tool_api.normalizeKvnr
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 /** Raised when the register refuses a change; its refusals are not this application's error contract. */
 class PersonRejectedException(message: String) : RuntimeException(message)
@@ -32,10 +33,11 @@ class ExtStammdatenService(private val personRepository: PersonRepository) : Per
             (claimed.ort == null || person.ort == claimed.ort)
     }
 
-    override fun matchesName(personId: Long, name: String, vorname: String): Boolean {
+    override fun matchesPersonalien(personId: Long, name: String, vorname: String, geburtsdatum: LocalDate): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
         return person.name.equals(name.trim(), ignoreCase = true) &&
-            person.vorname.equals(vorname.trim(), ignoreCase = true)
+            person.vorname.equals(vorname.trim(), ignoreCase = true) &&
+            person.geburtsdatum == geburtsdatum
     }
 
     override fun displayName(personId: Long): String? {

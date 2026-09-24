@@ -215,6 +215,12 @@ authentication / authenticated -> AuthenticationCompleted
 
 Bei einer Auswahlseite (`selectMethod`) füllt das Frontend die Auswahl aus `stepData.options`; die Einträge sind vollständige `toolId`-Werte. `SelectMethodView` übersetzt sie über eine rein darstellungsbezogene Tabelle (Icon, Kurzlabel, Erklärung) in Auswahlkarten; die gewählte `toolId` geht unverändert weiter.
 
+Ein `next.step` benennt eine fachliche Phase, keinen Bildschirm. Wie viele Bildschirme ein Tool
+daraus macht, entscheidet das Frontend anhand von `stepData.missingFields` und Teil-`PATCH`es —
+ein zusätzlicher UI-Schritt, der dieselben Daten braucht, erfordert keine Backend-Änderung.
+Beispiel `ident-fsc`: ein Step `input`, im Frontend zwei Bildschirme (Personendaten, dann
+Freischaltcode).
+
 Konsequenzen: Alle Backend-URLs bleiben Implementierungsdetail; ein neues Tool braucht nur einen weiteren Eintrag in der Routing-Tabelle; auch tool-eigene Endpunkte ([API](05-api.md), Tool-Namespace) findet der Client über `(toolId, step)`.
 
 Zwei Ausnahmen sind **kein** Bruch dieser Regel, weil sie nur eine Aktion auslösen und nie

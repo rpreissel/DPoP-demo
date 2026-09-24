@@ -6,20 +6,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.core.Response;
 import org.keycloak.forms.login.LoginFormsProvider;
 
-import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Web-channel counterpart to ident-fsc, whose single "input" step never changes (docs/06-
- * ablaeufe.md #2) - kvnr/name/vorname/fsc all merge into one PATCH, and {@code stepData.
- * missingFields} alone says which of them are still needed. Unlike the sms/email/password
- * renderers, which switch on {@code ctx.step()}, this one switches on the missingFields set
- * itself: the first round asks for kvnr/name/vorname together, the second (once those three are
- * known) asks only for fsc.
+ * ablaeufe.md #2) - kvnr/name/vorname/geburtsdatum/fsc all merge into one PATCH. The two pages
+ * are this renderer's own choice, the same two the React form makes: the personal-data page
+ * (always all four fields) while {@code stepData.missingFields} still names any of them, the code
+ * page (always just fsc) once the backend has checked that data and asks for the code. A failed
+ * attempt carries no missingFields: the page it was sent from shows again, with the error.
  */
 public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
 
     public static final String PROVIDER_ID = "ident-fsc";
+
+    /** What the first page collects - everything the backend stages before it asks for fsc. */
+    private static final Set<String> PERSONAL_FIELDS = Set.of("kvnr", "name", "vorname", "geburtsdatum");
 
     @Override
     public String getId() {
@@ -40,15 +42,16 @@ public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"input".equals(ctx.step())) return null;
         JsonNode missing = ctx.stepData().get("missingFields");
-        Set<String> missingFields = new HashSet<>();
+        boolean personalienPage = false;
         if (missing != null) {
-            missing.forEach(f -> missingFields.add(f.asText()));
+            for (JsonNode field : missing) {
+                if (PERSONAL_FIELDS.contains(field.asText())) personalienPage = true;
+            }
+        } else {
+            personalienPage = ctx.submittedFields().stream().anyMatch(PERSONAL_FIELDS::contains);
         }
         return form
-                .setAttribute("needsFsc", missingFields.contains("fsc"))
-                .setAttribute("needsKvnr", missingFields.contains("kvnr"))
-                .setAttribute("needsName", missingFields.contains("name"))
-                .setAttribute("needsVorname", missingFields.contains("vorname"))
+                .setAttribute("personalienPage", personalienPage)
                 .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
                 .createForm("tool-ident-fsc.ftl");
     }

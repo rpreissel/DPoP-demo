@@ -72,7 +72,7 @@ class DeviceRebindIntegrationTest : IntegrationTestSupport() {
         val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
         patch(
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
+            """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","geburtsdatum":"1990-11-02","fsc":"ERIKA123"}"""
         )
         return channelSessionId
     }

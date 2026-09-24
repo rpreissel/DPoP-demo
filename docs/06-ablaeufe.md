@@ -72,9 +72,9 @@ Ein Lauf kann **zwei** Zeilen hinterlassen, weil ADR-18 die Identifizierung in z
 
 ## 2) `ident-fsc`
 
-`id_fsc` prüft `kvnr`/`name`/`vorname`/`fsc` gegen den FSC-Dienst und löst dabei die Identität auf — das *ist* die fachliche Leistung des Moduls. Das `account`-Modul kennt `id_fsc` nicht; die Verknüpfung übernimmt erst der Orchestrator beim Verarbeiten von `Completed.Identified` ([Orchestrierung](04-orchestrierung.md)).
+`id_fsc` prüft `kvnr`/`name`/`vorname`/`geburtsdatum`/`fsc` gegen den FSC-Dienst (Name und Geburtsdatum gegen die Stammdaten, der Code gegen den Briefkasten des Registers) und löst dabei die Identität auf — das *ist* die fachliche Leistung des Moduls. Das `account`-Modul kennt `id_fsc` nicht; die Verknüpfung übernimmt erst der Orchestrator beim Verarbeiten von `Completed.Identified` ([Orchestrierung](04-orchestrierung.md)).
 
-Besonderheiten gegenüber dem allgemeinen Muster in [05-api.md](05-api.md): Zwei `PATCH`-Aufrufe (erst `kvnr`/`name`/`vorname`, dann `fsc`) — der FSC-Dienst wird erst aufgerufen, wenn alle vier Felder vorliegen. `GET` baut `stepData` bei jedem Aufruf neu aus den Moduldaten auf; ist das Tool bereits abgeschlossen, zeigt die Antwort bereits auf das Folge-Tool (Resume-Fall).
+Besonderheiten gegenüber dem allgemeinen Muster in [05-api.md](05-api.md): Gestaffelte `missingFields` in einem einzigen Step `input`: erst `kvnr`/`name`/`vorname`/`geburtsdatum`, danach `fsc`. Die Personendaten werden geprüft, sobald sie vollständig sind — erst wenn sie zum Register passen, fordert das Tool den Freischaltcode an. Abgelehnte Personendaten werden verworfen (danach fehlen wieder alle vier), ein abgelehnter Code nur der Code. Beide Ablehnungen zählen als Fehlversuch; die Personen-Sperre (`isIdentLockedOut`) greift beim Code, dem ratbaren Geheimnis. Eine Ablehnung der Personendaten nennt nie, welches Feld nicht passte oder ob die KVNR existiert. Wie viele Bildschirme ein Client daraus macht, entscheidet er selbst ([Frontend](10-frontend.md)); App und Keycloak zeigen erst die Personendaten, dann den Code, und bleiben nach einem Fehlversuch auf der Seite, von der abgeschickt wurde. `GET` baut `stepData` bei jedem Aufruf neu aus den Moduldaten auf; ist das Tool bereits abgeschlossen, zeigt die Antwort bereits auf das Folge-Tool (Resume-Fall).
 
 ---
 

@@ -38,7 +38,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 // channel doesn't stay half-bound to that account afterwards.
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
 
                 val cancelled = delete("/orchestrator/api/v1/channels/$channelSessionId/journey")
@@ -139,7 +139,7 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
 
                 // Direct DELETE logs out without confirmation (non-authenticated channel).

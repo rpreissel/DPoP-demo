@@ -10,8 +10,11 @@ import com.example.dpop.tool_spi.ClaimSource
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import java.time.LocalDate
 import java.util.Optional
 import java.util.UUID
 
@@ -29,23 +32,27 @@ class IdentFscToolHandlerTest : BehaviorSpec({
     val personDirectory = mockk<PersonDirectory>()
     val handler = IdentFscToolHandler(IdentFscDescriptor, repository, freischaltcodes, personDirectory)
 
-    given("a fully filled-in ident-fsc session with a valid code and matching name") {
-        val data = IdFscToolSession(
-            toolSessionId = toolSessionId,
-            kvnr = "A123456789",
-            personId = 7L,
-            name = "Muster",
-            vorname = "Max",
-            fscHash = "abc123"
-        )
+    val birthdate = LocalDate.of(1985, 6, 15)
+
+    fun sessionWithVerifiedPersonalien() = IdFscToolSession(
+        toolSessionId = toolSessionId,
+        kvnr = "A123456789",
+        personId = 7L,
+        name = "Muster",
+        vorname = "Max",
+        geburtsdatum = birthdate
+    ).also { data ->
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
-        every { personDirectory.matchesName(7L, "Muster", "Max") } returns true
-        every { freischaltcodes.pruefe(7L, "abc123") } returns true
+    }
 
-        `when`("verification runs") {
+    given("verified personal data and a valid code") {
+        sessionWithVerifiedPersonalien()
+        every { freischaltcodes.pruefe(7L, any()) } returns true
+
+        `when`("the code is submitted") {
             then("it identifies, asserting the master-data attributes as claims under EXT_STAMMDATEN") {
-                val outcome = handler.patch(toolSessionId, kvnr = null, name = null, vorname = null, fsc = null, personId = null, throttled = false)
+                val outcome = handler.patch(toolSessionId, kvnr = null, name = null, vorname = null, geburtsdatum = null, fsc = "VALIDCODE", personId = null, throttled = false)
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
                 (outcome as ToolOutcome.Completed.Identified).claims shouldBe listOf(
@@ -54,6 +61,23 @@ class IdentFscToolHandlerTest : BehaviorSpec({
                     Claim(AttributeType.NAME, "Muster", ClaimSource.EXT_STAMMDATEN, IdentFscDescriptor.maxAcr),
                     Claim(AttributeType.VORNAME, "Max", ClaimSource.EXT_STAMMDATEN, IdentFscDescriptor.maxAcr)
                 )
+            }
+        }
+    }
+
+    given("personal data that does not match the register") {
+        `when`("it is submitted") {
+            then("it fails right away - no code asked for, none checked - and the data is dropped") {
+                clearMocks(freischaltcodes)
+                val data = sessionWithVerifiedPersonalien()
+                every { personDirectory.matchesPersonalien(7L, "Muster", "Max", birthdate.plusDays(1)) } returns false
+
+                val outcome = handler.patch(toolSessionId, kvnr = null, name = null, vorname = null, geburtsdatum = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
+
+                outcome shouldBe ToolOutcome.Failed("Die Angaben passen zu keiner versicherten Person", attemptedPersonId = 7L)
+                verify(exactly = 0) { freischaltcodes.pruefe(any(), any()) }
+                data.kvnr shouldBe null
+                data.geburtsdatum shouldBe null
             }
         }
     }

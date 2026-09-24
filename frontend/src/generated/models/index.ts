@@ -791,6 +791,12 @@ export interface IdentFscPatchRequest {
      * @type {string}
      * @memberof IdentFscPatchRequest
      */
+    geburtsdatum?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentFscPatchRequest
+     */
     kvnr?: string;
     /**
      * 

@@ -10,14 +10,15 @@ import com.example.dpop.tool_spi.ClaimSource
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.util.UUID
 
 /**
- * toolId=ident-fsc (docs/06-ablaeufe.md #2). Resolves KVNR/name/vorname/FSC into a person -
+ * toolId=ident-fsc (docs/06-ablaeufe.md #2). Resolves KVNR/name/vorname/geburtsdatum/FSC into a person -
  * that resolution *is* the module's contribution, not just a yes/no check.
  *
  * [patch]'s [personId] parameter arrives pre-resolved: IdentFscToolController looks it up over the
- * [PersonDirectory] port when a kvnr is supplied, and the name check goes back out over the same
+ * [PersonDirectory] port when a kvnr is supplied, and the name/birthdate check goes back out over the same
  * port, exactly as `ident-eid` verifies its Ausweisdaten - the master data itself never crosses.
  * The code check alone asks the register directly ([Freischaltcodes], ADR-31): the register issued
  * the code, so it is the one to say whether it is valid - the same edge `auth_kobil` has to
@@ -26,6 +27,8 @@ import java.util.UUID
  * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
  */
+private const val PERSONALIEN_REJECTED = "Die Angaben passen zu keiner versicherten Person"
+
 @Component
 class IdentFscToolHandler(
     private val descriptor: IdentFscDescriptor,
@@ -42,8 +45,10 @@ class IdentFscToolHandler(
     }
 
     /**
-     * [throttled] folds into the ordinary "code invalid" answer rather than getting an error of
-     * its own - a distinguishable lock response would turn this into a KVNR-existence oracle.
+     * [throttled] guards the code, the secret that can be guessed: it folds into the ordinary
+     * "code invalid" answer rather than getting an error of its own - a distinguishable lock
+     * response would turn this into a KVNR-existence oracle. A rejected personal-data check still
+     * charges the person's counter (attemptedPersonId), so probing it runs into the same lock.
      */
     @Transactional
     fun patch(
@@ -51,54 +56,78 @@ class IdentFscToolHandler(
         kvnr: String?,
         name: String?,
         vorname: String?,
+        geburtsdatum: LocalDate?,
         fsc: String?,
         personId: Long?,
         throttled: Boolean
     ): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-fsc tool session: $toolSessionId" }
 
-        val merged = IdentFscFlow.merge(data.toState(), IdentFscInput(kvnr, name, vorname, fsc, personId))
-        data.applyState(merged)
-        repository.save(data)
+        val input = IdentFscInput(kvnr, name, vorname, geburtsdatum, fsc, personId)
+        val merged = IdentFscFlow.merge(data.toState(), input)
 
-        return when (val decision = IdentFscFlow.decide(merged)) {
-            IdentFscDecision.Incomplete -> outcomeFor(merged)
+        // Every personal-data rejection answers alike, whether the KVNR is unknown or a
+        // name/birthdate is off - anything finer would tell a caller which part was wrong.
+        val outcome = when (val decision = IdentFscFlow.decide(merged, input)) {
+            IdentFscDecision.Incomplete -> merged to outcomeFor(merged)
 
-            IdentFscDecision.PersonNotFound -> ToolOutcome.Failed("Person zu dieser KVNR nicht gefunden")
+            IdentFscDecision.PersonNotFound ->
+                IdentFscFlow.rejectPersonalien() to ToolOutcome.Failed(PERSONALIEN_REJECTED)
 
-            is IdentFscDecision.Verify -> {
-                // The name is CHECKED, not merely collected - otherwise the two fields
-                // the form insists on would contribute nothing to the identification.
-                val nameMatches = personDirectory.matchesName(decision.personId, decision.name, decision.vorname)
-                val codeValid = freischaltcodes.pruefe(decision.personId, decision.fscHash)
-
-                when (IdentFscFlow.decideVerification(throttled, nameMatches, codeValid)) {
-                    IdentFscVerifyDecision.Rejected ->
-                        ToolOutcome.Failed("Freischaltcode ungueltig oder abgelaufen", attemptedPersonId = decision.personId)
-
-                    IdentFscVerifyDecision.Complete -> ToolOutcome.Completed.Identified(
-                        amr = listOf(descriptor.method),
-                        achievedAcr = descriptor.maxAcr,
-                        factorTypes = descriptor.factorTypes,
-                        claims = listOf(
-                            // FSC is a master-data channel: every attribute this run asserts
-                            // was checked against ext_stammdaten, hence EXT_STAMMDATEN as the
-                            // trust anchor, not this tool's own id.
-                            Claim(AttributeType.PERSON_ID, decision.personId.toString(), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                            Claim(AttributeType.KVNR, checkNotNull(merged.kvnr), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                            Claim(AttributeType.NAME, decision.name, ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
-                            Claim(AttributeType.VORNAME, decision.vorname, ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr)
-                        ),
-                        auditDetails = mapOf(
-                            "provider" to "fsc-service",
-                            "providerTxId" to "FSC-$toolSessionId",
-                            "methodVersion" to "1.0",
-                            "evidenceHash" to IdentFscFlow.evidenceHash(merged.kvnr.orEmpty(), decision.fscHash)
-                        )
-                    )
+            is IdentFscDecision.VerifyPersonalien -> {
+                // Name and birthdate are CHECKED, not merely collected - and before the code is
+                // even asked for, so nobody types a code for data that could never match.
+                val matches = personDirectory.matchesPersonalien(
+                    decision.personId, decision.name, decision.vorname, decision.geburtsdatum
+                )
+                when {
+                    !matches -> IdentFscFlow.rejectPersonalien() to
+                        ToolOutcome.Failed(PERSONALIEN_REJECTED, attemptedPersonId = decision.personId)
+                    // All five in one PATCH: the personal data holds, so the code is next.
+                    merged.fscHash != null -> verifyCode(toolSessionId, merged, decision.personId, merged.fscHash, throttled)
+                    else -> merged to outcomeFor(merged)
                 }
             }
+
+            is IdentFscDecision.VerifyCode -> verifyCode(toolSessionId, merged, decision.personId, decision.fscHash, throttled)
         }
+
+        data.applyState(outcome.first)
+        repository.save(data)
+        return outcome.second
+    }
+
+    private fun verifyCode(
+        toolSessionId: UUID,
+        state: IdentFscState,
+        personId: Long,
+        fscHash: String,
+        throttled: Boolean
+    ): Pair<IdentFscState, ToolOutcome> {
+        if (throttled || !freischaltcodes.pruefe(personId, fscHash)) {
+            return IdentFscFlow.rejectCode(state) to
+                ToolOutcome.Failed("Freischaltcode ungueltig oder abgelaufen", attemptedPersonId = personId)
+        }
+        return state to ToolOutcome.Completed.Identified(
+            amr = listOf(descriptor.method),
+            achievedAcr = descriptor.maxAcr,
+            factorTypes = descriptor.factorTypes,
+            claims = listOf(
+                // FSC is a master-data channel: every attribute this run asserts
+                // was checked against ext_stammdaten, hence EXT_STAMMDATEN as the
+                // trust anchor, not this tool's own id.
+                Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
+                Claim(AttributeType.KVNR, checkNotNull(state.kvnr), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
+                Claim(AttributeType.NAME, checkNotNull(state.name), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr),
+                Claim(AttributeType.VORNAME, checkNotNull(state.vorname), ClaimSource.EXT_STAMMDATEN, descriptor.maxAcr)
+            ),
+            auditDetails = mapOf(
+                "provider" to "fsc-service",
+                "providerTxId" to "FSC-$toolSessionId",
+                "methodVersion" to "1.0",
+                "evidenceHash" to IdentFscFlow.evidenceHash(state.kvnr.orEmpty(), fscHash)
+            )
+        )
     }
 
     @Transactional(readOnly = true)
@@ -112,12 +141,13 @@ class IdentFscToolHandler(
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
-    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, name, vorname, fscHash, personId)
+    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, name, vorname, geburtsdatum, fscHash, personId)
 
     private fun IdFscToolSession.applyState(state: IdentFscState) {
         kvnr = state.kvnr
         name = state.name
         vorname = state.vorname
+        geburtsdatum = state.geburtsdatum
         fscHash = state.fscHash
         personId = state.personId
     }

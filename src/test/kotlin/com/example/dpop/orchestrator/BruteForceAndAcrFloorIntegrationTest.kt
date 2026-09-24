@@ -133,7 +133,7 @@ class BruteForceAndAcrFloorIntegrationTest : IntegrationTestSupport() {
             .nextRaw()["toolSessionId"] as String
         return patch(
             "/orchestrator/api/v1/tools/$toolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"$fsc"}"""
+            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"$fsc"}"""
         )
     }
 }

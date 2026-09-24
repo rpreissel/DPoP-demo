@@ -49,7 +49,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 val identified = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
 
                 // The reused account already has active sms/email methods reaching loa2 - nothing left to
@@ -111,7 +111,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
                 // The address is the first obligation now, before any enrollment is offered.
                 confirmEmailIfRequested(channelSessionId)
@@ -158,7 +158,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
 
                 // The account already has sms enrolled from before, so this offers ordinary auth-sms
@@ -303,7 +303,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelB/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","fsc":"ERIKA123"}"""
+                    """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","geburtsdatum":"1990-11-02","fsc":"ERIKA123"}"""
                 )
                 val emailB = confirmEmail(channelB)
                 enrollSms(channelB)
@@ -354,7 +354,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
                 // The address is the first obligation now, before any enrollment is offered.
                 confirmEmailIfRequested(channelSessionId)

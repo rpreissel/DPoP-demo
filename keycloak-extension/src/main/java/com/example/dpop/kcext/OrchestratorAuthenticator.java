@@ -14,6 +14,7 @@ import org.keycloak.models.UserProvider;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * The kc-facade's Keycloak-side driver (docs/05-api.md Abschnitt 3) - a normal
@@ -225,7 +226,8 @@ public class OrchestratorAuthenticator implements Authenticator {
             authSession.setAuthNote(OrchestratorNotes.PENDING_KIND, "tool");
             authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_ID, tool.next().toolId());
             authSession.setAuthNote(OrchestratorNotes.PENDING_TOOL_SESSION_ID, tool.next().toolSessionId());
-            context.challenge(toolForm(context, tool.next(), response, null));
+            context.challenge(WebFormRenderer.toolForm(context.getSession(), context.form(), authSession, tool.next(), response, null,
+                    lastForm == null ? Set.of() : lastForm.keySet()));
             return;
         }
 

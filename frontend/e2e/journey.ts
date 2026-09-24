@@ -18,7 +18,9 @@ export async function completeRegistration(page: Page): Promise<void> {
 
   // Two identification candidates (ident-eid, ident-fsc) mean a selection page rather than a skip
   // straight to the single one - pick Freischaltcode, whose form is fully pre-filled in demo mode.
+  // Two screens (personal data, then the code) - both pre-filled.
   await page.getByRole('button', { name: /Freischaltcode/ }).click()
+  await page.getByRole('button', { name: 'Weiter zur Freischaltcode-Eingabe' }).click()
   await page.getByRole('button', { name: 'Identifizieren' }).click()
 
   const success = page.getByRole('heading', { name: 'Authentifizierung erfolgreich!' })

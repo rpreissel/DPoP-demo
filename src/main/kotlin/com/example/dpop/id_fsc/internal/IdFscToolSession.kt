@@ -5,6 +5,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 /** Tool-session-scoped working data for toolId=ident-fsc (docs/06-ablaeufe.md #1). */
@@ -22,6 +23,7 @@ class IdFscToolSession(
 
     var name: String? = null,
     var vorname: String? = null,
+    var geburtsdatum: LocalDate? = null,
     /** SHA-256 of the submitted code - the code itself is never persisted. */
     @Column(name = "fsc_hash")
     var fscHash: String? = null

@@ -5,6 +5,10 @@ components:
         fsc:
           example: VALIDCODE
           type: string
+        geburtsdatum:
+          example: '1985-06-15'
+          format: date
+          type: string
         kvnr:
           example: A123456789
           type: string
@@ -117,7 +121,7 @@ paths:
       tags:
       - 'Tool: Freischaltcode'
     patch:
-      description: Only the fields being supplied or corrected need to be sent; all four together also resolves in one call.
+      description: Only the fields being supplied or corrected need to be sent; all five together also resolves in one call.
       operationId: patch
       parameters:
       - in: path
@@ -162,7 +166,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Supply KVNR/name/vorname/FSC
+      summary: Supply KVNR/name/vorname/geburtsdatum/FSC
       tags:
       - 'Tool: Freischaltcode'
 tags:
@@ -170,12 +174,12 @@ tags:
   name: 'Tool: SMS'
 - description: Gerätebindung über den externen Dienstleister KOBIL
   name: 'Tool: KOBIL'
+- description: KVNR/name/vorname/geburtsdatum/FSC identification
+  name: 'Tool: Freischaltcode'
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
   name: 'Tool: Gerät'
 - description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: Passwort'
-- description: KVNR/name/vorname/FSC identification
-  name: 'Tool: Freischaltcode'
 - description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
   name: 'Tool: E-Mail'
 - description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'

@@ -3,7 +3,11 @@ package com.example.dpop.id_fsc.internal
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.types.shouldBeInstanceOf
+import java.time.LocalDate
+
+private val BIRTHDATE = LocalDate.of(1985, 6, 15)
+
+private val PERSONALIEN = IdentFscInput(kvnr = "A123456789", name = "Muster", vorname = "Max", geburtsdatum = BIRTHDATE, personId = 5L)
 
 class IdentFscFlowTest : BehaviorSpec({
 
@@ -11,50 +15,86 @@ class IdentFscFlowTest : BehaviorSpec({
         val state = IdentFscState()
 
         `when`("nothing was submitted yet") {
-            then("only kvnr/name/vorname are reported missing - fsc is staged, not requested yet") {
-                IdentFscFlow.missingFields(state) shouldBe listOf("kvnr", "name", "vorname")
+            then("only kvnr/name/vorname/geburtsdatum are reported missing - fsc is staged, not requested yet") {
+                IdentFscFlow.missingFields(state) shouldBe listOf("kvnr", "name", "vorname", "geburtsdatum")
             }
 
             then("decide() reports it as incomplete") {
-                IdentFscFlow.decide(state) shouldBe IdentFscDecision.Incomplete
+                IdentFscFlow.decide(state, IdentFscInput()) shouldBe IdentFscDecision.Incomplete
             }
         }
 
-        `when`("kvnr/name/vorname are submitted, resolving no person") {
-            val merged = IdentFscFlow.merge(state, IdentFscInput(kvnr = "A123456789", name = "Muster", vorname = "Max", personId = null))
+        `when`("the personal data is submitted, but the KVNR resolved no person") {
+            val input = PERSONALIEN.copy(personId = null)
+            val merged = IdentFscFlow.merge(state, input)
 
-            then("fsc is now requested") {
+            then("decide() reports the person as not found - before any code is asked for") {
+                IdentFscFlow.decide(merged, input) shouldBe IdentFscDecision.PersonNotFound
+            }
+        }
+
+        `when`("the personal data is submitted and resolved a person") {
+            val merged = IdentFscFlow.merge(state, PERSONALIEN)
+
+            then("decide() asks for the personal data to be checked right away") {
+                IdentFscFlow.decide(merged, PERSONALIEN) shouldBe
+                    IdentFscDecision.VerifyPersonalien(5L, "Muster", "Max", BIRTHDATE)
+            }
+
+            then("fsc is what is still missing") {
                 IdentFscFlow.missingFields(merged) shouldBe listOf("fsc")
             }
         }
     }
 
-    given("kvnr/name/vorname/fsc all present, but the KVNR resolved no person") {
-        val state = IdentFscState(kvnr = "A123456789", name = "Muster", vorname = "Max", fscHash = "somehash", personId = null)
+    given("verified personal data") {
+        val state = IdentFscFlow.merge(IdentFscState(), PERSONALIEN)
 
-        then("decide() reports the person as not found") {
-            IdentFscFlow.decide(state) shouldBe IdentFscDecision.PersonNotFound
+        `when`("only the code is submitted") {
+            val input = IdentFscInput(fsc = "VALIDCODE")
+            val merged = IdentFscFlow.merge(state, input)
+
+            then("decide() checks only the code") {
+                IdentFscFlow.decide(merged, input) shouldBe IdentFscDecision.VerifyCode(5L, checkNotNull(merged.fscHash))
+            }
         }
-    }
 
-    given("kvnr/name/vorname/fsc all present and a person resolved") {
-        val state = IdentFscState(kvnr = "A123456789", name = "Muster", vorname = "Max", fscHash = "somehash", personId = 5L)
+        `when`("a personal field is corrected") {
+            val input = IdentFscInput(geburtsdatum = BIRTHDATE.plusDays(1))
 
-        then("decide() asks the handler to verify it against the DB") {
-            val decision = IdentFscFlow.decide(state)
-            decision.shouldBeInstanceOf<IdentFscDecision.Verify>()
-            (decision as IdentFscDecision.Verify).personId shouldBe 5L
-            decision.fscHash shouldBe "somehash"
+            then("decide() checks the personal data again") {
+                IdentFscFlow.decide(IdentFscFlow.merge(state, input), input) shouldBe
+                    IdentFscDecision.VerifyPersonalien(5L, "Muster", "Max", BIRTHDATE.plusDays(1))
+            }
+        }
+
+        `when`("the code is rejected") {
+            then("only fsc is asked for again") {
+                val withCode = IdentFscFlow.merge(state, IdentFscInput(fsc = "WRONGCODE"))
+                IdentFscFlow.missingFields(IdentFscFlow.rejectCode(withCode)) shouldBe listOf("fsc")
+            }
+        }
+
+        `when`("the personal data is rejected") {
+            then("all of it is asked for again") {
+                IdentFscFlow.missingFields(IdentFscFlow.rejectPersonalien()) shouldBe listOf("kvnr", "name", "vorname", "geburtsdatum")
+            }
         }
     }
 
     given("merge()") {
-        val state = IdentFscState(kvnr = "A123456789", name = "Muster")
+        val state = IdentFscState(kvnr = "A123456789", name = "Muster", personId = 5L)
 
         `when`("a later PATCH corrects vorname and never touches kvnr/name") {
-            then("kvnr/name survive, vorname is added") {
+            then("kvnr/name and the person survive, vorname is added") {
                 val merged = IdentFscFlow.merge(state, IdentFscInput(vorname = "Max"))
                 merged shouldBe state.copy(vorname = "Max")
+            }
+        }
+
+        `when`("a later PATCH sends a KVNR that resolves no one") {
+            then("the previous KVNR's person does not survive") {
+                IdentFscFlow.merge(state, IdentFscInput(kvnr = "Z999999999", personId = null)).personId shouldBe null
             }
         }
 
@@ -67,26 +107,10 @@ class IdentFscFlowTest : BehaviorSpec({
         }
     }
 
-    given("decideVerification()") {
-        `when`("throttled, name mismatched, or the code is invalid") {
-            then("it rejects in every case") {
-                IdentFscFlow.decideVerification(throttled = true, nameMatches = true, codeValid = true) shouldBe IdentFscVerifyDecision.Rejected
-                IdentFscFlow.decideVerification(throttled = false, nameMatches = false, codeValid = true) shouldBe IdentFscVerifyDecision.Rejected
-                IdentFscFlow.decideVerification(throttled = false, nameMatches = true, codeValid = false) shouldBe IdentFscVerifyDecision.Rejected
-            }
-        }
-
-        `when`("not throttled, name matches, and the code is valid") {
-            then("it completes") {
-                IdentFscFlow.decideVerification(throttled = false, nameMatches = true, codeValid = true) shouldBe IdentFscVerifyDecision.Complete
-            }
-        }
-    }
-
     given("describe()") {
         then("it always names step input, regardless of which fields are missing") {
             IdentFscFlow.describe(IdentFscState()).first shouldBe "input"
-            IdentFscFlow.describe(IdentFscState(kvnr = "A123456789", name = "Muster", vorname = "Max")).first shouldBe "input"
+            IdentFscFlow.describe(IdentFscState(kvnr = "A123456789", name = "Muster", vorname = "Max", geburtsdatum = BIRTHDATE)).first shouldBe "input"
         }
     }
 })

@@ -50,7 +50,7 @@ class ExtStammdatenIntegrationTest : IntegrationTestSupport() {
         val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
         return patch(
             "/orchestrator/api/v1/tools/$toolSessionId/ident-fsc",
-            """{"kvnr":"$kvnr","name":"$name","vorname":"Rita","fsc":"$code"}"""
+            """{"kvnr":"$kvnr","name":"$name","vorname":"Rita","geburtsdatum":"1970-01-01","fsc":"$code"}"""
         )
     }
 
@@ -72,7 +72,15 @@ class ExtStammdatenIntegrationTest : IntegrationTestSupport() {
             then("a name changed in the register no longer matches") {
                 val (personId, kvnr) = newPerson()
                 val code = issue(personId)["code"] as String
-                registerCall(HttpMethod.PUT, "/personen/$personId", """{"name":"Umbenannt","vorname":"Rita"}""")
+                registerCall(HttpMethod.PUT, "/personen/$personId", """{"name":"Umbenannt","vorname":"Rita","geburtsdatum":"1970-01-01"}""")
+
+                stepError(identifyWith(kvnr, "Register", code)).shouldNotBeNull()
+            }
+
+            then("a birthdate changed in the register no longer matches") {
+                val (personId, kvnr) = newPerson()
+                val code = issue(personId)["code"] as String
+                registerCall(HttpMethod.PUT, "/personen/$personId", """{"name":"Register","vorname":"Rita","geburtsdatum":"1971-02-02"}""")
 
                 stepError(identifyWith(kvnr, "Register", code)).shouldNotBeNull()
             }

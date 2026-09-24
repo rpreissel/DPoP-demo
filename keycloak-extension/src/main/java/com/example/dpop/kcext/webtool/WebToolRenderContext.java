@@ -4,6 +4,7 @@ import com.example.dpop.kcext.OrchestratorSettings;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Everything a tool's own {@link WebToolRenderer#render} needs to draw its current step - the
@@ -16,6 +17,11 @@ import java.util.Map;
  * <p>{@code settings} ist die aufgeloeste Realm-Konfiguration statt der {@code KeycloakSession},
  * aus der sie stammt: ein Renderer soll seinen konfigurierten Wert lesen koennen, ohne Zugriff auf
  * alles zu bekommen, was an einer Session haengt.
+ *
+ * <p>{@code submittedFields} are the field names of the form post this response answers (empty
+ * on a first render) - the client's own knowledge of where it just was, for a renderer with more
+ * than one page: a {@code failed-attempt} step carries no {@code missingFields}, so the page the
+ * attempt was sent from is the page to show again, the same rule the React forms follow.
  */
 public record WebToolRenderContext(
         String toolId,
@@ -23,6 +29,7 @@ public record WebToolRenderContext(
         Map<String, JsonNode> stepData,
         Map<String, JsonNode> demo,
         String error,
-        OrchestratorSettings settings
+        OrchestratorSettings settings,
+        Set<String> submittedFields
 ) {
 }

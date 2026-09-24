@@ -20,18 +20,20 @@ interface PersonDirectory {
     fun matchesStammdaten(personId: Long, claimed: ClaimedIdentity): Boolean
 
     /**
-     * Whether the name on file for [personId] matches - the narrow sibling of
-     * [matchesStammdaten], for a procedure that only ever learns a name (`ident-fsc`), not a full
-     * set of Ausweisdaten. Same rule: the answer crosses the port, the master data never does.
+     * Whether name and birthdate on file for [personId] match - the narrow sibling of
+     * [matchesStammdaten], for a procedure that only ever learns what a person types in
+     * (`ident-fsc`), not a full set of Ausweisdaten. Unlike [matchesStammdaten] the names compare
+     * forgivingly (trimmed, case-insensitive): they are typed, not read off a chip. Same rule: the
+     * answer crosses the port, the master data never does.
      */
-    fun matchesName(personId: Long, name: String, vorname: String): Boolean
+    fun matchesPersonalien(personId: Long, name: String, vorname: String, geburtsdatum: LocalDate): Boolean
 
     /**
      * "Vorname Name" for [personId], or `null` if unknown - a deliberate, narrow exception to the
      * "answer crosses the port, master data never does" rule above: this exists only so the demo
      * UI can show who is logged in (`TokenService.idClaims`'s `name` claim, docs/05-api.md
      * ID-Token-Claims - not part of the production contract), never for a policy/journey decision.
-     * Unlike [matchesStammdaten]/[matchesName], which exist precisely to avoid handing this out,
+     * Unlike [matchesStammdaten]/[matchesPersonalien], which exist precisely to avoid handing this out,
      * this one hands out only the name - never address/birthdate/KVNR.
      */
     fun displayName(personId: Long): String?

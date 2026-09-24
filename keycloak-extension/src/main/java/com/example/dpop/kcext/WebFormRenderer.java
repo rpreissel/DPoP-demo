@@ -11,6 +11,7 @@ import org.keycloak.sessions.AuthenticationSessionModel;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 
 /**
@@ -61,6 +62,12 @@ final class WebFormRenderer {
 
     static Response toolForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession,
             OrchestratorClient.Next next, OrchestratorClient.ChannelResponse response, String error) {
+        return toolForm(session, form, authSession, next, response, error, Set.of());
+    }
+
+    static Response toolForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession,
+            OrchestratorClient.Next next, OrchestratorClient.ChannelResponse response, String error,
+            Set<String> submittedFields) {
         String stepError = response.stepDataError();
         String effectiveError = error != null ? error : stepError;
 
@@ -75,7 +82,7 @@ final class WebFormRenderer {
             if (effectiveError != null) built.setError(effectiveError);
             WebToolRenderContext ctx = new WebToolRenderContext(
                     next.toolId(), next.step(), response.stepData(), response.demo(), effectiveError,
-                    OrchestratorSettings.of(session)
+                    OrchestratorSettings.of(session), submittedFields
             );
             Response rendered = renderer.render(built, ctx);
             if (rendered != null) return rendered;

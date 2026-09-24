@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import java.time.LocalDate
 import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -32,6 +33,7 @@ data class IdentFscPatchRequest(
     @field:Schema(example = "A123456789") val kvnr: String? = null,
     @field:Schema(example = "Muster") val name: String? = null,
     @field:Schema(example = "Max") val vorname: String? = null,
+    @field:Schema(example = "1985-06-15") val geburtsdatum: LocalDate? = null,
     @field:Schema(example = "VALIDCODE") val fsc: String? = null
 )
 
@@ -40,7 +42,7 @@ data class IdentFscPatchRequest(
  * this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Freischaltcode", description = "KVNR/name/vorname/FSC identification")
+@Tag(name = "Tool: Freischaltcode", description = "KVNR/name/vorname/geburtsdatum/FSC identification")
 @SecurityRequirement(name = "dpop")
 class IdentFscToolController(
     private val handler: IdentFscToolHandler,
@@ -78,8 +80,8 @@ class IdentFscToolController(
 
     @PatchMapping("$API_V1/tools/{toolSessionId}/ident-fsc")
     @Operation(
-        summary = "Supply KVNR/name/vorname/FSC",
-        description = "Only the fields being supplied or corrected need to be sent; all four together also resolves in one call.",
+        summary = "Supply KVNR/name/vorname/geburtsdatum/FSC",
+        description = "Only the fields being supplied or corrected need to be sent; all five together also resolves in one call.",
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -106,7 +108,7 @@ class IdentFscToolController(
         // Folded into the handler's ordinary failure rather than raised - see
         // ToolEndpoint.isIdentLockedOut: a distinguishable lock would leak which KVNRs exist.
         val throttled = toolEndpoint.isIdentLockedOut(personId)
-        val outcome = handler.patch(toolSessionId, body.kvnr, body.name, body.vorname, body.fsc, personId, throttled)
+        val outcome = handler.patch(toolSessionId, body.kvnr, body.name, body.vorname, body.geburtsdatum, body.fsc, personId, throttled)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

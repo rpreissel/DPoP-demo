@@ -14,6 +14,7 @@ CREATE TABLE id_fsc.ident_tool_session (
     person_id       BIGINT,
     name            VARCHAR(255),
     vorname         VARCHAR(255),
+    geburtsdatum    DATE,
     fsc_hash        VARCHAR(64),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );

@@ -67,7 +67,7 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
                     val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                     patch(
                         "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                        """{"kvnr":"A123456789","name":"Muster","vorname":"Max","fsc":"WRONGCODE"}"""
+                        """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"WRONGCODE"}"""
                     )
 
                     logOf(channelSessionId).any { it["eventType"] == "TOOL_FAILED" } shouldBe true
