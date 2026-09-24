@@ -18,9 +18,6 @@ export function IdentEidPinForm({ onSubmit, error }: IdentEidPinFormProps) {
     <div className="card">
       <h2>eID-PIN eingeben</h2>
       <p>Geben Sie Ihre sechsstellige eID-PIN ein.</p>
-      <div className="hint">
-        Testdaten vorbelegt: PIN <code>{pin}</code>
-      </div>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">

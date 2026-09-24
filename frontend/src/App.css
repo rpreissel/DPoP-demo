@@ -478,6 +478,34 @@ button.destructive,
   color: var(--text-h);
 }
 
+/* Demo-only helper above a real form (DemoPersonPicker): set apart as a tool, not a form field -
+   dashed frame, muted background, a small tag - so nobody takes it for part of the procedure. */
+.demo-picker {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  border: 1px dashed var(--accent-border);
+  border-radius: 8px;
+  background: var(--social-bg);
+}
+
+.demo-picker label {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.demo-picker__tag {
+  display: inline-block;
+  padding: 0 0.4rem;
+  margin-right: 0.25rem;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .hint code {
   background: transparent;
   padding: 0;

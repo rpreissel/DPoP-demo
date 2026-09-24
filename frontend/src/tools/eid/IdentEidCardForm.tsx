@@ -54,7 +54,7 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
         Halten Sie Ihren Personalausweis an das Lesegerät. Die Karte bezeugt, wer Sie sind - eine
         Zuordnung zu Ihrer Versichertennummer ist ein eigener Schritt danach.
       </p>
-      <div className="hint">Demo-Modus: Das Auslesen der Karte wird simuliert; Testdaten sind bereits vorbelegt.</div>
+      <div className="hint">Demo-Modus: Das Auslesen der Karte wird simuliert.</div>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">

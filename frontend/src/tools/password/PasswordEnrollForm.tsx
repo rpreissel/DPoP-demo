@@ -35,7 +35,7 @@ export function PasswordEnrollForm({ onSubmit, error, demoPassword }: PasswordEn
       <h2>Passwort einrichten</h2>
       <p>Legen Sie ein Passwort als weiteren Faktor an. Ihre bestätigte E-Mail-Adresse dient dabei als Anmeldename.</p>
       <div className="hint">
-        Testdaten vorbelegt: <code>{password}</code>
+        Demo-Modus: Passwort ist bereits vorbelegt: <code>{password}</code>
       </div>
       {(validationError || error) && <div className="hint">{validationError || error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>

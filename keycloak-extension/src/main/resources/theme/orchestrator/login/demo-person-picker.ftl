@@ -7,7 +7,7 @@
 <#macro personPicker personsJson fieldMapJson>
     <#if personsJson?? && personsJson != "null">
         <div class="${properties.kcFormGroupClass!} orchestrator-demo-picker">
-            <label for="demoPerson" class="${properties.kcLabelClass!}">Demo-Person</label>
+            <label for="demoPerson" class="${properties.kcLabelClass!}"><span class="orchestrator-demo-tag">Demo</span> Testperson übernehmen</label>
             <select id="demoPerson" class="${properties.kcInputClass!}">
                 <option value="">— manuell eingeben —</option>
             </select>

@@ -9,7 +9,7 @@
         </#if>
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "card">
-                <p class="orchestrator-hint">Demo-Modus: Das Auslesen der Karte wird simuliert; Testdaten sind bereits vorbelegt.</p>
+                <p class="orchestrator-hint">Demo-Modus: Das Auslesen der Karte wird simuliert.</p>
                 <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"name":"name","vorname":"vorname","geburtsdatum":"geburtsdatum","strasse":"strasse","hausnummer":"hausnummer","plz":"plz","ort":"ort"}' />
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
@@ -46,7 +46,6 @@
                     </div>
                 </div>
             <#elseif step == "pin">
-                <p class="orchestrator-hint">Testdaten vorbelegt: PIN 123456</p>
                 <div class="${properties.kcFormGroupClass!}">
                     <label for="pin" class="${properties.kcLabelClass!}">eID-PIN</label>
                     <input type="text" id="pin" name="pin" class="${properties.kcInputClass!}" autocomplete="off" value="123456"/>
