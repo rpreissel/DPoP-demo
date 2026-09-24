@@ -39,9 +39,10 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
         val maxAddress = """"strasse":"Musterstraße","hausnummer":"1","plz":"12345","ort":"Musterstadt""""
 
         /** What the jump page does when the user finishes there; answers where Nect sends the browser. */
-        fun finishAtNect(caseId: String, procedure: String, attributes: String, pin: String? = null): String {
+        fun finishAtNect(caseId: String, procedure: String, attributes: String, pin: String? = null, expiryDate: String? = null): String {
             val pinField = pin?.let { ""","pin":"$it"""" } ?: ""
-            return post("/mock-nect/cases/$caseId/result", """{"procedure":"$procedure","attributes":{$attributes}$pinField}""")["redirectUri"] as String
+            val expiryField = expiryDate?.let { ""","expiryDate":"$it"""" } ?: ""
+            return post("/mock-nect/cases/$caseId/result", """{"procedure":"$procedure","attributes":{$attributes}$pinField$expiryField}""")["redirectUri"] as String
         }
 
         fun report(toolSessionId: String, caseId: String) =
@@ -70,6 +71,8 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
         given("a registration identifying with the eID via Nect") {
             then("the return reports the case, the backend redeems it, and ident-kvnr follows") {
                 val run = start()
+                get("/mock-nect/cases/${run.caseId}")["requested"] shouldBe
+                    listOf("family_name", "given_names", "birth_date", "address", "eid_pseudonym", "document_id")
                 val redirectUri = finishAtNect(run.caseId, "eid", "$max,$maxAddress,\"restrictedId\":\"NECT-EID-MAX\"", pin = "123456")
                 redirectUri shouldBe "/app/?nectCaseId=${run.caseId}"
 
@@ -94,7 +97,7 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
         given("a registration identifying with a passport via Nect") {
             then("amr is nect-epass and no address is claimed - a passport carries none") {
                 val run = start()
-                finishAtNect(run.caseId, "epass", "$max,\"documentNumber\":\"C01X00T47\",\"issuingState\":\"D\",\"expiryDate\":\"2099-01-01\"")
+                finishAtNect(run.caseId, "epass", "$max,\"documentNumber\":\"C01X00T47\",\"issuingState\":\"D\"", expiryDate = "2099-01-01")
 
                 report(run.toolSessionId, run.caseId)
 
@@ -109,7 +112,7 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
             then("it is refused, and the foreign case stays redeemable by its own run") {
                 val mine = start()
                 val other = start()
-                finishAtNect(other.caseId, "eudi", "$max,\"walletPseudonym\":\"WALLET-1\"")
+                finishAtNect(other.caseId, "eudi", max)
 
                 val refused = report(mine.toolSessionId, other.caseId)
 

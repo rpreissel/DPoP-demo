@@ -20,6 +20,10 @@ class NectCase(
     @Column(name = "callback_uri", nullable = false, length = 500)
     var callbackUri: String? = null,
 
+    /** Comma-separated attribute wire names the relying party asked for. */
+    @Column(name = "requested", nullable = false, length = 255)
+    var requested: String? = null,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     var status: NectCaseStatus = NectCaseStatus.OPEN,

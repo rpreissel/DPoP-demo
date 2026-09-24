@@ -6,6 +6,9 @@ import { ApiError } from './api'
  */
 export type NectProcedure = 'eid' | 'epass' | 'eudi'
 
+/** What a relying party can ask Nect for (NectAttribute on the backend). */
+export type NectRequestable = 'family_name' | 'given_names' | 'birth_date' | 'address' | 'eid_pseudonym' | 'document_id'
+
 export interface NectAttributes {
   name?: string
   vorname?: string
@@ -17,13 +20,12 @@ export interface NectAttributes {
   restrictedId?: string
   documentNumber?: string
   issuingState?: string
-  expiryDate?: string
-  walletPseudonym?: string
 }
 
 export interface NectCaseView {
   caseId: string
   status: 'OPEN' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+  requested: NectRequestable[]
 }
 
 interface NectRedirect {
@@ -49,8 +51,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const nectApi = {
   fall: (caseId: string) => call<NectCaseView>('GET', `/cases/${caseId}`),
-  abschliessen: (caseId: string, procedure: NectProcedure, attributes: NectAttributes, pin?: string) =>
-    call<NectRedirect>('POST', `/cases/${caseId}/result`, { procedure, attributes, pin }),
+  /** [expiryDate]: ePass only - Nect checks it itself and does not hand it on. */
+  abschliessen: (caseId: string, procedure: NectProcedure, attributes: NectAttributes, pin?: string, expiryDate?: string) =>
+    call<NectRedirect>('POST', `/cases/${caseId}/result`, { procedure, attributes, pin, expiryDate }),
   scheitern: (caseId: string, reason: string) => call<NectRedirect>('POST', `/cases/${caseId}/failure`, { reason }),
   abbrechen: (caseId: string) => call<NectRedirect>('POST', `/cases/${caseId}/cancellation`),
 }

@@ -2,23 +2,52 @@ import { useEffect, useState, type FormEvent } from 'react'
 import '../../App.css'
 import { ChannelNav } from '../../components/ChannelNav'
 import { registerApi, type RegisterPerson } from '../../extApi'
-import { nectApi, type NectAttributes, type NectCaseView, type NectProcedure } from '../../nectApi'
+import { nectApi, type NectAttributes, type NectCaseView, type NectProcedure, type NectRequestable } from '../../nectApi'
 
-const PROCEDURES: { key: NectProcedure; label: string; hint: string }[] = [
-  { key: 'eid', label: '🪪 Personalausweis (eID)', hint: 'Karte ans Handy halten, PIN eingeben - Adresse und Kartenpseudonym inklusive.' },
-  { key: 'epass', label: '🛂 Reisepass', hint: 'Chip auslesen, Selfie mit dem Passbild abgleichen - der Pass enthält keine Adresse.' },
-  { key: 'eudi', label: '👛 EUDI-Wallet', hint: 'Die Wallet zeigt an, was angefragt wird - Sie geben nur frei, was Sie ankreuzen.' },
+/**
+ * What each document can deliver at all - mirrors NectProcedure.deliverable on the backend
+ * (docs/ideen/ident-nect.md, Abschnitt 7): the eID card by access right, the passport chip's MRZ
+ * data as a whole, the wallet's PID by selective disclosure.
+ */
+const PROCEDURES: { key: NectProcedure; label: string; hint: string; deliverable: NectRequestable[] }[] = [
+  {
+    key: 'eid',
+    label: '🪪 Personalausweis (eID)',
+    hint: 'Karte ans Handy halten, PIN eingeben - die Karte gibt nur die angefragten Daten heraus.',
+    deliverable: ['family_name', 'given_names', 'birth_date', 'address', 'eid_pseudonym'],
+  },
+  {
+    key: 'epass',
+    label: '🛂 Reisepass',
+    hint: 'Chip auslesen, Selfie mit dem Passbild abgleichen - der Chip wird ganz gelesen, weitergegeben wird nur Angefragtes. Eine Adresse enthält der Pass nicht.',
+    deliverable: ['family_name', 'given_names', 'birth_date', 'document_id'],
+  },
+  {
+    key: 'eudi',
+    label: '👛 EUDI-Wallet',
+    hint: 'Die Wallet zeigt an, was angefragt wird - Sie geben nur frei, was Sie ankreuzen. Ein Pseudonym enthält die PID nicht.',
+    deliverable: ['family_name', 'given_names', 'birth_date', 'address'],
+  },
 ]
 
+const REQUESTABLE_LABELS: Record<NectRequestable, string> = {
+  family_name: 'Name',
+  given_names: 'Vorname(n)',
+  birth_date: 'Geburtsdatum',
+  address: 'Anschrift',
+  eid_pseudonym: 'Pseudonym der Karte (nur eID)',
+  document_id: 'Dokumentnummer und Ausstellerstaat (nur Reisepass)',
+}
+
 type PersonFields = Pick<NectAttributes, 'name' | 'vorname' | 'geburtsdatum' | 'strasse' | 'hausnummer' | 'plz' | 'ort'>
-const PERSON_FIELDS: { key: keyof PersonFields; label: string; type?: string; address?: boolean }[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'vorname', label: 'Vorname' },
-  { key: 'geburtsdatum', label: 'Geburtsdatum', type: 'date' },
-  { key: 'strasse', label: 'Straße', address: true },
-  { key: 'hausnummer', label: 'Hausnummer', address: true },
-  { key: 'plz', label: 'PLZ', address: true },
-  { key: 'ort', label: 'Ort', address: true },
+const PERSON_FIELDS: { key: keyof PersonFields; label: string; attribute: NectRequestable; type?: string }[] = [
+  { key: 'name', label: 'Name', attribute: 'family_name' },
+  { key: 'vorname', label: 'Vorname', attribute: 'given_names' },
+  { key: 'geburtsdatum', label: 'Geburtsdatum', attribute: 'birth_date', type: 'date' },
+  { key: 'strasse', label: 'Straße', attribute: 'address' },
+  { key: 'hausnummer', label: 'Hausnummer', attribute: 'address' },
+  { key: 'plz', label: 'PLZ', attribute: 'address' },
+  { key: 'ort', label: 'Ort', attribute: 'address' },
 ]
 
 function fieldsOf(p: RegisterPerson): PersonFields {
@@ -70,13 +99,13 @@ export function NectApp() {
             <p>Dieser Vorgang hat den Status <code>{view.status}</code>. Starten Sie die Identifizierung in der App neu.</p>
           </div>
         )}
-        {caseId && view?.status === 'OPEN' && <IdentForm caseId={caseId} onError={setError} />}
+        {caseId && view?.status === 'OPEN' && <IdentForm caseId={caseId} requested={view.requested} onError={setError} />}
       </div>
     </div>
   )
 }
 
-function IdentForm({ caseId, onError }: { caseId: string; onError: (m: string | null) => void }) {
+function IdentForm({ caseId, requested, onError }: { caseId: string; requested: NectRequestable[]; onError: (m: string | null) => void }) {
   const [procedure, setProcedure] = useState<NectProcedure>('eid')
   const [personen, setPersonen] = useState<RegisterPerson[]>([])
   const [person, setPerson] = useState<PersonFields>({})
@@ -120,19 +149,24 @@ function IdentForm({ caseId, onError }: { caseId: string; onError: (m: string | 
       void leave(() => nectApi.scheitern(caseId, 'Selfie passt nicht zum Passbild'))
       return
     }
+    // What the document yields: the eID card only the requested rights, the wallet only what its
+    // holder released - but the passport chip always its whole MRZ data. Nect itself then hands on
+    // no more than was requested.
+    const read = Object.fromEntries(fields.filter((f) => procedure !== 'eudi' || released[f.key]).map((f) => [f.key, person[f.key]]))
     const attributes: NectAttributes = procedure === 'eid'
-      ? { ...person, restrictedId: pseudonym('NECT-EID', person) }
+      ? { ...read, ...(offered.includes('eid_pseudonym') ? { restrictedId: pseudonym('NECT-EID', person) } : {}) }
       : procedure === 'epass'
-        ? { name: person.name, vorname: person.vorname, geburtsdatum: person.geburtsdatum, documentNumber, issuingState: 'D', expiryDate }
-        : {
-            ...Object.fromEntries(PERSON_FIELDS.filter((f) => released[f.key]).map((f) => [f.key, person[f.key]])),
-            walletPseudonym: pseudonym('WALLET', person),
-          }
-    void leave(() => nectApi.abschliessen(caseId, procedure, attributes, procedure === 'eid' ? pin : undefined))
+        ? { name: person.name, vorname: person.vorname, geburtsdatum: person.geburtsdatum, documentNumber, issuingState: 'D' }
+        : read
+    void leave(() =>
+      nectApi.abschliessen(caseId, procedure, attributes, procedure === 'eid' ? pin : undefined, procedure === 'epass' ? expiryDate : undefined),
+    )
   }
 
-  const fields = PERSON_FIELDS.filter((f) => procedure !== 'epass' || !f.address)
   const current = PROCEDURES.find((p) => p.key === procedure)!
+  // Asked for and deliverable by this document - all a relying party can get from this procedure.
+  const offered = requested.filter((r) => current.deliverable.includes(r))
+  const fields = PERSON_FIELDS.filter((f) => offered.includes(f.attribute))
 
   return (
     <form className="card form-grid" onSubmit={submit}>
@@ -145,6 +179,10 @@ function IdentForm({ caseId, onError }: { caseId: string; onError: (m: string | 
         ))}
       </div>
       <div className="hint">{current.hint}</div>
+      <div className="hint">
+        <strong>Angefragt von DPoP-Demo:</strong> {requested.map((r) => REQUESTABLE_LABELS[r]).join(', ')}.<br />
+        <strong>Mit diesem Dokument übermittelt:</strong> {offered.map((r) => REQUESTABLE_LABELS[r]).join(', ') || 'nichts'}.
+      </div>
 
       {personen.length > 0 && (
         <div className="form-group">
@@ -198,7 +236,7 @@ function IdentForm({ caseId, onError }: { caseId: string; onError: (m: string | 
       {procedure === 'epass' && (
         <>
           <div className="form-group">
-            <label htmlFor="nect-docno">Dokumentnummer</label>
+            <label htmlFor="nect-docno">Dokumentnummer{offered.includes('document_id') ? '' : ' (nicht angefragt, wird nicht übermittelt)'}</label>
             <input id="nect-docno" value={documentNumber} onChange={(e) => setDocumentNumber(e.target.value)} />
           </div>
           <div className="form-group">
@@ -206,7 +244,7 @@ function IdentForm({ caseId, onError }: { caseId: string; onError: (m: string | 
             <input id="nect-can" inputMode="numeric" value={can} onChange={(e) => setCan(e.target.value)} />
           </div>
           <div className="form-group">
-            <label htmlFor="nect-expiry">Gültig bis</label>
+            <label htmlFor="nect-expiry">Gültig bis (prüft Nect selbst, wird nicht übermittelt)</label>
             <input id="nect-expiry" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
           </div>
           <div className="form-group">

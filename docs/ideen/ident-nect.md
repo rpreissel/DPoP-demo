@@ -99,7 +99,7 @@ Verfahren:
 |---|---|---|
 | eID | Restricted Identifier (Pseudonym je Diensteanbieter) | wie `ident-eid` |
 | ePass | Dokumentnummer + Ausstellerstaat | wechselt mit jedem neuen Pass – wie eine neue Karte (ADR-19) |
-| EUDI-Wallet | PID-Pseudonym bzw. `sub` der Wallet-Präsentation | je Wallet stabil |
+| EUDI-Wallet | – | die PID trägt kein Pseudonym gegenüber der vertrauenden Stelle (Abschnitt 7); Pseudonyme laufen im ARF getrennt über Passkeys |
 
 ---
 
@@ -185,7 +185,7 @@ Identifizierungsdienst“, eigenes Tab-Icon). Aufbau:
 |---|---|---|---|
 | eID | „Karte an das Smartphone halten“ → PIN | Name, Vorname, Geburtsdatum, Adresse, Restricted Identifier; PIN (6-stellig) | wie `ident-eid`, aber im fremden System |
 | ePass | Dokumentnummer + CAN eingeben → „Chip auslesen“ → Selfie-Abgleich (Button „Selfie stimmt überein“) | Name, Vorname, Geburtsdatum, Dokumentnummer, Ausstellerstaat, Ablaufdatum | **keine Adresse** – der Pass trägt keine; ein abgelaufener Pass lässt sich zum Scheitern wählen |
-| EUDI-Wallet | QR-Code/„Wallet öffnen“ → Freigabe-Dialog | PID: `given_name`, `family_name`, `birthdate`, optional `address`; Wallet-Pseudonym | **selektive Offenlegung**: Häkchen je Attribut; nicht geteilte Attribute fehlen im Ergebnis (passt zu `ClaimedIdentity`: null = nicht bestätigt) |
+| EUDI-Wallet | QR-Code/„Wallet öffnen“ → Freigabe-Dialog | PID: `given_name`, `family_name`, `birthdate`, optional `address` (kein Pseudonym, siehe unten) | **selektive Offenlegung**: Häkchen je Attribut; nicht geteilte Attribute fehlen im Ergebnis (passt zu `ClaimedIdentity`: null = nicht bestätigt) |
 
 3. **Abschluss:** „Identifizierung abschließen“ speichert das Ergebnis im Mock und leitet zur
    `callback_uri`; „Identifizierung fehlgeschlagen“ und „Abbrechen“ führen die Fehlerwege vor.
@@ -195,6 +195,42 @@ verschiedene Dokumente verschieden viel bestätigen (ePass ohne Adresse, Wallet 
 und dass das erreichte Niveau vom gewählten Verfahren abhängt.
 
 ---
+
+### Welche Daten Nect liefern kann – und welche wir anfragen (2026-09-24)
+
+Nect veröffentlicht keine Entwickler-Dokumentation und keine Feldliste. Laut
+[Datenschutzhinweis](https://support.nect.com/de/privacy-policy/) übermittelt Nect je nach
+Vertrag nur das Minimum („über 18“) oder „Name, Vorname, Adresse, Geburtsdatum und -ort,
+Verifizierungs(teil)ergebnis“, gegebenenfalls mit Ausweiskopie und Selfie. Was Nect weitergeben
+**kann**, ist also durch das Dokument selbst begrenzt:
+
+| | eID ([§18 PAuswG](https://www.gesetze-im-internet.de/pauswg/__18.html), [AusweisApp-Zugriffsrechte](https://www.ausweisapp.bund.de/sdk/messages.html)) | ePass ([ICAO 9303](https://www.icao.int/publications/doc-series/doc-9303), DG1) | EUDI-Wallet ([PID-Rulebook](https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md), [deutsches PID-Rulebook](https://bmi.usercontent.opencode.de/eudi-wallet/eidas-2.0-architekturkonzept/content/ecosystem-architecture/PID/german-pid-rulebook/)) |
+|---|---|---|---|
+| Auswahl | je Zugriffsrecht | **keine** – DG1 wird ganz gelesen | je Attribut (selektive Offenlegung); der Nutzer darf ablehnen |
+| Name, Vorname, Geburtsdatum | ✓ | ✓ (MRZ-transliteriert, z. B. `MUELLER`, ggf. gekürzt) | ✓ |
+| Anschrift | ✓ `Street`/`ZipCode`/`City`/`Country` – Hausnummer steckt in `Street` ([TR-03130](https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Publikationen/TechnischeRichtlinien/TR03130/TR-03130_TR-eID-Server_Part1.pdf?__blob=publicationFile&v=6): `HEIDESTRASSE 17`) | **✗** | optional `address.street_address` („Straße und Hausnummer“), `postal_code`, `locality`, `country` |
+| Anker | `Pseudonym` (Restricted ID) | Dokumentnummer + Ausstellerstaat | **✗** – die PID trägt kein Pseudonym gegenüber der vertrauenden Stelle |
+| Sonst (fragen wir nicht an) | Geburtsname, Geburtsort, Staatsangehörigkeit, Doktorgrad, Dokumentart, Gültigkeit, Alters-/Wohnortbestätigung | Geschlecht, Staatsangehörigkeit, Ablaufdatum, Gesichtsbild (DG2, für den Selfie-Abgleich) | Geburtsort, Staatsangehörigkeit, Geburtsname, Geschlecht, Ausstellungsdaten |
+
+`ident-nect` fragt dasselbe an wie `ident-eid`: Name, Vorname, Geburtsdatum (worauf `ident-kvnr`
+abgleicht), Anschrift und den Anker des jeweiligen Dokuments (`NECT_REQUESTED`). Der Mock bildet
+das so ab:
+
+- `createCase(callbackUri, requested)` legt die Anfrage im Vorgang ab, die Sprungseite zeigt
+  sie an (`GET /mock-nect/cases/{id}` → `requested`).
+- `NectProcedure.deliverable` legt fest, was ein Dokument überhaupt liefern kann. Daten, die das
+  gewählte Dokument nicht trägt (etwa eine Anschrift aus dem Pass), lehnt der Mock ab.
+- Beim Einlösen gibt Nect nur „angefragt ∩ gelesen“ weiter. Der Pass-Chip wird ganz gelesen,
+  weitergegeben wird aber nur das Angefragte.
+- Das Pass-Ablaufdatum prüft Nect selbst und gibt es nicht weiter. Ein Wallet-Pseudonym gibt es
+  nicht mehr.
+
+Offen:
+
+- Straße und Hausnummer kommen bei eID und PID als **ein** Feld; unser Modell trennt sie (eigenes
+  Issue).
+- Pass-Namen sind MRZ-transliteriert. Ein Registerabgleich mit Umlauten würde daran scheitern;
+  der Mock bildet das nicht nach.
 
 ## 8) Web-Kanal
 

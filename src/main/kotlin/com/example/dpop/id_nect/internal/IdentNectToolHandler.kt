@@ -2,6 +2,7 @@ package com.example.dpop.id_nect.internal
 
 import com.example.dpop.id_nect.IdentNectDescriptor
 import com.example.dpop.id_nect.api.v1.NectRedirectStep
+import com.example.dpop.nect_mock.NectAttribute
 import com.example.dpop.nect_mock.NectAttributes
 import com.example.dpop.nect_mock.NectIdent
 import com.example.dpop.nect_mock.NectProcedure
@@ -19,6 +20,21 @@ import java.util.UUID
 
 /** Where Nect sends the user back to; the app channel picks `nectCaseId` up from its URL. */
 internal const val NECT_CALLBACK_URI = "/app/"
+
+/**
+ * What we ask Nect for - the same as `ident-eid` reads from the card: name, given names and birth
+ * date (what `ident-kvnr` matches on), the address, and each document's own anchor. Nect hands on
+ * the part of it the chosen document can deliver: a passport has no address, a wallet PID no
+ * pseudonym (docs/ideen/ident-nect.md, Abschnitt 7).
+ */
+internal val NECT_REQUESTED = setOf(
+    NectAttribute.FAMILY_NAME,
+    NectAttribute.GIVEN_NAMES,
+    NectAttribute.BIRTH_DATE,
+    NectAttribute.ADDRESS,
+    NectAttribute.EID_PSEUDONYM,
+    NectAttribute.DOCUMENT_ID
+)
 
 /**
  * toolId=ident-nect. The run opens a case at Nect and hands the client its jump URL; the user
@@ -39,7 +55,7 @@ class IdentNectToolHandler(
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        val case = nect.createCase(NECT_CALLBACK_URI)
+        val case = nect.createCase(NECT_CALLBACK_URI, NECT_REQUESTED)
         repository.save(IdNectToolSession(toolSessionId = toolSessionId, caseId = case.caseId))
         return redirect(case.caseId, case.jumpUrl)
     }
@@ -49,7 +65,7 @@ class IdentNectToolHandler(
     fun patch(toolSessionId: UUID, caseId: UUID?, retry: Boolean): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-nect tool session: $toolSessionId" }
         if (retry) {
-            val case = nect.createCase(NECT_CALLBACK_URI)
+            val case = nect.createCase(NECT_CALLBACK_URI, NECT_REQUESTED)
             data.caseId = case.caseId
             repository.save(data)
             return redirect(case.caseId, case.jumpUrl)
@@ -109,7 +125,6 @@ class IdentNectToolHandler(
             put("procedure", procedure.wireName)
             a.documentNumber?.let { put("documentNumber", it) }
             a.issuingState?.let { put("issuingState", it) }
-            a.walletPseudonym?.let { put("walletPseudonym", it) }
         }
 
     private companion object {

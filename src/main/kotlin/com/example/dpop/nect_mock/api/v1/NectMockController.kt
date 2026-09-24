@@ -17,12 +17,15 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 import java.util.UUID
 
 data class NectResultRequest(
     @field:Schema(example = "eid") val procedure: String,
     val attributes: NectAttributes,
-    @field:Schema(example = "123456") val pin: String? = null
+    @field:Schema(example = "123456") val pin: String? = null,
+    /** ePass only: the passport's expiry, which Nect checks itself and does not hand on. */
+    val expiryDate: LocalDate? = null
 )
 
 data class NectFailRequest(@field:Schema(example = "Selfie passt nicht zum Passbild") val reason: String)
@@ -41,17 +44,17 @@ data class NectRedirect(val redirectUri: String)
 class NectMockController(private val nect: NectIdent) {
 
     @GetMapping("cases/{caseId}")
-    @Operation(summary = "Status eines Vorgangs")
+    @Operation(summary = "Status eines Vorgangs und angefragte Attribute")
     fun case(@PathVariable caseId: UUID): ResponseEntity<NectCaseView> =
         nect.caseView(caseId)?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
 
     @PostMapping("cases/{caseId}/result")
     @Operation(
         summary = "Identifizierung abschließen",
-        description = "procedure: eid, epass oder eudi. eID verlangt die PIN (Testwert 123456); ein abgelaufener Pass lässt den Vorgang scheitern."
+        description = "procedure: eid, epass oder eudi. eID verlangt die PIN (Testwert 123456); ein abgelaufener Pass lässt den Vorgang scheitern. Weitergegeben wird nur, was der Vorgang angefragt hat."
     )
     fun result(@PathVariable caseId: UUID, @RequestBody request: NectResultRequest): NectRedirect =
-        NectRedirect(nect.complete(caseId, NectProcedure.of(request.procedure), request.attributes, request.pin))
+        NectRedirect(nect.complete(caseId, NectProcedure.of(request.procedure), request.attributes, request.pin, request.expiryDate))
 
     @PostMapping("cases/{caseId}/failure")
     @Operation(summary = "Identifizierung scheitern lassen (Demo)")

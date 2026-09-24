@@ -7,6 +7,7 @@ CREATE SCHEMA IF NOT EXISTS nect_mock;
 CREATE TABLE nect_mock.ident_case (
     id            UUID PRIMARY KEY,
     callback_uri  VARCHAR(500) NOT NULL,
+    requested     VARCHAR(255) NOT NULL,
     status        VARCHAR(32)  NOT NULL,
     procedure     VARCHAR(32),
     result        VARCHAR(4000),
