@@ -4,7 +4,9 @@
 #
 # Abweichungen gegenueber compose.yml, jeweils unten am Ort begruendet:
 # - Host-Ports 8090/8553 statt 8080/8543 (laeuft neben Compose) -> eigene Setup-Variante "kube".
-# - Keine ${VAR:-default}-Interpolation: Admin-Zugang steht im Secret unten.
+# - Keine ${VAR:-default}-Interpolation: der Keycloak-Admin (nur fuer die Admin-Console) steht im
+#   Secret unten. Der Orchestrator braucht keinen Keycloak-Zugang: er meldet sich per signierter
+#   Assertion an, zwischen den Pods wird kein Geheimnis geteilt.
 # - Kein depends_on/service_healthy: ein Init-Container im Orchestrator-Pod wartet auf Keycloaks JWKS.
 apiVersion: v1
 kind: Secret
@@ -64,6 +66,10 @@ spec:
               valueFrom: {secretKeyRef: {name: dpop-kube-keycloak-admin, key: username}}
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
               valueFrom: {secretKeyRef: {name: dpop-kube-keycloak-admin, key: password}}
+            # Master-Realm-Client orchestrator-migration (MigrationClientBootstrapFactory) prueft
+            # gegen dieses JWKS - intern ueber den DNS-Alias des Orchestrator-Containers.
+            - name: KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL
+              value: http://orchestrator:8080/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json
           # command ersetzt das ENTRYPOINT (kc.sh), args das CMD - entspricht entrypoint/command
           # in compose.yml. SAN zusaetzlich dns:keycloak, weil der Init-Container des
           # Orchestrators mit Hostname-Verifikation unter diesem Namen prueft.
@@ -126,10 +132,6 @@ spec:
             - {name: SPRING_PROFILES_ACTIVE, value: keycloak}
             - {name: SPRING_DATASOURCE_URL, value: 'jdbc:h2:file:/data/dpopdb'}
             - {name: KEYCLOAK_SETUP_VARIANT, value: kube}
-            - name: KEYCLOAK_ADMIN
-              valueFrom: {secretKeyRef: {name: dpop-kube-keycloak-admin, key: username}}
-            - name: KEYCLOAK_ADMIN_PASSWORD
-              valueFrom: {secretKeyRef: {name: dpop-kube-keycloak-admin, key: password}}
           volumeMounts:
             - {name: data, mountPath: /data}
           livenessProbe:
