@@ -4,7 +4,7 @@ vi.mock('./dpop.ts', () => ({
   createDpopProof: vi.fn().mockResolvedValue('fake-proof'),
 }))
 
-import { ApiError, getChannel } from './api.ts'
+import { ApiError, describeError, getChannel } from './api.ts'
 import type { DpopKeyPair } from './dpop.ts'
 
 const dpop = {} as DpopKeyPair
@@ -46,5 +46,22 @@ describe('call()s retry on CONCURRENT_MODIFICATION (docs/07-betrieb.md #1: "the 
 
     await expect(getChannel(dpop, 'chan-1')).rejects.toBeInstanceOf(ApiError)
     expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('describeError', () => {
+  it('points an expired process (PROCESS_GONE) to "Vergessen" as the way to start over', () => {
+    const text = describeError('Fehler', new ApiError(410, 'PROCESS_GONE', 'Process is gone'))
+    expect(text).toContain('Vergessen')
+  })
+
+  it('shows only the server\'s own message for PROCESS_ABORTED, which shares the 410 status', () => {
+    // A QR link opened on a device with no account: the server says what to do - "Vergessen"
+    // would not help and used to be appended to every 410.
+    const text = describeError(
+      'Web-Login-Bestätigung fehlgeschlagen',
+      new ApiError(410, 'PROCESS_ABORTED', 'Dieses Gerät ist noch keinem Konto zugeordnet - bitte zuerst regulär anmelden.'),
+    )
+    expect(text).toBe('Web-Login-Bestätigung fehlgeschlagen: Dieses Gerät ist noch keinem Konto zugeordnet - bitte zuerst regulär anmelden.')
   })
 })

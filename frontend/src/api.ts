@@ -393,12 +393,18 @@ export function fetchServerInfo(): Promise<ServerInfo> {
 
 /**
  * Renders any thrown error into the UI's error card. ApiErrors carry the server's own message
- * (docs/07-betrieb.md #1); GONE (session/process expired or exhausted) additionally gets a
+ * (docs/07-betrieb.md #1); PROCESS_GONE (session/process expired or consumed) additionally gets a
  * concrete next step, since "Process for this tool session is gone" alone isn't actionable.
+ *
+ * Only PROCESS_GONE, not every 410: PROCESS_ABORTED shares the status but means the server ended
+ * the process on purpose and its message already says what to do (e.g. "bitte zuerst regulär
+ * anmelden" when a QR link opens on a device with no account) - "Vergessen" would not help there.
  */
 export function describeError(prefix: string, err: unknown): string {
   if (err instanceof ApiError) {
-    const hint = err.status === 410 ? ' Bitte in der Struktur bei Channel auf "Vergessen" klicken, um neu zu starten.' : ''
+    const hint = err.errorCode === ErrorResponseErrorEnum.PROCESS_GONE
+      ? ' Bitte in der Struktur bei Channel auf "Vergessen" klicken, um neu zu starten.'
+      : ''
     return `${prefix}: ${err.message}${hint}`
   }
   return `${prefix}: ${err instanceof Error ? err.message : String(err)}`
