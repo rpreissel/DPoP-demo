@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Profile
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClient
+import java.time.Duration
 
 /**
  * Wendet alle .kc.kts-Migrationen aus dem keycloak-migrations-Jar beim Start des Orchestrators an - Ersatz für den
@@ -48,6 +50,9 @@ class KeycloakMigrationRunnerStartup(
     private val paramsSource: ConfiguredKeycloakSetupSource,
     private val migrationToken: KeycloakMigrationToken,
     @Value("\${keycloak-migrate.base-url}") private val baseUrl: String,
+    // Wie lange der Start auf Keycloak wartet (AwaitReachable) - grosszuegig, weil Keycloak im selben
+    // Pod erst sein eigenes Schema aufbaut.
+    @Value("\${keycloak-migrate.wait-timeout:PT5M}") private val waitTimeout: Duration,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(KeycloakMigrationRunnerStartup::class.java)
 
@@ -58,6 +63,12 @@ class KeycloakMigrationRunnerStartup(
             "Keycloak-Migrationen: wende {} auf Realm '{}' an (Variante '{}')",
             migrations.map { it.name }, setup.realm.realmName, paramsSource.variant,
         )
+        // Oeffentlicher, unauthentifizierter Endpunkt des Master-Realms: antwortet er, laeuft Keycloak
+        // samt Datenbank - danach kann die Anmeldung per Assertion folgen.
+        val probe = RestClient.builder().baseUrl(baseUrl).build()
+        AwaitReachable(waitTimeout).await("Keycloak unter $baseUrl") {
+            probe.get().uri("/realms/master").retrieve().toBodilessEntity()
+        }
         val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = true)
         val runner = MigrationRunner(kc, setup.realm, migrations, onRealmCreated = migrationToken::invalidate)
         try {
