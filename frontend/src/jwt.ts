@@ -5,7 +5,10 @@ export function parseJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
-    return JSON.parse(atob(padded)) as Record<string, unknown>
+    // atob yields one character per byte (Latin-1); the payload is UTF-8, so decode the bytes as
+    // such - otherwise "Musterstraße" shows as "MusterstraÃe".
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0))
+    return JSON.parse(new TextDecoder('utf-8').decode(bytes)) as Record<string, unknown>
   } catch {
     return null
   }
