@@ -18,6 +18,9 @@ FROM ${KEYCLOAK_BASE_IMAGE}
 
 COPY dpop-demo-keycloak-extension.jar /opt/keycloak/providers/dpop-demo-keycloak-extension.jar
 COPY theme/orchestrator /opt/keycloak/themes/orchestrator
+# Das Keycloakify-Theme (Eltern-Theme: orchestrator) als Provider-JAR; welches der beiden Themes
+# das Realm zeigt, schaltet der Orchestrator zur Laufzeit (docs/ideen/keycloakify-statt-freemarker.md).
+COPY orchestrator-keycloakify-theme.jar /opt/keycloak/providers/orchestrator-keycloakify-theme.jar
 # Healthcheck-Programm (siehe compose.yml) - Single-File-Source-Launch (JEP 330, `java
 # JwksHealthCheck.java`), kein separates javac noetig.
 COPY healthcheck/JwksHealthCheck.java /opt/keycloak/healthcheck/JwksHealthCheck.java

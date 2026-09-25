@@ -155,6 +155,35 @@ tasks.named<ProcessResources>("processResources") {
     dependsOn(npmBuild)
 }
 
+// Das Keycloakify-Theme neben dem FreeMarker-Theme (docs/ideen/keycloakify-statt-freemarker.md):
+// eigenes npm-Paket, Ergebnis ist ein Theme-JAR fuer /opt/keycloak/providers. keycloakify build
+// packt das JAR mit Maven - mvn muss auf dem PATH liegen.
+val keycloakThemeDir = file("keycloak-theme")
+val freemarkerThemeDir = file("keycloak-extension/src/main/resources/theme/orchestrator/login")
+
+val keycloakThemeNpmInstall = tasks.register<Exec>("keycloakThemeNpmInstall") {
+    group = "keycloak theme"
+    description = "Installs the Keycloakify theme's dependencies"
+    workingDir = keycloakThemeDir
+    inputs.file(keycloakThemeDir.resolve("package.json"))
+    outputs.dir(keycloakThemeDir.resolve("node_modules"))
+    commandLine("npm", "install")
+}
+
+val keycloakThemeBuild = tasks.register<Exec>("keycloakThemeBuild") {
+    group = "keycloak theme"
+    description = "Builds the Keycloakify theme JAR (keycloak-theme/dist_keycloak)"
+    dependsOn(keycloakThemeNpmInstall)
+    workingDir = keycloakThemeDir
+    inputs.dir(keycloakThemeDir.resolve("src"))
+    inputs.files(keycloakThemeDir.resolve("index.html"), keycloakThemeDir.resolve("vite.config.ts"), keycloakThemeDir.resolve("package.json"))
+    // Gebuendelt aus dem FreeMarker-Theme: gemeinsame Tokens und die Texte.
+    inputs.file(freemarkerThemeDir.resolve("resources/css/tokens.css"))
+    inputs.dir(freemarkerThemeDir.resolve("messages"))
+    outputs.file(keycloakThemeDir.resolve("dist_keycloak/orchestrator-keycloakify-theme.jar"))
+    commandLine("npm", "run", "build-keycloak-theme")
+}
+
 // Die eigenen Texte des Frontends (docs/adr/ADR-033): frontend/scripts/text-catalog.mjs liest jede
 // t("...")/<Tx text="...">-Vorlage aus dem geparsten Quelltext. TextTranslationsTest und exportTexts
 // fuehren sie mit den Backend-Vorlagen zu einem Katalog je Bundle zusammen.
@@ -396,11 +425,12 @@ val stageOrchestratorDockerfile = tasks.register<Copy>("stageOrchestratorDockerf
 
 val stageKeycloakArtifact = tasks.register<Copy>("stageKeycloakArtifact") {
     group = "podman"
-    description = "Kopiert Extension-Shadow-Jar, Theme, Healthcheck und Dockerfile nach build/podman/keycloak."
+    description = "Kopiert Extension-Shadow-Jar, beide Themes, Healthcheck und Dockerfile nach build/podman/keycloak."
     dependsOn(":keycloak-extension:shadowJar")
     from(project(":keycloak-extension").tasks.named("shadowJar")) {
         rename { "dpop-demo-keycloak-extension.jar" }
     }
+    from(keycloakThemeBuild)
     from("keycloak-extension/src/main/resources/theme") {
         into("theme")
     }
