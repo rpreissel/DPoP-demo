@@ -302,10 +302,45 @@ p.orc-hint {
   gap: 0 1rem;
 }
 
+/* A fold-out line: a chevron that turns when open and an underline, so it reads as clickable. */
 .orc-details summary {
-  margin-bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  list-style: none;
   cursor: pointer;
   font-size: var(--orc-font-size-label);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.orc-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.orc-details summary::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: var(--orc-chevron) center / contain no-repeat;
+  mask: var(--orc-chevron) center / contain no-repeat;
+  transition: transform 0.15s;
+}
+
+.orc-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.orc-details summary:hover {
+  color: var(--orc-color-text-strong);
+}
+
+.orc-details summary:focus-visible {
+  outline: none;
+  box-shadow: var(--orc-focus-ring);
 }
 
 .orc-details label {
