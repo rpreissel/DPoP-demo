@@ -7,7 +7,7 @@ import { t } from '../../texts'
 
 /** `tool-ident-kvnr.ftl`: identity already proven - the insurance number must belong to that person. */
 export function ToolIdentKvnr({ kcContext }: { kcContext: PageContext<'tool-ident-kvnr.ftl'> }) {
-  const { title, hint, demoPersonsJson } = kcContext
+  const { pageTitle: title, hint, demoPersonsJson } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title} hint={hint}>
       <p className="orc-hint">

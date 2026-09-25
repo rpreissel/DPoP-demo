@@ -10,7 +10,7 @@ import { t } from '../../texts'
  * three seconds to ask for the app's decision; an InProgress outcome charges no attempt.
  */
 export function ToolQrWait({ kcContext }: { kcContext: PageContext<'tool-qr-wait.ftl'> }) {
-  const { title, hint, pairingCode, verificationCode, deepLink, qrDataUri } = kcContext
+  const { pageTitle: title, hint, pairingCode, verificationCode, deepLink, qrDataUri } = kcContext
 
   useEffect(() => {
     const poll = setTimeout(() => (document.getElementById('kc-orchestrator-tool-form') as HTMLFormElement | null)?.submit(), 3000)

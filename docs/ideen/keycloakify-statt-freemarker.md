@@ -130,12 +130,12 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
   Katalog neben den `.ftl`-Vorlagen. Beide Themes teilen damit das Bundle `keycloak`, und
   `KcTextCatalogTest` meldet eine neue Vorlage im React-Code wie eine in einer `.ftl`-Datei.
 - **Seitenvertrag:** Jede Seite bekommt dieselben Attribute, egal welches Theme sie zeigt. Neben `t`:
-  - `orchestrator-select`: `title`, `description`, `options`, `optionLabels`, `offerRegistration`
+  - `orchestrator-select`: `pageTitle`, `description`, `options`, `optionLabels`, `offerRegistration`
   - `orchestrator-tool`: `toolId`, `fields` (aus `stepData.missingFields`)
-  - `orchestrator-confirm`: `title`, `confirmLabel`, `cancelLabel`
+  - `orchestrator-confirm`: `pageTitle`, `confirmLabel`, `cancelLabel`
   - `orchestrator-error`: nur die Fehlermeldung
   - `orchestrator-manage-methods`: `methods` (je Eintrag `id`, `method`, `label`), Hinweis als Info
-  - jede `tool-*`-Seite: `toolId`, `title`, `hint`, dazu je Tool:
+  - jede `tool-*`-Seite: `toolId`, `pageTitle`, `hint`, dazu je Tool:
     - `tool-password-auth`, `tool-password-enroll`: `demoPassword`
     - `tool-password-lookup`: `demoEmail`, `demoPassword`, `demoPersonsJson`
     - `tool-email-auth`, `tool-sms-auth`: `demoTan`
@@ -148,6 +148,8 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
     - `tool-qr-enroll`: keine
     - `tool-qr-wait`: `pairingCode`, `verificationCode`, `deepLink`, `qrDataUri`
 
+  Die Überschrift heißt `pageTitle`, nicht `title`: Keycloak setzt `title` auf jeder Seite selbst
+  („Anmeldung bei {Realm}“) und überschreibt ein gleichnamiges eigenes Attribut.
   `demoPersonsJson` ist roher JSON-Text. Die Liste ist aus `WebFormRenderer` und den
   `*RendererFactory`-Klassen abgelesen; ändert sich dort etwas, gilt es für beide Themes.
 - **Skripte:** `demo-person-picker.ftl` und `tool-qr-wait.ftl` enthalten eigenes JavaScript; in

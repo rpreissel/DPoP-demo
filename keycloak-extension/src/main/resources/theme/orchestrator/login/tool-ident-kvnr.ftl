@@ -3,7 +3,7 @@
 <#import "demo-person-picker.ftl" as demoPerson>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
-        ${title}
+        ${pageTitle}
     <#elseif section = "form">
         <@pageNotes.notes/>
         <#if hint??>

@@ -5,7 +5,7 @@ import { t } from '../../texts'
 
 /** `tool-sms-enroll.ftl`: the phone number, then (step tanInput) the code sent to it. */
 export function ToolSmsEnroll({ kcContext }: { kcContext: PageContext<'tool-sms-enroll.ftl'> }) {
-  const { title, hint, step, demoTan } = kcContext
+  const { pageTitle: title, hint, step, demoTan } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title} hint={hint}>
       {step === 'tanInput' ? (

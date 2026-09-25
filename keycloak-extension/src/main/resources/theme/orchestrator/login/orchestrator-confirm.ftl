@@ -2,7 +2,7 @@
 <#import "page-notes.ftl" as pageNotes>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
-        ${title!t.of("Bestätigung erforderlich")}
+        ${pageTitle!t.of("Bestätigung erforderlich")}
     <#elseif section = "form">
         <@pageNotes.notes/>
         <form id="kc-orchestrator-confirm-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">

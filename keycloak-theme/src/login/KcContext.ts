@@ -16,7 +16,8 @@ export type KcContextExtension = {
 /** What WebFormRenderer.toolForm sets on every tool page; the tool's renderer factory adds the rest. */
 type ToolPage = {
   toolId: string
-  title: string
+  /** The page's heading - not `title`, which Keycloak sets itself to its login title on every page. */
+  pageTitle: string
   hint?: string
 }
 
@@ -42,20 +43,20 @@ export type KcContextExtensionPerPage = {
   }
   'orchestrator-tool.ftl': {
     toolId: string
-    title?: string
+    pageTitle?: string
     hint?: string
     /** One entry per stepData.missingFields, value always "". */
     fields: Record<string, string>
   }
   'orchestrator-confirm.ftl': {
-    title?: string
+    pageTitle?: string
     confirmLabel?: string
     cancelLabel?: string
   }
   /** Nothing of its own - the message is Keycloak's (kcContext.message). */
   'orchestrator-error.ftl': Record<string, unknown>
   'orchestrator-select.ftl': {
-    title?: string
+    pageTitle?: string
     description?: string
     options: string[]
     optionLabels: Record<string, string>

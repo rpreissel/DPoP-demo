@@ -6,7 +6,7 @@ import { t } from '../../texts'
 
 /** `tool-password-lookup.ftl`: e-mail address and password - finds the account by its e-mail. */
 export function ToolPasswordLookup({ kcContext }: { kcContext: PageContext<'tool-password-lookup.ftl'> }) {
-  const { title, hint, demoEmail, demoPassword, demoPersonsJson } = kcContext
+  const { pageTitle: title, hint, demoEmail, demoPassword, demoPersonsJson } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title} hint={hint}>
       <DemoPersonPicker personsJson={demoPersonsJson} fields={{ email: 'email' }} />

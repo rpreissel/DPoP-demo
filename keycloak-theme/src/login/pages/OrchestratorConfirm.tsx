@@ -7,7 +7,7 @@ import { t } from '../../texts'
  * come resolved from the orchestrator's prompt, the defaults only when it sent none.
  */
 export function OrchestratorConfirm({ kcContext }: { kcContext: PageContext<'orchestrator-confirm.ftl'> }) {
-  const { url, title, confirmLabel, cancelLabel } = kcContext
+  const { url, pageTitle: title, confirmLabel, cancelLabel } = kcContext
   return (
     <Layout kcContext={kcContext} title={title ?? t('Bestätigung erforderlich')}>
       <form id="kc-orchestrator-confirm-form" action={url.loginAction} method="post">

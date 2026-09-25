@@ -6,7 +6,7 @@ import { t } from '../../texts'
 
 /** `tool-ident-eid.ftl`: the (simulated) ID card read (step card), then the eID PIN (step pin). */
 export function ToolIdentEid({ kcContext }: { kcContext: PageContext<'tool-ident-eid.ftl'> }) {
-  const { title, hint, step, demoPersonsJson } = kcContext
+  const { pageTitle: title, hint, step, demoPersonsJson } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title} hint={hint}>
       {step === 'card' && (

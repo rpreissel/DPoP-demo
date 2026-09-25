@@ -4,7 +4,7 @@
 <#-- Two fixed pages (IdentFscRendererFactory): personal data first, then the code. -->
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
-        ${title}
+        ${pageTitle}
     <#elseif section = "form">
         <@pageNotes.notes/>
         <#if personalienPage>

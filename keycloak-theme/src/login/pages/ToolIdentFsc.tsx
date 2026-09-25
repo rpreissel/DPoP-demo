@@ -7,7 +7,7 @@ import { t } from '../../texts'
 
 /** `tool-ident-fsc.ftl`: personal details first (personalienPage), then the activation code from the letter. */
 export function ToolIdentFsc({ kcContext }: { kcContext: PageContext<'tool-ident-fsc.ftl'> }) {
-  const { title, personalienPage, demoPersonsJson } = kcContext
+  const { pageTitle: title, personalienPage, demoPersonsJson } = kcContext
   if (personalienPage) {
     return (
       <ToolForm

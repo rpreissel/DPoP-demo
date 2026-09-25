@@ -7,7 +7,7 @@ import { ToolForm } from '../components/ToolForm'
  * entry of stepData.missingFields, named like the field, nothing tool-specific.
  */
 export function OrchestratorTool({ kcContext }: { kcContext: PageContext<'orchestrator-tool.ftl'> }) {
-  const { toolId, title, hint, fields } = kcContext
+  const { toolId, pageTitle: title, hint, fields } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title ?? toolId} hint={hint}>
       {Object.keys(fields).map((name) => (

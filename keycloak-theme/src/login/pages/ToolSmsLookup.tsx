@@ -6,7 +6,7 @@ import { t } from '../../texts'
 
 /** `tool-sms-lookup.ftl`: the e-mail address finds the account, then (step tanInput) the SMS code. */
 export function ToolSmsLookup({ kcContext }: { kcContext: PageContext<'tool-sms-lookup.ftl'> }) {
-  const { title, hint, step, demoEmail, demoTan, demoPersonsJson } = kcContext
+  const { pageTitle: title, hint, step, demoEmail, demoTan, demoPersonsJson } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title} hint={hint}>
       {step === 'tanInput' ? (

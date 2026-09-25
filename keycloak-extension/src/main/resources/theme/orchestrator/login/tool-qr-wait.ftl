@@ -2,7 +2,7 @@
 <#import "page-notes.ftl" as pageNotes>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
-        ${title}
+        ${pageTitle}
     <#elseif section = "form">
         <@pageNotes.notes/>
         <#if hint??>

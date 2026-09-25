@@ -27,6 +27,13 @@ import java.util.Map;
  */
 final class WebFormRenderer {
 
+    /**
+     * The page's own heading. Not {@code title}: Keycloak's form provider sets that itself on every
+     * page ("Anmeldung bei {realm}", loginTitle) after our attributes, so a {@code title} of ours
+     * never reached a page - every one showed the realm's login title.
+     */
+    private static final String PAGE_TITLE = "pageTitle";
+
     /** The orchestrator's own pages - also the keys of the Keycloakify theme's per-page texts. */
     private static final String SELECT_PAGE = "orchestrator-select.ftl";
     private static final String TOOL_PAGE = "orchestrator-tool.ftl";
@@ -58,7 +65,7 @@ final class WebFormRenderer {
         String description = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("description")) : null;
         var built = withTexts(session, form, SELECT_PAGE)
                 .setAuthenticationSession(authSession)
-                .setAttribute("title", title)
+                .setAttribute(PAGE_TITLE, title)
                 .setAttribute("description", description)
                 .setAttribute("options", options)
                 .setAttribute("optionLabels", optionLabels)
@@ -84,7 +91,7 @@ final class WebFormRenderer {
             var built = withTexts(session, form, factory != null ? factory.template() : null)
                     .setAuthenticationSession(authSession)
                     .setAttribute("toolId", next.toolId())
-                    .setAttribute("title", factory != null ? KcTexts.resolve(session, factory.title()) : next.toolId())
+                    .setAttribute(PAGE_TITLE, factory != null ? KcTexts.resolve(session, factory.title()) : next.toolId())
                     .setAttribute("hint", factory != null ? KcTexts.resolve(session, factory.hint()) : "");
             if (effectiveError != null) built.setError(effectiveError);
             WebToolRenderContext ctx = new WebToolRenderContext(
@@ -122,7 +129,7 @@ final class WebFormRenderer {
         String cancelLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("cancelLabel")) : null, KcTexts.of(session, "Nein"));
         var built = withTexts(session, form, CONFIRM_PAGE)
                 .setAuthenticationSession(authSession)
-                .setAttribute("title", title)
+                .setAttribute(PAGE_TITLE, title)
                 .setAttribute("confirmLabel", confirmLabel)
                 .setAttribute("cancelLabel", cancelLabel);
         if (error != null) built.setError(error);

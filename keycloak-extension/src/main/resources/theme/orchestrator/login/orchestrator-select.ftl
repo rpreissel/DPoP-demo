@@ -2,7 +2,7 @@
 <#import "page-notes.ftl" as pageNotes>
 <@layout.registrationLayout displayMessage=true displayInfo=(offerRegistration!false); section>
     <#if section = "header">
-        ${title!t.of("Anmeldemethode wählen")}
+        ${pageTitle!t.of("Anmeldemethode wählen")}
     <#elseif section = "form">
         <@pageNotes.notes/>
         <#if description??>
