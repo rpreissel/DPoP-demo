@@ -234,8 +234,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 7. ~~S-8 Freischaltcode~~ – entschieden 2026-09-25: bleibt bis zum Ablauf wiederverwendbar,
    Restrisiko in ADR-31 festgehalten; Hash und Länge bleiben Fremdsystem (ADR-35).
 8. ~~M-2 QR-Login~~ – erledigt 2026-09-25 als Code in Gegenrichtung (App zeigt, Browser tippt).
-9. **M-8** `bruteForceProtected`, Mgmt-`set` nur bei vorhandener Passwortmethode,
-   `enabled` nicht bei jedem Sync.
+9. ~~M-8 Keycloak-Härtung (Raten, Mgmt-Passwort, Sperren)~~ – erledigt 2026-09-25.
 10. **M-11** TANs nicht auf STDOUT: Ports `SmsGateway`/`MailGateway`, ArchUnit „kein println“.
 
 **Phase B – Sicherheitsnetz spannen, bevor umgebaut wird (Tage)**

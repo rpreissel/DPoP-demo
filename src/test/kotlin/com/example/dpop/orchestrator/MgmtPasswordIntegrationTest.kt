@@ -134,6 +134,44 @@ class MgmtPasswordIntegrationTest : IntegrationTestSupport() {
                     response.body!!["valid"] shouldBe false
                 }
             }
+
+            When("mgmt-set tries to give it a password it never had") {
+                Then("it is refused - set only replaces, enroll-password is the way to add one (review 2026-09, M-8)") {
+                    val channelSessionId = identify()
+                    val accountId = jdbcTemplate.queryForObject(
+                        "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
+                        Long::class.java,
+                        UUID.fromString(channelSessionId)
+                    )
+                    stubAssertion(accountAnchor = accountId.toString())
+
+                    val refused = assertThrows<HttpClientErrorException> {
+                        mgmtPost("/orchestrator/api/v1/tools/enroll-password/mgmt/$accountId", """{"newPassword":"brand-new-secret"}""")
+                    }
+                    refused.statusCode shouldBe HttpStatus.CONFLICT
+                    jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM account.auth_method WHERE account_id = ? AND method = 'password'",
+                        Int::class.java, accountId
+                    ) shouldBe 0
+                }
+            }
+        }
+
+        Given("repeated wrong passwords through Keycloak's form") {
+            When("the account lockout is reached") {
+                Then("even the correct password is refused until it expires - the app's lockout, shared (review 2026-09, M-8)") {
+                    val email = registerWithEmailAndPassword(password = "correct-horse-battery")
+                    val accountId = accountIdFor(email)
+                    stubAssertion(accountAnchor = accountId.toString())
+
+                    repeat(5) {
+                        mgmtPost("/orchestrator/api/v1/tools/auth-password/mgmt/$accountId", """{"password":"wrong"}""")
+                            .body!!["valid"] shouldBe false
+                    }
+                    mgmtPost("/orchestrator/api/v1/tools/auth-password/mgmt/$accountId", """{"password":"correct-horse-battery"}""")
+                        .body!!["valid"] shouldBe false
+                }
+            }
         }
 
         Given("a mismatched peer-auth anchor") {

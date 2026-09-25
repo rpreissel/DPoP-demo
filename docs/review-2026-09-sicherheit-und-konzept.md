@@ -300,6 +300,12 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-8 Keycloak: kein Brute-Force-Schutz; Mgmt-Passwort für jedes Konto setzbar; Sync hebt Sperren auf
 
+> **Behoben (2026-09-25):** `MgmtPasswordController.verify` zählt auf die Kontosperre von
+> `auth-password` (gesperrt → `false` bei gleichem Zeitaufwand); `set` ersetzt nur ein vorhandenes
+> Passwort, sonst `409`; der Sync setzt `enabled` nur noch beim Anlegen; das Realm hat
+> `bruteForceProtected` (5 Fehlversuche in 15 Minuten, Wartezeit bis 15 Minuten, nie dauerhaft).
+> Tests in `MgmtPasswordIntegrationTest`. Realm-Einstellung gegen echtes Keycloak noch ungeprüft.
+
 - **Wo:**
   - `keycloak-migrations/.../V1__realm.kc.kts:19-45` – `bruteForceProtected` nicht gesetzt;
     `OrchestratorStorageProvider.java:63-74` reicht jeden Versuch weiter; `MgmtPasswordController.verify`

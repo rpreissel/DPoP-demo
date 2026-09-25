@@ -31,12 +31,23 @@ step("realm einstellungen setzen") {
             setInternationalizationEnabled(true)
             setSupportedLocales(setOf("de", "en"))
             setDefaultLocale("de")
+            // Schutz gegen Passwort-Raten auf den Keycloak-Formularen (Review 2026-09, M-8): nach 5
+            // Fehlversuchen innerhalb von 15 Minuten wartet der User, bis zu 15 Minuten, nie dauerhaft
+            // gesperrt. Unabhaengig davon zaehlt der Orchestrator dieselben Fehlversuche auf seine
+            // eigene Kontosperre (MgmtPasswordController.verify).
+            setBruteForceProtected(true)
+            setFailureFactor(5)
+            setWaitIncrementSeconds(60)
+            setMaxFailureWaitSeconds(900)
+            setMaxDeltaTimeSeconds(900)
+            setPermanentLockout(false)
         }
     }
     down {
         updateRealm {
             displayName = null
             loginTheme = null
+            setBruteForceProtected(false)
             setLoginWithEmailAllowed(false)
             setInternationalizationEnabled(false)
             setSupportedLocales(emptySet())

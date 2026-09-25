@@ -335,7 +335,8 @@ class KeycloakAdminClient(
      */
     private fun writeUser(accountId: Long, userId: String, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String>) {
         val body = buildMap<String, Any?> {
-            put("enabled", true)
+            // Deliberately no "enabled" here (review 2026-09, M-8): a user a Keycloak admin
+            // disabled stays disabled - a sync must not silently undo that. Only createUser enables.
             if (email != null) {
                 put("email", email)
                 put("emailVerified", emailConfirmed)

@@ -772,9 +772,15 @@ Nutzerattribut `orchestratorAccountId` kennt. Keycloak weist sich dabei mit ders
 gegen den Pfadparameter geprüft.
 
 - `POST /orchestrator/api/v1/tools/auth-password/mgmt/{accountId}` – prüft `{"password": "..."}`
-  gegen das gespeicherte Credential; Antwort `{"valid": true|false}`.
+  gegen das gespeicherte Credential; Antwort `{"valid": true|false}`. Jeder Fehlversuch zählt auf
+  dieselbe Kontosperre wie `auth-password` im App-Kanal ([Betrieb](07-betrieb.md) Abschnitt 4);
+  gesperrt ist die Antwort `false`, auch für das richtige Passwort, bei gleichem Zeitaufwand.
+  Zusätzlich hat das Realm Keycloaks eigenen Schutz gegen Passwort-Raten eingeschaltet.
 - `POST /orchestrator/api/v1/tools/enroll-password/mgmt/{accountId}` – `{"newPassword": "..."}`
-  setzt ein neues Credential und deaktiviert das bisherige `password`-Verfahren des Kontos, `204`.
+  **ersetzt** das Passwort: Es setzt ein neues Credential und deaktiviert das bisherige
+  `password`-Verfahren des Kontos, `204`. Hat das Konto noch kein Passwort, antwortet es `409` – ein
+  erstes Passwort richtet nur `enroll-password` hinter der Prüfung der Methodenverwaltung ein, nicht
+  Keycloaks Admin-Funktion „Passwort zurücksetzen“.
 
 ## 4) Zusammenspiel von Prozess-API und Tool-Ressourcen
 

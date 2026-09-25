@@ -3,6 +3,9 @@ package com.example.dpop.orchestrator.api.v1.kc
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
+import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.session.LoginThrottleService
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.PasswordCredentialPort
 import com.example.dpop.tool_api.buildRequestUrl
@@ -42,7 +45,8 @@ class MgmtPasswordController(
     private val peerAuthValidator: PeerAuthValidator,
     private val accountDirectory: AccountDirectory,
     private val accountService: AccountService,
-    private val passwordCredentialPort: PasswordCredentialPort
+    private val passwordCredentialPort: PasswordCredentialPort,
+    private val loginThrottleService: LoginThrottleService
 ) {
 
     @PostMapping("$API_V1/tools/auth-password/mgmt/{accountId}")
@@ -55,9 +59,17 @@ class MgmtPasswordController(
     ): ResponseEntity<MgmtPasswordVerifyResponse> {
         validatePeerAuth(authorization, httpRequest, accountId)
 
+        // The same per-account lockout as the app channel's auth-password (review 2026-09, M-8):
+        // Keycloak's password form is just another place to guess the same password, so it counts
+        // against the same budget. Locked, the answer is `false` - but the hash is still computed,
+        // so a locked account costs the same time as any other and does not reveal the lock.
+        val locked = loginThrottleService.isLocked(accountId)
         val enrollmentRef = accountDirectory.activeEnrollment(accountId, PASSWORD_METHOD)
-        val valid = passwordCredentialPort.verify(enrollmentRef, request?.password.orEmpty())
-        return ResponseEntity.ok(MgmtPasswordVerifyResponse(valid))
+        val matches = passwordCredentialPort.verify(enrollmentRef, request?.password.orEmpty())
+        if (!locked) {
+            if (matches) loginThrottleService.recordSuccess(accountId) else loginThrottleService.recordFailure(accountId)
+        }
+        return ResponseEntity.ok(MgmtPasswordVerifyResponse(matches && !locked))
     }
 
     @PostMapping("$API_V1/tools/enroll-password/mgmt/{accountId}")
@@ -70,6 +82,12 @@ class MgmtPasswordController(
     ): ResponseEntity<Void> {
         validatePeerAuth(authorization, httpRequest, accountId)
 
+        // Only REPLACES an existing password (review 2026-09, M-8). Reachable through Keycloak's
+        // admin "reset password" (manage-users), it must not become a way to give an account a
+        // password it never had - that is enroll-password's job, behind the MANAGE gate.
+        if (accountDirectory.activeEnrollment(accountId, PASSWORD_METHOD) == null) {
+            throw OrchestratorException.invalidState(Text("Für dieses Konto ist kein Passwort eingerichtet"), "accountId=$accountId")
+        }
         val newPassword = requireNotNull(request.newPassword) { "newPassword is required" }
         val enrollmentRef = passwordCredentialPort.setNew(newPassword)
         // Same effect JourneyService's Action.AdoptCredential branch has after a normal
