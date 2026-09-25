@@ -116,8 +116,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:h2:file:/data/dpopdb
       # Im Compose-Netzwerk heisst Keycloak "keycloak", nicht "localhost" wie in
       # application-keycloak.yml (das ist fuer den Host-Lauf per gradlew gedacht). Das
-      # selbstsignierte Zertifikat wird trotzdem akzeptiert, siehe KeycloakTlsConfig.kt
-      # (Trust-all + Hostname-Verifier-all, nur im "keycloak"-Profil aktiv).
+      # selbstsignierte Zertifikat wird trotzdem akzeptiert: die Variante "compose" schaltet
+      # trustSelfSignedCertificate ein, und das gilt nur fuer die Verbindungen zu Keycloak
+      # (KeycloakHttp), nicht fuer die ganze JVM.
       # Welcher Parametersatz gilt (application-keycloak.yml, keycloak-setup.variants):
       # "compose" spricht beide Seiten unter ihren Service-Namen an, "host" (Default) geht ueber
       # den gemappten Port bzw. host.containers.internal - dort laeuft der Orchestrator per

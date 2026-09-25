@@ -118,6 +118,14 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-4 Trust-all-TLS JVM-weit, auch auf dem OpenShift-Pfad
 
+> **Behoben (2026-09-25):** `KeycloakTlsConfig` ist entfernt. Die HTTP-Clients zu Keycloak kommen
+> aus `KeycloakHttp`; nur sie vertrauen einem selbstsignierten Zertifikat, und nur wenn die
+> Setup-Variante `trustSelfSignedCertificate: true` erklärt (Basis `false`, eingeschaltet für
+> `host` und `compose`, nicht für `openshift`). Die JVM-Standards bleiben unberührt
+> (`KeycloakHttpTest`); beim Einschalten warnt der Start im Log. Ein Start-Check gegen Trust-all bei
+> nicht-lokalem Keycloak entfällt: Die Ausnahme ist jetzt auf die Keycloak-Verbindungen begrenzt und
+> ausdrücklich je Variante erklärt.
+
 - **Wo:** `orchestrator/kc/KeycloakTlsConfig.kt:31-54` (`SSLContext.setDefault(trustAll)`,
   Hostname-Prüfung aus, `jdk.internal.httpclient.disableHostnameVerification=true`, `@Profile("keycloak")`);
   `openshift/dpop-demo.yaml:136` setzt `SPRING_PROFILES_ACTIVE=keycloak`.

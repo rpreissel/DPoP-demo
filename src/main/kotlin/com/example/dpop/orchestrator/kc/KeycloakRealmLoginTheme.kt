@@ -24,8 +24,7 @@ enum class LoginTheme {
 @Component
 @Profile("keycloak")
 class KeycloakRealmLoginTheme(
-    // Trust-all-SSLContext first, like every Keycloak client here (see KeycloakAdminClient).
-    @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
+    private val keycloakHttp: KeycloakHttp,
     private val setupSource: ConfiguredKeycloakSetupSource,
     private val migrationToken: KeycloakMigrationToken,
     @Value("\${keycloak-migrate.base-url}") private val baseUrl: String,
@@ -37,7 +36,7 @@ class KeycloakRealmLoginTheme(
             LoginTheme.FREEMARKER -> realm.loginTheme
             LoginTheme.KEYCLOAKIFY -> KEYCLOAKIFY_THEME
         }
-        val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = true)
+        val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = keycloakHttp.trustSelfSigned)
         try {
             // Only the one field: the admin API leaves everything not sent as it is.
             kc.realm(realm.realmName).update(RealmRepresentation().apply { loginTheme = themeName })

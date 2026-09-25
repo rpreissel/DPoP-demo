@@ -39,6 +39,9 @@ class KeycloakSetupEnvironmentTest {
                     "keycloak-setup.base.peerAuthAudience" to "dpop-demo-orchestrator",
                     "keycloak-setup.base.keycloakBaseUrl" to "https://localhost:8543",
                     "keycloak-setup.base.publicKeycloakBaseUrl" to "https://localhost:8543",
+                    "keycloak-setup.base.trustSelfSignedCertificate" to "false",
+                    "keycloak-setup.variants.compose.trustSelfSignedCertificate" to "true",
+                    "keycloak-setup.variants.remote.keycloakBaseUrl" to "https://keycloak.example.org",
                     "keycloak-setup.variants.compose.keycloakBaseUrl" to "https://keycloak:8443",
                     "keycloak-setup.variants.compose.orchestratorBaseUrl" to "http://orchestrator:8080",
                 ),
@@ -57,6 +60,8 @@ class KeycloakSetupEnvironmentTest {
         assertThat(env.getProperty("keycloak-sync.base-url")).isEqualTo("https://keycloak:8443")
         assertThat(env.getProperty("keycloak-migrate.base-url")).isEqualTo("https://keycloak:8443")
         assertThat(env.getProperty("keycloak-migrate.admin-username")).isNull()
+        // Trust-all nur, weil die Variante es ausdruecklich einschaltet (Review 2026-09, S-4).
+        assertThat(env.getProperty("keycloak-tls.trust-self-signed")).isEqualTo("true")
         assertThat(env.getProperty("keycloak-sync.realm")).isEqualTo("Demo")
         assertThat(env.getProperty("keycloak-sync.admin-client-id")).isEqualTo("orchestrator-admin")
         assertThat(env.getProperty("keycloak-sync.app-client-id")).isEqualTo("orchestrator-app-token")
@@ -89,6 +94,15 @@ class KeycloakSetupEnvironmentTest {
         assertThatThrownBy { KeycloakSetupEnvironment().postProcessEnvironment(env, SpringApplication()) }
             .hasMessageContaining("gibtsnicht")
             .hasMessageContaining("compose")
+    }
+
+    @Test
+    fun `vertraut dem Keycloak-Zertifikat nicht, solange die Variante es nicht einschaltet`() {
+        val env = environmentWith("remote")
+
+        KeycloakSetupEnvironment().postProcessEnvironment(env, SpringApplication())
+
+        assertThat(env.getProperty("keycloak-tls.trust-self-signed")).isEqualTo("false")
     }
 
     /**

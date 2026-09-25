@@ -227,8 +227,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     was in die Umgebung gehört, steht gesammelt in Phase G.
 2. ~~S-2 Keycloak-Sync~~ – erledigt 2026-09-25.
 3. ~~S-3 Ein Schlüssel je Keycloak-Client, Migrationsclient ohne Master-Admin~~ – erledigt 2026-09-25.
-4. **S-4** Trust-all an einen ausdrücklichen Schalter im `keycloak-setup`-Parametersatz binden,
-   Start-Check gegen Trust-all bei nicht-lokalem Keycloak. (S-5 und M-12 sind Umgebung → Phase G.)
+4. ~~S-4 Trust-all nur per Schalter und nur für Keycloak-Verbindungen~~ – erledigt 2026-09-25.
+   (S-5 und M-12 sind Umgebung → Phase G.)
 5. **S-6** KVNR-Orakel: Mismatch als `Failed` mit `attemptedPersonId`.
 6. **S-7** Widerruf nur für EMAIL (`AnchorRule.userRetractable`), `announceChanged` und
    `lockForUpdate` im Widerruf.

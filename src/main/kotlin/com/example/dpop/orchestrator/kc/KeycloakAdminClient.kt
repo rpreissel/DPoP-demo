@@ -35,11 +35,7 @@ import org.springframework.web.util.UriComponentsBuilder
 @Component
 @Profile("keycloak")
 class KeycloakAdminClient(
-    // Unused beyond forcing Spring to construct it (and run its @PostConstruct trust-all install)
-    // BEFORE this bean - RestClient.Builder.build() below may eagerly build the underlying
-    // java.net.http.HttpClient, which snapshots SSLContext.getDefault() at that point; if this ran
-    // first, the snapshot would still be the real, non-trusting default.
-    @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
+    keycloakHttp: KeycloakHttp,
     private val clientAssertions: OrchestratorClientAssertionSigner,
     @Value("\${keycloak-sync.base-url}") private val baseUrl: String,
     @Value("\${keycloak-sync.public-base-url}") private val publicBaseUrl: String,
@@ -48,7 +44,7 @@ class KeycloakAdminClient(
     @Value("\${keycloak-sync.app-client-id}") private val appClientId: String
 ) {
     private val log = LoggerFactory.getLogger(KeycloakAdminClient::class.java)
-    private val restClient = RestClient.builder().baseUrl(baseUrl).build()
+    private val restClient = keycloakHttp.restClient(baseUrl)
 
     @Volatile
     private var cachedToken: CachedToken? = null

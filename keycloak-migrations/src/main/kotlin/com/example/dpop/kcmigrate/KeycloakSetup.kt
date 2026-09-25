@@ -144,6 +144,13 @@ data class KeycloakAccess(
      * der Browser sein Token von dort bekommt - geprüft wird trotzdem gegen [keycloakBaseUrl].
      */
     val publicKeycloakBaseUrl: String,
+    /**
+     * Ob der Orchestrator dem Zertifikat unter [keycloakBaseUrl] ohne Prüfung vertraut - nur für
+     * ein selbstsigniertes Entwicklungszertifikat (`start-dev` im Compose-Stack). Gilt
+     * ausschließlich für die Verbindungen zu Keycloak, nie JVM-weit (Review 2026-09, S-4). Die Basis
+     * setzt `false`; eine Variante muss es ausdrücklich einschalten.
+     */
+    val trustSelfSignedCertificate: Boolean,
 ) {
     companion object {
         val FIELD_NAMES = fieldNamesOf(KeycloakAccess::class)
@@ -182,10 +189,11 @@ private fun render(value: Any?): String = when (value) {
 }
 
 private fun parse(field: KParameter, raw: String): Any =
-    if (field.type.classifier == List::class) {
-        raw.split(",").map(String::trim).filter(String::isNotEmpty)
-    } else {
-        raw
+    when (field.type.classifier) {
+        List::class -> raw.split(",").map(String::trim).filter(String::isNotEmpty)
+        Boolean::class -> raw.trim().toBooleanStrictOrNull()
+            ?: error("Feld \"${field.name}\" erwartet true oder false, nicht \"$raw\"")
+        else -> raw
     }
 
 /**

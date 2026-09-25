@@ -17,7 +17,10 @@ import kotlin.concurrent.withLock
 @Component
 class KeycloakJwkSource(
     @Value("\${kc.peer-auth.jwks-uri}") private val jwksUri: String,
-    @Value("\${kc.peer-auth.jwks-cache-ttl-seconds:600}") private val cacheTtlSeconds: Long
+    @Value("\${kc.peer-auth.jwks-cache-ttl-seconds:600}") private val cacheTtlSeconds: Long,
+    // Only under the `keycloak` profile - its certificate policy for the JWKS fetch. Absent (tests,
+    // no-Keycloak profile), the plain JVM defaults apply.
+    private val keycloakHttp: KeycloakHttp? = null,
 ) {
     private val lock = ReentrantLock()
     private var cached: JWKSet? = null
@@ -44,7 +47,8 @@ class KeycloakJwkSource(
     private fun refresh(): JWKSet = lock.withLock { fetchAndCache() }
 
     private fun fetchAndCache(): JWKSet {
-        val fetched = JWKSet.load(URI.create(jwksUri).toURL())
+        val fetched = keycloakHttp?.let { JWKSet.parse(it.getText(jwksUri)) }
+            ?: JWKSet.load(URI.create(jwksUri).toURL())
         cached = fetched
         cachedAt = Instant.now()
         return fetched

@@ -3,7 +3,6 @@ package com.example.dpop.orchestrator.kc
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -24,14 +23,12 @@ import java.time.Instant
 @Component
 @Profile("keycloak")
 class KeycloakMigrationToken(
-    // Trust-all-SSLContext muss stehen, bevor der RestClient unten den Default-SSLContext einfriert
-    // (siehe KeycloakAdminClient).
-    @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
+    keycloakHttp: KeycloakHttp,
     private val clientAssertions: OrchestratorClientAssertionSigner,
     @Value("\${keycloak-migrate.base-url}") baseUrl: String,
     @Value("\${keycloak-sync.public-base-url}") private val publicBaseUrl: String,
 ) {
-    private val restClient = RestClient.builder().baseUrl(baseUrl).build()
+    private val restClient = keycloakHttp.restClient(baseUrl)
 
     @Volatile
     private var cached: CachedToken? = null

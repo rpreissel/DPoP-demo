@@ -18,8 +18,8 @@ kc:
     # Lokal-Testing-Problem dieser Umgebung, kein Sicherheitsanspruch dieses Profils.
     #
     # Der Fetch der JWKS (wie auch der Account-Sync) laeuft ueber HTTPS gegen das selbstsignierte
-    # start-dev-Zertifikat; KeycloakTlsConfig (nur `keycloak`-Profil) installiert dafuer einen
-    # Trust-all-SSLContext - demo-only, siehe dessen eigene Doku.
+    # start-dev-Zertifikat; ob ihm vertraut wird, sagt die Variante (trustSelfSignedCertificate,
+    # unten), und es gilt nur fuer die Verbindungen zu Keycloak (KeycloakHttp).
     max-clock-skew-seconds: 300
     max-age-seconds: 300
 
@@ -77,6 +77,9 @@ keycloak-setup:
     peerAuthAudience: dpop-demo-orchestrator
     keycloakBaseUrl: https://localhost:8543
     publicKeycloakBaseUrl: https://localhost:8543
+    # Ob dem Zertifikat von keycloakBaseUrl ungeprueft vertraut wird - nur fuer die Verbindungen zu
+    # Keycloak, nie JVM-weit (KeycloakHttp). Aus, bis eine Variante es ausdruecklich einschaltet.
+    trustSelfSignedCertificate: false
   variants:
     host:
       # Orchestrator laeuft auf dem Host (./gradlew bootRunKc), nur Keycloak im Container: der Weg
@@ -85,11 +88,15 @@ keycloak-setup:
       # Machine-VM braucht es dafuer eine eigene Variante mit der tatsaechlichen Host-IP.
       orchestratorBaseUrl: http://host.containers.internal:8080
       keycloakBaseUrl: https://localhost:8543
+      # start-dev-Zertifikat aus keycloak-extension/Dockerfile, selbstsigniert.
+      trustSelfSignedCertificate: true
     compose:
       # Beide im compose-Netz: direkt ueber die Service-Namen, ohne Umweg ueber gemappte Ports.
       # publicKeycloakBaseUrl bleibt die Host-Adresse - von dort holt der Browser sein Token.
       orchestratorBaseUrl: http://orchestrator:8080
       keycloakBaseUrl: https://keycloak:8443
+      # Wie host: selbstsigniert, und das Zertifikat nennt nur localhost, nicht "keycloak".
+      trustSelfSignedCertificate: true
     openshift:
       # Prototyp openshift/dpop-demo.yaml: EIN Pod, beide Container teilen sich das Netz - intern
       # also localhost und reines HTTP (der Verkehr verlaesst den Pod nie). Keycloak lauscht auf 8081,

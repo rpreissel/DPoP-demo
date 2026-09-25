@@ -14,7 +14,6 @@ import org.springframework.context.annotation.Profile
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 import java.time.Duration
 
 /**
@@ -43,9 +42,7 @@ import java.time.Duration
 @Profile("keycloak")
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class KeycloakMigrationRunnerStartup(
-    // Erzwingt Spring, den Trust-all-SSLContext (siehe KeycloakAdminClient's gleiches Muster)
-    // VOR diesem Runner zu installieren.
-    @Suppress("UNUSED_PARAMETER") tlsConfig: KeycloakTlsConfig,
+    private val keycloakHttp: KeycloakHttp,
     private val readinessState: KeycloakGatedReadinessState,
     private val paramsSource: ConfiguredKeycloakSetupSource,
     private val migrationToken: KeycloakMigrationToken,
@@ -65,11 +62,11 @@ class KeycloakMigrationRunnerStartup(
         )
         // Oeffentlicher, unauthentifizierter Endpunkt des Master-Realms: antwortet er, laeuft Keycloak
         // samt Datenbank - danach kann die Anmeldung per Assertion folgen.
-        val probe = RestClient.builder().baseUrl(baseUrl).build()
+        val probe = keycloakHttp.restClient(baseUrl)
         AwaitReachable(waitTimeout).await("Keycloak unter $baseUrl") {
             probe.get().uri("/realms/master").retrieve().toBodilessEntity()
         }
-        val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = true)
+        val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = keycloakHttp.trustSelfSigned)
         val runner = MigrationRunner(kc, setup.realm, migrations, onRealmCreated = migrationToken::invalidate)
         try {
             runner.up()

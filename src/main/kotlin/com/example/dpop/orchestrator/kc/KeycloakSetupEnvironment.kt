@@ -45,6 +45,8 @@ class KeycloakSetupEnvironment : EnvironmentPostProcessor, Ordered {
                     // Wohin die Migration selbst schreibt. Ein Zugang steht hier nicht: sie meldet
                     // sich per signierter Assertion an (KeycloakMigrationToken).
                     "keycloak-migrate.base-url" to setup.access.keycloakBaseUrl,
+                    // Nur fuer die Verbindungen zu Keycloak (KeycloakHttp), nie JVM-weit.
+                    "keycloak-tls.trust-self-signed" to setup.access.trustSelfSignedCertificate.toString(),
                     // Account-Sync: dasselbe Realm, dieselben Clients wie die Migration sie anlegt.
                     "keycloak-sync.base-url" to setup.access.keycloakBaseUrl,
                     "keycloak-sync.realm" to setup.realm.realmName,
