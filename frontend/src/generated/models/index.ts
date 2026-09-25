@@ -527,6 +527,43 @@ export interface DemoInfo {
      * @memberof DemoInfo
      */
     personId?: string;
+    /**
+     * Demo-only: who this session belongs to and what it has proven so far - in every response, tool responses included, so a demo view can show it at any step. The production contract keeps these on the channel resource only (ChannelBlock).
+     * @type {DemoSession}
+     * @memberof DemoInfo
+     */
+    session?: DemoSession;
+}
+/**
+ * 
+ * @export
+ * @interface DemoSession
+ */
+export interface DemoSession {
+    /**
+     * 
+     * @type {string}
+     * @memberof DemoSession
+     */
+    acr?: string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof DemoSession
+     */
+    amr?: Array<string>;
+    /**
+     * Whether the session is signed in (channel state AUTHENTICATED).
+     * @type {boolean}
+     * @memberof DemoSession
+     */
+    authenticated: boolean;
+    /**
+     * "Vorname Name" of the person behind the account, if one is bound.
+     * @type {string}
+     * @memberof DemoSession
+     */
+    personName?: string;
 }
 /**
  * 

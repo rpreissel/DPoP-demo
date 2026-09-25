@@ -13,6 +13,7 @@ import { BrowserFrame } from './BrowserFrame'
 import { LanguageSwitch } from './LanguageSwitch'
 import { Demo, DemoArea, DemoProvider } from './DemoArea'
 import { StepExplanation } from './StepExplanation'
+import { SessionSummary } from './SessionSummary'
 import { ButtonDiagrams } from './ButtonDiagrams'
 import '../phone.css'
 import '../browser.css'
@@ -398,6 +399,15 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
 
           <DemoArea
             targetRef={setDemoTarget}
+            session={
+              <SessionSummary
+                signedIn={!!tokens}
+                name={personName}
+                role={role}
+                acr={currentAcr}
+                amr={Array.isArray(accessClaims?.amr) ? accessClaims.amr.map(String) : undefined}
+              />
+            }
             intro={
               !tokens && (
                 <div className="card welcome-card">

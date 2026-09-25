@@ -351,7 +351,8 @@ class ToolControllerSupport(
             values = values,
             // An authenticated channel gets the block even with nothing left to say - the client's
             // completed-view reads accountId/personId off it.
-            includeWhenEmpty = channel.state == ChannelState.AUTHENTICATED
+            includeWhenEmpty = channel.state == ChannelState.AUTHENTICATED,
+            session = channelService.demoSession(channel)
         )
     }
 

@@ -35,6 +35,7 @@ import com.example.dpop.tool_api.authority
 import com.example.dpop.tool_api.isLocalAnchor
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
+import com.example.dpop.tool_api.DemoSession
 import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AcrLevel
@@ -457,7 +458,24 @@ class ChannelService(
         val journeys = journeyService.debugChain(channel)
         val accountId = channel.accountId
         val personId = accountId?.let { accountService.findAccount(it)?.personId }
-        return demoDisclosure.assemble(accountId, personId, journeys)
+        return demoDisclosure.assemble(accountId, personId, journeys, session = demoSession(channel))
+    }
+
+    /**
+     * Who the session belongs to and what it has proven so far - for the demo column, which shows
+     * it at every step. Null until something was proven: before that there is nothing to show but
+     * "not signed in", which the client says on its own. Same acr resolution as [buildChannelBlock].
+     */
+    fun demoSession(channel: ChannelSession): DemoSession? {
+        if (!channel.hasProvenFactor) return null
+        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
+        val account = channel.accountId?.let { accountService.findAccount(it) }
+        return DemoSession(
+            authenticated = channel.state == ChannelState.AUTHENTICATED,
+            personName = account?.personId?.let { personDirectory.displayName(it) },
+            acr = evidence?.let { authPolicy.resolveAcr(it.toCoreEvidence(), account) }?.value,
+            amr = evidence?.currentAmr ?: emptyList()
+        )
     }
 
     /**

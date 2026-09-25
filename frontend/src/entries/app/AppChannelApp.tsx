@@ -46,6 +46,7 @@ import { Demo, DemoArea, DemoProvider } from '../../components/DemoArea'
 import { PhoneFrame } from '../../components/PhoneFrame'
 import { AuthenticationCompletedView, type AccountView } from '../../components/AuthenticationCompletedView'
 import { StepExplanation } from '../../components/StepExplanation'
+import { SessionSummary } from '../../components/SessionSummary'
 import { ButtonDiagrams } from '../../components/ButtonDiagrams'
 import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
 import { SelectMethodView } from '../../components/SelectMethodView'
@@ -1021,6 +1022,14 @@ export function AppChannelApp() {
 
             <DemoArea
               targetRef={setDemoTarget}
+              session={
+                <SessionSummary
+                  signedIn={channelState === 'AUTHENTICATED'}
+                  name={demo?.session?.personName}
+                  acr={demo?.session?.acr ?? currentAcr}
+                  amr={demo?.session?.amr ?? currentAmr}
+                />
+              }
               intro={
                 !channelSessionId && (
                   <div className="card welcome-card">

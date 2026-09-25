@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.tool_api.DemoInfo
+import com.example.dpop.tool_api.DemoSession
 import com.example.dpop.tool_api.JourneyDebugStep
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
@@ -40,7 +41,8 @@ interface DemoDisclosure {
         personId: String?,
         journeys: List<JourneyDebugStep>,
         values: Map<String, Any?>? = null,
-        includeWhenEmpty: Boolean = false
+        includeWhenEmpty: Boolean = false,
+        session: DemoSession? = null
     ): DemoInfo?
 }
 
@@ -60,13 +62,15 @@ class DisclosingDemoDisclosure(private val personas: DemoPersonas) : DemoDisclos
         personId: String?,
         journeys: List<JourneyDebugStep>,
         values: Map<String, Any?>?,
-        includeWhenEmpty: Boolean
+        includeWhenEmpty: Boolean,
+        session: DemoSession?
     ): DemoInfo? {
-        if (!includeWhenEmpty && values.isNullOrEmpty() && journeys.isEmpty()) return null
+        if (!includeWhenEmpty && values.isNullOrEmpty() && journeys.isEmpty() && session == null) return null
         return DemoInfo(
             accountId = accountId,
             personId = personId,
             journeys = journeys,
+            session = session,
             values = (values ?: emptyMap()) + ("persons" to personas.all())
         )
     }
@@ -85,6 +89,7 @@ class WithheldDemoDisclosure : DemoDisclosure {
         personId: String?,
         journeys: List<JourneyDebugStep>,
         values: Map<String, Any?>?,
-        includeWhenEmpty: Boolean
+        includeWhenEmpty: Boolean,
+        session: DemoSession?
     ): DemoInfo? = null
 }

@@ -130,7 +130,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
 
     // Level and methods live on the security screen, one tap from the welcome.
     await user.click(await screen.findByRole('button', { name: /^Sicherheit/ }))
-    await screen.findByText('loa1')
+    await screen.findByText('loa1', { selector: '.status-list .value' })
     expect(api.getChannel).toHaveBeenCalledTimes(1)
     // activeMethods backfilled too: the deactivatable method row renders.
     expect(screen.getByRole('button', { name: 'Deaktivieren' })).toBeInTheDocument()
@@ -165,7 +165,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
     await user.click(await screen.findByRole('button', { name: /Sitzung fortsetzen/ }))
 
     await user.click(await screen.findByRole('button', { name: /^Sicherheit/ }))
-    await screen.findByText('loa2')
+    await screen.findByText('loa2', { selector: '.status-list .value' })
     expect(api.getChannel).toHaveBeenCalledTimes(1) // the resume GET itself - no extra backfill call
   })
 })

@@ -334,6 +334,32 @@ components:
         personId:
           example: P000000001
           type: string
+        session:
+          $ref: '#/components/schemas/DemoSession'
+          description: 'Demo-only: who this session belongs to and what it has proven so far - in every response, tool responses
+            included, so a demo view can show it at any step. The production contract keeps these on the channel resource
+            only (ChannelBlock).'
+      type: object
+    DemoSession:
+      properties:
+        acr:
+          example: loa1
+          type: string
+        amr:
+          example:
+          - sms
+          items:
+            type: string
+          type: array
+        authenticated:
+          description: Whether the session is signed in (channel state AUTHENTICATED).
+          type: boolean
+        personName:
+          description: '"Vorname Name" of the person behind the account, if one is bound.'
+          example: Max Muster
+          type: string
+      required:
+      - authenticated
       type: object
     DeviceLinkResponse:
       properties:

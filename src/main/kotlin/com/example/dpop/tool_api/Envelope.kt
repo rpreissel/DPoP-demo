@@ -147,6 +147,18 @@ data class JourneyDebugStep(
     val purpose: Text? = null
 )
 
+/** Demo-only snapshot of a session's standing (DemoInfo.session). */
+data class DemoSession(
+    @field:Schema(description = "Whether the session is signed in (channel state AUTHENTICATED).")
+    val authenticated: Boolean,
+    @field:Schema(description = "\"Vorname Name\" of the person behind the account, if one is bound.", example = "Max Muster")
+    val personName: String? = null,
+    @field:Schema(example = "loa1")
+    val acr: String? = null,
+    @field:Schema(example = "[\"sms\"]")
+    val amr: List<String> = emptyList()
+)
+
 /**
  * Demo-only values a tool handler attached (e.g. a plaintext `tan`), flattened into the JSON
  * object alongside [accountId]/[personId] so the client can read `demo.tan` regardless of which
@@ -167,6 +179,12 @@ data class DemoInfo(
             "[JourneyDebugStep]. Empty once nothing is running."
     )
     val journeys: List<JourneyDebugStep> = emptyList(),
+    @field:Schema(
+        description = "Demo-only: who this session belongs to and what it has proven so far - in " +
+            "every response, tool responses included, so a demo view can show it at any step. The " +
+            "production contract keeps these on the channel resource only (ChannelBlock)."
+    )
+    val session: DemoSession? = null,
     // hidden, not described: @JsonAnyGetter writes these entries FLAT onto the enclosing object
     // (demo.tan, demo.email - never demo.values.tan), which the class-level additionalProperties
     // above is what actually states. A property of its own here would describe a shape no response

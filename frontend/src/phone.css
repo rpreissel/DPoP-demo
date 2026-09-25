@@ -712,3 +712,42 @@
   background: #fff;
   color: var(--phone-navy);
 }
+
+/* ---- Demo column: whose session, which level, proven by what (SessionSummary) ---------------- */
+
+.session-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 0.95rem;
+}
+
+.session-summary__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.session-summary__who {
+  font-weight: 600;
+}
+
+.session-summary__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-left: auto;
+}
+
+.session-summary__muted {
+  color: var(--text);
+  font-weight: 400;
+}

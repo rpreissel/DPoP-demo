@@ -43,10 +43,13 @@ export function DemoNote({ children }: { children: ReactNode }) {
  */
 export function DemoArea({
   targetRef,
+  session,
   intro,
   children,
 }: {
   targetRef: (el: HTMLElement | null) => void
+  /** Whose session this is, at which level - always first, on every screen (SessionSummary). */
+  session?: ReactNode
   /** What the demo is about - above everything else, before the step at hand. */
   intro?: ReactNode
   children: ReactNode
@@ -54,6 +57,7 @@ export function DemoArea({
   return (
     <aside className="demo-area" aria-label={t('Demo-Werkzeuge')}>
       <div className="demo-area__label">{t('Demo-Werkzeuge')}</div>
+      {session}
       {intro}
       <section className="demo-step">
         <h3 className="demo-step__title">{t('Zu diesem Schritt')}</h3>
