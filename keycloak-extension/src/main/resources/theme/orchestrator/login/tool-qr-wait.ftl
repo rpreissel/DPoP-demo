@@ -9,6 +9,23 @@
             <p class="orchestrator-subtitle">${hint}</p>
         </#if>
 
+        <#if step == "enterCode">
+            <#-- The app approved and shows a confirmation code; only typing it here logs this browser
+                 in (review 2026-09, M-2, docs/07-betrieb.md #5). No polling on this step. -->
+            <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
+                <div class="${properties.kcFormGroupClass!}">
+                    <label for="confirmationCode" class="${properties.kcLabelClass!}">${t.of("Code aus der App")}</label>
+                    <input type="text" id="confirmationCode" name="confirmationCode" class="${properties.kcInputClass!}"
+                           inputmode="numeric" autocomplete="one-time-code" autofocus/>
+                    <span class="orchestrator-hint">${t.of("Ihre App zeigt nach der Freigabe einen sechsstelligen Code. Geben Sie ihn hier ein.")}</span>
+                </div>
+                <div class="orchestrator-actions">
+                    <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter")}</button>
+                    <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
+                            type="submit" name="orchestrator_abandon" value="true">${t.of("Abbrechen")}</button>
+                </div>
+            </form>
+        <#else>
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
             <img src="${qrDataUri}" alt="${t.of("QR-Code")}" width="220" height="220"/>
         </div>
@@ -21,14 +38,9 @@
         </div>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
-            <#-- verificationCode is never typed anywhere - only compared by eye against the app
-                 screen (QR-jacking countermeasure, docs/07-betrieb.md #5). -->
-            <#if verificationCode??>
-                <p>${t.of("Vergleichscode:")} <strong class="orchestrator-qr-code">${verificationCode}</strong></p>
-                <p class="orchestrator-hint">
-                    ${t.of("Bestätigen Sie in der App nur, wenn dort derselbe Code angezeigt wird.")}
-                </p>
-            </#if>
+            <p class="orchestrator-hint">
+                ${t.of("Nach der Freigabe zeigt Ihre App einen Code, den Sie hier eingeben.")}
+            </p>
         </div>
 
         <div class="${properties.kcFormGroupClass!} orchestrator-qr-center">
@@ -61,5 +73,6 @@
                 document.getElementById("kc-orchestrator-tool-form").submit();
             }, 3000);
         </script>
+        </#if>
     </#if>
 </@layout.registrationLayout>

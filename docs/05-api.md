@@ -635,25 +635,30 @@ Beide durchlaufen dieselbe Prüfung:
      `stepData={"kind":"missing-fields","missingFields":["pairingCode"]}`.
    - `PATCH .../confirm-qr-login` mit `{"pairingCode":"..."}` (aus dem QR-Code bzw. über den
      Demo-Link vorbelegt, [Frontend](10-frontend.md)) → bei einer gültigen, noch offenen Anfrage
-     `stepData={"kind":"qr-pairing","verificationCode":"..."}` und `next.step="confirm"`. Der
-     Nutzer vergleicht diesen Code mit dem auf der Web-Seite angezeigten (Schutz davor, dass jemand
-     einen fremden QR-Code unterschiebt). Bei einem unbekannten, abgelaufenen oder schon
-     entschiedenen Code kommt `stepData.error`; der Schritt bleibt auf `input`, und es gelten die
-     üblichen Regeln für weitere Versuche.
+     `next.step="confirm"`. Bei einem unbekannten, abgelaufenen oder schon entschiedenen Code kommt
+     `stepData.error`; der Schritt bleibt auf `input`, und es gelten die üblichen Regeln für weitere
+     Versuche.
    - `PATCH .../confirm-qr-login` mit `{"decision":"accept"}` bzw. `{"decision":"reject"}`. Hat das
      Konto kein aktives `enroll-qr`, liefert `accept` `stepData.error` („QR-Login ist für dieses
      Konto nicht aktiviert").
-5. Nach erfolgreichem `accept`:
+5. Nach erfolgreichem `accept`: `next.step="showCode"` mit
+   `stepData={"kind":"qr-pairing","confirmationCode":"482913"}`. Diesen **Bestätigungscode** tippt
+   der Nutzer in den wartenden Browser; erst damit ist der Browser angemeldet (Code in
+   Gegenrichtung, [Betrieb](07-betrieb.md) Abschnitt 5). Der Code steht nur in dieser einen Antwort,
+   gespeichert wird sein Hash; nach einem Neuladen zeigt `showCode` ihn nicht mehr.
+   `PATCH .../confirm-qr-login` mit `{"decision":"done"}` beendet den Schritt:
    `next={"type":"orchestrator","context":"authentication","step":"authenticated"}`. War der Kanal
    vor diesem Aufruf noch nicht `AUTHENTICATED`, fragt die Antwort vorher per `Prompt` („Jetzt
    abmelden?"), ob der Kanal angemeldet bleiben soll. `reject` liefert stattdessen `stepData.error`
    („Vom Nutzer abgelehnt").
 
-Die Web-Seite selbst (`auth-qr`/`auth-qr-lookup`) fragt denselben allgemeinen `PATCH`-Endpunkt des
-Tools regelmäßig mit leerem Inhalt ab, solange die Anfrage offen ist; das zählt nicht gegen die
-Versuchs- oder Login-Sperre. Bei `APPROVED` liefert derselbe `PATCH` `Completed.Authenticated`, bei
-`DENIED` oder nach Ablauf entsprechend `Failed`. Bei `auth-qr-lookup` steht dabei die gefundene
-`accountId` im `demo`-Objekt.
+Die Web-Seite selbst (`auth-qr`/`auth-qr-lookup`) hat zwei Schritte. In `waitForApp` fragt sie
+denselben allgemeinen `PATCH`-Endpunkt des Tools regelmäßig mit leerem Inhalt ab; das zählt nicht
+gegen die Versuchs- oder Login-Sperre. Nach der Freigabe in der App liefert derselbe `PATCH`
+`next.step="enterCode"` (`missingFields=["confirmationCode"]`). `PATCH` mit
+`{"confirmationCode":"..."}` liefert beim richtigen Code `Completed.Authenticated`, bei einem
+falschen `Failed`; nach drei falschen Codes ist die Anfrage verbrannt. Bei `DENIED` oder nach Ablauf
+kommt ebenfalls `Failed`. Bei `auth-qr-lookup` steht die gefundene `accountId` im `demo`-Objekt.
 
 ---
 

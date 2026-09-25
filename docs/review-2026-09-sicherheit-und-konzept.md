@@ -226,6 +226,16 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-2 QR-Login: Deep-Link umgeht den Prüfcode
 
+> **Behoben (2026-09-25), anders als unten vorgeschlagen:** Den Prüfcode in der App eintippen zu
+> lassen, hätte nicht geholfen – der Angreifer schreibt ihn einfach mit in die Nachricht. Umgesetzt
+> ist ein **Code in Gegenrichtung**: Die Freigabe in der App meldet den Browser nicht mehr an, sondern
+> erzeugt einen sechsstelligen Bestätigungscode (nur als Hash gespeichert, einmal an die App
+> ausgeliefert), den man in den wartenden Browser tippt (`QrLoginBrowserSide`, Schritte `enterCode`
+> im Browser und `showCode` in der App). Nach drei falschen Codes ist die Anfrage verbrannt. Alle
+> Übergänge prüfen `expiresAt`. Der Vergleichscode entfällt. Angepasst: Keycloak-Seite (FreeMarker und
+> Keycloakify), App-Frontend, OpenAPI-Snapshot, Doku 05/07/Journey. Tests:
+> `AuthQrFlowIntegrationTest`, `ConfirmQrLoginToolHandlerTest`.
+
 - **Wo:** `auth_qr/internal/confirmqrlogin/ConfirmQrLoginToolHandler.kt:38-44` (vorbefüllter
   Pairing-Code springt direkt nach `confirm`); `:116-119` (Prüfcode 000–999 nur angezeigt, nie eingegeben).
 - **Angriff:** Angreifer startet `auth-qr-lookup`, schickt dem Opfer `…/app/?pairingCode=X` mit

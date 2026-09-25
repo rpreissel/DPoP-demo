@@ -1,11 +1,14 @@
 package com.example.dpop.orchestrator
 
+import org.springframework.web.client.HttpClientErrorException
+import org.junit.jupiter.api.assertThrows
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.mockk.every
 import java.time.Instant
 import java.util.UUID
@@ -89,8 +92,8 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
         resolved.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "input")
     }
 
-    /** Activates auth-qr-lookup on a fresh WEB channel, returns (toolSessionId, pairingCode, verificationCode). */
-    private fun startWebLookup(): Triple<String, String, String> {
+    /** Activates auth-qr-lookup on a fresh WEB channel, returns (toolSessionId, pairingCode). */
+    private fun startWebLookup(): Pair<String, String> {
         val webChannelSessionId = UUID.randomUUID()
         stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
         kcPatch(webChannelSessionId)
@@ -98,16 +101,31 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
             .nextRaw()["toolSessionId"] as String
         val waiting = kcPatchTool("/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup")
         val pairingCode = waiting.stepData()["pairingCode"] as String
-        val verificationCode = waiting.stepData()["verificationCode"] as String
-        return Triple(webToolSessionId, pairingCode, verificationCode)
+        return webToolSessionId to pairingCode
+    }
+
+    /**
+     * Drives the APP side up to and including the approval; returns (accountId, confirmationCode) -
+     * the code the app shows, once, to be typed into the browser.
+     */
+    private fun approveOnApp(pairingCode: String): Pair<Long, String> {
+        val (appChannelSessionId, accountId) = registerWithQrOptIn()
+        post("/orchestrator/api/v1/channels/$appChannelSessionId/peer-logins")
+        resolveReconfirmation(appChannelSessionId)
+        val confirmToolSessionId =
+            post("/orchestrator/api/v1/channels/$appChannelSessionId/tools/confirm-qr-login").nextRaw()["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"pairingCode":"$pairingCode"}""")
+        val shown = patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"decision":"accept"}""")
+        shown.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "showCode")
+        return accountId to (shown.stepData()["confirmationCode"] as String)
     }
 
     init {
         given("an account with the qr opt-in, and a WEB channel waiting on auth-qr-lookup") {
             `when`("that same account confirms via confirm-qr-login on its own authenticated channel") {
-                then("the WEB channel's next poll sees Completed.Authenticated with the right account") {
+                then("the app shows a confirmation code, and only that code typed into the browser logs it in") {
 
-                val (webToolSessionId, pairingCode, verificationCode) = startWebLookup()
+                val (webToolSessionId, pairingCode) = startWebLookup()
                 val (appChannelSessionId, accountId) = registerWithQrOptIn()
 
                 val started = post("/orchestrator/api/v1/channels/$appChannelSessionId/peer-logins")
@@ -120,17 +138,53 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
                     """{"pairingCode":"$pairingCode"}"""
                 )
                 confirmStep.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "confirm")
-                (confirmStep.stepData()["verificationCode"] as String) shouldBe verificationCode
 
-                val approved = patch(
-                    "/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login",
-                    """{"decision":"accept"}"""
+                val shown = patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"decision":"accept"}""")
+                shown.next() shouldBe mapOf("type" to "tool", "toolId" to "confirm-qr-login", "step" to "showCode")
+                val confirmationCode = shown.stepData()["confirmationCode"] as String
+
+                // Approving alone logs no browser in (review 2026-09, M-2) - it now asks for the code.
+                val asking = kcPatchTool("/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup")
+                asking.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-qr-lookup", "step" to "enterCode")
+
+                val resolved = kcPatchTool(
+                    "/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup",
+                    """{"confirmationCode":"$confirmationCode"}"""
                 )
-                approved.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
-
-                val resolved = kcPatchTool("/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup")
                 resolved.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
                 (resolved["authData"] as Map<*, *>)["accountId"] shouldBe accountId
+
+                val done = patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"decision":"done"}""")
+                done.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
+
+                }
+            }
+        }
+
+        given("an approved pairing whose browser does not know the code - a victim approving from a phishing link") {
+            `when`("the browser guesses") {
+                then("wrong codes fail, and after three the login is aborted and the request burned") {
+
+                val (webToolSessionId, pairingCode) = startWebLookup()
+                val (_, confirmationCode) = approveOnApp(pairingCode)
+                val wrong = if (confirmationCode == "000000") "000001" else "000000"
+
+                repeat(2) {
+                    val guessed = kcPatchTool(
+                        "/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup",
+                        """{"confirmationCode":"$wrong"}"""
+                    )
+                    guessed.channel()["state"] shouldNotBe "AUTHENTICATED"
+                }
+                // The third wrong code also exhausts the journey's own attempt budget - the browser
+                // login is aborted, and the request itself is burned regardless.
+                val aborted = assertThrows<HttpClientErrorException> {
+                    kcPatchTool("/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup", """{"confirmationCode":"$wrong"}""")
+                }
+                aborted.statusCode shouldBe HttpStatus.GONE
+                jdbcTemplate.queryForObject(
+                    "SELECT status FROM auth_qr.login_request WHERE pairing_code = ?", String::class.java, pairingCode
+                ) shouldBe "EXPIRED"
 
                 }
             }
@@ -140,7 +194,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
             `when`("the APP side declines") {
                 then("the WEB channel's next poll fails, the journey does not silently continue") {
 
-                val (webToolSessionId, pairingCode, _) = startWebLookup()
+                val (webToolSessionId, pairingCode) = startWebLookup()
                 val (appChannelSessionId, _) = registerWithQrOptIn()
 
                 post("/orchestrator/api/v1/channels/$appChannelSessionId/peer-logins")
@@ -164,7 +218,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
             `when`("its own channel tries to confirm a pending pairing") {
                 then("it is rejected, never silently approved") {
 
-                val (webToolSessionId, pairingCode, _) = startWebLookup()
+                val (webToolSessionId, pairingCode) = startWebLookup()
 
                 // A DIFFERENT account that never enrolled qr.
                 val noOptInChannelSessionId = loginAsSeededAccount()
@@ -176,7 +230,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
                 val rejected = patch("/orchestrator/api/v1/tools/$confirmToolSessionId/confirm-qr-login", """{"decision":"accept"}""")
                 rejected.stepData()["error"].shouldNotBeNull()
 
-                // Never resolved (resolveIfPending is never reached without the opt-in) - the WEB
+                // Never resolved (approveIfPending is never reached without the opt-in) - the WEB
                 // side is still waiting, not silently authenticated and not aborted either.
                 val stillWaiting = kcPatchTool("/orchestrator/api/v1/tools/$webToolSessionId/auth-qr-lookup")
                 stillWaiting.next()["step"] shouldBe "waitForApp"

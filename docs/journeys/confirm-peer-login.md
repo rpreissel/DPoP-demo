@@ -62,11 +62,15 @@ dieselben Schritte:
 4. Danach wird `confirm-qr-login` gestartet (`Confirming`, der einzige Kandidat). Geht der Nutzer
    dort zurück (`Abandoned`), lehnt er die Anfrage damit nicht ab. Er kommt nur wieder zum selben
    Kandidaten.
-5. Das Ziel ist erreicht, sobald das Tool `Completed` oder `Failed` meldet. Die Kandidatenliste wird
+5. `confirm-qr-login` hat nach der Freigabe einen dritten Schritt `showCode`: Die App zeigt den
+   Bestätigungscode, den der Nutzer in den wartenden Browser tippt – erst damit ist der Browser
+   angemeldet ([Betrieb](../07-betrieb.md) Abschnitt 5). `done` schließt das Tool ab.
+6. Das Ziel ist erreicht, sobald das Tool `Completed` oder `Failed` meldet. Die Kandidatenliste wird
    danach nicht noch einmal angeboten; die Journey endet mit diesem einen Tool. War der Kanal vorher
    nicht angemeldet, fragt `OfferLogout` (ein `AnswerableState`), ob er angemeldet bleiben soll.
 
 Der Pairing-Code wird **nicht** beim Anlegen des Kanals übergeben. Er ist ein Eingabefeld im ersten
 Schritt von `confirm-qr-login`. Der QR-Code (oder in der Demo der Link) enthält einen Deep-Link. Er
 setzt in der App `intent=confirm_peer_login` und reicht den `pairingCode` vorausgefüllt durch
-([Frontend](../10-frontend.md)).
+([Frontend](../10-frontend.md)). Dass der Deep-Link den Pairing-Code vorbelegt, ist unkritisch:
+Die Freigabe allein meldet keinen Browser an, der Bestätigungscode muss zurück in den Browser.

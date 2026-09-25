@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriComponentsBuilder
 import com.example.dpop.tool_api.API_V1
@@ -59,15 +60,18 @@ class AuthQrToolController(
 
     @PatchMapping("$API_V1/tools/{toolSessionId}/auth-qr")
     @Operation(
-        summary = "Poll for the APP side's decision",
-        description = "No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen)."
+        summary = "Poll for the APP side's decision, then submit the confirmation code the app shows",
+        description = "Step waitForApp: an empty PATCH is the poll. Step enterCode: the app approved and shows a " +
+            "confirmation code; the browser is logged in only once it submits that code (docs/05-api.md, " +
+            "Peer-Login bestätigen; docs/07-betrieb.md #5)."
     )
     fun patch(
         @PathVariable toolSessionId: UUID,
-        @BindingKey bindingKeyRef: String
+        @BindingKey bindingKeyRef: String,
+        @RequestBody(required = false) request: QrConfirmationCodeRequest?
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_QR_TOOL_ID)
-        val outcome = handler.patch(toolSessionId)
+        val outcome = handler.patch(toolSessionId, request?.confirmationCode)
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 

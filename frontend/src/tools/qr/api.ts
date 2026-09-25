@@ -5,7 +5,7 @@ export function submitPairingCode(ctx: ToolRenderContext, pairingCode: string) {
   return submitViaPatch(ctx, { pairingCode })
 }
 
-export function submitDecision(ctx: ToolRenderContext, decision: 'accept' | 'reject') {
+export function submitDecision(ctx: ToolRenderContext, decision: 'accept' | 'reject' | 'done') {
   return submitViaPatch(ctx, { decision })
 }
 

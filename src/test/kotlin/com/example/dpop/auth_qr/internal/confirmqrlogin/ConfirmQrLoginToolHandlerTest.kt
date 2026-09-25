@@ -2,12 +2,14 @@ package com.example.dpop.auth_qr.internal.confirmqrlogin
 
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.ConfirmQrLoginDescriptor
+import com.example.dpop.auth_qr.api.v1.QrPairingStep
 import com.example.dpop.auth_qr.internal.QrLoginRequest
 import com.example.dpop.auth_qr.internal.QrLoginRequestRepository
-import com.example.dpop.auth_qr.internal.QrLoginStatus
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldMatch
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import java.util.Optional
@@ -33,10 +35,10 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
 
         `when`("the pairing's expectedAccountId belongs to a DIFFERENT account than the one confirming") {
             every { qrLoginRequestRepository.findById(pairingCode) } returns Optional.of(
-                QrLoginRequest(pairingCode = pairingCode, verificationCode = "123456", expectedAccountId = 42L)
+                QrLoginRequest(pairingCode = pairingCode, expectedAccountId = 42L)
             )
 
-            then("it fails immediately, never reaching resolveIfPending") {
+            then("it fails immediately, never reaching approveIfPending") {
                 val outcome = handler.patch(toolSessionId, pairingCode = null, decision = "accept", accountId = 99L, hasQrEnrollment = true)
 
                 outcome shouldBe ToolOutcome.Failed(Text("Bestätigung passt nicht zu diesem Konto"))
@@ -45,11 +47,11 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
 
         `when`("the pairing's expectedAccountId matches the confirming account") {
             every { qrLoginRequestRepository.findById(pairingCode) } returns Optional.of(
-                QrLoginRequest(pairingCode = pairingCode, verificationCode = "123456", expectedAccountId = 99L)
+                QrLoginRequest(pairingCode = pairingCode, expectedAccountId = 99L)
             )
-            every { qrLoginRequestRepository.resolveIfPending(pairingCode, QrLoginStatus.APPROVED, 99L) } returns 1
+            every { qrLoginRequestRepository.approveIfPending(pairingCode, 99L, any(), any(), any()) } returns 1
 
-            then("it approves") {
+            then("it approves and shows the six-digit code for the browser - it does not finish yet") {
                 val outcome = handler.patch(toolSessionId, pairingCode = null, decision = "accept", accountId = 99L, hasQrEnrollment = true)
 
                 outcome.shouldBeApproved()
@@ -58,11 +60,11 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
 
         `when`("expectedAccountId is null (auth-qr-lookup, no target account to violate)") {
             every { qrLoginRequestRepository.findById(pairingCode) } returns Optional.of(
-                QrLoginRequest(pairingCode = pairingCode, verificationCode = "123456", expectedAccountId = null)
+                QrLoginRequest(pairingCode = pairingCode, expectedAccountId = null)
             )
-            every { qrLoginRequestRepository.resolveIfPending(pairingCode, QrLoginStatus.APPROVED, 99L) } returns 1
+            every { qrLoginRequestRepository.approveIfPending(pairingCode, 99L, any(), any(), any()) } returns 1
 
-            then("it approves - any account may confirm") {
+            then("it approves - any account may confirm - and shows the code for the browser") {
                 val outcome = handler.patch(toolSessionId, pairingCode = null, decision = "accept", accountId = 99L, hasQrEnrollment = true)
 
                 outcome.shouldBeApproved()
@@ -79,6 +81,9 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
     }
 })
 
+/** Approval now shows the confirmation code (review 2026-09, M-2); `done` finishes the tool later. */
 private fun ToolOutcome.shouldBeApproved() {
-    this shouldBe ToolOutcome.Completed.Approved()
+    val step = this.shouldBeInstanceOf<ToolOutcome.InProgress>()
+    step.nextStep shouldBe "showCode"
+    step.stepData.shouldBeInstanceOf<QrPairingStep>().confirmationCode!! shouldMatch Regex("\\d{6}")
 }

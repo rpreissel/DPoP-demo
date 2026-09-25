@@ -1,6 +1,7 @@
 import type { ToolModule } from '../types'
 import { confirmEnrollQr, submitDecision, submitPairingCode } from './api'
 import { ConfirmQrLoginForm } from './ConfirmQrLoginForm'
+import { ShowConfirmationCode } from './ShowConfirmationCode'
 import { EnrollQrForm } from './EnrollQrForm'
 import { PairingCodeInputForm } from './PairingCodeInputForm'
 import { attemptError } from '../stepData'
@@ -28,8 +29,13 @@ export const confirmQrLogin: ToolModule = {
   explain: (step) =>
     step === 'confirm'
       ? {
-          does: t('Stimmt der Prüfcode mit dem im Browser überein, geben Sie die Anmeldung dort frei. Der Browser bekommt dann seine eigene Sitzung.'),
+          does: t('Sie geben die Anmeldung frei. Angemeldet ist der Browser erst, wenn dort der Code eingegeben wird, den die App danach zeigt.'),
           actor: t('Sie in der App. Der Browser wartet auf Ihre Freigabe.'),
+        }
+      : step === 'showCode'
+      ? {
+          does: t('Der Code gehört in den wartenden Browser. Erst damit bekommt der Browser seine eigene Sitzung.'),
+          actor: t('Sie tippen den Code im Browser ein.'),
         }
       : {
           does: t('Der Code aus dem Browser sagt dem Orchestrator, welche wartende Browser-Anmeldung gemeint ist.'),
@@ -42,9 +48,17 @@ export const confirmQrLogin: ToolModule = {
     if (ctx.step === 'confirm') {
       return (
         <ConfirmQrLoginForm
-          verificationCode={stepDataOf(ctx.stepData, 'qr-pairing')?.verificationCode}
           onAccept={() => submitDecision(ctx, 'accept')}
           onReject={() => submitDecision(ctx, 'reject')}
+          error={attemptError(ctx)}
+        />
+      )
+    }
+    if (ctx.step === 'showCode') {
+      return (
+        <ShowConfirmationCode
+          confirmationCode={stepDataOf(ctx.stepData, 'qr-pairing')?.confirmationCode}
+          onDone={() => submitDecision(ctx, 'done')}
           error={attemptError(ctx)}
         />
       )

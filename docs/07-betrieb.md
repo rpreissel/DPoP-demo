@@ -363,15 +363,25 @@ dieselben Schlüssel. Jeder Bereich hat einen eigenen `@Service` mit eigenen Gre
 Der Schritt `input` von `confirm-qr-login` nimmt einen `pairingCode` entgegen, den der Nutzer
 eingibt oder den ein Deep-Link vorausfüllt ([`CONFIRM_PEER_LOGIN`](journeys/confirm-peer-login.md)):
 
-- **Schutz davor, einen fremden QR-Code zu bestätigen:** Ein dreistelliger `verificationCode`
-  erscheint auf beiden Bildschirmen und wird nur mit dem Auge verglichen, nie übertragen oder
-  eingegeben. Damit läuft der Angriff ins Leere, bei dem ein Angreifer seinen eigenen QR-Code vom Opfer
-  bestätigen lässt. **Nicht** geschützt ist gegen einen Angreifer, der beide Seiten in Echtzeit
-  kontrolliert und weiterleitet (Man-in-the-Middle).
-- **Unteilbarer Zustandswechsel:** `accept` und `reject` schreiben nur unter einer Bedingung
-  (`WHERE status = 'PENDING'`, `QrLoginRequestRepository.resolveIfPending`). Wird keine Zeile
-  getroffen, war die Anfrage bereits entschieden oder abgelaufen. So können nie zwei Konten
-  gleichzeitig als `resolvingAccountId` eingetragen werden.
+- **Schutz davor, einen fremden QR-Code zu bestätigen – Code in Gegenrichtung:** Die Freigabe in
+  der App meldet den Browser noch nicht an. Sie erzeugt einen sechsstelligen **Bestätigungscode**,
+  den nur die App anzeigt und den der Nutzer in den wartenden Browser tippt; erst dann ist der
+  Browser angemeldet (`QrLoginBrowserSide`). Ein Angreifer, der dem Opfer seinen eigenen
+  Pairing-Code schickt (per Link oder als QR-Bild), bekommt damit nichts: Das Opfer müsste den Code
+  in den Browser des Angreifers tippen oder ihn ausdrücklich weitergeben; die App warnt davor.
+  *Früher* zeigten beide Seiten einen dreistelligen Vergleichscode, den man nur mit dem Auge
+  verglich. Den konnte der Angreifer einfach mit in seine Nachricht schreiben (Review 2026-09, M-2).
+  **Nicht** geschützt ist gegen ein Opfer, das den Bestätigungscode auf Nachfrage selbst herausgibt.
+- **Bestätigungscode:** gespeichert nur als Hash, im Klartext genau einmal an die App ausgeliefert.
+  Nach der Freigabe hat der Browser zwei Minuten Zeit; nach drei falschen Codes ist die Anfrage
+  verbrannt (`EXPIRED`, `countWrongConfirmation`). Das Versuchsbudget der Journey (3) greift
+  zusätzlich.
+- **Unteilbare Zustandswechsel:** Freigabe, Ablehnung und Abschluss schreiben nur unter einer
+  Bedingung (`approveIfPending`/`denyIfPending`: `status = 'PENDING'` und nicht abgelaufen;
+  `completeIfConfirmed`: `status = 'APPROVED'`, richtiger Hash, nicht abgelaufen). Wird keine Zeile
+  getroffen, war die Anfrage bereits entschieden, abgelaufen oder der Code falsch. So können nie
+  zwei Konten gleichzeitig als `resolvingAccountId` eingetragen werden, und ein Code meldet nie zwei
+  Browser an.
 - **Zufallsgehalt des `pairingCode`:** 8 Zeichen aus einem Alphabet mit wenig Verwechslungsgefahr
   (ähnlich Crockford-Base32, ohne `I`, `L`, `O` und `U`), etwa 40 Bit. Das ist bewusst weniger als
   bei einem reinen API-Token, weil ein Mensch den Code fehlerfrei abschreiben können muss.

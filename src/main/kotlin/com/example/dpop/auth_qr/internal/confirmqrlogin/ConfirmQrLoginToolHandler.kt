@@ -2,12 +2,14 @@ package com.example.dpop.auth_qr.internal.confirmqrlogin
 
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.ConfirmQrLoginDescriptor
+import com.example.dpop.auth_qr.internal.PairingCodeGenerator
 import com.example.dpop.auth_qr.internal.QrLoginRequestRepository
 import com.example.dpop.auth_qr.internal.QrLoginStatus
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import com.example.dpop.auth_qr.api.v1.QrPairingStep
@@ -15,8 +17,10 @@ import com.example.dpop.tool_spi.MissingFields
 
 /**
  * toolId=confirm-qr-login: approve or decline a pending `auth-qr`/`auth-qr-lookup` pairing
- * (docs/05-api.md, Peer-Login bestätigen; docs/07-betrieb.md #5). Two steps: `input` resolves the pairing code the user
- * typed or the deep link pre-filled, `confirm` shows the verification code and takes the decision.
+ * (docs/05-api.md, Peer-Login bestätigen; docs/07-betrieb.md #5). Three steps: `input` resolves the
+ * pairing code the user typed or the deep link pre-filled, `confirm` takes the decision, and after an
+ * approval `showCode` shows the confirmation code to type into the browser - approving alone logs
+ * no browser in (review 2026-09, M-2). `done` ends it.
  *
  * Pure business logic; self-description lives in [ConfirmQrLoginDescriptor].
  */
@@ -58,6 +62,8 @@ class ConfirmQrLoginToolHandler(
         }
 
         val resolvedCode = checkNotNull(data.pairingCode)
+        // Already approved by this account: only `done` is left; the code was shown once and is gone.
+        if (approvedBy(resolvedCode, accountId) && decision != DONE) return codeShownStep()
         return when (decision) {
             null -> confirmStepFor(resolvedCode)
             ACCEPT -> {
@@ -72,15 +78,21 @@ class ConfirmQrLoginToolHandler(
                     // auth-qr-lookup setzt expectedAccountId bewusst nie, bleibt also unberührt.
                     return ToolOutcome.Failed(Text("Bestätigung passt nicht zu diesem Konto"))
                 }
-                val rows = qrLoginRequestRepository.resolveIfPending(resolvedCode, QrLoginStatus.APPROVED, accountId)
+                val confirmationCode = PairingCodeGenerator.confirmationCode()
+                val now = Instant.now()
+                val rows = qrLoginRequestRepository.approveIfPending(
+                    resolvedCode, accountId, PairingCodeGenerator.digest(confirmationCode), now, now.plus(CONFIRMATION_TTL)
+                )
                 if (rows == 1) {
-                    ToolOutcome.Completed.Approved()
+                    // The one and only time the plaintext leaves the server - it is stored as a hash.
+                    ToolOutcome.InProgress(nextStep = SHOW_CODE, stepData = QrPairingStep(confirmationCode = confirmationCode))
                 } else {
                     ToolOutcome.Failed(Text("Anfrage wurde bereits bearbeitet oder ist abgelaufen"))
                 }
             }
+            DONE -> if (approvedBy(resolvedCode, accountId)) ToolOutcome.Completed.Approved() else confirmStepFor(resolvedCode)
             REJECT -> {
-                val rows = qrLoginRequestRepository.resolveIfPending(resolvedCode, QrLoginStatus.DENIED, null)
+                val rows = qrLoginRequestRepository.denyIfPending(resolvedCode, Instant.now())
                 if (rows == 1) {
                     ToolOutcome.Failed(Text("Vom Nutzer abgelehnt"))
                 } else {
@@ -109,17 +121,34 @@ class ConfirmQrLoginToolHandler(
     @Transactional(readOnly = true)
     fun read(toolSessionId: UUID): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown confirm-qr-login tool session: $toolSessionId" }
-        return data.pairingCode?.let { confirmStepFor(it) }
-            ?: ToolOutcome.InProgress(nextStep = "input", stepData = MissingFields(listOf("pairingCode")))
+        val pairingCode = data.pairingCode
+            ?: return ToolOutcome.InProgress(nextStep = "input", stepData = MissingFields(listOf("pairingCode")))
+        // This tool session only ever approves for its own channel's account - an approved request
+        // here is its own approval.
+        val approved = qrLoginRequestRepository.findByIdOrNull(pairingCode)
+            ?.let { it.status == QrLoginStatus.APPROVED || it.status == QrLoginStatus.COMPLETED } ?: false
+        return if (approved) codeShownStep() else confirmStepFor(pairingCode)
     }
 
-    private fun confirmStepFor(pairingCode: String): ToolOutcome.InProgress {
-        val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
-        return ToolOutcome.InProgress(nextStep = "confirm", stepData = QrPairingStep(pairingCode = null, verificationCode = request?.verificationCode))
-    }
+    private fun confirmStepFor(pairingCode: String): ToolOutcome.InProgress =
+        ToolOutcome.InProgress(nextStep = "confirm", stepData = MissingFields(listOf("decision")))
+
+    /** After a reload: approved, but the code is not recoverable - only its hash is stored. */
+    private fun codeShownStep(): ToolOutcome.InProgress =
+        ToolOutcome.InProgress(nextStep = SHOW_CODE, stepData = MissingFields(listOf("decision")))
+
+    private fun approvedBy(pairingCode: String, accountId: Long): Boolean =
+        qrLoginRequestRepository.findByIdOrNull(pairingCode)?.let {
+            it.resolvingAccountId == accountId && (it.status == QrLoginStatus.APPROVED || it.status == QrLoginStatus.COMPLETED)
+        } ?: false
 
     companion object {
         const val ACCEPT = "accept"
         const val REJECT = "reject"
+        const val DONE = "done"
+        const val SHOW_CODE = "showCode"
+
+        /** How long the browser has to type the code after the approval. */
+        val CONFIRMATION_TTL: Duration = Duration.ofMinutes(2)
     }
 }

@@ -1403,11 +1403,30 @@ export interface Prompt {
     title?: TextRef;
 }
 /**
- * A QR pairing in progress: the pairing code, and the verification code once known.
+ * 
+ * @export
+ * @interface QrConfirmationCodeRequest
+ */
+export interface QrConfirmationCodeRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof QrConfirmationCodeRequest
+     */
+    confirmationCode?: string;
+}
+/**
+ * A QR pairing in progress: the pairing code (browser), or the confirmation code to type into the browser (app, once).
  * @export
  * @interface QrPairingStep
  */
 export interface QrPairingStep {
+    /**
+     * 
+     * @type {string}
+     * @memberof QrPairingStep
+     */
+    confirmationCode?: string;
     /**
      * 
      * @type {string}
@@ -1420,12 +1439,6 @@ export interface QrPairingStep {
      * @memberof QrPairingStep
      */
     pairingCode?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof QrPairingStep
-     */
-    verificationCode?: string;
 }
 
 

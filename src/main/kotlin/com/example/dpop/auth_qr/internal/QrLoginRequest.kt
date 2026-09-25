@@ -8,7 +8,11 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-enum class QrLoginStatus { PENDING, APPROVED, DENIED, EXPIRED }
+/**
+ * PENDING -> APPROVED (the app approved and showed its confirmation code) -> COMPLETED (the
+ * browser entered it). DENIED and EXPIRED end it; so do too many wrong codes (EXPIRED).
+ */
+enum class QrLoginStatus { PENDING, APPROVED, COMPLETED, DENIED, EXPIRED }
 
 /**
  * The one piece of state connecting a WEB `auth-qr`/`auth-qr-lookup` activation to an APP
@@ -17,9 +21,12 @@ enum class QrLoginStatus { PENDING, APPROVED, DENIED, EXPIRED }
  *
  * [pairingCode] doubles as the primary key: it IS the lookup capability, not just a label
  * (docs/07-betrieb.md #5 - 8 chars, high enough entropy given the short TTL; the anonymous rate
- * limiting on failed lookups this assumes is not yet implemented, see that section). [verificationCode] is deliberately much lower-entropy - it is
- * never submitted anywhere, only compared by eye between the WEB and APP screens (QR-jacking
- * countermeasure, same doc section).
+ * limiting on failed lookups this assumes is not yet implemented, see that section).
+ *
+ * [confirmationCodeHash] is the code in the OPPOSITE direction (review 2026-09, M-2): created when
+ * the app approves, shown only there, typed into the browser - only then is the browser logged in.
+ * A victim approving an attacker's pairing from a link cannot type into the attacker's browser.
+ * Only the hash is kept; [confirmationAttempts] bounds guessing it in the browser.
  *
  * [expectedAccountId] is set only by `auth-qr` (the account is already known via the WEB channel)
  * - `confirm-qr-login`'s approval must match it exactly, never silently take over a different
@@ -33,9 +40,6 @@ class QrLoginRequest(
     @Column(name = "pairing_code", nullable = false)
     var pairingCode: String? = null,
 
-    @Column(name = "verification_code", nullable = false)
-    var verificationCode: String? = null,
-
     @Column(name = "expected_account_id")
     var expectedAccountId: Long? = null
 ) {
@@ -45,6 +49,12 @@ class QrLoginRequest(
 
     @Column(name = "resolving_account_id")
     var resolvingAccountId: Long? = null
+
+    @Column(name = "confirmation_code_hash")
+    var confirmationCodeHash: String? = null
+
+    @Column(name = "confirmation_attempts", nullable = false)
+    var confirmationAttempts: Int = 0
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null

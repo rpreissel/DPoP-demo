@@ -43,8 +43,8 @@ const { getKcContextMock } = createGetKcContextMock({
     'tool-qr-wait.ftl': {
       toolId: 'auth-qr-lookup',
       pageTitle: 'Mit der App anmelden',
+      step: 'waitForApp',
       pairingCode: 'K7Q2-M9XD',
-      verificationCode: '47',
       deepLink: 'http://localhost:8080/app/?intent=confirm_peer_login&pairingCode=K7Q2-M9XD',
       qrDataUri: 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><rect width=%2210%22 height=%2210%22 fill=%22%23eee%22/><rect x=%221%22 y=%221%22 width=%223%22 height=%223%22/><rect x=%226%22 y=%221%22 width=%223%22 height=%223%22/><rect x=%221%22 y=%226%22 width=%223%22 height=%223%22/></svg>',
     },

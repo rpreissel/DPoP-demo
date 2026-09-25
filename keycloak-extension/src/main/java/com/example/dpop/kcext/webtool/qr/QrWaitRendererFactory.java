@@ -10,9 +10,13 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Shared rendering for `auth-qr`/`auth-qr-lookup` (docs/05-api.md, Peer-Login bestätigen) -
- * both wait on the exact same `waitForApp` step with the exact same `stepData` shape
- * ({@code pairingCode}, {@code verificationCode}), so only the two toolIds/labels differ.
+ * Shared rendering for `auth-qr`/`auth-qr-lookup` (docs/05-api.md, Peer-Login bestätigen) - both
+ * run the same two steps, so only the two toolIds/labels differ:
+ * <ul>
+ *   <li>{@code waitForApp}: QR code and pairing code, polled until the app decides.</li>
+ *   <li>{@code enterCode}: the app approved and shows a confirmation code, which is typed here -
+ *       only then is this browser logged in (review 2026-09, M-2).</li>
+ * </ul>
  */
 abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
 
@@ -23,13 +27,14 @@ abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
 
     @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
+        if ("enterCode".equals(ctx.step())) {
+            return form.setAttribute("step", "enterCode").createForm(template());
+        }
         if (!"waitForApp".equals(ctx.step())) return null;
 
         JsonNode pairingCodeNode = ctx.stepData().get("pairingCode");
-        JsonNode verificationCodeNode = ctx.stepData().get("verificationCode");
         if (pairingCodeNode == null) return null;
         String pairingCode = pairingCodeNode.asText();
-        String verificationCode = verificationCodeNode != null ? verificationCodeNode.asText() : null;
 
         // /app/ (not /?...) so the link lands directly in the App-Kanal's own app instead of the
         // Willkommen page (docs/10-frontend.md #1); intent=confirm_peer_login is the same wire
@@ -39,8 +44,8 @@ abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
                 + URLEncoder.encode(pairingCode, StandardCharsets.UTF_8);
 
         return form
+                .setAttribute("step", "waitForApp")
                 .setAttribute("pairingCode", pairingCode)
-                .setAttribute("verificationCode", verificationCode)
                 .setAttribute("deepLink", deepLink)
                 .setAttribute("qrDataUri", QrImageEncoder.dataUri(deepLink))
                 .createForm(template());

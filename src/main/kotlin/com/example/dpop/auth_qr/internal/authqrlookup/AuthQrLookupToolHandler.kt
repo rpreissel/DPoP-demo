@@ -2,18 +2,14 @@ package com.example.dpop.auth_qr.internal.authqrlookup
 
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.AuthQrLookupDescriptor
-import com.example.dpop.auth_qr.QR_LOGIN_TTL
-import com.example.dpop.auth_qr.internal.PairingCodeGenerator
-import com.example.dpop.auth_qr.internal.QrLoginRequest
-import com.example.dpop.auth_qr.internal.QrLoginRequestRepository
-import com.example.dpop.auth_qr.internal.QrLoginStatus
+import com.example.dpop.auth_qr.api.v1.QrPairingStep
+import com.example.dpop.auth_qr.internal.QrLoginBrowserSide
+import com.example.dpop.tool_spi.MissingFields
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
 import java.util.UUID
-import com.example.dpop.auth_qr.api.v1.QrPairingStep
 
 /**
  * toolId=auth-qr-lookup: the WEB channel does not know the account yet - it is revealed by
@@ -26,58 +22,49 @@ import com.example.dpop.auth_qr.api.v1.QrPairingStep
 class AuthQrLookupToolHandler(
     private val descriptor: AuthQrLookupDescriptor,
     private val toolDataRepository: AuthQrLookupToolSessionRepository,
-    private val qrLoginRequestRepository: QrLoginRequestRepository
+    private val browserSide: QrLoginBrowserSide
 ) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        val pairingCode = PairingCodeGenerator.pairingCode()
-        qrLoginRequestRepository.save(
-            QrLoginRequest(
-                pairingCode = pairingCode,
-                verificationCode = PairingCodeGenerator.verificationCode(),
-                expectedAccountId = null
-            ).apply { expiresAt = Instant.now().plus(QR_LOGIN_TTL) }
-        )
+        val pairingCode = browserSide.open(expectedAccountId = null)
         toolDataRepository.save(AuthQrLookupToolSession(toolSessionId = toolSessionId, pairingCode = pairingCode))
-        return outcomeFor(pairingCode)
+        return waitingFor(pairingCode)
     }
 
-    /** Called on every poll (an empty PATCH) to re-check whether the APP side has decided yet. */
+    /**
+     * Every browser PATCH: an empty poll while the app has not decided, then the confirmation code
+     * the app shows ([QrLoginBrowserSide], review 2026-09 M-2). The account is whichever confirmed.
+     */
     @Transactional
-    fun patch(toolSessionId: UUID): ToolOutcome {
+    fun patch(toolSessionId: UUID, confirmationCode: String?): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-qr-lookup tool session: $toolSessionId" }
         val pairingCode = checkNotNull(data.pairingCode)
-        val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
-            ?: return ToolOutcome.Failed(Text("QR-Code abgelaufen"))
-
-        return when {
-            request.status == QrLoginStatus.PENDING && Instant.now().isAfter(request.expiresAt) ->
-                ToolOutcome.Failed(Text("QR-Code abgelaufen"))
-            request.status == QrLoginStatus.PENDING -> outcomeFor(pairingCode)
-            request.status == QrLoginStatus.APPROVED ->
-                ToolOutcome.Completed.Authenticated(
-                    amr = listOf(descriptor.method),
-                    achievedAcr = descriptor.maxAcr,
-                    factorTypes = descriptor.factorTypes,
-                    accountId = checkNotNull(request.resolvingAccountId) { "APPROVED QrLoginRequest without resolvingAccountId" }
-                )
-            request.status == QrLoginStatus.DENIED -> ToolOutcome.Failed(Text("Vom Nutzer abgelehnt"))
-            else -> ToolOutcome.Failed(Text("QR-Code abgelaufen"))
+        return when (val state = browserSide.advance(pairingCode, confirmationCode)) {
+            QrLoginBrowserSide.State.WaitingForApp -> waitingFor(pairingCode)
+            QrLoginBrowserSide.State.EnterCode -> ENTER_CODE
+            is QrLoginBrowserSide.State.Confirmed -> ToolOutcome.Completed.Authenticated(
+                amr = listOf(descriptor.method),
+                achievedAcr = descriptor.maxAcr,
+                factorTypes = descriptor.factorTypes,
+                accountId = state.accountId
+            )
+            is QrLoginBrowserSide.State.Failed -> ToolOutcome.Failed(state.reason)
         }
     }
 
+    /** Rebuilds the current step without deciding anything - an empty poll never writes. */
     @Transactional(readOnly = true)
     fun read(toolSessionId: UUID): ToolOutcome {
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-qr-lookup tool session: $toolSessionId" }
-        return outcomeFor(checkNotNull(data.pairingCode))
+        val pairingCode = checkNotNull(data.pairingCode)
+        return if (browserSide.advance(pairingCode, null) == QrLoginBrowserSide.State.EnterCode) ENTER_CODE else waitingFor(pairingCode)
     }
 
-    private fun outcomeFor(pairingCode: String): ToolOutcome.InProgress {
-        val request = qrLoginRequestRepository.findByIdOrNull(pairingCode)
-        return ToolOutcome.InProgress(
-            nextStep = "waitForApp",
-            stepData = QrPairingStep(pairingCode, request?.verificationCode)
-        )
+    private fun waitingFor(pairingCode: String) =
+        ToolOutcome.InProgress(nextStep = "waitForApp", stepData = QrPairingStep(pairingCode))
+
+    private companion object {
+        val ENTER_CODE = ToolOutcome.InProgress(nextStep = "enterCode", stepData = MissingFields(listOf("confirmationCode")))
     }
 }

@@ -15,18 +15,25 @@ components:
           example: ABCD-1234
           type: string
       type: object
-    QrPairingStep:
-      description: 'A QR pairing in progress: the pairing code, and the verification code once known.'
+    QrConfirmationCodeRequest:
       properties:
+        confirmationCode:
+          example: '482913'
+          type: string
+      type: object
+    QrPairingStep:
+      description: 'A QR pairing in progress: the pairing code (browser), or the confirmation code to type into the browser
+        (app, once).'
+      properties:
+        confirmationCode:
+          example: '482913'
+          type: string
         kind:
           enum:
           - qr-pairing
           type: string
         pairingCode:
-          example: 7F3K-92QL
-          type: string
-        verificationCode:
-          example: '4711'
+          example: 7F3K92QL
           type: string
       required:
       - kind
@@ -215,7 +222,9 @@ paths:
       tags:
       - 'Tool: QR-Login'
     patch:
-      description: No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen).
+      description: 'Step waitForApp: an empty PATCH is the poll. Step enterCode: the app approved and shows a confirmation
+        code; the browser is logged in only once it submits that code (docs/05-api.md, Peer-Login bestätigen; docs/07-betrieb.md
+        #5).'
       operationId: patch_2
       parameters:
       - in: path
@@ -224,6 +233,11 @@ paths:
         schema:
           format: uuid
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrConfirmationCodeRequest'
       responses:
         '200':
           content:
@@ -242,7 +256,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Poll for the APP side's decision
+      summary: Poll for the APP side's decision, then submit the confirmation code the app shows
       tags:
       - 'Tool: QR-Login'
   /orchestrator/api/v1/tools/{toolSessionId}/auth-qr-lookup:
@@ -277,7 +291,9 @@ paths:
       tags:
       - 'Tool: QR-Login'
     patch:
-      description: No request body - the empty PATCH itself is the poll (docs/05-api.md, Peer-Login bestätigen).
+      description: 'Step waitForApp: an empty PATCH is the poll. Step enterCode: the app approved and shows a confirmation
+        code; the browser is logged in only once it submits that code (docs/05-api.md, Peer-Login bestätigen; docs/07-betrieb.md
+        #5).'
       operationId: patch_3
       parameters:
       - in: path
@@ -286,6 +302,11 @@ paths:
         schema:
           format: uuid
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrConfirmationCodeRequest'
       responses:
         '200':
           content:
@@ -304,7 +325,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Poll for the APP side's decision
+      summary: Poll for the APP side's decision, then submit the confirmation code the app shows
       tags:
       - 'Tool: QR-Login'
   /orchestrator/api/v1/tools/{toolSessionId}/confirm-qr-login:

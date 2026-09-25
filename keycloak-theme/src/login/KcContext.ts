@@ -37,7 +37,8 @@ export type KcContextExtensionPerPage = {
   'tool-ident-fsc.ftl': ToolPage & WithPersons & { personalienPage: boolean }
   'tool-ident-kvnr.ftl': ToolPage & WithPersons
   'tool-qr-enroll.ftl': ToolPage
-  'tool-qr-wait.ftl': ToolPage & { pairingCode: string; verificationCode?: string; deepLink: string; qrDataUri: string }
+  'tool-qr-wait.ftl': ToolPage &
+    ({ step: 'waitForApp'; pairingCode: string; deepLink: string; qrDataUri: string } | { step: 'enterCode' })
   'orchestrator-manage-methods.ftl': {
     methods: { id: string; method: string; label?: string }[]
   }
