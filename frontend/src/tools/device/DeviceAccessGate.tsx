@@ -1,5 +1,6 @@
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface DeviceAccessGateProps {
   onConfirm: (userVerification: 'pin' | 'biometric') => void
@@ -19,9 +20,9 @@ export function DeviceAccessGate({ onConfirm, busy }: DeviceAccessGateProps) {
     <div className="card">
       <h2>{t('Gerät entsperren')}</h2>
       <p>{t('Bestätigen Sie den Zugriff auf den geräteeigenen Schlüssel.')}</p>
-      <div className="hint">
+      <DemoNote>
         <Tx text="{modus} PIN/Biometrie werden hier nur simuliert, keine echte Systemabfrage." modus={<strong>{t('Demo-Modus:')}</strong>} />
-      </div>
+      </DemoNote>
       <div className="form-actions" style={{ marginTop: '1rem' }}>
         <button type="button" disabled={busy} onClick={() => onConfirm('biometric')}>
           {t('Mit Biometrie bestätigen')}

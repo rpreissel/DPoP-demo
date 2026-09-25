@@ -1,0 +1,522 @@
+/* The App channel's split: an implied smartphone on one side, the demo tools on the other
+   (PhoneFrame, DemoArea). The phone follows a health insurer's app - dark blue head, a white sheet
+   with rounded top corners, soft cards, list rows with a chevron, pill buttons - with no brand, and
+   everything inside is sized for a 390px screen. The app's own components keep their class names;
+   this file only restyles them inside .phone__screen by re-pointing the palette variables and
+   shaping the few classes that matter. */
+
+/* ---- Stage: phone and demo side by side -------------------------------------------------- */
+
+.app-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 3rem;
+}
+
+.app-stage__phone {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 1000px) {
+  .app-stage {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 1rem;
+  }
+
+  .app-stage__phone {
+    position: static;
+  }
+
+  .app-stage > .demo-area {
+    width: 100%;
+  }
+}
+
+/* ---- The device ------------------------------------------------------------------------------ */
+
+.phone {
+  --phone-blue: #006bdd;
+  --phone-blue-hover: #0055b6;
+  --phone-navy: #002356;
+  --phone-navy-2: #003376;
+  --phone-sky: #ebf8fd;
+  --phone-ink: #1d2433;
+  --phone-muted: #5f6673;
+  --phone-line: #e3e6eb;
+  --phone-page: #f3f5f8;
+  --phone-danger: #c62828;
+
+  width: 390px;
+  max-width: calc(100vw - 2rem);
+  height: min(844px, calc(100vh - 6rem));
+  min-height: 560px;
+  padding: 12px;
+  border-radius: 54px;
+  background: #16171b;
+  box-shadow:
+    0 0 0 2px #3a3c43,
+    0 30px 60px -20px rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
+}
+
+.phone__screen {
+  /* The app's palette, re-pointed for every component rendered in here. */
+  --text: var(--phone-muted);
+  --text-h: var(--phone-ink);
+  --bg: #fff;
+  --border: var(--phone-line);
+  --code-bg: var(--phone-page);
+  --accent: var(--phone-blue);
+  --accent-bg: var(--phone-sky);
+  --accent-border: #99dcf7;
+  --social-bg: var(--phone-page);
+  --shadow: 0 2px 10px rgba(0, 35, 86, 0.08);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 42px;
+  background: var(--phone-page);
+  color: var(--phone-ink);
+  color-scheme: light;
+  font-size: 15px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.phone__status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 28px;
+  background: var(--phone-navy);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.phone__status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phone__signal {
+  width: 16px;
+  height: 10px;
+  background: linear-gradient(to right, #fff 20%, transparent 20% 27%, #fff 27% 47%, transparent 47% 54%, #fff 54% 74%, transparent 74% 81%, #fff 81%);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+}
+
+.phone__battery {
+  width: 22px;
+  height: 11px;
+  border: 1.5px solid #fff;
+  border-radius: 3px;
+  background: linear-gradient(to right, #fff 70%, transparent 70%) content-box;
+  padding: 1.5px;
+  box-sizing: border-box;
+}
+
+.phone__head {
+  flex: none;
+  padding: 10px 22px 34px;
+  background: linear-gradient(160deg, var(--phone-navy) 0%, var(--phone-navy-2) 100%);
+  color: #fff;
+}
+
+.phone__title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* The white sheet: rounded on top, pulled up into the head, and the one scrolling area. */
+.phone__sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-top: -20px;
+  padding: 6px 14px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 20px 20px 0 0;
+  background: var(--phone-page);
+}
+
+.phone__home {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  width: 134px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(29, 36, 51, 0.35);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* ---- What goes in it: cards, headings, text ------------------------------------------------- */
+
+.phone__screen .card {
+  flex: none;
+  margin: 12px 0 0;
+  padding: 18px 16px;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.phone__screen .card:first-child {
+  margin-top: 14px;
+}
+
+.phone__screen h2,
+.phone__screen .card h2 {
+  margin: 0 0 12px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--phone-ink);
+}
+
+.phone__screen h3,
+.phone__screen .section-heading {
+  margin: 20px 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--phone-ink);
+}
+
+.phone__screen p {
+  margin: 0 0 10px;
+}
+
+.phone__screen .hint {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--phone-sky);
+  color: var(--phone-ink);
+  font-size: 14px;
+}
+
+.phone__screen .error-card {
+  border-left: 4px solid var(--phone-danger);
+  background: #fdecea;
+}
+
+.phone__screen .error-card h2 {
+  color: var(--phone-danger);
+}
+
+.phone__screen .success-card {
+  border: 0;
+  background: #fff;
+}
+
+.phone__screen a {
+  color: var(--phone-blue);
+}
+
+/* ---- Buttons: blue pills, the second outlined ----------------------------------------------- */
+
+.phone__screen button,
+.phone__screen .button {
+  min-height: 46px;
+  padding: 10px 20px;
+  border: 1.5px solid var(--phone-blue);
+  border-radius: 999px;
+  background: var(--phone-blue);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.phone__screen button:hover,
+.phone__screen .button:hover {
+  border-color: var(--phone-blue-hover);
+  background: var(--phone-blue-hover);
+  filter: none;
+}
+
+.phone__screen button:focus-visible {
+  outline: 3px solid #47bcff;
+  outline-offset: 2px;
+}
+
+.phone__screen button.secondary,
+.phone__screen .button.secondary {
+  background: #fff;
+  color: var(--phone-blue);
+}
+
+.phone__screen button.secondary:hover,
+.phone__screen .button.secondary:hover {
+  background: var(--phone-sky);
+  color: var(--phone-blue-hover);
+}
+
+.phone__screen button.destructive {
+  border-color: var(--phone-danger);
+  background: var(--phone-danger);
+  color: #fff;
+}
+
+.phone__screen button.small {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 14px;
+}
+
+.phone__screen button:disabled {
+  opacity: 0.45;
+}
+
+.phone__screen .form-actions,
+.phone__screen .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.phone__screen .form-actions > button,
+.phone__screen .controls > button {
+  flex: 1 1 140px;
+}
+
+/* Zurück / Abbrechen stay at the bottom of the screen, like an app's action bar - pushed down
+   when the screen is short (margin-top: auto in the sheet's column), stuck there when it scrolls. */
+.phone__screen .sticky-actions {
+  position: sticky;
+  flex: none;
+  margin-top: auto !important;
+  bottom: -24px;
+  z-index: 2;
+  margin-right: -14px;
+  margin-bottom: -24px;
+  margin-left: -14px;
+  padding: 12px 14px 22px;
+  border-top: 1px solid var(--phone-line);
+  background: #fff;
+}
+
+/* ---- Lists: rows with an icon tile, a bold label, a grey hint and a chevron ------------------ */
+
+.phone__screen .method-choice-list {
+  gap: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.phone__screen .method-choice-list > li + li {
+  border-top: 1px solid var(--phone-line);
+}
+
+.phone__screen button.method-choice,
+.phone__screen a.method-choice {
+  position: relative;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px 40px 14px 12px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: var(--phone-ink);
+  font-weight: 400;
+}
+
+.phone__screen button.method-choice::after,
+.phone__screen a.method-choice::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--phone-ink);
+  border-right: 2px solid var(--phone-ink);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.phone__screen button.method-choice:hover,
+.phone__screen a.method-choice:hover {
+  background: var(--phone-page);
+}
+
+.phone__screen .method-choice-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--phone-sky);
+  font-size: 19px;
+}
+
+.phone__screen .method-choice-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--phone-ink);
+}
+
+.phone__screen .method-choice-hint {
+  font-size: 13px;
+  color: var(--phone-muted);
+}
+
+/* ---- Forms ----------------------------------------------------------------------------------- */
+
+.phone__screen .form-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.phone__screen label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--phone-ink);
+}
+
+.phone__screen input,
+.phone__screen select,
+.phone__screen textarea {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #c3c8d1;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--phone-ink);
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.phone__screen input:focus,
+.phone__screen select:focus,
+.phone__screen textarea:focus {
+  outline: none;
+  border-color: var(--phone-blue);
+  box-shadow: 0 0 0 3px rgba(0, 107, 221, 0.2);
+}
+
+/* ---- Status lists (security summary) --------------------------------------------------------- */
+
+.phone__screen .status-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--phone-line);
+  font-size: 14px;
+}
+
+.phone__screen .status-list li:last-child {
+  border-bottom: 0;
+}
+
+.phone__screen .status-list .label {
+  color: var(--phone-muted);
+}
+
+.phone__screen .status-list .value {
+  color: var(--phone-ink);
+  font-weight: 600;
+}
+
+/* ---- The demo column: set apart as the presenter's tools, not the app ------------------------ */
+
+.demo-area {
+  min-width: 0;
+  padding: 18px 20px 20px;
+  border: 2px dashed var(--accent-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg) 88%, #000);
+}
+
+.demo-area__label {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-area .card {
+  margin-top: 1rem;
+}
+
+.demo-step {
+  margin-top: 0.75rem;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--accent-bg);
+}
+
+/* Nothing for this step - no empty box. */
+.demo-step:has(.demo-step__slot:empty) {
+  display: none;
+}
+
+.demo-step__title {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-h);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.demo-slot + .demo-slot {
+  margin-top: 10px;
+}
+
+.demo-note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-h);
+}
+
+/* The request log used to be a full-height sidebar; in the demo column it is one more section. */
+.demo-area .debug-sidebar {
+  position: static;
+  flex: none;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: 70vh;
+  margin-top: 1rem;
+  border-radius: 12px;
+}
+
+/* ---- Home screen: what the app offers this device ------------------------------------------- */
+
+.phone__screen .app-home .form-actions {
+  flex-direction: column;
+  margin-top: 18px;
+}
+
+.phone__screen .app-home .form-actions > button {
+  flex: none;
+  width: 100%;
+}

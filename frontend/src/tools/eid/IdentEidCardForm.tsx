@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { DemoPersonPicker } from '../../components/DemoPersonPicker'
 import type { DemoPerson } from '../../types'
 import { t } from '../../texts'
+import { DemoNote } from '../../components/DemoArea'
 
 interface IdentEidCardFormProps {
   onSubmit: (fields: {
@@ -55,7 +56,7 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
             'Zuordnung per Versichertennummer oder Partnernummer ist ein eigener Schritt danach.',
         )}
       </p>
-      <div className="hint">{t('Demo-Modus: Das Auslesen der Karte wird simuliert.')}</div>
+      <DemoNote>{t('Demo-Modus: Das Auslesen der Karte wird simuliert.')}</DemoNote>
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">

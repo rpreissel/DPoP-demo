@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface PasswordLoginFormProps {
   onSubmit: (fields: { password: string }) => void
@@ -27,9 +28,9 @@ export function PasswordLoginForm({ onSubmit, error, demoPassword }: PasswordLog
       <h2>{t('Mit Passwort anmelden')}</h2>
       <p>{t('Geben Sie Ihr Passwort ein.')}</p>
       {demoPassword && (
-        <div className="hint">
+        <DemoNote>
           <Tx text="Demo-Modus: Passwort ist bereits vorbelegt: {passwort}" passwort={<code>{demoPassword}</code>} />
-        </div>
+        </DemoNote>
       )}
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>

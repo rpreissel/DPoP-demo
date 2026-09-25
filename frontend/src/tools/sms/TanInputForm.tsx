@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface TanInputFormProps {
   onSubmit: (tan: string) => void
@@ -27,13 +28,13 @@ export function TanInputForm({ onSubmit, error, demoTan }: TanInputFormProps) {
     <div className="card">
       <h2>{t('TAN eingeben')}</h2>
       <p>{t('Wir haben Ihnen soeben eine TAN per SMS geschickt. Geben Sie sie hier ein.')}</p>
-      <div className="hint">
+      <DemoNote>
         {demoTan ? (
           <Tx text="{modus} Die TAN ist bereits vorbelegt: {tan}" modus={<strong>{t('Demo-Modus:')}</strong>} tan={<code>{demoTan}</code>} />
         ) : (
           <Tx text="{modus} Die TAN wird nur ins Server-Log geschrieben ({log})." modus={<strong>{t('Demo-Modus:')}</strong>} log={<code>[MOCK SMS] ...</code>} />
         )}
-      </div>
+      </DemoNote>
       {error && (
         <div className="hint" style={{ marginTop: '0.75rem' }}>
           {error}

@@ -243,7 +243,8 @@ describe('Back-Button bis zur Startauswahl (docs/10-frontend.md #1)', () => {
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
 
-    await screen.findByRole('heading', { name: 'Wie möchten Sie starten?' })
+    // Back on the home screen - as the app shows it for a device without an account.
+    await screen.findByRole('heading', { name: 'Willkommen' })
     expect(api.cancelJourney).not.toHaveBeenCalled()
   })
 })

@@ -3,6 +3,7 @@ import { Tx } from '../../Tx'
 import { useEffect, useRef, useState } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
 import '../../App.css'
+import '../../phone.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, DeviceLinkResponse, Next, StepData } from '../../types'
 import { confirmPromptOf, stepDataOf } from '../../types'
 import { getUIComponent } from '../../routing.ts'
@@ -40,7 +41,9 @@ import {
 import { storeReturnedNectCase } from '../../tools/nect/returnedCase'
 import { dropStaleKobilData } from '../../tools/kobil/localData'
 import { shorten } from '../../format.ts'
-import { AppChannelFrame } from '../../components/AppChannelFrame'
+import { ChannelNav } from '../../components/ChannelNav'
+import { DemoArea, DemoProvider } from '../../components/DemoArea'
+import { PhoneFrame } from '../../components/PhoneFrame'
 import { AuthenticationCompletedView } from '../../components/AuthenticationCompletedView'
 import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
 import { EntryChoiceLinks } from '../../components/EntryChoiceLinks'
@@ -755,147 +758,194 @@ export function AppChannelApp() {
       : undefined
 
   return (
-    <div className="app-shell">
-      <div className="app-main">
-        <AppChannelFrame>
-          {error && (
-            <div className="card error-card">
-              <h2>{t('Fehler')}</h2>
-              <p>{error}</p>
-            </div>
-          )}
+    <DemoProvider>
+      {(setDemoTarget) => (
+        <div className="app-frame channel-app">
+          <ChannelNav badge={`📱 ${t('App-Kanal')}`} />
+          <div className="app-stage">
+            <div className="app-stage__phone">
+              <PhoneFrame title="Demo">
+                {error && (
+                  <div className="card error-card">
+                    <h2>{t('Fehler')}</h2>
+                    <p>{error}</p>
+                  </div>
+                )}
 
-          {!channelSessionId && (
-            <div className="card welcome-card">
-              <h2>{t('Dieser Tab ist Ihr Smartphone')}</h2>
-              <p>
-                <Tx
-                  text={
-                    'Stellen Sie sich vor, Sie öffnen die App Ihrer Versicherung. Der Tab spielt diese App: Beim ersten ' +
-                    'Aufruf hat er einen {schluessel} erzeugt, der den Browser nie verlässt, und ' +
-                    'signiert damit jede Anfrage (DPoP). Ein abgefangenes Token nützt so auf keinem anderen Gerät.'
-                  }
-                  schluessel={<strong>{t('DPoP-Schlüssel')}</strong>}
-                />
-              </p>
-              <p>
-                <Tx
-                  text={
-                    'Beim ersten Mal {registrieren} Sie sich: ausweisen (Freischaltcode aus dem Brief, eID oder Nect), ' +
-                    'E-Mail-Adresse bestätigen und ein Anmeldeverfahren einrichten. Danach {anmelden} - auf diesem Gerät ' +
-                    'auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind Handy, SMS und ' +
-                    'E-Mail (der Code steht im Formular), Brief, Ausweiskarte, Nect, KOBIL und das Personenverzeichnis.'
-                  }
-                  registrieren={<strong>{t('registrieren')}</strong>}
-                  anmelden={<strong>{t('melden Sie sich an')}</strong>}
-                />
-              </p>
-            </div>
-          )}
-
-          <UnavailableTools channel="APP" availableTools={availableTools} />
-          {!channelSessionId && (
-            <div className="card">
-              <Disclosure summary={t('Erweitert: Startniveau und unterstützte Verfahren dieses Clients')}>
-                <p>{t('Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.')}</p>
-                <label className="field-row">
-                  {t('Startniveau:')}
-                  <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
-                    <option value="">{t('loa1 (Standard)')}</option>
-                    <option value="loa2">{t('loa2 (MFA - mehrere Enrollments)')}</option>
-                  </select>
-                </label>
-                <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
-              </Disclosure>
-            </div>
-          )}
-
-          {channelSessionId ? (
-            <>
-              {(journeyContextKey || channelState !== 'AUTHENTICATED') && (
-                <div className="journey-context">
-                  <span>
-                    {journeyContextKey && (
+                {!channelSessionId && (
+                  // What the app itself would show in its current state (docs/10-frontend.md): the
+                  // way in it offers this device. Every other way in is in the demo column.
+                  <div className="card app-home">
+                    {pendingPairingCode ? (
                       <>
-                        <Tx text="Aktueller Vorgang: {vorgang}" vorgang={<strong>{journeyContextLabel(journeyContextKey)}</strong>} />
-                        <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline openDown>
-                          <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf dieses Vorgangs als Diagramm anzeigen')}>
-                            ℹ️
-                          </span>
-                        </DiagramHint>
+                        <h2>{t('Web-Login bestätigen')}</h2>
+                        <p>{t('Sie haben einen QR-Code gescannt. Bestätigen Sie die Anmeldung im Browser mit dieser App.')}</p>
+                        <p className="hint">{t('Pairing-Code: {code}', { code: pendingPairingCode })}</p>
+                        <div className="form-actions">
+                          <button onClick={() => handleStart('confirmPeerLogin')}>{t('Anmeldung bestätigen')}</button>
+                        </div>
+                      </>
+                    ) : deviceLink?.linked ? (
+                      <>
+                        <h2>{t('Willkommen zurück')}</h2>
+                        <p>
+                          {deviceLink.personName
+                            ? t('Dieses Gerät ist mit dem Konto von {name} verbunden.', { name: deviceLink.personName })
+                            : t('Dieses Gerät ist mit Ihrem Konto verbunden.')}
+                        </p>
+                        <div className="form-actions">
+                          <button onClick={() => handleStart('auto')}>{t('Anmelden')}</button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <h2>{t('Willkommen')}</h2>
+                        <p>{t('Melden Sie sich mit Ihrem Konto an, oder legen Sie ein neues an.')}</p>
+                        <div className="form-actions app-home__actions">
+                          <button onClick={() => handleStart('login')}>{t('Anmelden')}</button>
+                          <button className="secondary" onClick={() => handleStart('register')}>
+                            {t('Registrieren')}
+                          </button>
+                        </div>
                       </>
                     )}
-                  </span>
-                  {channelState !== 'AUTHENTICATED' && (
-                    <button className="secondary small" onClick={handleClearChannel} title={t('Verlässt den Vorgang ganz und geht zurück zur Startauswahl.')}>
-                      {t('Zur Startseite')}
-                    </button>
-                  )}
-                </div>
-              )}
-              {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
-
-              {channelState === 'LOGGED_OUT' && (
-                <div className="card">
-                  <h2>{t('Abgemeldet')}</h2>
-                  <p>{t('Sie wurden erfolgreich abgemeldet. Ihre Sitzung wurde beendet.')}</p>
-                  <div className="form-actions" style={{ marginTop: '1rem' }}>
-                    <button onClick={handleClearChannel}>{t('Zur Startseite')}</button>
                   </div>
-                </div>
-              )}
-              {inToolMode && ((activeTool && alternativesCount > 0) || canCancel) && (
-                <div className="controls sticky-actions">
-                  {/* Ein Tool mit eigenem skipLabel zeichnet den Ausweg selbst, direkt neben
-                      seinem Absenden-Button (ToolRenderContext.onSkip) - hier unten waere er vom
-                      Formular weg und liesse sich zweimal auf der Seite finden. */}
-                  {activeTool && alternativesCount > 0 && !metaFor(activeTool.toolId).skipLabel && (
-                    <button className="secondary" onClick={handleBack} title={t('Zurück zur Auswahl. Dieses Verfahren bleibt dort wählbar.')}>
-                      {t('Zurück')}
-                    </button>
-                  )}
-                  {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem
-                      laufenden STEP_UP_IN_PROGRESS-Kanal - z.B. mitten in CONFIRM_PEER_LOGIN - nie zutrifft): canCancel allein
-                      ist schon der richtige Signalgeber (ChannelService/JourneyService kennen den echten cancelledTo()-Zielzustand,
-                      das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Zurück" bei einem
-                      Ein-Kandidaten-Tool wie confirm-qr-login der einzige (aber wirkungslose, da es denselben Schritt nur
-                      erneut anbietet) Fluchtweg - "Zur Startseite"/"Abmelden" rendern beide bewusst nicht während inToolMode. */}
-                  {/* In einer laufenden Registrierung ist das kein "Abbrechen" im Sinne von
-                      "diesen Schritt lassen": Die Journey endet, und was sie bis dahin aufgebaut
-                      hat - bis hin zur nachgewiesenen Identität - wird weggeworfen. Also heißt der
-                      Knopf, was er tut, und fragt einmal nach. */}
-                  {canCancel && !discardsRegistration && (
-                    <button className="secondary" onClick={handleCancel} title={t('Bricht diesen Vorgang vollständig ab.')}>
-                      {t('Abbrechen')}
-                    </button>
-                  )}
-                  {canCancel && discardsRegistration && !confirmingDiscard && (
-                    <button className="secondary" onClick={() => setConfirmingDiscard(true)} title={t('Beendet die Registrierung. Alles, was dieser Vorgang bisher aufgebaut hat - auch eine bereits nachgewiesene Identität - wird verworfen.')}>
-                      {t('Registrierung verwerfen')}
-                    </button>
-                  )}
-                  {canCancel && discardsRegistration && confirmingDiscard && (
-                    <>
-                      <span className="hint">{t('Alles aus diesem Vorgang geht verloren, auch die nachgewiesene Identität.')}</span>
-                      <button className="secondary" onClick={() => { setConfirmingDiscard(false); handleCancel() }}>
-                        {t('Verwerfen')}
-                      </button>
-                      <button onClick={() => setConfirmingDiscard(false)}>{t('Weitermachen')}</button>
-                    </>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink} />
-              <div className="card">
-                <h2>{t('Wie möchten Sie starten?')}</h2>
-                {pendingPairingCode && (
-                  <p className="hint">
-                    {t('QR-Code erkannt (Pairing-Code {code}) - wählen Sie „Web-Login per QR bestätigen".', { code: pendingPairingCode })}
-                  </p>
                 )}
+
+                {channelState === 'LOGGED_OUT' && (
+                  <div className="card">
+                    <h2>{t('Abgemeldet')}</h2>
+                    <p>{t('Sie wurden erfolgreich abgemeldet. Ihre Sitzung wurde beendet.')}</p>
+                    <div className="form-actions" style={{ marginTop: '1rem' }}>
+                      <button onClick={handleClearChannel}>{t('Zur Startseite')}</button>
+                    </div>
+                  </div>
+                )}
+                {uiComponent === 'select-method' && selection && (
+                  <SelectMethodView
+                    options={selection.options}
+                    title={selection.title ? resolveText(selection.title) : t('Verfahren wählen')}
+                    description={selection.description ? resolveText(selection.description) : undefined}
+                    onSelect={handleSelectMethod}
+                  />
+                )}
+
+                {toolCtx && renderToolStep(toolCtx)}
+
+                {uiComponent === 'prompt' && confirmPrompt && (
+                  <PromptView prompt={confirmPrompt} onAnswer={handleAnswer} />
+                )}
+
+                {uiComponent === 'authentication-completed' && dpop && channelSessionId && (
+                  <AuthenticationCompletedView
+                    dpop={dpop}
+                    channelSessionId={channelSessionId}
+                    currentAcr={currentAcr}
+                    currentAmr={currentAmr}
+                    activeMethods={activeMethods}
+                    demo={demo}
+                    onAddMethod={handleAddMethod}
+                    onDeactivateMethod={handleDeactivateMethod}
+                    onDeleteAccount={handleDeleteAccount}
+                    onStepUp={handleStepUp}
+                    onPeerLogin={handlePeerLogin}
+                    onLogout={handleLogout}
+                    manageError={error || undefined}
+                    infoMessage={message}
+                  />
+                )}
+
+                {inToolMode && ((activeTool && alternativesCount > 0) || canCancel) && (
+                  <div className="controls sticky-actions">
+                    {/* Ein Tool mit eigenem skipLabel zeichnet den Ausweg selbst, direkt neben
+                        seinem Absenden-Button (ToolRenderContext.onSkip) - hier unten waere er vom
+                        Formular weg und liesse sich zweimal auf der Seite finden. */}
+                    {activeTool && alternativesCount > 0 && !metaFor(activeTool.toolId).skipLabel && (
+                      <button className="secondary" onClick={handleBack} title={t('Zurück zur Auswahl. Dieses Verfahren bleibt dort wählbar.')}>
+                        {t('Zurück')}
+                      </button>
+                    )}
+                    {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem
+                        laufenden STEP_UP_IN_PROGRESS-Kanal - z.B. mitten in CONFIRM_PEER_LOGIN - nie zutrifft): canCancel allein
+                        ist schon der richtige Signalgeber (ChannelService/JourneyService kennen den echten cancelledTo()-Zielzustand,
+                        das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Zurück" bei einem
+                        Ein-Kandidaten-Tool wie confirm-qr-login der einzige (aber wirkungslose, da es denselben Schritt nur
+                        erneut anbietet) Fluchtweg - "Zur Startseite"/"Abmelden" rendern beide bewusst nicht während inToolMode. */}
+                    {/* In einer laufenden Registrierung ist das kein "Abbrechen" im Sinne von
+                        "diesen Schritt lassen": Die Journey endet, und was sie bis dahin aufgebaut
+                        hat - bis hin zur nachgewiesenen Identität - wird weggeworfen. Also heißt der
+                        Knopf, was er tut, und fragt einmal nach. */}
+                    {canCancel && !discardsRegistration && (
+                      <button className="secondary" onClick={handleCancel} title={t('Bricht diesen Vorgang vollständig ab.')}>
+                        {t('Abbrechen')}
+                      </button>
+                    )}
+                    {canCancel && discardsRegistration && !confirmingDiscard && (
+                      <button className="secondary" onClick={() => setConfirmingDiscard(true)} title={t('Beendet die Registrierung. Alles, was dieser Vorgang bisher aufgebaut hat - auch eine bereits nachgewiesene Identität - wird verworfen.')}>
+                        {t('Registrierung verwerfen')}
+                      </button>
+                    )}
+                    {canCancel && discardsRegistration && confirmingDiscard && (
+                      <>
+                        <span className="hint">{t('Alles aus diesem Vorgang geht verloren, auch die nachgewiesene Identität.')}</span>
+                        <button className="secondary" onClick={() => { setConfirmingDiscard(false); handleCancel() }}>
+                          {t('Verwerfen')}
+                        </button>
+                        <button onClick={() => setConfirmingDiscard(false)}>{t('Weitermachen')}</button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </PhoneFrame>
+            </div>
+
+            <DemoArea targetRef={setDemoTarget}>
+                {!channelSessionId && (
+                  <div className="card welcome-card">
+                    <h2>{t('Dieser Tab ist Ihr Smartphone')}</h2>
+                    <p>
+                      <Tx
+                        text={
+                          'Stellen Sie sich vor, Sie öffnen die App Ihrer Versicherung. Der Tab spielt diese App: Beim ersten ' +
+                          'Aufruf hat er einen {schluessel} erzeugt, der den Browser nie verlässt, und ' +
+                          'signiert damit jede Anfrage (DPoP). Ein abgefangenes Token nützt so auf keinem anderen Gerät.'
+                        }
+                        schluessel={<strong>{t('DPoP-Schlüssel')}</strong>}
+                      />
+                    </p>
+                    <p>
+                      <Tx
+                        text={
+                          'Beim ersten Mal {registrieren} Sie sich: ausweisen (Freischaltcode aus dem Brief, eID oder Nect), ' +
+                          'E-Mail-Adresse bestätigen und ein Anmeldeverfahren einrichten. Danach {anmelden} - auf diesem Gerät ' +
+                          'auch automatisch. Echt ist dabei der Orchestrator mit allen Regeln; simuliert sind Handy, SMS und ' +
+                          'E-Mail (der Code steht im Formular), Brief, Ausweiskarte, Nect, KOBIL und das Personenverzeichnis.'
+                        }
+                        registrieren={<strong>{t('registrieren')}</strong>}
+                        anmelden={<strong>{t('melden Sie sich an')}</strong>}
+                      />
+                    </p>
+                  </div>
+                )}
+                {!channelSessionId && (
+                  <div className="card">
+                    <Disclosure summary={t('Erweitert: Startniveau und unterstützte Verfahren dieses Clients')}>
+                      <p>{t('Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.')}</p>
+                      <label className="field-row">
+                        {t('Startniveau:')}
+                        <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
+                          <option value="">{t('loa1 (Standard)')}</option>
+                          <option value="loa2">{t('loa2 (MFA - mehrere Enrollments)')}</option>
+                        </select>
+                      </label>
+                      <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
+                    </Disclosure>
+                  </div>
+                )}
+                {!channelSessionId && (
+                <div className="card">
+                <h2>{t('Weitere Einstiege')}</h2>
+                <p>{t('Alle Wege, einen Vorgang zu beginnen - unabhängig davon, was die App gerade anbietet.')}</p>
                 <ul className="method-choice-list">
                   {rememberedChannelSessionId && (
                     <li>
@@ -1006,63 +1056,58 @@ export function AppChannelApp() {
                   </li>
                 </ul>
               </div>
-            </>
-          )}
-
-          {uiComponent === 'select-method' && selection && (
-            <SelectMethodView
-              options={selection.options}
-              title={selection.title ? resolveText(selection.title) : t('Verfahren wählen')}
-              description={selection.description ? resolveText(selection.description) : undefined}
-              onSelect={handleSelectMethod}
-            />
-          )}
-
-          {toolCtx && renderToolStep(toolCtx)}
-
-          {uiComponent === 'prompt' && confirmPrompt && (
-            <PromptView prompt={confirmPrompt} onAnswer={handleAnswer} />
-          )}
-
-          {uiComponent === 'authentication-completed' && dpop && channelSessionId && (
-            <AuthenticationCompletedView
-              dpop={dpop}
-              channelSessionId={channelSessionId}
-              currentAcr={currentAcr}
-              currentAmr={currentAmr}
-              activeMethods={activeMethods}
-              demo={demo}
-              onAddMethod={handleAddMethod}
-              onDeactivateMethod={handleDeactivateMethod}
-              onDeleteAccount={handleDeleteAccount}
-              onStepUp={handleStepUp}
-              onPeerLogin={handlePeerLogin}
-              onLogout={handleLogout}
-              manageError={error || undefined}
-              infoMessage={message}
-            />
-          )}
-
-          {channelSessionId && (
-            <JourneyStructureView
-              channelSessionId={channelSessionId}
-              channelState={channelState}
-              journeys={demo?.journeys}
-              next={next}
-              journeyKind={journeyKind}
-              onClear={handleClearChannel}
-              onCancelJourney={canCancel ? handleCancel : undefined}
-            />
-          )}
-        </AppChannelFrame>
-      </div>
-
-      <DebugSidebar
-        channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
-        log={debugLog}
-        open={debugOpen}
-        onToggle={() => setDebugOpen((v) => !v)}
-      />
-    </div>
+              )}
+              {!channelSessionId && (
+                <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink} />
+              )}
+              <UnavailableTools channel="APP" availableTools={availableTools} />
+              {channelSessionId && (
+                <>
+                  {(journeyContextKey || channelState !== 'AUTHENTICATED') && (
+                    <div className="journey-context">
+                      <span>
+                        {journeyContextKey && (
+                          <>
+                            <Tx text="Aktueller Vorgang: {vorgang}" vorgang={<strong>{journeyContextLabel(journeyContextKey)}</strong>} />
+                            <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline openDown>
+                              <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf dieses Vorgangs als Diagramm anzeigen')}>
+                                ℹ️
+                              </span>
+                            </DiagramHint>
+                          </>
+                        )}
+                      </span>
+                      {channelState !== 'AUTHENTICATED' && (
+                        <button className="secondary small" onClick={handleClearChannel} title={t('Verlässt den Vorgang ganz und geht zurück zur Startauswahl.')}>
+                          {t('Zur Startseite')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
+                </>
+              )}
+                {channelSessionId && (
+                  <JourneyStructureView
+                    channelSessionId={channelSessionId}
+                    channelState={channelState}
+                    journeys={demo?.journeys}
+                    next={next}
+                    journeyKind={journeyKind}
+                    onClear={handleClearChannel}
+                    onCancelJourney={canCancel ? handleCancel : undefined}
+                  />
+                )}
+              <DebugSidebar
+                channel={{ channelSessionId, channelState, currentAcr, currentAmr, activeMethods, next, stepData, demo, activeTool }}
+                log={debugLog}
+                open={debugOpen}
+                onToggle={() => setDebugOpen((v) => !v)}
+              />
+            </DemoArea>
+          </div>
+        </div>
+      )}
+    </DemoProvider>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface EmailCodeInputFormProps {
   onSubmit: (code: string) => void
@@ -38,13 +39,13 @@ export function EmailCodeInputForm({ onSubmit, onChangeAddress, error, demoTan }
     <div className="card">
       <h2>{t('Bestätigungscode eingeben')}</h2>
       <p>{t('Wir haben Ihnen soeben einen Bestätigungscode per E-Mail geschickt. Geben Sie ihn hier ein.')}</p>
-      <div className="hint">
+      <DemoNote>
         {demoTan ? (
           <Tx text="{modus} Der Code ist bereits vorbelegt: {code}" modus={<strong>{t('Demo-Modus:')}</strong>} code={<code>{demoTan}</code>} />
         ) : (
           <Tx text="{modus} Der Code wird nur ins Server-Log geschrieben ({log})." modus={<strong>{t('Demo-Modus:')}</strong>} log={<code>[MOCK EMAIL] ...</code>} />
         )}
-      </div>
+      </DemoNote>
       {error && (
         <div className="hint" style={{ marginTop: '0.75rem' }}>
           {error}

@@ -3,6 +3,7 @@ import { activate } from '../../kobilSdk'
 import { storeUnlockSecret } from '../../kobilUnlockSecret'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface KobilEnrollFormProps {
   tenantId?: string
@@ -97,7 +98,7 @@ export function KobilEnrollForm({
             'Biometrie erlauben – dann hinterlegt die App dafür ein Geräteheimnis.',
         )}
       </p>
-      <div className="hint">
+      <DemoNote>
         <Tx
           text={
             '{modus} Biometrie wird nur simuliert. Die KOBIL-PIN kennt allein das ' +
@@ -105,7 +106,7 @@ export function KobilEnrollForm({
           }
           modus={<strong>{t('Demo-Modus:')}</strong>}
         />
-      </div>
+      </DemoNote>
       {(error || sdkError) && <div className="hint">{error ?? sdkError}</div>}
       <div className="form-actions" style={{ marginTop: '1rem' }}>
         <button type="button" disabled={busy || !ready} onClick={() => handleConfirm(true)}>

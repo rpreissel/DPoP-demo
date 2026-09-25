@@ -1,6 +1,7 @@
 import { t } from '../texts'
 import { Tx } from '../Tx'
 import type { DemoPerson } from '../types'
+import { Demo } from './DemoArea'
 
 interface DemoPersonPickerProps {
   /** Demo-only: every register person. Renders nothing when fewer than two are offered. */
@@ -21,30 +22,34 @@ export function DemoPersonPicker({ demoPersons, selectedPersonId, onSelect }: De
   const matched = selectedPersonId === undefined || demoPersons.some((p) => p.personId === selectedPersonId)
   const selection =
     selectedPersonId === undefined ? { defaultValue: demoPersons[0].personId } : { value: matched ? selectedPersonId : '' }
+  // In the App channel this renders in the demo column next to the phone (DemoArea) - still part of
+  // its form's tree, so picking a person fills the fields in the phone.
   return (
-    <div className="form-group demo-picker">
-      <label htmlFor="demoPerson">
-        <Tx text="{demo} Testperson übernehmen" demo={<span className="demo-picker__tag">{t('Demo')}</span>} />
-      </label>
-      <select
-        id="demoPerson"
-        {...selection}
-        onChange={(e) => {
-          const person = demoPersons.find((p) => p.personId === e.target.value)
-          if (person) onSelect(person)
-        }}
-      >
-        {!matched && (
-          <option value="" disabled>
-            — {t('eigene Eingabe')} —
-          </option>
-        )}
-        {demoPersons.map((person) => (
-          <option key={person.personId} value={person.personId}>
-            {person.vorname} {person.name} ({person.kvnr ?? person.personId})
-          </option>
-        ))}
-      </select>
-    </div>
+    <Demo>
+      <div className="form-group demo-picker">
+        <label htmlFor="demoPerson">
+          <Tx text="{demo} Testperson übernehmen" demo={<span className="demo-picker__tag">{t('Demo')}</span>} />
+        </label>
+        <select
+          id="demoPerson"
+          {...selection}
+          onChange={(e) => {
+            const person = demoPersons.find((p) => p.personId === e.target.value)
+            if (person) onSelect(person)
+          }}
+        >
+          {!matched && (
+            <option value="" disabled>
+              — {t('eigene Eingabe')} —
+            </option>
+          )}
+          {demoPersons.map((person) => (
+            <option key={person.personId} value={person.personId}>
+              {person.vorname} {person.name} ({person.kvnr ?? person.personId})
+            </option>
+          ))}
+        </select>
+      </div>
+    </Demo>
   )
 }

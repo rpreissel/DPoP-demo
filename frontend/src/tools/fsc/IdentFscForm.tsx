@@ -4,6 +4,7 @@ import type { DemoPerson } from '../../types'
 import type { FscFields } from './api'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 /** What the first screen collects - everything the backend stages before it asks for `fsc`. */
 const PERSONAL_FIELDS = ['kvnr', 'name', 'vorname', 'geburtsdatum']
@@ -145,7 +146,7 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
           nummer={identifier}
         />
       </p>
-      {first && !fsc && <div className="hint">{t('Für diese Person liegt kein gültiger Code im Briefkasten. Stellen Sie im Personenverzeichnis ({pfad}, Reiter „Freischaltcodes“) einen neuen aus.', { pfad: '/personenverzeichnis/' })}</div>}
+      {first && !fsc && <DemoNote>{t('Für diese Person liegt kein gültiger Code im Briefkasten. Stellen Sie im Personenverzeichnis ({pfad}, Reiter „Freischaltcodes“) einen neuen aus.', { pfad: '/personenverzeichnis/' })}</DemoNote>}
       <form onSubmit={submitCode} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">
           <label htmlFor="fsc">{t('Freischaltcode')}</label>

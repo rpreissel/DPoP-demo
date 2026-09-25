@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface PasswordEnrollFormProps {
   onSubmit: (fields: { password: string }) => void
@@ -36,9 +37,9 @@ export function PasswordEnrollForm({ onSubmit, error, demoPassword }: PasswordEn
     <div className="card">
       <h2>{t('Passwort einrichten')}</h2>
       <p>{t('Legen Sie ein Passwort als weiteren Faktor an. Ihre bestätigte E-Mail-Adresse dient dabei als Anmeldename.')}</p>
-      <div className="hint">
+      <DemoNote>
         <Tx text="Demo-Modus: Passwort ist bereits vorbelegt: {passwort}" passwort={<code>{password}</code>} />
-      </div>
+      </DemoNote>
       {(validationError || error) && <div className="hint">{validationError || error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <div className="form-group">

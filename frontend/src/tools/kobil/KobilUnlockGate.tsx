@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { loadUnlockSecret } from '../../kobilUnlockSecret'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
+import { DemoNote } from '../../components/DemoArea'
 
 interface KobilUnlockGateProps {
   kobilUserId?: string
@@ -47,7 +48,7 @@ export function KobilUnlockGate({ kobilUserId, options, onRelease, error }: Kobi
     <div className="card">
       <h2>{t('Anmelden mit KOBIL')}</h2>
       <p>{t('Entsperren Sie dieses Gerät, damit die Anmeldung bei KOBIL erfolgen kann.')}</p>
-      <div className="hint">
+      <DemoNote>
         <Tx
           text={
             '{modus} Biometrie wird simuliert. Die KOBIL-PIN liegt im Backend und ' +
@@ -55,7 +56,7 @@ export function KobilUnlockGate({ kobilUserId, options, onRelease, error }: Kobi
           }
           modus={<strong>{t('Demo-Modus:')}</strong>}
         />
-      </div>
+      </DemoNote>
       {error && <div className="hint">{error}</div>}
 
       {!usingPassword && (
