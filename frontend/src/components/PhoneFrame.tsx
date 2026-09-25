@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { chooseLanguage, language, supportedLanguages, t } from '../texts'
 
 /**
@@ -12,7 +12,7 @@ export function PhoneFrame({ title, children }: { title: string; children: React
     <div className="phone">
       <div className="phone__screen">
         <div className="phone__status" aria-hidden="true">
-          <span>9:41</span>
+          <PhoneClock />
           <span className="phone__status-icons">
             <i className="phone__signal" />
             <i className="phone__battery" />
@@ -46,4 +46,22 @@ function LanguageSwitch() {
       ))}
     </div>
   )
+}
+
+/** The status bar's clock: the real time, moving on at each full minute like a phone's. */
+function PhoneClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined
+    // First tick at the next full minute, then every minute - so it changes when the phone's would.
+    const timeout = setTimeout(() => {
+      setNow(new Date())
+      interval = setInterval(() => setNow(new Date()), 60_000)
+    }, 60_000 - (Date.now() % 60_000))
+    return () => {
+      clearTimeout(timeout)
+      if (interval) clearInterval(interval)
+    }
+  }, [])
+  return <span>{now.toLocaleTimeString(language(), { hour: 'numeric', minute: '2-digit' })}</span>
 }
