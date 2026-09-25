@@ -21,7 +21,8 @@ public interface WebToolRendererFactory extends ProviderFactory<WebToolRenderer>
     /**
      * The page this tool renders - what its {@code render} passes to {@code createForm}. Known
      * before rendering, so the page gets exactly the texts the Keycloakify theme's component for it
-     * uses (docs/ideen/keycloakify-statt-freemarker.md).
+     * uses (docs/ideen/keycloakify-statt-freemarker.md). {@code null} for a tool that shows no page
+     * of its own because it completes on activation ({@code enroll-email}).
      */
     String template();
 }

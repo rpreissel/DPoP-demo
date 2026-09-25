@@ -22,7 +22,7 @@ vollständig über von Hand geschriebene FreeMarker-Vorlagen an
 - **Seiten des Orchestrators:** `orchestrator-select.ftl`, `orchestrator-confirm.ftl`,
   `orchestrator-error.ftl`, `orchestrator-manage-methods.ftl`.
 - **Eine Vorlage je Tool:** `tool-ident-{eid,fsc,kvnr}.ftl`, `tool-sms-{auth,enroll,lookup}.ftl`,
-  `tool-email-{auth,enroll,lookup}.ftl`, `tool-password-{auth,enroll,lookup}.ftl`,
+  `tool-email-{auth,lookup}.ftl`, `tool-password-{auth,enroll,lookup}.ftl`,
   `tool-qr-{enroll,wait}.ftl`.
 - **Gemeinsam genutzt:** die Auswahl der Testperson `demo-person-picker.ftl`.
 - **Aussehen:** `resources/css/orchestrator.css` auf dem geerbten Theme `keycloak` (PatternFly).
@@ -139,7 +139,7 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
     - `tool-password-auth`, `tool-password-enroll`: `demoPassword`
     - `tool-password-lookup`: `demoEmail`, `demoPassword`, `demoPersonsJson`
     - `tool-email-auth`, `tool-sms-auth`: `demoTan`
-    - `tool-email-enroll`, `tool-email-lookup`: `step`, `demoEmail`, `demoTan`, `demoPersonsJson`
+    - `tool-email-lookup`: `step`, `demoEmail`, `demoTan`, `demoPersonsJson`
     - `tool-sms-enroll`: `step`, `demoTan`
     - `tool-sms-lookup`: `step`, `demoEmail`, `demoTan`, `demoPersonsJson`
     - `tool-ident-eid`: `step`, `demoPersonsJson`

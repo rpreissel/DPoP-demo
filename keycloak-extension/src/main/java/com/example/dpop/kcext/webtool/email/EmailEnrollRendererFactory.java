@@ -3,21 +3,19 @@ package com.example.dpop.kcext.webtool.email;
 import com.example.dpop.kcext.KcText;
 import com.example.dpop.kcext.webtool.AbstractWebToolRendererFactory;
 import com.example.dpop.kcext.webtool.WebToolRenderContext;
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.core.Response;
 import org.keycloak.forms.login.LoginFormsProvider;
 
-import java.util.Set;
-
 /**
- * Web-channel counterpart to frontend/src/tools/email/index.tsx's {@code enrollEmailTool} module -
- * two steps of the same tool ("enroll" asks for the email, "codeInput" asks for the confirmation
- * code), same as its React render() switches on {@code ctx.step}.
+ * Web-channel counterpart to frontend/src/tools/email/index.tsx's {@code enrollEmailTool}: turning
+ * the already confirmed address into a sign-in method completes on activation, so there is no page
+ * to render. The factory still exists - it is what declares the tool available in this channel and
+ * what names it on the selection page, where the orchestrator always offers it rather than
+ * starting it on its own (ToolDescriptor.completesOnActivation).
  */
 public class EmailEnrollRendererFactory extends AbstractWebToolRendererFactory {
 
     public static final String PROVIDER_ID = "enroll-email";
-    private static final Set<String> SUPPORTED_STEPS = Set.of("enroll", "codeInput");
 
     @Override
     public String getId() {
@@ -31,24 +29,17 @@ public class EmailEnrollRendererFactory extends AbstractWebToolRendererFactory {
 
     @Override
     public KcText hint() {
-        return KcText.t("Bestätigungscode an eine E-Mail-Adresse");
+        return KcText.t("Ihre bestätigte E-Mail-Adresse, ohne Code");
     }
 
+    /** No page of its own. */
     @Override
     public String template() {
-        return "tool-email-enroll.ftl";
+        return null;
     }
 
     @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
-        if (!SUPPORTED_STEPS.contains(ctx.step())) return null;
-        JsonNode demoEmail = ctx.demo().get("email");
-        JsonNode demoTan = ctx.demo().get("tan");
-        return form
-                .setAttribute("step", ctx.step())
-                .setAttribute("demoEmail", demoEmail != null ? demoEmail.asText() : null)
-                .setAttribute("demoTan", demoTan != null ? demoTan.asText() : null)
-                .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
-                .createForm(template());
+        return null;
     }
 }

@@ -7,6 +7,7 @@ import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_api.Next
 import com.example.dpop.tool_spi.ToolId
@@ -63,10 +64,12 @@ class JourneyRouting(
     fun nextFor(state: JourneyState, availableTools: Set<ToolId>): Next {
         state.active?.let { return Next.tool(it.toolId.value, it.step, it.toolSessionId) }
         val activatable = state.activatable(availableTools)
-        return if (activatable.size == 1) {
-            val toolId = activatable.single()
-            Next.tool(toolId.value, toolRegistry.descriptorOf(toolId).startStep)
+        val single = activatable.singleOrNull()
+        return if (single != null && completesOnActivation(single) == null) {
+            Next.tool(single.value, toolRegistry.descriptorOf(single).startStep)
         } else {
+            // A single candidate that completes on activation opens the selection page too: started
+            // on its own it would change the account before the user saw anything (ToolDescriptor).
             // Several candidates open a selection page; zero means an orchestrator-owned page
             // that isn't a choice at all (a confirmation, the finished screen), or a state whose
             // only offer just became unavailable - the empty option list resolves itself once the
@@ -85,6 +88,7 @@ class JourneyRouting(
     fun stepFor(state: JourneyState, channel: ChannelSession): Step {
         val availableTools = availableToolsOf(channel)
         val options = state.activatable(availableTools)
+        val completesAtOnce = options.singleOrNull()?.let { completesOnActivation(it) }
         val stepData: StepData? = when {
             // Sorted here, where the list leaves for the client - not in the state's stored offer,
             // which is frozen for the journey's lifetime: a changed order applies to a running
@@ -93,6 +97,13 @@ class JourneyRouting(
                 options = toolAvailabilityService.ordered(channelTypeOf(channel), options).map { it.value },
                 title = state.selectionTitle,
                 description = state.selectionDescription
+            )
+            // The only candidate completes on activation: offered like a choice of one, and the
+            // description says why there is just this one and what choosing it does.
+            state is OfferingState && completesAtOnce != null -> SelectMethodStep(
+                options = options.map { it.value },
+                title = state.selectionTitle,
+                description = Text("Nur dieses Verfahren steht hier noch zur Wahl. {grund}", "grund" to completesAtOnce)
             )
             // Single-option auto-activate: the selection screen is skipped, so pass the
             // description as a contextual message so the tool form can explain WHY this
@@ -104,6 +115,8 @@ class JourneyRouting(
         }
         return Step(nextFor(state, availableTools), stepData)
     }
+
+    private fun completesOnActivation(toolId: ToolId): Text? = toolRegistry.descriptorOf(toolId).completesOnActivation
 
     private fun channelTypeOf(channel: ChannelSession): ChannelType =
         checkNotNull(channel.channel) { "Channel ${channel.channelSessionId} has no channel type" }

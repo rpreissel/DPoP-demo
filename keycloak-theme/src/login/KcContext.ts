@@ -28,7 +28,6 @@ export type KcContextExtensionPerPage = {
   'tool-password-enroll.ftl': ToolPage & { demoPassword?: string }
   'tool-password-lookup.ftl': ToolPage & WithPersons & { demoEmail?: string; demoPassword?: string }
   'tool-email-auth.ftl': ToolPage & { demoTan?: string }
-  'tool-email-enroll.ftl': ToolPage & WithPersons & { step: string; demoEmail?: string; demoTan?: string }
   'tool-email-lookup.ftl': ToolPage & WithPersons & { step: string; demoEmail?: string; demoTan?: string }
   'tool-sms-auth.ftl': ToolPage & { demoTan?: string }
   'tool-sms-enroll.ftl': ToolPage & { step: string; demoTan?: string }

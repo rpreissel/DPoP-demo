@@ -5,10 +5,9 @@ import { ToolForm } from './ToolForm'
 import { t } from '../../texts'
 
 /**
- * `tool-email-enroll.ftl` and `tool-email-lookup.ftl` look the same: first the e-mail address,
- * then (step codeInput) the code sent to it.
+ * `tool-email-lookup.ftl`: first the e-mail address, then (step codeInput) the code sent to it.
  */
-export function EmailThenCode({ kcContext }: { kcContext: PageContext<'tool-email-enroll.ftl' | 'tool-email-lookup.ftl'> }) {
+export function EmailThenCode({ kcContext }: { kcContext: PageContext<'tool-email-lookup.ftl'> }) {
   const { title, hint, step, demoEmail, demoTan, demoPersonsJson } = kcContext
   return (
     <ToolForm kcContext={kcContext} title={title} hint={hint}>

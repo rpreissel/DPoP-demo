@@ -1,5 +1,6 @@
 package com.example.dpop.auth_email
 
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ClaimDeclaration
@@ -65,6 +66,7 @@ object EnrollEmailDescriptor : ToolDescriptor {
     override val factorTypes = setOf(FactorType.KNOWLEDGE)
     override val maxAcr = AcrLevel.LOA1
     override val requires = setOf(ClaimRequirement(AttributeType.EMAIL, TrustLevel.PROVEN))
+    override val completesOnActivation = Text("Ihre bereits bestätigte E-Mail-Adresse wird sofort zum Anmeldeverfahren. Einen Code brauchen Sie dafür nicht.")
 }
 
 @Component

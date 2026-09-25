@@ -78,7 +78,7 @@ export const authEmailLookup: ToolModule = {
  */
 export const enrollEmailTool: ToolModule = {
   toolId: 'enroll-email',
-  meta: { icon: ICON, label: LABEL, hint: t('Bestätigungscode an eine E-Mail-Adresse') },
+  meta: { icon: ICON, label: LABEL, hint: t('Ihre bestätigte E-Mail-Adresse, ohne Code') },
   render() {
     return null
   },

@@ -35,7 +35,6 @@ const { getKcContextMock } = createGetKcContextMock({
     'tool-password-enroll.ftl': { toolId: 'enroll-password', title: 'Passwort', hint: 'Eigenes Passwort festlegen', demoPassword: 'Demo1234!' },
     'tool-email-auth.ftl': { toolId: 'auth-email', title: 'E-Mail', hint: 'Code an die bestätigte E-Mail-Adresse', demoTan: '482913' },
     'tool-email-lookup.ftl': { toolId: 'auth-email-lookup', title: 'E-Mail', hint: 'E-Mail-Adresse + Bestätigungscode', step: 'email', demoEmail: 'erika@example.org', demoPersonsJson: PERSONS },
-    'tool-email-enroll.ftl': { toolId: 'enroll-email', title: 'E-Mail', hint: 'Bestätigungscode an eine E-Mail-Adresse', step: 'email', demoEmail: 'erika@example.org', demoPersonsJson: PERSONS },
     'tool-qr-enroll.ftl': { toolId: 'enroll-qr', title: 'QR-Login', hint: 'Web-Login per QR-Code erlauben' },
     'tool-ident-kvnr.ftl': { toolId: 'ident-kvnr', title: 'Versichertennummer', hint: 'Konto der eigenen Person im Personenverzeichnis zuordnen', demoPersonsJson: PERSONS },
     'tool-sms-enroll.ftl': { toolId: 'enroll-sms', title: 'SMS', hint: 'Code per SMS', step: 'tanInput', demoTan: '123456' },

@@ -1,5 +1,7 @@
 package com.example.dpop.tool_spi
 
+import com.example.dpop.texts.Text
+
 /**
  * Nominal wrapper for a tool's public identifier ("auth-sms", "enroll-password", ...) - see
  * [ToolDescriptor.toolId]. Deliberately NOT the same type as a method name (e.g. "sms"): a toolId
@@ -38,6 +40,17 @@ interface ToolDescriptor {
      * differently.
      */
     val startStep: String get() = role.defaultStartStep
+
+    /**
+     * Non-`null` if activating this tool completes it at once - no step, no input; today only
+     * `enroll-email`, whose address was proven before. The text says what choosing it does.
+     *
+     * Such a tool is never started on its own, not even as the only candidate: that would change
+     * the account without the user having seen or chosen anything. It is offered on the selection
+     * page instead, with this text as the reason (JourneyRouting). One nullable value rather than
+     * a flag plus a text, so "completes at once, but nobody says why" cannot be expressed.
+     */
+    val completesOnActivation: Text? get() = null
 
     /** The factor kinds this tool can provide at most. */
     val factorTypes: Set<FactorType>
