@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.confirmemail
+import com.example.dpop.mail_mock.MailServer
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
@@ -38,7 +39,8 @@ import java.util.UUID
 class ConfirmEmailToolHandler(
     private val descriptor: ConfirmEmailDescriptor,
     private val toolDataRepository: ConfirmEmailToolSessionRepository,
-    private val emailCodeGenerator: EmailCodeGenerator
+    private val emailCodeGenerator: EmailCodeGenerator,
+    private val mailServer: MailServer
 ) {
 
     /** Called directly by ConfirmEmailToolController; nothing needs resolving before this can start. */
@@ -89,7 +91,7 @@ class ConfirmEmailToolHandler(
                     data.issuedCodeHash = issued.hash
                     data.codeExpiresAt = issued.expiresAt
                     toolDataRepository.save(data)
-                    sendMockEmail(decision.email, issued.plainCode)
+                    mailServer.sendCode(decision.email, issued.plainCode)
 
                     val state = ConfirmEmailState.AwaitingCode(decision.email, issued.hash, issued.expiresAt)
                     val (step, fields) = state.describe()
@@ -129,8 +131,4 @@ class ConfirmEmailToolHandler(
         issuedCodeHash = issuedCodeHash,
         codeExpiresAt = codeExpiresAt
     )
-
-    private fun sendMockEmail(email: String, code: String) {
-        println("[MOCK EMAIL] Code $code an $email versandt (confirm-email).")
-    }
 }

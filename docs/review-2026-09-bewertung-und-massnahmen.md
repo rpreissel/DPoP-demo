@@ -235,7 +235,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
    Restrisiko in ADR-31 festgehalten; Hash und Länge bleiben Fremdsystem (ADR-35).
 8. ~~M-2 QR-Login~~ – erledigt 2026-09-25 als Code in Gegenrichtung (App zeigt, Browser tippt).
 9. ~~M-8 Keycloak-Härtung (Raten, Mgmt-Passwort, Sperren)~~ – erledigt 2026-09-25.
-10. **M-11** TANs nicht auf STDOUT: Ports `SmsGateway`/`MailGateway`, ArchUnit „kein println“.
+10. ~~M-11 TANs nicht auf STDOUT~~ – erledigt 2026-09-25 (simulierte Anbieter mit Postausgang, ArchUnit).
 
 **Phase B – Sicherheitsnetz spannen, bevor umgebaut wird (Tage)**
 

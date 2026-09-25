@@ -142,6 +142,24 @@ class OrchestratorArchitectureTest : BehaviorSpec({
         .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
         .importPackages("com.example.dpop")
 
+    given("the backend's console (review 2026-09, M-11)") {
+        then("nothing prints to STDOUT/STDERR - codes and recipients must not end up in a container log") {
+            noClasses()
+                // The Keycloak migration runner is a separate build tool that reports its progress on
+                // the console by design; it never sees a code or a recipient.
+                .that().resideOutsideOfPackage("com.example.dpop.kcmigrate..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("kotlin.io.ConsoleKt")
+                .orShould().accessField(System::class.java, "out")
+                .orShould().accessField(System::class.java, "err")
+                .because(
+                    "the println calls this replaced put TANs and email codes together with phone numbers " +
+                        "and addresses on STDOUT, regardless of demo.disclosure; logging goes through SLF4J, " +
+                        "and a simulated provider keeps what it sent in its own outbox"
+                )
+                .check(everything)
+        }
+    }
+
     given("identity resolution (IdentityResolver - \"does this attested identity belong to an existing account?\")") {
         then("only the acting phase can ask, so the answer can never be acted on without its gate") {
             noClasses()

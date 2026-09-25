@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.authsmslookup
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
@@ -27,7 +28,8 @@ class AuthSmsLookupToolHandler(
     private val descriptor: AuthSmsLookupDescriptor,
     private val toolDataRepository: AuthSmsLookupToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
-    private val tanGenerator: TanGenerator
+    private val tanGenerator: TanGenerator,
+    private val smsGateway: SmsGateway
 ) {
 
     @Transactional
@@ -66,7 +68,7 @@ class AuthSmsLookupToolHandler(
         // Only actually "send" (and reveal a demoTan for) an SMS when the email really resolved
         // to an account with an active sms method - otherwise there is nothing to send to.
         return if (enrollment != null) {
-            sendMockSms(enrollment.phoneNumber.orEmpty(), issued.plainTan)
+            smsGateway.sendTan(enrollment.phoneNumber.orEmpty(), issued.plainTan)
             ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainTan))
         } else {
             ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
@@ -112,8 +114,4 @@ class AuthSmsLookupToolHandler(
         issuedTanHash = issuedTanHash,
         tanExpiresAt = tanExpiresAt
     )
-
-    private fun sendMockSms(phoneNumber: String, tan: String) {
-        println("[MOCK SMS] TAN $tan an $phoneNumber versandt (auth-sms-lookup).")
-    }
 }

@@ -1,5 +1,6 @@
 package com.example.dpop.auth_email.internal.confirmemail
 
+import com.example.dpop.mail_mock.MailServer
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import com.example.dpop.tool_spi.AttributeType
@@ -26,7 +27,7 @@ class ConfirmEmailToolHandlerTest : BehaviorSpec({
 
     val toolDataRepository = mockk<ConfirmEmailToolSessionRepository>()
     val emailCodeGenerator = EmailCodeGenerator("test-pepper")
-    val handler = ConfirmEmailToolHandler(ConfirmEmailDescriptor, toolDataRepository, emailCodeGenerator)
+    val handler = ConfirmEmailToolHandler(ConfirmEmailDescriptor, toolDataRepository, emailCodeGenerator, MailServer())
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-email tool session with no email yet") {

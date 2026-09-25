@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.enrollsms
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
@@ -34,7 +35,7 @@ class EnrollSmsToolHandlerTest : BehaviorSpec({
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     // Explicit pepper so issue()/matches() stay reproducible within the test run.
     val tanGenerator = TanGenerator("test-pepper")
-    val handler = EnrollSmsToolHandler(EnrollSmsDescriptor, toolDataRepository, enrollmentRepository, tanGenerator)
+    val handler = EnrollSmsToolHandler(EnrollSmsDescriptor, toolDataRepository, enrollmentRepository, tanGenerator, SmsGateway())
     val toolSessionId = UUID.randomUUID()
 
     given("an active enroll-sms tool session with no phone number yet") {

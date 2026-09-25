@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.authemaillookup
+import com.example.dpop.mail_mock.MailServer
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
@@ -28,7 +29,8 @@ class AuthEmailLookupToolHandler(
     private val descriptor: AuthEmailLookupDescriptor,
     private val toolDataRepository: AuthEmailLookupToolSessionRepository,
     private val accountDirectory: AccountDirectory,
-    private val emailCodeGenerator: EmailCodeGenerator
+    private val emailCodeGenerator: EmailCodeGenerator,
+    private val mailServer: MailServer
 ) {
 
     @Transactional
@@ -70,7 +72,7 @@ class AuthEmailLookupToolHandler(
         // Only actually "send" (and reveal a demo code for) an email when it really resolved to
         // a confirmed account address - otherwise there is nothing to send to.
         return if (confirmedEmail != null) {
-            sendMockEmail(confirmedEmail, issued.plainCode)
+            mailServer.sendCode(confirmedEmail, issued.plainCode)
             ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainCode))
         } else {
             ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = state.demo)
@@ -116,8 +118,4 @@ class AuthEmailLookupToolHandler(
         issuedCodeHash = issuedCodeHash,
         codeExpiresAt = codeExpiresAt
     )
-
-    private fun sendMockEmail(email: String, code: String) {
-        println("[MOCK EMAIL] Code $code an $email versandt (auth-email-lookup).")
-    }
 }

@@ -125,7 +125,7 @@ Anmeldung mit DPoP abgesichert werden. Das System besteht aus:
 - **M-2** — Jedes Modul mit Laufzeitlogik stellt sie als Spring-Bean bereit.
   - *Kriterium:* `@Service`/`@Component`/`@RestController` im Modul; `texts`, `tool_spi` und `tool_api` sind reine Verträge ohne Bean
 - **M-3** — Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` verbunden, nie direkt.
-  - *Kriterium:* Konstruktor-Injection nur mit `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_personenverzeichnis` (ADR-31), `id_nect → nect_mock`
+  - *Kriterium:* Konstruktor-Injection nur mit `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_personenverzeichnis` (ADR-31), `id_nect → nect_mock`, `auth_sms → sms_mock`, `auth_email → mail_mock` (simulierter SMS-Anbieter und Mailserver mit Postausgang statt Konsolenausgabe, Review 2026-09 M-11)
 - **M-4** — Die Modulstruktur ist verifizierbar.
   - *Kriterium:* `ApplicationModules.verify()` in Tests
 

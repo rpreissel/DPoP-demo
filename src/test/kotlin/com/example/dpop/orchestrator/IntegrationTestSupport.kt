@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.mail_mock.MailServer
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.orchestrator.admin.ADMIN_API
 import com.example.dpop.orchestrator.dpop.DpopProof
 import com.example.dpop.orchestrator.dpop.DpopValidator
@@ -25,8 +27,6 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.web.client.RestTemplate
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 import java.time.Instant
 import java.util.UUID
 
@@ -61,6 +61,12 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     /** Seeds account preconditions through the domain services - see [AccountFixtures]. */
     @Autowired
     protected lateinit var accountFixtures: AccountFixtures
+
+    @Autowired
+    protected lateinit var smsGateway: SmsGateway
+
+    @Autowired
+    protected lateinit var mailServer: MailServer
 
     // The JDK's default request factory can't send PATCH; HttpClient5 (already a test dep) can.
     protected val restTemplate = RestTemplate(HttpComponentsClientHttpRequestFactory())
@@ -208,20 +214,18 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     @Suppress("UNCHECKED_CAST")
     protected fun List<*>.methodNames(): List<String> = (this as List<Map<String, Any?>>).map { it["method"] as String }
 
-    /** Mock SMS/email gateways only print the code to stdout (docs/05-api.md: never in the response). */
+    /**
+     * The code the simulated SMS provider or mail server sent while [block] ran - read from their
+     * outboxes (sms_mock/mail_mock), never from a log (review 2026-09, M-11) and never from the
+     * response (docs/05-api.md).
+     */
     protected fun captureMockTan(block: () -> Map<String, Any?>): Pair<String, Map<String, Any?>> {
-        val original = System.out
-        val buffer = ByteArrayOutputStream()
-        System.setOut(PrintStream(buffer))
-        val response = try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        val printed = buffer.toString()
-        // Matches both "[MOCK SMS] TAN 123456 an ..." and "[MOCK EMAIL] Code 123456 an ...".
-        val tan = Regex("""(?:TAN|Code) (\d{6}) an""").find(printed)?.groupValues?.get(1)
-            ?: error("No mock TAN/code found in captured output: $printed")
+        val smsBefore = smsGateway.outbox().firstOrNull()?.sequence ?: 0
+        val mailBefore = mailServer.outbox().firstOrNull()?.sequence ?: 0
+        val response = block()
+        val sms = smsGateway.outbox().firstOrNull()?.takeIf { it.sequence > smsBefore }
+        val mail = mailServer.outbox().firstOrNull()?.takeIf { it.sequence > mailBefore }
+        val tan = sms?.tan ?: mail?.code ?: error("Neither an SMS nor a mail was sent")
         return tan to response
     }
 

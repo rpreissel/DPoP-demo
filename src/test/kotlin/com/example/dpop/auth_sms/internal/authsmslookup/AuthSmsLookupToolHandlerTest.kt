@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.authsmslookup
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
@@ -26,7 +27,7 @@ class AuthSmsLookupToolHandlerTest : BehaviorSpec({
     val toolDataRepository = mockk<AuthSmsLookupToolSessionRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     val tanGenerator = TanGenerator("test-pepper")
-    val handler = AuthSmsLookupToolHandler(AuthSmsLookupDescriptor, toolDataRepository, enrollmentRepository, tanGenerator)
+    val handler = AuthSmsLookupToolHandler(AuthSmsLookupDescriptor, toolDataRepository, enrollmentRepository, tanGenerator, SmsGateway())
     val toolSessionId = UUID.randomUUID()
 
     given("an active auth-sms-lookup tool session") {

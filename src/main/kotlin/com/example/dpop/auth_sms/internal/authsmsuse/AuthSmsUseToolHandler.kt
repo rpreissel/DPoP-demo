@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.authsmsuse
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
@@ -27,7 +28,8 @@ class AuthSmsUseToolHandler(
     private val descriptor: AuthSmsUseDescriptor,
     private val toolDataRepository: AuthSmsUseToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
-    private val tanGenerator: TanGenerator
+    private val tanGenerator: TanGenerator,
+    private val smsGateway: SmsGateway
 ) {
 
     @Transactional
@@ -50,7 +52,7 @@ class AuthSmsUseToolHandler(
                 tanExpiresAt = issued.expiresAt
             )
         )
-        sendMockSms(enrollment.phoneNumber.orEmpty(), issued.plainTan)
+        smsGateway.sendTan(enrollment.phoneNumber.orEmpty(), issued.plainTan)
 
         // demoTan: this is a demo, not a real SMS gateway - showing it in the UI means testers
         // don't need server-log access (docs/06-ablaeufe.md #3).
@@ -91,8 +93,4 @@ class AuthSmsUseToolHandler(
         issuedTanHash = issuedTanHash,
         tanExpiresAt = tanExpiresAt
     )
-
-    private fun sendMockSms(phoneNumber: String, tan: String) {
-        println("[MOCK SMS] TAN $tan an $phoneNumber versandt (auth-sms).")
-    }
 }

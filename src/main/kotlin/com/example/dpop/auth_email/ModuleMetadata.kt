@@ -24,5 +24,5 @@ import org.springframework.modulith.ApplicationModule
  * Acyclic by construction: `account` declares `allowedDependencies = ["tool_spi", "tool_api", "texts"]`,
  * so it can never depend back on a method module.
  */
-@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "texts"])
+@ApplicationModule(allowedDependencies = ["tool_spi", "tool_api", "texts", "mail_mock"])
 internal class ModuleMetadata

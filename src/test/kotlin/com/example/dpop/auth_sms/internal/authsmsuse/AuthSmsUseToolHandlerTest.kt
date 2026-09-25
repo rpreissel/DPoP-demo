@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.authsmsuse
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
@@ -28,7 +29,7 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
     val toolDataRepository = mockk<AuthSmsUseToolSessionRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     val tanGenerator = TanGenerator("test-pepper")
-    val handler = AuthSmsUseToolHandler(AuthSmsUseDescriptor, toolDataRepository, enrollmentRepository, tanGenerator)
+    val handler = AuthSmsUseToolHandler(AuthSmsUseDescriptor, toolDataRepository, enrollmentRepository, tanGenerator, SmsGateway())
     val toolSessionId = UUID.randomUUID()
 
     given("start()") {

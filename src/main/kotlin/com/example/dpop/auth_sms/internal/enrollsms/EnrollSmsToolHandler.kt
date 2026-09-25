@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.enrollsms
+import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
 import com.example.dpop.auth_sms.internal.TanGenerator
@@ -30,7 +31,8 @@ class EnrollSmsToolHandler(
     private val descriptor: EnrollSmsDescriptor,
     private val toolDataRepository: EnrollSmsToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
-    private val tanGenerator: TanGenerator
+    private val tanGenerator: TanGenerator,
+    private val smsGateway: SmsGateway
 ) {
 
     /** Called directly by EnrollSmsToolController; nothing needs resolving before this can start. */
@@ -70,7 +72,7 @@ class EnrollSmsToolHandler(
                 data.issuedTanHash = issued.hash
                 data.tanExpiresAt = issued.expiresAt
                 toolDataRepository.save(data)
-                sendMockSms(decision.phoneNumber, issued.plainTan)
+                smsGateway.sendTan(decision.phoneNumber, issued.plainTan)
 
                 val state = EnrollSmsState.AwaitingTan(decision.phoneNumber, issued.hash, issued.expiresAt)
                 val (step, fields) = state.describe()
@@ -117,8 +119,4 @@ class EnrollSmsToolHandler(
         issuedTanHash = issuedTanHash,
         tanExpiresAt = tanExpiresAt
     )
-
-    private fun sendMockSms(phoneNumber: String, tan: String) {
-        println("[MOCK SMS] TAN $tan an $phoneNumber versandt (enroll-sms).")
-    }
 }

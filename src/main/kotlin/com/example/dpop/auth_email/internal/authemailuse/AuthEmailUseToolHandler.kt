@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.authemailuse
+import com.example.dpop.mail_mock.MailServer
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
@@ -30,7 +31,8 @@ class AuthEmailUseToolHandler(
     private val descriptor: AuthEmailUseDescriptor,
     private val toolDataRepository: AuthEmailUseToolSessionRepository,
     private val accountDirectory: AccountDirectory,
-    private val emailCodeGenerator: EmailCodeGenerator
+    private val emailCodeGenerator: EmailCodeGenerator,
+    private val mailServer: MailServer
 ) {
 
     /**
@@ -51,7 +53,7 @@ class AuthEmailUseToolHandler(
         toolDataRepository.save(
             AuthEmailUseToolSession(toolSessionId = toolSessionId, issuedCodeHash = issued.hash, codeExpiresAt = issued.expiresAt)
         )
-        sendMockEmail(email, issued.plainCode)
+        mailServer.sendCode(email, issued.plainCode)
 
         val (step, fields) = AuthEmailUseState(issued.hash, issued.expiresAt).describe()
         return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainCode))
@@ -90,8 +92,4 @@ class AuthEmailUseToolHandler(
         issuedCodeHash = issuedCodeHash,
         codeExpiresAt = codeExpiresAt
     )
-
-    private fun sendMockEmail(email: String, code: String) {
-        println("[MOCK EMAIL] Code $code an $email versandt (auth-email).")
-    }
 }

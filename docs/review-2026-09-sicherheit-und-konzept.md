@@ -335,6 +335,13 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-11 Klartext-TANs und -Codes samt Empfänger auf STDOUT
 
+> **Behoben (2026-09-25):** Der Versand läuft über zwei simulierte Fremdsysteme, `sms_mock.SmsGateway`
+> und `mail_mock.MailServer` – eigene Module nach dem Muster von `kobil_mock` (ADR-31), kein neuer
+> Port in `tool_api`. Sie legen das Gesendete in einen Postausgang im Speicher und loggen nur die
+> letzten Ziffern der Nummer bzw. die Domain, nie den Code. Die Tests lesen den Code aus dem
+> Postausgang statt aus STDOUT. Eine ArchUnit-Regel verbietet `println` und `System.out/err` im
+> ganzen Backend (außer dem Migrations-Runner).
+
 - **Wo:** `println("[MOCK SMS] TAN $tan an $phoneNumber …")` und Gegenstücke in
   `AuthEmailLookupToolHandler.kt:120`, `AuthEmailUseToolHandler.kt:94`, `ConfirmEmailToolHandler.kt:133`,
   `AuthSmsLookupToolHandler.kt:116`, `AuthSmsUseToolHandler.kt:95`, `EnrollSmsToolHandler.kt:121`.
