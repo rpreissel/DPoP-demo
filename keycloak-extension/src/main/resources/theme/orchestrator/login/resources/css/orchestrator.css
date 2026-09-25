@@ -486,3 +486,28 @@ h1#kc-page-title {
         grid-template-columns: 1fr;
     }
 }
+
+/* ---- "Erstellt mit FreeMarker" in the dark band --------------------------------- */
+
+/* The band is body::after (13rem: 5.25rem band on top of the 7.75rem footer); the note sits on it.
+   The inherited height: 100% would end the body at the viewport, above a longer page's band. */
+.login-pf body {
+    position: relative;
+    height: auto;
+}
+
+/* Beats PatternFly's .login-pf-page .card-pf p - the note is rendered inside the card. */
+.login-pf-page .card-pf p.orchestrator-made-with {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 7.75rem;
+    height: 5.25rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--orc-font-size-small);
+    color: var(--orc-color-on-action);
+    pointer-events: none;
+}

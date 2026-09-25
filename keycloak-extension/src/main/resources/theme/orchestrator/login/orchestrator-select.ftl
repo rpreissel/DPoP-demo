@@ -1,8 +1,10 @@
 <#import "template.ftl" as layout>
+<#import "made-with.ftl" as madeWith>
 <@layout.registrationLayout displayMessage=true displayInfo=(offerRegistration!false); section>
     <#if section = "header">
         ${title!t.of("Anmeldemethode wählen")}
     <#elseif section = "form">
+        <@madeWith.note/>
         <#if description??>
             <p class="orchestrator-subtitle">${description}</p>
         </#if>

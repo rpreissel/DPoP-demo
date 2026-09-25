@@ -1,8 +1,10 @@
 <#import "template.ftl" as layout>
+<#import "made-with.ftl" as madeWith>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
         ${title!toolId}
     <#elseif section = "form">
+        <@madeWith.note/>
         <#if hint??>
             <p class="orchestrator-subtitle">${hint}</p>
         </#if>

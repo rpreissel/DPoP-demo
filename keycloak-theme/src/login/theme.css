@@ -230,9 +230,18 @@ body {
 }
 
 .orc-band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 5.25rem;
   margin-top: 5rem;
   background: var(--orc-color-band);
+}
+
+.orc-made-with {
+  margin: 0;
+  font-size: var(--orc-font-size-small);
+  color: var(--orc-color-on-action);
 }
 
 .orc-footer {

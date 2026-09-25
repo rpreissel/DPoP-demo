@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { KcContext } from './KcContext'
+import { t } from '../texts'
 
 /**
  * The page frame of the FreeMarker theme, rebuilt: empty white top bar, the realm's name as the
@@ -23,7 +24,10 @@ export function Layout({ kcContext, title, children, info }: { kcContext: KcCont
           {info && <div className="orc-info">{info}</div>}
         </section>
       </main>
-      <div className="orc-band" />
+      {/* Which theme drew this page - the FreeMarker theme says the same (made-with.ftl). */}
+      <div className="orc-band">
+        <p className="orc-made-with">{t('Erstellt mit {technik}', { technik: 'Keycloakify' })}</p>
+      </div>
       <div className="orc-footer" />
     </div>
   )

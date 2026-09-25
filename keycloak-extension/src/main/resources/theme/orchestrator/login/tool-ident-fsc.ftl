@@ -1,10 +1,12 @@
 <#import "template.ftl" as layout>
+<#import "made-with.ftl" as madeWith>
 <#import "demo-person-picker.ftl" as demoPerson>
 <#-- Two fixed pages (IdentFscRendererFactory): personal data first, then the code. -->
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
         ${title}
     <#elseif section = "form">
+        <@madeWith.note/>
         <#if personalienPage>
             <p class="orchestrator-subtitle">${t.of("Damit Sie Ihren Freischaltcode gleich eingeben können, brauchen wir noch diese Daten:")}</p>
             <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
