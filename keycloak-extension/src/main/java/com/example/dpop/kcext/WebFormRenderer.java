@@ -157,10 +157,13 @@ final class WebFormRenderer {
 
     /**
      * Every orchestrator page gets {@code t}: its own texts are written as German templates,
-     * {@code ${t.of("Weiter")}}, and resolved in the login's language (docs/adr/ADR-033).
+     * {@code ${t.of("Weiter")}}, and resolved in the login's language (docs/adr/ADR-033). And
+     * {@code texts}, the same wordings as a plain map, for the Keycloakify theme, which renders in
+     * the browser and cannot call {@code t} (docs/ideen/keycloakify-statt-freemarker.md).
      */
     private static LoginFormsProvider withTexts(KeycloakSession session, LoginFormsProvider form) {
-        return form.setAttribute("t", KcTexts.forTemplates(session));
+        return form.setAttribute("t", KcTexts.forTemplates(session))
+                .setAttribute("texts", KcTexts.forBrowser(session));
     }
 
     private static WebToolRendererFactory rendererFactoryFor(KeycloakSession session, String toolId) {

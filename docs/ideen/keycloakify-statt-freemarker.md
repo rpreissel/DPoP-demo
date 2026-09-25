@@ -111,10 +111,11 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
   erbt sie also vom FreeMarker-Theme, ohne Kopie.
 - **Texte im Browser:** Die Vorlagen rufen `${t.of("…")}` auf, `t` ist `KcTexts.TemplateTexts`. Im
   `kcContext` kommt davon nur ein leeres Objekt an, und Keycloakify bringt nur seine eigenen
-  Message-Schlüssel mit, nicht unsere. Deshalb bündelt `keycloak-theme/src/texts.ts` die
-  `messages_{de,en}.properties` des FreeMarker-Themes beim Build ins JavaScript und bildet den
-  Schlüssel wie `KcText.idOf` (synchrones SHA-256 wie im Frontend). Die Sprache kommt aus
-  `kcContext.locale`. Kein zusätzliches Attribut in `WebFormRenderer` nötig.
+  Message-Schlüssel mit, nicht unsere. Deshalb setzt `WebFormRenderer` neben `t` ein zweites
+  Attribut `texts`: dieselben Texte als einfache Map (Schlüssel → Text in der Sprache der Anmeldung),
+  nur unsere eigenen Schlüssel (`KcTexts.forBrowser`). `keycloak-theme/src/texts.ts` bildet den
+  Schlüssel wie `KcText.idOf` (synchrones SHA-256 wie im Frontend) und schlägt dort nach. Ändert
+  `/translate-texts` die Messages, zeigt das Keycloakify-Theme den neuen Text ohne neuen Build.
 - **Offen:** Das Einsammeln der Vorlagen für `/translate-texts` (heute `KcTextCatalog` für `.ftl`, im
   Frontend `t("…")` und `<Tx>`) muss auf `keycloak-theme/src` erweitert werden. Solange die
   React-Seiten nur Vorlagen nutzen, die es in den `.ftl`-Dateien auch gibt, fehlt nichts.
@@ -213,7 +214,8 @@ Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschr
    sofort und unabhängig von allem anderen.
 2. **Erster Versuch mit Keycloakify (erledigt):** `keycloak-theme/` mit `orchestrator-select` und
    `orchestrator-tool` als React-Seiten; alle anderen Seiten kommen vom FreeMarker-Eltern-Theme.
-   Gegen Keycloak geprüft: Auswahl (React), Passwortseite (FreeMarker), Fehlermeldung von `KcTexts`.
+   Gegen Keycloak geprüft: Auswahl (React), Passwortseite (FreeMarker), Fehlermeldung von `KcTexts`,
+   Texte auf Deutsch und Englisch aus `kcContext.texts`.
 3. **Schalter im Orchestrator (erledigt):** `KeycloakLoginTheme` über den Migrations-Client,
    Endpunkt, Abgleich beim Start, Admin-Seite, `ServerInfo`, Demo-Reset. Voreinstellung FreeMarker.
 4. **Restliche allgemeine Seiten:** `orchestrator-confirm` und `orchestrator-error`. Jede `pageId`

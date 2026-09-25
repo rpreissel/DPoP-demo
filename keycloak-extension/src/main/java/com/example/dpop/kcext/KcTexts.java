@@ -7,6 +7,7 @@ import org.keycloak.theme.Theme;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,6 +21,7 @@ public final class KcTexts {
 
     private static final Logger LOG = Logger.getLogger(KcTexts.class);
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z][A-Za-z0-9_]*)}");
+    private static final Pattern OWN_ID = Pattern.compile("[0-9a-f]{12}");
 
     private KcTexts() {
     }
@@ -49,6 +51,25 @@ public final class KcTexts {
     /** What a template calls as {@code t}: {@code ${t.of("Weiter")}}, {@code ${t.of("Demo-Code: {code}", {"code": demoTan})}}. */
     public static TemplateTexts forTemplates(KeycloakSession session) {
         return new TemplateTexts(messages(session));
+    }
+
+    /**
+     * The same texts for a theme that renders in the browser (Keycloakify): a plain map, which -
+     * unlike {@link TemplateTexts} - survives the trip into its kcContext. Only this extension's own
+     * ids (12 hex digits of {@link KcText#idOf}), not Keycloak's own messages, in the login's
+     * language; the browser fills placeholders itself. Read at every render, so a reworded
+     * messages file shows without rebuilding that theme.
+     */
+    public static Map<String, String> forBrowser(KeycloakSession session) {
+        return ownTexts(messages(session));
+    }
+
+    static Map<String, String> ownTexts(Properties messages) {
+        Map<String, String> texts = new TreeMap<>();
+        for (String key : messages.stringPropertyNames()) {
+            if (OWN_ID.matcher(key).matches()) texts.put(key, messages.getProperty(key));
+        }
+        return texts;
     }
 
     public static final class TemplateTexts {

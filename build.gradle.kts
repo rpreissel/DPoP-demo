@@ -177,9 +177,9 @@ val keycloakThemeBuild = tasks.register<Exec>("keycloakThemeBuild") {
     workingDir = keycloakThemeDir
     inputs.dir(keycloakThemeDir.resolve("src"))
     inputs.files(keycloakThemeDir.resolve("index.html"), keycloakThemeDir.resolve("vite.config.ts"), keycloakThemeDir.resolve("package.json"))
-    // Gebuendelt aus dem FreeMarker-Theme: gemeinsame Tokens und die Texte.
+    // Gebuendelt aus dem FreeMarker-Theme: die gemeinsamen Tokens. Die Texte nicht - die setzt die
+    // Extension zur Laufzeit in jede Seite (kcContext.texts).
     inputs.file(freemarkerThemeDir.resolve("resources/css/tokens.css"))
-    inputs.dir(freemarkerThemeDir.resolve("messages"))
     outputs.file(keycloakThemeDir.resolve("dist_keycloak/orchestrator-keycloakify-theme.jar"))
     commandLine("npm", "run", "build-keycloak-theme")
 }

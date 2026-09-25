@@ -1,12 +1,16 @@
 import { createGetKcContextMock } from 'keycloakify/login/KcContext'
 import type { KcContext, KcContextExtension, KcContextExtensionPerPage } from './KcContext'
+import { parseProperties } from '../texts'
+import de from '../../../keycloak-extension/src/main/resources/theme/orchestrator/login/messages/messages_de.properties?raw'
+import en from '../../../keycloak-extension/src/main/resources/theme/orchestrator/login/messages/messages_en.properties?raw'
 
 /**
  * Pages without Keycloak, for `npm run dev` and tests: `?page=orchestrator-tool.ftl` picks the
- * page, the realm is the demo's own. Values mirror what WebFormRenderer sets.
+ * page, `?lang=en` the language, the realm is the demo's own. Values mirror what WebFormRenderer
+ * sets - `texts` read straight from the FreeMarker theme's messages, as Keycloak would.
  */
 const { getKcContextMock } = createGetKcContextMock({
-  kcContextExtension: { themeName: 'orchestrator-keycloakify', properties: {} } satisfies KcContextExtension,
+  kcContextExtension: { themeName: 'orchestrator-keycloakify', properties: {} } as KcContextExtension,
   kcContextExtensionPerPage: {} as KcContextExtensionPerPage,
   overrides: { realm: { name: 'Demo', displayName: 'Demo' } },
   overridesPerPage: {
@@ -24,6 +28,8 @@ const { getKcContextMock } = createGetKcContextMock({
 })
 
 export function mockContext(): KcContext {
-  const pageId = new URLSearchParams(window.location.search).get('page') ?? 'orchestrator-select.ftl'
-  return getKcContextMock({ pageId: pageId as KcContext['pageId'] }) as KcContext
+  const query = new URLSearchParams(window.location.search)
+  const pageId = query.get('page') ?? 'orchestrator-select.ftl'
+  const texts = parseProperties(query.get('lang') === 'en' ? en : de)
+  return getKcContextMock({ pageId: pageId as KcContext['pageId'], overrides: { texts } }) as KcContext
 }

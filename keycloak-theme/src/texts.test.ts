@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { setLanguage, t, textId } from './texts'
+import { setTexts, t, textId } from './texts'
 
 describe('texts', () => {
   it('computes the same id as the extension (KcText.idOf)', () => {
@@ -7,16 +7,15 @@ describe('texts', () => {
     expect(textId('Weiter')).toBe('1e14bdf34c3b')
   })
 
-  it('shows the wording of the login language, German as fallback', () => {
-    setLanguage('en')
+  it('shows the wording Keycloak rendered into the page', () => {
+    setTexts({ [textId('Weiter')]: 'Continue' })
     expect(t('Weiter')).toBe('Continue')
-    setLanguage('fr')
-    expect(t('Weiter')).toBe('Weiter')
   })
 
-  it('fills placeholders and shows an unknown template as itself', () => {
-    setLanguage('de')
-    expect(t('Demo-Code: {wert}', { wert: '123456' })).toBe('Demo-Code: 123456')
-    expect(t('Gibt es nicht')).toBe('Gibt es nicht')
+  it('fills placeholders, and without a wording shows the template itself', () => {
+    setTexts({ [textId('Demo-Code: {wert}')]: 'Demo code: {wert}' })
+    expect(t('Demo-Code: {wert}', { wert: '123456' })).toBe('Demo code: 123456')
+    setTexts(undefined)
+    expect(t('Weiter')).toBe('Weiter')
   })
 })

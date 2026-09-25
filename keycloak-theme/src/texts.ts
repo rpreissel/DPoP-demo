@@ -1,28 +1,23 @@
 /**
  * The theme's own texts, the same way the FreeMarker theme does it (docs/adr/ADR-033): the German
  * source wording stays in the code, `t("Weiter")`; its id - the first 12 hex digits of its SHA-256,
- * Java's `KcText.idOf` - is looked up in the FreeMarker theme's messages_<lang>.properties. Those
- * files are bundled here at build time (one source; Keycloakify's kcContext only carries its own
- * message keys), and the build also copies them into this theme so the extension's `KcTexts` finds
- * them for the titles and hints it resolves on the server.
+ * Java's `KcText.idOf` - is looked up in the wordings Keycloak renders into every orchestrator page
+ * (`kcContext.texts`, set by the extension's WebFormRenderer from the login theme's messages, in
+ * the login's language). So a reworded messages file shows without rebuilding this theme. A page
+ * without them (Keycloak's own pages) shows the template itself.
  *
  * The template must be a string literal, so `/translate-texts` can collect it.
  */
-import de from '../../keycloak-extension/src/main/resources/theme/orchestrator/login/messages/messages_de.properties?raw'
-import en from '../../keycloak-extension/src/main/resources/theme/orchestrator/login/messages/messages_en.properties?raw'
 
-const bundles: Record<string, Record<string, string>> = { de: parseProperties(de), en: parseProperties(en) }
+let wordings: Record<string, string> = {}
 
-let language = 'de'
-
-/** The login's language as Keycloak picked it (kcContext.locale); anything unknown falls back to German. */
-export function setLanguage(tag: string | undefined) {
-  const base = (tag ?? 'de').toLowerCase().split('-')[0]
-  language = base in bundles ? base : 'de'
+/** The wordings of the page being rendered - `kcContext.texts`. */
+export function setTexts(texts: Record<string, string> | undefined) {
+  wordings = texts ?? {}
 }
 
 export function t(template: string, values?: Record<string, string | number>): string {
-  const wording = bundles[language][textId(template)] ?? template
+  const wording = wordings[textId(template)] ?? template
   return wording.replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g, (placeholder, name: string) =>
     values && name in values ? String(values[name]) : placeholder,
   )

@@ -3,7 +3,7 @@ import DefaultPage from 'keycloakify/login/DefaultPage'
 import Template from 'keycloakify/login/Template'
 import type { KcContext } from './KcContext'
 import { useI18n } from './i18n'
-import { setLanguage } from '../texts'
+import { setTexts } from '../texts'
 import { OrchestratorSelect } from './pages/OrchestratorSelect'
 import { OrchestratorTool } from './pages/OrchestratorTool'
 import './theme.css'
@@ -16,7 +16,7 @@ const UserProfileFormFields = lazy(() => import('keycloakify/login/UserProfileFo
  * Keycloakify's default rendering.
  */
 export default function KcPage({ kcContext }: { kcContext: KcContext }) {
-  setLanguage(kcContext.locale?.currentLanguageTag)
+  setTexts(kcContext.texts)
   const { i18n } = useI18n({ kcContext })
   return (
     <Suspense>
