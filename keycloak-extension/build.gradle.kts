@@ -133,9 +133,10 @@ tasks.build {
 tasks.register<JavaExec>("exportTexts") {
     group = "texts"
     description = "Schreibt die Text-Vorlagen der Extension nach build/texts/keycloak/texts_source.properties (Wurzelprojekt)."
-    dependsOn("testClasses")
+    dependsOn("testClasses", ":exportKeycloakThemeTexts")
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("com.example.dpop.kcext.KcTextCatalog")
+    systemProperty("texts.keycloakThemeCatalog", rootProject.file("keycloak-theme/build/texts-catalog.json").absolutePath)
     args(
         layout.buildDirectory.dir("classes/java/main").get().asFile.absolutePath,
         layout.projectDirectory.dir("src/main/resources/theme").asFile.absolutePath,
@@ -145,6 +146,8 @@ tasks.register<JavaExec>("exportTexts") {
 
 // toolNamesAreTheAppsOwn vergleicht mit dem Frontend-Katalog (docs/adr/ADR-033).
 tasks.named<Test>("test") {
-    dependsOn(":exportFrontendTexts")
+    dependsOn(":exportFrontendTexts", ":exportKeycloakThemeTexts")
+    // KcTextCatalogTest: die Vorlagen des Keycloakify-Themes gehoeren ins selbe Bundle.
+    systemProperty("texts.keycloakThemeCatalog", rootProject.file("keycloak-theme/build/texts-catalog.json").absolutePath)
     systemProperty("texts.frontendCatalog", rootProject.file("frontend/build/texts-catalog.json").absolutePath)
 }

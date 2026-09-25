@@ -13,7 +13,34 @@ export type KcContextExtension = {
   texts?: Record<string, string>
 }
 
+/** What WebFormRenderer.toolForm sets on every tool page; the tool's renderer factory adds the rest. */
+type ToolPage = {
+  toolId: string
+  title: string
+  hint?: string
+}
+
+/** Raw JSON of demo.persons (AbstractWebToolRendererFactory.demoPersonsJson); absent without demo values. */
+type WithPersons = { demoPersonsJson?: string }
+
 export type KcContextExtensionPerPage = {
+  'tool-password-auth.ftl': ToolPage & { demoPassword?: string }
+  'tool-password-enroll.ftl': ToolPage & { demoPassword?: string }
+  'tool-password-lookup.ftl': ToolPage & WithPersons & { demoEmail?: string; demoPassword?: string }
+  'tool-email-auth.ftl': ToolPage & { demoTan?: string }
+  'tool-email-enroll.ftl': ToolPage & WithPersons & { step: string; demoEmail?: string; demoTan?: string }
+  'tool-email-lookup.ftl': ToolPage & WithPersons & { step: string; demoEmail?: string; demoTan?: string }
+  'tool-sms-auth.ftl': ToolPage & { demoTan?: string }
+  'tool-sms-enroll.ftl': ToolPage & { step: string; demoTan?: string }
+  'tool-sms-lookup.ftl': ToolPage & WithPersons & { step: string; demoEmail?: string; demoTan?: string }
+  'tool-ident-eid.ftl': ToolPage & WithPersons & { step: string }
+  'tool-ident-fsc.ftl': ToolPage & WithPersons & { personalienPage: boolean }
+  'tool-ident-kvnr.ftl': ToolPage & WithPersons
+  'tool-qr-enroll.ftl': ToolPage
+  'tool-qr-wait.ftl': ToolPage & { pairingCode: string; verificationCode?: string; deepLink: string; qrDataUri: string }
+  'orchestrator-manage-methods.ftl': {
+    methods: { id: string; method: string; label?: string }[]
+  }
   'orchestrator-tool.ftl': {
     toolId: string
     title?: string
@@ -38,3 +65,6 @@ export type KcContextExtensionPerPage = {
 }
 
 export type KcContext = ExtendKcContext<KcContextExtension, KcContextExtensionPerPage>
+
+/** The kcContext of one page. */
+export type PageContext<P extends KcContext['pageId']> = Extract<KcContext, { pageId: P }>

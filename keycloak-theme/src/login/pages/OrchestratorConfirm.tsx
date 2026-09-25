@@ -1,4 +1,4 @@
-import type { KcContext } from '../KcContext'
+import type { PageContext } from '../KcContext'
 import { Layout } from '../Layout'
 import { t } from '../../texts'
 
@@ -6,7 +6,7 @@ import { t } from '../../texts'
  * `orchestrator-confirm.ftl`: the generic yes/no prompt of every AnswerableState - title and labels
  * come resolved from the orchestrator's prompt, the defaults only when it sent none.
  */
-export function OrchestratorConfirm({ kcContext }: { kcContext: Extract<KcContext, { pageId: 'orchestrator-confirm.ftl' }> }) {
+export function OrchestratorConfirm({ kcContext }: { kcContext: PageContext<'orchestrator-confirm.ftl'> }) {
   const { url, title, confirmLabel, cancelLabel } = kcContext
   return (
     <Layout kcContext={kcContext} title={title ?? t('Bestätigung erforderlich')}>

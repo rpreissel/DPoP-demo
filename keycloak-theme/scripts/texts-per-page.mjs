@@ -4,8 +4,9 @@
 // regex. The ids go into theme.properties; the extension's WebFormRenderer sends each page only
 // its own wordings. A template must be a string literal - anything else is a problem.
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parseSync } from 'rolldown/experimental'
 
 /** Same id as the extension's `KcText.idOf`: the first 12 hex digits of the template's SHA-256. */
@@ -32,7 +33,7 @@ function literal(node) {
   return undefined
 }
 
-/** Templates, local imports and problems of one file. */
+/** Templates (with their line), local imports and problems of one file. */
 export function scanFile(path) {
   const code = readFileSync(path, 'utf8')
   const { program } = parseSync(path, code, { lang: path.endsWith('x') ? 'tsx' : 'ts' })
@@ -46,7 +47,7 @@ export function scanFile(path) {
     if (node.type === 'CallExpression' && node.callee?.type === 'Identifier' && node.callee.name === 't') {
       const template = literal(node.arguments[0])
       if (template === undefined) problems.push(`${path}:${lineOf(code, node.start)}: t() needs a string literal as template`)
-      else templates.push(template)
+      else templates.push({ template, line: lineOf(code, node.start) })
     }
     for (const key of Object.keys(node)) if (key !== 'type' && key !== 'start' && key !== 'end') visit(node[key])
   }
@@ -73,7 +74,7 @@ export function textsPerPage(srcDir) {
       if (seen.has(file) || file === join(srcDir, 'texts.ts')) continue
       seen.add(file)
       const scanned = scanFile(file)
-      scanned.templates.forEach((t) => templates.add(t))
+      scanned.templates.forEach(({ template }) => templates.add(template))
       problems.push(...scanned.problems.map((p) => relative(srcDir, p)))
       scanned.imports.map((i) => resolveImport(file, i)).filter(Boolean).forEach((f) => queue.push(f))
     }
@@ -86,4 +87,43 @@ export function textsPerPage(srcDir) {
 /** The lines for theme.properties: `orchestratorTexts.<pageId>=id,id,...`. */
 export function themeProperties(srcDir) {
   return Object.entries(textsPerPage(srcDir)).map(([pageId, ids]) => `orchestratorTexts.${pageId}=${ids.join(',')}`)
+}
+
+function sources(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const path = join(dir, e.name)
+    if (e.isDirectory()) return sources(path)
+    return /\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) ? [path] : []
+  })
+}
+
+/**
+ * Every template of the theme with its locations - for /translate-texts, which words them in the
+ * `keycloak` bundle next to the FreeMarker templates (keycloak-extension's KcTextCatalog reads it).
+ */
+export function catalog(srcDir) {
+  const byTemplate = new Map()
+  const problems = []
+  for (const path of sources(srcDir)) {
+    if (path === join(srcDir, 'texts.ts')) continue
+    const scanned = scanFile(path)
+    problems.push(...scanned.problems.map((p) => relative(srcDir, p)))
+    for (const { template, line } of scanned.templates) {
+      const entry = byTemplate.get(template) ?? { id: idOf(template), template, locations: [] }
+      entry.locations.push(`keycloak-theme/src/${relative(srcDir, path).split(sep).join('/')}:${line}`)
+      byTemplate.set(template, entry)
+    }
+  }
+  if (problems.length) throw new Error(problems.join('\n'))
+  return [...byTemplate.values()]
+}
+
+// `npm run texts:export <out.json>`
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const src = join(dirname(fileURLToPath(import.meta.url)), '..', 'src')
+  const out = process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'build', 'texts-catalog.json')
+  const entries = catalog(src)
+  mkdirSync(dirname(out), { recursive: true })
+  writeFileSync(out, JSON.stringify(entries, null, 2))
+  console.log(`${entries.length} Theme-Texte -> ${out}`)
 }

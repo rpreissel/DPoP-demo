@@ -262,3 +262,122 @@ body {
     flex-direction: column;
   }
 }
+
+/* ---- Page-specific pieces (as in the FreeMarker theme's orchestrator.css) ---------- */
+
+.orc-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: var(--orc-font-size-small);
+  color: var(--orc-color-text-muted);
+}
+
+p.orc-hint {
+  margin: 0 0 1.25rem;
+}
+
+.orc-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+}
+
+.orc-details summary {
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  font-size: var(--orc-font-size-label);
+}
+
+.orc-details label {
+  display: block;
+  margin-bottom: 0.2rem;
+  padding-left: 2px;
+  font-size: var(--orc-font-size-label);
+  font-weight: var(--orc-font-weight-bold);
+}
+
+.orc-details input {
+  display: block;
+  width: 100%;
+  height: var(--orc-control-height);
+  padding: 0.75rem 0.8rem 0.75rem 0.625rem;
+  border: 1px solid var(--orc-color-border);
+  border-radius: var(--orc-radius);
+  font: inherit;
+  color: var(--orc-color-text);
+}
+
+/* Demo-only helper above a real form: set apart as a tool, not a form field. */
+.orc-demo-picker {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px dashed var(--orc-color-border);
+  background: var(--orc-color-surface-soft);
+}
+
+.orc-demo-picker label {
+  font-size: var(--orc-font-size-small);
+}
+
+.orc-demo-tag {
+  display: inline-block;
+  padding: 0 0.4em;
+  margin-right: 0.25em;
+  background: var(--orc-color-demo);
+  color: #fff;
+  font-size: 0.75em;
+  font-weight: var(--orc-font-weight-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.orc-qr {
+  text-align: center;
+}
+
+.orc-qr a {
+  word-break: break-all;
+  font-size: var(--orc-font-size-small);
+}
+
+.orc-qr-code {
+  font-size: 1.6em;
+  font-weight: var(--orc-font-weight-light);
+  letter-spacing: 0.12em;
+  color: var(--orc-color-text-strong);
+}
+
+.orc-methods {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orc-methods li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--orc-color-border-subtle);
+}
+
+.orc-methods li:last-child {
+  border-bottom: none;
+}
+
+.orc-actions form {
+  display: flex;
+}
+
+@media (max-width: 480px) {
+  .orc-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A select keeps its text vertically centred by itself - the input padding would clip it. */
+.orc-field select {
+  padding-top: 0;
+  padding-bottom: 0;
+}

@@ -186,6 +186,20 @@ val keycloakThemeBuild = tasks.register<Exec>("keycloakThemeBuild") {
     commandLine("npm", "run", "build-keycloak-theme")
 }
 
+// Die Vorlagen des Keycloakify-Themes (t("...") in keycloak-theme/src) fuer den Katalog des Bundles
+// keycloak - KcTextCatalog der Extension liest sie neben den .ftl-Vorlagen.
+val keycloakThemeTextCatalog = keycloakThemeDir.resolve("build/texts-catalog.json")
+tasks.register<Exec>("exportKeycloakThemeTexts") {
+    group = "texts"
+    description = "Schreibt die Text-Vorlagen des Keycloakify-Themes nach keycloak-theme/build/texts-catalog.json."
+    dependsOn(keycloakThemeNpmInstall)
+    workingDir = keycloakThemeDir
+    inputs.dir(keycloakThemeDir.resolve("src"))
+    inputs.dir(keycloakThemeDir.resolve("scripts"))
+    outputs.file(keycloakThemeTextCatalog)
+    commandLine("npm", "run", "texts:export", "--", keycloakThemeTextCatalog.absolutePath)
+}
+
 // Die eigenen Texte des Frontends (docs/adr/ADR-033): frontend/scripts/text-catalog.mjs liest jede
 // t("...")/<Tx text="...">-Vorlage aus dem geparsten Quelltext. TextTranslationsTest und exportTexts
 // fuehren sie mit den Backend-Vorlagen zu einem Katalog je Bundle zusammen.

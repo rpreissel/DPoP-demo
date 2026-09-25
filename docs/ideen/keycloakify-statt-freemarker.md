@@ -1,7 +1,7 @@
 # Idee: Keycloakify neben FreeMarker für Anmeldung, Registrierung und Verwaltung der Verfahren
 
-Status: **teilweise umgesetzt** (Issue `DPoP-demo-an4z`): gemeinsames Aussehen, Keycloakify-Theme mit
-den ersten Seiten, Build und Laufzeit-Schalter stehen; es fehlen die übrigen Seiten und die Ende-zu-Ende-Tests. Die Verwaltung der Anmeldeverfahren im
+Status: **weitgehend umgesetzt** (Issue `DPoP-demo-an4z`): gemeinsames Aussehen, Keycloakify-Theme mit
+allen Seiten des Orchestrators, Build und Laufzeit-Schalter stehen; es fehlen die Ende-zu-Ende-Tests. Die Verwaltung der Anmeldeverfahren im
 Web-Kanal läuft bereits als Required Action von Keycloak mit FreeMarker (`orchestrator-manage-methods.ftl`,
 [API](../05-api.md), „Anmeldeverfahren verwalten im Web-Kanal“). Keycloakify würde nur deren Darstellung
 ersetzen, wie die aller anderen Seiten.
@@ -125,9 +125,10 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
     muss man es nur, wenn eine React-Seite eine neue Vorlage bekommt.
   - `keycloak-theme/src/texts.ts` bildet den Schlüssel wie `KcText.idOf` (synchrones SHA-256 wie
     im Frontend).
-- **Offen:** Das Einsammeln der Vorlagen für `/translate-texts` (heute `KcTextCatalog` für `.ftl`, im
-  Frontend `t("…")` und `<Tx>`) muss auf `keycloak-theme/src` erweitert werden. Solange die
-  React-Seiten nur Vorlagen nutzen, die es in den `.ftl`-Dateien auch gibt, fehlt nichts.
+- **`/translate-texts`:** `npm run texts:export` im Theme schreibt alle `t("…")`-Vorlagen samt
+  Fundstellen nach `keycloak-theme/build/texts-catalog.json`; `KcTextCatalog` der Extension liest den
+  Katalog neben den `.ftl`-Vorlagen. Beide Themes teilen damit das Bundle `keycloak`, und
+  `KcTextCatalogTest` meldet eine neue Vorlage im React-Code wie eine in einer `.ftl`-Datei.
 - **Seitenvertrag:** Jede Seite bekommt dieselben Attribute, egal welches Theme sie zeigt. Neben `t`:
   - `orchestrator-select`: `title`, `description`, `options`, `optionLabels`, `offerRegistration`
   - `orchestrator-tool`: `toolId`, `fields` (aus `stepData.missingFields`)
@@ -227,9 +228,11 @@ Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschr
    Texte auf Deutsch und Englisch aus `kcContext.texts`.
 3. **Schalter im Orchestrator (erledigt):** `KeycloakLoginTheme` über den Migrations-Client,
    Endpunkt, Abgleich beim Start, Admin-Seite, `ServerInfo`, Demo-Reset. Voreinstellung FreeMarker.
-4. **Restliche allgemeine Seiten:** `orchestrator-confirm` und `orchestrator-error`. Jede `pageId`
-   ohne React-Komponente zeigt weiter die FreeMarker-Vorlage.
-5. **Tool für Tool** eigene Seiten, zuletzt `orchestrator-manage-methods`.
+4. **Restliche allgemeine Seiten (erledigt):** `orchestrator-confirm` und `orchestrator-error`. Jede
+   `pageId` ohne React-Komponente zeigt weiter die FreeMarker-Vorlage.
+5. **Tool für Tool (erledigt):** alle 14 Tool-Seiten und `orchestrator-manage-methods` als
+   React-Seiten, gemeinsame Bausteine in `keycloak-theme/src/login/components/`. Gegen Keycloak
+   geprüft: SMS-Anmeldung bis zur Code-Eingabe, QR-Warteseite.
 6. **Build (erledigt):** Gradle-Tasks, `stageKeycloakArtifact`, `Dockerfile` (Abschnitt 8).
 7. **Ende-zu-Ende-Tests** mit Playwright gegen ein echtes Keycloak (Podman Compose): dieselben
    Abläufe mit beiden Themes, dazu Umschalten zur Laufzeit ohne Neustart und der Abgleich nach einem

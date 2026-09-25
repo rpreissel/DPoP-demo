@@ -1,5 +1,7 @@
 package com.example.dpop.kcext;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -34,7 +36,10 @@ import java.util.stream.Stream;
  *   its template traced by ASM's data flow analysis; not a constant string is a problem;</li>
  *   <li>the theme's {@code .ftl} files - each {@code t.of("...")}. FreeMarker has no public
  *   expression tree, so a strict scanner reads them: a {@code t.of(} not followed by a string literal
- *   is a problem, named by file and line.</li>
+ *   is a problem, named by file and line;</li>
+ *   <li>the Keycloakify theme ({@code keycloak-theme/}) - each {@code t("...")} of its React pages,
+ *   read by that package's own parser ({@code npm run texts:export}) into a JSON catalog. Same bundle:
+ *   both themes show the same messages files.</li>
  * </ul>
  */
 public final class KcTextCatalog {
@@ -67,7 +72,26 @@ public final class KcTextCatalog {
 
     /** The extension as built: main classes and theme sources, located from the working directory Gradle tests run in. */
     public static KcTextCatalog extension() throws IOException {
-        return of(Path.of("build/classes/java/main"), Path.of("src/main/resources/theme"));
+        KcTextCatalog catalog = of(Path.of("build/classes/java/main"), Path.of("src/main/resources/theme"));
+        catalog.addKeycloakifyCatalog(keycloakifyCatalog());
+        return catalog;
+    }
+
+    /** Written by {@code :exportKeycloakThemeTexts}; the Gradle test task passes its path. */
+    static Path keycloakifyCatalog() {
+        return Path.of(System.getProperty("texts.keycloakThemeCatalog", "../keycloak-theme/build/texts-catalog.json"));
+    }
+
+    /** The Keycloakify theme's templates - a missing catalog is a problem, not an empty theme. */
+    void addKeycloakifyCatalog(Path json) throws IOException {
+        if (!Files.exists(json)) {
+            problems.add(json + ": Keycloakify text catalog missing - run ./gradlew exportKeycloakThemeTexts");
+            return;
+        }
+        for (JsonNode entry : new ObjectMapper().readTree(json.toFile())) {
+            String template = entry.get("template").asText();
+            for (JsonNode location : entry.get("locations")) add(template, location.asText());
+        }
     }
 
     private void add(String template, String location) {
@@ -147,6 +171,7 @@ public final class KcTextCatalog {
     /** {@code ./gradlew exportTexts}: args = classes dir, theme dir, output root (writes keycloak/texts_source.properties). */
     public static void main(String[] args) throws IOException {
         KcTextCatalog catalog = of(Path.of(args[0]), Path.of(args[1]));
+        catalog.addKeycloakifyCatalog(keycloakifyCatalog());
         if (!catalog.problems.isEmpty()) throw new IllegalStateException(String.join("\n", catalog.problems));
         Path out = Path.of(args[2], "keycloak", "texts_source.properties");
         Files.createDirectories(out.getParent());

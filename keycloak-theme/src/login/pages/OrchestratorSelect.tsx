@@ -1,9 +1,9 @@
-import type { KcContext } from '../KcContext'
+import type { PageContext } from '../KcContext'
 import { Layout } from '../Layout'
 import { t } from '../../texts'
 
 /** `orchestrator-select.ftl`: choosing a method, as rows with a chevron. */
-export function OrchestratorSelect({ kcContext }: { kcContext: Extract<KcContext, { pageId: 'orchestrator-select.ftl' }> }) {
+export function OrchestratorSelect({ kcContext }: { kcContext: PageContext<'orchestrator-select.ftl'> }) {
   const { url, title, description, options, optionLabels, offerRegistration } = kcContext
   const registrationUrl = (url as { registrationUrl?: string }).registrationUrl
   return (
