@@ -291,6 +291,11 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-6 MANAGE darf ein identifiziertes Konto unter loa2-Erreichbarkeit reduzieren
 
+> **Entschieden, nicht geändert (2026-09-25):** Keine Aussperrung, sondern ein gewollter Umweg:
+> Unter `loa2` gefallen führt die Re-Identifizierung zurück. Eine strengere Prüfung hätte legitime
+> Wünsche abgelehnt (Passwort entfernen, nur SMS behalten). Die zwei Schwellen meinen verschiedene
+> Dinge; Begründung und Restrisiko in [journeys/manage-auth-methods.md](journeys/manage-auth-methods.md).
+
 - **Wo:** `orchestrator/journey/JourneyActionExecutor.kt:589, 638` – Selbstaussperr-Prüfung gegen
   `acrFloorOf(channel)` (Default loa1); `RegisterStrategy.afterEnrollment` erzwingt dagegen loa2.
 - **Problem:** Zwei Lesarten derselben Regel. Nach Entfernen einer Methode erreicht das Konto loa2

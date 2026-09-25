@@ -256,7 +256,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     partieller Unique-Index geht mit H2 nicht).
 16. **M-4** Refresh verlangt erneute Anmeldung, Leerlauf-Ablauf, ein gemeinsamer Logout-Pfad,
     der Refresh-Token löscht und Keycloak-Session beendet.
-17. **M-6** eine Aussperr-Schwelle; **M-13** `deleteProvisionalAccount`, Vorgänger über
+17. ~~M-6~~ entschieden 2026-09-25: bleibt, Re-Identifizierung ist der Weg zurück
+    (journeys/manage-auth-methods.md). **M-13** `deleteProvisionalAccount`, Vorgänger über
     `revokeMethod`, `PersonChangeListener` einspurig mit Konfliktauflösung.
 
 **Phase D – Typen (ein bis zwei Wochen, journeyweise)**

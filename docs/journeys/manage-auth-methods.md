@@ -60,3 +60,16 @@ entfernen. Das geforderte Niveau liefert die gemeinsam genutzte Funktion `selfSe
 
 Beim Entfernen wird zusätzlich geprüft, ob das Konto danach die Untergrenze des Kanals noch
 erreichen kann. Wenn nicht, antwortet der Server mit `409`; so kann sich niemand selbst aussperren.
+
+**Bewusst nur die Untergrenze des Kanals, nicht `selfServiceAcrFloor`** (entschieden 2026-09-25,
+Review 2026-09 M-6): Ein identifiziertes Konto darf Verfahren entfernen, bis es aus eigener Kraft
+nur noch `loa1` erreicht – etwa das Passwort, wenn nur SMS bleiben soll. Für die nächste Verwaltung
+braucht es dann wieder `loa2`, und dafür ist die Re-Identifizierung (`ident-fsc`, eID, Nect) der
+vorgesehene Weg zurück (`AuthPolicy.reIdentCandidates`). Die Registrierung verlangt dagegen `loa2`
+(`AuthEnrollCore.ENROLLMENT_FLOOR_ACR`), aus einem anderen Grund: Neue Verfahren werden nur unter
+`loa2` eingerichtet. Die beiden Schwellen meinen also verschiedene Dinge und sind kein Widerspruch.
+
+Erwogen und verworfen: auch beim Entfernen `loa2`-Erreichbarkeit zu verlangen. Das hätte legitime
+Wünsche abgelehnt, nur um eine Re-Identifizierung zu ersparen, die ohnehin vorgesehen ist.
+Restrisiko: Ist gerade keine Re-Identifizierung verfügbar (Verfahren gesperrt, Freischaltcode
+abgelaufen), wartet der Nutzer auf einen neuen Brief oder braucht die eID.
