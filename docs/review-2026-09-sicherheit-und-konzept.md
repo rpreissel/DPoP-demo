@@ -261,6 +261,10 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-3 Ausgegebene Access-Tokens sind reine Bearer-Tokens
 
+> **Entschieden, nicht geändert (2026-09-25):** Keycloak-Tokens werden nicht gebunden. Die Grenze
+> steht jetzt ausdrücklich in [ADR-9](adr/ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md)
+> und [09-dpop.md](09-dpop.md) Abschnitt 4.
+
 - **Wo:** `orchestrator/session/TokenService.kt:121-135`, `orchestrator/session/KcTokenProvider.kt:106-130`,
   `keycloak-extension/.../AccountTokenGrantType.java:140` – kein `cnf.jkt`, kein `ath`.
 - **Problem:** Die DPoP-Bindung endet an `GET …/token`. Ein abgegriffenes Access-Token ist gegen

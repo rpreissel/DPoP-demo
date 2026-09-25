@@ -44,6 +44,12 @@ Schaden soll er begrenzen: Ein verlorener Schlüssel betrifft höchstens ein Kon
 nur bei der ersten Ausstellung oder bei einer tatsächlichen Änderung von `acr` oder `amr` gebraucht;
 sonst erneuert Keycloaks eigenes `refresh_token` das Token.
 
+**Grenze der DPoP-Bindung** (entschieden 2026-09-25, Review M-3): Die ausgestellten Keycloak-Tokens
+sind Bearer-Tokens ohne `cnf.jkt`. Die DPoP-Bindung endet an `GET …/token`; ein abgegriffenes
+AccessToken ist bis zu seinem Ablauf ohne Schlüssel nutzbar. Gebunden bleibt die Sitzung: Neue Tokens
+gibt es nur mit gültigem DPoP-Proof, das RefreshToken verlässt das Backend nie
+([09-dpop.md](../09-dpop.md) Abschnitt 4).
+
 **Folgen und Kosten**: Es gibt einen weiteren Datensatz je Konto (`orchestrator.keycloak_keypair`) mit
 eigenem Lebenszyklus: Er entsteht beim Abgleich und wird bei `AccountDeleted` gelöscht
 ([07-betrieb.md](../07-betrieb.md) Abschnitt 3). Der Grant ist ein projekteigenes Stück

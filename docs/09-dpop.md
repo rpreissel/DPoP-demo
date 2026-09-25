@@ -149,3 +149,24 @@ Stelle eine native App mit hardwaregestütztem Schlüsselspeicher.
   Auswahl der Kandidaten: Ein gerätegebundenes Credential (`ToolDescriptor.usableByCaller`,
   [03-tool-architektur.md](03-tool-architektur.md)) ist nur nutzbar, solange `DeviceAccountLink` für
   seinen Schlüssel noch auf genau das Konto zeigt, dem es gehört.
+
+---
+
+## 4) Wo die Bindung endet
+
+Die DPoP-Bindung schützt die Aufrufe des App-Kanals an den Orchestrator – bis einschließlich
+`GET …/token`. Die Keycloak-Tokens, die dieser Endpunkt ausgibt (und die der Web-Kanal von Keycloak
+direkt bekommt), sind **nicht** an den DPoP-Schlüssel gebunden: Sie tragen kein `cnf.jkt`, und ein
+Resource-Server verlangt zu ihnen keinen DPoP-Proof. Wer ein solches AccessToken abgreift, kann es
+bis zu seinem Ablauf bei jedem Resource-Server verwenden, der Keycloak-Tokens annimmt.
+
+Das ist entschieden, nicht übersehen (Review 2026-09, M-3; [ADR-9](adr/ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md)):
+
+- **Was bleibt gebunden:** Die Sitzung selbst. Ein neues Token gibt es nur über `GET …/token` mit
+  gültigem DPoP-Proof; das RefreshToken verlässt das Backend nie.
+- **Was den Schaden begrenzt:** die kurze Laufzeit des AccessTokens und das Ende der Keycloak-Sitzung
+  beim Abmelden oder Ablauf (`JourneyService.endSession`).
+- **Was eine Bindung bräuchte:** Keycloak-DPoP für den Grant und `cnf.jkt` mit dem Thumbprint des
+  Kanals in jedem Token – und Resource-Server, die den Proof prüfen. Das betrifft jeden Dienst, der
+  die Tokens annimmt, nicht nur dieses Projekt.
+

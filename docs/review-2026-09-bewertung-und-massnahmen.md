@@ -320,7 +320,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     definieren, ob sie nur Demo sind“). Ebenso `demoOnly`: KOBIL, eID und Nect, deren Niveau auf
     einer simulierten Gegenstelle beruht. `thumbprint ≠ bindingKeyRef` gilt immer.
     [ADR-36 „Niveaus und ihre Nachweise“](adr/ADR-036-niveaus-und-ihre-nachweise.md) (P-4).
-23. **M-3** `cnf.jkt` in Keycloak-Tokens – oder die Grenze in ADR-9 und docs/09 benennen.
+23. ~~M-3~~ – entschieden 2026-09-25: Keycloak-Tokens werden nicht gebunden; die Grenze steht in
+    ADR-9 und docs/09 Abschnitt 4.
 24. **M-7** Zweiter Faktor für destruktive Aktionen an unidentifizierten Konten – oder als ADR
     ausdrücklich abgewogen.
 25. **M-9 / M-10** Antwort an Keycloak signieren (TLS auf dem Hop ist Umgebung → Phase G),
