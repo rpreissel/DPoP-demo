@@ -257,16 +257,16 @@ describe('Back-Button bis zur Startauswahl (docs/10-frontend.md #1)', () => {
 })
 
 describe('gescannter Pairing-Code auf einem Gerät ohne Konto', () => {
-  it('bietet erst die Anmeldung an und lässt den Code wieder verwerfen', async () => {
+  it('bietet nur den Ausweg an und verwirft den Code', async () => {
     window.history.replaceState(null, '', '/?pairingCode=AB3D-7KQ2')
     render(<AppChannelApp />)
     const user = userEvent.setup()
 
-    // Confirming would fail without an account here - so the way in comes first, not a dead end.
+    // Confirming would fail without an account here - so only the way back, not a dead end.
     await screen.findByText(/AB3D-7KQ2/)
     const cancel = await screen.findByRole('button', { name: 'Abbrechen' })
-    expect(screen.getByRole('button', { name: 'Mit E-Mail-Adresse anmelden' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Anmeldung bestätigen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mit E-Mail-Adresse anmelden' })).not.toBeInTheDocument()
 
     await user.click(cancel)
 

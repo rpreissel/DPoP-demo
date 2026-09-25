@@ -861,25 +861,15 @@ export function AppChannelApp() {
                         <p>{t('Sie haben einen QR-Code gescannt. Bestätigen Sie die Anmeldung im Browser mit dieser App.')}</p>
                         <p className="hint">{t('Pairing-Code: {code}', { code: pendingPairingCode })}</p>
                         {deviceLink?.linked === false ? (
-                          // Confirming needs an account on this device - so sign in first; the code
-                          // stays remembered and is used by "Anmeldung im Browser bestätigen" afterwards.
+                          // Confirming needs an account on this device - nothing to offer here but the
+                          // way back; signing in is the ordinary start screen's job.
                           <>
-                            <p>{t('Dafür muss die App mit Ihrem Konto verbunden sein. Melden Sie sich zuerst an, der Code bleibt gespeichert. Danach bestätigen Sie unter „Anmeldung im Browser bestätigen“.')}</p>
-                            <div className="form-actions app-home__actions">
-                              <button onClick={() => handleStart('login')}>{t('Mit E-Mail-Adresse anmelden')}</button>
-                              <button className="secondary" onClick={() => handleStart('register')}>
-                                {t('Neues Konto anlegen')}
-                              </button>
+                            <p>{t('Diese App ist noch mit keinem Konto verbunden. Melden Sie sich zuerst an und scannen Sie den QR-Code danach erneut.')}</p>
+                            <div className="form-actions">
                               <button className="secondary" onClick={handleForgetPairingCode}>
                                 {t('Abbrechen')}
                               </button>
                             </div>
-                            <ButtonDiagrams
-                              entries={[
-                                { label: t('Mit E-Mail-Adresse anmelden'), diagram: 'login' },
-                                { label: t('Neues Konto anlegen'), diagram: 'register' },
-                              ]}
-                            />
                           </>
                         ) : (
                           <>
