@@ -1,20 +1,134 @@
-/* Orchestrator demo theme: widen the narrow base card, align form rows, restore
-   proper page headings. Layered on top of the inherited "keycloak" login theme. */
+/* Orchestrator login theme: layered on top of the inherited "keycloak" login theme
+   (PatternFly 3/4), replacing its look with the shared design tokens (tokens.css).
+   Only overrides - the markup stays Keycloak's own template.ftl. */
+
+/* ---- Page frame: white top bar, grey stage, dark band and light footer ---------- */
+
+html.login-pf,
+.login-pf body {
+    background: var(--orc-color-stage);
+    font-family: var(--orc-font-family);
+    font-size: var(--orc-font-size);
+    font-weight: var(--orc-font-weight-regular);
+    line-height: var(--orc-line-height);
+    color: var(--orc-color-text);
+    -webkit-font-smoothing: antialiased;
+}
+
+.login-pf body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* White top bar - empty on purpose, there is no logo. */
+.login-pf body::before {
+    content: "";
+    flex: none;
+    height: var(--orc-header-height);
+    background: var(--orc-color-surface);
+}
+
+.login-pf-page {
+    flex: 1;
+    width: 100%;
+    padding: 0 var(--orc-space-2);
+}
+
+/* Closing: a dark band, then the light footer - both empty. */
+.login-pf body::after {
+    content: "";
+    flex: none;
+    height: 13rem;
+    margin-top: 5rem;
+    background:
+        linear-gradient(var(--orc-color-band), var(--orc-color-band)) top / 100% 5.25rem no-repeat,
+        var(--orc-color-footer);
+}
+
+.login-pf a,
+.login-pf a:hover {
+    color: var(--orc-color-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.login-pf a:hover {
+    color: var(--orc-color-text-strong);
+}
+
+.login-pf a:focus-visible {
+    outline: none;
+    box-shadow: var(--orc-focus-ring);
+}
+
+/* The realm's display name as the large, light page heading on the grey stage. */
+#kc-header {
+    background: none;
+    color: var(--orc-color-text);
+    white-space: normal;
+}
+
+#kc-header-wrapper {
+    max-width: var(--orc-page-width);
+    margin: 0 auto;
+    padding: 4.5rem 0 2.5rem;
+    font-size: var(--orc-font-size-h1);
+    font-weight: var(--orc-font-weight-light);
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: left;
+    color: var(--orc-color-text);
+}
+
+/* ---- Card ---------------------------------------------------------------- */
 
 .login-pf-page .card-pf,
 .card-pf {
-    max-width: 640px;
+    max-width: var(--orc-page-width);
+    margin: 0 auto;
+    padding: 1.875rem 2.5rem 2.5rem;
+    border: 0;
+    border-radius: var(--orc-radius);
+    background: var(--orc-color-surface);
+    box-shadow: none;
 }
 
-#kc-page-title {
-    margin-bottom: 0.25rem;
+.login-pf-page .login-pf-header {
+    margin-bottom: 1.875rem;
+}
+
+#kc-page-title,
+h1#kc-page-title {
+    margin: 0;
+    font-size: var(--orc-font-size-h2);
+    font-weight: var(--orc-font-weight-light);
+    line-height: 1.3;
+    text-align: left;
+    color: var(--orc-color-text-strong);
 }
 
 .orchestrator-subtitle {
-    margin-top: 0;
-    margin-bottom: 1.25rem;
-    color: var(--pf-global--Color--200, #72767b);
+    margin: 0 0 1.5rem;
+    color: var(--orc-color-text);
 }
+
+#kc-locale {
+    float: right;
+}
+
+#kc-locale-dropdown button,
+#kc-locale-dropdown a {
+    font-size: var(--orc-font-size-small);
+    color: var(--orc-color-text-muted);
+}
+
+#kc-locale ul {
+    border-radius: var(--orc-radius);
+}
+
+/* ---- Form fields ------------------------------------------------------------ */
 
 /* form-horizontal (Bootstrap) is combined with PatternFly form controls in this
    theme; neither alone lays rows out correctly, so force a simple, consistent
@@ -22,13 +136,14 @@
 .form-horizontal .form-group {
     display: block;
     width: 100%;
-    margin: 0 0 1rem;
+    margin: 0 0 1.25rem;
 }
 
 .form-horizontal .form-group label {
     display: block;
     width: 100%;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.2rem;
+    padding-left: 2px;
     text-align: left;
 }
 
@@ -38,11 +153,50 @@
     width: 100%;
 }
 
+.login-pf .pf-c-form__label,
+.login-pf .pf-c-form__label-text {
+    font-size: var(--orc-font-size-label);
+    font-weight: var(--orc-font-weight-bold);
+    color: var(--orc-color-text);
+}
+
+.login-pf .pf-c-form-control {
+    height: var(--orc-control-height);
+    min-height: var(--orc-control-height);
+    padding: 0.75rem 0.8rem 0.75rem 0.625rem;
+    border: 1px solid var(--orc-color-border);
+    border-radius: var(--orc-radius);
+    background: var(--orc-color-surface);
+    font-family: inherit;
+    font-size: var(--orc-font-size);
+    color: var(--orc-color-text);
+    box-shadow: none;
+}
+
+.login-pf select.pf-c-form-control {
+    padding-right: 2.25rem;
+}
+
+.login-pf .pf-c-form-control:hover {
+    border-color: var(--orc-color-text);
+}
+
+.login-pf .pf-c-form-control:focus {
+    outline: none;
+    border-color: var(--orc-color-text);
+    box-shadow: var(--orc-focus-ring);
+}
+
+.login-pf .pf-c-form-control[aria-invalid="true"] {
+    border-color: var(--orc-color-danger);
+    border-bottom-width: 2px;
+}
+
 .orchestrator-hint {
     display: block;
     margin-top: 0.35rem;
-    font-size: 0.85em;
-    color: var(--pf-global--Color--200, #72767b);
+    font-size: var(--orc-font-size-small);
+    color: var(--orc-color-text-muted);
 }
 
 /* Two fields that belong together (e.g. street/house number, zip/city) sit
@@ -53,49 +207,207 @@
     gap: 0 1rem;
 }
 
-@media (max-width: 480px) {
-    .orchestrator-grid-2 {
-        grid-template-columns: 1fr;
-    }
+/* ---- Buttons: square; primary dark with a chevron, the rest light ------------- */
+
+.login-pf .pf-c-button {
+    position: relative;
+    min-height: 50px;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--orc-color-border);
+    border-radius: var(--orc-radius);
+    background: var(--orc-color-surface-soft);
+    font-family: inherit;
+    font-size: var(--orc-font-size);
+    font-weight: var(--orc-font-weight-light);
+    line-height: 1.3;
+    text-align: left;
+    color: var(--orc-color-text);
+    text-shadow: none;
+    box-shadow: none;
+}
+
+.login-pf .pf-c-button:hover {
+    border-color: var(--orc-color-text);
+    background: var(--orc-color-surface-soft);
+    color: var(--orc-color-text-strong);
+}
+
+.login-pf .pf-c-button:focus-visible {
+    outline: none;
+    box-shadow: var(--orc-focus-ring);
+}
+
+.login-pf .pf-c-button::after {
+    content: none;
+}
+
+.login-pf .pf-c-button.pf-m-primary {
+    padding-right: 3.5rem;
+    border-color: var(--orc-color-action);
+    background: var(--orc-color-action);
+    color: var(--orc-color-on-action);
+}
+
+.login-pf .pf-c-button.pf-m-primary:hover {
+    border-color: var(--orc-color-action-hover);
+    background: var(--orc-color-action-hover);
+    color: var(--orc-color-on-action);
+}
+
+.login-pf .pf-c-button.pf-m-primary::after {
+    content: "";
+    position: absolute;
+    inset: 50% 1.25rem auto auto;
+    width: 12px;
+    height: 24px;
+    border: 0;
+    transform: translateY(-50%);
+    background: currentColor;
+    -webkit-mask: var(--orc-chevron) center / contain no-repeat;
+    mask: var(--orc-chevron) center / contain no-repeat;
+}
+
+.login-pf .pf-c-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .orchestrator-actions {
     display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
     gap: 0.75rem;
-    margin-top: 1.5rem;
+    margin-top: 1.875rem;
 }
 
-.orchestrator-actions .pf-c-button,
 .orchestrator-actions form {
-    flex: 1;
+    display: flex;
 }
 
-.orchestrator-actions form .pf-c-button {
-    width: 100%;
+/* ---- Choosing a method: a list of rows with a chevron, not a stack of buttons ---- */
+
+#kc-orchestrator-select-form .form-group {
+    margin: 0;
 }
+
+#kc-orchestrator-select-form .pf-c-button[name="toolId"] {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    padding: 1rem 2.5rem 1rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--orc-color-border-subtle);
+    background: transparent;
+    font-weight: var(--orc-font-weight-regular);
+    color: var(--orc-color-text);
+}
+
+#kc-orchestrator-select-form .form-group:first-child .pf-c-button[name="toolId"] {
+    border-top: 1px solid var(--orc-color-border-subtle);
+}
+
+#kc-orchestrator-select-form .pf-c-button[name="toolId"]::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0.5rem auto auto;
+    width: 10px;
+    height: 20px;
+    transform: translateY(-50%);
+    background: currentColor;
+    -webkit-mask: var(--orc-chevron) center / contain no-repeat;
+    mask: var(--orc-chevron) center / contain no-repeat;
+}
+
+#kc-orchestrator-select-form .pf-c-button[name="toolId"]:hover {
+    background: var(--orc-color-surface-soft);
+    text-decoration: underline;
+}
+
+#kc-orchestrator-select-form .pf-c-button[name="orchestrator_abandon"] {
+    width: auto;
+    margin-top: 1.875rem;
+}
+
+/* ---- Messages ------------------------------------------------------------- */
+
+.login-pf .pf-c-alert {
+    margin-bottom: 1.5rem;
+    padding: 0.875rem 1rem;
+    border: 0;
+    border-left: 4px solid var(--orc-color-text);
+    border-radius: var(--orc-radius);
+    background: var(--orc-color-surface-soft);
+    box-shadow: none;
+}
+
+.login-pf .pf-c-alert.pf-m-danger {
+    border-left-color: var(--orc-color-danger);
+    background: var(--orc-color-danger-subtle);
+}
+
+.login-pf .pf-c-alert.pf-m-success {
+    border-left-color: var(--orc-color-success);
+    background: var(--orc-color-success-subtle);
+}
+
+.login-pf .pf-c-alert.pf-m-warning {
+    border-left-color: var(--orc-color-warning);
+    background: var(--orc-color-warning-subtle);
+}
+
+/* PatternFly's icon font is not loaded for these glyphs - the coloured bar says enough. */
+.login-pf .pf-c-alert__icon {
+    display: none;
+}
+
+.login-pf .pf-c-alert__title {
+    font-size: var(--orc-font-size-label);
+    font-weight: var(--orc-font-weight-regular);
+    color: var(--orc-color-text-strong);
+}
+
+/* ---- Info area below the form (registration link) --------------------------------- */
+
+.login-pf-page .login-pf-signup,
+#kc-info {
+    margin: 1.875rem 0 0;
+    padding: 1.25rem 0 0;
+    border-top: 1px solid var(--orc-color-border-subtle);
+    font-size: var(--orc-font-size);
+    text-align: left;
+    color: var(--orc-color-text);
+}
+
+#kc-info-wrapper {
+    padding: 0;
+    background: transparent;
+    font-size: inherit;
+    color: inherit;
+}
+
+/* ---- Page-specific pieces -------------------------------------------------------- */
 
 /* Demo-only helper above a real form: set apart as a tool, not a form field. */
 .orchestrator-demo-picker {
     padding: 0.75rem 1rem;
-    margin-bottom: 1.25rem;
-    border: 1px dashed var(--pf-global--BorderColor--100, #b8bbbe);
-    border-radius: 6px;
-    background: var(--pf-global--BackgroundColor--200, #f5f5f5);
+    margin-bottom: 1.5rem;
+    border: 1px dashed var(--orc-color-border);
+    border-radius: var(--orc-radius);
+    background: var(--orc-color-surface-soft);
 }
 
 .orchestrator-demo-picker label {
-    font-size: 0.85em;
+    font-size: var(--orc-font-size-small);
 }
 
 .orchestrator-demo-tag {
     display: inline-block;
     padding: 0 0.4em;
     margin-right: 0.25em;
-    border-radius: 3px;
-    background: var(--pf-global--palette--purple-400, #6753ac);
+    background: var(--orc-color-demo);
     color: #fff;
     font-size: 0.75em;
-    font-weight: 700;
+    font-weight: var(--orc-font-weight-bold);
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
@@ -105,8 +417,10 @@
 }
 
 .orchestrator-qr-code {
-    font-size: 1.4em;
-    letter-spacing: 0.1em;
+    font-size: 1.6em;
+    font-weight: var(--orc-font-weight-light);
+    letter-spacing: 0.12em;
+    color: var(--orc-color-text-strong);
 }
 
 .orchestrator-method-row {
@@ -114,10 +428,61 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.6rem 0;
-    border-bottom: 1px solid var(--pf-global--BorderColor--100, #d2d2d2);
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--orc-color-border-subtle);
 }
 
 .orchestrator-method-row:last-of-type {
     border-bottom: none;
+}
+
+/* ---- Phone ------------------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+    .login-pf body {
+        background: var(--orc-color-stage);
+    }
+
+    .login-pf body::before {
+        height: 56px;
+    }
+
+    #kc-header {
+        padding: 0;
+    }
+
+    #kc-header-wrapper {
+        padding: 2rem 0 1.25rem;
+        font-size: 32px;
+        font-weight: var(--orc-font-weight-light);
+        color: var(--orc-color-text);
+    }
+
+    .login-pf-page .card-pf {
+        padding: 1.5rem 1.25rem 1.75rem;
+    }
+
+    #kc-page-title,
+    h1#kc-page-title {
+        font-size: 24px;
+    }
+
+    .orchestrator-actions {
+        flex-direction: column;
+    }
+
+    .orchestrator-actions .pf-c-button,
+    .orchestrator-actions form {
+        width: 100%;
+    }
+
+    .orchestrator-actions form .pf-c-button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .orchestrator-grid-2 {
+        grid-template-columns: 1fr;
+    }
 }

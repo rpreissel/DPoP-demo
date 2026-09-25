@@ -1,0 +1,59 @@
+/* Design tokens of the login pages - the one source for colours, shapes and type
+   (docs/ideen/keycloakify-statt-freemarker.md, section 7). The FreeMarker theme
+   loads this file via theme.properties; a Keycloakify theme imports the same file.
+   No logo, no brand name: only colours, shapes and type. */
+
+:root {
+    /* Colour: warm greys carry the page, blue only for the focus ring. */
+    --orc-color-text: #454542;
+    --orc-color-text-strong: #333332;
+    --orc-color-text-muted: #6f6e6b;
+    --orc-color-stage: #eceae8;
+    --orc-color-surface: #ffffff;
+    --orc-color-surface-soft: #f5f2ef;
+    --orc-color-border: #a09f9e;
+    --orc-color-border-subtle: #dcdad7;
+
+    --orc-color-action: #454542;
+    --orc-color-action-hover: #2f2f2d;
+    --orc-color-on-action: #f5f2ef;
+    --orc-color-focus: #0a7dc2;
+
+    --orc-color-band: #454542;
+    --orc-color-footer: #ececec;
+
+    --orc-color-danger: #b3261e;
+    --orc-color-danger-subtle: #fbeceb;
+    --orc-color-success: #2e7d32;
+    --orc-color-success-subtle: #edf5ee;
+    --orc-color-warning: #8a6d00;
+    --orc-color-warning-subtle: #fdf8d8;
+
+    /* Only the demo tooling (test person picker) - deliberately off-palette. */
+    --orc-color-demo: #6753ac;
+
+    /* Shape: square edges throughout. */
+    --orc-radius: 0;
+    --orc-focus-ring: 0 0 0 2px var(--orc-color-surface), 0 0 0 4px var(--orc-color-focus);
+
+    /* Type - light, large headings; system sans serif, no bundled font files. */
+    --orc-font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, Helvetica, sans-serif;
+    --orc-font-size: 18px;
+    --orc-font-size-small: 14px;
+    --orc-font-size-label: 16px;
+    --orc-font-size-h1: 45px;
+    --orc-font-size-h2: 28px;
+    --orc-font-weight-light: 300;
+    --orc-font-weight-regular: 400;
+    --orc-font-weight-bold: 700;
+    --orc-line-height: 1.35;
+
+    /* Layout and space */
+    --orc-page-width: 720px;
+    --orc-header-height: 80px;
+    --orc-control-height: 48px;
+    --orc-space-2: 1rem;
+
+    /* Thin right-pointing chevron used on buttons and choice rows. */
+    --orc-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 24'%3E%3Cpath d='M1 1l10 11L1 23' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E");
+}

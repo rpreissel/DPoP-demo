@@ -7,7 +7,7 @@ ersetzen, wie die aller anderen Seiten.
 
 Kurz gesagt: Keycloakify **ersetzt** FreeMarker nicht, sondern läuft **daneben**. Beide Themes liegen
 immer in Keycloak. Welches die Anmeldeseiten zeigt, entscheidet ein Schalter im Orchestrator, den man
-zur Laufzeit umlegen kann. Beide Themes sehen gleich aus und orientieren sich an www.tk.de (ohne Logo).
+zur Laufzeit umlegen kann. Beide Themes sehen gleich aus und bekommen ein gemeinsames, schlichtes Aussehen ohne Logo.
 
 ---
 
@@ -138,20 +138,24 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
   Keycloakify werden daraus React-Komponenten.
 - **Aussehen:** dieselben Design-Tokens aus einer Datei (Abschnitt 7).
 
-## 7) Gestaltung nach www.tk.de, für beide Themes
+## 7) Gemeinsames Aussehen für beide Themes
 
-Übernommen wird nur die Anmutung, **kein Logo** und kein Markenname.
+Kein Logo und kein Markenname, nur Farben, Formen und Schrift.
 
-- **Farben** (aus den CSS-Variablen `--tkds-*` von tk.de):
-  - Hauptfarbe `#006bdd`, beim Überfahren `#0055b6`, gedrückt `#00489d`
-  - dunkles Blau `#003376` und `#002356`, heller Hintergrund `#ebf8fd`
-  - Fokusrahmen `#47bcff`
-  - Schrift `#363636`, Fußzeile `#252525` mit weißer Schrift
-- **Formen:** Radien 0,5 / 0,75 / 1 rem für Felder und Karten, Knöpfe als Pille (`6.25rem`).
-- **Schrift:** Die Hausschrift von tk.de ist nicht frei. Stattdessen eine freie serifenlose Schrift
-  (z. B. Source Sans 3, im Theme mitgeliefert) mit Arial/Helvetica als Ersatz, Grundgröße 16 px.
-- **Aufbau:** weiße Kopfzeile nur mit dem Anzeigenamen des Realms, eine zentrierte Karte für das
-  Formular, dunkle Fußzeile. Anrede mit „Sie“, wie die bestehenden Texte.
+- **Farben:** warme Grautöne statt Markenfarbe.
+  - Fläche `#eceae8`, Karten weiß, zarte Fläche `#f5f2ef`
+  - Schrift `#454542`, Überschriften `#333332`, Rahmen `#a09f9e`
+  - Hauptknopf dunkelgrau `#454542` mit heller Schrift, beim Überfahren `#2f2f2d`
+  - Blau nur für den Fokusrahmen (`#0a7dc2`), damit die Tastaturbedienung sichtbar bleibt
+  - unten ein dunkles Band `#454542` und eine hellgraue Fußzeile `#ececec`, beide leer
+- **Formen:** eckige Kanten überall, keine Schatten. Der Hauptknopf trägt einen dünnen Pfeil nach
+  rechts; die Auswahl des Verfahrens ist eine Liste von Zeilen mit Pfeil statt eines Stapels Knöpfe.
+- **Schrift:** die serifenlose Systemschrift mit Arial/Helvetica als Ersatz, keine eingebundenen
+  Schriftdateien; Grundgröße 18 px, Überschriften groß und dünn (45 px für den Namen des Realms,
+  28 px für den Seitentitel), Beschriftungen der Felder fett.
+- **Aufbau:** oben eine leere weiße Leiste, darunter auf grauer Fläche der Name des Realms als große
+  Überschrift, dann eine weiße Karte mit 720 px Breite für das Formular. Knöpfe stehen rechts, der
+  Hauptknopf ganz außen. Anrede mit „Sie“, wie die bestehenden Texte.
 - **Eine Quelle:** die Tokens als CSS-Custom-Properties in
   `theme/orchestrator/login/resources/css/tokens.css`. FreeMarker bindet sie über
   `theme.properties` (`styles=`) ein, `orchestrator.css` überschreibt damit die PatternFly-Optik;
@@ -200,7 +204,7 @@ Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschr
 
 ## 10) Nächste Schritte (falls es umgesetzt wird)
 
-1. **FreeMarker im Stil von tk.de:** `tokens.css` anlegen, `orchestrator.css` darauf umstellen. Geht
+1. **FreeMarker im neuen Aussehen:** `tokens.css` anlegen, `orchestrator.css` darauf umstellen. Geht
    sofort und unabhängig von allem anderen.
 2. **Erster Versuch mit Keycloakify:** `keycloak-theme/` anlegen, Theme `orchestrator-keycloakify`
    als Verzeichnis ausgeben; klären, wie Messages und Texte in den `kcContext` kommen (Abschnitt 6).
