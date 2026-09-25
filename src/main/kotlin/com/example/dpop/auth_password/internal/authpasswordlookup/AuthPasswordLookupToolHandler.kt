@@ -74,7 +74,7 @@ class AuthPasswordLookupToolHandler(
                     // Naming the account here is what lets the orchestrator count this attempt;
                     // the client-facing part of the outcome stays identical for known and unknown
                     // addresses.
-                    ToolOutcome.Failed(Text("E-Mail oder Passwort ungueltig"), attemptedAccountId = accountId)
+                    ToolOutcome.Failed.LookupAuth(Text("E-Mail oder Passwort ungueltig"), attemptedAccountId = accountId)
                 }
             }
         }

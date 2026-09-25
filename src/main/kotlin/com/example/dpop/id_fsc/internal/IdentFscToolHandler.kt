@@ -75,7 +75,7 @@ class IdentFscToolHandler(
             IdentFscDecision.Incomplete -> merged to outcomeFor(merged)
 
             IdentFscDecision.PersonNotFound ->
-                IdentFscFlow.rejectPersonalien() to ToolOutcome.Failed(PERSONALIEN_REJECTED)
+                IdentFscFlow.rejectPersonalien() to ToolOutcome.Failed.Identification(PERSONALIEN_REJECTED, attemptedPersonId = null)
 
             is IdentFscDecision.VerifyPersonalien -> {
                 // Name and birthdate are CHECKED, not merely collected - and before the code is
@@ -85,7 +85,7 @@ class IdentFscToolHandler(
                 )
                 when {
                     !matches -> IdentFscFlow.rejectPersonalien() to
-                        ToolOutcome.Failed(PERSONALIEN_REJECTED, attemptedPersonId = decision.personId)
+                        ToolOutcome.Failed.Identification(PERSONALIEN_REJECTED, attemptedPersonId = decision.personId)
                     // All five in one PATCH: the personal data holds, so the code is next.
                     merged.fscHash != null -> verifyCode(toolSessionId, merged, decision.personId, merged.fscHash, throttled)
                     else -> merged to outcomeFor(merged)
@@ -109,7 +109,7 @@ class IdentFscToolHandler(
     ): Pair<IdentFscState, ToolOutcome> {
         if (throttled || !freischaltcodes.pruefe(personId, fscHash)) {
             return IdentFscFlow.rejectCode(state) to
-                ToolOutcome.Failed(Text("Freischaltcode ungueltig oder abgelaufen"), attemptedPersonId = personId)
+                ToolOutcome.Failed.Identification(Text("Freischaltcode ungueltig oder abgelaufen"), attemptedPersonId = personId)
         }
         return state to ToolOutcome.Completed.Identified(
             amr = listOf(descriptor.method),

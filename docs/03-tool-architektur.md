@@ -330,12 +330,27 @@ abgeschlossen oder ist fehlgeschlagen.
 | Variante | Bedeutung |
 |---|---|
 | `InProgress(nextStep, stepData, demo)` | läuft weiter; `stepData` ist für den Client bestimmt und wird unverändert weitergegeben, `demo` enthält nur Demo-Werte (ADR-28) |
-| `Failed(reason)` | Versuch fehlgeschlagen; wie es mit weiteren Versuchen weitergeht, steht in [Orchestrierung](04-orchestrierung.md) |
+| `Failed.*(reason, …)` | Versuch fehlgeschlagen, eine Variante je Rolle (siehe unten); wie es mit weiteren Versuchen weitergeht, steht in [Orchestrierung](04-orchestrierung.md) |
 | `Completed.Identified(claims, ...)` | Identität festgestellt; höchstens ein `PERSON_ID`-Claim (eine Partnernummer). Verfahren, die nur bezeugen, was sie lesen (`ident-eid`, `ident-nect`), liefern keinen |
 | `Completed.Attested(claims, ...)` | Attribut bestätigt; kein `enrollmentRef`, `amr` immer leer (Abschnitt „ATTEST" unten) |
 | `Completed.Enrolled(enrollmentRef, ...)` | Verfahren eingerichtet |
 | `Completed.Authenticated(accountId?, ...)` | Nachweis erbracht; `accountId` setzen nur die `-lookup`-Tools |
 | `Completed.Approved(...)` | Ein `PEER_APPROVAL`-Tool (`confirm-qr-login`) hat eine fremde Anfrage bestätigt |
+
+Ein Fehlschlag nennt über seine Variante, gegen wen der Versuch lief – davon hängt ab, welche
+Sperre nach zu vielen Versuchen greift. Das Subjekt ist ein Pflichtfeld; „niemand“ ist ein
+ausdrückliches `null`, kein vergessener Standardwert (Review 2026-09, S-6):
+
+- **`IdentifiedAuth(reason)`** (`IDENTIFIED_AUTH`): gegen das Konto, das der Kanal schon kennt.
+- **`LookupAuth(reason, attemptedAccountId)`** (`LOOKUP_AUTH`): gegen das Konto, das die Eingabe
+  ergab, oder `null`.
+- **`Identification(reason, attemptedPersonId)`** (`IDENTIFICATION`, `CORRELATION`): gegen die
+  Person, die die Eingabe ergab, oder `null`.
+- **`NothingGuessed(reason)`** (`ENROLLMENT`, `ATTESTATION`, `PEER_APPROVAL`): Kein Geheimnis eines
+  bestehenden Kontos wurde geraten; es zählt keine Sperre.
+
+Eine Variante, die nicht zur Rolle des Tools passt, weist der Orchestrator als Vertragsfehler
+des Moduls ab, bevor er etwas bucht.
 
 Jeder gemeldete Claim wird vor der Verarbeitung geprüft (`Claim.validateValue`): Er darf nicht leer
 sein, ein `PERSON_ID` muss eine Partnernummer sein (`tool_spi.Partnernr`, `P` und neun Ziffern) und

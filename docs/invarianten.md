@@ -52,8 +52,7 @@ sie schließen soll.
 - **I-11 Der Inhaber kann nur die E-Mail-Adresse selbst zurücknehmen, keinen Identitätsanker.**
   - Mechanismus: `type:AnchorRule`, `test:AttributeRulesTest`, `test:AccountServiceDbTest`, `test:ManageMethodsIntegrationTest`
 - **I-12 Ein Korrelationsschritt (`ident-kvnr`) verrät nicht, ob eine fremde Nummer existiert.**
-  - Mechanismus: `test:IdentKvnrToolHandlerTest`, `test:IdentEidAssignmentIntegrationTest`
-  - Lücke: das Subjekt im `Failed` ist nicht per Typ erzwungen – Phase D.
+  - Mechanismus: `type:ToolOutcome` (`Failed.Identification` verlangt `attemptedPersonId`; die Drosselbuchung ist ein erschöpfendes `when` über die Varianten), `test:IdentKvnrToolHandlerTest`, `test:IdentEidAssignmentIntegrationTest`
 - **I-13 Je Konto höchstens eine aktive Instanz einer Singleton-Methode (z. B. Passwort).**
   - Mechanismus: `test:ModelBasedJourneyTest`, `sql:ux_auth_method_active_singleton`, `test:DatabaseInvariantConstraintTest` (prüft auch, dass die Methodenliste im SQL zu den Deskriptoren passt)
 - **I-14 Kein Gerätelink zeigt auf ein gelöschtes Konto.**

@@ -67,7 +67,7 @@ class AuthDeviceToolHandler(
         val enrollment = checkNotNull(enrollmentRepository.findByIdOrNull(enrollmentId)) { "Geraete-Enrollment nicht gefunden: $enrollmentId" }
 
         return when (val decision = AuthDeviceFlow.decide(devicePublicKey.thumbprint, enrollment.thumbprint, userVerification)) {
-            AuthDeviceDecision.WrongDevice -> ToolOutcome.Failed(Text("Geraet nicht erkannt"))
+            AuthDeviceDecision.WrongDevice -> ToolOutcome.Failed.IdentifiedAuth(Text("Geraet nicht erkannt"))
             is AuthDeviceDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method, decision.userVerification.wireValue),
                 achievedAcr = descriptor.maxAcr,

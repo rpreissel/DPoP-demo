@@ -73,7 +73,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
         then("an unknown Partnernummer fails without saying whether it exists") {
             val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = "P999999999", personId = null, matchesAttestedIdentity = false)
 
-            outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
+            outcome.shouldBeInstanceOf<ToolOutcome.Failed.Identification>()
             outcome.reason.template shouldBe "Partnernummer konnte nicht zugeordnet werden"
         }
     }
@@ -82,7 +82,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
         then("it fails with a message that does not reveal whether the number exists") {
             val outcome = handler.patch(toolSessionId, "X999999999", partnernr = null, personId = null, matchesAttestedIdentity = false)
 
-            outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
+            outcome.shouldBeInstanceOf<ToolOutcome.Failed.Identification>()
             outcome.reason.template shouldBe "Versichertennummer konnte nicht zugeordnet werden"
         }
     }
@@ -91,7 +91,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
         then("it fails exactly like an unknown one, but counts the guess against that person") {
             val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042", matchesAttestedIdentity = false)
 
-            outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
+            outcome.shouldBeInstanceOf<ToolOutcome.Failed.Identification>()
             outcome.reason.template shouldBe "Versichertennummer konnte nicht zugeordnet werden"
             outcome.attemptedPersonId shouldBe "P000000042"
         }

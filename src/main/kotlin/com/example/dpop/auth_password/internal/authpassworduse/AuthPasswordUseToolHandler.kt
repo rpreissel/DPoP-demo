@@ -61,7 +61,7 @@ class AuthPasswordUseToolHandler(
             is AuthPasswordUseDecision.Check -> {
                 val enrollmentId = data.enrollmentRefId!!.toLong()
                 val enrollment = enrollmentRepository.findByIdOrNull(enrollmentId)
-                    ?: return ToolOutcome.Failed(Text("Passwort ungueltig"))
+                    ?: return ToolOutcome.Failed.IdentifiedAuth(Text("Passwort ungueltig"))
 
                 if (PasswordHasher.matches(decision.password, enrollment.passwordHash)) {
                     ToolOutcome.Completed.Authenticated(
@@ -70,7 +70,7 @@ class AuthPasswordUseToolHandler(
                         factorTypes = descriptor.factorTypes
                     )
                 } else {
-                    ToolOutcome.Failed(Text("Passwort ungueltig"))
+                    ToolOutcome.Failed.IdentifiedAuth(Text("Passwort ungueltig"))
                 }
             }
         }

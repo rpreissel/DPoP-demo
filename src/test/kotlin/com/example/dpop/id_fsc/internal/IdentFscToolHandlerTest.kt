@@ -76,7 +76,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
                 val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, name = null, vorname = null, geburtsdatum = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
 
-                outcome shouldBe ToolOutcome.Failed(Text("Die Angaben passen zu keiner Person, die wir kennen"), attemptedPersonId = "P000000007")
+                outcome shouldBe ToolOutcome.Failed.Identification(Text("Die Angaben passen zu keiner Person, die wir kennen"), attemptedPersonId = "P000000007")
                 verify(exactly = 0) { freischaltcodes.pruefe(any(), any()) }
                 data.kvnr shouldBe null
                 data.geburtsdatum shouldBe null

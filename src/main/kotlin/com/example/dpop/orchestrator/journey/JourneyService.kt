@@ -609,8 +609,8 @@ class JourneyService(
             detail = mapOf(
                 "toolId" to tool.toolId,
                 "reason" to outcome.reason,
-                "attemptedAccountId" to outcome.attemptedAccountId,
-                "attemptedPersonId" to outcome.attemptedPersonId,
+                "attemptedAccountId" to (outcome as? ToolOutcome.Failed.LookupAuth)?.attemptedAccountId,
+                "attemptedPersonId" to (outcome as? ToolOutcome.Failed.Identification)?.attemptedPersonId,
                 "attemptBudgetLeft" to journey.attemptBudget
             )
         )

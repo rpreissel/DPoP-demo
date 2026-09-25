@@ -163,7 +163,8 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 > Buchung auf die Ident-Drossel dieser Person. Die Prüfung im Executor bleibt als zweite
 > Sicherung. Tests: `IdentKvnrToolHandlerTest`, `IdentEidAssignmentIntegrationTest` (beide Antworten
 > gleich). Der Zähler je Konto für CORRELATION entfällt: Ohne unterscheidbare Antwort gibt es nichts
-> mehr abzufragen; die strukturelle Lösung (Subjekt im `Failed` per Typ) folgt in Phase D.
+> mehr abzufragen. Strukturell geschlossen in Phase D (Schritt 20): `ToolOutcome.Failed.Identification`
+> verlangt `attemptedPersonId` als Pflichtfeld.
 
 - **Wo:** `id_kvnr/internal/IdentKvnrToolHandler.kt:59-61` (unbekannte KVNR → `Failed` ohne
   `attemptedPersonId`); `orchestrator/journey/JourneyActionExecutor.kt:144-146` (KVNR einer anderen

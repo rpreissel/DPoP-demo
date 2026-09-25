@@ -68,7 +68,7 @@ class ConfirmEmailToolHandler(
         return when (val decision = ConfirmEmailFlow.decide(data.toState(), ConfirmEmailInput(email, code), emailCodeGenerator)) {
             is ConfirmEmailDecision.InvalidEmail -> throw IllegalArgumentException("Ungueltige E-Mail-Adresse")
 
-            is ConfirmEmailDecision.WrongCode -> ToolOutcome.Failed(Text("Code ungueltig oder abgelaufen"))
+            is ConfirmEmailDecision.WrongCode -> ToolOutcome.Failed.NothingGuessed(Text("Code ungueltig oder abgelaufen"))
 
             is ConfirmEmailDecision.Unchanged -> outcomeFor(decision.state)
 
@@ -84,7 +84,7 @@ class ConfirmEmailToolHandler(
                 // belongs to THEIR OWN account - into a dead end, and cost one of the journey's
                 // three attempts for an answer the user could not have given differently.
                 if (sendThrottled) {
-                    ToolOutcome.Failed(Text("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten"))
+                    ToolOutcome.Failed.NothingGuessed(Text("Zu viele Anfragen fuer diese E-Mail-Adresse - bitte kurz warten"))
                 } else {
                     val issued = emailCodeGenerator.issue()
                     data.email = decision.email

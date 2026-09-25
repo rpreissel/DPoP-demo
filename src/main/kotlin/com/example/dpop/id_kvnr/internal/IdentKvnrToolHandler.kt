@@ -61,8 +61,8 @@ class IdentKvnrToolHandler(
         repository.save(data)
 
         val notAssignable = if (byKvnr) Text("Versichertennummer konnte nicht zugeordnet werden") else Text("Partnernummer konnte nicht zugeordnet werden")
-        personId ?: return ToolOutcome.Failed(notAssignable)
-        if (!matchesAttestedIdentity) return ToolOutcome.Failed(notAssignable, attemptedPersonId = personId)
+        personId ?: return ToolOutcome.Failed.Identification(notAssignable, attemptedPersonId = null)
+        if (!matchesAttestedIdentity) return ToolOutcome.Failed.Identification(notAssignable, attemptedPersonId = personId)
 
         return ToolOutcome.Completed.Identified(
             amr = listOf(descriptor.method),

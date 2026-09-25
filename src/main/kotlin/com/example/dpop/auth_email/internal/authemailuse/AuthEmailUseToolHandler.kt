@@ -67,7 +67,7 @@ class AuthEmailUseToolHandler(
 
         return when (AuthEmailUseFlow.decide(state, AuthEmailUseInput(code), emailCodeGenerator)) {
             AuthEmailUseDecision.Unchanged -> outcomeFor(state)
-            AuthEmailUseDecision.WrongCode -> ToolOutcome.Failed(Text("Code ungueltig oder abgelaufen"))
+            AuthEmailUseDecision.WrongCode -> ToolOutcome.Failed.IdentifiedAuth(Text("Code ungueltig oder abgelaufen"))
             AuthEmailUseDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,

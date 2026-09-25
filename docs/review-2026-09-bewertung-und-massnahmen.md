@@ -293,7 +293,15 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     setzt der Code nur noch auf einem angemeldeten Kanal, ein Step-up vor der Anmeldung hebt nur die
     Untergrenze der laufenden Anmeldung, und ein Abbruch beendet die ganze Kette statt eine
     pausierte Eltern-Journey liegen zu lassen.
-20. **`ToolOutcome.Failed` je Kategorie** (schließt S-6 strukturell).
+20. ~~`ToolOutcome.Failed` je Kategorie~~ – erledigt 2026-09-25: je Rolle statt je Kategorie
+    (`AUTH` fasst `IDENTIFIED_AUTH` und `LOOKUP_AUTH` zusammen, deren Subjekt verschieden
+    herkommt): `IdentifiedAuth`, `LookupAuth(attemptedAccountId)`, `Identification(attemptedPersonId)`,
+    `NothingGuessed`. Das Subjekt ist Pflicht, `null` steht ausdrücklich an der Aufrufstelle; die
+    Drosselbuchung ist ein erschöpfendes `when` über die Varianten, und eine Variante, die nicht zur
+    Rolle passt, bricht vor jeder Buchung ab. Bei der Umstellung stand jede „niemand“-Entscheidung
+    einzeln zur Prüfung (`ident-fsc` bei unbekannter Person, `ident-eid`, `ident-nect`,
+    `auth-qr-lookup` mit eigenem Versuchsbudget); `auth-kobil` gab überflüssig ein Konto mit, das
+    der Kanal schon kennt.
 21. **`AccountInHand`** – räumt den toten Zweitkonto-Zweig mit auf; Doku 04 §2 angleichen.
 
 **Phase E – Niveaus und Keycloak**

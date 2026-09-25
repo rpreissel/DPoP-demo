@@ -60,12 +60,12 @@ class EnrollSmsToolHandler(
         return when (val decision = EnrollSmsFlow.decide(data.toState(), EnrollSmsInput(phoneNumber, tan), tanGenerator)) {
             is EnrollSmsDecision.InvalidPhoneNumber -> throw IllegalArgumentException("Ungueltige Telefonnummer")
 
-            is EnrollSmsDecision.WrongTan -> ToolOutcome.Failed(Text("TAN ungueltig oder abgelaufen"))
+            is EnrollSmsDecision.WrongTan -> ToolOutcome.Failed.NothingGuessed(Text("TAN ungueltig oder abgelaufen"))
 
             is EnrollSmsDecision.Unchanged -> outcomeFor(decision.state)
 
             is EnrollSmsDecision.SendTan -> if (sendThrottled) {
-                ToolOutcome.Failed(Text("Zu viele TAN-Anfragen fuer diese Nummer - bitte kurz warten"))
+                ToolOutcome.Failed.NothingGuessed(Text("Zu viele TAN-Anfragen fuer diese Nummer - bitte kurz warten"))
             } else {
                 val issued = tanGenerator.issue()
                 data.phoneNumber = decision.phoneNumber

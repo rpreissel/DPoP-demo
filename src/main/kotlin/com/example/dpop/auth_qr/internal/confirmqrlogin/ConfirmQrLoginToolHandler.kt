@@ -68,7 +68,7 @@ class ConfirmQrLoginToolHandler(
             null -> confirmStepFor(resolvedCode)
             ACCEPT -> {
                 if (!hasQrEnrollment) {
-                    return ToolOutcome.Failed(Text("QR-Login ist für dieses Konto nicht aktiviert."))
+                    return ToolOutcome.Failed.NothingGuessed(Text("QR-Login ist für dieses Konto nicht aktiviert."))
                 }
                 val expectedAccountId = qrLoginRequestRepository.findByIdOrNull(resolvedCode)?.expectedAccountId
                 if (expectedAccountId != null && expectedAccountId != accountId) {
@@ -76,7 +76,7 @@ class ConfirmQrLoginToolHandler(
                     // schon vorher - dann hier abbrechen statt scheinbar erfolgreich zu bestätigen
                     // und erst den WEB-Poll (AuthQrToolHandler) den Mismatch entdecken zu lassen.
                     // auth-qr-lookup setzt expectedAccountId bewusst nie, bleibt also unberührt.
-                    return ToolOutcome.Failed(Text("Bestätigung passt nicht zu diesem Konto"))
+                    return ToolOutcome.Failed.NothingGuessed(Text("Bestätigung passt nicht zu diesem Konto"))
                 }
                 val confirmationCode = PairingCodeGenerator.confirmationCode()
                 val now = Instant.now()
@@ -87,16 +87,16 @@ class ConfirmQrLoginToolHandler(
                     // The one and only time the plaintext leaves the server - it is stored as a hash.
                     ToolOutcome.InProgress(nextStep = SHOW_CODE, stepData = QrPairingStep(confirmationCode = confirmationCode))
                 } else {
-                    ToolOutcome.Failed(Text("Anfrage wurde bereits bearbeitet oder ist abgelaufen"))
+                    ToolOutcome.Failed.NothingGuessed(Text("Anfrage wurde bereits bearbeitet oder ist abgelaufen"))
                 }
             }
             DONE -> if (approvedBy(resolvedCode, accountId)) ToolOutcome.Completed.Approved() else confirmStepFor(resolvedCode)
             REJECT -> {
                 val rows = qrLoginRequestRepository.denyIfPending(resolvedCode, Instant.now())
                 if (rows == 1) {
-                    ToolOutcome.Failed(Text("Vom Nutzer abgelehnt"))
+                    ToolOutcome.Failed.NothingGuessed(Text("Vom Nutzer abgelehnt"))
                 } else {
-                    ToolOutcome.Failed(Text("Anfrage wurde bereits bearbeitet oder ist abgelaufen"))
+                    ToolOutcome.Failed.NothingGuessed(Text("Anfrage wurde bereits bearbeitet oder ist abgelaufen"))
                 }
             }
             else -> throw IllegalArgumentException("Unbekannte decision: $decision")
@@ -111,7 +111,7 @@ class ConfirmQrLoginToolHandler(
         if (request == null || request.status != QrLoginStatus.PENDING || Instant.now().isAfter(request.expiresAt)) {
             // Stays on `input` - an unknown/expired/already-decided code is retryable, not a
             // dead end (docs/05-api.md, Peer-Login bestätigen).
-            return ToolOutcome.Failed(Text("Anfrage nicht gefunden oder abgelaufen"))
+            return ToolOutcome.Failed.NothingGuessed(Text("Anfrage nicht gefunden oder abgelaufen"))
         }
         data.pairingCode = pairingCode
         toolDataRepository.save(data)

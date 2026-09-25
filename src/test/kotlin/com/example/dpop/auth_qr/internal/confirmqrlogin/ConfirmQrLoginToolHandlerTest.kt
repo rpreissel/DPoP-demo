@@ -41,7 +41,7 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
             then("it fails immediately, never reaching approveIfPending") {
                 val outcome = handler.patch(toolSessionId, pairingCode = null, decision = "accept", accountId = 99L, hasQrEnrollment = true)
 
-                outcome shouldBe ToolOutcome.Failed(Text("Bestätigung passt nicht zu diesem Konto"))
+                outcome shouldBe ToolOutcome.Failed.NothingGuessed(Text("Bestätigung passt nicht zu diesem Konto"))
             }
         }
 
@@ -75,7 +75,7 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
             then("it fails before even looking at expectedAccountId") {
                 val outcome = handler.patch(toolSessionId, pairingCode = null, decision = "accept", accountId = 99L, hasQrEnrollment = false)
 
-                outcome shouldBe ToolOutcome.Failed(Text("QR-Login ist für dieses Konto nicht aktiviert."))
+                outcome shouldBe ToolOutcome.Failed.NothingGuessed(Text("QR-Login ist für dieses Konto nicht aktiviert."))
             }
         }
     }

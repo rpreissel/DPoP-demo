@@ -39,24 +39,47 @@ sealed interface ToolOutcome {
     /**
      * The attempt failed; [reason] is a human-readable message for the client.
      *
-     * The two id fields name WHO the failed attempt was against, so the orchestrator can charge
-     * the right brute-force counter. They exist because a tool that resolves its own subject is
-     * the only place that knows it: for a LOOKUP_AUTH tool the account is not on the channel
-     * (that is the whole point of lookup login), and for an IDENT tool no account exists yet at
-     * all. Exactly one is ever set, and only by the tools that resolve one - a IDENTIFIED_AUTH tool
-     * leaves both null, because its caller already knows the account from the channel.
+     * WHO the attempt was against decides which brute-force counter the orchestrator charges, and
+     * for some tools only the tool knows: a LOOKUP_AUTH tool resolves its account from the input
+     * (it is not on the channel - that is the point of lookup login), an IDENT tool resolves a
+     * person before any account exists. So there is one variant per kind of subject, each naming it
+     * as a REQUIRED field: a handler cannot fail without saying whom the attempt was against, and
+     * "nobody" is an explicit `null`, not a forgotten default (review 2026-09, S-6: `ident-kvnr`
+     * answered a foreign KVNR without its person, and the attempt went uncounted).
      *
-     * Leaving them null is always safe for the response; it only means the attempt goes
-     * uncounted, which is exactly the gap this field closes.
+     * Which variant a tool may use follows from its [ToolDescriptor.role] ([fits]); the orchestrator
+     * refuses any other before it charges anything.
      */
-    data class Failed(
-        /** What the user is told, resolved by the client against its texts bundle. */
-        val reason: Text,
-        /** Set by a [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] tool that resolved an account before failing. */
-        val attemptedAccountId: Long? = null,
-        /** Set by an [IDENTIFICATION][MethodRole.IDENTIFICATION] tool that resolved a person before failing. */
-        val attemptedPersonId: String? = null
-    ) : ToolOutcome
+    sealed interface Failed : ToolOutcome {
+        val reason: Text
+
+        /** An [IDENTIFIED_AUTH][MethodRole.IDENTIFIED_AUTH] attempt - against the account the channel already knows. */
+        data class IdentifiedAuth(override val reason: Text) : Failed
+
+        /** A [LOOKUP_AUTH][MethodRole.LOOKUP_AUTH] attempt - against the account the input resolved, `null` if it resolved none. */
+        data class LookupAuth(override val reason: Text, val attemptedAccountId: Long?) : Failed
+
+        /**
+         * An [IDENTIFICATION][MethodRole.IDENTIFICATION] or [CORRELATION][MethodRole.CORRELATION]
+         * attempt - against the person the input resolved, `null` if it resolved none.
+         */
+        data class Identification(override val reason: Text, val attemptedPersonId: String?) : Failed
+
+        /**
+         * An [ENROLLMENT][MethodRole.ENROLLMENT], [ATTESTATION][MethodRole.ATTESTATION] or
+         * [PEER_APPROVAL][MethodRole.PEER_APPROVAL] attempt - nothing secret of an existing account
+         * was guessed (the user chooses the credential, or the code went to the address being
+         * claimed), so no counter applies; the ToolSession's own limits bound it.
+         */
+        data class NothingGuessed(override val reason: Text) : Failed
+
+        fun fits(role: MethodRole): Boolean = when (this) {
+            is IdentifiedAuth -> role == MethodRole.IDENTIFIED_AUTH
+            is LookupAuth -> role == MethodRole.LOOKUP_AUTH
+            is Identification -> role == MethodRole.IDENTIFICATION || role == MethodRole.CORRELATION
+            is NothingGuessed -> role == MethodRole.ENROLLMENT || role == MethodRole.ATTESTATION || role == MethodRole.PEER_APPROVAL
+        }
+    }
 
     /**
      * The tool finished successfully. The concrete variant matches the tool's [ToolDescriptor.role]

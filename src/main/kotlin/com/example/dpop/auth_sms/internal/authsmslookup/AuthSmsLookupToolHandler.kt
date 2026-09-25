@@ -93,7 +93,7 @@ class AuthSmsLookupToolHandler(
             is AuthSmsLookupDecision.WrongTan ->
                 // accountId names the throttle subject for the orchestrator; it is null exactly
                 // when nothing resolved, so there is nothing to count either.
-                ToolOutcome.Failed(Text("E-Mail oder TAN ungueltig"), attemptedAccountId = decision.accountId)
+                ToolOutcome.Failed.LookupAuth(Text("E-Mail oder TAN ungueltig"), attemptedAccountId = decision.accountId)
         }
     }
 

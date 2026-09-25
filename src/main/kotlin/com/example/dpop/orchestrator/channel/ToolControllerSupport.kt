@@ -222,7 +222,7 @@ class ToolControllerSupport(
         val live = resolveChannel(ctx, journey)
         val channel = live.session
         val descriptor = toolRegistry.descriptorOf(ToolId(ctx.toolId))
-        chargeThrottles(channel.accountId, descriptor.role.category, outcome)
+        chargeThrottles(channel.accountId, descriptor, outcome)
         // A completed tool is done for good: its ToolSession must not be completable again, even
         // while the journey keeps running (an action's resumeState can still name it as active).
         if (outcome is ToolOutcome.Completed) sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.DONE)
@@ -261,55 +261,37 @@ class ToolControllerSupport(
     /**
      * Charges the brute-force counter that matches what this tool actually attempted.
      *
-     * The subject is read from the OUTCOME first and from the channel only as a fallback, which
-     * is what makes lookup login countable at all: there, `channel.accountId` is null on failure
-     * (nothing was proven) and still null on success at this point (`bindAccount` runs later,
-     * inside `journeyService.applyOutcome`). Keying on the channel alone - as this did before -
-     * meant every lookup attempt, failed and successful alike, went uncounted.
+     * A failure names its subject by its variant ([ToolOutcome.Failed]) - the tool had to say whom
+     * it tried, so there is nothing here to forget (review 2026-09, S-6). A success charges the same
+     * counter the matching failure would have, as a reset. The subject of a lookup login is read
+     * from the OUTCOME: on the channel it is still null at this point (`bindAccount` runs later,
+     * inside `journeyService.applyOutcome`).
      */
-    private fun chargeThrottles(channelAccountId: Long?, category: ToolCategory, outcome: ToolOutcome) {
-        if (outcome is ToolOutcome.InProgress) return
+    private fun chargeThrottles(channelAccountId: Long?, descriptor: ToolDescriptor, outcome: ToolOutcome) {
+        when (outcome) {
+            is ToolOutcome.InProgress -> Unit
 
-        when (category) {
-            ToolCategory.AUTH -> {
-                val accountId = when (outcome) {
-                    is ToolOutcome.Completed.Authenticated -> outcome.accountId ?: channelAccountId
-                    is ToolOutcome.Failed -> outcome.attemptedAccountId ?: channelAccountId
-                    else -> channelAccountId
+            is ToolOutcome.Failed -> {
+                // A tool of one role answering with another role's failure would charge the wrong
+                // counter, or none - a contract error of that tool module, not a user error.
+                check(outcome.fits(descriptor.role)) {
+                    "${descriptor.toolId} (${descriptor.role}) answered with ${outcome::class.simpleName}"
                 }
-                accountId?.let {
-                    if (outcome is ToolOutcome.Completed) loginThrottleService.recordSuccess(it)
-                    else loginThrottleService.recordFailure(it)
-                }
-            }
-
-            // A guessed Freischaltcode/PIN is a credential guess like any other, and its payoff
-            // is higher than a login's: success adopts the person's account outright.
-            ToolCategory.IDENT -> {
-                val personId = when (outcome) {
-                    is ToolOutcome.Completed.Identified -> outcome.personId
-                    is ToolOutcome.Failed -> outcome.attemptedPersonId
-                    else -> null
-                }
-                personId?.let {
-                    if (outcome is ToolOutcome.Completed) identThrottleService.recordSuccess(it)
-                    else identThrottleService.recordFailure(it)
+                when (outcome) {
+                    is ToolOutcome.Failed.IdentifiedAuth -> channelAccountId?.let { loginThrottleService.recordFailure(it) }
+                    is ToolOutcome.Failed.LookupAuth -> outcome.attemptedAccountId?.let { loginThrottleService.recordFailure(it) }
+                    // A guessed Freischaltcode/PIN is a credential guess like any other, and its
+                    // payoff is higher than a login's: success adopts the person's account outright.
+                    is ToolOutcome.Failed.Identification -> outcome.attemptedPersonId?.let { identThrottleService.recordFailure(it) }
+                    // Nothing of an existing account was guessed; the ToolSession's own limits bound it.
+                    is ToolOutcome.Failed.NothingGuessed -> Unit
                 }
             }
 
-            // Nothing is guessed during an enrollment - the user chooses the credential.
-            ToolCategory.ENROLL -> Unit
-
-            // Approves/declines a request that belongs to a DIFFERENT channel's account - nothing
-            // about the approving account's own credentials is guessed here. Brute-forcing the
-            // pending request itself (pairingCode) is a separate concern with its own protection
-            // (docs/07-betrieb.md #5), not this account's login throttle.
-            ToolCategory.SIDE_ACTION -> Unit
-
-            // Same reasoning as ENROLL: the code is sent to the address being claimed, so there is
-            // no existing secret to guess your way into. The ToolSession's own retry budget bounds
-            // the guessing of that one code.
-            ToolCategory.ATTEST -> Unit
+            is ToolOutcome.Completed.Authenticated -> (outcome.accountId ?: channelAccountId)?.let { loginThrottleService.recordSuccess(it) }
+            is ToolOutcome.Completed.Identified -> outcome.personId?.let { identThrottleService.recordSuccess(it) }
+            // Enrolled, Approved, Attested: nothing was guessed, so nothing to reset.
+            is ToolOutcome.Completed -> Unit
         }
     }
 

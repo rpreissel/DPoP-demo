@@ -73,18 +73,20 @@ class IdentNectToolHandler(
             return redirect(case.caseId, case.jumpUrl)
         }
         if (caseId == null || caseId != data.caseId) {
-            return ToolOutcome.Failed(Text("Nect-Vorgang gehört nicht zu diesem Ablauf"))
+            return ToolOutcome.Failed.Identification(Text("Nect-Vorgang gehört nicht zu diesem Ablauf"), attemptedPersonId = null)
         }
         return when (val result = nect.redeem(caseId)) {
-            null -> ToolOutcome.Failed(Text("Nect-Vorgang unbekannt oder bereits eingelöst"))
-            NectResult.Open -> ToolOutcome.Failed(Text("Nect-Vorgang noch nicht abgeschlossen"))
-            NectResult.Cancelled -> ToolOutcome.Failed(Text("Identifizierung bei Nect abgebrochen"))
-            is NectResult.Failed -> ToolOutcome.Failed(
+            null -> ToolOutcome.Failed.Identification(Text("Nect-Vorgang unbekannt oder bereits eingelöst"), attemptedPersonId = null)
+            NectResult.Open -> ToolOutcome.Failed.Identification(Text("Nect-Vorgang noch nicht abgeschlossen"), attemptedPersonId = null)
+            NectResult.Cancelled -> ToolOutcome.Failed.Identification(Text("Identifizierung bei Nect abgebrochen"), attemptedPersonId = null)
+            is NectResult.Failed -> ToolOutcome.Failed.Identification(
                 when (result.reason) {
                     NectFailure.PASSPORT_EXPIRED -> Text("Nect: Der Reisepass ist abgelaufen")
                     NectFailure.SELFIE_MISMATCH -> Text("Nect: Das Selfie passt nicht zum Passbild")
                     NectFailure.SIMULATED -> Text("Nect: Identifizierung fehlgeschlagen")
-                }
+                },
+                // Nect names nobody when it fails - there is no person to charge.
+                attemptedPersonId = null
             )
             is NectResult.Identified -> identified(toolSessionId, caseId, result)
         }

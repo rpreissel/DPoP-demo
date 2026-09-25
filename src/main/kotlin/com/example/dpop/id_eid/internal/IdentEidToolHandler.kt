@@ -57,7 +57,7 @@ class IdentEidToolHandler(
 
             is IdentEidDecision.Verify -> {
                 if (!IdentEidFlow.pinMatchesMock(decision.pinHash)) {
-                    return ToolOutcome.Failed(Text("eID-PIN ungueltig"))
+                    return ToolOutcome.Failed.Identification(Text("eID-PIN ungueltig"), attemptedPersonId = null)
                 }
                 val documentNumber = mockDocumentNumber(toolSessionId)
                 ToolOutcome.Completed.Identified(

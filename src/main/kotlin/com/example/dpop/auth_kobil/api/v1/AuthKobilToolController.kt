@@ -128,7 +128,7 @@ class AuthKobilToolController(
         // either way so a missing credential costs exactly what a wrong one does.
         val passwordEnrollment = passwordEnrollmentOf(context.journeyAccountId)
 
-        val outcome = handler.releasePin(toolSessionId, request.unlock, passwordEnrollment, context.journeyAccountId)
+        val outcome = handler.releasePin(toolSessionId, request.unlock, passwordEnrollment)
         val response = toolEndpoint.applyOutcome(context, outcome)
         val status = if (outcome is ToolOutcome.Failed) HttpStatus.OK else HttpStatus.CREATED
         return ResponseEntity.status(status).body(response)
@@ -157,7 +157,7 @@ class AuthKobilToolController(
         @RequestBody(required = false) request: AuthKobilPatchRequest?,
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, AUTH_KOBIL_TOOL_ID)
-        val outcome = handler.patch(toolSessionId, request?.otp, context.journeyAccountId)
+        val outcome = handler.patch(toolSessionId, request?.otp)
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }
 

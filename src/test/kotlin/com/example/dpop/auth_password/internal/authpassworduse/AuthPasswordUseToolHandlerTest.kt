@@ -70,7 +70,7 @@ class AuthPasswordUseToolHandlerTest : BehaviorSpec({
 
         `when`("submitting the wrong password") {
             then("it fails") {
-                handler.patch(toolSessionId, "wrong") shouldBe ToolOutcome.Failed(Text("Passwort ungueltig"))
+                handler.patch(toolSessionId, "wrong") shouldBe ToolOutcome.Failed.IdentifiedAuth(Text("Passwort ungueltig"))
             }
         }
     }

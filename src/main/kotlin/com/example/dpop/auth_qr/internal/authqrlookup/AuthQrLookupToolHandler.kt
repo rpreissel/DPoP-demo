@@ -49,7 +49,9 @@ class AuthQrLookupToolHandler(
                 factorTypes = descriptor.factorTypes,
                 accountId = state.accountId
             )
-            is QrLoginBrowserSide.State.Failed -> ToolOutcome.Failed(state.reason)
+            // What is guessed here is the confirmation code, bounded by the pairing's own attempt
+            // budget (review 2026-09 M-2) - not a secret of the account that approved.
+            is QrLoginBrowserSide.State.Failed -> ToolOutcome.Failed.LookupAuth(state.reason, attemptedAccountId = null)
         }
     }
 

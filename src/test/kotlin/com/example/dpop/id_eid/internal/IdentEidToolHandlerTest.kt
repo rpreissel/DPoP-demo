@@ -77,7 +77,7 @@ class IdentEidToolHandlerTest : BehaviorSpec({
             then("it fails without naming a person - there is none to throttle against") {
                 val outcome = handler.patch(toolSessionId, EidPatchFields(pin = "000000"))
 
-                outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
+                outcome.shouldBeInstanceOf<ToolOutcome.Failed.Identification>()
                 outcome.attemptedPersonId.shouldBeNull()
             }
         }

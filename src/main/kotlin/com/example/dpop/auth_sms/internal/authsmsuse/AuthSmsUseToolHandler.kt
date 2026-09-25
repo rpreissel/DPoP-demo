@@ -68,7 +68,7 @@ class AuthSmsUseToolHandler(
 
         return when (AuthSmsUseFlow.decide(state, AuthSmsUseInput(tan), tanGenerator)) {
             AuthSmsUseDecision.Unchanged -> outcomeFor(state)
-            AuthSmsUseDecision.WrongTan -> ToolOutcome.Failed(Text("TAN ungueltig oder abgelaufen"))
+            AuthSmsUseDecision.WrongTan -> ToolOutcome.Failed.IdentifiedAuth(Text("TAN ungueltig oder abgelaufen"))
             AuthSmsUseDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,

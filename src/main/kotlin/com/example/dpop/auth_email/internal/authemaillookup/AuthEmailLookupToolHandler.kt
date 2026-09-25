@@ -97,7 +97,7 @@ class AuthEmailLookupToolHandler(
             is AuthEmailLookupDecision.WrongCode ->
                 // accountId names the throttle subject for the orchestrator; it is null exactly
                 // when nothing resolved, so there is nothing to count either.
-                ToolOutcome.Failed(Text("E-Mail oder Code ungueltig"), attemptedAccountId = decision.accountId)
+                ToolOutcome.Failed.LookupAuth(Text("E-Mail oder Code ungueltig"), attemptedAccountId = decision.accountId)
         }
     }
 
