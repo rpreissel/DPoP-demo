@@ -198,6 +198,8 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
   const accessClaims = tokens ? parseJwtPayload(tokens.accessToken) : null
   const idClaims = tokens?.idToken ? parseJwtPayload(tokens.idToken) : null
   const currentAcr = typeof accessClaims?.acr === 'string' ? accessClaims.acr : undefined
+  const refreshExp = tokens?.refreshToken ? parseJwtPayload(tokens.refreshToken)?.exp : undefined
+  const refreshExpiresAt = typeof refreshExp === 'number' ? refreshExp * 1000 : undefined
   const belowLoa2 = isBelowAcr(currentAcr, 'loa2')
   // "name" is the standard OIDC claim from the "profile" scope (Keycloak's full-name mapper over
   // firstName/lastName, set by KeycloakAccountSyncListener); the role as in the app (ADR-34), from
@@ -465,6 +467,14 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
                     <span className="label">{t('Gültig noch')}</span>
                     <span className="value value-plain">{formatRemaining(tokens.expiresAt)}</span>
                   </li>
+                  {/* Keycloak's refresh token is a JWT too - its own exp says how long the website
+                      can still renew without a new sign-in (same line as the App's TokenPanel). */}
+                  {refreshExpiresAt !== undefined && (
+                    <li>
+                      <span className="label">{t('RefreshToken gültig noch')}</span>
+                      <span className="value value-plain">{formatRemaining(refreshExpiresAt)}</span>
+                    </li>
+                  )}
                 </ul>
                 <div className="form-actions">
                   <button className="secondary" onClick={refresh} disabled={!tokens.refreshToken}>

@@ -33,7 +33,17 @@ sealed interface KcSelectMethodState : JourneyState {
     ) : KcSelectMethodState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "auth"
-        override val selectionTitle: Text get() = Text("Anmeldeverfahren wählen")
+        // Already signed in means the website asked for more (a step-up): the page must say why it
+        // asks again - Keycloak shows the known e-mail address where the heading would be, so the
+        // description carries the reason on its own.
+        override val selectionTitle: Text get() =
+            if (accountAlreadyKnown) Text("Erhöhte Sicherheit erforderlich") else Text("Anmeldeverfahren wählen")
+        override val selectionDescription: Text get() =
+            if (accountAlreadyKnown) {
+                Text("Sie sind bereits angemeldet. Dieser Bereich verlangt aber mehr Sicherheit: Bestätigen Sie Ihre Anmeldung mit einem weiteren Verfahren.")
+            } else {
+                Text("Wählen Sie, wie Sie sich anmelden möchten.")
+            }
         override val logDetail: Map<String, Any?> get() = mapOf("accountAlreadyKnown" to accountAlreadyKnown)
     }
 }
